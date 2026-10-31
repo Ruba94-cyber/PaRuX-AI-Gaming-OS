@@ -280,7 +280,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
             if (_state is not ("GamingLocal" or "GamingRemote")) return false;
         }
 
-        int? gamePid = FindActiveGameProcessId(SessionStartedUtc());
+        int? gamePid = FindOwnedSuspendableGameProcessId();
         if (!gamePid.HasValue) return false;
 
         GamingProfileDto profile;
@@ -458,7 +458,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
             // 1. Check Quick Resume / Suspend policy if game is running
             if (!string.Equals(profile.QuickResumePolicy, "off", StringComparison.OrdinalIgnoreCase))
             {
-                int? activeGamePid = FindActiveGameProcessId(SessionStartedUtc());
+                int? activeGamePid = FindOwnedSuspendableGameProcessId();
                 if (activeGamePid.HasValue)
                 {
                     IGameSuspendProvider suspendProvider = ResolveSuspendProvider(profile.SuspendProvider);
@@ -727,6 +727,16 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    /// <summary>
+    /// Fail closed until a launcher can supply an owned, verified game process instance.
+    /// A window/title/start-time heuristic is discovery evidence, not authority to suspend
+    /// an unrelated Windows process. Both explicit Suspend and automatic Quick Resume use
+    /// this admission boundary; neither may act on FindActiveGameProcessId candidates.
+    /// TODO: replace with a tracked launcher-owned PID, executable identity and process
+    /// start-time validation, rechecked immediately before suspension.
+    /// </summary>
+    private static int? FindOwnedSuspendableGameProcessId() => null;
 
     private static int? FindActiveGameProcessId(DateTime? sessionStartedUtc)
     {
