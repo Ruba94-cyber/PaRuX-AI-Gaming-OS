@@ -162,13 +162,20 @@ internal sealed class SpeechWarmWorker : IDisposable
     {
         Process? process = Interlocked.Exchange(ref _process, null);
         if (process == null) return;
-        _admission.Unregister(process);
+        bool confirmed = false;
         try
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
+            confirmed = process.WaitForExit(1200);
         }
         catch { }
-        try { process.Dispose(); } catch { }
+        // Never abandon an unconfirmed child: the admission ledger retains it for
+        // retry and prevents a later generation from silently reclaiming speech.
+        if (confirmed)
+        {
+            _admission.Unregister(process);
+            try { process.Dispose(); } catch { }
+        }
     }
 
     public void Dispose()
