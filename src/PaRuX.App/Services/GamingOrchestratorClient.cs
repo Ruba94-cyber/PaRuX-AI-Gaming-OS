@@ -69,6 +69,10 @@ namespace PaRuX.Services
         public Task<GamingCallResult<ManualGameDto>> AddManualGameAsync(AddManualGameRequest request, CancellationToken ct = default) =>
             SendAsync<ManualGameDto>(HttpMethod.Post, "/api/v1/gaming/library", request, ct);
 
+        public Task<GamingCallResult<ManualGameLaunchResult>> LaunchManualGameAsync(string id, CancellationToken ct = default) =>
+            SendAsync<ManualGameLaunchResult>(HttpMethod.Post,
+                "/api/v1/gaming/library/" + Uri.EscapeDataString(id) + "/launch", null, ct);
+
         public Task<GamingCallResult<object>> RemoveManualGameAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Delete, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), null, ct);
 
