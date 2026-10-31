@@ -1,5 +1,13 @@
 # Changelog
 
+### 2026-10-31 — Speech lifecycle and local game discovery (source-only)
+
+- Added per-runtime managed speech process admission for resident STT/TTS, one-shot fallback, status probes and streaming Kokoro. Gaming invalidates stale generations, serializes child process start/ownership, requests exit of owned processes only, and retries when termination cannot be confirmed. This does not prove GPU/VRAM or microphone release.
+- Fixed a multi-process lost-update risk in the manual game library with a bounded filesystem lease; the version-1 JSON format is unchanged. Added concurrent/duplicate regression sources.
+- Added local, read-only discovery of installed Steam and Epic games behind desktop-owner API routes. The existing Game Library UI has explicit IT/EN discovery buttons. No account access, installers, store downloads, DRM bypass or game execution was added.
+- Added read-only native Windows XInput slot discovery in existing gaming provider status. No driver or controller remapping was installed.
+- Added deterministic speech admission/process, library concurrency, Steam/Epic manifest/security and XInput test sources to the project-local Windows gate. **No .NET compilation, xUnit, FlaUI, physical input/voice/GPU or end-to-end Windows run occurred here.** GOS-04/05/06/07/08/09 are not complete; this is integrated WIP on the single `main` product line, not a certified release.
+
 ### 2026-10-31 — Serialized Gaming transitions (source-only; Windows acceptance pending)
 
 - Implemented a single asynchronous transaction gate for orchestrator Gaming entry, return-to-AI, Suspend and Resume. Duplicate concurrent entry cannot start overlapping launcher operations; a return-to-AI request waits for in-progress entry rather than racing its cleanup.
