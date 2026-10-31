@@ -1999,6 +1999,14 @@ namespace PaRuX.Views
                 try { await recorder.StartAsync(); }
                 catch (VoiceCaptureException ex) { ShowTransientStatus(ex.Message); return; }
 
+                // The marker may have changed while status/start awaited. Never warm
+                // speech or publish a microphone session after Gaming has begun.
+                if (GamingManager.Current.IsActive)
+                {
+                    await recorder.CancelAsync();
+                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    return;
+                }
                 _recorder = recorder;
                 WarmSpeechEngineOnce();
                 _voice.TryStart(DateTime.UtcNow);
@@ -2083,6 +2091,11 @@ namespace PaRuX.Views
             {
                 if (limitReached) ShowTransientStatus(VoiceMessages.LimitReached());
                 byte[] wav = await recorder.StopAsync();
+                if (GamingManager.Current.IsActive)
+                {
+                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    return;
+                }
                 WavAnalysis analysis = WavSilenceDetector.Analyze(wav);
                 if (!analysis.Valid) { ShowTransientStatus(VoiceMessages.InvalidAudio(analysis.Problem)); return; }
                 if (analysis.IsSilent) { ShowTransientStatus(VoiceMessages.Silent()); return; }
@@ -2202,6 +2215,9 @@ namespace PaRuX.Views
 
         private void StopVoiceUiResources()
         {
+            // Cancel client-side warmup admission as well as the visible UI.
+            // Server-side owned process teardown is tracked separately.
+            _speechWarmup.Cancel();
             try
             {
                 _voiceConversation?.Stop();
