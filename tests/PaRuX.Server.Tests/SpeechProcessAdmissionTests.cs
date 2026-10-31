@@ -35,6 +35,24 @@ public sealed class SpeechProcessAdmissionTests
     }
 
     [Fact]
+    public void Unconfirmed_owned_child_keeps_speech_blocked_after_gaming_exit()
+    {
+        var admission = new SpeechProcessAdmission(() => false);
+        long old = admission.Capture();
+        using var synthetic = new Process();
+        // Simulates an OS start that returned but whose exit cannot be queried:
+        // the admission ledger must treat uncertainty as failure, not success.
+        admission.StartOwned(synthetic, old, _ => true);
+        Assert.False(admission.BlockForGaming());
+        admission.ReopenAfterGaming();
+        Assert.Throws<InvalidOperationException>(() => admission.Capture());
+
+        admission.Unregister(synthetic);
+        admission.ReopenAfterGaming();
+        Assert.NotEqual(old, admission.Capture());
+    }
+
+    [Fact]
     public async Task Gaming_stop_cannot_miss_child_started_before_registration()
     {
         var admission = new SpeechProcessAdmission(() => false);
