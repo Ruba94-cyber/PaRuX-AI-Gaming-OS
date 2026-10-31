@@ -18,6 +18,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBox _name = new();
     private readonly TextBox _path = new();
     private readonly StackPanel _games = new() { Spacing = 8 };
+    private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TextBlock _heading = new();
+    private bool _consolePresentation;
     private readonly StackPanel _discoveredGames = new() { Spacing = 8 };
     private readonly TextBlock _discoveryStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _steamRefresh = new();
@@ -36,8 +39,11 @@ public sealed class ManualGameLibraryView : UserControl
 
     public ManualGameLibraryView()
     {
-        var root = new StackPanel { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
-        root.Children.Add(new TextBlock { Text = T("Game library", "Libreria giochi"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        var root = _root;
+        _heading.Text = T("Game library", "Libreria giochi");
+        _heading.FontSize = 28;
+        _heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        root.Children.Add(_heading);
         root.Children.Add(new TextBlock { Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.", "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata."), TextWrapping = TextWrapping.Wrap });
         _name.Header = T("Game name", "Nome del gioco");
         _name.MaxLength = 200;
@@ -92,6 +98,34 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_discoveredGames);
 
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    }
+
+    /// <summary>
+    /// A TV-scale presentation of the SAME game library and its existing actions.
+    /// Changes only WinUI spacing/type, not stored settings, monitor modes or Windows
+    /// input configuration. The desktop layout is restored when Console exits.
+    /// </summary>
+    public void ApplyConsoleMode(bool enabled)
+    {
+        _consolePresentation = enabled;
+        _root.MaxWidth = enabled ? 1400 : 900;
+        _root.Padding = new Thickness(enabled ? 32 : 24);
+        _root.Spacing = enabled ? 24 : 16;
+        _heading.FontSize = enabled ? 40 : 28;
+        _games.Spacing = enabled ? 16 : 8;
+        _discoveredGames.Spacing = enabled ? 16 : 8;
+
+        double bodySize = enabled ? 20 : 14;
+        foreach (TextBox box in new[] { _name, _path, _filter })
+            box.FontSize = bodySize;
+        foreach (Button button in new[] { _add, _browse, _steamRefresh, _epicRefresh, _previous, _next })
+        {
+            button.FontSize = bodySize;
+            button.MinHeight = enabled ? 56 : 32;
+        }
+        _status.FontSize = bodySize;
+        _discoveryStatus.FontSize = bodySize;
+        RenderGames(); // focusable actions remain identical, only geometry changes
     }
 
     public async void OnShown() => await RefreshAsync();
@@ -154,7 +188,7 @@ public sealed class ManualGameLibraryView : UserControl
             foreach (DiscoveredGameDto game in result.Value.Take(100))
             {
                 var item = new StackPanel { Spacing = 2, Padding = new Thickness(12) };
-                item.Children.Add(new TextBlock { Text = game.Name, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                item.Children.Add(new TextBlock { Text = game.Name, FontSize = _consolePresentation ? 24 : 16, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
                 item.Children.Add(new TextBlock { Text = provider + " #" + game.ProviderGameId, TextWrapping = TextWrapping.Wrap });
                 _discoveredGames.Children.Add(item);
             }
@@ -197,9 +231,9 @@ public sealed class ManualGameLibraryView : UserControl
         _previous.IsEnabled = _page > 0; _next.IsEnabled = last < matches.Count;
         foreach (ManualGameDto game in matches.Skip(_page * 100).Take(100))
         {
-            var card = new StackPanel { Spacing = 4, Padding = new Thickness(12) };
-            card.Children.Add(new TextBlock { Text = game.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
-            card.Children.Add(new TextBlock { Text = game.ExecutablePath, TextWrapping = TextWrapping.Wrap });
+            var card = new StackPanel { Spacing = _consolePresentation ? 12 : 4, Padding = new Thickness(_consolePresentation ? 20 : 12) };
+            card.Children.Add(new TextBlock { Text = game.Name, FontSize = _consolePresentation ? 24 : 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+            card.Children.Add(new TextBlock { Text = game.ExecutablePath, FontSize = _consolePresentation ? 16 : 14, TextWrapping = TextWrapping.Wrap });
             var launch = new Button
             {
                 Content = T("Play", "Gioca"),
