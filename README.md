@@ -1,7 +1,7 @@
 # PaRuX AI & Gaming OS
 
 <p align="center">
-  <img src="src/PaRuX.App/Assets/prx-orbit-approved.png" alt="PaRuX AI Studio" width="160">
+  <img src="src/PaRuX.App/Assets/prx-orbit-approved.png" alt="PaRuX" width="160">
 </p>
 
 <p align="center"><strong>Your AI workspace, powered by your own PC.</strong></p>
