@@ -119,19 +119,25 @@ public sealed class XOutputInputProvider : IInputProvider
 
         try
         {
-            using (ownedProcess)
+            // A helper started by PaRuX may be asked to exit gracefully; forcibly
+            // killing the input stack is forbidden without an explicit separate grant.
+            if (ownedProcess.HasExited)
             {
-                if (ownedProcess.HasExited) return Task.FromResult(true);
-                if (ownedProcess.CloseMainWindow()) ownedProcess.WaitForExit(2000);
-                if (!ownedProcess.HasExited)
-                    ownedProcess.Kill(true);
+                ownedProcess.Dispose();
+                return Task.FromResult(true);
             }
-            return Task.FromResult(true);
+            if (ownedProcess.CloseMainWindow() && ownedProcess.WaitForExit(1000))
+            {
+                ownedProcess.Dispose();
+                return Task.FromResult(true);
+            }
         }
-        catch
-        {
-            return Task.FromResult(false);
-        }
+        catch { }
+
+        // Preserve the handle for a future retry. Report failure instead of claiming
+        // input was released or silently terminating an unresponsive process.
+        lock (_processGate) _startedProcess ??= ownedProcess;
+        return Task.FromResult(false);
     }
 }
 
