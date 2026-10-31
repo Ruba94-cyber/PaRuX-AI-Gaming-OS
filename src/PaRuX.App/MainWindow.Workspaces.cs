@@ -39,6 +39,7 @@ namespace PaRuX
         private void NavView_Loaded(object sender, RoutedEventArgs e)
         {
             GameLibraryNavItem.Content = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? "Giochi" : "Games";
+            UpdateConsoleModeButton();
             _applyingNavigationMode = true;
             try
             {
