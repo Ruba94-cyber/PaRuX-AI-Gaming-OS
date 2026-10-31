@@ -1,5 +1,13 @@
 # Changelog
 
+### 2026-10-31 — PaRuX AI & Gaming OS checkpoint integrated on main (WIP, source only)
+
+- Integrated the previously separate GOS public foundation and continuation checkpoint into the existing Windows PaRuX application; no second executable or user-data store was created. Desktop Chat Home starters, GOS design tokens/identity study and manual library remain work in progress.
+- Gaming now refuses both manual and automatic suspension when no launcher-owned game process has been securely identified. The old process guess heuristic no longer authorizes suspending arbitrary Windows processes. Quick Resume stays unavailable until owned process-instance validation is implemented and tested.
+- During Gaming, desktop hands-free voice, dictation controls and read-aloud are stopped/disabled; new microphone sessions recheck Gaming state after asynchronous admission, and late transcriptions cannot auto-send. Italian/English accessibility help text explains the disabled controls. Server speech worker quiescence, physical microphone release and GPU/VRAM release are NOT demonstrated.
+- Added a focused opt-in local Windows gate at `tools/test-gos-checkpoint.ps1` for Server/App builds, GOS xUnit and optional FlaUI. **No .NET build, xUnit, FlaUI, PowerShell execution, live UI, controller or GPU testing occurred in this integration environment.** Concurrency and physical acceptance remain open; this is not a certified release.
+
+
 ### 2026-10-31 — OS-attested cross-window exact GUI verification (source only)
 
 - Computer Use can now retain up to eight exact control assertions across multiple **explicitly focused and currently user-approved OS windows**. Legacy/unattested assertions remain strict to one window. Verified focus transitions do not erase older read-only proofs; data changes, app launch, failed assertions and stale readbacks still invalidate the whole batch.
