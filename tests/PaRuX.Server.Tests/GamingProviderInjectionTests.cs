@@ -42,4 +42,44 @@ public sealed class GamingProviderInjectionTests
         }
         finally { Directory.Delete(root, true); }
     }
+
+    [Fact]
+    public async Task Heuristic_game_process_cannot_be_suspended_manually_or_on_exit()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-owned-game-safety-" + Guid.NewGuid().ToString("N"));
+        using IDisposable state = LocalAiPaths.UseStateDirForTests(Path.Combine(root, "state"));
+        Directory.CreateDirectory(root);
+        using IDisposable finder = WorkloadOrchestrator.UseActiveGameProcessFinderForTests(() => Environment.ProcessId);
+        try
+        {
+            var store = new GamingProfileStore(Path.Combine(root, "profiles.json"));
+            store.Save(new GamingProfileDto
+            {
+                Name = "Unverified process",
+                SessionType = "local",
+                LauncherProvider = "none",
+                InputProvider = "native",
+                SuspendProvider = "test-suspend",
+                QuickResumePolicy = "always"
+            });
+            var process = new LocalAiProcessManager();
+            var runtime = new LocalRuntimeService(new TestHostEnvironment(), process, new ExternalTextProviderService());
+            var orchestrator = new WorkloadOrchestrator(
+                runtime, process, new MediaJobService(null!), new SpeechService(runtime), store,
+                suspendProviders: new[] { new Suspend() },
+                runtimeHealthCheck: _ => Task.FromResult(true),
+                restoreRuntimeToReady: _ => Task.CompletedTask);
+
+            Assert.True(await orchestrator.EnterGamingSessionAsync("Unverified process"));
+            Assert.Equal("GamingLocal", orchestrator.CurrentState);
+            // The finder deliberately reports this test process. Suspending it must
+            // never reach the provider, even for an explicit request or Quick Resume.
+            Assert.False(await orchestrator.SuspendActiveGameAsync());
+            Assert.True(await orchestrator.ExitGamingSessionAsync());
+            Assert.Equal("AiReady", orchestrator.CurrentState);
+            Assert.Null(orchestrator.GetStatus().SuspendedProcessId);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
 }
