@@ -35,6 +35,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         public bool IsInstalled => true;
         public int Starts;
         public int Stops;
+        public bool StopSucceeds = true;
 
         public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
         {
@@ -45,7 +46,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct)
         {
             Interlocked.Increment(ref Stops);
-            return Task.FromResult(true);
+            return Task.FromResult(StopSucceeds);
         }
     }
 
@@ -132,12 +133,40 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         var runtime = new LocalRuntimeService(new TestHostEnvironment(), process, new ExternalTextProviderService());
         var orchestrator = new WorkloadOrchestrator(
             runtime, process, new MediaJobService(null!), new SpeechService(runtime), store,
-            inputProviders: new[] { input },
-            launcherProviders: new[] { launcher },
+            inputProviders: new IInputProvider[] { input, new NativeInputProvider() },
+            launcherProviders: new IGameLauncherProvider[] { launcher, new NoneLauncherProvider() },
             triggerProviders: trigger == null ? new IGamingTriggerProvider[] { new ManualTriggerProvider() } : new[] { trigger },
             runtimeHealthCheck: _ => Task.FromResult(true),
             restoreRuntimeToReady: _ => Task.CompletedTask);
         return (orchestrator, launcher, input);
+    }
+
+    [Fact]
+    public async Task Failed_input_helper_stop_does_not_claim_successful_return_to_AI()
+    {
+        var (orchestrator, launcher, input) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterGamingSessionAsync("Race test"));
+        input.StopSucceeds = false;
+
+        Assert.False(await orchestrator.ExitGamingSessionAsync());
+        Assert.Equal("Error", orchestrator.CurrentState);
+        Assert.Equal(1, input.Stops);
+        Assert.Equal(0, launcher.Stops);
+    }
+
+    [Fact]
+    public async Task Previous_manual_game_exit_cannot_end_a_new_manual_session()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long oldVersion = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+
+        Assert.False(await orchestrator.ExitManualGameSessionAfterProcessExitAsync(
+            oldVersion, CancellationToken.None));
+        Assert.Equal("GamingLocal", orchestrator.CurrentState);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
     }
 
     [Fact]
