@@ -269,7 +269,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
     /// The ManualGameSessionService is solely responsible for starting and observing
     /// that exact process; this method never scans or kills desktop processes.
     /// </summary>
-    internal Task<bool> EnterManualGameSessionAsync(CancellationToken ct = default)
+    internal async Task<bool> EnterManualGameSessionAsync(CancellationToken ct = default)
     {
         var profile = new GamingProfileDto
         {
@@ -285,7 +285,10 @@ public sealed class WorkloadOrchestrator : BackgroundService
             RestoreAiOnExit = false,
             AiResourcePolicy = "release_gpu"
         };
-        return TransitionToGamingAsync(profile, "manual-game", ct);
+        bool entered = await TransitionToGamingAsync(profile, "manual-game", ct).ConfigureAwait(false);
+        // Idempotent generic entry may report true for an already-active different
+        // Gaming session. That must NOT authorize launching a new manual game there.
+        return entered && ActiveManualGameSessionVersion.HasValue;
     }
 
     internal long? ActiveManualGameSessionVersion
