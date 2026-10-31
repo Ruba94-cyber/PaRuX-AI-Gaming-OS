@@ -2,6 +2,27 @@
 
 > **Safety status (2026-10-31; source-only):** The legacy window/title/start-time game detector is NOT authorized to suspend a process. Manual Suspend and automatic Quick Resume now refuse to suspend a game until a launcher-owned process instance can be verified by PID, executable and creation time. The current implementation deliberately returns no suspendable PID, so these two features are unavailable; Resume can only act on a previously recorded suspended game. This is a temporary fail-closed protection, not a completed Quick Resume implementation. Gaming entry/exit concurrency and speech child-process quiescence remain open. Windows build and physical acceptance have NOT RUN on this source integration. The descriptions below include planned and legacy behavior and must not be read as present-day acceptance results.
 
+## GOS transition serialization (2026-10-31; source implemented, Windows NOT RUN)
+
+A single asynchronous gate now serializes manual/automatic Gaming entry and exit with
+Suspend/Resume side effects. An entry must observe `AiReady`; requests during an
+unresolved transition, `Error`, or a persisted Gaming marker cannot start another
+launcher. Duplicate requests for the same active session are idempotent. Automatic
+trigger polling is awaited, not fire-and-forget, and captures a monotonic transition
+version: old trigger results and remote-disconnect observations cannot act after a
+different session or a user-requested exit.
+
+An explicit Return to AI requires the automatic trigger sources to become inactive
+before held source signals may re-enter Gaming. This is a conservative rearm rule,
+not automatic local-game-exit detection or a promise about Sunshine detection accuracy.
+Transitions do not terminate or suspend unowned processes. The separate speech child
+process admission and microphone/VRAM release paths still require proof.
+
+Deterministic xUnit cases are now **authored** for overlapping entry/exit, duplicate
+entry, stale trigger/rearming and old Sunshine disconnect; these tests, the Windows
+build and hardware acceptance are **NOT RUN** in the current environment. Execute
+`tools/test-gos-checkpoint.ps1` on the Windows development PC before release.
+
 ## Overview
 The **WorkloadOrchestrator** subsystem in PaRuX AI Studio transforms a Windows PC into an always-available local AI server that automatically yields GPU VRAM, CPU cycles, and audio/input resources to local or remote gaming sessions, and restores AI workloads when gaming ends.
 
