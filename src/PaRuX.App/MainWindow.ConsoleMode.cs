@@ -40,6 +40,7 @@ public sealed partial class MainWindow
         _consoleModeActive = true;
         NavView.IsPaneOpen = true;
         ShowStudioWorkspace(StudioWorkspace.Games);
+        GameLibraryPage.ApplyConsoleMode(true);
         GameLibraryPage.OnShown();
         UpdateConsoleModeButton();
         GameLibraryNavItem.Focus(FocusState.Programmatic);
@@ -51,6 +52,7 @@ public sealed partial class MainWindow
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.Maximize();
         _consoleModeActive = false;
+        GameLibraryPage.ApplyConsoleMode(false);
         UpdateConsoleModeButton();
         ConsoleModeButton.Focus(FocusState.Programmatic);
     }
@@ -62,7 +64,21 @@ public sealed partial class MainWindow
         {
             ExitConsoleMode();
             e.Handled = true;
+            return;
         }
+
+        // Keyboard/gamepad focus navigation only inside Console Home. No background
+        // controller polling, key injection, virtual XInput device or game-time worker.
+        FocusNavigationDirection? direction = e.Key switch
+        {
+            VirtualKey.GamepadDPadUp => FocusNavigationDirection.Up,
+            VirtualKey.GamepadDPadDown => FocusNavigationDirection.Down,
+            VirtualKey.GamepadDPadLeft => FocusNavigationDirection.Left,
+            VirtualKey.GamepadDPadRight => FocusNavigationDirection.Right,
+            _ => null
+        };
+        if (direction.HasValue && FocusManager.TryMoveFocus(direction.Value))
+            e.Handled = true;
     }
 
     private void UpdateConsoleModeButton()
