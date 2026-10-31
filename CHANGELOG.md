@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-10-31 — Opt-in Console / TV presenter in the existing WinUI app (source only)
+
+- Added a reversible fullscreen Console / TV mode to the SAME PaRuX MainWindow. It navigates to the existing Game Library with larger TV-scale controls, restores the maximized desktop presenter on exit, and does not alter display configuration or install any driver.
+- Scoped Escape/gamepad B to leave Console and D-pad key events to focus traversal. No always-on controller polling or new executable was introduced. Added IT/EN accessibility names/help and a focused real-window FlaUI toggle source test.
+- **WinUI compilation, FlaUI execution, physical controller, high-DPI/4K TV, focus, virtual keyboard and streaming acceptance NOT RUN.** This is the first usable Console presenter source, not a certified controller-first shell.
+
 ### 2026-10-31 — Safer default Gaming and explicitly owned manual game launch (source only)
 
 - New-install profiles no longer interpret an attached second display as consent to start Playnite or Gaming; Sunshine auto entry is opt-in. Already saved profiles retain their settings.
