@@ -49,10 +49,10 @@ public sealed partial class MainWindow
     private void ExitConsoleMode()
     {
         AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-            presenter.Maximize();
         _consoleModeActive = false;
         GameLibraryPage.ApplyConsoleMode(false);
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Maximize();
         UpdateConsoleModeButton();
         ConsoleModeButton.Focus(FocusState.Programmatic);
     }
@@ -62,8 +62,17 @@ public sealed partial class MainWindow
         if (!_consoleModeActive) return;
         if (e.Key is VirtualKey.Escape or VirtualKey.GamepadB)
         {
-            ExitConsoleMode();
-            e.Handled = true;
+            try
+            {
+                ExitConsoleMode();
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Console exit input failed: " + ex.GetType().Name);
+                _consoleModeActive = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+                UpdateConsoleModeButton();
+            }
             return;
         }
 
