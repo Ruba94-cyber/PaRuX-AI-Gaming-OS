@@ -1995,6 +1995,14 @@ namespace PaRuX.Views
                     return;
                 }
 
+                // Avoid even opening the microphone when Gaming became active
+                // during the speech engine status request.
+                if (GamingManager.Current.IsActive)
+                {
+                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    return;
+                }
+
                 var recorder = new MicrophoneRecorder();
                 try { await recorder.StartAsync(); }
                 catch (VoiceCaptureException ex) { ShowTransientStatus(ex.Message); return; }
