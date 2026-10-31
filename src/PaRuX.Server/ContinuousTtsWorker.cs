@@ -20,6 +20,7 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
     private static readonly TimeSpan TurnTimeout = TimeSpan.FromMinutes(3);
 
     private readonly LocalRuntimeService _runtime;
+    private readonly SpeechProcessAdmission _admission;
     private readonly SemaphoreSlim _requestGate = new(1, 1);
     private readonly object _processGate = new();
     private readonly StringBuilder _stderr = new();
@@ -32,7 +33,11 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
     private static string VenvPython => ManagedPythonRuntime.VenvPython(VenvRoot);
     private static string ScriptPath => Path.Combine(RuntimeRoot, "parux_tts_stream.py");
 
-    private ContinuousTtsWorker(LocalRuntimeService runtime) => _runtime = runtime;
+    private ContinuousTtsWorker(LocalRuntimeService runtime)
+    {
+        _runtime = runtime;
+        _admission = SpeechProcessAdmission.For(runtime);
+    }
 
     internal static ContinuousTtsWorker For(LocalRuntimeService runtime)
     {
@@ -50,11 +55,13 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
         if (string.IsNullOrWhiteSpace(requestId)) throw new InvalidDataException("A streaming request id is required.");
         ArgumentNullException.ThrowIfNull(onFrame);
         ThrowIfUnavailable();
+        long generation = _admission.Capture();
 
         await _requestGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfUnavailable();
+            _admission.Check(generation);
             using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, _runtime.GamingCancellationToken);
             turnCts.CancelAfter(TurnTimeout);
@@ -63,7 +70,7 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
 
             try
             {
-                Process process = await EnsureStartedAsync(turnToken).ConfigureAwait(false);
+                Process process = await EnsureStartedAsync(turnToken, generation).ConfigureAwait(false);
                 string command = JsonSerializer.Serialize(new
                 {
                     apiVersion = SpeechStreamingProtocol.ApiVersion,
@@ -142,8 +149,9 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
 
     internal void Stop() => KillCurrentProcess();
 
-    private async Task<Process> EnsureStartedAsync(CancellationToken cancellationToken)
+    private async Task<Process> EnsureStartedAsync(CancellationToken cancellationToken, long generation)
     {
+        _admission.Check(generation);
         lock (_processGate)
         {
             if (_process is { HasExited: false } healthy) return healthy;
@@ -180,8 +188,7 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
             lock (_processGate)
             {
                 ThrowIfUnavailable();
-                if (!process.Start())
-                    throw new InvalidOperationException("PaRuX could not start the continuous Kokoro worker.");
+                _admission.StartOwned(process, generation);
                 _process = process;
             }
             ChildProcessJob.Assign(process);
@@ -252,8 +259,19 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
             _process = null;
         }
         if (process == null) return;
-        try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-        try { process.Dispose(); } catch { }
+        bool confirmed = false;
+        try
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            confirmed = process.WaitForExit(1200);
+        }
+        catch { }
+        // An unconfirmed child stays tracked for a later Gaming-guard retry.
+        if (confirmed)
+        {
+            _admission.Unregister(process);
+            try { process.Dispose(); } catch { }
+        }
     }
 
     private void AppendStderr(string? line)
