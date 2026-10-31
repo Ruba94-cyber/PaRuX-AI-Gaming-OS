@@ -216,7 +216,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
 
     /// <summary>Gaming Guard calls this before the global runtime shutdown. Worker objects remain
     /// reusable after gaming ends, but their Python children and resident model VRAM are gone.</summary>
-    public void StopWorkersForGaming()
+    public bool StopWorkersForGaming()
     {
         // Close admission before draining workers: a delayed start can no longer
         // register a child after Gaming has inspected the existing process set.
@@ -226,8 +226,10 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
             _sttWorker?.Stop();
             _ttsWorker?.Stop();
         }
-        // Continuous speech uses a separate managed resident and Gaming token.
         if (_runtime != null) ContinuousTtsWorker.For(_runtime).Stop();
+        // A second bounded pass detects any still-owned child after individual
+        // worker cleanup. False means shutdown is NOT confirmed, never "VRAM free".
+        return _admission.BlockForGaming();
     }
 
     /// <summary>Reopen lazy speech admission only after the runtime leaves Gaming.
