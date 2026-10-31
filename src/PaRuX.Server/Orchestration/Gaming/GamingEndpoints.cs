@@ -69,9 +69,10 @@ public static class GamingEndpoints
             return success ? Results.Ok(orchestrator.GetStatus()) : Results.BadRequest(orchestrator.GetStatus());
         }).RequireDesktopOwner();
 
-        app.MapPost("/api/v1/gaming/exit", async (WorkloadOrchestrator orchestrator, CancellationToken ct) =>
+        app.MapPost("/api/v1/gaming/exit", async (
+            WorkloadOrchestrator orchestrator, ManualGameSessionService sessions, CancellationToken ct) =>
         {
-            bool success = await orchestrator.ExitGamingSessionAsync(ct);
+            bool success = await sessions.ExitGamingAsync(ct);
             return success ? Results.Ok(orchestrator.GetStatus()) : Results.BadRequest(orchestrator.GetStatus());
         }).RequireDesktopOwner();
 
