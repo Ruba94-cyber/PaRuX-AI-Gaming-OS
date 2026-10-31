@@ -128,7 +128,7 @@ namespace PaRuX.Views
             _gameMarkerTimer.Tick += (s, e) =>
             {
                 bool gameActive = LocalAiController.Current.IsGameActive();
-                _voiceGamingTransition.Observe(gameActive);
+                ObserveVoiceGaming(gameActive);
                 if (gameActive != _shownGameActive) _ = RefreshHeaderAsync();
             };
 
@@ -181,7 +181,7 @@ namespace PaRuX.Views
             Unloaded += OnChatUnloadedStopVoice;
             GamingManager.Current.StateChanged -= OnVoiceGamingStateChanged;
             GamingManager.Current.StateChanged += OnVoiceGamingStateChanged;
-            _voiceGamingTransition.Observe(GamingManager.Current.IsActive);
+            ObserveVoiceGaming(GamingManager.Current.IsActive);
             PreviewKeyDown -= OnChatPreviewKeyDownVoice;
             PreviewKeyDown += OnChatPreviewKeyDownVoice;
             _ = LoadSkillsAsync();
@@ -2227,8 +2227,23 @@ namespace PaRuX.Views
             catch (Exception ex) { Log.Write("Voice UI cleanup failed: " + ex.Message); }
         }
 
+        private void ObserveVoiceGaming(bool gaming)
+        {
+            _voiceGamingTransition.Observe(gaming);
+            // No polling, model admission or microphone capture is started here.
+            // Keep the existing voice UI unavailable while Gaming has priority.
+            MicButton.IsEnabled = !gaming;
+            VoiceModeButton.IsEnabled = !gaming;
+            bool it = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
+            string notice = it
+                ? "Comandi vocali disattivati durante il gaming per preservare le risorse."
+                : "Voice controls are disabled during Gaming to prioritize game resources.";
+            AutomationProperties.SetHelpText(MicButton, gaming ? notice : string.Empty);
+            AutomationProperties.SetHelpText(VoiceModeButton, gaming ? notice : string.Empty);
+        }
+
         private void OnVoiceGamingStateChanged(object? sender, EventArgs e) =>
-            _voiceGamingTransition.Observe(LocalAiController.Current.IsGameActive());
+            ObserveVoiceGaming(LocalAiController.Current.IsGameActive());
 
         private async void VoiceMode_Click(object sender, RoutedEventArgs e)
         {
