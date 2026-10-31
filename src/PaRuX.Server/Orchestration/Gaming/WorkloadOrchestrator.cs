@@ -540,11 +540,16 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
             // 2. Stop input helper
             IInputProvider inputProvider = ResolveInputProvider(profile.InputProvider);
-            await inputProvider.StopAsync(profile, ct).ConfigureAwait(false);
+            if (!await inputProvider.StopAsync(profile, ct).ConfigureAwait(false))
+                throw new InvalidOperationException(
+                    $"Gaming input provider '{inputProvider.Id}' did not confirm a safe stop.");
 
-            // 3. Stop launcher if applicable
+            // 3. Release the launcher provider's PaRuX-owned session resources.
+            // This does not authorize terminating Playnite, Steam or any game.
             IGameLauncherProvider launcherProvider = ResolveLauncherProvider(profile.LauncherProvider);
-            await launcherProvider.StopAsync(profile, ct).ConfigureAwait(false);
+            if (!await launcherProvider.StopAsync(profile, ct).ConfigureAwait(false))
+                throw new InvalidOperationException(
+                    $"Gaming launcher provider '{launcherProvider.Id}' did not confirm a safe stop.");
 
             // 4. Restore AI resources
             lock (_stateGate) SetState("RestoringAi");
