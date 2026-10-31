@@ -96,6 +96,17 @@ internal sealed class SpeechProcessAdmission
         lock (_gate)
         {
             if (_isGaming()) return;
+            // Keep speech disabled if a previous generation's owned child did
+            // not exit. An old worker must never overlap newly admitted inference.
+            foreach (Process child in _owned.ToArray())
+            {
+                bool exited;
+                try { exited = child.HasExited; }
+                catch { return; }
+                if (!exited) return;
+                _owned.Remove(child);
+                try { child.Dispose(); } catch { }
+            }
             _generation++; // Requests from before Gaming cannot reacquire an old ticket.
             _blocked = false;
         }
