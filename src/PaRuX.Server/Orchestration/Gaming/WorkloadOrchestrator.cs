@@ -263,6 +263,41 @@ public sealed class WorkloadOrchestrator : BackgroundService
         return list;
     }
 
+    /// <summary>
+    /// Enter Gaming for a user-selected, locally saved manual executable without
+    /// changing persistent gaming profiles or starting an unrelated store launcher.
+    /// The ManualGameSessionService is solely responsible for starting and observing
+    /// that exact process; this method never scans or kills desktop processes.
+    /// </summary>
+    internal Task<bool> EnterManualGameSessionAsync(CancellationToken ct = default)
+    {
+        var profile = new GamingProfileDto
+        {
+            Id = "transient-manual-game",
+            Name = "Manual Game",
+            Enabled = false,
+            SessionType = "local",
+            TriggerProvider = "manual",
+            LauncherProvider = "none",
+            InputProvider = "native",
+            SuspendProvider = "none",
+            QuickResumePolicy = "off",
+            RestoreAiOnExit = false,
+            AiResourcePolicy = "release_gpu"
+        };
+        return TransitionToGamingAsync(profile, "manual-game", ct);
+    }
+
+    internal bool IsManualGameSessionActive
+    {
+        get
+        {
+            lock (_stateGate)
+                return _state == "GamingLocal" &&
+                    string.Equals(_activeTriggerId, "manual-game", StringComparison.Ordinal);
+        }
+    }
+
     public async Task<bool> EnterGamingSessionAsync(string? profileName = null, CancellationToken ct = default)
     {
         GamingProfileDto profile = _profileStore.GetActiveOrDefault(profileName);
