@@ -118,19 +118,21 @@ internal sealed class SpeechWarmWorker : IDisposable
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, args) => AppendStderr(args.Data);
+        bool registered = false;
         try
         {
             _admission.StartOwned(process, generation);
+            registered = true;
             _process = process;
             ChildProcessJob.Assign(process);
             process.BeginErrorReadLine();
         }
         catch
         {
-            _admission.Unregister(process);
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            process.Dispose();
-            _process = null;
+            // If process startup itself failed there is no owned child. Otherwise
+            // let StopProcess retain an unconfirmed child in the admission ledger.
+            if (registered) StopProcess();
+            else process.Dispose();
             throw;
         }
 
