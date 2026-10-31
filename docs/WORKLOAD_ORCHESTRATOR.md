@@ -23,6 +23,22 @@ entry, stale trigger/rearming and old Sunshine disconnect; these tests, the Wind
 build and hardware acceptance are **NOT RUN** in the current environment. Execute
 `tools/test-gos-checkpoint.ps1` on the Windows development PC before release.
 
+## Managed speech admission during Gaming (2026-10-31 — source only)
+
+The SpeechService resident STT/TTS, one-shot fallback, status probe and ContinuousTtsWorker now share
+a per-runtime `SpeechProcessAdmission` ledger. Process start and registration are atomic relative
+to Gaming admission closure; stale request generations cannot reacquire inference after return
+to AI. Gaming Guard and WorkloadOrchestrator stop only tracked PaRuX-owned speech children
+and use bounded process-exit confirmation; unconfirmed child exits keep speech admission
+closed and cause Gaming hard-off retry/failure rather than a false PASS. An already-running
+child is never considered harmless solely because its process handle was lost.
+
+**Limits:** This is process-exit evidence only; it is not direct proof of zero VRAM
+allocations, physical microphone release, absolute GPU resource recovery, or a complete
+end-to-end transition. Windows build, xUnit, process fixtures and hardware acceptance
+have **NOT RUN** in this environment. Gaming voice remains disabled by default; no
+background hotword or voice opt-in during games is introduced.
+
 ## Overview
 The **WorkloadOrchestrator** subsystem in PaRuX AI Studio transforms a Windows PC into an always-available local AI server that automatically yields GPU VRAM, CPU cycles, and audio/input resources to local or remote gaming sessions, and restores AI workloads when gaming ends.
 
