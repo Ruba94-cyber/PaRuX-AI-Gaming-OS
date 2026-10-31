@@ -181,14 +181,15 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, args) => AppendStderr(args.Data);
+        bool registered = false;
         try
         {
-            // Gaming Stop acquires the same process gate. It cannot miss a child
-            // started between the availability check and ownership registration.
+            // Gaming Stop cannot miss a child created between start and registration.
             lock (_processGate)
             {
                 ThrowIfUnavailable();
                 _admission.StartOwned(process, generation);
+                registered = true;
                 _process = process;
             }
             ChildProcessJob.Assign(process);
@@ -196,9 +197,8 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
         }
         catch
         {
-            KillCurrentProcess();
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            process.Dispose();
+            if (registered) KillCurrentProcess();
+            else process.Dispose();
             throw;
         }
 
