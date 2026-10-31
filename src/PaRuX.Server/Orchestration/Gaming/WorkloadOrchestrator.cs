@@ -578,7 +578,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
     {
         _runtime.SetGamingState(true);
         _jobs.CancelAllForGaming();
-        _speech.StopWorkersForGaming();
+        bool speechStopped = _speech.StopWorkersForGaming();
         _cancelEvaluations?.Invoke();
 
         string unloadedLabel = TextModelUnloadedLabel(new GpuInventoryService().GetStatus());
