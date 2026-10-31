@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-10-31 — Safer default Gaming and explicitly owned manual game launch (source only)
+
+- New-install profiles no longer interpret an attached second display as consent to start Playnite or Gaming; Sunshine auto entry is opt-in. Already saved profiles retain their settings.
+- Manual Game Library includes an explicit IT/EN Play confirmation. An owner-only API starts only the chosen saved local executable after the existing orchestrator enters a transient manual Gaming profile. If Windows verifies the exact launched PID, creation time and image, the service monitors its process handle and requests Return to AI on an eligible exit, guarded by a session version against stale callbacks. Short-lived/bootstrap and unverified launches require manual return; no game is forcibly ended.
+- Playnite no longer gets forcibly terminated on Return to AI. XOutput receives only a graceful stop; refusal is surfaced instead of claiming resources are free or force-killing the helper.
+- Added xUnit source for default-profile preservation, unsafe paths, API owner authorization, stale game-exit callbacks and failed input cleanup, plus FlaUI confirmation-cancel coverage and focused local test filters. **All executable tests and actual Windows game launches NOT RUN; source only.** Console Shell, advanced Input Hub, display/streaming, installers and full hardware acceptance remain incomplete.
+
 ### 2026-10-31 — Speech lifecycle and local game discovery (source-only)
 
 - Added per-runtime managed speech process admission for resident STT/TTS, one-shot fallback, status probes and streaming Kokoro. Gaming invalidates stale generations, serializes child process start/ownership, requests exit of owned processes only, and retries when termination cannot be confirmed. This does not prove GPU/VRAM or microphone release.
