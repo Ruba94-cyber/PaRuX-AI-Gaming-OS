@@ -155,6 +155,17 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     }
 
     [Fact]
+    public async Task A_different_active_gaming_session_does_not_grant_manual_game_launch()
+    {
+        var (orchestrator, launcher, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterGamingSessionAsync("Race test"));
+        Assert.False(await orchestrator.EnterManualGameSessionAsync());
+        Assert.Null(orchestrator.ActiveManualGameSessionVersion);
+        Assert.Equal(1, launcher.Launches);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
     public async Task Previous_manual_game_exit_cannot_end_a_new_manual_session()
     {
         var (orchestrator, _, _) = MakeOrchestrator();
