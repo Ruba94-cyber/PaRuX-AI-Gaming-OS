@@ -200,12 +200,61 @@ public sealed class ManualGameLibraryView : UserControl
             var card = new StackPanel { Spacing = 4, Padding = new Thickness(12) };
             card.Children.Add(new TextBlock { Text = game.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
             card.Children.Add(new TextBlock { Text = game.ExecutablePath, TextWrapping = TextWrapping.Wrap });
+            var launch = new Button
+            {
+                Content = T("Play", "Gioca"),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            AutomationProperties.SetName(launch, T("Launch ", "Avvia ") + game.Name);
+            AutomationProperties.SetAutomationId(launch, "GameLibrary_Launch_" + game.Id);
+            launch.Click += async (_, _) => await LaunchAsync(game);
+            card.Children.Add(launch);
             var remove = new Button { Content = T("Remove from list", "Rimuovi dalla lista"), HorizontalAlignment = HorizontalAlignment.Left };
             AutomationProperties.SetName(remove, T("Remove ", "Rimuovi ") + game.Name);
             AutomationProperties.SetAutomationId(remove, "GameLibrary_Remove_" + game.Id);
             remove.Click += async (_, _) => await RemoveAsync(game);
             card.Children.Add(remove); _games.Children.Add(card);
         }
+    }
+
+    private async Task LaunchAsync(ManualGameDto game)
+    {
+        if (_busy) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Launch selected game?", "Avviare il gioco selezionato?"),
+                Content = T(
+                    "PaRuX will pause local AI resources and start only this saved executable. It will not install software, suspend the game, or forcibly close it. Automatic return is enabled only if Windows confirms the owned game process.",
+                    "PaRuX sospenderà le risorse AI locali e avvierà solo questo eseguibile salvato. Non installerà software, non sospenderà il gioco né lo chiuderà forzatamente. Il ritorno automatico è disponibile solo quando Windows conferma il processo del gioco avviato."),
+                PrimaryButtonText = T("Launch", "Avvia"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(game.Id);
+            if (!result.Succeeded || result.Value is not { Launched: true } launch)
+            {
+                _status.Text = T(
+                    "Could not launch the game. Check Gaming state and the executable.",
+                    "Impossibile avviare il gioco. Controlla lo stato Gaming e l'eseguibile.");
+                return;
+            }
+            _status.Text = launch.AutomaticReturnOnExit
+                ? T("Game started. Automatic return to AI is monitoring the owned process.",
+                    "Gioco avviato. Il ritorno automatico all'AI monitora il processo avviato.")
+                : T("Game started. Return to AI manually when finished.",
+                    "Gioco avviato. Torna manualmente all'AI al termine.");
+        }
+        catch (Exception)
+        {
+            _status.Text = T("Could not launch the game.", "Impossibile avviare il gioco.");
+        }
+        finally { SetBusy(false); }
     }
 
     private async Task RemoveAsync(ManualGameDto game)
