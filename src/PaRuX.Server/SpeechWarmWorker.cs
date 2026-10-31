@@ -15,23 +15,26 @@ internal sealed class SpeechWarmWorker : IDisposable
     private readonly string _mode;
     private readonly string _pythonPath;
     private readonly string _scriptPath;
+    private readonly SpeechProcessAdmission _admission;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private Process? _process;
     private readonly StringBuilder _stderr = new();
     private bool _disposed;
 
-    public SpeechWarmWorker(string mode, string pythonPath, string scriptPath)
+    public SpeechWarmWorker(string mode, string pythonPath, string scriptPath, SpeechProcessAdmission? admission = null)
     {
         if (mode is not ("transcribe" or "synthesize"))
             throw new ArgumentOutOfRangeException(nameof(mode));
         _mode = mode;
         _pythonPath = pythonPath;
         _scriptPath = scriptPath;
+        _admission = admission ?? new SpeechProcessAdmission(() => false);
     }
 
-    public async Task<JsonElement> ExecuteAsync(object request, CancellationToken ct, TimeSpan timeout)
+    public async Task<JsonElement> ExecuteAsync(object request, CancellationToken ct, TimeSpan timeout, long? admittedGeneration = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long generation = admittedGeneration ?? _admission.Capture();
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -39,7 +42,8 @@ internal sealed class SpeechWarmWorker : IDisposable
             timeoutCts.CancelAfter(timeout);
             try
             {
-                await EnsureStartedAsync(timeoutCts.Token).ConfigureAwait(false);
+                await EnsureStartedAsync(timeoutCts.Token, generation).ConfigureAwait(false);
+                _admission.Check(generation);
                 Process process = _process ?? throw new InvalidOperationException("Speech warm worker failed to start.");
                 string command = JsonSerializer.Serialize(request);
                 await process.StandardInput.WriteLineAsync(command).ConfigureAwait(false);
@@ -72,15 +76,16 @@ internal sealed class SpeechWarmWorker : IDisposable
         }
     }
 
-    public async Task PrewarmAsync(CancellationToken ct, TimeSpan timeout)
+    public async Task PrewarmAsync(CancellationToken ct, TimeSpan timeout, long? admittedGeneration = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long generation = admittedGeneration ?? _admission.Capture();
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(timeout);
-            try { await EnsureStartedAsync(timeoutCts.Token).ConfigureAwait(false); }
+            try { await EnsureStartedAsync(timeoutCts.Token, generation).ConfigureAwait(false); }
             catch { StopProcess(); throw; }
         }
         finally { _gate.Release(); }
@@ -91,8 +96,9 @@ internal sealed class SpeechWarmWorker : IDisposable
     /// the singleton service or racing a SemaphoreSlim disposal against an in-flight request.</summary>
     public void Stop() => StopProcess();
 
-    private async Task EnsureStartedAsync(CancellationToken ct)
+    private async Task EnsureStartedAsync(CancellationToken ct, long generation)
     {
+        _admission.Check(generation);
         if (_process is { HasExited: false }) return;
         StopProcess();
 
@@ -112,13 +118,21 @@ internal sealed class SpeechWarmWorker : IDisposable
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, args) => AppendStderr(args.Data);
-        if (!process.Start())
+        try
         {
-            process.Dispose();
-            throw new InvalidOperationException("PaRuX could not start the persistent speech worker.");
+            _admission.StartOwned(process, generation);
+            _process = process;
+            ChildProcessJob.Assign(process);
+            process.BeginErrorReadLine();
         }
-        process.BeginErrorReadLine();
-        _process = process;
+        catch
+        {
+            _admission.Unregister(process);
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            process.Dispose();
+            _process = null;
+            throw;
+        }
 
         string? ready = await process.StandardOutput.ReadLineAsync().WaitAsync(ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(ready))
@@ -148,6 +162,7 @@ internal sealed class SpeechWarmWorker : IDisposable
     {
         Process? process = Interlocked.Exchange(ref _process, null);
         if (process == null) return;
+        _admission.Unregister(process);
         try
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
