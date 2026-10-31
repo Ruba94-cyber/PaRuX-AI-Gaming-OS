@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-10-31 — Serialized Gaming transitions (source-only; Windows acceptance pending)
+
+- Implemented a single asynchronous transaction gate for orchestrator Gaming entry, return-to-AI, Suspend and Resume. Duplicate concurrent entry cannot start overlapping launcher operations; a return-to-AI request waits for in-progress entry rather than racing its cleanup.
+- Automatic gaming triggers are awaited, carry a session version and cannot act on a newer Gaming session. Return-to-AI invalidates stale queued triggers and requires observed deactivation before automatic reentry on a held signal. Sunshine disconnect detection also verifies it still belongs to the same session.
+- Added four deterministic xUnit test **sources** in `GamingTransitionConcurrencyTests.cs` and wired them into the project-local Windows gate. The tests are not claimed to have passed.
+- **Static source invariants 9/9 checked; .NET build, xUnit, FlaUI, independent review and physical Windows/GPU/microphone/controller tests NOT RUN.** This does not complete speech-worker atomic admission, verified game-process ownership or release acceptance. No new app or GitHub Actions were added; `main` remains the single product line.
+
 ### 2026-10-31 — PaRuX AI & Gaming OS checkpoint integrated on main (WIP, source only)
 
 - Integrated the previously separate GOS public foundation and continuation checkpoint into the existing Windows PaRuX application; no second executable or user-data store was created. Desktop Chat Home starters, GOS design tokens/identity study and manual library remain work in progress.
