@@ -13,6 +13,15 @@ public static class GamingEndpoints
 {
     public static void MapGamingEndpoints(this WebApplication app)
     {
+        // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
+        app.MapGet("/api/v1/gaming/library/discover/steam", async (SteamGameDiscoveryProvider provider, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Steam installation metadata could not be read."); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/library", (ManualGameLibrary library) =>
         {
             try { return Results.Ok(library.List()) as IResult; }
