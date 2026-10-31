@@ -173,14 +173,27 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, args) => AppendStderr(args.Data);
-        if (!process.Start())
+        try
         {
-            process.Dispose();
-            throw new InvalidOperationException("PaRuX could not start the continuous Kokoro worker.");
+            // Gaming Stop acquires the same process gate. It cannot miss a child
+            // started between the availability check and ownership registration.
+            lock (_processGate)
+            {
+                ThrowIfUnavailable();
+                if (!process.Start())
+                    throw new InvalidOperationException("PaRuX could not start the continuous Kokoro worker.");
+                _process = process;
+            }
+            ChildProcessJob.Assign(process);
+            process.BeginErrorReadLine();
         }
-        ChildProcessJob.Assign(process);
-        process.BeginErrorReadLine();
-        lock (_processGate) _process = process;
+        catch
+        {
+            KillCurrentProcess();
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            process.Dispose();
+            throw;
+        }
 
         _gamingRegistration.Dispose();
         _gamingRegistration = _runtime.GamingCancellationToken.Register(
