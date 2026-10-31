@@ -33,7 +33,7 @@ function Invoke-GosStep {
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw 'The .NET SDK is missing; install the supported .NET 8 Windows build prerequisites.'
 }
-if (-not $IsWindows -and $PSVersionTable.PSEdition -eq 'Core') {
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
     throw 'This GOS checkpoint gate requires Windows (WinUI and optional FlaUI).'
 }
 
