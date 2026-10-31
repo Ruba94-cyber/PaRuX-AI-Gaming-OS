@@ -15,7 +15,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid" SizeChanged="RootGrid_SizeChanged">
+    <Grid x:Name="RootGrid" SizeChanged="RootGrid_SizeChanged" KeyDown="RootGrid_ConsoleKeyDown">
         <tb:TaskbarIcon
             x:Name="TrayIcon"
             ToolTipText="PaRuX AI &amp; Gaming OS"
@@ -177,6 +177,20 @@
                     </Button>
                 </Grid>
             </NavigationView.PaneCustomContent>
+
+            <NavigationView.PaneFooter>
+                <Button
+                    x:Name="ConsoleModeButton"
+                    AutomationProperties.AutomationId="MainWindow_ConsoleMode_Button"
+                    AutomationProperties.Name="Enter Console TV mode"
+                    Content="Console / TV"
+                    Click="ConsoleModeButton_Click"
+                    HorizontalAlignment="Stretch"
+                    Margin="12,8,12,12"
+                    MinHeight="48"
+                    CornerRadius="{StaticResource PaRuXRadiusMedium}"
+                    ToolTipService.ToolTip="Use the existing Games workspace in fullscreen. Press Escape or gamepad B to return." />
+            </NavigationView.PaneFooter>
 
             <Border
                 Background="{ThemeResource PaRuXSurfaceAppBrush}"
