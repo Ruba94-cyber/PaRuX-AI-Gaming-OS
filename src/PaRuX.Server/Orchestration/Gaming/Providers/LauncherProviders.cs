@@ -96,30 +96,16 @@ public sealed class PlayniteLauncherProvider : IGameLauncherProvider
 
     public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        Process? ownedProcess;
+        // Returning to AI is NOT permission to close the user's launcher or any games.
+        // Releasing our handle is safe; Playnite stays under the user's control.
+        Process? started;
         lock (_processGate)
         {
-            ownedProcess = _startedProcess;
+            started = _startedProcess;
             _startedProcess = null;
         }
-
-        if (ownedProcess == null) return Task.FromResult(true);
-
-        try
-        {
-            using (ownedProcess)
-            {
-                if (ownedProcess.HasExited) return Task.FromResult(true);
-                if (ownedProcess.CloseMainWindow()) ownedProcess.WaitForExit(2000);
-                if (!ownedProcess.HasExited)
-                    ownedProcess.Kill(true);
-            }
-            return Task.FromResult(true);
-        }
-        catch
-        {
-            return Task.FromResult(false);
-        }
+        started?.Dispose();
+        return Task.FromResult(true);
     }
 }
 
