@@ -623,6 +623,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
     {
         await _runtime.EndGamingAsync(ct).ConfigureAwait(false);
         _runtime.SetGamingState(false);
+        _speech.AllowWorkersAfterGaming();
         if (reloadRuntime)
         {
             // GameStop intentionally leaves the local engines stopped. Bring the configured text
