@@ -83,10 +83,12 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
 
     private sealed class DeferredTrigger : IGamingTriggerProvider
     {
+        private readonly string _id;
         private int _deferFirstCheck = 1;
+        public DeferredTrigger(string id = "test-trigger") => _id = id;
         public readonly TaskCompletionSource<bool> Checked = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource<bool> FirstResult = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public string Id => "test-trigger";
+        public string Id => _id;
         public string Name => "Test trigger";
         public bool IsDetected => true;
         public bool Current;
@@ -103,7 +105,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     }
 
     private (WorkloadOrchestrator Orchestrator, Launcher Launcher, Input Input) MakeOrchestrator(
-        bool blockLauncher = false, DeferredTrigger? trigger = null)
+        bool blockLauncher = false, DeferredTrigger? trigger = null, string sessionType = "local")
     {
         var store = new GamingProfileStore(Path.Combine(_root, "profiles.json"));
         foreach (GamingProfileDto preset in store.List())
@@ -115,8 +117,8 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         {
             Name = "Race test",
             Enabled = true,
-            TriggerProvider = "test-trigger",
-            SessionType = "local",
+            TriggerProvider = trigger?.Id ?? "test-trigger",
+            SessionType = sessionType,
             LauncherProvider = "test-launcher",
             InputProvider = "test-input",
             SuspendProvider = "none",
@@ -172,6 +174,27 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         Assert.True(await second.WaitAsync(TimeSpan.FromSeconds(15)));
         Assert.Equal(1, launcher.Launches);
         Assert.Equal(1, input.Starts);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
+    public async Task Late_remote_disconnect_from_old_session_cannot_exit_a_new_session()
+    {
+        var sunshine = new DeferredTrigger("sunshine");
+        var (orchestrator, launcher, _) = MakeOrchestrator(trigger: sunshine, sessionType: "remote");
+        Assert.True(await orchestrator.EnterGamingSessionAsync("Race test"));
+        Assert.Equal("GamingRemote", orchestrator.CurrentState);
+
+        Task delayedPoll = orchestrator.PollTriggersAndSessionAsync(CancellationToken.None);
+        await sunshine.Checked.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+        Assert.True(await orchestrator.EnterGamingSessionAsync("Race test"));
+        sunshine.FirstResult.TrySetResult(false);
+        await delayedPoll.WaitAsync(TimeSpan.FromSeconds(15));
+
+        Assert.Equal("GamingRemote", orchestrator.CurrentState);
+        Assert.Equal(2, launcher.Launches);
+        Assert.Equal(1, launcher.Stops);
         Assert.True(await orchestrator.ExitGamingSessionAsync());
     }
 
