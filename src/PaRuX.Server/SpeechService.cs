@@ -23,25 +23,32 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
 
     private readonly object _workerGate = new();
     private readonly LocalRuntimeService? _runtime;
+    private readonly SpeechProcessAdmission _admission;
     private SpeechWarmWorker? _sttWorker;
     private SpeechWarmWorker? _ttsWorker;
     private bool _disposed;
 
-    public SpeechService() { }
+    public SpeechService()
+    {
+        _admission = new SpeechProcessAdmission(() => false);
+    }
 
     public SpeechService(LocalRuntimeService runtime)
     {
         _runtime = runtime;
+        _admission = new SpeechProcessAdmission(() => runtime.GamingMode);
     }
 
     public async Task<SpeechEngineStatus> GetStatusAsync(CancellationToken ct)
     {
+        if (_runtime?.GamingMode == true)
+            return new SpeechEngineStatus { SttInstalled = false, TtsInstalled = false };
         if (!ManagedPythonRuntime.IsManagedVenv(VenvRoot)) return new SpeechEngineStatus { SttInstalled = false, TtsInstalled = false };
         try
         {
             (int exitCode, string stdout, _) = await RunCapturedAsync(VenvPython,
                 "-c \"import importlib.util as u; print(u.find_spec('parakeet_tdt') is not None or u.find_spec('nemo') is not None or u.find_spec('transformers') is not None); print(u.find_spec('kokoro') is not None)\"",
-                ct, TimeSpan.FromSeconds(20));
+                ct, TimeSpan.FromSeconds(20), admission: _admission, generation: _admission.Capture());
             string[] lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             return new SpeechEngineStatus
             {
@@ -97,10 +104,11 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     public async Task PrewarmAsync(bool stt, bool tts, CancellationToken ct)
     {
         EnsureInferenceAllowed();
+        long generation = _admission.Capture();
         WriteScript();
         var tasks = new List<Task>(2);
-        if (stt) tasks.Add(GetWorker("transcribe").PrewarmAsync(ct, TimeSpan.FromMinutes(3)));
-        if (tts) tasks.Add(GetWorker("synthesize").PrewarmAsync(ct, TimeSpan.FromMinutes(3)));
+        if (stt) tasks.Add(GetWorker("transcribe").PrewarmAsync(ct, TimeSpan.FromMinutes(3), generation));
+        if (tts) tasks.Add(GetWorker("synthesize").PrewarmAsync(ct, TimeSpan.FromMinutes(3), generation));
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
@@ -108,6 +116,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     {
         if (string.IsNullOrWhiteSpace(request.AudioBase64)) throw new InvalidDataException("audioBase64 is required.");
         EnsureInferenceAllowed();
+        long generation = _admission.Capture();
         WriteScript();
 
         byte[] audioBytes;
@@ -131,13 +140,14 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
                 {
                     audioPath,
                     language = request.Language ?? string.Empty
-                }, ct, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
+                }, ct, TimeSpan.FromMinutes(3), generation).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
             catch
             {
                 EnsureInferenceAllowed();
-                result = await RunTranscribeOneShotAsync(audioPath, request.Language ?? string.Empty, ct).ConfigureAwait(false);
+                _admission.Check(generation);
+                result = await RunTranscribeOneShotAsync(audioPath, request.Language ?? string.Empty, ct, generation).ConfigureAwait(false);
             }
 
             return new TranscribeResponse
@@ -157,6 +167,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     {
         if (string.IsNullOrWhiteSpace(request.Text)) throw new InvalidDataException("text is required.");
         EnsureInferenceAllowed();
+        long generation = _admission.Capture();
         WriteScript();
 
         string outputPath = Path.Combine(Path.GetTempPath(), "parux-tts-" + Guid.NewGuid().ToString("N") + ".wav");
@@ -176,13 +187,14 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
                     textPath = textArgPath,
                     voice,
                     outputPath
-                }, ct, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
+                }, ct, TimeSpan.FromMinutes(3), generation).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
             catch
             {
                 EnsureInferenceAllowed();
-                result = await RunSynthesizeOneShotAsync(textArgPath, voice, outputPath, ct).ConfigureAwait(false);
+                _admission.Check(generation);
+                result = await RunSynthesizeOneShotAsync(textArgPath, voice, outputPath, ct, generation).ConfigureAwait(false);
             }
 
             if (!File.Exists(outputPath)) throw new InvalidOperationException("The speech engine produced no output file.");
@@ -206,25 +218,36 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     /// reusable after gaming ends, but their Python children and resident model VRAM are gone.</summary>
     public void StopWorkersForGaming()
     {
+        // Close admission before draining workers: a delayed start can no longer
+        // register a child after Gaming has inspected the existing process set.
+        _admission.BlockForGaming();
         lock (_workerGate)
         {
             _sttWorker?.Stop();
             _ttsWorker?.Stop();
         }
+        // Continuous speech uses a separate managed resident and Gaming token.
+        if (_runtime != null) ContinuousTtsWorker.For(_runtime).Stop();
     }
 
-    private async Task<JsonElement> RunTranscribeOneShotAsync(string audioPath, string language, CancellationToken ct)
+    /// <summary>Reopen lazy speech admission only after the runtime leaves Gaming.
+    /// Requests created before Gaming carry invalid generations and cannot revive.</summary>
+    public void AllowWorkersAfterGaming() => _admission.ReopenAfterGaming();
+
+    private async Task<JsonElement> RunTranscribeOneShotAsync(string audioPath, string language, CancellationToken ct, long generation)
     {
         (int exitCode, string stdout, string stderr) = await RunCapturedAsync(VenvPython,
-            "\"" + ScriptPath + "\" transcribe \"" + audioPath + "\" \"" + language + "\"", ct, TimeSpan.FromMinutes(3));
+            "\"" + ScriptPath + "\" transcribe \"" + audioPath + "\" \"" + language + "\"", ct, TimeSpan.FromMinutes(3),
+            admission: _admission, generation: generation);
         if (exitCode != 0) throw new InvalidOperationException("Transcription failed: " + Trim(stderr.Length > 0 ? stderr : stdout));
         return ParseLastJsonObject(stdout);
     }
 
-    private async Task<JsonElement> RunSynthesizeOneShotAsync(string textPath, string voice, string outputPath, CancellationToken ct)
+    private async Task<JsonElement> RunSynthesizeOneShotAsync(string textPath, string voice, string outputPath, CancellationToken ct, long generation)
     {
         (int exitCode, string stdout, string stderr) = await RunCapturedAsync(VenvPython,
-            "\"" + ScriptPath + "\" synthesize \"" + textPath + "\" \"" + voice + "\" \"" + outputPath + "\"", ct, TimeSpan.FromMinutes(3));
+            "\"" + ScriptPath + "\" synthesize \"" + textPath + "\" \"" + voice + "\" \"" + outputPath + "\"", ct, TimeSpan.FromMinutes(3),
+            admission: _admission, generation: generation);
         if (exitCode != 0) throw new InvalidOperationException("Synthesis failed: " + Trim(stderr.Length > 0 ? stderr : stdout));
         return ParseLastJsonObject(stdout);
     }
@@ -235,8 +258,8 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         {
             if (_disposed) throw new ObjectDisposedException(nameof(SpeechService));
             return mode == "transcribe"
-                ? _sttWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath)
-                : _ttsWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath);
+                ? _sttWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath, _admission)
+                : _ttsWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath, _admission);
         }
     }
 
@@ -245,6 +268,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         if (_disposed) throw new ObjectDisposedException(nameof(SpeechService));
         if (_runtime?.GamingMode == true)
             throw new InvalidOperationException("Gaming Mode is active, so local speech inference is unavailable.");
+        _admission.Capture();
         if (!ManagedPythonRuntime.IsManagedVenv(VenvRoot))
             throw new InvalidOperationException("The speech engine is not installed on this machine yet.");
     }
@@ -267,7 +291,8 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     }
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(
-        string fileName, string arguments, CancellationToken ct, TimeSpan timeout, string? workingDirectory = null)
+        string fileName, string arguments, CancellationToken ct, TimeSpan timeout,
+        string? workingDirectory = null, SpeechProcessAdmission? admission = null, long? generation = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -278,19 +303,27 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         if (workingDirectory != null) psi.WorkingDirectory = workingDirectory;
         ManagedPythonRuntime.ApplyEnvironment(psi);
         using var process = new Process { StartInfo = psi };
-        process.Start();
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(timeout);
-        try { await process.WaitForExitAsync(timeoutCts.Token); }
-        catch (OperationCanceledException)
+        if (admission != null) admission.StartOwned(process, generation ?? admission.Capture());
+        else if (!process.Start()) throw new InvalidOperationException("The speech process could not start.");
+        try
         {
-            try { process.Kill(entireProcessTree: true); } catch { }
-            ct.ThrowIfCancellationRequested();
-            throw new TimeoutException("The local speech operation timed out.");
+            Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+            Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(timeout);
+            try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                ct.ThrowIfCancellationRequested();
+                throw new TimeoutException("The local speech operation timed out.");
+            }
+            return (process.ExitCode, await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false));
         }
-        return (process.ExitCode, await stdoutTask, await stderrTask);
+        finally
+        {
+            admission?.Unregister(process);
+        }
     }
 
     public void Dispose()
