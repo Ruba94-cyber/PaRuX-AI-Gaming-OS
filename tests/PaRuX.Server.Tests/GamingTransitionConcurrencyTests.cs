@@ -105,7 +105,8 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     }
 
     private (WorkloadOrchestrator Orchestrator, Launcher Launcher, Input Input) MakeOrchestrator(
-        bool blockLauncher = false, DeferredTrigger? trigger = null, string sessionType = "local")
+        bool blockLauncher = false, DeferredTrigger? trigger = null, string sessionType = "local",
+        int gracePeriodSeconds = 30)
     {
         var store = new GamingProfileStore(Path.Combine(_root, "profiles.json"));
         foreach (GamingProfileDto preset in store.List())
@@ -119,6 +120,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
             Enabled = true,
             TriggerProvider = trigger?.Id ?? "test-trigger",
             SessionType = sessionType,
+            GracePeriodSeconds = gracePeriodSeconds,
             LauncherProvider = "test-launcher",
             InputProvider = "test-input",
             SuspendProvider = "none",
@@ -181,7 +183,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     public async Task Late_remote_disconnect_from_old_session_cannot_exit_a_new_session()
     {
         var sunshine = new DeferredTrigger("sunshine");
-        var (orchestrator, launcher, _) = MakeOrchestrator(trigger: sunshine, sessionType: "remote");
+        var (orchestrator, launcher, _) = MakeOrchestrator(trigger: sunshine, sessionType: "remote", gracePeriodSeconds: 0);
         Assert.True(await orchestrator.EnterGamingSessionAsync("Race test"));
         Assert.Equal("GamingRemote", orchestrator.CurrentState);
 
