@@ -42,7 +42,14 @@ public sealed class ManualGameLibraryUiTests
             string gameId = libraryDocument.RootElement.GetProperty("Games")[0].GetProperty("Id").GetString()!;
             var launch = UiWait.ById(app.MainWindow, "GameLibrary_Launch_" + gameId, ControlType.Button);
             Assert.True(launch.Properties.IsEnabled.ValueOrDefault);
-            // The fixture is deliberately not executable. Do not invoke its Launch button.
+            // The game is deliberately non-executable. Verify the confirmation appears
+            // and that cancelling it cannot start the fixture or change Gaming state.
+            launch.Patterns.Invoke.Pattern.Invoke();
+            var cancelLaunch = Find(() => app.MainWindow.FindFirstDescendant(
+                cf => cf.ByAutomationId("CloseButton").And(cf.ByControlType(ControlType.Button))),
+                "manual game launch consent dialog");
+            cancelLaunch.Patterns.Invoke.Pattern.Invoke();
+            Assert.Equal("fixture, not executable", File.ReadAllText(marker));
             var remove = UiWait.ById(app.MainWindow, "GameLibrary_Remove_" + gameId, ControlType.Button);
             remove.Patterns.Invoke.Pattern.Invoke();
             var confirm = Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton").And(cf.ByControlType(ControlType.Button))), "remove confirmation");
