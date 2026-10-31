@@ -86,6 +86,9 @@ public sealed class GamingGuardService : BackgroundService
             else
             {
                 _shutdown.Cleared();
+                // Reopen only after the runtime Gaming marker is actually cleared.
+                // The speech generation stays invalidated for all old requests.
+                _speech.AllowWorkersAfterGaming();
             }
         }
 
