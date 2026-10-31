@@ -191,7 +191,8 @@ public sealed class GamingProfileStore
     {
         Id = "preset-remote-sunshine",
         Name = "Remote Moonlight/Sunshine",
-        Enabled = true,
+        // Do not start an unrequested remote session; user must enable the preset.
+        Enabled = false,
         SessionType = "remote",
         TriggerProvider = "sunshine",
         TriggerSettings = new Dictionary<string, string> { { "sunshine_url", "http://127.0.0.1:47989/api/config" } },
