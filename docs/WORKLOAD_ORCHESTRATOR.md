@@ -39,6 +39,40 @@ end-to-end transition. Windows build, xUnit, process fixtures and hardware accep
 have **NOT RUN** in this environment. Gaming voice remains disabled by default; no
 background hotword or voice opt-in during games is introduced.
 
+## GOS manual game lifecycle — source-only, Windows verification pending
+
+Fresh installations start with a **manual, launcher-free local Gaming preset** and
+an **inactive Sunshine remote preset**. Existing saved user profiles are preserved;
+the new defaults do not silently rewrite previously configured automatic triggers.
+
+The existing manual game library now offers **Play** with a WinUI confirmation dialog.
+Only the desktop-owner API can invoke `POST /api/v1/gaming/library/{id}/launch`,
+which looks up a saved absolute local `.exe`, validates it again, enters the existing
+WorkloadOrchestrator through a transient profile (native input, no launcher, Quick Resume
+off), then attempts to start that exact executable. No profiles or game-library data are
+rewritten. The game is **not** killed, suspended or assigned to a job object.
+
+When Windows exposes a matching process image path, PID and creation time, PaRuX
+monitors the returned process handle without polling unrelated programs. An exit
+observed after five seconds requests a lazy Return to AI guarded by the original
+Gaming transition version: stale process notifications cannot exit a newer session.
+A bootstrap that exits quickly, a protected process that refuses identity inspection
+or a game launching a separate child **cannot** be treated as verified and may require
+manual Return to AI. Automatic restoration of Windows focus/Console Home is **not**
+claimed. Explicit Return-to-AI is serialized with an in-progress manual launch and
+cancels monitoring without terminating the game.
+
+Playnite is never forcibly terminated when a Gaming session ends; it remains owned
+by the user. XOutput receives only a graceful close request for a PaRuX-started
+process; if it does not exit, the orchestrator reports a failed cleanup instead
+of silently killing it or claiming AI recovery.
+
+**Verification:** pure xUnit, API authorization and optional FlaUI consent tests
+are authored but **NOT RUN** here. Windows build, actual executable launch,
+process identity, graceful exit, game focus and GPU/voice acceptance remain pending.
+This does not complete universal game launching, Quick Resume, controller mapping,
+Console Shell or store installation.
+
 ## Overview
 The **WorkloadOrchestrator** subsystem in PaRuX AI Studio transforms a Windows PC into an always-available local AI server that automatically yields GPU VRAM, CPU cycles, and audio/input resources to local or remote gaming sessions, and restores AI workloads when gaming ends.
 
@@ -51,7 +85,7 @@ The **WorkloadOrchestrator** subsystem in PaRuX AI Studio transforms a Windows P
    - `EnteringGaming`: Detects launcher/display/stream triggers, suspends active AI jobs, and unloads model weights from VRAM.
    - `GamingLocal` / `GamingRemote`: PC is dedicated to gaming (Playnite, Steam Big Picture, Sunshine stream).
    - `GameSuspended`: Quick Resume mode where game processes are suspended via Windows Native (`NtSuspendProcess`) or Nyrna.
-   - `ExitingGaming`: Entered on an explicit user "Return to AI" or when a remote (Sunshine) session's grace period expires. There is no automatic game-process-exit detection: when a local game quits, Gaming Mode stays on until the user returns to AI.
+   - `ExitingGaming`: Entered on an explicit user "Return to AI" or when a remote (Sunshine) session's grace period expires. Ordinary local launcher sessions still require an explicit Return to AI; only a user-confirmed manual-library launch with a verified, directly-owned process can request return on that exact process exit (short-lived launchers are excluded).
    - `RestoringAi`: Lifts the hard-off. The runtime is reloaded only on an explicit "Return to AI" or when the profile sets `restoreAiOnExit`; paused AI jobs and downloads never resume automatically.
 
 2. **Pluggable Modular Providers**:
