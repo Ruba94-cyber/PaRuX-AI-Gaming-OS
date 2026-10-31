@@ -100,11 +100,13 @@ public sealed class ManualGameSessionService : IDisposable
                 }
 
                 var stop = new CancellationTokenSource();
+                CancellationTokenSource? previous;
                 lock (_monitorGate)
                 {
-                    _monitorStop?.Cancel();
+                    previous = _monitorStop;
                     _monitorStop = stop;
                 }
+                try { previous?.Cancel(); } catch (ObjectDisposedException) { }
                 // This monitor never kills the process. Its cancellation only stops observation.
                 _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop);
                 return new(true, true, "Game started. PaRuX will return to AI when this owned process exits normally.");
@@ -180,12 +182,26 @@ public sealed class ManualGameSessionService : IDisposable
     /// <summary>Detaches from an owned game without affecting the Windows process.</summary>
     public void StopTracking()
     {
+        CancellationTokenSource? active;
         lock (_monitorGate)
         {
-            CancellationTokenSource? active = _monitorStop;
+            active = _monitorStop;
             _monitorStop = null;
-            try { active?.Cancel(); } catch (ObjectDisposedException) { }
         }
+        try { active?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    /// <summary>All explicit server Return-to-AI actions serialize against an in-progress
+    /// manual game launch; the user can never release Gaming resources halfway through Start.</summary>
+    public async Task<bool> ExitGamingAsync(CancellationToken ct)
+    {
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            StopTracking();
+            return await _orchestrator.ExitGamingSessionAsync(ct).ConfigureAwait(false);
+        }
+        finally { _launchGate.Release(); }
     }
 
     public void Dispose()
