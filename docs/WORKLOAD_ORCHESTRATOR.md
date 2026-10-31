@@ -1,5 +1,7 @@
 # PaRuX WorkloadOrchestrator & Gaming Resource Sharing
 
+> **Safety status (2026-10-31; source-only):** The legacy window/title/start-time game detector is NOT authorized to suspend a process. Manual Suspend and automatic Quick Resume now refuse to suspend a game until a launcher-owned process instance can be verified by PID, executable and creation time. The current implementation deliberately returns no suspendable PID, so these two features are unavailable; Resume can only act on a previously recorded suspended game. This is a temporary fail-closed protection, not a completed Quick Resume implementation. Gaming entry/exit concurrency and speech child-process quiescence remain open. Windows build and physical acceptance have NOT RUN on this source integration. The descriptions below include planned and legacy behavior and must not be read as present-day acceptance results.
+
 ## Overview
 The **WorkloadOrchestrator** subsystem in PaRuX AI Studio transforms a Windows PC into an always-available local AI server that automatically yields GPU VRAM, CPU cycles, and audio/input resources to local or remote gaming sessions, and restores AI workloads when gaming ends.
 
