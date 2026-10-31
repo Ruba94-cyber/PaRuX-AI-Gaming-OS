@@ -302,11 +302,14 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         };
         if (workingDirectory != null) psi.WorkingDirectory = workingDirectory;
         ManagedPythonRuntime.ApplyEnvironment(psi);
-        using var process = new Process { StartInfo = psi };
-        if (admission != null) admission.StartOwned(process, generation ?? admission.Capture());
-        else if (!process.Start()) throw new InvalidOperationException("The speech process could not start.");
+        var process = new Process { StartInfo = psi };
+        bool started = false;
+        bool confirmedExited = false;
         try
         {
+            if (admission != null) admission.StartOwned(process, generation ?? admission.Capture());
+            else if (!process.Start()) throw new InvalidOperationException("The speech process could not start.");
+            started = true;
             Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
             Task<string> stderrTask = process.StandardError.ReadToEndAsync();
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -322,7 +325,20 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         }
         finally
         {
-            admission?.Unregister(process);
+            if (started)
+            {
+                try
+                {
+                    if (!process.HasExited) process.Kill(entireProcessTree: true);
+                    confirmedExited = process.WaitForExit(1200);
+                }
+                catch { }
+                if (confirmedExited) admission?.Unregister(process);
+            }
+            // On an unconfirmed exit, keep an admitted child handle in the ownership
+            // ledger so Gaming retries can still kill/check that exact process.
+            if (!started || confirmedExited || admission == null)
+                process.Dispose();
         }
     }
 
