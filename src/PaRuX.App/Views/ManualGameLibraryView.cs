@@ -38,7 +38,7 @@ public sealed class ManualGameLibraryView : UserControl
     {
         var root = new StackPanel { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
         root.Children.Add(new TextBlock { Text = T("Game library", "Libreria giochi"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        root.Children.Add(new TextBlock { Text = T("Add local games to your list. PaRuX does not launch or install them here.", "Aggiungi giochi locali alla lista. PaRuX non li avvia né li installa da questa schermata."), TextWrapping = TextWrapping.Wrap });
+        root.Children.Add(new TextBlock { Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.", "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata."), TextWrapping = TextWrapping.Wrap });
         _name.Header = T("Game name", "Nome del gioco");
         _name.MaxLength = 200;
         AutomationProperties.SetAutomationId(_name, "GameLibrary_Name_TextBox");
