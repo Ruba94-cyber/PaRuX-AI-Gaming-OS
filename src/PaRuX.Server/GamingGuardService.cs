@@ -100,6 +100,13 @@ public sealed class GamingGuardService : BackgroundService
     {
         try
         {
+            // Repeat ownership verification on each retry. A failed speech child exit
+            // must not be reported as complete just because the text runtime stopped.
+            if (!_speech.StopWorkersForGaming())
+            {
+                _shutdown.Failed("A managed speech child did not confirm exit; retrying Gaming hard-off.", nowUtc);
+                return;
+            }
             bool released;
             if (ReleaseOverrideForTests is { } release)
             {
