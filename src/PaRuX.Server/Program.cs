@@ -262,6 +262,7 @@ builder.Services.AddSingleton<WorkflowService>();
 builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ManualGameLibrary>();
+builder.Services.AddSingleton<ManualGameSessionService>();
 builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
 builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
 builder.Services.AddSingleton(sp => new WorkloadOrchestrator(
