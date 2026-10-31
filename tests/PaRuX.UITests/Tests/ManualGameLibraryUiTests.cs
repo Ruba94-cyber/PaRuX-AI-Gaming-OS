@@ -40,6 +40,9 @@ public sealed class ManualGameLibraryUiTests
             UiWait.For(() => File.Exists(library) && File.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry persisted");
             using var libraryDocument = JsonDocument.Parse(File.ReadAllText(library));
             string gameId = libraryDocument.RootElement.GetProperty("Games")[0].GetProperty("Id").GetString()!;
+            var launch = UiWait.ById(app.MainWindow, "GameLibrary_Launch_" + gameId, ControlType.Button);
+            Assert.True(launch.Properties.IsEnabled.ValueOrDefault);
+            // The fixture is deliberately not executable. Do not invoke its Launch button.
             var remove = UiWait.ById(app.MainWindow, "GameLibrary_Remove_" + gameId, ControlType.Button);
             remove.Patterns.Invoke.Pattern.Invoke();
             var confirm = Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton").And(cf.ByControlType(ControlType.Button))), "remove confirmation");
