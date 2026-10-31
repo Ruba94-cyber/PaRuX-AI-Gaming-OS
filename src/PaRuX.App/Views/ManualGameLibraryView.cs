@@ -18,9 +18,10 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBox _name = new();
     private readonly TextBox _path = new();
     private readonly StackPanel _games = new() { Spacing = 8 };
-    private readonly StackPanel _steamGames = new() { Spacing = 8 };
-    private readonly TextBlock _steamStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly StackPanel _discoveredGames = new() { Spacing = 8 };
+    private readonly TextBlock _discoveryStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _steamRefresh = new();
+    private readonly Button _epicRefresh = new();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _add = new();
     private readonly Button _browse = new();
@@ -68,23 +69,27 @@ public sealed class ManualGameLibraryView : UserControl
 
         root.Children.Add(new TextBlock
         {
-            Text = T("Installed Steam games", "Giochi Steam installati"),
+            Text = T("Installed store games", "Giochi degli store installati"),
             FontSize = 20,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         });
         root.Children.Add(new TextBlock
         {
-            Text = T("Read-only discovery of local Steam installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam locali. Nessun gioco viene avviato, installato o modificato."),
+            Text = T("Read-only discovery of local Steam and Epic installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam ed Epic locali. Nessun gioco viene avviato, installato o modificato."),
             TextWrapping = TextWrapping.Wrap
         });
         _steamRefresh.Content = T("Detect Steam games", "Rileva giochi Steam");
         AutomationProperties.SetAutomationId(_steamRefresh, "GameLibrary_Steam_Refresh_Button");
         _steamRefresh.Click += async (_, _) => await RefreshSteamAsync();
         root.Children.Add(_steamRefresh);
-        AutomationProperties.SetAutomationId(_steamStatus, "GameLibrary_Steam_Status_Text");
-        AutomationProperties.SetLiveSetting(_steamStatus, AutomationLiveSetting.Polite);
-        root.Children.Add(_steamStatus);
-        root.Children.Add(_steamGames);
+        _epicRefresh.Content = T("Detect Epic games", "Rileva giochi Epic");
+        AutomationProperties.SetAutomationId(_epicRefresh, "GameLibrary_Epic_Refresh_Button");
+        _epicRefresh.Click += async (_, _) => await RefreshEpicAsync();
+        root.Children.Add(_epicRefresh);
+        AutomationProperties.SetAutomationId(_discoveryStatus, "GameLibrary_Steam_Status_Text");
+        AutomationProperties.SetLiveSetting(_discoveryStatus, AutomationLiveSetting.Polite);
+        root.Children.Add(_discoveryStatus);
+        root.Children.Add(_discoveredGames);
 
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     }
@@ -121,34 +126,42 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private async Task RefreshSteamAsync()
+    private Task RefreshSteamAsync() => RefreshDetectedAsync(
+        "Steam", () => GamingOrchestratorClient.Current.DiscoverSteamGamesAsync());
+
+    private Task RefreshEpicAsync() => RefreshDetectedAsync(
+        "Epic", () => GamingOrchestratorClient.Current.DiscoverEpicGamesAsync());
+
+    private async Task RefreshDetectedAsync(
+        string provider,
+        Func<Task<GamingCallResult<List<DiscoveredGameDto>>>> fetch)
     {
         if (_busy) return;
         SetBusy(true);
-        _steamGames.Children.Clear();
-        _steamStatus.Text = T("Detecting installed Steam games…", "Rilevamento giochi Steam installati…");
+        _discoveredGames.Children.Clear();
+        _discoveryStatus.Text = T($"Detecting installed {provider} games…", $"Rilevamento giochi {provider} installati…");
         try
         {
-            var result = await GamingOrchestratorClient.Current.DiscoverSteamGamesAsync();
+            GamingCallResult<List<DiscoveredGameDto>> result = await fetch();
             if (!result.Succeeded || result.Value is null)
             {
-                _steamStatus.Text = T("Steam discovery unavailable. No files were changed.", "Rilevamento Steam non disponibile. Nessun file è stato modificato.");
+                _discoveryStatus.Text = T($"{provider} discovery unavailable. No files were changed.", $"Rilevamento {provider} non disponibile. Nessun file è stato modificato.");
                 return;
             }
-            _steamStatus.Text = result.Value.Count == 0
-                ? T("No installed Steam games found.", "Nessun gioco Steam installato rilevato.")
-                : T($"Found {result.Value.Count} Steam games (showing up to 100).", $"Rilevati {result.Value.Count} giochi Steam (massimo 100 visualizzati).");
+            _discoveryStatus.Text = result.Value.Count == 0
+                ? T($"No installed {provider} games found.", $"Nessun gioco {provider} installato rilevato.")
+                : T($"Found {result.Value.Count} {provider} games (showing up to 100).", $"Rilevati {result.Value.Count} giochi {provider} (massimo 100 visualizzati).");
             foreach (DiscoveredGameDto game in result.Value.Take(100))
             {
                 var item = new StackPanel { Spacing = 2, Padding = new Thickness(12) };
                 item.Children.Add(new TextBlock { Text = game.Name, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                item.Children.Add(new TextBlock { Text = "Steam #" + game.ProviderGameId, TextWrapping = TextWrapping.Wrap });
-                _steamGames.Children.Add(item);
+                item.Children.Add(new TextBlock { Text = provider + " #" + game.ProviderGameId, TextWrapping = TextWrapping.Wrap });
+                _discoveredGames.Children.Add(item);
             }
         }
         catch (Exception)
         {
-            _steamStatus.Text = T("Steam discovery failed. No files were changed.", "Rilevamento Steam non riuscito. Nessun file è stato modificato.");
+            _discoveryStatus.Text = T($"{provider} discovery failed. No files were changed.", $"Rilevamento {provider} non riuscito. Nessun file è stato modificato.");
         }
         finally { SetBusy(false); }
     }
@@ -211,5 +224,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
 }
