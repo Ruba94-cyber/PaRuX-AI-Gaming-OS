@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Linq;
 using System.Text.Json;
 using PaRuX.Contracts;
@@ -36,6 +38,8 @@ public sealed class ManualGameLibrary
         path = Path.GetFullPath(path);
         lock (_gate)
         {
+            // Prevent lost updates across independent PaRuX Core instances.
+            using FileStream lease = AcquireWriteLease();
             List<ManualGameDto> games = Read();
             if (games.Count >= 10000) throw new InvalidOperationException("Library limit reached.");
             if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase)))
@@ -51,12 +55,36 @@ public sealed class ManualGameLibrary
     {
         lock (_gate)
         {
+            using FileStream lease = AcquireWriteLease();
             List<ManualGameDto> games = Read();
             int index = games.FindIndex(g => string.Equals(g.Id, id, StringComparison.Ordinal));
             if (index < 0) return false;
             games.RemoveAt(index);
             Write(games);
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Cross-process lease around the read-modify-replace transaction. Keep the tiny
+    /// .lock file: deleting it during another writer's wait could split the lock identity.
+    /// The OS releases the handle automatically on process termination.
+    /// </summary>
+    private FileStream AcquireWriteLease()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        string lockPath = _path + ".lock";
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (elapsed.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                Thread.Sleep(30); // bounded contention; never a global or infinite wait
+            }
         }
     }
 
