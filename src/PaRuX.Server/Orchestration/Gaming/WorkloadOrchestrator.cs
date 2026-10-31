@@ -29,6 +29,14 @@ public sealed class WorkloadOrchestrator : BackgroundService
     private readonly ILogger<WorkloadOrchestrator>? _logger;
 
     private readonly object _stateGate = new();
+    // All entry/exit and suspend/resume operations share a single asynchronous transaction gate.
+    // Never await while holding _stateGate. This prevents overlapping stop/start side effects.
+    private readonly SemaphoreSlim _transitionGate = new(1, 1);
+    // Incremented on accepted transitions and explicit Return to AI requests. Polled
+    // triggers carry the version they observed so stale async checks cannot restart Gaming.
+    private long _transitionVersion;
+    // User-initiated Return to AI must not immediately re-enter on the same held trigger.
+    private bool _automaticTriggersNeedReset;
 
     private string _state = "AiReady";
     private GamingProfileDto? _activeProfile;
@@ -275,6 +283,13 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     public async Task<bool> SuspendActiveGameAsync(CancellationToken ct = default)
     {
+        await _transitionGate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await SuspendActiveGameCoreAsync(ct).ConfigureAwait(false); }
+        finally { _transitionGate.Release(); }
+    }
+
+    private async Task<bool> SuspendActiveGameCoreAsync(CancellationToken ct)
+    {
         lock (_stateGate)
         {
             if (_state is not ("GamingLocal" or "GamingRemote")) return false;
@@ -307,6 +322,13 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     public async Task<bool> ResumeSuspendedGameAsync(CancellationToken ct = default)
     {
+        await _transitionGate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await ResumeSuspendedGameCoreAsync(ct).ConfigureAwait(false); }
+        finally { _transitionGate.Release(); }
+    }
+
+    private async Task<bool> ResumeSuspendedGameCoreAsync(CancellationToken ct)
+    {
         int pid;
         GamingProfileDto profile;
         lock (_stateGate)
@@ -334,11 +356,26 @@ public sealed class WorkloadOrchestrator : BackgroundService
         return false;
     }
 
-    private async Task<bool> TransitionToGamingAsync(GamingProfileDto profile, string triggerId, CancellationToken ct)
+    private async Task<bool> TransitionToGamingAsync(GamingProfileDto profile, string triggerId, CancellationToken ct,
+        long? observedVersion = null)
+    {
+        await _transitionGate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await TransitionToGamingCoreAsync(profile, triggerId, ct, observedVersion).ConfigureAwait(false); }
+        finally { _transitionGate.Release(); }
+    }
+
+    private async Task<bool> TransitionToGamingCoreAsync(GamingProfileDto profile, string triggerId, CancellationToken ct,
+        long? observedVersion)
     {
         lock (_stateGate)
         {
-            if (_state is "EnteringGaming" or "GamingLocal" or "GamingRemote") return true;
+            if (observedVersion.HasValue &&
+                (_transitionVersion != observedVersion.Value || _automaticTriggersNeedReset))
+                return false;
+            if (_state is "GamingLocal" or "GamingRemote") return true;
+            // No new launch while an exit, error recovery or suspended session is unresolved.
+            if (_state != "AiReady" || _runtime.GamingMode) return false;
+            _transitionVersion++;
             SetState("EnteringGaming");
             _sessionStartedUtc = DateTime.UtcNow;
             _activeProfile = profile;
@@ -439,16 +476,41 @@ public sealed class WorkloadOrchestrator : BackgroundService
         }
     }
 
-    private async Task<bool> TransitionToAiAsync(bool userInitiated, CancellationToken ct)
+    private async Task<bool> TransitionToAiAsync(bool userInitiated, CancellationToken ct,
+        long? observedVersion = null)
+    {
+        // Invalidate outstanding automatic trigger checks immediately, before waiting
+        // for any in-flight Gaming entry to complete.
+        if (userInitiated)
+        {
+            lock (_stateGate)
+            {
+                _transitionVersion++;
+                _automaticTriggersNeedReset = true;
+            }
+        }
+
+        await _transitionGate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await TransitionToAiCoreAsync(userInitiated, ct, observedVersion).ConfigureAwait(false); }
+        finally { _transitionGate.Release(); }
+    }
+
+    private async Task<bool> TransitionToAiCoreAsync(bool userInitiated, CancellationToken ct,
+        long? observedVersion)
     {
         GamingProfileDto profile;
         lock (_stateGate)
         {
+            // An automatic remote disconnect is valid only for the session actually observed.
+            if (observedVersion.HasValue &&
+                (_transitionVersion != observedVersion.Value || _state != "GamingRemote"))
+                return false;
             // "AiReady" is only really ready when the runtime agrees: after a restart during a
             // gaming session the runtime's persisted gaming flag stayed on while this state said
             // AiReady, and Return to AI returned here without clearing it (live test: every AI
             // request refused, no way out from the UI).
             if (_state == "RestoringAi" || (_state == "AiReady" && !_runtime.GamingMode)) return true;
+            _transitionVersion++;
             SetState("ExitingGaming");
             profile = _activeProfile ?? _profileStore.GetActiveOrDefault();
         }
@@ -603,60 +665,72 @@ public sealed class WorkloadOrchestrator : BackgroundService
         }
     }
 
-    private async Task PollTriggersAndSessionAsync(CancellationToken ct)
+    // Exposed to deterministic server tests only; there is no standalone polling worker.
+    internal async Task PollTriggersAndSessionAsync(CancellationToken ct)
     {
         string currentState;
         GamingProfileDto profile;
+        long version;
         lock (_stateGate)
         {
             currentState = _state;
             profile = _activeProfile ?? _profileStore.GetActiveOrDefault();
+            version = _transitionVersion;
         }
 
-        // 1. If currently in Remote Gaming session, check for Sunshine disconnect & grace period
+        // Remote-disconnect checks are asynchronous. Never dispatch fire-and-forget
+        // exits from inside _stateGate, and ignore an answer from a previous session.
         if (currentState == "GamingRemote")
         {
-            IGamingTriggerProvider sunshineTrigger = _triggerProviders.First(t => t.Id == "sunshine");
+            IGamingTriggerProvider? sunshineTrigger = _triggerProviders.FirstOrDefault(
+                t => string.Equals(t.Id, "sunshine", StringComparison.OrdinalIgnoreCase));
+            if (sunshineTrigger == null || !sunshineTrigger.IsDetected) return;
             bool isTriggered = await sunshineTrigger.IsTriggeredAsync(profile, ct).ConfigureAwait(false);
-            if (!isTriggered)
+            bool exit = false;
+            lock (_stateGate)
             {
-                lock (_stateGate)
+                if (_state != "GamingRemote" || _transitionVersion != version) return;
+                if (isTriggered) _remoteDisconnectUtc = null;
+                else
                 {
                     _remoteDisconnectUtc ??= DateTime.UtcNow;
-                    TimeSpan disconnectedDuration = DateTime.UtcNow - _remoteDisconnectUtc.Value;
-                    if (disconnectedDuration.TotalSeconds >= profile.GracePeriodSeconds)
-                    {
-                        // Grace period expired without reconnect: exit gaming session
-                        _ = ExitGamingSessionAutomaticallyAsync(ct);
-                    }
+                    exit = (DateTime.UtcNow - _remoteDisconnectUtc.Value).TotalSeconds >= profile.GracePeriodSeconds;
                 }
             }
-            else
-            {
-                lock (_stateGate)
-                {
-                    _remoteDisconnectUtc = null; // Reconnected! Reset grace period timer
-                }
-            }
+            if (exit) await TransitionToAiAsync(userInitiated: false, ct, version).ConfigureAwait(false);
             return;
         }
 
-        // 2. If in AiReady state, check if any enabled trigger provider triggers a session
-        if (currentState == "AiReady")
+        if (currentState != "AiReady") return;
+
+        // A held trigger cannot undo an explicit Return to AI. A complete inactive
+        // sample is required to rearm it. The same version is checked after every await.
+        IReadOnlyList<GamingProfileDto> profiles = _profileStore.List();
+        bool anyTriggered = false;
+        foreach (GamingProfileDto p in profiles.Where(p => p.Enabled))
         {
-            IReadOnlyList<GamingProfileDto> profiles = _profileStore.List();
-            foreach (GamingProfileDto p in profiles.Where(p => p.Enabled))
+            IGamingTriggerProvider? trigger = _triggerProviders.FirstOrDefault(
+                t => t.Id.Equals(p.TriggerProvider, StringComparison.OrdinalIgnoreCase));
+            if (trigger == null || !trigger.IsDetected) continue;
+            bool triggered = await trigger.IsTriggeredAsync(p, ct).ConfigureAwait(false);
+            lock (_stateGate)
             {
-                IGamingTriggerProvider? trigger = _triggerProviders.FirstOrDefault(t => t.Id.Equals(p.TriggerProvider, StringComparison.OrdinalIgnoreCase));
-                if (trigger != null && trigger.IsDetected)
-                {
-                    bool triggered = await trigger.IsTriggeredAsync(p, ct).ConfigureAwait(false);
-                    if (triggered)
-                    {
-                        _ = TransitionToGamingAsync(p, trigger.Id, ct);
-                        break;
-                    }
-                }
+                if (_state != "AiReady" || _transitionVersion != version) return;
+            }
+            if (!triggered) continue;
+            anyTriggered = true;
+            bool rearmRequired;
+            lock (_stateGate) rearmRequired = _automaticTriggersNeedReset;
+            if (rearmRequired) continue;
+            await TransitionToGamingAsync(p, trigger.Id, ct, version).ConfigureAwait(false);
+            return;
+        }
+        if (!anyTriggered)
+        {
+            lock (_stateGate)
+            {
+                if (_state == "AiReady" && _transitionVersion == version)
+                    _automaticTriggersNeedReset = false;
             }
         }
     }
