@@ -31,6 +31,8 @@ public sealed class ManualGameLibraryView : UserControl
     private bool _busy;
     private readonly TextBox _filter = new();
     private List<ManualGameDto> _allGames = new();
+    private List<DiscoveredGameDto> _lastDetectedGames = new();
+    private string _lastDetectedProvider = "Steam";
     private int _page;
     private readonly Button _previous = new();
     private readonly Button _next = new();
@@ -126,6 +128,7 @@ public sealed class ManualGameLibraryView : UserControl
         _status.FontSize = bodySize;
         _discoveryStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
+        RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
     }
 
     public async void OnShown() => await RefreshAsync();
@@ -172,6 +175,8 @@ public sealed class ManualGameLibraryView : UserControl
     {
         if (_busy) return;
         SetBusy(true);
+        _lastDetectedProvider = provider;
+        _lastDetectedGames.Clear();
         _discoveredGames.Children.Clear();
         _discoveryStatus.Text = T($"Detecting installed {provider} games…", $"Rilevamento giochi {provider} installati…");
         try
@@ -182,22 +187,44 @@ public sealed class ManualGameLibraryView : UserControl
                 _discoveryStatus.Text = T($"{provider} discovery unavailable. No files were changed.", $"Rilevamento {provider} non disponibile. Nessun file è stato modificato.");
                 return;
             }
+            _lastDetectedGames = result.Value.ToList();
             _discoveryStatus.Text = result.Value.Count == 0
                 ? T($"No installed {provider} games found.", $"Nessun gioco {provider} installato rilevato.")
                 : T($"Found {result.Value.Count} {provider} games (showing up to 100).", $"Rilevati {result.Value.Count} giochi {provider} (massimo 100 visualizzati).");
-            foreach (DiscoveredGameDto game in result.Value.Take(100))
-            {
-                var item = new StackPanel { Spacing = 2, Padding = new Thickness(12) };
-                item.Children.Add(new TextBlock { Text = game.Name, FontSize = _consolePresentation ? 24 : 16, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                item.Children.Add(new TextBlock { Text = provider + " #" + game.ProviderGameId, TextWrapping = TextWrapping.Wrap });
-                _discoveredGames.Children.Add(item);
-            }
+            RenderDiscoveredGames();
         }
         catch (Exception)
         {
             _discoveryStatus.Text = T($"{provider} discovery failed. No files were changed.", $"Rilevamento {provider} non riuscito. Nessun file è stato modificato.");
         }
         finally { SetBusy(false); }
+    }
+
+    private void RenderDiscoveredGames()
+    {
+        _discoveredGames.Children.Clear();
+        foreach (DiscoveredGameDto game in _lastDetectedGames.Take(100))
+        {
+            var item = new StackPanel
+            {
+                Spacing = _consolePresentation ? 12 : 2,
+                Padding = new Thickness(_consolePresentation ? 20 : 12)
+            };
+            item.Children.Add(new TextBlock
+            {
+                Text = game.Name,
+                FontSize = _consolePresentation ? 24 : 16,
+                TextWrapping = TextWrapping.Wrap,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            item.Children.Add(new TextBlock
+            {
+                Text = _lastDetectedProvider + " #" + game.ProviderGameId,
+                FontSize = _consolePresentation ? 18 : 14,
+                TextWrapping = TextWrapping.Wrap
+            });
+            _discoveredGames.Children.Add(item);
+        }
     }
 
     private async Task RefreshAsync()
@@ -237,13 +264,16 @@ public sealed class ManualGameLibraryView : UserControl
             var launch = new Button
             {
                 Content = T("Play", "Gioca"),
-                HorizontalAlignment = HorizontalAlignment.Left
+                HorizontalAlignment = HorizontalAlignment.Left,
+                FontSize = _consolePresentation ? 20 : 14,
+                MinHeight = _consolePresentation ? 56 : 32
             };
             AutomationProperties.SetName(launch, T("Launch ", "Avvia ") + game.Name);
             AutomationProperties.SetAutomationId(launch, "GameLibrary_Launch_" + game.Id);
             launch.Click += async (_, _) => await LaunchAsync(game);
             card.Children.Add(launch);
-            var remove = new Button { Content = T("Remove from list", "Rimuovi dalla lista"), HorizontalAlignment = HorizontalAlignment.Left };
+            var remove = new Button { Content = T("Remove from list", "Rimuovi dalla lista"), HorizontalAlignment = HorizontalAlignment.Left,
+                FontSize = _consolePresentation ? 20 : 14, MinHeight = _consolePresentation ? 56 : 32 };
             AutomationProperties.SetName(remove, T("Remove ", "Rimuovi ") + game.Name);
             AutomationProperties.SetAutomationId(remove, "GameLibrary_Remove_" + game.Id);
             remove.Click += async (_, _) => await RemoveAsync(game);
