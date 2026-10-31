@@ -44,7 +44,7 @@ try {
     $testFilter = 'FullyQualifiedName~NativeXInputProbeTests|FullyQualifiedName~GamingProviderInjectionTests|FullyQualifiedName~VoiceGamingTransitionTests|FullyQualifiedName~SpeechProcessAdmissionTests|FullyQualifiedName~SpeechWarmupCoordinatorTests|FullyQualifiedName~ContinuousSpeechCancellationIntegrationTests|FullyQualifiedName~GamingTransitionIntegrationTests|FullyQualifiedName~GamingTransitionConcurrencyTests|FullyQualifiedName~WorkloadOrchestratorTests|FullyQualifiedName~EpicGameDiscoveryTests|FullyQualifiedName~EpicGameDiscoverySecurityTests|FullyQualifiedName~SteamGameDiscoveryTests|FullyQualifiedName~SteamGameDiscoverySecurityTests|FullyQualifiedName~ManualGameLibraryTests|FullyQualifiedName~ThemeResourceRegressionTests'
     Invoke-GosStep 'GOS focused Server xUnit regression' @('test', $serverTests, '-c', 'Release', '-p:Platform=x64', '--filter', $testFilter)
     if ($RunUi) {
-        Invoke-GosStep 'Chat Home FlaUI acceptance' @('test', $uiTests, '-c', 'Release', '-p:Platform=x64', '--filter', 'FullyQualifiedName~ChatHomeStarterTests')
+        Invoke-GosStep 'Chat Home FlaUI acceptance' @('test', $uiTests, '-c', 'Release', '-p:Platform=x64', '--filter', 'FullyQualifiedName~ChatHomeStarterTests|FullyQualifiedName~ManualGameLibraryUiTests')
     } else {
         Write-Host '[GOS] Chat Home FlaUI acceptance: NOT RUN (pass -RunUi on an interactive Windows desktop)'
     }
