@@ -49,6 +49,30 @@ public sealed class ManualGameLibraryUiTests
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Manual_library_adds_and_removes_entry_without_removing_game_file), ex); throw; }
     }
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Store_discovery_controls_use_existing_library_navigation_and_accessible_buttons()
+    {
+        using var app = new UiTestApplication(nameof(Store_discovery_controls_use_existing_library_navigation_and_accessible_buttons));
+        try
+        {
+            var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
+            new InstallProgressPage(app).Invoke(navigation);
+            var steam = UiWait.ById(app.MainWindow, "GameLibrary_Steam_Refresh_Button", ControlType.Button);
+            var epic = UiWait.ById(app.MainWindow, "GameLibrary_Epic_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(steam.Name));
+            Assert.False(string.IsNullOrWhiteSpace(epic.Name));
+            Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
+            Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            // Do not click: this checks UI reachability without reading a real user's
+            // installed game list or making a test depend on machine-specific stores.
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(nameof(Store_discovery_controls_use_existing_library_navigation_and_accessible_buttons), ex);
+            throw;
+        }
+    }
+
     private static AutomationElement Find(Func<AutomationElement?> find, string description)
     {
         AutomationElement? element = null;
