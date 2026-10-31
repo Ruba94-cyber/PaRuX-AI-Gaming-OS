@@ -587,7 +587,9 @@ public sealed class WorkloadOrchestrator : BackgroundService
             _suspendedAiWorkloads.Clear();
             _suspendedAiWorkloads.Add(unloadedLabel);
             _suspendedAiWorkloads.Add("ComfyUI media engine stopped");
-            _suspendedAiWorkloads.Add("Speech TTS/STT workers stopped");
+            _suspendedAiWorkloads.Add(speechStopped
+                ? "Managed speech child processes confirmed exited (GPU telemetry not yet verified)"
+                : "Managed speech process release not confirmed");
         }
 
         // A runtime that did not stop still holds VRAM the game needs: report it instead of calling the hard-off done.
@@ -595,6 +597,9 @@ public sealed class WorkloadOrchestrator : BackgroundService
         if (!await _runtime.ForceGamingShutdownAsync(ct).ConfigureAwait(false))
             throw new InvalidOperationException(
                 "Gaming Mode is on, but a local AI runtime did not stop and still holds resources; PaRuX keeps retrying the release.");
+        if (!speechStopped)
+            throw new InvalidOperationException(
+                "Gaming Mode could not confirm that all PaRuX-owned speech processes exited; Gaming Guard will retry.");
     }
 
     /// <summary>
