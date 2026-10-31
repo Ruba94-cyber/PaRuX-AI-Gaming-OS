@@ -38,7 +38,7 @@ internal sealed class SpeechProcessAdmission
         }
     }
 
-    internal void StartOwned(Process process, long generation)
+    internal void StartOwned(Process process, long generation, Func<Process, bool>? startOverrideForTests = null)
     {
         ArgumentNullException.ThrowIfNull(process);
         lock (_gate)
@@ -48,7 +48,7 @@ internal sealed class SpeechProcessAdmission
                 throw new OperationCanceledException("Stale speech worker start was cancelled by Gaming Mode.");
             // No Gaming Stop can pass through this gate between Process.Start and ownership
             // registration. A failed Start never adds the process to the owned set.
-            if (!process.Start())
+            if (!(startOverrideForTests?.Invoke(process) ?? process.Start()))
                 throw new InvalidOperationException("The managed speech child process could not start.");
             _owned.Add(process);
         }
