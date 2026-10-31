@@ -66,6 +66,48 @@ public sealed class ManualGameLibraryTests
     }
 
     [Fact]
+    public async Task Independent_store_instances_do_not_lose_concurrent_additions()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-games-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string file = Path.Combine(dir, "library.json");
+            await Task.WhenAll(Enumerable.Range(0, 24).Select(i => Task.Run(() =>
+            {
+                var store = new ManualGameLibrary(file);
+                store.Add(new AddManualGameRequest("Game " + i, Path.Combine(dir, "game" + i + ".exe")));
+            })));
+            var final = new ManualGameLibrary(file).List();
+            Assert.Equal(24, final.Count);
+            Assert.Equal(24, final.Select(g => g.Id).Distinct().Count());
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public async Task Different_store_instances_cannot_insert_the_same_executable_twice()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-games-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string file = Path.Combine(dir, "library.json");
+            string executable = Path.Combine(dir, "game.exe");
+            var outcomes = await Task.WhenAll(Enumerable.Range(0, 12).Select(i => Task.Run(() =>
+            {
+                try
+                {
+                    new ManualGameLibrary(file).Add(new AddManualGameRequest("Game " + i, executable));
+                    return true;
+                }
+                catch (InvalidOperationException) { return false; }
+            })));
+            Assert.Single(outcomes.Where(success => success));
+            Assert.Single(new ManualGameLibrary(file).List());
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Corrupt_or_future_library_is_preserved_and_never_replaced()
     {
         string dir = Path.Combine(Path.GetTempPath(), "parux-games-" + Guid.NewGuid().ToString("N"));
