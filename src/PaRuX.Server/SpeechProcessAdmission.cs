@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace PaRuX.Server;
 
@@ -10,6 +11,10 @@ namespace PaRuX.Server;
 /// </summary>
 internal sealed class SpeechProcessAdmission
 {
+    private static readonly ConditionalWeakTable<LocalRuntimeService, SpeechProcessAdmission> RuntimeAdmissions = new();
+    internal static SpeechProcessAdmission For(LocalRuntimeService runtime) =>
+        RuntimeAdmissions.GetValue(runtime, static r => new SpeechProcessAdmission(() => r.GamingMode));
+
     private readonly object _gate = new();
     private readonly Func<bool> _isGaming;
     private readonly HashSet<Process> _owned = new();
@@ -59,7 +64,10 @@ internal sealed class SpeechProcessAdmission
         lock (_gate) _owned.Remove(process);
     }
 
-    internal void BlockForGaming()
+    /// <summary>Issue the stop and confirm that each registered child exited within
+    /// a bounded wait. False is an unconfirmed release, never success; GPU memory still
+    /// requires separate physical telemetry. Do not remove a still-running owned process.</summary>
+    internal bool BlockForGaming()
     {
         Process[] children;
         lock (_gate)
@@ -69,11 +77,18 @@ internal sealed class SpeechProcessAdmission
             children = _owned.ToArray();
         }
 
+        bool allExited = true;
         foreach (Process child in children)
         {
-            try { if (!child.HasExited) child.Kill(entireProcessTree: true); }
-            catch { /* Stop is best-effort; Windows integration must verify actual child exit. */ }
+            try
+            {
+                if (!child.HasExited)
+                    child.Kill(entireProcessTree: true);
+                if (!child.WaitForExit(1200)) allExited = false;
+            }
+            catch { allExited = false; }
         }
+        return allExited;
     }
 
     internal void ReopenAfterGaming()
