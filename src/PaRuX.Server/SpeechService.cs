@@ -36,7 +36,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     public SpeechService(LocalRuntimeService runtime)
     {
         _runtime = runtime;
-        _admission = new SpeechProcessAdmission(() => runtime.GamingMode);
+        _admission = SpeechProcessAdmission.For(runtime);
     }
 
     public async Task<SpeechEngineStatus> GetStatusAsync(CancellationToken ct)
