@@ -288,15 +288,22 @@ public sealed class WorkloadOrchestrator : BackgroundService
         return TransitionToGamingAsync(profile, "manual-game", ct);
     }
 
-    internal bool IsManualGameSessionActive
+    internal long? ActiveManualGameSessionVersion
     {
         get
         {
             lock (_stateGate)
                 return _state == "GamingLocal" &&
-                    string.Equals(_activeTriggerId, "manual-game", StringComparison.Ordinal);
+                    string.Equals(_activeTriggerId, "manual-game", StringComparison.Ordinal)
+                    ? _transitionVersion
+                    : null;
         }
     }
+
+    /// <summary>Only the exact manual session version may be auto-closed on process exit.
+    /// A late process notification cannot exit a newer manual, local or remote session.</summary>
+    internal Task<bool> ExitManualGameSessionAfterProcessExitAsync(long observedVersion, CancellationToken ct) =>
+        TransitionToAiAsync(userInitiated: false, ct, observedVersion);
 
     public async Task<bool> EnterGamingSessionAsync(string? profileName = null, CancellationToken ct = default)
     {
@@ -538,7 +545,9 @@ public sealed class WorkloadOrchestrator : BackgroundService
         {
             // An automatic remote disconnect is valid only for the session actually observed.
             if (observedVersion.HasValue &&
-                (_transitionVersion != observedVersion.Value || _state != "GamingRemote"))
+                (_transitionVersion != observedVersion.Value ||
+                 !(_state == "GamingRemote" ||
+                   (_state == "GamingLocal" && _activeTriggerId == "manual-game"))))
                 return false;
             // "AiReady" is only really ready when the runtime agrees: after a restart during a
             // gaming session the runtime's persisted gaming flag stayed on while this state said
