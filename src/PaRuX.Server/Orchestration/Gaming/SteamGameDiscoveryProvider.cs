@@ -10,7 +10,7 @@ namespace PaRuX.Server.Orchestration.Gaming;
 public sealed class SteamGameDiscoveryProvider
 {
     private static readonly Regex VdfPair = new(
-        """"([^"]+)"\s+"([^"]*)"""",
+        "\"([^\"]+)\"\\s+\"([^\"]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
 
