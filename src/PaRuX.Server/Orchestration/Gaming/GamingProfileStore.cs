@@ -170,9 +170,11 @@ public sealed class GamingProfileStore
         Name = "Local Console",
         Enabled = true,
         SessionType = "local",
-        TriggerProvider = "display",
+        // A TV or second monitor is not authorization to launch a game or disable AI.
+        // Automatic display triggers are opt-in in the profile editor.
+        TriggerProvider = "manual",
         TriggerSettings = new Dictionary<string, string> { { "require_controller", "false" } },
-        LauncherProvider = "playnite",
+        LauncherProvider = "none",
         LauncherSettings = new Dictionary<string, string>(),
         InputProvider = "native",
         InputSettings = new Dictionary<string, string>(),
