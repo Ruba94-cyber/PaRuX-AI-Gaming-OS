@@ -46,6 +46,13 @@ public static class GamingEndpoints
             { return Results.Problem("The local game library could not be saved."); }
         }).RequireDesktopOwner();
 
+        app.MapPost("/api/v1/gaming/library/{id}/launch", async (
+            string id, ManualGameSessionService sessions, CancellationToken ct) =>
+        {
+            ManualGameLaunchResult result = await sessions.LaunchAsync(id, ct);
+            return result.Launched ? Results.Ok(result) : Results.Conflict(result);
+        }).RequireDesktopOwner();
+
         app.MapDelete("/api/v1/gaming/library/{id}", (string id, ManualGameLibrary library) =>
         {
             try { return library.Remove(id) ? Results.NoContent() : Results.NotFound() as IResult; }
