@@ -109,10 +109,11 @@ public sealed class ManualGameSessionService : IDisposable
                 try { previous?.Cancel(); } catch (ObjectDisposedException) { }
                 // This monitor never kills the process. Its cancellation only stops observation.
                 _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop);
-                return new(true, true, "Game started. PaRuX will return to AI when this owned process exits normally.");
+                return new(true, true, "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
-                or InvalidOperationException or OperationCanceledException)
+                or InvalidOperationException or OperationCanceledException or ArgumentException or NotSupportedException
+                or System.Security.SecurityException)
             {
                 if (process != null && !started) process.Dispose();
                 if (!started)
