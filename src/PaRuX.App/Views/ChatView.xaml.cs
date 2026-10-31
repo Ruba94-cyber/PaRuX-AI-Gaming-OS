@@ -127,7 +127,9 @@ namespace PaRuX.Views
             _gameMarkerTimer.IsRepeating = true;
             _gameMarkerTimer.Tick += (s, e) =>
             {
-                if (LocalAiController.Current.IsGameActive() != _shownGameActive) _ = RefreshHeaderAsync();
+                bool gameActive = LocalAiController.Current.IsGameActive();
+                _voiceGamingTransition.Observe(gameActive);
+                if (gameActive != _shownGameActive) _ = RefreshHeaderAsync();
             };
 
             ChatSession.Current.ConversationChanged += OnConversationChanged;
@@ -2115,6 +2117,11 @@ namespace PaRuX.Views
                     ShowPersistentVoiceStatus(VoiceMessages.TranscribeTimedOut());
                     return;
                 }
+                if (GamingManager.Current.IsActive)
+                {
+                    ShowPersistentVoiceStatus(VoiceMessages.GamingMode("voice input"));
+                    return; // A late transcription must not populate or auto-send the composer during Gaming.
+                }
                 if (text.Length == 0) { ShowPersistentVoiceStatus(VoiceMessages.NoSpeechRecognized(analysis.LooksLikeSteadyNoise)); return; }
 
                 string existing = InputBox.Text ?? string.Empty;
@@ -2182,13 +2189,7 @@ namespace PaRuX.Views
         {
             GamingManager.Current.StateChanged -= OnVoiceGamingStateChanged;
             _voiceGamingTransitionInstance = null;
-            try
-            {
-                _voiceConversation?.Stop();
-                if (_voice.Phase == VoiceRecordingPhase.Recording) CancelVoiceRecording();
-                StopReadAloud();
-            }
-            catch (Exception ex) { Log.Write("Voice cleanup failed: " + ex.Message); }
+            StopVoiceUiResources();
         }
 
         // ------------------------------------------------------------------
@@ -2197,10 +2198,21 @@ namespace PaRuX.Views
         private VoiceConversationController? _voiceConversation;
         private VoiceGamingTransition? _voiceGamingTransitionInstance;
         private VoiceGamingTransition _voiceGamingTransition =>
-            _voiceGamingTransitionInstance ??= new VoiceGamingTransition(() => _voiceConversation?.Stop());
+            _voiceGamingTransitionInstance ??= new VoiceGamingTransition(StopVoiceUiResources);
+
+        private void StopVoiceUiResources()
+        {
+            try
+            {
+                _voiceConversation?.Stop();
+                if (_voice.Phase == VoiceRecordingPhase.Recording) CancelVoiceRecording();
+                StopReadAloud();
+            }
+            catch (Exception ex) { Log.Write("Voice UI cleanup failed: " + ex.Message); }
+        }
 
         private void OnVoiceGamingStateChanged(object? sender, EventArgs e) =>
-            _voiceGamingTransition.Observe(GamingManager.Current.IsActive);
+            _voiceGamingTransition.Observe(LocalAiController.Current.IsGameActive());
 
         private async void VoiceMode_Click(object sender, RoutedEventArgs e)
         {
