@@ -32,7 +32,7 @@ public static class EmulatorCommandBuilder
         string profile = (inputProfile ?? string.Empty).Trim();
         if (profile.Length > 80 || profile.Any(c => !(char.IsLetterOrDigit(c) || c is ' ' or '_' or '-' or '.')))
             return Fail("The input profile must be a short name (letters, numbers, spaces, dots, hyphens or underscores).");
-        if (profile.Length > 0 && !string.Equals(definition.Id, "eden", StringComparison.OrdinalIgnoreCase))
+        if (profile.Length > 0 && definition.Id is not ("eden" or "eden-cli"))
             return Fail("This input profile flag is currently supported only by Eden.");
         string extra = (extraArguments ?? string.Empty).Trim();
         if (extra.Length > MaxExtraArgumentsLength || extra.Any(char.IsControl))
@@ -41,6 +41,10 @@ public static class EmulatorCommandBuilder
             return Fail("This emulator needs a core file (absolute path).");
 
         string full = Path.GetFullPath(romPath);
+        // MAME takes a ROM-set basename rather than an absolute path. A name starting with
+        // '-' would be parsed as an option even though ProcessStartInfo never invokes a shell.
+        if (definition.Id == "mame" && Path.GetFileNameWithoutExtension(full).StartsWith("-", StringComparison.Ordinal))
+            return Fail("MAME ROM-set names must not begin with an option prefix (-).");
         var arguments = new List<string>();      // already-quoted fragments, in order
         var plain = new List<string>();          // the same list without the user's free-form text, for display and tests
         foreach (string token in definition.Template)
@@ -48,7 +52,11 @@ public static class EmulatorCommandBuilder
             switch (token)
             {
                 case "{input-profile}":
-                    if (profile.Length > 0) { Add("-input-profile"); Add(profile); }
+                    if (profile.Length > 0)
+                    {
+                        Add(definition.Id == "eden-cli" ? "--input-profile" : "-input-profile");
+                        Add(profile);
+                    }
                     break;
                 case "{rom}": Add(full); break;
                 case "{romdir}": Add(Path.GetDirectoryName(full) ?? string.Empty); break;
