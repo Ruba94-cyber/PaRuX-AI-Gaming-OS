@@ -28,13 +28,18 @@ public sealed record GameTitleDto(
     long PlaySeconds,
     DateTime? LastPlayedUtc,
     string? DefaultInstallationId,
-    IReadOnlyList<GameInstallationDto> Installations);
+    IReadOnlyList<GameInstallationDto> Installations)
+{
+    // Optional additive property; older clients can omit it without invalidating titles.
+    public IReadOnlyList<string> Collections { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>User state kept per title (the persisted overlay). Installations are never persisted: they are re-derived.</summary>
 public sealed class GameTitleState
 {
     public bool Favorite { get; set; }
     public List<string> Tags { get; set; } = new();
+    public List<string> Collections { get; set; } = new();
     public long PlaySeconds { get; set; }
     public DateTime? LastPlayedUtc { get; set; }
     public string? DefaultInstallationId { get; set; }
@@ -42,3 +47,6 @@ public sealed class GameTitleState
 
 public sealed record SetGameTagsRequest(List<string> Tags);
 public sealed record SetDefaultInstallationRequest(string? InstallationId);
+
+/// <summary>Up to 12 named local user collections for one title; no cloud account or scraping.</summary>
+public sealed record SetGameCollectionsRequest(List<string> Collections);
