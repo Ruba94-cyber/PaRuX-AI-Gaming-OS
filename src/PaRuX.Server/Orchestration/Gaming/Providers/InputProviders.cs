@@ -54,8 +54,7 @@ public sealed class XOutputInputProvider : IInputProvider
 
     public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        // A remote stream may already expose a virtual controller through Sunshine.
-        // Refuse a second mapper rather than returning fake success or double input.
+        // Never start a second local mapper next to remote Sunshine input.
         if (ct.IsCancellationRequested || GamingInputSafetyPolicy.Validate(profile) != null)
             return Task.FromResult(false);
 
@@ -64,81 +63,116 @@ public sealed class XOutputInputProvider : IInputProvider
         {
             if (profile.InputSettings.TryGetValue("path", out string? customPath) &&
                 CustomExecutableInputProvider.IsSafeHelperPath(customPath))
-            {
                 exe = customPath;
-            }
             else
+                return Task.FromResult(false);
+        }
+
+        lock (_processGate)
+        {
+            // Serialize Start/Stop against the SAME owned handle. Previous code
+            // could start a duplicate while another thread had taken ownership
+            // of the first helper, then dispose the old handle without closing it.
+            if (_startedProcess != null)
+            {
+                try
+                {
+                    if (!_startedProcess.HasExited)
+                    {
+                        bool sameFile = string.Equals(_startedProcess.StartInfo.FileName,
+                            exe, StringComparison.OrdinalIgnoreCase);
+                        string expectedArgs = profile.InputSettings.TryGetValue("args", out string? args)
+                            ? args ?? string.Empty : string.Empty;
+                        return Task.FromResult(sameFile &&
+                            string.Equals(_startedProcess.StartInfo.Arguments, expectedArgs,
+                                StringComparison.Ordinal));
+                    }
+                    _startedProcess.Dispose();
+                    _startedProcess = null;
+                }
+                catch { return Task.FromResult(false); }
+            }
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Process[] existing = _getRunningProcesses();
+                bool externallyRunning = false;
+                bool unverifiedMapper = false;
+                try
+                {
+                    foreach (Process process in existing)
+                    {
+                        // A same-name process alone is not proof it is the
+                        // configured mapper. Never claim success for an unknown
+                        // process or add another controller on top of it.
+                        try
+                        {
+                            string? runningPath = process.MainModule?.FileName;
+                            if (runningPath != null && string.Equals(
+                                    Path.GetFullPath(runningPath), Path.GetFullPath(exe),
+                                    StringComparison.OrdinalIgnoreCase))
+                                externallyRunning = true;
+                            else
+                                unverifiedMapper = true;
+                        }
+                        catch { unverifiedMapper = true; }
+                    }
+                }
+                finally
+                {
+                    foreach (Process process in existing) process.Dispose();
+                }
+                if (unverifiedMapper) return Task.FromResult(false);
+                if (externallyRunning) return Task.FromResult(true);
+                ct.ThrowIfCancellationRequested();
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    WorkingDirectory = Path.GetDirectoryName(exe)!,
+                    UseShellExecute = false
+                };
+                if (profile.InputSettings.TryGetValue("args", out string? extraArgs) &&
+                    !string.IsNullOrWhiteSpace(extraArgs))
+                    psi.Arguments = extraArgs;
+
+                Process? started = Process.Start(psi);
+                if (started == null) return Task.FromResult(false);
+                _startedProcess = started;
+                return Task.FromResult(true);
+            }
+            catch
             {
                 return Task.FromResult(false);
             }
-        }
-
-        try
-        {
-            ct.ThrowIfCancellationRequested();
-            Process[] existing = _getRunningProcesses();
-            bool alreadyRunning = existing.Length > 0;
-            foreach (Process process in existing) process.Dispose();
-            if (alreadyRunning) return Task.FromResult(true);
-            ct.ThrowIfCancellationRequested();
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                UseShellExecute = true
-            };
-            if (profile.InputSettings.TryGetValue("args", out string? args) && !string.IsNullOrWhiteSpace(args))
-            {
-                psi.Arguments = args;
-            }
-
-            Process? started = Process.Start(psi);
-            if (started == null) return Task.FromResult(false);
-            lock (_processGate)
-            {
-                _startedProcess?.Dispose();
-                _startedProcess = started;
-            }
-            return Task.FromResult(true);
-        }
-        catch
-        {
-            return Task.FromResult(false);
         }
     }
 
     public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        Process? ownedProcess;
         lock (_processGate)
         {
-            ownedProcess = _startedProcess;
-            _startedProcess = null;
-        }
+            if (_startedProcess == null) return Task.FromResult(true);
+            if (ct.IsCancellationRequested) return Task.FromResult(false);
 
-        if (ownedProcess == null) return Task.FromResult(true);
-
-        try
-        {
-            // A helper started by PaRuX may be asked to exit gracefully; forcibly
-            // killing the input stack is forbidden without an explicit separate grant.
-            if (ownedProcess.HasExited)
+            try
             {
-                ownedProcess.Dispose();
-                return Task.FromResult(true);
+                // Only the exact helper launched by PaRuX can be closed. Never
+                // terminate an externally owned helper or force-kill a process.
+                if (_startedProcess.HasExited ||
+                    (_startedProcess.CloseMainWindow() && _startedProcess.WaitForExit(1000)))
+                {
+                    _startedProcess.Dispose();
+                    _startedProcess = null;
+                    return Task.FromResult(true);
+                }
             }
-            if (ownedProcess.CloseMainWindow() && ownedProcess.WaitForExit(1000))
-            {
-                ownedProcess.Dispose();
-                return Task.FromResult(true);
-            }
-        }
-        catch { }
+            catch { }
 
-        // Preserve the handle for a future retry. Report failure instead of claiming
-        // input was released or silently terminating an unresponsive process.
-        lock (_processGate) _startedProcess ??= ownedProcess;
-        return Task.FromResult(false);
+            // Keep the handle to allow a later retry; prevent duplicate starts.
+            return Task.FromResult(false);
+        }
     }
 }
 
