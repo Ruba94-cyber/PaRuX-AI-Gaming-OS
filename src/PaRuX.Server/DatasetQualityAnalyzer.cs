@@ -71,7 +71,7 @@ public static class DatasetQualityAnalyzer
             if (report.IssueSamples.Count < MaxIssueSamples) report.IssueSamples.Add($"row {rowIndex + 1}: {detail}");
         }
 
-        List<(string Role, string Content)> turns;
+        List<(string Role, string Content, bool NonText)> turns;
         try { turns = ParseTurns(json); }
         catch (JsonException) { Issue("unparseable-conversation", "the messages column is not valid JSON"); return string.Empty; }
         if (turns.Count == 0) { Issue("empty-conversation", "no messages"); return string.Empty; }
@@ -80,11 +80,13 @@ public static class DatasetQualityAnalyzer
         var text = new System.Text.StringBuilder();
         string previous = string.Empty;
         int index = 0;
-        foreach ((string rawRole, string content) in turns)
+        foreach ((string rawRole, string content, bool nonText) in turns)
         {
             string role = NormalizeRole(rawRole);
             if (!Roles.Contains(rawRole)) Issue("unknown-role", $"unknown role '{Truncate(rawRole)}'");
-            if (string.IsNullOrWhiteSpace(content)) Issue("empty-content", $"{role} message {index + 1} is empty");
+            if (nonText) Issue("non-text-content", $"{role} message {index + 1} contains media or structured parts; estimated tokens count text only");
+            if (string.IsNullOrWhiteSpace(content) && !nonText)
+                Issue("empty-content", $"{role} message {index + 1} is empty");
             if (index == 0 && role == "assistant") Issue("starts-with-assistant", "the first message is from the assistant");
             if (role is "user" or "assistant" && role == previous)
                 Issue("repeated-role", $"two consecutive {role} messages");
@@ -98,20 +100,57 @@ public static class DatasetQualityAnalyzer
         return text.ToString();
     }
 
-    /// <summary>Accepts OpenAI-style {role, content} and ShareGPT-style {from, value} turns.</summary>
-    private static List<(string Role, string Content)> ParseTurns(string json)
+    /// <summary>OpenAI/ShareGPT conversations may contain both text and media segments.
+    /// Extract text for approximate lengths while reporting nontext separately rather than
+    /// mislabeling an image-only message as an empty text message.</summary>
+    private static List<(string Role, string Content, bool NonText)> ParseTurns(string json)
     {
         using JsonDocument document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Array) throw new JsonException("not an array");
-        var turns = new List<(string, string)>();
+        var turns = new List<(string, string, bool)>();
         foreach (JsonElement element in document.RootElement.EnumerateArray())
         {
-            if (element.ValueKind != JsonValueKind.Object) { turns.Add(("", "")); continue; }
+            if (element.ValueKind != JsonValueKind.Object) { turns.Add(("", "", false)); continue; }
             string role = StringProperty(element, "role") ?? StringProperty(element, "from") ?? string.Empty;
-            string content = StringProperty(element, "content") ?? StringProperty(element, "value") ?? string.Empty;
-            turns.Add((role, content));
+            (string content, bool nonText) = ReadContent(element);
+            turns.Add((role, content, nonText));
         }
         return turns;
+    }
+
+    private static (string Text, bool NonText) ReadContent(JsonElement message)
+    {
+        if (!message.TryGetProperty("content", out JsonElement content))
+            return (StringProperty(message, "value") ?? string.Empty, false);
+        if (content.ValueKind == JsonValueKind.String)
+            return (content.GetString() ?? string.Empty, false);
+        if (content.ValueKind == JsonValueKind.Null)
+            return (StringProperty(message, "value") ?? string.Empty, false);
+        if (content.ValueKind != JsonValueKind.Array)
+            return (string.Empty, true);
+
+        var text = new System.Text.StringBuilder();
+        bool nonText = false;
+        foreach (JsonElement part in content.EnumerateArray())
+        {
+            if (part.ValueKind == JsonValueKind.String)
+            {
+                text.Append(part.GetString()).Append(' ');
+                continue;
+            }
+            if (part.ValueKind != JsonValueKind.Object)
+            {
+                nonText = true;
+                continue;
+            }
+            string? type = StringProperty(part, "type");
+            string? segment = StringProperty(part, "text");
+            if (segment is not null && type is "text" or "input_text" or "output_text")
+                text.Append(segment).Append(' ');
+            else
+                nonText = true;
+        }
+        return (text.ToString().Trim(), nonText);
     }
 
     private static string? StringProperty(JsonElement element, string name) =>
