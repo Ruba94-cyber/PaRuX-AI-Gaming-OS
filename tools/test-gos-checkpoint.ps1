@@ -39,6 +39,11 @@ if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
 
 Push-Location $root
 try {
+    # Uses the same built-in PowerShell runtime as this Windows gate. Package
+    # additions/changes require explicit manifest and upstream-license review.
+    Write-Host '[GOS] Read-only direct dependency boundary audit'
+    & (Join-Path $PSScriptRoot 'audit-dependency-boundaries.ps1') -Root $root
+    Write-Host '[GOS] Direct dependency audit complete'
     Invoke-GosStep 'Server Release build' @('build', $server, '-c', 'Release', '-p:Platform=x64')
     Invoke-GosStep 'WinUI App Release build' @('build', $app, '-c', 'Release', '-p:Platform=x64')
     $testFilter = 'FullyQualifiedName~ConsoleNavigationPolicyTests|FullyQualifiedName~SafeArchiveExtractorTests|FullyQualifiedName~GamingDisplayTopologyTests|FullyQualifiedName~GamingDisplayTopologySecurityTests|FullyQualifiedName~GamingControllerSecurityTests|FullyQualifiedName~GameInstallerInspectionTests|FullyQualifiedName~GameInstallerInspectionSecurityTests|FullyQualifiedName~GamingInputSafetyPolicyTests|FullyQualifiedName~GamingLauncherSafetyTests|FullyQualifiedName~NativeXInputProbeTests|FullyQualifiedName~GamingProviderInjectionTests|FullyQualifiedName~VoiceGamingTransitionTests|FullyQualifiedName~SpeechProcessAdmissionTests|FullyQualifiedName~SpeechWarmupCoordinatorTests|FullyQualifiedName~ContinuousSpeechCancellationIntegrationTests|FullyQualifiedName~GamingTransitionIntegrationTests|FullyQualifiedName~GamingTransitionConcurrencyTests|FullyQualifiedName~WorkloadOrchestratorTests|FullyQualifiedName~GogGalaxyLocatorTests|FullyQualifiedName~GogGameDiscoveryTests|FullyQualifiedName~GogGameDiscoverySecurityTests|FullyQualifiedName~EpicGameDiscoveryTests|FullyQualifiedName~EpicGameDiscoverySecurityTests|FullyQualifiedName~SteamInstallLocatorTests|FullyQualifiedName~SteamGameDiscoveryTests|FullyQualifiedName~SteamGameDiscoverySecurityTests|FullyQualifiedName~GamingProfilePersistenceTests|FullyQualifiedName~GamingProfilePersistenceHttpTests|FullyQualifiedName~ManualGameLaunchTests|FullyQualifiedName~ManualGameLaunchSecurityTests|FullyQualifiedName~ManualGameLibraryTests|FullyQualifiedName~ThemeResourceRegressionTests'
