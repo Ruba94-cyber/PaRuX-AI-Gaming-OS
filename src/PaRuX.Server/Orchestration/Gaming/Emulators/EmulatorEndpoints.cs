@@ -18,8 +18,10 @@ public static class EmulatorEndpoints
 
     public static void MapEmulatorEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/v1/gaming/emulators", (CancellationToken ct) =>
+        app.MapGet("/api/v1/gaming/emulators", (LocalRuntimeService runtime, CancellationToken ct) =>
         {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Emulator disk discovery is disabled while Gaming." }) as IResult;
             var detected = EmulatorDiscovery.Detect(EmulatorDiscovery.DefaultSearchRoots(), ct);
             return Results.Ok(new
             {
@@ -32,8 +34,11 @@ public static class EmulatorEndpoints
             });
         }).RequireDesktopOwner();
 
-        app.MapPost("/api/v1/gaming/emulators/scan", (EmulatorScanRequest request, CancellationToken ct) =>
+        app.MapPost("/api/v1/gaming/emulators/scan", (
+            EmulatorScanRequest request, LocalRuntimeService runtime, CancellationToken ct) =>
         {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Emulator folder scanning is disabled while Gaming." }) as IResult;
             EmulatorDefinition? definition = EmulatorRegistry.Find(request.EmulatorId);
             if (definition is null) return Results.BadRequest(new { error = "Unknown emulator." });
             try { return Results.Ok(EmulatorDiscovery.Scan(definition, request.Folder, ct)); }
