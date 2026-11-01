@@ -144,8 +144,8 @@ public sealed class ManualGameLibraryView : UserControl
         });
         root.Children.Add(new TextBlock
         {
-            Text = T("Steam, Epic and GOG detection reads only local installation metadata. Steam games can be requested to launch separately with your confirmation; discovery never installs or changes a game.",
-                "Il rilevamento Steam, Epic e GOG legge solo i dati locali di installazione. L'avvio dei giochi Steam può essere richiesto separatamente con conferma; il rilevamento non installa né modifica giochi."),
+            Text = T("Steam, Epic and GOG detection reads only local installation metadata. Steam and GOG GALAXY game launches require separate confirmation; Epic discovery is read-only. No store installs or modifies games.",
+                "Il rilevamento Steam, Epic e GOG legge solo i dati locali di installazione. L'avvio tramite Steam e GOG GALAXY richiede conferma; Epic resta in sola lettura. PaRuX non installa né modifica i giochi."),
             TextWrapping = TextWrapping.Wrap
         });
         _allStoresRefresh.Content = T("Detect all installed games", "Rileva tutti i giochi installati");
