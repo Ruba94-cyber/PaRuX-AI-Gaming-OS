@@ -272,6 +272,8 @@ builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
 builder.Services.AddSingleton<GameTitleStore>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(sp => sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>());
 builder.Services.AddSingleton<GgufQuantizeJobs>();
 builder.Services.AddSingleton<GameInstallerInspectionService>();
 builder.Services.AddSingleton<GamePackageStageService>();
@@ -3803,6 +3805,7 @@ app.MapGamingEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
 app.MapEmulatorEndpoints();
+PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.

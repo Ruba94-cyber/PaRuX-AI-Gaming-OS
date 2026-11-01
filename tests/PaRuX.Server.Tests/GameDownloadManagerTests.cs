@@ -1,0 +1,375 @@
+using System.Net;
+using System.Security.Cryptography;
+using PaRuX.Contracts;
+using PaRuX.Server.Orchestration.Gaming.Downloads;
+using Xunit;
+
+namespace PaRuX.Server.Tests;
+
+/// <summary>A local HttpListener stands in for the file host: no real network, no real game files.</summary>
+public sealed class GameDownloadManagerTests : IDisposable
+{
+    private sealed class TestServer : IDisposable
+    {
+        private readonly HttpListener _listener = new();
+        private readonly CancellationTokenSource _stop = new();
+        public byte[] Data = Array.Empty<byte>();
+        public string ETag = "\"v1\"";
+        public bool SupportRange = true;
+        public bool DropAfterFirstHalf;       // closes the connection mid-body once
+        public int Requests, RangeRequests;
+        public string? RedirectTo;
+        public int FailFirst;                 // answer 503 this many times
+        public int Port { get; }
+
+        public TestServer()
+        {
+            Port = Random.Shared.Next(20000, 60000);
+            while (true)
+            {
+                try { _listener.Prefixes.Clear(); _listener.Prefixes.Add($"http://127.0.0.1:{Port}/"); _listener.Start(); break; }
+                catch (HttpListenerException) { Port = Random.Shared.Next(20000, 60000); }
+            }
+            _ = Task.Run(Loop);
+        }
+
+        public string Url(string path = "file.bin") => $"http://127.0.0.1:{Port}/{path}";
+
+        private async Task Loop()
+        {
+            while (!_stop.IsCancellationRequested)
+            {
+                HttpListenerContext ctx;
+                try { ctx = await _listener.GetContextAsync(); } catch { return; }
+                _ = Task.Run(() => Handle(ctx));
+            }
+        }
+
+        private void Handle(HttpListenerContext ctx)
+        {
+            try
+            {
+                Interlocked.Increment(ref Requests);
+                if (RedirectTo is not null && ctx.Request.Url!.AbsolutePath == "/redirect")
+                { ctx.Response.StatusCode = 302; ctx.Response.Headers["Location"] = RedirectTo; ctx.Response.Close(); return; }
+                if (Interlocked.Decrement(ref FailFirst) >= 0) { ctx.Response.StatusCode = 503; ctx.Response.Close(); return; }
+
+                long start = 0;
+                string? range = ctx.Request.Headers["Range"];
+                string? ifRange = ctx.Request.Headers["If-Range"];
+                bool partial = SupportRange && range is not null && range.StartsWith("bytes=") && (ifRange is null || ifRange == ETag);
+                if (partial) { Interlocked.Increment(ref RangeRequests); start = long.Parse(range!["bytes=".Length..].TrimEnd('-')); }
+                if (start >= Data.Length) { ctx.Response.StatusCode = 416; ctx.Response.Close(); return; }
+
+                ctx.Response.Headers["ETag"] = ETag;
+                long length = Data.Length - start;
+                if (partial)
+                {
+                    ctx.Response.StatusCode = 206;
+                    ctx.Response.Headers["Content-Range"] = $"bytes {start}-{Data.Length - 1}/{Data.Length}";
+                }
+                ctx.Response.ContentLength64 = length;
+                if (DropAfterFirstHalf)
+                {
+                    DropAfterFirstHalf = false;
+                    ctx.Response.OutputStream.Write(Data, (int)start, (int)(length / 2));
+                    ctx.Response.OutputStream.Flush();
+                    ctx.Response.Abort();
+                    return;
+                }
+                ctx.Response.OutputStream.Write(Data, (int)start, (int)length);
+                ctx.Response.Close();
+            }
+            catch { try { ctx.Response.Abort(); } catch { } }
+        }
+
+        public void Dispose() { _stop.Cancel(); try { _listener.Stop(); _listener.Close(); } catch { } }
+    }
+
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "parux-dl-" + Guid.NewGuid().ToString("N"));
+    private readonly TestServer _server = new();
+    private bool _gaming;
+
+    public GameDownloadManagerTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose()
+    {
+        _server.Dispose();
+        try { Directory.Delete(_dir, true); } catch { }
+    }
+
+    private static byte[] Bytes(int n)
+    {
+        var data = new byte[n];
+        new Random(42).NextBytes(data);
+        return data;
+    }
+
+    private static string Sha(byte[] d) => Convert.ToHexString(SHA256.HashData(d)).ToLowerInvariant();
+
+    private GameDownloadManager Make(long free = long.MaxValue, string? history = null) =>
+        new(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan },
+            () => _gaming, _ => free, history, new[] { TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20) });
+
+    private async Task<GameDownloadDto> WaitFor(GameDownloadManager m, string id, string state, int seconds = 20)
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(seconds);
+        while (DateTime.UtcNow < deadline)
+        {
+            var dto = m.List().First(d => d.Id == id);
+            if (dto.State == state) return dto;
+            await Task.Delay(15);
+        }
+        throw new TimeoutException($"download never reached '{state}': {m.List().First(d => d.Id == id).State} {m.List().First(d => d.Id == id).Reason}");
+    }
+
+    [Fact]
+    public async Task Downloads_a_file_and_verifies_the_expected_checksum()
+    {
+        _server.Data = Bytes(300_000);
+        using var m = Make();
+        var job = m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: Sha(_server.Data)));
+        var done = await WaitFor(m, job.Id, GameDownloadStates.Completed);
+        Assert.True(done.IntegrityChecked);
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
+        Assert.Empty(Directory.GetFiles(_dir, "*.parux-part*"));
+    }
+
+    [Fact]
+    public async Task Without_an_expected_checksum_the_file_is_hashed_but_reported_as_unverified()
+    {
+        _server.Data = Bytes(50_000);
+        using var m = Make();
+        var done = await WaitFor(m, m.Enqueue(new(_server.Url(), _dir)).Id, GameDownloadStates.Completed);
+        Assert.False(done.IntegrityChecked);
+        Assert.Equal(Sha(_server.Data), done.VerifiedSha256);
+        Assert.Contains("not verified", done.Reason);
+    }
+
+    [Fact]
+    public async Task A_wrong_checksum_deletes_the_file_and_fails_the_job()
+    {
+        _server.Data = Bytes(40_000);
+        using var m = Make();
+        var failed = await WaitFor(m, m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: new string('0', 64))).Id, GameDownloadStates.Failed);
+        Assert.Contains("SHA-256", failed.Reason);
+        Assert.Empty(Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task A_dropped_connection_resumes_with_a_range_request_and_ends_byte_exact()
+    {
+        _server.Data = Bytes(400_000);
+        _server.DropAfterFirstHalf = true;
+        using var m = Make();
+        var done = await WaitFor(m, m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: Sha(_server.Data))).Id, GameDownloadStates.Completed);
+        Assert.True(done.IntegrityChecked);
+        Assert.True(_server.RangeRequests >= 1, "the retry must continue from the bytes already on disk");
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
+    }
+
+    [Fact]
+    public async Task A_file_that_changed_on_the_server_restarts_instead_of_mixing_versions()
+    {
+        _server.Data = Bytes(200_000);
+        await File.WriteAllBytesAsync(Path.Combine(_dir, "file.bin.parux-part"), _server.Data.AsSpan(0, 50_000).ToArray());
+        await File.WriteAllTextAsync(Path.Combine(_dir, "file.bin.parux-part.validator"), "\"old-version\"");
+        using var m = Make();
+        var done = await WaitFor(m, m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: Sha(_server.Data))).Id, GameDownloadStates.Completed);
+        Assert.True(done.IntegrityChecked);
+    }
+
+    [Fact]
+    public async Task Transient_server_errors_are_retried()
+    {
+        _server.Data = Bytes(30_000);
+        _server.FailFirst = 2;
+        using var m = Make();
+        await WaitFor(m, m.Enqueue(new(_server.Url(), _dir)).Id, GameDownloadStates.Completed);
+    }
+
+    [Fact]
+    public async Task Cancel_removes_the_partial_file_and_pause_keeps_it()
+    {
+        _server.Data = Bytes(2_000_000);
+        using var m = Make();
+        m.SetBandwidthLimit(150_000); // slow enough to still be running
+        var job = m.Enqueue(new(_server.Url(), _dir));
+        await WaitFor(m, job.Id, GameDownloadStates.Running);
+        await Task.Delay(300);
+        Assert.True(m.Pause(job.Id));
+        var paused = await WaitFor(m, job.Id, GameDownloadStates.Paused);
+        Assert.True(paused.BytesDone > 0);
+        Assert.True(File.Exists(Path.Combine(_dir, "file.bin.parux-part")));
+
+        m.SetBandwidthLimit(0);
+        Assert.True(m.Resume(job.Id));
+        await WaitFor(m, job.Id, GameDownloadStates.Completed);
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
+
+        var second = m.Enqueue(new(_server.Url("other.bin"), _dir));
+        m.SetBandwidthLimit(50_000);
+        Assert.True(m.CancelOrRemove(second.Id));
+        await Task.Delay(300);
+        Assert.Empty(Directory.GetFiles(_dir, "other.bin*"));
+        Assert.Equal(GameDownloadStates.Cancelled, m.List().First(d => d.Id == second.Id).State);
+    }
+
+    [Fact]
+    public async Task Bandwidth_limit_slows_the_transfer()
+    {
+        _server.Data = Bytes(300_000);
+        using var m = Make();
+        m.SetBandwidthLimit(200_000);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await WaitFor(m, m.Enqueue(new(_server.Url(), _dir)).Id, GameDownloadStates.Completed);
+        Assert.True(sw.Elapsed > TimeSpan.FromSeconds(1.0), $"300 KB at 200 KB/s took only {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task Priority_and_concurrency_decide_the_start_order()
+    {
+        _server.Data = Bytes(400_000);
+        using var m = Make();
+        m.MaxConcurrent = 1;
+        m.SetBandwidthLimit(300_000);
+        var first = m.Enqueue(new(_server.Url("a.bin"), _dir));
+        var low = m.Enqueue(new(_server.Url("b.bin"), _dir, Priority: 0));
+        var high = m.Enqueue(new(_server.Url("c.bin"), _dir, Priority: 5));
+        Assert.Equal(1, m.List().Count(d => d.State == GameDownloadStates.Running));
+        m.SetBandwidthLimit(0);
+        await WaitFor(m, first.Id, GameDownloadStates.Completed);
+        await WaitFor(m, high.Id, GameDownloadStates.Completed);
+        await WaitFor(m, low.Id, GameDownloadStates.Completed);
+        var finished = m.List().OrderBy(d => d.FinishedUtc).Select(d => d.Id).ToArray();
+        Assert.True(Array.IndexOf(finished, high.Id) < Array.IndexOf(finished, low.Id), "higher priority must finish first");
+    }
+
+    [Fact]
+    public async Task A_running_game_blocks_new_work_pauses_running_work_and_resumption_is_explicit()
+    {
+        _server.Data = Bytes(2_000_000);
+        using var m = Make();
+        m.SetBandwidthLimit(200_000);
+        var job = m.Enqueue(new(_server.Url(), _dir));
+        await WaitFor(m, job.Id, GameDownloadStates.Running);
+        await Task.Delay(200);
+        _gaming = true;
+        var paused = await WaitFor(m, job.Id, GameDownloadStates.Paused);
+        Assert.Contains("game", paused.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url("x.bin"), _dir)));
+        Assert.False(m.Resume(job.Id));                         // refused while the game runs
+        Assert.Equal(0, await m.ResumeGamingPausedAsync(CancellationToken.None));
+
+        _gaming = false;
+        m.SetBandwidthLimit(0);
+        Assert.Equal(1, await m.ResumeGamingPausedAsync(CancellationToken.None));
+        await WaitFor(m, job.Id, GameDownloadStates.Completed);
+    }
+
+    [Fact]
+    public async Task A_user_pause_is_not_undone_by_the_end_of_a_game()
+    {
+        _server.Data = Bytes(1_000_000);
+        using var m = Make();
+        m.SetBandwidthLimit(100_000);
+        var job = m.Enqueue(new(_server.Url(), _dir));
+        await WaitFor(m, job.Id, GameDownloadStates.Running);
+        m.Pause(job.Id);
+        await WaitFor(m, job.Id, GameDownloadStates.Paused);
+        Assert.Equal(0, await m.ResumeGamingPausedAsync(CancellationToken.None));
+        Assert.Equal(GameDownloadStates.Paused, m.List().First(d => d.Id == job.Id).State);
+    }
+
+    [Fact]
+    public async Task Redirects_are_followed_but_must_obey_the_same_rules()
+    {
+        _server.Data = Bytes(20_000);
+        _server.RedirectTo = _server.Url("file.bin");
+        using var m = Make();
+        await WaitFor(m, m.Enqueue(new(_server.Url("redirect"), _dir, FileName: "r.bin")).Id, GameDownloadStates.Completed);
+
+        _server.RedirectTo = "http://example.com/plain"; // downgrade to a non-loopback http address
+        var failed = await WaitFor(m, m.Enqueue(new(_server.Url("redirect"), _dir, FileName: "r2.bin")).Id, GameDownloadStates.Failed);
+        Assert.Contains("https", failed.Reason);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("ftp://example.com/a.bin")]
+    [InlineData("http://example.com/a.bin")]
+    [InlineData("https://user:pass@example.com/a.bin")]
+    [InlineData("file:///C:/Windows/win.ini")]
+    [InlineData("not a url")]
+    public void Unsafe_addresses_are_refused(string url) =>
+        Assert.Throws<GameDownloadException>(() => GameDownloadManager.ValidateUrl(url));
+
+    [Fact]
+    public void Destination_and_names_are_validated()
+    {
+        using var m = Make();
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url(), "relative")));
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url(), @"\\server\share")));
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url(), Path.Combine(_dir, "missing"))));
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: "abc")));
+        Assert.Null(GameDownloadManager.SafeFileName("con.txt"));
+        Assert.Null(GameDownloadManager.SafeFileName("x.parux-part"));
+        Assert.Null(GameDownloadManager.SafeFileName("   "));
+        Assert.Equal("evil.exe", GameDownloadManager.SafeFileName(@"..\..\evil.exe"));
+        Assert.Equal("a_b.bin", GameDownloadManager.SafeFileName("a_b.bin"));
+    }
+
+    [Fact]
+    public async Task Existing_file_is_never_overwritten_and_the_same_target_cannot_run_twice()
+    {
+        _server.Data = Bytes(10_000);
+        File.WriteAllText(Path.Combine(_dir, "file.bin"), "keep me");
+        using var m = Make();
+        m.SetBandwidthLimit(5_000);
+        var job = m.Enqueue(new(_server.Url(), _dir));
+        Assert.Throws<GameDownloadException>(() => m.Enqueue(new(_server.Url(), _dir)));
+        m.SetBandwidthLimit(0);
+        await WaitFor(m, job.Id, GameDownloadStates.Completed);
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(_dir, "file.bin")));
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file (1).bin")));
+    }
+
+    [Fact]
+    public async Task Disk_space_and_size_limits_fail_the_job_before_the_data_is_written()
+    {
+        _server.Data = Bytes(5_000);
+        using (var small = Make(free: 100))
+        {
+            var failed = await WaitFor(small, small.Enqueue(new(_server.Url(), _dir, FileName: "s.bin")).Id, GameDownloadStates.Failed);
+            Assert.Contains("disk space", failed.Reason);
+        }
+        using var capped = Make();
+        capped.MaxFileBytes = 1_000;
+        var tooBig = await WaitFor(capped, capped.Enqueue(new(_server.Url(), _dir, FileName: "t.bin")).Id, GameDownloadStates.Failed);
+        Assert.Contains("larger", tooBig.Reason);
+        Assert.Empty(Directory.GetFiles(_dir, "*.bin"));
+    }
+
+    [Fact]
+    public async Task History_keeps_finished_jobs_without_query_strings_and_can_be_cleared()
+    {
+        _server.Data = Bytes(5_000);
+        string history = Path.Combine(_dir, "history.json");
+        string id;
+        using (var m = Make(history: history))
+        {
+            id = m.Enqueue(new(_server.Url("file.bin?token=SECRET"), _dir)).Id;
+            await WaitFor(m, id, GameDownloadStates.Completed);
+        }
+        string saved = File.ReadAllText(history);
+        Assert.DoesNotContain("SECRET", saved);
+        Assert.DoesNotContain("token", saved);
+
+        using var reopened = Make(history: history);
+        var dto = Assert.Single(reopened.List());
+        Assert.Equal(GameDownloadStates.Completed, dto.State);
+        Assert.DoesNotContain("SECRET", dto.Source);
+        Assert.True(reopened.CancelOrRemove(id));
+        Assert.Empty(reopened.List());
+    }
+}
