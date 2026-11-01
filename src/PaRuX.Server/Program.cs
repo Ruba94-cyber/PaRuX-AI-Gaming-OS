@@ -272,6 +272,7 @@ builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
 builder.Services.AddSingleton<GameTitleStore>();
+builder.Services.AddSingleton<GameSaveBackupService>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(sp => sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>());
@@ -3805,6 +3806,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 app.MapGamingEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
+app.MapGameSaveBackupEndpoints();
 app.MapEmulatorEndpoints();
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
 if (!app.Environment.IsEnvironment("Testing"))
