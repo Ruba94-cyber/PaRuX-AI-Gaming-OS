@@ -1327,9 +1327,13 @@ public sealed class ManualGameLibraryView : UserControl
                 game.Id, displayId: gameDisplayId);
             if (!result.Succeeded || result.Value is not { Launched: true } launch)
             {
-                _status.Text = T(
-                    "Could not launch the game. Check Gaming state and the executable.",
-                    "Impossibile avviare il gioco. Controlla lo stato Gaming e l'eseguibile.");
+                _status.Text = !string.IsNullOrWhiteSpace(gameDisplayId) &&
+                    (result.Error?.Contains("selected game TV is unavailable",
+                        StringComparison.OrdinalIgnoreCase) == true)
+                    ? T("The selected TV is unavailable or its Windows display ID changed. The game was not started. Open Gaming settings and select the TV again.",
+                        "La TV selezionata non è disponibile o il suo identificativo Windows è cambiato. Il gioco non è stato avviato. Apri le impostazioni Gaming e seleziona nuovamente la TV.")
+                    : T("Could not launch the game. Check Gaming state and the executable.",
+                        "Impossibile avviare il gioco. Controlla lo stato Gaming e l'eseguibile.");
                 return;
             }
             await UpdateGamingStatusAsync();
