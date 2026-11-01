@@ -146,3 +146,28 @@ SOURCE IMPLEMENTED + BUILD PASSED + TESTED (all 1194 Coding/patch xUnit tests pa
 
 ### AI gaps still open (from the audit; not started)
 Unsloth-style GGUF export + CPU quantization (`convert_hf_to_gguf.py` is vendored but never invoked, no `llama-quantize`/imatrix), tokenizer-aware dataset checks (chat-template validation, length histograms, near-duplicate removal), a dedicated `review` command over a diff, default-on performance budgets (`ParuxOverheadBenchmarkTests` only runs with `PARUX_RUN_LATENCY_BUDGETS=1`), and every hardware-dependent quality/performance claim (tokens/s, VRAM, FPS) — NOT RUN.
+
+## HANDOFF to the next PC (written at commit after `2dcf890`)
+
+Start: `git clone --branch main https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio.git`, then `git pull --ff-only origin main`. `PARUX_EXECUTION_PLAN.md` is the single source of truth; this file is the log.
+
+Verify before changing anything (Windows 11, .NET SDK 10 installed side by side with 8; WinUI needs the Windows App SDK restore):
+```
+dotnet restore PaRuX.sln
+powershell -ExecutionPolicy Bypass -File .\tools\test-gos-checkpoint.ps1 -RunUi
+```
+Last result on the previous PC: Server and WinUI Release builds pass, focused xUnit 858/858, FlaUI 5/5 (interactive desktop required; the gate stages the freshly built Core into `PaRuX.Server\` beside the Release app and sets `PARUX_UI_APP_PATH`). Optional timing tests: `PARUX_RUN_LATENCY_BUDGETS=1`. Benchmark: `tools\bench-gaming-transition.ps1`. Licence gate: `tools\validate-license-inventory.ps1` (inside the gate).
+
+Tooling gotchas learned: the gate filter lives on the `$testFilter` line of `tools/test-gos-checkpoint.ps1` (find it by pattern, not by line number); UI tests need port 51123 free (the new tests wait up to 20 s); the shell tool of the previous session mangled backslashes in heredocs, so write C#/Python files with a file-writing tool.
+
+Next, in priority order:
+1. Non-XInput pad source + opt-in forwarding loop (RawGameController in the WinUI app) feeding `GenericPadMapper` -> `ViGEmBusClient`, with `HidHideManager`; mapping UI; physical test with a real pad and the drivers (ViGEmBus, HidHide). Nothing in `Providers/VirtualPad` has run against a driver.
+2. Downloads view in the Games workspace (backend `GameDownloadManager` + `/api/v1/gaming/downloads*` is done); install hand-off from a finished download using the existing consent flow; Settings-level persistent toggle for Advanced Game Management.
+3. Emulators: verify each argument template against the installed version (Eden first), FlaUI coverage for the emulator section, controller/graphics profile per emulator, alternative emulator per game.
+4. GOS-11 leftovers: covers from official store art (local cache), save-path manifest + hash-verified backup, local discovery for Xbox/Ubisoft/EA/Battle.net, collections.
+5. GOS-01/02/03 visual identity and theme audit; GOS-10 migration/offline/package tests and the hardware matrix.
+6. AI: `review` command over a diff, Hugging Face -> GGUF conversion using the vendored `convert_hf_to_gguf.py`, then quantize (service exists), real-model quality/speed measurements (NOT RUN).
+
+Decisions waiting for the owner: BitTorrent engine (needs a native libtorrent runtime — blocked), and whether to keep investing in the archived ViGEmBus path versus relying on the optional external XOutput provider.
+
+Never added by design: repack/crack catalogues, ROM/BIOS/firmware/key sourcing, DRM bypass, silent driver installs.
