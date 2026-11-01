@@ -27,6 +27,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _epicRefresh = new();
     private readonly Button _gogRefresh = new();
     private readonly Button _allStoresRefresh = new();
+    private readonly Button _displayRefresh = new();
+    private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly StackPanel _displayItems = new() { Spacing = 8 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _add = new();
     private readonly Button _browse = new();
@@ -111,6 +114,27 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_discoveryStatus);
         root.Children.Add(_discoveredGames);
 
+        root.Children.Add(new TextBlock
+        {
+            Text = T("Display & streaming readiness", "Preparazione schermi e streaming"),
+            FontSize = 20,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        root.Children.Add(new TextBlock
+        {
+            Text = T("Inspect the current Windows monitor layout. No display settings are changed.",
+                     "Esamina la disposizione attuale dei monitor Windows. Nessuna impostazione video viene modificata."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _displayRefresh.Content = T("Inspect connected displays", "Controlla gli schermi collegati");
+        AutomationProperties.SetAutomationId(_displayRefresh, "GameLibrary_Displays_Refresh_Button");
+        _displayRefresh.Click += async (_, _) => await InspectDisplaysAsync();
+        root.Children.Add(_displayRefresh);
+        AutomationProperties.SetAutomationId(_displayStatus, "GameLibrary_Displays_Status_Text");
+        AutomationProperties.SetLiveSetting(_displayStatus, AutomationLiveSetting.Polite);
+        root.Children.Add(_displayStatus);
+        root.Children.Add(_displayItems);
+
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     }
 
@@ -132,13 +156,14 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _displayRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
         }
         _status.FontSize = bodySize;
         _discoveryStatus.FontSize = bodySize;
+        _displayStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
     }
@@ -172,6 +197,43 @@ public sealed class ManualGameLibraryView : UserControl
             await LoadAsync();
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
+        finally { SetBusy(false); }
+    }
+
+    private async Task InspectDisplaysAsync()
+    {
+        if (_busy) return;
+        SetBusy(true);
+        _displayItems.Children.Clear();
+        _displayStatus.Text = T("Reading Windows display configuration…", "Lettura configurazione schermi Windows…");
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
+            if (!result.Succeeded || result.Value is not { Supported: true } snapshot)
+            {
+                _displayStatus.Text = T("Windows display information is unavailable.",
+                    "Informazioni sugli schermi Windows non disponibili.");
+                return;
+            }
+            _displayStatus.Text = T(
+                $"{snapshot.Displays.Count} connected displays. HDR/VRR capabilities have not been validated.",
+                $"{snapshot.Displays.Count} schermi collegati. Le funzionalità HDR/VRR non sono state verificate.");
+            foreach (GamingDisplayModeDto display in snapshot.Displays)
+            {
+                string rate = display.RefreshRateHz > 0 ? $" · {display.RefreshRateHz} Hz" : "";
+                string primary = display.Primary ? T(" (Primary)", " (Principale)") : "";
+                _displayItems.Children.Add(new TextBlock
+                {
+                    Text = $"{display.DisplayId}{primary}: {display.Width} × {display.Height}{rate}",
+                    FontSize = _consolePresentation ? 20 : 14,
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+        }
+        catch (Exception)
+        {
+            _displayStatus.Text = T("Could not inspect Windows displays.", "Impossibile controllare gli schermi Windows.");
+        }
         finally { SetBusy(false); }
     }
 
@@ -448,5 +510,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
