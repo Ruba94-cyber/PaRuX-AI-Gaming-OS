@@ -19,11 +19,12 @@ namespace PaRuX.Views;
 public sealed partial class SettingsView
 {
     private bool _syncingOwnedGameRouteSwitch;
+    private bool _consoleTvSettingsInitialized;
     private int _consoleDisplayRefreshVersion;
 
     private void ConsoleRouteOwnedGamesSwitch_Toggled(object sender, RoutedEventArgs e)
     {
-        if (_syncingOwnedGameRouteSwitch) return;
+        if (!_consoleTvSettingsInitialized || _syncingOwnedGameRouteSwitch) return;
         SettingsStore.Current.Data.RouteVerifiedWindowedGamesToTv =
             ConsoleRouteOwnedGamesSwitch.IsOn;
         SettingsStore.Current.Save();
@@ -65,6 +66,7 @@ public sealed partial class SettingsView
                 SettingsStore.Current.Data.RouteVerifiedWindowedGamesToTv;
         }
         finally { _syncingOwnedGameRouteSwitch = false; }
+        _consoleTvSettingsInitialized = true;
         int version = ++_consoleDisplayRefreshVersion;
         ConsoleDisplaysRefresh.IsEnabled = false;
         ConsoleDisplaysStatus.Text = TvT("Detecting connected screens…", "Rilevamento schermi collegati…");
