@@ -137,7 +137,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetName(_favoritesOnly, T("Show favorites only", "Mostra solo i preferiti"));
         _reload.Content = T("Refresh", "Aggiorna");
         AutomationProperties.SetAutomationId(_reload, "GameTitles_Refresh_Button");
-        _reload.Click += async (_, _) => await ReloadTitlesAsync();
+        _reload.Click += async (_, _) => await ReloadTitlesAsync(refresh: true);
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         bar.Children.Add(_search); bar.Children.Add(_favoritesOnly); bar.Children.Add(_reload);
         Children.Add(bar);
@@ -175,9 +175,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     /// <summary>One-shot catalog refresh after a foreground return from Gaming.
     /// Never scan stores periodically or while the game owns the PC.</summary>
-    internal Task RefreshTitlesAfterGameAsync() => ReloadTitlesAsync();
+    internal Task RefreshTitlesAfterGameAsync() => ReloadTitlesAsync(refresh: true);
 
-    private async Task ReloadTitlesAsync()
+    private async Task ReloadTitlesAsync(bool refresh = false)
     {
         int generation = ++_catalogGeneration;
         var cancellation = new CancellationTokenSource();
@@ -188,7 +188,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         {
             var result = await GamingOrchestratorClient.Current.GetTitlesAsync(
                 _search.Text, null, _favoritesOnly.IsChecked == true,
-                ct: cancellation.Token, collection: _collectionFilter.Text);
+                ct: cancellation.Token, collection: _collectionFilter.Text, refresh: refresh);
             if (generation != _catalogGeneration || cancellation.IsCancellationRequested) return;
             if (!result.Succeeded || result.Value is null)
             {
