@@ -44,6 +44,7 @@ public sealed class PadMapping
     public string? Validate()
     {
         const int Max = 64;
+        if (Buttons is null) return "Button mapping table is missing.";
         if (Buttons.Count > Max) return "Too many button mappings.";
         foreach (var (index, bit) in Buttons)
             if (index is < 0 or >= Max || bit == 0 || (bit & (bit - 1)) != 0) return "Each button must map to exactly one Xbox button.";
