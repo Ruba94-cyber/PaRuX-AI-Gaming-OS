@@ -435,6 +435,9 @@ public sealed class ManualGameSessionService : IDisposable
                 try { _titles?.AddSession(titleKey, startedUtc, uptime.Elapsed); }
                 catch (OverflowException) { }
             }
+            // The observer owns only the process instance it launched. Never
+            // clear a later session's registered process from an old callback.
+            _orchestrator.ClearOwnedGameProcess(sessionVersion);
             process.Dispose();
             lock (_monitorGate)
             {
