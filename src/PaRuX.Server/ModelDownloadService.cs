@@ -1774,6 +1774,7 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         if (File.Exists(identityPath)) File.Delete(identityPath);
         string temporaryIdentityPath = identityPath + ".tmp";
         if (File.Exists(temporaryIdentityPath)) File.Delete(temporaryIdentityPath);
+        ResumeValidator.Delete(partialPath);
     }
 
     private static void TryDeletePartialArtifacts(string partialPath)
@@ -2180,16 +2181,29 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         {
             if (alreadyDownloaded > 0)
             {
-                HttpResponseMessage rangeResponse = await SendTransferRequestAsync(request.DownloadUrl, alreadyDownloaded, hubToken, ct, entry.LoraLane);
-                if (rangeResponse.StatusCode == HttpStatusCode.PartialContent)
+                // If the source file changed since the first attempt, If-Range makes it answer 200 with the
+                // whole new file instead of a tail that would be appended to a stale prefix.
+                HttpResponseMessage rangeResponse = await SendTransferRequestAsync(request.DownloadUrl, alreadyDownloaded, hubToken, ct, entry.LoraLane,
+                    ResumeValidator.Read(partialPath));
+                if (rangeResponse.StatusCode == HttpStatusCode.PartialContent &&
+                    ResumeValidator.ContentRangeMatches(rangeResponse.Content.Headers.ContentRange, alreadyDownloaded))
                 {
                     response = rangeResponse;
+                }
+                else if (rangeResponse.StatusCode == HttpStatusCode.PartialContent)
+                {
+                    // A 206 that does not start where our bytes end can never be appended safely.
+                    rangeResponse.Dispose();
+                    try { File.Delete(partialPath); } catch { }
+                    ResumeValidator.Delete(partialPath);
+                    alreadyDownloaded = 0;
                 }
                 else if (rangeResponse.IsSuccessStatusCode || rangeResponse.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
                 {
                     // The source ignored or refused the range: this file restarts from byte zero.
                     rangeResponse.Dispose();
                     try { File.Delete(partialPath); } catch { }
+                    ResumeValidator.Delete(partialPath);
                     alreadyDownloaded = 0;
                 }
                 else
@@ -2205,6 +2219,8 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
                 throw StatusFailure(response, entry.LoraLane ? ResolveLoraToken() is not null : hubToken is not null, entry.LoraLane);
 
             bool resumed = alreadyDownloaded > 0 && response.StatusCode == HttpStatusCode.PartialContent;
+            // Remember the validator of a fresh transfer so a later resume can prove the file is unchanged.
+            if (!resumed) ResumeValidator.Write(partialPath, response.Headers.ETag);
             long total;
             if (resumed)
             {
@@ -2328,7 +2344,8 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
     /// <summary>Opens the transfer response. Only the connect phase is bounded: the timer covers response
     /// headers and is released before the body is read. Redirects are followed by hand so each hop is checked
     /// against the hub allow-list before any connection is made to it.</summary>
-    private async Task<HttpResponseMessage> SendTransferRequestAsync(string url, long rangeFrom, string? hubToken, CancellationToken ct, bool loraLane = false)
+    private async Task<HttpResponseMessage> SendTransferRequestAsync(string url, long rangeFrom, string? hubToken, CancellationToken ct, bool loraLane = false,
+        EntityTagHeaderValue? ifRangeValidator = null)
     {
         // In the LoRA lane the Hugging Face token is never used; the optional CivitAI token goes to the exact source host only.
         string? loraToken = loraLane ? ResolveLoraToken() : null;
@@ -2341,7 +2358,11 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
             {
                 connectBound.CancelAfter(TransferPolicy.ConnectTimeout);
                 using var message = new HttpRequestMessage(HttpMethod.Get, current);
-                if (rangeFrom > 0) message.Headers.Range = new RangeHeaderValue(rangeFrom, null);
+                if (rangeFrom > 0)
+                {
+                    message.Headers.Range = new RangeHeaderValue(rangeFrom, null);
+                    if (ifRangeValidator is not null) message.Headers.IfRange = new RangeConditionHeaderValue(ifRangeValidator);
+                }
                 AttachHubAuthorization(message, hubToken);
                 if (loraToken is not null && ModelDownloadHostPolicy.IsLoraTokenHost(current.Host))
                     message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", loraToken);
