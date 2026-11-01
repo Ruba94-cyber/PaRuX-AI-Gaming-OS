@@ -1154,9 +1154,14 @@
                         <TextBlock Text="Console / TV display routing" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
                             Text="Choose which Windows screen is a TV and where PaRuX Console fullscreen opens. Other monitors stay available. This moves only the PaRuX window: external games/emulators control their own output. Windows duplicated displays cannot be separated by PaRuX." />
-                        <Button x:Name="ConsoleDisplaysRefresh" Content="Detect connected displays"
-                            AutomationProperties.AutomationId="Settings_ConsoleDisplays_Refresh_Button"
-                            HorizontalAlignment="Left" Click="ConsoleDisplaysRefresh_Click" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="ConsoleDisplaysRefresh" Content="Detect connected displays"
+                                AutomationProperties.AutomationId="Settings_ConsoleDisplays_Refresh_Button"
+                                Click="ConsoleDisplaysRefresh_Click" />
+                            <Button x:Name="ConsoleDisplaysUseCurrent" Content="Use current monitor (automatic)"
+                                AutomationProperties.AutomationId="Settings_ConsoleDisplays_Auto_Button"
+                                Click="ConsoleDisplaysUseCurrent_Click" />
+                        </StackPanel>
                         <TextBlock x:Name="ConsoleDisplaysStatus" TextWrapping="Wrap"
                             AutomationProperties.AutomationId="Settings_ConsoleDisplays_Status_Text"
                             Style="{StaticResource PaRuXCaptionTextStyle}" />
