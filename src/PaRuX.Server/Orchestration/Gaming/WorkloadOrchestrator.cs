@@ -97,6 +97,8 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     private readonly Action? _cancelEvaluations;
 
+    internal static readonly TimeSpan ProviderStartTimeout = TimeSpan.FromSeconds(30);
+
     public WorkloadOrchestrator(
         LocalRuntimeService runtime,
         LocalAiProcessManager processManager,
@@ -467,13 +469,15 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
             // 2. Start Input helper
             inputStartAttempted = true;
-            if (!await inputProvider.StartAsync(profile, ct).ConfigureAwait(false))
+            // A provider that never answers must not hold the transition gate forever: a timeout is a
+            // failed start and takes the normal rollback path.
+            if (!await inputProvider.StartAsync(profile, ct).WaitAsync(ProviderStartTimeout, ct).ConfigureAwait(false))
                 throw new InvalidOperationException($"Gaming input provider '{inputProvider.Id}' could not start.");
             lock (_stateGate) _activeInputId = inputProvider.Id;
 
             // 3. Launch Launcher (e.g. Playnite Fullscreen)
             launcherStartAttempted = true;
-            if (!await launcherProvider.LaunchAsync(profile, ct).ConfigureAwait(false))
+            if (!await launcherProvider.LaunchAsync(profile, ct).WaitAsync(ProviderStartTimeout, ct).ConfigureAwait(false))
                 throw new InvalidOperationException($"Gaming launcher provider '{launcherProvider.Id}' could not start.");
             lock (_stateGate) _activeLauncherId = launcherProvider.Id;
 
