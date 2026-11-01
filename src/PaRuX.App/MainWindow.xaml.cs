@@ -220,6 +220,7 @@ namespace PaRuX
             if (App.IsShuttingDown) return;
             args.Cancel = true;
             ChatSession.Current.Persist();
+            GameLibraryPage.CancelExpensiveWork();
             sender.Hide();
         }
 
