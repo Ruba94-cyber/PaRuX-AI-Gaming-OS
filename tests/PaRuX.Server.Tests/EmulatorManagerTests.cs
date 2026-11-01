@@ -156,6 +156,17 @@ public sealed class EmulatorManagerTests : IDisposable
         Assert.Empty(plan.ArgumentList);
     }
 
+    [Theory]
+    [InlineData("eden", ".")]
+    [InlineData("eden", "..")]
+    [InlineData("eden-cli", "..")]
+    public void Eden_input_profiles_cannot_be_special_directory_names(string emulator, string profile)
+    {
+        var plan = EmulatorCommandBuilder.Build(Def(emulator), File_("demo.nro"), true,
+            null, null, EmulatorLaunchModes.Fullscreen, profile);
+        Assert.NotNull(plan.Error);
+    }
+
     [Fact]
     public void Very_long_Eden_input_profile_is_rejected()
     {
