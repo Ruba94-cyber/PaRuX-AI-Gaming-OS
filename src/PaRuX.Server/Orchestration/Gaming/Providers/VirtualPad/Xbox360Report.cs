@@ -107,8 +107,11 @@ public static class GenericPadMapper
     private static byte Trigger(RawGamepadState state, int? axis, int? button, bool signed)
     {
         if (button is { } b && b >= 0 && b < state.Buttons.Count && state.Buttons[b]) return 255;
-        if (axis is null) return 0;
-        double v = Axis(state, axis);
+        // A missing/disconnected/non-finite signed axis must be released, not
+        // interpreted as its midpoint (128) by normalising a fallback zero.
+        if (axis is not { } i || i < 0 || i >= state.Axes.Count ||
+            !double.IsFinite(state.Axes[i])) return 0;
+        double v = Math.Clamp(state.Axes[i], -1.0, 1.0);
         double unit = signed ? (v + 1.0) / 2.0 : Math.Max(0.0, v);
         return (byte)Math.Clamp(Math.Round(unit * 255.0), 0, 255);
     }
