@@ -57,6 +57,9 @@ namespace PaRuX.Services
             return list ?? new List<GamingProviderStatusDto>();
         }
 
+        public Task<GamingCallResult<List<GamingControllerStateDto>>> GetControllersAsync(CancellationToken ct = default) =>
+            SendAsync<List<GamingControllerStateDto>>(HttpMethod.Get, "/api/v1/gaming/controllers", null, ct);
+
         public Task<GamingCallResult<GamingDisplaySnapshotDto>> GetDisplayTopologyAsync(CancellationToken ct = default) =>
             SendAsync<GamingDisplaySnapshotDto>(HttpMethod.Get, "/api/v1/gaming/displays", null, ct);
 
