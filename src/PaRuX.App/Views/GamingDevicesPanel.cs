@@ -42,6 +42,8 @@ internal sealed class GamingDevicesPanel : StackPanel
     private readonly Button _save = new();
     private readonly Button _reset = new();
     private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly ComboBox _rawDevices = new() { MinWidth = 280 };
+    private readonly TextBlock _rawDeviceStatus = new() { TextWrapping = TextWrapping.Wrap };
 
     public GamingDevicesPanel()
     {
@@ -263,7 +265,70 @@ internal sealed class GamingDevicesPanel : StackPanel
         AutomationProperties.SetAutomationId(_controllerStatus, "GameDevices_Controller_Status_Text");
         AutomationProperties.SetLiveSetting(_controllerStatus, AutomationLiveSetting.Polite);
         Children.Add(_controllerStatus);
+
+        Children.Add(new TextBlock
+        {
+            Text = T("Other controllers (RawGameController)", "Altri controller (RawGameController)"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 12, 0, 0)
+        });
+        Children.Add(new TextBlock
+        {
+            Text = T("Find and sample Windows-compatible HID devices on demand. Nothing is injected into games; a virtual Xbox pad needs a separately installed driver and confirmed input isolation.",
+                "Rileva e campiona i dispositivi HID compatibili su richiesta. Nessun input viene iniettato nei giochi; un controller Xbox virtuale richiede un driver separato e l'isolamento verificato dell'input."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _rawDevices.Header = T("Physical controller", "Controller fisico");
+        AutomationProperties.SetAutomationId(_rawDevices, "GameDevices_RawController_ComboBox");
+        var detectRaw = MakeButton(T("Find controllers", "Trova controller"),
+            "GameDevices_Raw_Detect_Button", DetectRawAsync);
+        var readRaw = MakeButton(T("Read once", "Leggi una volta"),
+            "GameDevices_Raw_Read_Button", SampleRawAsync);
+        var rawActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        rawActions.Children.Add(detectRaw);
+        rawActions.Children.Add(_rawDevices);
+        rawActions.Children.Add(readRaw);
+        Children.Add(rawActions);
+        AutomationProperties.SetAutomationId(_rawDeviceStatus, "GameDevices_Raw_Status_Text");
+        AutomationProperties.SetLiveSetting(_rawDeviceStatus, AutomationLiveSetting.Polite);
+        Children.Add(_rawDeviceStatus);
         ApplyToUi(GamingControllerProfile.Default);
+    }
+
+    private Task DetectRawAsync()
+    {
+        _rawDevices.Items.Clear();
+        var list = WindowsRawGamepadSource.ListDevices();
+        foreach (RawGamepadDeviceInfo device in list)
+            _rawDevices.Items.Add(new ComboBoxItem
+            {
+                Content = $"{device.Name} (VID {device.VendorId:X4}, PID {device.ProductId:X4})",
+                Tag = device.Id
+            });
+        _rawDevices.SelectedIndex = list.Count > 0 ? 0 : -1;
+        _rawDeviceStatus.Text = list.Count > 0
+            ? T($"{list.Count} physical controllers listed. Choose one and click Read once.",
+                 $"{list.Count} controller fisici rilevati. Scegline uno e premi Leggi una volta.")
+            : T("No compatible raw controllers were found.", "Nessun controller raw compatibile rilevato.");
+        return Task.CompletedTask;
+    }
+
+    private Task SampleRawAsync()
+    {
+        string? selected = (_rawDevices.SelectedItem as ComboBoxItem)?.Tag as string;
+        var source = selected is null ? null : WindowsRawGamepadSource.TryOpen(selected);
+        if (source is null || !source.TryRead(out var sample) || sample is null)
+        {
+            _rawDeviceStatus.Text = T("The selected controller is no longer available.",
+                "Il controller selezionato non è più disponibile.");
+            return Task.CompletedTask;
+        }
+        int pressed = sample.Buttons.Count(b => b);
+        string axes = string.Join(", ", sample.Axes.Take(6).Select(x => x.ToString("F2", CultureInfo.CurrentCulture)));
+        _rawDeviceStatus.Text = T(
+            $"Read-only sample: {pressed} pressed buttons, axes [{axes}], hat {sample.HatDirection}.",
+            $"Lettura diagnostica: {pressed} pulsanti premuti, assi [{axes}], direzione {sample.HatDirection}.");
+        return Task.CompletedTask;
     }
 
     private void ApplyToUi(GamingControllerProfile p)
