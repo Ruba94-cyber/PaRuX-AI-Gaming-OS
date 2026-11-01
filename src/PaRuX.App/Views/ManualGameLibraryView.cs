@@ -1313,7 +1313,13 @@ public sealed class ManualGameLibraryView : UserControl
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
-            var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(game.Id);
+            // Only Console/TV launches request window placement. The Core
+            // rechecks that the selected physical display still exists before
+            // entering Gaming; ordinary desktop launches remain unchanged.
+            string? gameDisplayId = _consolePresentation
+                ? SettingsStore.Current.Data.ConsoleTargetDisplayId : null;
+            var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(
+                game.Id, displayId: isApplication ? null : gameDisplayId);
             if (!result.Succeeded || result.Value is not { Launched: true } launch)
             {
                 _status.Text = T(
@@ -1333,6 +1339,22 @@ public sealed class ManualGameLibraryView : UserControl
                     "Processo del gioco verificato. Il ritorno automatico all'AI lo sta monitorando.")
                 : T("Game process started but its identity is not verified. Return to AI manually when finished.",
                     "Processo del gioco avviato ma identità non verificata. Torna manualmente all'AI al termine.");
+
+            // Report what Windows ACTUALLY allowed, not a generic promise that
+            // every emulator/exclusive fullscreen frame moved successfully.
+            if (!string.IsNullOrEmpty(gameDisplayId))
+                _status.Text += "\n" + (launch.WindowPlacement switch
+                {
+                    "placed" => T("Window moved onto the selected TV without changing focus or display settings.",
+                        "Finestra spostata sulla TV scelta senza cambiare focus o impostazioni degli schermi."),
+                    "already-on-tv" => T("The game window was already positioned on the TV.",
+                        "La finestra del gioco era già posizionata sulla TV."),
+                    "unsupported-window" => T(
+                        "TV window placement not confirmed (fullscreen, multiple windows or incompatible window). The game is still running; position it in its own settings.",
+                        "Spostamento sulla TV non confermato (fullscreen, più finestre o finestra incompatibile). Il gioco resta avviato; imposta lo schermo nelle sue opzioni."),
+                    _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
+                        "Posizionamento sulla TV non confermato. Il gioco resta avviato; usa le sue impostazioni schermo.")
+                });
         }
         catch (Exception)
         {
