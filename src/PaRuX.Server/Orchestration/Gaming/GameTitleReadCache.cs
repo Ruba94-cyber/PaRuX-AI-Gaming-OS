@@ -19,6 +19,35 @@ public sealed class GameTitleReadCache
         lock (_gate) _snapshot = titles.ToArray();
     }
 
+    /// <summary>Explicit owner edits remain visible in the cached Gaming library
+    /// without rescanning installed stores. The persisted title overlay is the source
+    /// of truth; callers pass its validated, post-write state.</summary>
+    public void ApplyState(string titleKey, GameTitleState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        lock (_gate)
+        {
+            if (_snapshot is null) return;
+            _snapshot = _snapshot.Select(title =>
+            {
+                if (!string.Equals(title.TitleKey, titleKey, StringComparison.Ordinal))
+                    return title;
+                string? selected = state.DefaultInstallationId;
+                if (selected is null || !title.Installations.Any(i => i.InstallationId == selected))
+                    selected = title.Installations.FirstOrDefault()?.InstallationId;
+                return title with
+                {
+                    Favorite = state.Favorite,
+                    Tags = (state.Tags ?? new()).ToArray(),
+                    Collections = (state.Collections ?? new()).ToArray(),
+                    PlaySeconds = state.PlaySeconds,
+                    LastPlayedUtc = state.LastPlayedUtc,
+                    DefaultInstallationId = selected
+                };
+            }).ToArray();
+        }
+    }
+
     public bool TryRead(out IReadOnlyList<GameTitleDto> titles)
     {
         lock (_gate)
