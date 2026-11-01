@@ -96,6 +96,15 @@ public sealed class ManualGameLaunchSecurityTests : IClassFixture<ApiSecurityTes
     }
 
     [Fact]
+    public async Task Gog_launch_requires_desktop_owner_authorization()
+    {
+        using HttpClient client = _factory.CreateClient();
+        using HttpResponseMessage response = await client.PostAsync(
+            "/api/v1/gaming/library/discover/gog/1207659123/launch", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Manual_game_launch_requires_desktop_owner_authorization()
     {
         using HttpClient client = _factory.CreateClient();
