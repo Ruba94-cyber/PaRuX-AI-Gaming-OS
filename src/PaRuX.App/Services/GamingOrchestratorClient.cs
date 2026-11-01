@@ -175,11 +175,12 @@ namespace PaRuX.Services
             SendAsync<GameFolderInspectionDto>(HttpMethod.Post, "/api/v1/gaming/library/inspect-folder", new GameFolderInspectRequest(folder), ct);
 
         public Task<GamingCallResult<List<GameTitleDto>>> GetTitlesAsync(string? text, string? source, bool favoritesOnly,
-            CancellationToken ct = default, string? collection = null) =>
+            CancellationToken ct = default, string? collection = null, bool refresh = false) =>
             SendAsync<List<GameTitleDto>>(HttpMethod.Get,
                 "/api/v1/gaming/titles?q=" + Uri.EscapeDataString(text ?? "") + "&source=" + Uri.EscapeDataString(source ?? "")
                 + (favoritesOnly ? "&favorite=true" : "")
-                + (string.IsNullOrWhiteSpace(collection) ? "" : "&collection=" + Uri.EscapeDataString(collection)), null, ct);
+                + (string.IsNullOrWhiteSpace(collection) ? "" : "&collection=" + Uri.EscapeDataString(collection))
+                + (refresh ? "&refresh=true" : ""), null, ct);
 
         public Task<GamingCallResult<object>> SetTitleFavoriteAsync(string key, bool favorite, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put,
