@@ -85,7 +85,8 @@ public sealed class SteamGameDiscoveryProvider
 
                     string location = Path.Combine(directory, "common", installFolder);
                     if (!Directory.Exists(location)) continue;
-                    games.TryAdd(id, new DiscoveredGameDto("steam", id, name, location));
+                    games.TryAdd(id, new DiscoveredGameDto("steam", id, name, location,
+                        InstallStateFromFlags(FindValue(text, "StateFlags"))));
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or RegexMatchTimeoutException)
@@ -94,6 +95,24 @@ public sealed class SteamGameDiscoveryProvider
             }
         }
         return games.Values.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    /// <summary>
+    /// Valve's appmanifest StateFlags bit set: 1 uninstalled, 2 update required, 4 fully installed,
+    /// 32 files missing, 128 files corrupt, 256 update running, 512 update paused, 1024 update started,
+    /// 2048 uninstalling. "Fully installed" with "update required" (6) is still playable.
+    /// </summary>
+    internal static string InstallStateFromFlags(string? raw)
+    {
+        if (!uint.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out uint flags))
+            return GameInstallStates.Unknown;
+        const uint Uninstalled = 1, FullyInstalled = 4, FilesMissing = 32, FilesCorrupt = 128,
+            UpdateRunning = 256, UpdatePaused = 512, UpdateStarted = 1024, Uninstalling = 2048;
+        if ((flags & (Uninstalled | FilesMissing | FilesCorrupt | Uninstalling)) != 0) return GameInstallStates.Incomplete;
+        if ((flags & FullyInstalled) != 0)
+            return (flags & (UpdateRunning | UpdateStarted)) != 0 ? GameInstallStates.Updating : GameInstallStates.Installed;
+        return (flags & (UpdateRunning | UpdatePaused | UpdateStarted)) != 0
+            ? GameInstallStates.Updating : GameInstallStates.Incomplete;
     }
 
     private static string? FindValue(string text, string key)

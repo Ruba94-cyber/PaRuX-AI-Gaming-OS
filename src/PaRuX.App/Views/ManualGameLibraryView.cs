@@ -57,6 +57,8 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _browse = new();
     private bool _busy;
     private readonly TextBox _filter = new();
+    private readonly ComboBox _storeFilter = new() { MinWidth = 180 };
+    private readonly ComboBox _stateFilter = new() { MinWidth = 180 };
     private List<ManualGameDto> _allGames = new();
     private List<DiscoveredGameDto> _lastDetectedGames = new();
     private int _page;
@@ -152,7 +154,27 @@ public sealed class ManualGameLibraryView : UserControl
                 e.Handled = true;
             }
         };
-        root.Children.Add(_filter); root.Children.Add(_games);
+        root.Children.Add(_filter);
+        _storeFilter.Header = T("Store", "Negozio");
+        _stateFilter.Header = T("Install state", "Stato installazione");
+        foreach (var (value, label) in new[] { ("", T("All stores", "Tutti i negozi")), ("steam", "Steam"), ("epic", "Epic"), ("gog", "GOG") })
+            _storeFilter.Items.Add(new ComboBoxItem { Content = label, Tag = value });
+        foreach (var (value, label) in new[]
+        {
+            ("", T("Any state", "Qualsiasi stato")), (GameInstallStates.Installed, T("Installed", "Installato")),
+            (GameInstallStates.Updating, T("Updating", "In aggiornamento")), (GameInstallStates.Incomplete, T("Incomplete", "Incompleto")),
+            (GameInstallStates.Unknown, T("Not reported", "Non riportato"))
+        })
+            _stateFilter.Items.Add(new ComboBoxItem { Content = label, Tag = value });
+        _storeFilter.SelectedIndex = 0; _stateFilter.SelectedIndex = 0;
+        AutomationProperties.SetAutomationId(_storeFilter, "GameLibrary_StoreFilter_ComboBox");
+        AutomationProperties.SetAutomationId(_stateFilter, "GameLibrary_StateFilter_ComboBox");
+        _storeFilter.SelectionChanged += (_, _) => { _detectedPage = 0; RenderDiscoveredGames(); };
+        _stateFilter.SelectionChanged += (_, _) => { _detectedPage = 0; RenderDiscoveredGames(); };
+        var storeFilters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        storeFilters.Children.Add(_storeFilter); storeFilters.Children.Add(_stateFilter);
+        root.Children.Add(storeFilters);
+        root.Children.Add(_games);
         var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         _previous.Content = T("Previous", "Precedente"); _next.Content = T("Next", "Successiva");
         _previous.Click += (_, _) => { if (_page > 0) { _page--; RenderGames(); } };
@@ -874,12 +896,20 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
+    private static string InstallStateLabel(string state) => state switch
+    {
+        GameInstallStates.Installed => T("installed", "installato"),
+        GameInstallStates.Updating => T("updating", "in aggiornamento"),
+        GameInstallStates.Incomplete => T("incomplete", "incompleto"),
+        _ => T("state not reported", "stato non riportato")
+    };
+
     private void RenderDiscoveredGames()
     {
         _discoveredGames.Children.Clear();
-        var matches = _lastDetectedGames
-            .Where(g => g.Name.Contains(_filter.Text ?? "", StringComparison.CurrentCultureIgnoreCase))
-            .ToList();
+        var matches = GameLibraryQuery.Filter(_lastDetectedGames, _filter.Text,
+            (_storeFilter.SelectedItem as ComboBoxItem)?.Tag as string,
+            (_stateFilter.SelectedItem as ComboBoxItem)?.Tag as string).ToList();
         GameLibraryPageWindow window = GameLibraryPageWindow.For(matches.Count, _detectedPage);
         _detectedPage = window.Page;
         _lastDetectedWindow = window;
@@ -905,10 +935,18 @@ public sealed class ManualGameLibraryView : UserControl
             });
             item.Children.Add(new TextBlock
             {
-                Text = game.ProviderId.ToUpperInvariant() + " #" + game.ProviderGameId,
+                Text = game.ProviderId.ToUpperInvariant() + " #" + game.ProviderGameId + " · " + InstallStateLabel(game.InstallState),
                 FontSize = _consolePresentation ? 18 : 14,
                 TextWrapping = TextWrapping.Wrap
             });
+            var otherStores = GameLibraryQuery.OtherStores(game, _lastDetectedGames);
+            if (otherStores.Count > 0)
+                item.Children.Add(new TextBlock
+                {
+                    Text = T("Also found in: ", "Presente anche in: ") + string.Join(", ", otherStores),
+                    FontSize = _consolePresentation ? 18 : 14,
+                    TextWrapping = TextWrapping.Wrap
+                });
             bool canUseStoreHandoff = GameStoreLaunchIdPolicy.SupportsOfficialLaunch(
                 game.ProviderId, game.ProviderGameId);
             if (!canUseStoreHandoff)
@@ -1151,11 +1189,11 @@ public sealed class ManualGameLibraryView : UserControl
                 return;
             }
             await UpdateGamingStatusAsync();
-            _status.Text = launch.AutomaticReturnOnExit
-                ? T("Game started. Automatic return to AI is monitoring the owned process.",
-                    "Gioco avviato. Il ritorno automatico all'AI monitora il processo avviato.")
-                : T("Game started. Return to AI manually when finished.",
-                    "Gioco avviato. Torna manualmente all'AI al termine.");
+            _status.Text = launch.StartState == GameStartStates.Verified
+                ? T("Game process verified. Automatic return to AI is monitoring it.",
+                    "Processo del gioco verificato. Il ritorno automatico all'AI lo sta monitorando.")
+                : T("Game process started but its identity is not verified. Return to AI manually when finished.",
+                    "Processo del gioco avviato ma identità non verificata. Torna manualmente all'AI al termine.");
         }
         catch (Exception)
         {

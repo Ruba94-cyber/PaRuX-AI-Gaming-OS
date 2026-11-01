@@ -91,7 +91,7 @@ public sealed class ManualGameSessionService : IDisposable
                 if (!verified || sessionVersion == null)
                 {
                     process.Dispose(); // releases our handle; it does NOT terminate the game
-                    return new(true, false, "Game started. Automatic return is unavailable because its exact process identity could not be verified; return to AI manually.");
+                    return new ManualGameLaunchResult(true, false, "Game started. Automatic return is unavailable because its exact process identity could not be verified; return to AI manually.") { StartState = GameStartStates.ProcessStarted };
                 }
 
                 _orchestrator.RegisterOwnedGameProcess(new WorkloadOrchestrator.OwnedGameProcess(
@@ -125,7 +125,7 @@ public sealed class ManualGameSessionService : IDisposable
                 }
                 _logger?.LogWarning("A started manual game could not be automatically monitored.");
                 process?.Dispose();
-                return new(true, false, "Game started but automatic return is unavailable. Use Return to AI manually.");
+                return new ManualGameLaunchResult(true, false, "Game started but automatic return is unavailable. Use Return to AI manually.") { StartState = GameStartStates.ProcessStarted };
             }
         }
         finally { _launchGate.Release(); }

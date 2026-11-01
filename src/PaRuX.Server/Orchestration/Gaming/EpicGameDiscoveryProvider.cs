@@ -56,7 +56,7 @@ public sealed class EpicGameDiscoveryProvider
                     if (root.TryGetProperty("bIsIncompleteInstall", out JsonElement incomplete)
                         && incomplete.ValueKind == JsonValueKind.True) continue;
 
-                    found.TryAdd(id, new DiscoveredGameDto("epic", id, name, Path.GetFullPath(path)));
+                    found.TryAdd(id, new DiscoveredGameDto("epic", id, name, Path.GetFullPath(path), GameInstallStates.Installed));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
                 {
