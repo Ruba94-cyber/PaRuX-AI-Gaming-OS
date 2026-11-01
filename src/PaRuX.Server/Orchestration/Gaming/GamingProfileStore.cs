@@ -162,7 +162,7 @@ public sealed class GamingProfileStore
         List<GamingProfileDto>? loaded = JsonSerializer.Deserialize<List<GamingProfileDto>>(json, JsonOptions);
         if (loaded is null || loaded.Count > 1024 ||
             loaded.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) ||
-                p.Id.Length > 128 || string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 200))
+                string.IsNullOrWhiteSpace(p.Name)))
             throw new InvalidDataException("Gaming profile JSON is invalid.");
         return loaded;
     }
