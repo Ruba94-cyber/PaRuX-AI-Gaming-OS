@@ -347,6 +347,27 @@ internal sealed class GamingDevicesPanel : StackPanel
         mappingActions.Children.Add(loadMapping);
         mappingActions.Children.Add(saveMapping);
         Children.Add(mappingActions);
+
+        Children.Add(new TextBlock
+        {
+            Text = T("Physical input recovery (HidHide)", "Recupero input fisico (HidHide)"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 12, 0, 0)
+        });
+        Children.Add(new TextBlock
+        {
+            Text = T("If PaRuX closed unexpectedly after hiding a controller, check recovery before using a virtual pad. This never modifies unrelated HidHide settings.",
+                "Se PaRuX si è chiuso dopo aver nascosto un controller, verifica il ripristino prima di usare un pad virtuale. Non modifica impostazioni HidHide estranee a PaRuX."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        var checkIsolation = MakeButton(T("Check recovery", "Controlla ripristino"),
+            "GameDevices_HidHide_Status_Button", CheckHidHideAsync);
+        var restoreIsolation = MakeButton(T("Restore PaRuX changes", "Ripristina modifiche PaRuX"),
+            "GameDevices_HidHide_Restore_Button", RestoreHidHideAsync);
+        var restoreActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        restoreActions.Children.Add(checkIsolation);
+        restoreActions.Children.Add(restoreIsolation);
+        Children.Add(restoreActions);
         AutomationProperties.SetAutomationId(_rawA, "GameDevices_RawMapping_A_Index");
         AutomationProperties.SetAutomationId(_rawB, "GameDevices_RawMapping_B_Index");
         AutomationProperties.SetAutomationId(_rawLx, "GameDevices_RawMapping_LeftX_Index");
@@ -390,6 +411,56 @@ internal sealed class GamingDevicesPanel : StackPanel
             $"Read-only sample — pressed button indices [{pressed}], axis indices/values [{axes}], hat {sample.HatDirection}.",
             $"Lettura manuale — indici pulsanti premuti [{pressed}], indici/valori assi [{axes}], direzione {sample.HatDirection}.");
         return Task.CompletedTask;
+    }
+
+    private async Task CheckHidHideAsync()
+    {
+        try
+        {
+            var status = await GamingOrchestratorClient.Current.GetHidHideStatusAsync();
+            _rawDeviceStatus.Text = status.Succeeded && status.Value is { } value
+                ? value.RecoveryRequired
+                    ? T("Recovery is pending. Leave Gaming and use Restore PaRuX changes.",
+                        "Ripristino necessario. Esci dal Gaming e usa Ripristina modifiche PaRuX.")
+                    : value.Available
+                        ? T("HidHide available; no PaRuX recovery pending.",
+                            "HidHide disponibile; nessun ripristino PaRuX in sospeso.")
+                        : T("HidHide is not installed; optional virtual mapping unavailable.",
+                            "HidHide non installato; mappatura virtuale opzionale non disponibile.")
+                : T("Could not check HidHide.", "Impossibile controllare HidHide.");
+        }
+        catch (Exception)
+        {
+            _rawDeviceStatus.Text = T("Could not check HidHide.", "Impossibile controllare HidHide.");
+        }
+    }
+
+    private async Task RestoreHidHideAsync()
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("Restore PaRuX controller visibility changes?", "Ripristinare la visibilità dei controller modificata da PaRuX?"),
+            Content = T("Only changes recorded in PaRuX's recovery journal will be reversed. This operation is refused during Gaming.",
+                "Verranno annullate solo le modifiche registrate nel journal di PaRuX. Durante il Gaming l'operazione viene rifiutata."),
+            PrimaryButtonText = T("Restore", "Ripristina"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.RecoverHidHideAsync();
+            _rawDeviceStatus.Text = result.Succeeded
+                ? T("PaRuX controller visibility recovery completed.", "Ripristino della visibilità dei controller PaRuX completato.")
+                : T("Recovery incomplete or refused. The journal was kept; check HidHide before using virtual input.",
+                    "Ripristino incompleto o rifiutato. Journal preservato; controlla HidHide prima di usare input virtuale.");
+        }
+        catch (Exception)
+        {
+            _rawDeviceStatus.Text = T("Could not restore controllers; check HidHide manually.",
+                "Impossibile ripristinare i controller; controlla HidHide manualmente.");
+        }
     }
 
     private Task LoadRawMappingAsync()
