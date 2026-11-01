@@ -16,6 +16,7 @@ public sealed class GameDownloadManagerTests : IDisposable
         public byte[] Data = Array.Empty<byte>();
         public string ETag = "\"v1\"";
         public bool SupportRange = true;
+        public bool UnsolicitedPartial; // malicious/nonconforming host answers 206 to a plain GET
         public bool DropAfterFirstHalf;       // closes the connection mid-body once
         public int Requests, RangeRequests;
         public string? RedirectTo;
@@ -63,7 +64,7 @@ public sealed class GameDownloadManagerTests : IDisposable
 
                 ctx.Response.Headers["ETag"] = ETag;
                 long length = Data.Length - start;
-                if (partial)
+                if (partial || UnsolicitedPartial)
                 {
                     ctx.Response.StatusCode = 206;
                     ctx.Response.Headers["Content-Range"] = $"bytes {start}-{Data.Length - 1}/{Data.Length}";
@@ -260,6 +261,19 @@ public sealed class GameDownloadManagerTests : IDisposable
         using var m = Make();
         var done = await WaitFor(m, m.Enqueue(new(_server.Url(), _dir, ExpectedSha256: Sha(_server.Data))).Id, GameDownloadStates.Completed);
         Assert.True(done.IntegrityChecked);
+    }
+
+    [Fact]
+    public async Task An_unsolicited_206_is_not_published_as_a_complete_file()
+    {
+        _server.Data = Bytes(80_000);
+        _server.UnsolicitedPartial = true;
+        using var manager = Make();
+        var failed = await WaitFor(manager,
+            manager.Enqueue(new(_server.Url(), _dir)).Id, GameDownloadStates.Failed);
+        Assert.Contains("partial response", failed.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(_dir, "file.bin")));
+        Assert.Empty(Directory.GetFiles(_dir, "*.parux-part*"));
     }
 
     [Fact]
