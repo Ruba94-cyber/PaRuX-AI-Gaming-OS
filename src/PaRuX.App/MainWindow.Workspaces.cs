@@ -137,6 +137,7 @@ namespace PaRuX
             ObservabilityPage.Visibility = Visibility.Collapsed;
             UpdateManagerPage.Visibility = Visibility.Collapsed;
             RuntimeManagerPage.Visibility = Visibility.Collapsed;
+            GameLibraryPage.CancelExpensiveWork();
             GameLibraryPage.Visibility = Visibility.Collapsed;
         }
 
