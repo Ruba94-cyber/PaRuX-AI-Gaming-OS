@@ -101,7 +101,11 @@ public sealed class GgufQuantizeJobs
         GgufQuantizeJobStatus finished;
         try
         {
-            GgufQuantizeResult result = await _service.QuantizeAsync(request, ct).ConfigureAwait(false);
+            // The orchestrator stops exports before launching games. Also watch the
+            // persisted Gaming marker while the worker is active, so an external Gaming
+            // activation or restart cannot leave a CPU/disk-heavy quantizer running.
+            using var hardOff = new GamingHardOffWatch(_gamingActive, ct);
+            GgufQuantizeResult result = await _service.QuantizeAsync(request, hardOff.Token).ConfigureAwait(false);
             finished = started with { State = "completed", Message = "Quantization completed.", Result = result };
         }
         catch (OperationCanceledException) { finished = started with { State = "cancelled", Message = "Quantization was cancelled." }; }
