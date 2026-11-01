@@ -124,6 +124,17 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Emulator_detection_respects_a_global_directory_budget()
+    {
+        File_("a/b/Cemu.exe", 20_000);
+        Assert.Empty(EmulatorDiscovery.Detect(new[] { _root }, maxEntries: 1));
+        var found = EmulatorDiscovery.Detect(new[] { _root }, maxEntries: EmulatorDiscovery.MaxDetectEntries);
+        Assert.Contains(found, emulator => emulator.EmulatorId == "cemu");
+        Assert.Throws<ArgumentOutOfRangeException>(() => EmulatorDiscovery.Detect(new[] { _root }, maxEntries: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => EmulatorDiscovery.Detect(new[] { _root }, maxEntries: EmulatorDiscovery.MaxDetectEntries + 1));
+    }
+
+    [Fact]
     public void Detection_does_not_search_deeper_than_two_levels_and_handles_missing_roots()
     {
         File_("a/b/c/d/Cemu.exe", 20_000);
