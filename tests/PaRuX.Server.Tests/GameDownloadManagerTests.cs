@@ -190,6 +190,56 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Unrelated_partial_download_is_discarded_before_a_new_request()
+    {
+        _server.Data = Bytes(180_000);
+        string partial = Path.Combine(_dir, "file.bin.parux-part");
+        await File.WriteAllBytesAsync(partial, Bytes(42_000));
+        await File.WriteAllTextAsync(partial + ".identity", "v1:" + new string('0', 64));
+        await File.WriteAllTextAsync(partial + ".validator", "\"wrong-etag\"");
+        using var manager = Make();
+        var done = await WaitFor(manager,
+            manager.Enqueue(new(_server.Url(), _dir, ExpectedSha256: Sha(_server.Data))).Id,
+            GameDownloadStates.Completed);
+        Assert.True(done.IntegrityChecked);
+        Assert.Equal(0, _server.RangeRequests);
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
+        Assert.False(File.Exists(partial + ".identity"));
+    }
+
+    [Fact]
+    public async Task A_paused_download_preserves_a_source_fingerprint_without_persisting_its_url()
+    {
+        _server.Data = Bytes(1_000_000);
+        string part = Path.Combine(_dir, "file.bin.parux-part");
+        string secretQuery = "?download_token=private-fixture";
+        using (var manager = Make())
+        {
+            manager.SetBandwidthLimit(180_000);
+            var job = manager.Enqueue(new(_server.Url() + secretQuery, _dir));
+            await WaitFor(manager, job.Id, GameDownloadStates.Running);
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while ((!File.Exists(part) || new FileInfo(part).Length == 0) && DateTime.UtcNow < deadline)
+                await Task.Delay(25);
+            Assert.True(manager.Pause(job.Id));
+            await WaitFor(manager, job.Id, GameDownloadStates.Paused);
+            Assert.True(File.Exists(part + ".identity"));
+            string identity = await File.ReadAllTextAsync(part + ".identity");
+            Assert.DoesNotContain("private-fixture", identity);
+            Assert.DoesNotContain("download_token", identity);
+            Assert.Equal(67, identity.Length);
+        }
+
+        using var resumed = Make();
+        var done = await WaitFor(resumed,
+            resumed.Enqueue(new(_server.Url() + secretQuery, _dir, ExpectedSha256: null)).Id,
+            GameDownloadStates.Completed);
+        Assert.False(done.IntegrityChecked);
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
+        Assert.True(_server.RangeRequests >= 1);
+    }
+
+    [Fact]
     public async Task A_dropped_connection_resumes_with_a_range_request_and_ends_byte_exact()
     {
         _server.Data = Bytes(400_000);

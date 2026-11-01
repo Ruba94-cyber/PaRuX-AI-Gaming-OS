@@ -272,6 +272,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     private async Task TransferAsync(Entry e, CancellationToken ct)
     {
         long existing = File.Exists(e.PartPath) ? new FileInfo(e.PartPath).Length : 0;
+        // A filename is not a source identity. Never append an old partial from a
+        // different URL or checksum, even when its server happens to accept Range.
+        if (existing > 0 && !ResumeIdentityMatches(e))
+        {
+            CleanPartial(e);
+            existing = 0;
+        }
+        if (existing == 0) WriteResumeIdentity(e);
         EntityTagHeaderValue? validator = ResumeValidator.Read(e.PartPath);
 
         using HttpResponseMessage response = await SendFollowingRedirectsAsync(e.Url, existing, validator, ct).ConfigureAwait(false);
@@ -345,6 +353,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             ct.ThrowIfCancellationRequested();
             File.Move(e.PartPath, finalPath);
             ResumeValidator.Delete(e.PartPath);
+            DeleteResumeIdentity(e);
             e.IntegrityChecked = e.ExpectedSha256 is not null;
             e.VerifiedSha256 = sha;
             e.State = GameDownloadStates.Completed;
@@ -454,10 +463,55 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
+    // Do not persist credential-bearing URLs: only a versioned SHA-256 of the
+    // entire URL (including its query) and the independently expected checksum.
+    // A changed signed link starts afresh instead of silently stitching bytes.
+    private static string ResumeIdentityPath(Entry e) => e.PartPath + ".identity";
+
+    private static string ExpectedResumeIdentity(Entry e)
+    {
+        string material = e.Url.AbsoluteUri + "\n" + (e.ExpectedSha256 ?? "");
+        return "v1:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
+    }
+
+    private static bool ResumeIdentityMatches(Entry e)
+    {
+        try
+        {
+            string path = ResumeIdentityPath(e);
+            if (!File.Exists(path) || new FileInfo(path).Length is < 67 or > 70) return false;
+            return string.Equals(File.ReadAllText(path).Trim(), ExpectedResumeIdentity(e), StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    private static void WriteResumeIdentity(Entry e)
+    {
+        string path = ResumeIdentityPath(e);
+        string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, ExpectedResumeIdentity(e));
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            try { File.Delete(temporary); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    private static void DeleteResumeIdentity(Entry e)
+    {
+        try { File.Delete(ResumeIdentityPath(e)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
     private static void CleanPartial(Entry e)
     {
         try { File.Delete(e.PartPath); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         ResumeValidator.Delete(e.PartPath);
+        DeleteResumeIdentity(e);
     }
 
     private static long DefaultFreeBytes(string folder)
