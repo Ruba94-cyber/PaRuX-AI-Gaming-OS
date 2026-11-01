@@ -55,7 +55,7 @@ public static class EmulatorCommandBuilder
                 case "{input-profile}":
                     if (profile.Length > 0)
                     {
-                        Add(definition.Id == "eden-cli" ? "--input-profile" : "-input-profile");
+                        Add("--input-profile"); // official Eden Qt and SDL CLI shared option
                         Add(profile);
                     }
                     break;
