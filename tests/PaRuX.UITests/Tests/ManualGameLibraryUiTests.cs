@@ -67,6 +67,13 @@ public sealed class ManualGameLibraryUiTests
         {
             var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
             new InstallProgressPage(app).Invoke(navigation);
+            var refreshGaming = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
+            var returnToAi = UiWait.ById(app.MainWindow, "GameLibrary_ReturnToAi_Button", ControlType.Button);
+            Assert.True(refreshGaming.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(string.IsNullOrWhiteSpace(returnToAi.Name));
+            // In the isolated initial AI-ready state the destructive-equivalent
+            // resource transition must not be offered without a known active session.
+            Assert.False(returnToAi.Properties.IsEnabled.ValueOrDefault);
             var steam = UiWait.ById(app.MainWindow, "GameLibrary_Steam_Refresh_Button", ControlType.Button);
             var epic = UiWait.ById(app.MainWindow, "GameLibrary_Epic_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(steam.Name));
