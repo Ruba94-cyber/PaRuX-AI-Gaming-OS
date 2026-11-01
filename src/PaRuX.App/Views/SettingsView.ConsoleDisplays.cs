@@ -40,6 +40,12 @@ public sealed partial class SettingsView
 
     private async Task RefreshConsoleDisplaysAsync()
     {
+        ConsoleDisplaysHeading.Text = TvT("Console / TV display routing", "Destinazione schermo Console / TV");
+        ConsoleDisplaysIntro.Text = TvT(
+            "Mark each Windows display as a PC monitor or TV, then explicitly choose one TV for PaRuX Console fullscreen. Other monitors remain available. PaRuX moves its own window only, not external games or emulators. Duplicated Windows displays cannot be separated.",
+            "Classifica ogni schermo Windows come monitor PC o TV, quindi scegli esplicitamente una TV per la Console PaRuX a schermo intero. Gli altri monitor restano disponibili. PaRuX sposta soltanto la propria finestra, non giochi o emulatori esterni. Gli schermi duplicati di Windows non possono essere separati.");
+        ConsoleDisplaysRefresh.Content = TvT("Detect connected displays", "Rileva schermi collegati");
+        ConsoleDisplaysUseCurrent.Content = TvT("Use current monitor (automatic)", "Usa monitor attuale (automatico)");
         int version = ++_consoleDisplayRefreshVersion;
         ConsoleDisplaysRefresh.IsEnabled = false;
         ConsoleDisplaysStatus.Text = TvT("Detecting connected screens…", "Rilevamento schermi collegati…");
