@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming;
@@ -143,4 +145,25 @@ public sealed class GamePackageStageTests
         finally { Directory.Delete(root, true); }
     }
 
+}
+
+public sealed class GamePackageStageSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFactory>
+{
+    private readonly ApiSecurityTests.PaRuXFactory _factory;
+    public GamePackageStageSecurityTests(ApiSecurityTests.PaRuXFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task All_staging_endpoints_reject_non_owner_callers_before_reading_or_writing_files()
+    {
+        using var client = _factory.CreateClient();
+        using var list = await client.GetAsync("/api/v1/gaming/installers/staged");
+        using var delete = await client.DeleteAsync(
+            "/api/v1/gaming/installers/staged/00000000000000000000000000000000");
+        using var stage = await client.PostAsJsonAsync(
+            "/api/v1/gaming/installers/stage",
+            new GamePackageStageRequest("missing.zip", new string('a', 64)));
+        Assert.Equal(HttpStatusCode.Unauthorized, list.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, stage.StatusCode);
+    }
 }
