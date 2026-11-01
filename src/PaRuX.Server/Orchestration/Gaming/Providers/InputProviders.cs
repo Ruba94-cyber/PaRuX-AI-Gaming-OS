@@ -152,39 +152,111 @@ public sealed class SunshineInputProvider : IInputProvider
 
 public sealed class CustomExecutableInputProvider : IInputProvider
 {
+    private readonly object _processGate = new();
+    private Process? _ownedProcess;
+
     public string Id => "custom";
     public string Name => "Custom Input Utility";
 
     public bool IsInstalled => true;
     public string? ExecutablePath => null;
 
-    public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
+    // A custom input helper is always an explicitly selected, local Windows
+    // executable. Do not follow shortcuts, network paths or reparse-point files.
+    internal static bool IsSafeHelperPath(string? path)
     {
-        if (GamingInputSafetyPolicy.Validate(profile) != null)
-            return Task.FromResult(false);
-        if (!profile.InputSettings.TryGetValue("path", out string? exePath) || string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
-            return Task.FromResult(false);
+        if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
+            path.StartsWith(@"\\", StringComparison.Ordinal) ||
+            !Path.IsPathFullyQualified(path) ||
+            !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
+            return false;
 
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = exePath,
-                UseShellExecute = true
-            };
-            if (profile.InputSettings.TryGetValue("args", out string? args) && !string.IsNullOrWhiteSpace(args))
-            {
-                psi.Arguments = args;
-            }
-
-            Process.Start(psi);
-            return Task.FromResult(true);
+            string fullPath = Path.GetFullPath(path);
+            return string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(fullPath) &&
+                (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) == 0;
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            ArgumentException or NotSupportedException or System.Security.SecurityException)
         {
-            return Task.FromResult(false);
+            return false;
         }
     }
 
-    public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct) => Task.FromResult(true);
+    public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested || GamingInputSafetyPolicy.Validate(profile) != null ||
+            !profile.InputSettings.TryGetValue("path", out string? path) || !IsSafeHelperPath(path))
+            return Task.FromResult(false);
+
+        lock (_processGate)
+        {
+            // If a previous helper could not be stopped, never spawn a duplicate
+            // controller mapper. A stale, exited handle can be safely reclaimed.
+            if (_ownedProcess != null)
+            {
+                try
+                {
+                    if (!_ownedProcess.HasExited) return Task.FromResult(false);
+                    _ownedProcess.Dispose();
+                    _ownedProcess = null;
+                }
+                catch { return Task.FromResult(false); }
+            }
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var psi = new ProcessStartInfo
+                {
+                    FileName = path!,
+                    WorkingDirectory = Path.GetDirectoryName(path!)!,
+                    UseShellExecute = false
+                };
+                if (profile.InputSettings.TryGetValue("args", out string? args) &&
+                    !string.IsNullOrWhiteSpace(args))
+                    psi.Arguments = args;
+
+                Process? started = Process.Start(psi);
+                if (started == null) return Task.FromResult(false);
+
+                // PaRuX only owns this exact process handle. We never discover,
+                // terminate or claim ownership of unrelated mapper processes.
+                _ownedProcess = started;
+                return Task.FromResult(true);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or
+                UnauthorizedAccessException or System.ComponentModel.Win32Exception or
+                InvalidOperationException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
+            {
+                return Task.FromResult(false);
+            }
+        }
+    }
+
+    public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct)
+    {
+        lock (_processGate)
+        {
+            if (_ownedProcess == null) return Task.FromResult(true);
+            try
+            {
+                if (_ownedProcess.HasExited ||
+                    (_ownedProcess.CloseMainWindow() && _ownedProcess.WaitForExit(1000)))
+                {
+                    _ownedProcess.Dispose();
+                    _ownedProcess = null;
+                    return Task.FromResult(true);
+                }
+            }
+            catch { /* No unverified cleanup success or force-kill. */ }
+
+            // Preserve the owned handle for a later retry. A headless helper
+            // that refuses graceful shutdown is a real Gaming recovery failure.
+            return Task.FromResult(false);
+        }
+    }
 }
