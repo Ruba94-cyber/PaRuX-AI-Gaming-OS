@@ -74,6 +74,32 @@ public sealed class GamingInputSafetyPolicyTests
     }
 
     [Fact]
+    public async Task XOutput_must_not_trust_an_unrelated_same_name_process_or_spawn_another()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string dir = Path.Combine(Path.GetTempPath(), "parux-xoutput-unverified-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string helper = Path.Combine(dir, "XOutput.exe");
+            File.WriteAllText(helper, "fixture only: must NEVER be executed");
+            var profile = new GamingProfileDto
+            {
+                SessionType = "local",
+                InputProvider = "xoutput",
+                InputSettings = new Dictionary<string, string> { ["path"] = helper }
+            };
+            // The injection deliberately returns the test process. Its name or
+            // existence is insufficient evidence that it is the chosen mapper.
+            var provider = new XOutputInputProvider(() => new[] { System.Diagnostics.Process.GetCurrentProcess() });
+            Assert.False(await provider.StartAsync(profile, CancellationToken.None));
+            Assert.True(await provider.StopAsync(profile, CancellationToken.None));
+            Assert.Equal("fixture only: must NEVER be executed", File.ReadAllText(helper));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public async Task Custom_helper_never_claims_an_unstarted_or_invalid_process()
     {
         var provider = new CustomExecutableInputProvider();
