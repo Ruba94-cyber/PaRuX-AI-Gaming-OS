@@ -116,4 +116,31 @@ public sealed class GamePackageStageTests
     }
 
 
+    [Fact]
+    public async Task Managed_catalog_removes_only_the_exact_staged_copy_with_explicit_id()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string original = Path.Combine(root, "original.zip");
+            byte[] bytes = "owned fixture"u8.ToArray();
+            await File.WriteAllBytesAsync(original, bytes);
+            string digest = Convert.ToHexString(SHA256.HashData(bytes));
+            var service = new GamePackageStageService(() => false,
+                () => CancellationToken.None, Path.Combine(root, "private"));
+            var copy = await service.StageAsync(new GamePackageStageRequest(original, digest),
+                CancellationToken.None);
+            var catalog = service.ListStaged();
+            Assert.Single(catalog);
+            Assert.Equal(copy.SizeBytes, catalog[0].SizeBytes);
+            Assert.True(GamePackageStageService.ValidStagedId(catalog[0].Id));
+            Assert.False(await service.DeleteStagedAsync("../../original", CancellationToken.None));
+            Assert.True(await service.DeleteStagedAsync(catalog[0].Id, CancellationToken.None));
+            Assert.Empty(service.ListStaged());
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(original));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
 }

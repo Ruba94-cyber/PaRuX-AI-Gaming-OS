@@ -128,6 +128,23 @@ public static class GamingEndpoints
             { return Results.Problem("The selected local package could not be staged safely."); }
         }).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/installers/staged", (GamePackageStageService staged) =>
+        {
+            try { return Results.Ok(staged.ListStaged()) as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("The managed package catalog could not be inspected."); }
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v1/gaming/installers/staged/{id}", async (
+            string id, GamePackageStageService staged, CancellationToken ct) =>
+        {
+            try { return await staged.DeleteStagedAsync(id, ct) ? Results.NoContent() : Results.NotFound() as IResult; }
+            catch (InvalidOperationException) { return Results.Conflict(new { error = "Leave Gaming before removing a managed package." }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("The managed package could not be safely removed."); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/controllers", () =>
             Results.Ok(NativeXInputProbe.ReadStates())).RequireDesktopOwner();
 

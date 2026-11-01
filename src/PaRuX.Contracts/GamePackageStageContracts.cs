@@ -8,3 +8,7 @@ public sealed record GamePackageStageRequest(string FilePath, string ExpectedPub
 
 public sealed record GamePackageStageResult(
     string FileName, string StagedPath, long SizeBytes, string Sha256, string Advisory);
+
+/// <summary>Read-only managed package inventory.</summary>
+public sealed record StagedGamePackageDto(
+    string Id, string FileName, long SizeBytes, DateTime LastModifiedUtc);

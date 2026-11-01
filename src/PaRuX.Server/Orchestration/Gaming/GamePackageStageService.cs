@@ -104,6 +104,57 @@ public sealed class GamePackageStageService
             throw new InvalidDataException("Not enough free space to stage the package.");
     }
 
+    internal static bool ValidStagedId(string? id) =>
+        id is { Length: 32 } && id.All(c =>
+            c is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private string[] EnumerateManagedPackageFiles()
+    {
+        if (!Directory.Exists(_stagingRoot)) return Array.Empty<string>();
+        EnsureLocalUnlinkedDirectory(_stagingRoot);
+        var results = new List<string>();
+        int count = 0;
+        foreach (string file in Directory.EnumerateFiles(_stagingRoot, "game-*"))
+        {
+            if (++count > 256)
+                throw new InvalidDataException("The staging catalog exceeds its safe entry limit.");
+            string name = Path.GetFileNameWithoutExtension(file);
+            if (!name.StartsWith("game-", StringComparison.OrdinalIgnoreCase) ||
+                !ValidStagedId(name[5..]) ||
+                !GameInstallerInspectionService.ValidLocalPackagePath(file))
+                continue;
+            results.Add(file);
+        }
+        return results.ToArray();
+    }
+
+    public IReadOnlyList<StagedGamePackageDto> ListStaged() =>
+        EnumerateManagedPackageFiles()
+            .Select(file => new FileInfo(file))
+            .Select(info => new StagedGamePackageDto(
+                Path.GetFileNameWithoutExtension(info.Name)[5..],
+                info.Name, info.Length, info.LastWriteTimeUtc))
+            .OrderByDescending(item => item.LastModifiedUtc)
+            .ToArray();
+
+    public async Task<bool> DeleteStagedAsync(string id, CancellationToken ct)
+    {
+        if (!ValidStagedId(id)) return false;
+        ct.ThrowIfCancellationRequested();
+        if (_gamingOrUnready())
+            throw new InvalidOperationException("Staging management unavailable while Gaming.");
+        if (!Directory.Exists(_stagingRoot)) return false;
+        EnsureLocalUnlinkedDirectory(_stagingRoot);
+        using var lease = await AcquireStagingLeaseAsync(ct);
+        string[] matches = EnumerateManagedPackageFiles()
+            .Where(p => string.Equals(Path.GetFileNameWithoutExtension(p),
+                "game-" + id, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matches.Length != 1) return false;
+        ct.ThrowIfCancellationRequested();
+        File.Delete(matches[0]);
+        return true;
+    }
+
     public async Task<GamePackageStageResult> StageAsync(GamePackageStageRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
