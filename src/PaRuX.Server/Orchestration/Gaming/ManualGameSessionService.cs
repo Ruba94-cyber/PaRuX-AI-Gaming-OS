@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PaRuX.Contracts;
+using PaRuX.Server.Orchestration.Gaming.Providers;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
@@ -35,24 +36,11 @@ public sealed class ManualGameSessionService : IDisposable
         _logger = logger;
     }
 
-    internal static bool IsSafeLocalExecutable(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
-            !Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal) ||
-            !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        try
-        {
-            string normalized = Path.GetFullPath(path);
-            return File.Exists(normalized) &&
-                (File.GetAttributes(normalized) & FileAttributes.ReparsePoint) == 0;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
-        {
-            return false;
-        }
-    }
+    // Share one verified Windows-local .exe policy across manual launches,
+    // controller helpers and optional Gaming launchers. The old manual-game
+    // check rejected linked .exe leaves but missed junctions in parent folders.
+    internal static bool IsSafeLocalExecutable(string? path) =>
+        CustomExecutableInputProvider.IsSafeHelperPath(path);
 
     public async Task<ManualGameLaunchResult> LaunchAsync(string gameId, CancellationToken ct)
     {
