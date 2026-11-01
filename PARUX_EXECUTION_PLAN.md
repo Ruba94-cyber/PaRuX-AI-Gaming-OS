@@ -3,6 +3,20 @@
 Last executive refresh: **2026-11-01**.
 
 
+### 2026-11-01 continuation III — Console return, controller search, Gaming-safe catalogue, quantizer failure boundary
+
+**SOURCE IMPLEMENTED on public `main`; Windows .NET build, xUnit, FlaUI, emulator/controller/GPU integration NOT RUN. Not DONE or proven competitive parity.**
+
+- **Console foreground recovery (partial):** MainWindow's WinUI `Activated` event refreshes Gaming status only when Console mode is foregrounded. After a *previously observed* Gaming session is confirmed `AiReady` with the hard-off cleared, it refreshes the unified title display and playtime. Core connection failures, in-progress transitions and stale gaming markers are never interpreted as a finished game. The app does not steal focus or launch a permanent background process monitor. Windows focus-return for all emulators/child launchers is still OPEN.
+- **Controller-first search:** Added the shared WinUI on-screen keyboard to the unified title search and collection filter (A/Y in Console). Debounced title typing (300 ms), generation/cancellation of superseded requests and one-shot foreground catalog refresh prevent UI races and reduce repeated disk work. Test actual TV/D-pad/keyboard focus before DONE.
+- **Gaming hard-off title catalogue:** Introduced process-local `GameTitleReadCache`. Once scanned in AI mode, searches while Gaming use its last snapshot without rereading Steam/Epic/GOG manifests. A cold Core/restart without a snapshot returns explicit conflict, not a fake empty library. Active scans are cancelled/abandoned when the Gaming marker activates. Persisted owner edits (favorite, tags, collections, preferred installation) are reflected in the cache without store rescans. This is not a durable cross-restart cache; stored metadata may be stale for external installs during Gaming.
+- **AI GGUF shutdown safety:** If external quantizer termination cannot be confirmed, mark a sticky error in Core, block new exports/Gaming transitions, and preserve the possibly in-use `.partial` instead of deleting it. Synthetic tests cover this unconfirmed-process edge. This is a bounded root-process acknowledgement, not proof all detached children have stopped. Do not claim a guaranteed crash-safe/atomic 2-file output publication.
+- **Upstream CLI audit:** Verified official Eden docs specify `--input-profile` for both Eden Qt and Eden SDL CLI; replaced the unsupported single-dash long spelling, updated command-builder tests. MAME `-[no]window` and Cemu `--fullscreen=false` are documented, but version-specific acceptance is still required. Source checks against https://github.com/UzuCore/eden/blob/master/docs/user/CommandLine.md , https://github.com/mamedev/mame/blob/master/docs/source/commandline/commandline-all.rst , https://github.com/cemu-project/Cemu/blob/main/src/config/LaunchSettings.cpp .
+- **Focused Windows gates:** `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GameTitleCatalogTests|FullyQualifiedName~GgufQuantizeServiceTests|FullyQualifiedName~GamingTransitionIntegrationTests|FullyQualifiedName~EmulatorManagerTests"`; `dotnet test tests/PaRuX.UITests/PaRuX.UITests.csproj --filter FullyQualifiedName~ConsoleModeUiTests` only on configured Windows UI test runner; run build/full regression and emulator/TV input/focus tests. No GitHub Actions.
+- **Next source gaps:** safe game-process lifecycle and focus/return on installed emulator builds; bounded publisher-verified cover metadata, installer rollback; controller deduplication; true tokenizer and GGUF converter quality; agent diff-review and computer-use E2E; objective memory/FPS/latency benchmarks on Windows eGPU/TV. Avoid unauthorized game/ROM/BIOS/key distribution and DRM bypass.
+
+
+
 ### 2026-11-01 continuation II — multi-installation choice, session identity, safer GGUF export
 
 **SOURCE IMPLEMENTED / WINDOWS BUILD, xUnit, FlaUI and physical integration NOT RUN.** Public `main`; deliberately no CI/GitHub Actions.
