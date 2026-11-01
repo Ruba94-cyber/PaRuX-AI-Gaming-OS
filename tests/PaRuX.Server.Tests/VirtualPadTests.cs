@@ -63,8 +63,10 @@ public sealed class VirtualPadTests : IDisposable
     {
         var cli = new FakeCli();
         var manager = Make(cli);
+        Assert.False(manager.RecoveryRequired);
         var result = await manager.HideAsync(new[] { PadA }, _exe, CancellationToken.None);
         Assert.True(result.Success);
+        Assert.True(manager.RecoveryRequired);
         Assert.Contains(PadA, cli.Devices);
         Assert.Contains(Path.GetFullPath(_exe), cli.Apps);
         Assert.True(cli.Cloak);
@@ -75,6 +77,7 @@ public sealed class VirtualPadTests : IDisposable
         Assert.Empty(cli.Apps);
         Assert.False(cli.Cloak);
         Assert.False(File.Exists(_journal));
+        Assert.False(manager.RecoveryRequired);
     }
 
     [Fact]
