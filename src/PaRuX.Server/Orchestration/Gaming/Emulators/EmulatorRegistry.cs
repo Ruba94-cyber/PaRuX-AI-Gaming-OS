@@ -34,6 +34,10 @@ public static class EmulatorRegistry
         new("eden", "Eden", "Nintendo Switch", new[] { "eden.exe" },
             new[] { ".nsp", ".xci", ".nro", ".nso", ".nca" }, None,
             new[] { "{extra}", "{fullscreen}", "{input-profile}", "-g", "{rom}" }, new[] { "-f" }, false),
+        new("eden-cli", "Eden CLI", "Nintendo Switch", new[] { "eden-cli.exe" },
+            new[] { ".nsp", ".xci", ".nro", ".nso", ".nca" }, None,
+            new[] { "{extra}", "{fullscreen}", "{input-profile}", "--game", "{rom}" },
+            new[] { "--fullscreen" }, false),
         new("dolphin", "Dolphin", "GameCube / Wii", new[] { "Dolphin.exe" },
             new[] { ".iso", ".gcm", ".gcz", ".rvz", ".wbfs", ".wad", ".dol", ".elf" }, None,
             new[] { "-b", "{extra}", "{fullscreen}", "-e", "{rom}" },
@@ -62,7 +66,9 @@ public static class EmulatorRegistry
             new[] { "{extra}", "{fullscreen}", "-L", "{core}", "{rom}" }, new[] { "-f" }, true),
         new("mame", "MAME", "Arcade", new[] { "mame.exe" },
             new[] { ".zip", ".7z" }, None,
-            new[] { "-rompath", "{romdir}", "{fullscreen}", "{extra}", "{romname}" }, null, false),
+            new[] { "-rompath", "{romdir}", "{extra}", "{fullscreen}", "{romname}" },
+            new[] { "-nowindow" }, false,
+            WindowedArguments: new[] { "-window" }),
     };
 
     public static EmulatorDefinition? Find(string? id) =>
