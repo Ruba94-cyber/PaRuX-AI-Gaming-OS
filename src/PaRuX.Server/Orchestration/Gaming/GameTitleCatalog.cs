@@ -53,7 +53,8 @@ public static class GameTitleCatalog
             titles.Add(new GameTitleDto(
                 group.Key, DisplayName(ordered), s?.Favorite ?? false,
                 (IReadOnlyList<string>?)s?.Tags ?? Array.Empty<string>(),
-                s?.PlaySeconds ?? 0, s?.LastPlayedUtc, chosen, ordered));
+                s?.PlaySeconds ?? 0, s?.LastPlayedUtc, chosen, ordered)
+                { Collections = (IReadOnlyList<string>?)s?.Collections ?? Array.Empty<string>() });
         }
         return titles.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(t => t.TitleKey, StringComparer.Ordinal).ToArray();
     }
@@ -66,7 +67,7 @@ public static class GameTitleCatalog
     }
 
     public static IReadOnlyList<GameTitleDto> Filter(
-        IEnumerable<GameTitleDto> titles, string? text, string? source, bool favoritesOnly, string? tag)
+        IEnumerable<GameTitleDto> titles, string? text, string? source, bool favoritesOnly, string? tag, string? collection = null)
     {
         string needle = (text ?? string.Empty).Trim();
         return titles
@@ -74,6 +75,7 @@ public static class GameTitleCatalog
             .Where(t => string.IsNullOrEmpty(source) || t.Installations.Any(i => string.Equals(i.Source, source, StringComparison.OrdinalIgnoreCase)))
             .Where(t => !favoritesOnly || t.Favorite)
             .Where(t => string.IsNullOrWhiteSpace(tag) || t.Tags.Any(x => string.Equals(x, tag.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .Where(t => string.IsNullOrWhiteSpace(collection) || t.Collections.Any(x => string.Equals(x, collection.Trim(), StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
