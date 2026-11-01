@@ -19,6 +19,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly EpicGameDiscoveryProvider _epic;
     private readonly WorkloadOrchestrator _orchestrator;
     private readonly ILogger<ManualGameSessionService>? _logger;
+    private readonly GameTitleStore? _titles;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
@@ -26,8 +27,10 @@ public sealed class ManualGameSessionService : IDisposable
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
-        GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null)
+        GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
+        GameTitleStore? titles = null)
     {
+        _titles = titles;
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
@@ -114,7 +117,9 @@ public sealed class ManualGameSessionService : IDisposable
                 }
                 try { previous?.Cancel(); } catch (ObjectDisposedException) { }
                 // This monitor never kills the process. Its cancellation only stops observation.
-                _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop);
+                _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop,
+                    GameTitleCatalog.KeyFor(game.Name, GameTitleCatalog.InstallationId(GameInstallationSources.Manual, game.Id)),
+                    DateTime.UtcNow);
                 return new(true, true, "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
@@ -391,7 +396,8 @@ public sealed class ManualGameSessionService : IDisposable
     /// A tiny launcher/bootstrap that exits immediately cannot prove that its spawned
     /// game also ended. Such short-lived processes never cause an automatic AI switch.
     /// </summary>
-    private async Task ObserveOwnedExitAsync(Process process, long sessionVersion, CancellationTokenSource stop)
+    private async Task ObserveOwnedExitAsync(Process process, long sessionVersion, CancellationTokenSource stop,
+        string titleKey, DateTime startedUtc)
     {
         var uptime = Stopwatch.StartNew();
         try
@@ -412,6 +418,13 @@ public sealed class ManualGameSessionService : IDisposable
         }
         finally
         {
+            // Play time counts the time PaRuX actually observed the owned process, whether it exited or the
+            // user returned to AI first. Very short runs (bootstrap stubs) are not play time.
+            if (uptime.Elapsed >= MinimumMonitoredLifetime)
+            {
+                try { _titles?.AddSession(titleKey, startedUtc, uptime.Elapsed); }
+                catch (OverflowException) { }
+            }
             process.Dispose();
             lock (_monitorGate)
             {

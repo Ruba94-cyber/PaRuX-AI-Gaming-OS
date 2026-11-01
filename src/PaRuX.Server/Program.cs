@@ -270,6 +270,7 @@ builder.Services.AddSingleton<GogGameDiscoveryProvider>();
 builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
+builder.Services.AddSingleton<GameTitleStore>();
 builder.Services.AddSingleton<GgufQuantizeJobs>();
 builder.Services.AddSingleton<GameInstallerInspectionService>();
 builder.Services.AddSingleton<GamePackageStageService>();
@@ -3799,6 +3800,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 
 app.MapGamingEndpoints();
 app.MapGgufQuantizeEndpoints();
+app.MapGameTitleEndpoints();
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.
