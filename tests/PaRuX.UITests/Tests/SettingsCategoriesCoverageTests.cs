@@ -68,6 +68,9 @@ public sealed class SettingsCategoriesCoverageTests
             var status = app.MainWindow.FindFirstDescendant(cf =>
                 cf.ByAutomationId("Settings_ConsoleDisplays_Status_Text"));
             Assert.NotNull(status);
+            var routeGames = app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("Settings_ConsoleDisplays_RouteGames_Toggle"));
+            Assert.NotNull(routeGames); // no click: persistent preferences stay untouched
         });
 
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Settings")]
