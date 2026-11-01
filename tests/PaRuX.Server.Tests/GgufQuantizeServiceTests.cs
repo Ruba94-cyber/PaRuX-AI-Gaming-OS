@@ -62,6 +62,24 @@ public sealed class GgufQuantizeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Unconfirmed_quantizer_shutdown_preserves_partial_and_blocks_new_Gaming()
+    {
+        var service = Make((spec, ct) =>
+        {
+            File.WriteAllBytes(spec.Arguments[1], Header(1024));
+            throw new GgufQuantizeException("Process exit not confirmed.", shutdownUnconfirmed: true);
+        });
+        var jobs = new GgufQuantizeJobs(service, () => false);
+        jobs.Start(new(_input, Out(), "Q4_K_M"));
+        await jobs.WhenIdleAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("failed", jobs.Current!.State);
+        Assert.False(await jobs.StopForGamingAsync(CancellationToken.None, TimeSpan.FromMilliseconds(100)));
+        Assert.True(File.Exists(Out() + ".partial"));
+        Assert.False(File.Exists(Out()));
+        Assert.Throws<InvalidOperationException>(() => jobs.Start(new(_input, Out("different.gguf"), "Q4_K_M")));
+    }
+
+    [Fact]
     public async Task Changed_source_during_quantization_is_detected_before_output_publication()
     {
         var service = Make(async (spec, ct) =>
