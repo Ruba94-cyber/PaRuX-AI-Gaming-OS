@@ -18,7 +18,16 @@ namespace PaRuX.Views;
 /// </summary>
 public sealed partial class SettingsView
 {
+    private bool _syncingOwnedGameRouteSwitch;
     private int _consoleDisplayRefreshVersion;
+
+    private void ConsoleRouteOwnedGamesSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_syncingOwnedGameRouteSwitch) return;
+        SettingsStore.Current.Data.RouteVerifiedWindowedGamesToTv =
+            ConsoleRouteOwnedGamesSwitch.IsOn;
+        SettingsStore.Current.Save();
+    }
     private GamingDisplaySnapshotDto? _lastConsoleDisplaySnapshot;
 
     private void ConsoleDisplaysUseCurrent_Click(object sender, RoutedEventArgs e)
@@ -46,6 +55,16 @@ public sealed partial class SettingsView
             "Classifica ogni schermo Windows come monitor PC o TV, quindi scegli esplicitamente una TV per la Console PaRuX a schermo intero. Gli altri monitor restano disponibili. PaRuX sposta soltanto la propria finestra, non giochi o emulatori esterni. Gli schermi duplicati di Windows non possono essere separati.");
         ConsoleDisplaysRefresh.Content = TvT("Detect connected displays", "Rileva schermi collegati");
         ConsoleDisplaysUseCurrent.Content = TvT("Use current monitor (automatic)", "Usa monitor attuale (automatico)");
+        ConsoleRouteOwnedGamesSwitch.Header = TvT(
+            "Prefer selected TV for directly launched windowed games (never force fullscreen or third-party launchers)",
+            "Preferisci la TV scelta per i giochi in finestra avviati direttamente (mai forzare fullscreen o launcher esterni)");
+        _syncingOwnedGameRouteSwitch = true;
+        try
+        {
+            ConsoleRouteOwnedGamesSwitch.IsOn =
+                SettingsStore.Current.Data.RouteVerifiedWindowedGamesToTv;
+        }
+        finally { _syncingOwnedGameRouteSwitch = false; }
         int version = ++_consoleDisplayRefreshVersion;
         ConsoleDisplaysRefresh.IsEnabled = false;
         ConsoleDisplaysStatus.Text = TvT("Detecting connected screens…", "Rilevamento schermi collegati…");
