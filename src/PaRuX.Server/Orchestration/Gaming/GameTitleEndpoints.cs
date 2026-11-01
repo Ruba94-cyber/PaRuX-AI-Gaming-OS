@@ -17,7 +17,7 @@ public static class GameTitleEndpoints
     {
         // Merged read-only view over local discovery and the manual library, plus the user's per-title state.
         app.MapGet("/api/v1/gaming/titles", async (
-            string? q, string? source, bool? favorite, string? tag,
+            string? q, string? source, bool? favorite, string? tag, string? collection,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
             ManualGameLibrary library, GameTitleStore store, CancellationToken ct) =>
         {
@@ -31,7 +31,7 @@ public static class GameTitleEndpoints
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { /* one store failing must not hide the others */ }
                 }
                 var titles = GameTitleCatalog.Build(discovered, library.List(), store.Snapshot());
-                return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag));
+                return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
             catch (InvalidDataException) { return Results.Problem("The game library could not be read."); }
@@ -44,6 +44,12 @@ public static class GameTitleEndpoints
         app.MapPut("/api/v1/gaming/titles/{key}/tags", (string key, SetGameTagsRequest request, GameTitleStore store) =>
             !ValidTitleKey(key) ? Results.BadRequest()
             : store.SetTags(key, request.Tags) ? Results.NoContent() : Results.BadRequest(new { error = "Tags: at most 20, each up to 40 characters, no control characters." }))
+            .RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/titles/{key}/collections", (string key, SetGameCollectionsRequest request, GameTitleStore store) =>
+            !ValidTitleKey(key) ? Results.BadRequest()
+            : store.SetCollections(key, request.Collections) ? Results.NoContent()
+            : Results.BadRequest(new { error = "Collections: at most 12, each up to 40 characters, no control characters." }))
             .RequireDesktopOwner();
 
         app.MapPut("/api/v1/gaming/titles/{key}/default-installation", (string key, SetDefaultInstallationRequest request, GameTitleStore store) =>
