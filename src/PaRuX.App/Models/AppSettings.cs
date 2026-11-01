@@ -19,6 +19,13 @@ namespace PaRuX.Models
         public string Hotkey { get; set; } = "Ctrl+Alt+Space";
         public string DefaultProfile { get; set; } = "AUTO";
 
+        /// <summary>Display roles are assigned by the user, never guessed from
+        /// HDMI, resolution, EDID vendor or whether a panel is a television.
+        /// Only one explicitly TV-marked display can host Console fullscreen.
+        /// Windows display IDs may change after reconnecting cables.</summary>
+        public List<ConsoleDisplayAssignment> ConsoleDisplays { get; set; } = new();
+        public string ConsoleTargetDisplayId { get; set; } = string.Empty;
+
         public int ChatRoutingMirrorVersion { get; set; }
         public int CapabilityRoutingMirrorVersion { get; set; }
         public List<ScopedRoutingOverrideDto> CapabilityRoutingOverrides { get; set; } = new List<ScopedRoutingOverrideDto>();
