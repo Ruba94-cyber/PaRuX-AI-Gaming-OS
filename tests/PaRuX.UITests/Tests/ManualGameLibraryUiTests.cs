@@ -83,6 +83,14 @@ public sealed class ManualGameLibraryUiTests
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
             var inspector = UiWait.ById(app.MainWindow, "GameLibrary_Installer_Inspect_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(inspector.Name));
+            var publisherHash = UiWait.ById(app.MainWindow,
+                "GameLibrary_Installer_PublisherHash_Input", ControlType.Edit);
+            var stage = UiWait.ById(app.MainWindow,
+                "GameLibrary_Installer_Stage_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(publisherHash.Name));
+            Assert.False(string.IsNullOrWhiteSpace(stage.Name));
+            Assert.False(stage.Properties.IsEnabled.ValueOrDefault);
+            // No SHA-256 is supplied and no package staging is triggered in this UI smoke.
             // Never select or hash a local package in this UI smoke.
             var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(controllers.Name));
