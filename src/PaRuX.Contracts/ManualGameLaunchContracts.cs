@@ -30,4 +30,9 @@ public sealed record ManualGameLaunchResult(
             : AutomaticReturnOnExit ? GameStartStates.Verified : GameStartStates.Requested);
         init => _startState = value;
     }
+
+    /// <summary>Optional, one-shot TV placement result for a windowed, directly
+    /// owned game. Empty means no routing was requested (legacy Core behavior).
+    /// "placed" is not a guarantee of emulator exclusive-fullscreen output.</summary>
+    public string WindowPlacement { get; init; } = string.Empty;
 }
