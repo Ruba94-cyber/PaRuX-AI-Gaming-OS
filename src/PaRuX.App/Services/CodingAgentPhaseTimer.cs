@@ -134,7 +134,7 @@ namespace PaRuX.Services
                     or "read_artifact" or "search_artifact" or "list_directory" or "batch_read" => CodingAgentPhase.Read,
                 "grep_search" or "glob_search" => CodingAgentPhase.Search,
                 "git_status" or "git_diff" or "git_log" => CodingAgentPhase.Git,
-                "replace_range" or "write_file" or "create_file" or "delete_file" or "rename_file" => CodingAgentPhase.Write,
+                "replace_range" or "write_file" or "create_file" or "delete_file" or "rename_file" or "apply_patch" => CodingAgentPhase.Write,
                 "run_command" or "restore_packages" => CodingAgentPhase.Command,
                 _ => CodingAgentPhase.Coordination
             };

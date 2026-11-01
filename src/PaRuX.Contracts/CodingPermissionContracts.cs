@@ -12,9 +12,15 @@ public static class CodingRunPermissionModes
         || string.Equals(value, Ask, StringComparison.OrdinalIgnoreCase)
         || string.Equals(value, Plan, StringComparison.OrdinalIgnoreCase);
 
-    public static string Normalize(string? value) => IsKnown(value)
-        ? value!.Trim().ToLowerInvariant()
-        : Bypass;
+    /// <summary>
+    /// A missing value keeps the established default (bypass) so omitted fields and stored legacy rows are
+    /// unchanged. A non-empty value that is not a known mode fails closed to <see cref="Ask"/>: a typo or a
+    /// hostile value must never silently remove approvals.
+    /// </summary>
+    public static string Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? Bypass
+        : IsKnown(value!.Trim()) ? value.Trim().ToLowerInvariant()
+        : Ask;
 }
 
 /// <summary>

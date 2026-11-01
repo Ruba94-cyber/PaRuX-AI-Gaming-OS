@@ -41,12 +41,12 @@ public sealed class CodingRunPermissionModesCharacterizationTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("anything")]
-    public void Normalize_falls_back_to_bypass_for_unknown_input(string? value)
+    [InlineData(null, "bypass")]   // omitted field / legacy row: established default
+    [InlineData("", "bypass")]
+    [InlineData("anything", "ask")] // unknown non-empty value: fail closed
+    public void Normalize_keeps_default_for_missing_and_fails_closed_for_unknown(string? value, string expected)
     {
-        Assert.Equal("bypass", CodingRunPermissionModes.Normalize(value));
+        Assert.Equal(expected, CodingRunPermissionModes.Normalize(value));
     }
 
     [Fact]
@@ -73,6 +73,27 @@ public sealed class CodingRunPermissionModesCharacterizationTests
     public void Normalize_is_fixed_point_only_for_known_values()
     {
         Assert.False(string.Equals(CodingRunPermissionModes.Normalize("bogus"), "bogus", StringComparison.Ordinal));
-        Assert.Equal(CodingRunPermissionModes.Normalize(CodingRunPermissionModes.Normalize("bogus")), CodingRunPermissionModes.Bypass);
+        Assert.Equal(CodingRunPermissionModes.Normalize(CodingRunPermissionModes.Normalize("bogus")), CodingRunPermissionModes.Ask);
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Missing_value_keeps_the_established_bypass_default(string? value) =>
+        Assert.Equal(CodingRunPermissionModes.Bypass, CodingRunPermissionModes.Normalize(value));
+
+    [Theory]
+    [InlineData("bogus")]
+    [InlineData("BYPASS; DROP")]
+    [InlineData("allow-all")]
+    public void Unknown_non_empty_value_fails_closed_to_ask(string value) =>
+        Assert.Equal(CodingRunPermissionModes.Ask, CodingRunPermissionModes.Normalize(value));
+
+    [Theory]
+    [InlineData(" Plan ", "plan")]
+    [InlineData("ASK", "ask")]
+    [InlineData("Bypass", "bypass")]
+    public void Known_values_are_trimmed_and_lowercased(string raw, string expected) =>
+        Assert.Equal(expected, CodingRunPermissionModes.Normalize(raw));
 }

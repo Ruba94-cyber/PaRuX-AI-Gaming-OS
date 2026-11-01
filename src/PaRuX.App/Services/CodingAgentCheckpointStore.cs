@@ -183,7 +183,7 @@ namespace PaRuX.Services
             if (string.IsNullOrEmpty(observation)) return false;
             string[] markers =
             {
-                "replace_range", "write_file", "create_file", "rename_file", "delete_file",
+                "replace_range", "write_file", "create_file", "rename_file", "delete_file", "apply_patch",
                 "run_command", "verification", "test failed", "test passed", "[USER INPUT",
                 "repair attempt", "infrastructure blocked"
             };

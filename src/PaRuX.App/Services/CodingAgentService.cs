@@ -1866,6 +1866,54 @@ namespace PaRuX.Services
                         note == null ? "(applied)" : "(applied - " + note + ")",
                         IsTestableCodePath(action.Path), progress: true);
                 }
+                case "apply_patch":
+                {
+                    PatchParseResult parsed = UnifiedDiffPatch.Parse(action.Content);
+                    if (parsed.Error is not null)
+                        return Outcome("apply_patch", "(rejected: " + parsed.Error + " Nothing was changed. Send a unified diff in content.)");
+                    var fullPaths = new Dictionary<string, string>(StringComparer.Ordinal);
+                    try
+                    {
+                        // Every path is resolved (workspace escape / reparse-point checks) before anything is read or written.
+                        foreach (FilePatch filePatch in parsed.Files) fullPaths[filePatch.Path] = ResolveSafePath(root, filePatch.Path);
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or ArgumentException or IOException)
+                    {
+                        return Outcome("apply_patch", "(rejected: a patch path is outside the workspace or unsafe. Nothing was changed.)");
+                    }
+                    string? ReadForPatch(string relative)
+                    {
+                        string path = fullPaths[relative];
+                        if (!File.Exists(path)) return null;
+                        if (new FileInfo(path).Length > 5_000_000) throw new InvalidDataException("file too large to patch");
+                        return File.ReadAllText(path, new UTF8Encoding(false));
+                    }
+                    PatchApplyResult applied;
+                    try { applied = UnifiedDiffPatch.Apply(parsed.Files, ReadForPatch); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    {
+                        return Outcome("apply_patch", "(failed: " + ex.Message + ". Nothing was changed.)");
+                    }
+                    if (!applied.Success)
+                        return Outcome("apply_patch", "(failed: " + applied.Error + " Re-read the file and send a fresh diff.)");
+                    foreach (PatchFileResult file in applied.Files) TrackOwnWrite(orchestratorTaskId, root, file.Path, before: true);
+                    bool patchTestable = false;
+                    foreach (PatchFileResult file in applied.Files)
+                    {
+                        string full = fullPaths[file.Path];
+                        if (file.NewContent is null) File.Delete(full);
+                        else
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(full) ?? root);
+                            await File.WriteAllTextAsync(full, file.NewContent, new UTF8Encoding(false), ct).ConfigureAwait(false);
+                        }
+                        patchTestable |= IsTestableCodePath(file.Path);
+                    }
+                    foreach (PatchFileResult file in applied.Files) TrackOwnWrite(orchestratorTaskId, root, file.Path, before: false);
+                    return Outcome("apply_patch (" + applied.Files.Count + " file" + (applied.Files.Count == 1 ? "" : "s") + ")",
+                        "(applied: " + string.Join(", ", applied.Files.Select(f => f.Operation.ToString().ToLowerInvariant() + " " + f.Path)) + ")",
+                        patchTestable, progress: true);
+                }
                 case "create_file":
                 {
                     string full = ResolveSafePath(root, action.Path);

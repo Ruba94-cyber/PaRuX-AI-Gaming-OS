@@ -12,7 +12,7 @@ namespace PaRuX.Services
             + "\"update_plan\",\"list_directory\",\"read_file\",\"read_file_range\",\"read_file_lines\",\"grep_search\",\"glob_search\","
             + "\"list_artifacts\",\"read_artifact\",\"search_artifact\","
             + "\"git_status\",\"git_diff\",\"git_log\",\"replace_range\",\"write_file\","
-            + "\"create_file\",\"delete_file\",\"rename_file\",\"run_command\",\"restore_packages\","
+            + "\"create_file\",\"delete_file\",\"rename_file\",\"apply_patch\",\"run_command\",\"restore_packages\","
             + "\"web_search\",\"mcp_tool_call\",\"browser_navigate\",\"browser_dom\",\"browser_console\",\"browser_network\","
             + "\"browser_eval\",\"browser_click\",\"browser_type\",\"browser_assert\",\"browser_screenshot\",\"browser_reset\","
             + "\"ask_user\",\"delegate_task\",\"delegate_tasks\",\"collect_children\",\"batch_read\",\"done\"]},"
@@ -168,6 +168,7 @@ private static string BuildFullSystemPrompt(
                   ? "Exception: for read-only advisory children (role planner, research, review or documentation, capabilities limited to repository.read) whose answer your next steps do not depend on, set continueParent=true so this parent keeps working while they run; use collect_children to read finished results. done is held until every such child is terminal (the task pauses behind live ones and resumes with their results). "
                   : string.Empty)
               : "ask_user, delegate_task and delegate_tasks are unavailable in this direct/local-chat coding session because there is no durable orchestrator parent task. ")
+          + "For multi-line or multi-file edits use apply_patch with content=<a unified diff> (--- a/path, +++ b/path, @@ hunks; /dev/null for new or deleted files); it applies every file or none and rejects hunks that do not match. "
           + "Finish with done. Paths are relative to the workspace. For a source line number N, use read_file_lines with line=N and count<=100. read_file_range offset and length are CHARACTER counts, never line numbers. Prefer replace_range for existing files (supply path, oldText with the exact unique existing substring, and newText with the replacement string, e.g. {\"action\":\"replace_range\",\"path\":\"src/lib/file.ts\",\"oldText\":\"const a = 1;\",\"newText\":\"const a = 2;\"}); read before whole-file replacement. For write_file, supply path and content to replace the entire file. "
           + "When a preview names artifactId, the full evidence is already persisted outside Git: page/search that artifact instead of rerunning a costly command. "
           + "File actions reject workspace escape and reparse-point traversal. run_command always executes inside a workspace-specific Windows AppContainer with NO Internet capability and no ordinary user-profile access. For Git operations, ALWAYS use git_status, git_diff, and git_log; never run git through run_command. "

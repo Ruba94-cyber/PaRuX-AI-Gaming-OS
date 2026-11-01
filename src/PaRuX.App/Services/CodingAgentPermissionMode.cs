@@ -18,10 +18,11 @@ namespace PaRuX.Services
             Bypass, Ask, Plan
         };
 
+        // Missing keeps the established default; an unknown non-empty value fails closed to Ask.
         public static string Normalize(string? value) =>
-            !string.IsNullOrWhiteSpace(value) && Modes.Contains(value.Trim())
-                ? value.Trim().ToLowerInvariant()
-                : Bypass;
+            string.IsNullOrWhiteSpace(value) ? Bypass
+            : Modes.Contains(value.Trim()) ? value.Trim().ToLowerInvariant()
+            : Ask;
     }
 
     /// <summary>Fail-closed action classification and exact one-shot shell approval checks.</summary>
@@ -45,7 +46,7 @@ namespace PaRuX.Services
 
         private static readonly HashSet<string> WorkspaceMutationActions = new(StringComparer.OrdinalIgnoreCase)
         {
-            "replace_range", "write_file", "create_file", "delete_file", "rename_file"
+            "replace_range", "write_file", "create_file", "delete_file", "rename_file", "apply_patch"
         };
 
         public static bool IsAllowedInPlanMode(string? action) =>
@@ -92,6 +93,8 @@ namespace PaRuX.Services
             if (string.Equals(action, "write_file", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(action, "create_file", StringComparison.OrdinalIgnoreCase))
                 preview.Append("\nComplete content:\n").Append(content ?? string.Empty);
+            else if (string.Equals(action, "apply_patch", StringComparison.OrdinalIgnoreCase))
+                preview.Append("\nComplete unified diff:\n").Append(content ?? string.Empty);
             else if (string.Equals(action, "replace_range", StringComparison.OrdinalIgnoreCase))
                 preview.Append("\nExact old text:\n").Append(oldText ?? string.Empty)
                     .Append("\nExact replacement text:\n").Append(newText ?? string.Empty);

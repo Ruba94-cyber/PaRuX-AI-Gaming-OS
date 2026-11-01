@@ -33,7 +33,7 @@ public static class AgentMcpToolAuthority
         "update_plan", "list_directory", "read_file", "read_file_range", "read_file_lines",
         "grep_search", "glob_search", "list_artifacts", "read_artifact", "search_artifact",
         "git_status", "git_diff", "git_log", "replace_range", "write_file", "create_file",
-        "delete_file", "rename_file", "run_command", "restore_packages", "web_search", "mcp_tool_call",
+        "delete_file", "rename_file", "apply_patch", "run_command", "restore_packages", "web_search", "mcp_tool_call",
         "browser_navigate", "browser_dom", "browser_console", "browser_network", "browser_eval",
         "browser_click", "browser_type", "browser_assert", "browser_screenshot", "browser_reset",
         "ask_user", "delegate_task", "delegate_tasks", "collect_children", "batch_read", "done"

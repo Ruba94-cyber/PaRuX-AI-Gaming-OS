@@ -40,7 +40,7 @@ public sealed class CodingRunPermissionModePersistenceTests : IDisposable
     }
 
     [Fact]
-    public void Missing_or_unknown_mode_keeps_existing_bypass_default()
+    public void Missing_mode_keeps_bypass_default_and_unknown_mode_fails_closed_to_ask()
     {
         var store = new TaskStore(_directory);
         AgentTaskDto legacy = store.Create(new CreateAgentTaskRequest { Goal = "Legacy task" });
@@ -51,7 +51,7 @@ public sealed class CodingRunPermissionModePersistenceTests : IDisposable
         });
 
         Assert.Equal(CodingRunPermissionModes.Bypass, legacy.CodingRunPermissionMode);
-        Assert.Equal(CodingRunPermissionModes.Bypass, unknown.CodingRunPermissionMode);
+        Assert.Equal(CodingRunPermissionModes.Ask, unknown.CodingRunPermissionMode);
     }
 
     public void Dispose()

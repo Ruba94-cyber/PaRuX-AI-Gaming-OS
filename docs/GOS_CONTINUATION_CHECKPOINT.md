@@ -135,3 +135,14 @@ GOS-01/02/03 visual identity audit, GOS-04 Console shell mapping + FlaUI, GOS-05
 - **WINDOWS VERIFIED (PASS):** Chat Home starter, Console presenter enter/return, store discovery controls, manual library add/launch-cancel/remove (4 of 4).
 - **FIXED:** the manual-library test needed the shipped layout (the gate now stages the freshly built Core into `PaRuX.Server` beside the Release app) and a wait for the library to leave its busy state. All 4 FlaUI tests PASS (WINDOWS VERIFIED).
 - The new Console shoulder/scroll/search mapping, on-screen keyboard, filters and devices panel have xUnit coverage of their logic only; their on-screen behaviour is NOT RUN.
+
+## AI parity increments (same session, `main`)
+SOURCE IMPLEMENTED + BUILD PASSED + TESTED (all 1194 Coding/patch xUnit tests pass; gate green). No model was run: nothing here is a quality or speed claim about generated code.
+
+| Reference | Increment |
+|---|---|
+| Codex | `apply_patch` action: pure `UnifiedDiffPatch` (parse/apply, all-or-nothing, offset-tolerant hunk matching, CRLF and no-newline aware, rejects renames/binary/mode changes/unsafe or Windows-reserved paths); wired through the existing Ask/Plan approval (full diff shown, approval bound to the exact diff), plan-mode refusal, checkpoint journal, phase timing, MCP reserved names. Guidance is only in the full prompt: the 8k compact prompt has ~30 characters of slack and its budget test still passes |
+| Codex | Unknown non-empty coding permission modes now fail closed to `ask` (missing keeps `bypass`, so stored tasks are unchanged) |
+
+### AI gaps still open (from the audit; not started)
+Unsloth-style GGUF export + CPU quantization (`convert_hf_to_gguf.py` is vendored but never invoked, no `llama-quantize`/imatrix), tokenizer-aware dataset checks (chat-template validation, length histograms, near-duplicate removal), a dedicated `review` command over a diff, default-on performance budgets (`ParuxOverheadBenchmarkTests` only runs with `PARUX_RUN_LATENCY_BUDGETS=1`), and every hardware-dependent quality/performance claim (tokens/s, VRAM, FPS) — NOT RUN.
