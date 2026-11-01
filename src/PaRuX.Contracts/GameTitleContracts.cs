@@ -66,4 +66,11 @@ public static class GameLibraryForegroundReturnPolicy
 {
     public static bool CanRefreshTitles(bool previouslyGaming, GamingStatusDto? status) =>
         previouslyGaming && status is { State: "AiReady", IsGamingActive: false };
+
+    /// <summary>A successful exit of a verified, directly owned process; this is
+    /// never inferred from window focus, game titles, child process scans or
+    /// absence of GPU usage. Older Core versions omit the optional fields.</summary>
+    public static bool HasConfirmedOwnedExit(GamingStatusDto? status) =>
+        status is { State: "AiReady", IsGamingActive: false,
+            LastVerifiedOwnedGameExitUtc: not null, LastVerifiedOwnedGameExitRestoredAi: true };
 }
