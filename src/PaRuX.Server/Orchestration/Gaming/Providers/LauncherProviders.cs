@@ -129,8 +129,9 @@ public sealed class SteamBigPictureLauncherProvider : IGameLauncherProvider
 
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        // Use the vetted, installed Steam executable. Do not trust the global
-        // steam:// protocol handler, which another application may have replaced.
+        // Use the local path-validated Steam executable, not the system-wide
+        // steam:// protocol handler (which can be reassigned). This does not
+        // independently authenticate the publisher or verify a code signature.
         if (ct.IsCancellationRequested) return Task.FromResult(false);
         string? steamExe = ExecutablePath;
         if (string.IsNullOrWhiteSpace(steamExe)) return Task.FromResult(false);
