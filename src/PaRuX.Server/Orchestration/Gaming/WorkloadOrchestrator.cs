@@ -956,10 +956,14 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     /// <summary>Only the session which registered a process may forget it.
     /// A late cleanup from an older watcher never clears the next game's owner.</summary>
-    internal void ClearOwnedGameProcess(long sessionVersion)
+    internal bool ClearOwnedGameProcess(long sessionVersion)
     {
         lock (_stateGate)
-            if (_ownedGame?.SessionVersion == sessionVersion) _ownedGame = null;
+        {
+            if (_ownedGame?.SessionVersion != sessionVersion) return false;
+            _ownedGame = null;
+            return true;
+        }
     }
 
     /// <summary>Pure identity rule: same PID alone is not enough (PIDs are reused), the creation time
