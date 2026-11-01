@@ -159,7 +159,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (!installed.Any(g => g.ProviderId == "steam" && g.ProviderGameId == appId))
                 return new(false, false, "The selected Steam game is not installed locally.");
 
-            string? steamExe = new Providers.SteamBigPictureLauncherProvider().ExecutablePath;
+            string? steamExe = SteamInstallLocator.FindExecutable();
             if (string.IsNullOrWhiteSpace(steamExe) || !File.Exists(steamExe))
                 return new(false, false, "Steam is not installed in its expected location.");
 
