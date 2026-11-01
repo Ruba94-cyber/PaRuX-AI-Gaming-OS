@@ -206,13 +206,23 @@ public sealed class GamingDisplayModeService : IDisposable
             record.Previous.Width <= 0 || record.Previous.Height <= 0 ||
             record.Previous.RefreshRateHz < 24)
             return false;
-        if (!_topology.Snapshot().Displays.Any(d =>
-                string.Equals(d.DisplayId, record.DisplayId, StringComparison.OrdinalIgnoreCase)))
+        try
+        {
+            if (!_topology.Snapshot().Displays.Any(d =>
+                    string.Equals(d.DisplayId, record.DisplayId, StringComparison.OrdinalIgnoreCase)))
+                return false;
+            return _api.Supported(record.DisplayId).Any(m =>
+                m.Width == record.Previous.Width && m.Height == record.Previous.Height &&
+                m.RefreshRateHz == record.Previous.RefreshRateHz &&
+                m.BitsPerPixel == record.Previous.BitsPerPixel);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // A temporarily disconnected monitor or failing display driver is
+            // not a reason to discard the only restore journal.
             return false;
-        return _api.Supported(record.DisplayId).Any(m =>
-            m.Width == record.Previous.Width && m.Height == record.Previous.Height &&
-            m.RefreshRateHz == record.Previous.RefreshRateHz &&
-            m.BitsPerPixel == record.Previous.BitsPerPixel);
+        }
     }
 
     private void SaveRecord(PendingRecord record)
