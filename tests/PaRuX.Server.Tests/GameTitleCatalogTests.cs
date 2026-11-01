@@ -181,6 +181,35 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Two_cold_Core_instances_merge_updates_instead_of_losing_collections()
+    {
+        var first = new GameTitleStore(_file);
+        var second = new GameTitleStore(_file);
+        Assert.True(first.SetFavorite("hades", true));
+        Assert.True(second.SetCollections("hades", new[] { "Family" }));
+        Assert.True(first.SetTags("hades", new[] { "Indie" }));
+        Assert.True(second.AddSession("hades", DateTime.UtcNow, TimeSpan.FromSeconds(90)));
+
+        var state = new GameTitleStore(_file).Snapshot()["hades"];
+        Assert.True(state.Favorite);
+        Assert.Equal(new[] { "Indie" }, state.Tags);
+        Assert.Equal(new[] { "Family" }, state.Collections);
+        Assert.Equal(90, state.PlaySeconds);
+        Assert.Equal(state.PlaySeconds, first.Snapshot()["hades"].PlaySeconds); // refresh on read
+    }
+
+    [Fact]
+    public void External_corruption_between_mutations_is_not_overwritten()
+    {
+        var store = new GameTitleStore(_file);
+        Assert.True(store.SetFavorite("hades", true));
+        File.WriteAllText(_file, "{invalid-json");
+        Assert.False(store.SetCollections("hades", new[] { "Family" }));
+        Assert.Equal("{invalid-json", File.ReadAllText(_file));
+        Assert.Throws<InvalidDataException>(() => store.Snapshot());
+    }
+
+    [Fact]
     public void Concurrent_sessions_do_not_lose_play_time()
     {
         var store = new GameTitleStore(_file);
