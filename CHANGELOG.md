@@ -1,5 +1,10 @@
 # Changelog
 
+### 2026-11-01 — Shared official-store identifier admission (source only)
+
+- Replaced three repeated Steam/GOG/Epic ID-validation rules with a first-party Contracts policy shared by the Core and Games/Console UI. Unsupported identifiers remain discoverable but no longer create unusable or unsafe launch buttons.
+- Preserved existing per-store accepted ID formats and added local xUnit parameterized test sources. No new NuGet or controller/runtime dependency. **SOURCE IMPLEMENTED; NOT RUN on Windows.**
+
 ### 2026-11-01 — Full Steam/Epic/GOG catalog pagination (source only)
 
 - Replaced the 100-title display cutoff with 50-title cached pages, Next/Previous store buttons, IT/EN page counts and name filtering. Pages work in desktop and fullscreen Console without new background scans, dependencies or unbounded WinUI child rendering.
