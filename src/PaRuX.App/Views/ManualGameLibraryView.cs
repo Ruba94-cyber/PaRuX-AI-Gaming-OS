@@ -1354,11 +1354,11 @@ public sealed class ManualGameLibraryView : UserControl
             if (!string.IsNullOrEmpty(gameDisplayId))
                 _status.Text += "\n" + (launch.WindowPlacement switch
                 {
-                    "placed" => T("Window moved onto the selected TV without changing focus or display settings.",
+                    GameWindowPlacementStates.Placed => T("Window moved onto the selected TV without changing focus or display settings.",
                         "Finestra spostata sulla TV scelta senza cambiare focus o impostazioni degli schermi."),
-                    "already-on-tv" => T("The game window was already positioned on the TV.",
+                    GameWindowPlacementStates.AlreadyOnTv => T("The game window was already positioned on the TV.",
                         "La finestra del gioco era già posizionata sulla TV."),
-                    "unsupported-window" => T(
+                    GameWindowPlacementStates.UnsupportedWindow => T(
                         "TV window placement not confirmed (fullscreen, multiple windows or incompatible window). The game is still running; position it in its own settings.",
                         "Spostamento sulla TV non confermato (fullscreen, più finestre o finestra incompatibile). Il gioco resta avviato; imposta lo schermo nelle sue opzioni."),
                     _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
