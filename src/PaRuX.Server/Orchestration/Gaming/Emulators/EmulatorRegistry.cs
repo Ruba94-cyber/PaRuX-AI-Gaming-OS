@@ -3,9 +3,10 @@ namespace PaRuX.Server.Orchestration.Gaming.Emulators;
 /// <summary>
 /// How an emulator is started. <see cref="Template"/> is an argument LIST (never a shell string) with these tokens:
 /// {rom} full path of the game file, {romdir} its folder, {romname} file name without extension, {core} libretro core
-/// (RetroArch), {fullscreen} expands to <see cref="FullscreenArguments"/> when enabled, {extra} expands to the user's
-/// extra arguments. Argument syntax comes from each project's published command-line help as known when this was
-/// written; <see cref="TemplateStatus"/> stays "unverified" until it is checked against the installed version.
+/// (RetroArch), {fullscreen} expands to the documented fullscreen/windowed switches selected by the user,
+/// {input-profile} inserts the optional sanitized Eden controller profile, and {extra} inserts explicitly
+/// provided advanced arguments before PaRuX's display selection. The launch syntax is sourced from project docs,
+/// but <see cref="TemplateStatus"/> stays "unverified" until the installed emulator build is tested.
 /// </summary>
 public sealed record EmulatorDefinition(
     string Id,
