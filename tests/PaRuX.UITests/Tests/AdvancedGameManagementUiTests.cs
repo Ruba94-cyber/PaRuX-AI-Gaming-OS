@@ -50,6 +50,11 @@ public sealed class AdvancedGameManagementUiTests
             Assert.False(string.IsNullOrWhiteSpace(downloadsRefresh.Name));
             // No installer or download is invoked by this accessibility smoke.
 
+            var emulatorDisplayMode = UiWait.ById(
+                app.MainWindow, "Emulators_LaunchMode_ComboBox", ControlType.ComboBox);
+            Assert.False(string.IsNullOrWhiteSpace(emulatorDisplayMode.Name));
+            // No real emulator, game file or driver is launched by this check.
+
             var savesSource = UiWait.ById(app.MainWindow, "GameSaves_Source", ControlType.Edit);
             var savesLabel = UiWait.ById(app.MainWindow, "GameSaves_Label", ControlType.Edit);
             var savesCreate = UiWait.ById(app.MainWindow, "GameSaves_Create", ControlType.Button);
