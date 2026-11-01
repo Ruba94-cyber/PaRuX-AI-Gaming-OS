@@ -19,6 +19,9 @@ public sealed class GgufQuantizeJobs
     private GgufQuantizeJobStatus? _current;
     private CancellationTokenSource? _cts;
     private Task? _running;
+    // Sticky for this Core lifetime: a failed kill/exit acknowledgement cannot
+    // be treated as a finished export merely because the worker task returned.
+    private bool _shutdownUnconfirmed;
 
     public GgufQuantizeJobs(GgufQuantizeService service, LocalRuntimeService runtime)
         : this(service, () => runtime.GamingMode) { }
@@ -37,6 +40,9 @@ public sealed class GgufQuantizeJobs
         if (!_service.IsAvailable) throw new InvalidOperationException("llama-quantize is not installed in the managed runtime.");
         lock (_gate)
         {
+            if (_shutdownUnconfirmed)
+                throw new InvalidOperationException(
+                    "A previous quantizer process did not confirm exit. Verify it has stopped before restarting PaRuX.");
             // Repeat the admission check under the same lock that Gaming-stop uses:
             // an export cannot sneak in after an earlier check but before Gaming hard-off.
             if (_gamingActive()) throw new InvalidOperationException("Leave Gaming before quantizing a model.");
@@ -69,6 +75,7 @@ public sealed class GgufQuantizeJobs
         Task? active;
         lock (_gate)
         {
+            if (_shutdownUnconfirmed) return false;
             if (_current is not { State: "running" }) return true;
             _cts?.Cancel();
             active = _running;
@@ -83,7 +90,8 @@ public sealed class GgufQuantizeJobs
         catch (Exception) { return false; }
         // A completed job has released its process too; a generic failure cannot
         // independently prove that the quantizer stopped.
-        return Current is { State: "cancelled" or "completed" };
+        lock (_gate)
+            return !_shutdownUnconfirmed && _current is { State: "cancelled" or "completed" };
     }
 
     internal Task WhenIdleAsync(TimeSpan timeout) => Task.Run(() =>
@@ -109,7 +117,12 @@ public sealed class GgufQuantizeJobs
             finished = started with { State = "completed", Message = "Quantization completed.", Result = result };
         }
         catch (OperationCanceledException) { finished = started with { State = "cancelled", Message = "Quantization was cancelled." }; }
-        catch (GgufQuantizeException ex) { finished = started with { State = "failed", Message = ex.Message }; }
+        catch (GgufQuantizeException ex)
+        {
+            if (ex.ShutdownUnconfirmed)
+                lock (_gate) _shutdownUnconfirmed = true;
+            finished = started with { State = "failed", Message = ex.Message };
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { finished = started with { State = "failed", Message = "The quantized file could not be written." }; }
         catch (Exception)
