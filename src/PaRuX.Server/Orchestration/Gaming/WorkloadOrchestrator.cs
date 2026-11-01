@@ -166,7 +166,10 @@ public sealed class WorkloadOrchestrator : BackgroundService
             return new GamingStatusDto
             {
                 State = _state,
-                IsGamingActive = IsGamingActive,
+                // The persisted hard-off can survive a Core restart even if the
+                // in-memory orchestrator started in AiReady. Expose it so Console
+                // Home can offer explicit recovery rather than hiding Return to AI.
+                IsGamingActive = IsGamingActive || _runtime.GamingMode,
                 ActiveProfileName = _activeProfile?.Name,
                 ActiveLauncher = _activeLauncherId,
                 ActiveInput = _activeInputId,
