@@ -63,6 +63,49 @@ public sealed class GamingProfilePersistenceTests
     }
 
     [Fact]
+    public void Two_core_instances_merge_unrelated_changes_instead_of_overwriting_stale_cache()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string path = Path.Combine(dir, "profiles.json");
+            var first = new GamingProfileStore(path);
+            var second = new GamingProfileStore(path);
+            var a = first.Save(new GamingProfileDto { Name = "First game" });
+            var b = second.Save(new GamingProfileDto { Name = "Second game" });
+
+            var reloaded = new GamingProfileStore(path);
+            Assert.NotNull(reloaded.Get(a.Id));
+            Assert.NotNull(reloaded.Get(b.Id));
+            Assert.Equal(4, reloaded.List().Count); // both original presets plus both additions
+
+            Assert.True(first.Delete(a.Id));
+            var c = second.Save(new GamingProfileDto { Name = "Third game" });
+            reloaded = new GamingProfileStore(path);
+            Assert.Null(reloaded.Get(a.Id));
+            Assert.NotNull(reloaded.Get(b.Id));
+            Assert.NotNull(reloaded.Get(c.Id));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Corrupt_file_appearing_between_load_and_save_is_never_replaced()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string path = Path.Combine(dir, "profiles.json");
+            var store = new GamingProfileStore(path);
+            const string damaged = "{file damaged by an external writer";
+            File.WriteAllText(path, damaged);
+            Assert.ThrowsAny<Exception>(() => store.Save(new GamingProfileDto { Name = "Blocked" }));
+            Assert.Equal(damaged, File.ReadAllText(path));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public void Explicitly_empty_profile_list_is_not_overwritten_by_default_presets()
     {
         string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
