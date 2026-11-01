@@ -10,6 +10,18 @@ public static class GameStartStates
     public const string Verified = "verified";
 }
 
+/// <summary>One-shot positioning outcome, not a guarantee that an emulator
+/// renderer or exclusive fullscreen game obeyed a monitor preference.</summary>
+public static class GameWindowPlacementStates
+{
+    public const string NotRequested = "";
+    public const string Placed = "placed";
+    public const string AlreadyOnTv = "already-on-tv";
+    public const string NotConfirmed = "not-confirmed";
+    public const string UnsupportedWindow = "unsupported-window";
+    public const string DisplayUnavailable = "display-unavailable";
+}
+
 /// <summary>
 /// Result of an explicit desktop-owner launch from the existing manual library.
 /// Monitoring is true only when PaRuX verified the created process identity.
