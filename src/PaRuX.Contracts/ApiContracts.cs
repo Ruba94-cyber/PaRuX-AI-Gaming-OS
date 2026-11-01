@@ -830,6 +830,12 @@ public sealed class GamingStatusDto
     public bool CanQuickResume { get; set; }
     public string? Message { get; set; }
     public DateTime LastStateChangeUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Only populated when PaRuX observed exit of the exact process it launched
+    /// and verified. Not a window scan or proof that a child/bootstrap game exited.
+    /// Optional additions so existing clients can deserialize older Core responses.</summary>
+    public DateTime? LastVerifiedOwnedGameExitUtc { get; set; }
+    public bool? LastVerifiedOwnedGameExitRestoredAi { get; set; }
 }
 
 public sealed class GamingProviderStatusDto
