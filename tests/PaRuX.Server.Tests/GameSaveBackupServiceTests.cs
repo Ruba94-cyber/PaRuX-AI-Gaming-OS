@@ -98,6 +98,18 @@ public sealed class GameSaveBackupServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Source_that_contains_destination_is_rejected_before_creating_any_subfolder()
+    {
+        string managed = Path.Combine(_source, "would-be-created-backups");
+        var service = new GameSaveBackupService(managed, () => false, () => CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(_source, "save.bin"), "original");
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            service.CreateAsync(new GameSaveBackupRequest(_source, "Unsafe self-reference"), CancellationToken.None));
+        Assert.False(Directory.Exists(managed));
+        Assert.Equal("original", await File.ReadAllTextAsync(Path.Combine(_source, "save.bin")));
+    }
+
+    [Fact]
     public async Task Empty_folder_creates_no_archive_and_is_left_unchanged()
     {
         var service = Make();
