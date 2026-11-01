@@ -234,6 +234,10 @@ public sealed class ManualGameLibraryView : UserControl
     {
         await RefreshAsync();
         await UpdateGamingStatusAsync();
+        // The initial catalog load briefly disables buttons; restore a useful
+        // gamepad focus target once the real server status has been fetched.
+        if (_consolePresentation && !_busy)
+            FocusConsoleHome();
     }
 
     private async Task UpdateGamingStatusAsync()
