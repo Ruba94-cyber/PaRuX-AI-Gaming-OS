@@ -1165,6 +1165,10 @@
                         <TextBlock x:Name="ConsoleDisplaysStatus" TextWrapping="Wrap"
                             AutomationProperties.AutomationId="Settings_ConsoleDisplays_Status_Text"
                             Style="{StaticResource PaRuXCaptionTextStyle}" />
+                        <ToggleSwitch x:Name="ConsoleRouteOwnedGamesSwitch"
+                            Header="Prefer selected TV for directly launched windowed games"
+                            AutomationProperties.AutomationId="Settings_ConsoleDisplays_RouteGames_Toggle"
+                            IsOn="True" Toggled="ConsoleRouteOwnedGamesSwitch_Toggled" />
                         <StackPanel x:Name="ConsoleDisplaysList" Spacing="8" />
                     </StackPanel>
                 </Border>
