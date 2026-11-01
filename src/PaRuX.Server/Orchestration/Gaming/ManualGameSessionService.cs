@@ -184,7 +184,8 @@ public sealed class ManualGameSessionService : IDisposable
                     "Launch request sent to Steam. PaRuX cannot verify the final game process; Return to AI manually when finished.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
-                or InvalidOperationException or OperationCanceledException or ArgumentException)
+                or InvalidOperationException or OperationCanceledException or ArgumentException
+                or NotSupportedException or System.Security.SecurityException)
             {
                 using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 bool recovered;
