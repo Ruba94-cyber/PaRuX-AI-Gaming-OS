@@ -37,7 +37,12 @@ public static class GameTitleCatalog
             string entrySource = string.IsNullOrEmpty(m.EmulatorId) ? GameInstallationSources.Manual : GameInstallationSources.Emulator;
             installations.Add((KeyFor(m.Name, InstallationId(entrySource, m.Id)),
                 new GameInstallationDto(InstallationId(entrySource, m.Id), entrySource, m.Id,
-                    string.IsNullOrWhiteSpace(m.Kind) ? ManualEntryKinds.Game : m.Kind, m.Name)));
+                    string.IsNullOrWhiteSpace(m.Kind) ? ManualEntryKinds.Game : m.Kind, m.Name)
+                {
+                    EmulatorName = string.IsNullOrEmpty(m.EmulatorId)
+                        ? string.Empty
+                        : Emulators.EmulatorRegistry.Find(m.EmulatorId)?.Name ?? m.EmulatorId
+                }));
         }
 
         var titles = new List<GameTitleDto>();
