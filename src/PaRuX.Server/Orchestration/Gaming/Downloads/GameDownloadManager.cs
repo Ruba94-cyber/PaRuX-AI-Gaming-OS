@@ -274,9 +274,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         // Never follow a user-placed symbolic link as a partial download target.
         // The destination directory was validated at enqueue, but the part file
         // may have been replaced since then.
-        if (File.Exists(e.PartPath) &&
-            (File.GetAttributes(e.PartPath) & FileAttributes.ReparsePoint) != 0)
-            throw new GameDownloadException("The partial download path is a linked file.");
+        EnsureSafeDownloadPaths(e);
         long existing = File.Exists(e.PartPath) ? new FileInfo(e.PartPath).Length : 0;
         // A filename is not a source identity. Never append an old partial from a
         // different URL or checksum, even when its server happens to accept Range.
@@ -286,6 +284,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             existing = 0;
         }
         if (existing == 0) WriteResumeIdentity(e);
+        EnsureSafeDownloadPaths(e);
         EntityTagHeaderValue? validator = ResumeValidator.Read(e.PartPath);
 
         using HttpResponseMessage response = await SendFollowingRedirectsAsync(e.Url, existing, validator, ct).ConfigureAwait(false);
@@ -325,6 +324,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         if (needed > 0 && _freeBytes(e.Directory) < needed + FreeSpaceMarginBytes) throw new GameDownloadException("Not enough free disk space.");
         lock (_gate) { e.TotalBytes = total; e.BytesDone = existing; }
 
+        EnsureSafeDownloadPaths(e);
         await using (var target = new FileStream(e.PartPath, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read, 1 << 16, useAsync: true))
         await using (Stream source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
         {
@@ -359,6 +359,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             ct.ThrowIfCancellationRequested();
             if (_disposed || e.State == GameDownloadStates.Cancelled || e.UserPause || _gamingActive())
                 throw new OperationCanceledException("Download publication was interrupted.");
+            EnsureSafeDownloadPaths(e);
             string finalPath = UniquePath(e.FinalPath);
             ct.ThrowIfCancellationRequested();
             File.Move(e.PartPath, finalPath);
@@ -398,6 +399,32 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     }
 
     // ------------------------------------------------------------------ validation and helpers
+
+    /// <summary>
+    /// Recheck the previously selected destination immediately before opening or publishing files.
+    /// The directory may have been exchanged for a junction while this job was queued, and the
+    /// app-owned resume sidecars may have been exchanged for links by a different local process.
+    /// This is path hygiene, not a race-free filesystem identity or malware trust guarantee.
+    /// </summary>
+    private static void EnsureSafeDownloadPaths(Entry e)
+    {
+        if (!string.Equals(ValidateDirectory(e.Directory), e.Directory, StringComparison.OrdinalIgnoreCase))
+            throw new GameDownloadException("The download destination changed since it was selected.");
+
+        foreach (string path in new[] { e.PartPath, ResumeIdentityPath(e), e.PartPath + ".validator" })
+        {
+            try
+            {
+                if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    throw new GameDownloadException("A download temporary file or sidecar is a linked file.");
+            }
+            catch (FileNotFoundException) { /* A new, regular file may be created. */ }
+            catch (DirectoryNotFoundException)
+            {
+                throw new GameDownloadException("The download destination no longer exists.");
+            }
+        }
+    }
 
     internal static Uri ValidateUrl(string? text)
     {
