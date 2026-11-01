@@ -51,6 +51,36 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Eden_fullscreen_uses_an_explicit_controller_input_profile_per_imported_game()
+    {
+        string rom = File_("homebrew/Space Demo.nro");
+        var plan = EmulatorCommandBuilder.Build(Def("eden"), rom, fullscreen: true,
+            extraArguments: null, corePath: null,
+            launchMode: EmulatorLaunchModes.Fullscreen, inputProfile: "Living Room P1");
+        Assert.Null(plan.Error);
+        Assert.Equal(new[] { "-f", "-input-profile", "Living Room P1", "-g", rom }, plan.ArgumentList);
+        Assert.Contains("-input-profile \"Living Room P1\"", plan.Arguments);
+
+        string exe = File_("Eden/eden.exe", 20_000);
+        var library = new ManualGameLibrary(Path.Combine(_root, "eden-input.json"));
+        var result = EmulatorEndpoints.Import(new("eden", exe, new() { rom }, true,
+            null, null, EmulatorLaunchModes.Fullscreen, "Living Room P1"), library);
+        Assert.Equal(1, result.Added);
+        Assert.Contains("-input-profile \"Living Room P1\"", Assert.Single(library.List()).Arguments);
+    }
+
+    [Theory]
+    [InlineData("eden", "danger\n--debug")]
+    
+    [InlineData("ppsspp", "Profile A")]
+    public void Invalid_or_unsupported_named_input_profiles_fail_closed(string id, string profile)
+    {
+        var plan = EmulatorCommandBuilder.Build(Def(id), File_("demo.iso"), true,
+            null, null, EmulatorLaunchModes.Fullscreen, profile);
+        Assert.NotNull(plan.Error);
+    }
+
+    [Fact]
     public void Emulators_without_a_known_fullscreen_flag_do_not_get_a_made_up_one()
     {
         string rom = File_("a.iso");
