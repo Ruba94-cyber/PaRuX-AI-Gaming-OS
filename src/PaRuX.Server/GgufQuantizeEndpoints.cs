@@ -18,6 +18,7 @@ public sealed class GgufQuantizeJobs
     private readonly object _gate = new();
     private GgufQuantizeJobStatus? _current;
     private CancellationTokenSource? _cts;
+    private Task? _running;
 
     public GgufQuantizeJobs(GgufQuantizeService service, LocalRuntimeService runtime)
         : this(service, () => runtime.GamingMode) { }
@@ -36,13 +37,16 @@ public sealed class GgufQuantizeJobs
         if (!_service.IsAvailable) throw new InvalidOperationException("llama-quantize is not installed in the managed runtime.");
         lock (_gate)
         {
+            // Repeat the admission check under the same lock that Gaming-stop uses:
+            // an export cannot sneak in after an earlier check but before Gaming hard-off.
+            if (_gamingActive()) throw new InvalidOperationException("Leave Gaming before quantizing a model.");
             if (_current is { State: "running" }) throw new InvalidOperationException("A quantization is already running.");
             _cts?.Dispose();
             _cts = new CancellationTokenSource();
             var started = new GgufQuantizeJobStatus(Guid.NewGuid().ToString("N"), "running", "Quantizing…", null, DateTime.UtcNow);
             _current = started;
             CancellationToken token = _cts.Token;
-            _ = Task.Run(() => RunAsync(started, request, token));
+            _running = Task.Run(() => RunAsync(started, request, token));
             return started;
         }
     }
@@ -55,6 +59,30 @@ public sealed class GgufQuantizeJobs
             _cts?.Cancel();
             return true;
         }
+    }
+
+    /// <summary>Gaming cannot enter while a quantizer worker still holds CPU/disk resources.
+    /// This uses the same cancellation token as the owner's Cancel button and waits for the
+    /// worker to finish. A timeout or unconfirmed cancellation refuses Gaming entry.</summary>
+    internal async Task<bool> StopForGamingAsync(CancellationToken ct, TimeSpan? maxWait = null)
+    {
+        Task? active;
+        lock (_gate)
+        {
+            if (_current is not { State: "running" }) return true;
+            _cts?.Cancel();
+            active = _running;
+        }
+        if (active is null) return false;
+        try
+        {
+            await active.WaitAsync(maxWait ?? TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+        }
+        catch (TimeoutException) { return false; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception) { return false; }
+        // A generic failed job is not proof that cancellation stopped an external tool.
+        return Current is { State: "cancelled" };
     }
 
     internal Task WhenIdleAsync(TimeSpan timeout) => Task.Run(() =>
@@ -79,6 +107,8 @@ public sealed class GgufQuantizeJobs
         catch (GgufQuantizeException ex) { finished = started with { State = "failed", Message = ex.Message }; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { finished = started with { State = "failed", Message = "The quantized file could not be written." }; }
+        catch (Exception)
+        { finished = started with { State = "failed", Message = "Quantization failed unexpectedly; inspect local logs before retrying." }; }
         lock (_gate)
         {
             if (_current?.Id == started.Id) _current = finished;
