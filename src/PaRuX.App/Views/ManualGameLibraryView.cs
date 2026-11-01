@@ -562,9 +562,11 @@ public sealed class ManualGameLibraryView : UserControl
             {
                 if (_universal is not null)
                     await _universal.RefreshTitlesAfterGameAsync();
-                _gamingStatus.Text = T(
-                    "AI resources available again. Your game or launcher was not terminated by PaRuX.",
-                    "Risorse AI nuovamente disponibili. PaRuX non ha terminato il gioco o il launcher.");
+                _gamingStatus.Text = GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(state)
+                    ? T("The verified game process exited. PaRuX returned resources to AI; Console Home is ready.",
+                        "Il processo del gioco verificato è terminato. PaRuX ha restituito le risorse all'AI; la Home Console è pronta.")
+                    : T("AI resources available again. PaRuX did not terminate the game or launcher.",
+                        "Risorse AI nuovamente disponibili. PaRuX non ha terminato il gioco o il launcher.");
             }
         }
         catch (Exception)
