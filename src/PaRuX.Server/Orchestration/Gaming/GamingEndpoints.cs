@@ -77,6 +77,9 @@ public static class GamingEndpoints
             { return Results.Problem("The local game library could not be saved."); }
         }).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/displays", (GamingDisplayTopologyService displays) =>
+            Results.Ok(displays.Snapshot())).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/status", (WorkloadOrchestrator orchestrator) =>
             Results.Ok(orchestrator.GetStatus()));
 
