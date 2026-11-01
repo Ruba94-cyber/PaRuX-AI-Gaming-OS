@@ -48,6 +48,48 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Recent_catalogue_browsing_avoids_rescan_until_manual_import_or_explicit_refresh()
+    {
+        var cache = new GameTitleReadCache();
+        Assert.False(cache.TryReadRecent(out _));
+        var first = GameTitleCatalog.Build(new[] { Steam("1", "Portal") },
+            Array.Empty<ManualGameDto>(), NoState);
+        cache.Publish(first);
+        Assert.True(cache.TryReadRecent(out var recent));
+        Assert.Equal("Portal", Assert.Single(recent).Name);
+        long startedBeforeImport = cache.Revision;
+
+        cache.Invalidate(); // a portable executable or emulator was imported
+        Assert.False(cache.TryReadRecent(out _));
+        Assert.True(cache.TryRead(out var fallbackWhileGaming));
+        Assert.Single(fallbackWhileGaming); // Gaming can still browse the old snapshot
+        Assert.False(cache.PublishIfUnchanged(startedBeforeImport,
+            GameTitleCatalog.Build(new[] { Steam("2", "Hades") }, Array.Empty<ManualGameDto>(), NoState)));
+        Assert.True(cache.TryRead(out var unmodified));
+        Assert.Equal("Portal", Assert.Single(unmodified).Name);
+        Assert.True(cache.PublishIfUnchanged(cache.Revision,
+            GameTitleCatalog.Build(new[] { Steam("2", "Hades") }, Array.Empty<ManualGameDto>(), NoState)));
+        Assert.True(cache.TryReadRecent(out var refreshed));
+        Assert.Equal("Hades", Assert.Single(refreshed).Name);
+    }
+
+    [Fact]
+    public void Editing_cached_favorites_during_an_inflight_scan_prevents_older_result_overwrite()
+    {
+        var cache = new GameTitleReadCache();
+        var original = GameTitleCatalog.Build(new[] { Steam("1", "Portal") },
+            Array.Empty<ManualGameDto>(), NoState);
+        cache.Publish(original);
+        long scanRevision = cache.Revision;
+        cache.ApplyState(original[0].TitleKey, new GameTitleState { Favorite = true });
+        Assert.False(cache.PublishIfUnchanged(scanRevision, original));
+        Assert.True(cache.TryRead(out var retained));
+        Assert.True(Assert.Single(retained).Favorite);
+        Assert.True(cache.TryReadRecent(out var cached));
+        Assert.True(Assert.Single(cached).Favorite);
+    }
+
+    [Fact]
     public void Cached_title_edits_reflect_persisted_state_without_rescanning_game_manifests()
     {
         var cache = new GameTitleReadCache();
