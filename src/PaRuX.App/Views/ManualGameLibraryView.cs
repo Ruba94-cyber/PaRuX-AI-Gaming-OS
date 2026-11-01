@@ -52,6 +52,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _gamingStatusRefresh = new();
     private readonly TextBlock _gamingStatus = new() { TextWrapping = TextWrapping.Wrap };
     private bool _returnToAiAvailable;
+    // An unreachable Core may temporarily disable actions, but must not erase the
+    // last confirmed Gaming observation needed for foreground-return reconciliation.
+    private bool _lastConfirmedGamingActive;
     private bool _consoleForegroundRefreshInFlight;
     private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
@@ -520,6 +523,7 @@ public sealed class ManualGameLibraryView : UserControl
             else
             {
                 _returnToAiAvailable = status.IsGamingActive || status.State != "AiReady";
+                _lastConfirmedGamingActive = _returnToAiAvailable;
                 _installerInspectionAllowed = !_returnToAiAvailable;
                 _gamingStatus.Text = status.State == "AiReady" && status.IsGamingActive
                     ? T("Gaming resource lock is still active after Core restart. Select Return to AI to recover without closing the game.",
@@ -552,7 +556,7 @@ public sealed class ManualGameLibraryView : UserControl
         _consoleForegroundRefreshInFlight = true;
         try
         {
-            bool previouslyGaming = _returnToAiAvailable;
+            bool previouslyGaming = _lastConfirmedGamingActive;
             GamingStatusDto? state = await UpdateGamingStatusAsync();
             if (GameLibraryForegroundReturnPolicy.CanRefreshTitles(previouslyGaming, state))
             {
