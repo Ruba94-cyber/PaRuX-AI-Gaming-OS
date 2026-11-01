@@ -2,7 +2,7 @@
 
 ### 2026-11-01 — Console Home return to AI, Steam relocations and safer input gating (source only)
 
-- The existing desktop/TV Games home now exposes the live, on-request AI/Gaming state and a clearly labeled **Return to AI** action with a confirmation that leaves the external game running. No resident polling service was introduced.
+- The existing desktop/TV Games home now exposes the live, on-request AI/Gaming state and a clearly labeled **Return to AI** action with a confirmation that leaves the external game running. The Core status also detects a persisted Gaming hard-off after a restart, so the recovery control remains available even if the new orchestrator reports AiReady in memory. No resident polling service was introduced.
 - Console/TV focuses a real action after load, does not exit fullscreen with B/Escape underneath an active consent dialog, and hides advanced filesystem editing fields until the user returns to desktop. Existing settings and manually registered games remain unchanged.
 - Unified Steam client discovery supports read-only Valve registry paths and default local installations, validating that the candidate is a regular local `steam.exe`. The library scan, Big Picture and Steam `-applaunch` use the same locator.
 - Added admission checks before Gaming GPU-resource release so unsupported local Sunshine input and remote XOutput/custom mapper combinations cannot silently create double input. Native provider status no longer polls XInput; diagnostics remain explicitly on demand.
