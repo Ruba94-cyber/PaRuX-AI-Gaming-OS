@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-11-01 — Gaming input helper lifecycle and safer launch handoffs (source only)
+
+- Custom controller helpers now retain only their exact PaRuX-launched process handle, refuse a duplicate mapper while it remains running, request a graceful close on Gaming exit and report an incomplete stop instead of force-killing or claiming a successful cleanup.
+- XOutput, Playnite and custom launcher paths reject UNC, relative, linked and non-executable files. Start cancellation is checked before any external launch; direct Steam Big Picture uses the locally located Steam executable and an argument list rather than an interchangeable protocol handler.
+- Source regression tests cover helper path admission, cancellation, and failure to claim ownership without a launched process. The public main branch contains these changes. **Build, xUnit, FlaUI, real game/client/mapper launch and device tests NOT RUN.** Native controller mapping, full Console/TV interaction, reversible display/streaming profiles and official download/install transactions remain incomplete.
+
 ### 2026-11-01 — Opt-in local game installer SHA-256 preflight (source only)
 
 - Added a **desktop-only** package inspection action in the existing Games workspace. It accepts an explicitly selected local .exe/.msi/.msix/.zip/.7z/.rar/.iso, reads at most 8 GiB through an asynchronous stream and returns filename, size and SHA-256 without downloading, extracting, modifying, running or installing anything.
