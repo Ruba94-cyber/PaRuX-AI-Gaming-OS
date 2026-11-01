@@ -73,6 +73,9 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            var gog = UiWait.ById(app.MainWindow, "GameLibrary_Gog_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(gog.Name));
+            Assert.True(gog.Properties.IsEnabled.ValueOrDefault);
             // Do not click: this checks UI reachability without reading a real user's
             // installed game list or making a test depend on machine-specific stores.
         }
