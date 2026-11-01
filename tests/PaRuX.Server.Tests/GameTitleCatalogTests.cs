@@ -91,6 +91,27 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Verified_game_exit_notice_requires_successful_AI_recovery_not_just_window_focus()
+    {
+        var successful = new GamingStatusDto
+        {
+            State = "AiReady",
+            IsGamingActive = false,
+            LastVerifiedOwnedGameExitUtc = DateTime.UtcNow,
+            LastVerifiedOwnedGameExitRestoredAi = true
+        };
+        Assert.True(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(successful));
+        Assert.False(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(
+            new GamingStatusDto { State = "AiReady", LastVerifiedOwnedGameExitUtc = successful.LastVerifiedOwnedGameExitUtc, LastVerifiedOwnedGameExitRestoredAi = false }));
+        Assert.False(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(
+            new GamingStatusDto { State = "AiReady", IsGamingActive = true, LastVerifiedOwnedGameExitUtc = successful.LastVerifiedOwnedGameExitUtc, LastVerifiedOwnedGameExitRestoredAi = true }));
+        Assert.False(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(
+            new GamingStatusDto { State = "RestoringAi", LastVerifiedOwnedGameExitUtc = successful.LastVerifiedOwnedGameExitUtc, LastVerifiedOwnedGameExitRestoredAi = true }));
+        Assert.False(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(new GamingStatusDto()));
+        Assert.False(GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(null));
+    }
+
+    [Fact]
     public void Same_game_from_store_and_portable_copy_is_one_title_with_two_installations()
     {
         var titles = GameTitleCatalog.Build(
