@@ -54,7 +54,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly TextBox _emulatorFolder = new();
     private readonly TextBox _emulatorCore = new();
     private readonly TextBox _emulatorExtra = new();
-    private readonly CheckBox _emulatorFullscreen = new();
+    private readonly ComboBox _emulatorLaunchMode = new() { MinWidth = 230 };
     private readonly StackPanel _emulatorGames = new() { Spacing = 4 };
     private readonly TextBlock _emulatorStatus = new() { TextWrapping = TextWrapping.Wrap };
     private EmulatorListDto? _emulators;
@@ -355,8 +355,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _emulatorFolder.Header = T("Folder with your game files", "Cartella con i tuoi file di gioco");
         _emulatorCore.Header = T("Core file (RetroArch only)", "File core (solo RetroArch)");
         _emulatorExtra.Header = T("Extra arguments (optional)", "Argomenti aggiuntivi (facoltativi)");
-        _emulatorFullscreen.Content = T("Start in fullscreen when the emulator supports it", "Avvia a schermo intero se l'emulatore lo supporta");
-        _emulatorFullscreen.IsChecked = true;
+        _emulatorLaunchMode.Header = T("Display mode on launch", "Modalità schermo all'avvio");
+        AutomationProperties.SetAutomationId(_emulatorLaunchMode, "Emulators_LaunchMode_ComboBox");
         foreach (var (box, id) in new[] { (_emulatorExe, "Emulators_Exe_TextBox"), (_emulatorFolder, "Emulators_Folder_TextBox"),
                                           (_emulatorCore, "Emulators_Core_TextBox"), (_emulatorExtra, "Emulators_Extra_TextBox") })
         {
@@ -373,7 +373,13 @@ internal sealed class UniversalLibraryPanel : StackPanel
         import.Click += async (_, _) => await ImportEmulatorGamesAsync();
         content.Children.Add(loadEmulators); content.Children.Add(_emulatorBox);
         content.Children.Add(_emulatorExe); content.Children.Add(_emulatorCore); content.Children.Add(_emulatorExtra);
-        content.Children.Add(_emulatorFullscreen); content.Children.Add(_emulatorFolder);
+        content.Children.Add(_emulatorLaunchMode); content.Children.Add(_emulatorFolder);
+        content.Children.Add(new TextBlock
+        {
+            Text = T("Fullscreen and windowed launch switches are offered only where documented. 'Use emulator settings' keeps its own saved video preferences. Your selected mode is stored with the imported game; verify it on your installed emulator version.",
+                     "I comandi schermo intero e finestra sono disponibili solo dove documentati. 'Usa impostazioni emulatore' mantiene le preferenze video dell'emulatore. Il modo scelto viene salvato con il gioco importato: verificalo sulla versione installata."),
+            TextWrapping = TextWrapping.Wrap
+        });
         var emulatorRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         emulatorRow.Children.Add(browseFolder); emulatorRow.Children.Add(scan); emulatorRow.Children.Add(import);
         content.Children.Add(emulatorRow);
@@ -505,7 +511,25 @@ internal sealed class UniversalLibraryPanel : StackPanel
         var detected = _emulators.Detected.FirstOrDefault(d => d.EmulatorId == emulator.Id);
         _emulatorExe.Text = detected?.ExecutablePath ?? string.Empty;
         _emulatorCore.IsEnabled = emulator.RequiresCore;
-        _emulatorFullscreen.IsEnabled = emulator.FullscreenSupported;
+        _emulatorLaunchMode.Items.Clear();
+        _emulatorLaunchMode.Items.Add(new ComboBoxItem
+        {
+            Content = T("Use emulator settings", "Usa impostazioni emulatore"),
+            Tag = EmulatorLaunchModes.Default
+        });
+        if (emulator.FullscreenSupported)
+            _emulatorLaunchMode.Items.Add(new ComboBoxItem
+            {
+                Content = T("Force fullscreen", "Forza schermo intero"),
+                Tag = EmulatorLaunchModes.Fullscreen
+            });
+        if (emulator.WindowedSupported)
+            _emulatorLaunchMode.Items.Add(new ComboBoxItem
+            {
+                Content = T("Force windowed", "Forza finestra"),
+                Tag = EmulatorLaunchModes.Windowed
+            });
+        _emulatorLaunchMode.SelectedIndex = emulator.FullscreenSupported ? 1 : 0;
         _emulatorGames.Children.Clear();
         _gameChecks.Clear();
     }
@@ -543,10 +567,13 @@ internal sealed class UniversalLibraryPanel : StackPanel
         if (selected.Count == 0) { _emulatorStatus.Text = T("Select at least one game.", "Seleziona almeno un gioco."); return; }
         try
         {
+            string mode = (_emulatorLaunchMode.SelectedItem as ComboBoxItem)?.Tag as string
+                ?? EmulatorLaunchModes.Default;
             var result = await GamingOrchestratorClient.Current.ImportEmulatorGamesAsync(new EmulatorImportRequestDto(
-                emulator.Id, _emulatorExe.Text ?? "", selected, _emulatorFullscreen.IsChecked == true,
+                emulator.Id, _emulatorExe.Text ?? "", selected, mode == EmulatorLaunchModes.Fullscreen,
                 string.IsNullOrWhiteSpace(_emulatorExtra.Text) ? null : _emulatorExtra.Text,
-                string.IsNullOrWhiteSpace(_emulatorCore.Text) ? null : _emulatorCore.Text));
+                string.IsNullOrWhiteSpace(_emulatorCore.Text) ? null : _emulatorCore.Text,
+                mode));
             if (!result.Succeeded || result.Value is null)
             {
                 _emulatorStatus.Text = T("Nothing was added. Check that the program is the selected emulator and the files are local.",
