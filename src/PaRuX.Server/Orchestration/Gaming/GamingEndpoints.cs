@@ -160,10 +160,36 @@ public static class GamingEndpoints
             Results.Ok(new
             {
                 available = hidHide.IsAvailable,
-                message = hidHide.IsAvailable
-                    ? "HidHide is installed. PaRuX only changes what it has been asked to change and restores it afterwards."
-                    : "HidHide is not installed. It is optional and only useful together with a virtual controller; PaRuX never installs drivers on its own.",
+                recoveryRequired = hidHide.RecoveryRequired,
+                message = hidHide.RecoveryRequired
+                    ? "PaRuX has an unfinished controller isolation recovery. Leave Gaming and request a restore; do not use a virtual mapper until recovery succeeds."
+                    : hidHide.IsAvailable
+                        ? "HidHide is installed. No PaRuX recovery is pending."
+                        : "HidHide is optional and not installed; PaRuX never installs drivers on its own.",
             })).RequireDesktopOwner();
+
+        // An explicit, owner-only retry of journaled PaRuX-owned HidHide changes;
+        // never unhide physical devices while a game may be consuming virtual input.
+        app.MapPost("/api/v1/gaming/hidhide/recover", async (
+            PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager hidHide,
+            LocalRuntimeService runtime, CancellationToken ct) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Leave Gaming before restoring physical-controller visibility." }) as IResult;
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(15));
+            try
+            {
+                var recovered = await hidHide.RestoreAsync(deadline.Token);
+                return recovered.Success ? Results.Ok(recovered) : Results.Conflict(recovered);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            { return Results.StatusCode(499); }
+            catch (OperationCanceledException)
+            { return Results.Conflict(new { error = "Recovery timed out; its journal remains for retry." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            { return Results.Conflict(new { error = "Recovery failed; inspect HidHide manually before trying a virtual controller." }); }
+        }).RequireDesktopOwner();
 
         app.MapGet("/api/v1/gaming/virtual-controller", () =>
             Results.Ok(VirtualControllerProbe.Probe())).RequireDesktopOwner();
