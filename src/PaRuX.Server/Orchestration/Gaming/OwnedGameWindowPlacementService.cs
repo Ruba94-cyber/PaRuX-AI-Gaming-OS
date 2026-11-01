@@ -66,8 +66,8 @@ public sealed class OwnedGameWindowPlacementService
     public async Task<string> TryPlaceAsync(Process owned, string verifiedImagePath,
         string displayId, CancellationToken stop)
     {
-        if (!HasConnectedTarget(displayId)) return "display-unavailable";
-        if (!OperatingSystem.IsWindows()) return "unsupported";
+        if (!HasConnectedTarget(displayId)) return GameWindowPlacementStates.DisplayUnavailable;
+        if (!OperatingSystem.IsWindows()) return GameWindowPlacementStates.UnsupportedWindow;
 
         IntPtr previousWindow = IntPtr.Zero;
         int stableCount = 0;
@@ -75,13 +75,13 @@ public sealed class OwnedGameWindowPlacementService
         {
             for (int attempt = 0; attempt < 16; attempt++)
             {
-                if (stop.IsCancellationRequested) return "not-confirmed";
+                if (stop.IsCancellationRequested) return GameWindowPlacementStates.NotConfirmed;
                 if (!ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
-                    return "not-confirmed";
+                    return GameWindowPlacementStates.NotConfirmed;
                 GamingDisplaySnapshotDto topology = _topology.Snapshot();
                 GamingDisplayModeDto? destination = topology.Displays.FirstOrDefault(d =>
                     string.Equals(d.DisplayId, displayId, StringComparison.OrdinalIgnoreCase));
-                if (!topology.Supported || destination is null) return "display-unavailable";
+                if (!topology.Supported || destination is null) return GameWindowPlacementStates.DisplayUnavailable;
 
                 IntPtr candidate = SelectUniqueWindow(FindWindows(owned.Id), owned.Id);
                 if (candidate != IntPtr.Zero && candidate == previousWindow)
@@ -96,27 +96,27 @@ public sealed class OwnedGameWindowPlacementService
                 {
                     if (!ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath) ||
                         SelectUniqueWindow(FindWindows(owned.Id), owned.Id) != candidate)
-                        return "not-confirmed";
+                        return GameWindowPlacementStates.NotConfirmed;
                     if (!GetWindowRect(candidate, out WinRect rect))
-                        return "not-confirmed";
+                        return GameWindowPlacementStates.NotConfirmed;
                     int width = rect.Right - rect.Left;
                     int height = rect.Bottom - rect.Top;
                     var centered = CenterUnchangedWindow(destination, width, height);
-                    if (!centered.HasValue) return "unsupported-window";
+                    if (!centered.HasValue) return GameWindowPlacementStates.UnsupportedWindow;
                     if (rect.Left == centered.Value.X && rect.Top == centered.Value.Y)
-                        return "already-on-tv";
+                        return GameWindowPlacementStates.AlreadyOnTv;
                     // Keep size/z-order/focus exactly as before. Win32 may refuse
                     // foreign-integrity/elevated windows: report, never escalate.
                     GetWindowThreadProcessId(candidate, out uint finalPid);
                     if (finalPid != (uint)owned.Id ||
                         !ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
-                        return "not-confirmed";
+                        return GameWindowPlacementStates.NotConfirmed;
                     // The game owns its input queue. Post to that queue rather
                     // than blocking a Core request on a hung GUI thread.
                     if (!SetWindowPos(candidate, IntPtr.Zero, centered.Value.X,
                         centered.Value.Y, 0, 0, SwpNoSize | SwpNoZOrder |
                         SwpNoActivate | SwpNoOwnerZOrder | SwpAsyncWindowPos))
-                        return "not-confirmed";
+                        return GameWindowPlacementStates.NotConfirmed;
                     // The async placement may not have executed yet. Confirm the
                     // actual bounds and still verify that the HWND belongs to
                     // this process; do not claim a successful TV route otherwise.
@@ -124,28 +124,28 @@ public sealed class OwnedGameWindowPlacementService
                     {
                         if (stop.IsCancellationRequested ||
                             !ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
-                            return "not-confirmed";
+                            return GameWindowPlacementStates.NotConfirmed;
                         GetWindowThreadProcessId(candidate, out uint pidAfterMove);
                         if (pidAfterMove != (uint)owned.Id)
-                            return "not-confirmed";
+                            return GameWindowPlacementStates.NotConfirmed;
                         if (GetWindowRect(candidate, out WinRect actual) &&
                             actual.Left == centered.Value.X && actual.Top == centered.Value.Y)
-                            return "placed";
+                            return GameWindowPlacementStates.Placed;
                         await Task.Delay(120, stop).ConfigureAwait(false);
                     }
-                    return "not-confirmed";
+                    return GameWindowPlacementStates.NotConfirmed;
                 }
                 await Task.Delay(250, stop).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) { return "not-confirmed"; }
+        catch (OperationCanceledException) { return GameWindowPlacementStates.NotConfirmed; }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception
             or ObjectDisposedException or UnauthorizedAccessException or DllNotFoundException
             or EntryPointNotFoundException)
         {
-            return "not-confirmed";
+            return GameWindowPlacementStates.NotConfirmed;
         }
-        return "unsupported-window";
+        return GameWindowPlacementStates.UnsupportedWindow;
     }
 
     [StructLayout(LayoutKind.Sequential)]
