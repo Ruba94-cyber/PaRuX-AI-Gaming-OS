@@ -13,6 +13,7 @@ public sealed class ManualGameSessionService : IDisposable
 {
     private static readonly TimeSpan MinimumMonitoredLifetime = TimeSpan.FromSeconds(5);
     private readonly ManualGameLibrary _library;
+    private readonly SteamGameDiscoveryProvider _steam;
     private readonly WorkloadOrchestrator _orchestrator;
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
@@ -21,10 +22,11 @@ public sealed class ManualGameSessionService : IDisposable
     private bool _disposed;
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
-        ILogger<ManualGameSessionService>? logger = null)
+        SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null)
     {
         _library = library;
         _orchestrator = orchestrator;
+        _steam = steam;
         _logger = logger;
     }
 
@@ -129,6 +131,68 @@ public sealed class ManualGameSessionService : IDisposable
                 _logger?.LogWarning("A started manual game could not be automatically monitored.");
                 process?.Dispose();
                 return new(true, false, "Game started but automatic return is unavailable. Use Return to AI manually.");
+            }
+        }
+        finally { _launchGate.Release(); }
+    }
+
+    internal static bool ValidSteamAppId(string? appId) =>
+        !string.IsNullOrWhiteSpace(appId) && appId.Length <= 15 && appId.All(char.IsAsciiDigit);
+
+    /// <summary>
+    /// Handoff to the user's already-installed official Steam client. The child
+    /// process belongs to Steam, not PaRuX. Never infer it from windows or exit
+    /// the Gaming session when the Steam bootstrapper finishes.
+    /// </summary>
+    public async Task<ManualGameLaunchResult> LaunchSteamAsync(string appId, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!ValidSteamAppId(appId))
+            return new(false, false, "Invalid Steam app ID.");
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_orchestrator.CurrentState != "AiReady")
+                return new(false, false, "Return to AI before starting another game.");
+
+            var installed = await _steam.DiscoverAsync(ct).ConfigureAwait(false);
+            if (!installed.Any(g => g.ProviderId == "steam" && g.ProviderGameId == appId))
+                return new(false, false, "The selected Steam game is not installed locally.");
+
+            string? steamExe = new Providers.SteamBigPictureLauncherProvider().ExecutablePath;
+            if (string.IsNullOrWhiteSpace(steamExe) || !File.Exists(steamExe))
+                return new(false, false, "Steam is not installed in its expected location.");
+
+            if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
+                return new(false, false, "Gaming resources could not be prepared; Steam was not launched.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var info = new ProcessStartInfo
+                {
+                    FileName = steamExe,
+                    WorkingDirectory = Path.GetDirectoryName(steamExe)!,
+                    UseShellExecute = false
+                };
+                info.ArgumentList.Add("-applaunch");
+                info.ArgumentList.Add(appId); // numeric validated, never launch options from manifests
+                using var request = new Process { StartInfo = info };
+                if (!request.Start())
+                    throw new InvalidOperationException("Steam did not accept the launch process request.");
+                return new(true, false,
+                    "Launch request sent to Steam. PaRuX cannot verify the final game process; Return to AI manually when finished.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
+                or InvalidOperationException or OperationCanceledException or ArgumentException)
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                bool recovered;
+                try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
+                catch { recovered = false; }
+                return new(false, false, recovered
+                    ? "Steam did not accept the launch. PaRuX returned to AI."
+                    : "Steam did not accept the launch and the return-to-AI operation needs attention.");
             }
         }
         finally { _launchGate.Release(); }
