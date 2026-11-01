@@ -1,3 +1,4 @@
+using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using PaRuX.UITests.Infrastructure;
 using Xunit;
