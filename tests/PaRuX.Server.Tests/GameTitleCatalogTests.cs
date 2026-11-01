@@ -47,6 +47,18 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Older_game_installation_json_without_emulator_label_remains_readable()
+    {
+        const string oldPayload = """
+        {"InstallationId":"emulator:old","Source":"emulator","SourceGameId":"old","Kind":"game","Name":"Homebrew"}
+        """;
+        var old = System.Text.Json.JsonSerializer.Deserialize<GameInstallationDto>(oldPayload);
+        Assert.NotNull(old);
+        Assert.Empty(old.EmulatorName);
+        Assert.Equal("Homebrew", old.Name);
+    }
+
+    [Fact]
     public void Short_named_emulated_game_session_key_matches_the_catalog_fallback()
     {
         var entry = Manual("short", "X") with { EmulatorId = "eden" };
