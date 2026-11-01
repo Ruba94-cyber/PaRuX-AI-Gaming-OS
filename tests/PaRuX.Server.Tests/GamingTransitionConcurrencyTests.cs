@@ -209,6 +209,62 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     }
 
     [Fact]
+    public async Task Verified_owned_process_exit_reports_automatic_AI_return_only_for_its_session()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long version = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+
+        GamingStatusDto active = orchestrator.GetStatus();
+        Assert.Null(active.LastVerifiedOwnedGameExitUtc);
+        Assert.Null(active.LastVerifiedOwnedGameExitRestoredAi);
+
+        Assert.True(await orchestrator.ExitManualGameSessionAfterProcessExitAsync(version, CancellationToken.None));
+        GamingStatusDto exited = orchestrator.GetStatus();
+        Assert.Equal("AiReady", exited.State);
+        Assert.NotNull(exited.LastVerifiedOwnedGameExitUtc);
+        Assert.True(exited.LastVerifiedOwnedGameExitRestoredAi);
+        Assert.False(exited.IsGamingActive);
+
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        GamingStatusDto next = orchestrator.GetStatus();
+        Assert.Null(next.LastVerifiedOwnedGameExitUtc);
+        Assert.Null(next.LastVerifiedOwnedGameExitRestoredAi);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
+    public async Task Stale_exit_and_explicit_AI_return_do_not_publish_a_verified_automatic_exit()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long oldVersion = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+        Assert.False(await orchestrator.ExitManualGameSessionAfterProcessExitAsync(oldVersion, CancellationToken.None));
+        Assert.Null(orchestrator.GetStatus().LastVerifiedOwnedGameExitUtc);
+
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long newVersion = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+        Assert.False(await orchestrator.ExitManualGameSessionAfterProcessExitAsync(oldVersion, CancellationToken.None));
+        Assert.Null(orchestrator.GetStatus().LastVerifiedOwnedGameExitUtc);
+        Assert.NotEqual(oldVersion, newVersion);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
+    public void A_stale_monitor_cannot_clear_a_newer_registered_process()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        var owned = new WorkloadOrchestrator.OwnedGameProcess(
+            4242, DateTime.UtcNow, @"C:\Games\test.exe", 22);
+        orchestrator.RegisterOwnedGameProcess(owned);
+
+        Assert.False(orchestrator.ClearOwnedGameProcess(21));
+        Assert.True(orchestrator.ClearOwnedGameProcess(22));
+        Assert.False(orchestrator.ClearOwnedGameProcess(22));
+    }
+
+    [Fact]
     public async Task Exit_while_launcher_is_starting_waits_and_does_not_overlap_cleanup()
     {
         var (orchestrator, launcher, input) = MakeOrchestrator(blockLauncher: true);
