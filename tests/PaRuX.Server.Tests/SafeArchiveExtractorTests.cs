@@ -185,4 +185,32 @@ public sealed class SafeArchiveExtractorTests : IDisposable
     }
 
 
+    [Theory]
+    [InlineData("folder/game.exe", true)]
+    [InlineData("./game.exe", false)]
+    [InlineData("../game.exe", false)]
+    [InlineData("folder/../game.exe", false)]
+    [InlineData("CON", false)]
+    [InlineData("CON.txt", false)]
+    [InlineData("LPT1/script.txt", false)]
+    [InlineData("COM9.cfg", false)]
+    [InlineData("folder/name. ", false)]
+    [InlineData("folder//game.exe", false)]
+    [InlineData("folder/", true)]
+    [InlineData("normal/config.json", true)]
+    public void Archive_names_have_portable_windows_safe_spelling(string name, bool expected)
+        => Assert.Equal(expected, SafeArchiveExtractor.IsSafePortableEntryName(name));
+
+    [Fact]
+    public async Task Zip_rejects_reserved_windows_device_names_without_materializing_them()
+    {
+        string archive = Path.Combine(_root, "windows-device.zip");
+        string destination = Path.Combine(_root, "device-out");
+        WriteZip(archive, ("CON.txt", "must not create a Windows device"));
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None));
+        Assert.False(File.Exists(Path.Combine(destination, "CON.txt")));
+    }
+
+
 }

@@ -100,6 +100,8 @@ internal static class SafeArchiveExtractor
         Action<long> setExtracted)
     {
         if (string.IsNullOrWhiteSpace(key)) return;
+        if (!IsSafePortableEntryName(key))
+            throw new InvalidDataException("Archive entry uses a reserved or ambiguous Windows path.");
 
         string normalized = key.Replace('/', Path.DirectorySeparatorChar)
             .Replace('\\', Path.DirectorySeparatorChar);
@@ -161,6 +163,46 @@ internal static class SafeArchiveExtractor
         }
 
     }
+    /// <summary>
+    /// Reject names whose Windows normalization or DOS device interpretation
+    /// can differ from the entry's literal spelling. Treat archive metadata as
+    /// untrusted on every platform; keep one portable extraction policy.
+    /// </summary>
+    internal static bool IsSafePortableEntryName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 4096 ||
+            name.Any(char.IsControl)) return false;
+
+        string[] segments = name.Split(new[] { '/', '\\' }, StringSplitOptions.None);
+        foreach (string segment in segments)
+        {
+            // A final slash denotes a directory entry, but a doubled slash
+            // or an interior empty segment is ambiguous on Windows.
+            if (segment.Length == 0)
+            {
+                continue;
+            }
+            if (segment == ".." || segment.EndsWith(' ') || segment.EndsWith('.'))
+                return false;
+            string basename = segment.Split('.')[0];
+            if (IsReservedDosDevice(basename)) return false;
+        }
+        for (int index = 0; index < segments.Length; index++)
+            if (segments[index].Length == 0 && index != segments.Length - 1)
+                return false;
+        return true;
+    }
+
+    private static bool IsReservedDosDevice(string basename)
+    {
+        string upper = basename.ToUpperInvariant();
+        if (upper is "CON" or "PRN" or "AUX" or "NUL") return true;
+        return upper.Length == 4 &&
+               (upper.StartsWith("COM", StringComparison.Ordinal) ||
+                upper.StartsWith("LPT", StringComparison.Ordinal)) &&
+               upper[3] is >= '1' and <= '9';
+    }
+
     private static void EnsureNoReparsePoints(string path)
     {
         for (string? candidate = path; candidate != null; candidate = Path.GetDirectoryName(candidate))
