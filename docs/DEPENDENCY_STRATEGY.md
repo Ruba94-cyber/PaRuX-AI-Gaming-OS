@@ -21,6 +21,7 @@ pretext to replace proven security-critical libraries with unreviewed copies.
 | --- | --- | --- |
 | Console/TV focus navigation | First-party `ConsoleNavigationPolicy`, WinUI-delivered gamepad keys (D-pad and left stick) | Windows/WinUI itself; physical controller acceptance not run |
 | Standard XInput diagnostics | First-party native `XInputGetState` P/Invoke, on demand | Windows XInput runtime; diagnostics do not remap games |
+| New Gaming preset suspension | Built-in `win32native` provider selected instead of Nyrna for new stock presets | Nyrna remains opt-in and in legacy JSON defaults; owned-process admission currently refuses suspension until proof exists, Windows NT call still unverified |
 | Game library and profiles | First-party Steam/Epic/GOG discovery, JSON stores and Gaming orchestrator | User-installed official game clients for launch/DRM; no embedded store software |
 | Steam / GOG launch | Explicitly confirmed official-client handoffs | Client controls actual game; launch and ownership not verified on physical PC |
 | Optional controller remapping | No remapper needed for PaRuX Console UI | Legacy XOutput optional; universal virtual XInput output still requires documented Windows driver/device ownership |
