@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad;
 
 /// <summary>An XInput-compatible gamepad report (same layout as XINPUT_GAMEPAD): the only thing a virtual Xbox 360 pad understands.</summary>
