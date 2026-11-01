@@ -169,7 +169,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
                 // The persisted hard-off can survive a Core restart even if the
                 // in-memory orchestrator started in AiReady. Expose it so Console
                 // Home can offer explicit recovery rather than hiding Return to AI.
-                IsGamingActive = IsGamingActive || _runtime.GamingMode,
+                IsGamingActive = IsGamingActive || _processManager.GamingActive,
                 ActiveProfileName = _activeProfile?.Name,
                 ActiveLauncher = _activeLauncherId,
                 ActiveInput = _activeInputId,
