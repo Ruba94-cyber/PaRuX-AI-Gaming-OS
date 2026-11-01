@@ -64,3 +64,17 @@ public sealed class NativeXInputProbeTests
         Assert.Empty(NativeXInputProbe.ConnectedSlots(_ => 5u));
     }
 }
+
+public sealed class GamingControllerSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFactory>
+{
+    private readonly ApiSecurityTests.PaRuXFactory _factory;
+    public GamingControllerSecurityTests(ApiSecurityTests.PaRuXFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task XInput_diagnostics_require_desktop_owner()
+    {
+        using var client = _factory.CreateClient();
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/gaming/controllers");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+}
