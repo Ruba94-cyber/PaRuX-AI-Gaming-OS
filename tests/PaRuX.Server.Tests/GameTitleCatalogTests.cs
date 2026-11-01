@@ -30,6 +30,36 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Different_emulator_installations_identify_the_actual_emulator_instead_of_generic_labels()
+    {
+        var entries = new[]
+        {
+            Manual("eden-game", "Demo") with { EmulatorId = "eden" },
+            Manual("dolphin-game", "Demo") with { EmulatorId = "dolphin" },
+            Manual("manual-game", "Demo")
+        };
+        var title = Assert.Single(GameTitleCatalog.Build(Array.Empty<DiscoveredGameDto>(), entries, NoState));
+        Assert.Equal(3, title.Installations.Count);
+        Assert.Equal("Eden", Assert.Single(title.Installations.Where(i => i.SourceGameId == "eden-game")).EmulatorName);
+        Assert.Equal("Dolphin", Assert.Single(title.Installations.Where(i => i.SourceGameId == "dolphin-game")).EmulatorName);
+        Assert.Empty(Assert.Single(title.Installations.Where(i => i.SourceGameId == "manual-game")).EmulatorName);
+        Assert.All(title.Installations, i => Assert.DoesNotContain(@"C:\Games", i.EmulatorName));
+    }
+
+    [Fact]
+    public void Short_named_emulated_game_session_key_matches_the_catalog_fallback()
+    {
+        var entry = Manual("short", "X") with { EmulatorId = "eden" };
+        var title = Assert.Single(GameTitleCatalog.Build(Array.Empty<DiscoveredGameDto>(), new[] { entry }, NoState));
+        Assert.Equal("id:emulator:short", title.TitleKey);
+        Assert.Equal(title.TitleKey, ManualGameSessionService.SessionTitleKey(entry));
+        var manual = entry with { EmulatorId = string.Empty };
+        Assert.Equal("id:manual:short", ManualGameSessionService.SessionTitleKey(manual));
+        Assert.Equal(GameTitleCatalog.KeyFor("Long Title", "ignored"),
+            ManualGameSessionService.SessionTitleKey(entry with { Name = "Long Title" }));
+    }
+
+    [Fact]
     public void Unrelated_titles_stay_separate_and_sorted_by_name()
     {
         var titles = GameTitleCatalog.Build(new[] { Steam("1", "Portal"), Steam("2", "Hades") }, Array.Empty<ManualGameDto>(), NoState);
