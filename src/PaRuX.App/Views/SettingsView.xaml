@@ -1151,8 +1151,8 @@
                 </Border>
                 <Border Style="{StaticResource PaRuXCardStyle}">
                     <StackPanel Spacing="{StaticResource PaRuXSpaceM}">
-                        <TextBlock Text="Console / TV display routing" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
-                        <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
+                        <TextBlock x:Name="ConsoleDisplaysHeading" Text="Console / TV display routing" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
+                        <TextBlock x:Name="ConsoleDisplaysIntro" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
                             Text="Choose which Windows screen is a TV and where PaRuX Console fullscreen opens. Other monitors stay available. This moves only the PaRuX window: external games/emulators control their own output. Windows duplicated displays cannot be separated by PaRuX." />
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button x:Name="ConsoleDisplaysRefresh" Content="Detect connected displays"
