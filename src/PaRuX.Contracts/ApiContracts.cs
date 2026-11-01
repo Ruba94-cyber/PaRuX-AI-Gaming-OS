@@ -787,7 +787,9 @@ public sealed class GamingProfileDto
     public string InputProvider { get; set; } = "native";
     public Dictionary<string, string> InputSettings { get; set; } = new();
     /// <summary>"nyrna" | "win32native" | "none"</summary>
-    public string SuspendProvider { get; set; } = "win32native";
+    // Legacy DTO fallback is retained for JSON profiles missing this field.
+    // New built-in presets explicitly choose the native Windows provider.
+    public string SuspendProvider { get; set; } = "nyrna";
     public Dictionary<string, string> SuspendSettings { get; set; } = new();
     /// <summary>"release_gpu" | "maintain_light_services"</summary>
     public string AiResourcePolicy { get; set; } = "release_gpu";
