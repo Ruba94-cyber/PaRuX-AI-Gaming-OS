@@ -90,6 +90,10 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(publisherHash.Name));
             Assert.False(string.IsNullOrWhiteSpace(stage.Name));
             Assert.False(stage.Properties.IsEnabled.ValueOrDefault);
+            var inventory = UiWait.ById(app.MainWindow,
+                "GameLibrary_Installer_Staged_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(inventory.Name));
+            // Read-only inventory action is not invoked in this isolated smoke.
             // No SHA-256 is supplied and no package staging is triggered in this UI smoke.
             // Never select or hash a local package in this UI smoke.
             var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);

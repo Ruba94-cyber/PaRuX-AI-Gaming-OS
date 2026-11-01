@@ -37,6 +37,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _inspectInstaller = new();
     private readonly TextBox _expectedPublisherSha = new();
     private readonly Button _stagePackage = new();
+    private readonly Button _refreshStaged = new();
+    private readonly StackPanel _stagedPackages = new() { Spacing = 6 };
+    private readonly TextBlock _stagedStatus = new() { TextWrapping = TextWrapping.Wrap };
     private string? _inspectedInstallerPath;
     private readonly Button _cancelInspection = new();
     private CancellationTokenSource? _inspectionCancellation;
@@ -298,6 +301,17 @@ public sealed class ManualGameLibraryView : UserControl
             "Verifica il pacchetto e prepara una copia senza eseguirlo"));
         _stagePackage.Click += async (_, _) => await StageInspectedPackageAsync();
         _installerSection.Children.Add(_stagePackage);
+        _refreshStaged.Content = T("Show staged packages", "Mostra pacchetti preparati");
+        AutomationProperties.SetAutomationId(_refreshStaged, "GameLibrary_Installer_Staged_Refresh_Button");
+        AutomationProperties.SetName(_refreshStaged, T("List managed verified package copies",
+            "Elenca le copie di pacchetti verificate e gestite"));
+        _refreshStaged.IsEnabled = false;
+        _refreshStaged.Click += async (_, _) => await RefreshStagedPackagesAsync();
+        _installerSection.Children.Add(_refreshStaged);
+        AutomationProperties.SetAutomationId(_stagedStatus, "GameLibrary_Installer_Staged_Status");
+        AutomationProperties.SetLiveSetting(_stagedStatus, AutomationLiveSetting.Polite);
+        _installerSection.Children.Add(_stagedStatus);
+        _installerSection.Children.Add(_stagedPackages);
         AutomationProperties.SetAutomationId(_installerStatus, "GameLibrary_Installer_Status_Text");
         AutomationProperties.SetLiveSetting(_installerStatus, AutomationLiveSetting.Polite);
         _installerSection.Children.Add(_installerStatus);
@@ -407,6 +421,7 @@ public sealed class ManualGameLibraryView : UserControl
         }
         _returnToAi.IsEnabled = _returnToAiAvailable && !_busy;
         _inspectInstaller.IsEnabled = _installerInspectionAllowed && !_busy;
+        _refreshStaged.IsEnabled = _installerInspectionAllowed && !_busy;
         UpdatePackageStageAvailability();
     }
 
@@ -481,6 +496,91 @@ public sealed class ManualGameLibraryView : UserControl
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
         finally { SetBusy(false); }
+    }
+
+    private async Task RefreshStagedPackagesAsync()
+    {
+        if (_busy || !_installerInspectionAllowed || _consolePresentation) return;
+        SetBusy(true);
+        _stagedPackages.Children.Clear();
+        _stagedStatus.Text = T("Reading managed package copies…",
+            "Lettura delle copie gestite…");
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.ListStagedPackagesAsync();
+            if (!result.Succeeded || result.Value is null)
+            {
+                _stagedStatus.Text = T("The managed package inventory is unavailable.",
+                    "Elenco dei pacchetti gestiti non disponibile.");
+                return;
+            }
+            _stagedStatus.Text = result.Value.Count == 0
+                ? T("No staged packages.", "Nessun pacchetto preparato.")
+                : T($"{result.Value.Count} managed local copies. Remove only those no longer needed.",
+                    $"{result.Value.Count} copie locali gestite. Elimina solo quelle che non servono più.");
+            foreach (StagedGamePackageDto file in result.Value)
+            {
+                var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+                item.Children.Add(new TextBlock
+                {
+                    Text = $"{file.FileName} · {file.SizeBytes:N0} B",
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MaxWidth = 450
+                });
+                var remove = new Button
+                {
+                    Content = T("Remove copy", "Elimina copia"),
+                    Tag = file.Id,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                AutomationProperties.SetName(remove, T(
+                    $"Remove managed copy {file.FileName}", $"Elimina copia gestita {file.FileName}"));
+                remove.Click += async (_, _) => await RemoveStagedPackageAsync(file);
+                item.Children.Add(remove);
+                _stagedPackages.Children.Add(item);
+            }
+        }
+        catch (Exception)
+        {
+            _stagedStatus.Text = T("Could not list managed copies.",
+                "Impossibile elencare le copie gestite.");
+        }
+        finally { SetBusy(false); }
+    }
+
+    private async Task RemoveStagedPackageAsync(StagedGamePackageDto file)
+    {
+        if (_busy || !_installerInspectionAllowed || _consolePresentation) return;
+        var confirmation = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("Remove managed copy?", "Eliminare la copia gestita?"),
+            Content = T(
+                $"Remove only the PaRuX-managed copy {file.FileName}? The original installer will not be touched.",
+                $"Eliminare soltanto la copia gestita da PaRuX {file.FileName}? Il file originale non verrà modificato."),
+            PrimaryButtonText = T("Remove copy", "Elimina copia"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary) return;
+        SetBusy(true);
+        bool refresh = false;
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.DeleteStagedPackageAsync(file.Id);
+            refresh = result.Succeeded;
+            if (!refresh)
+                _stagedStatus.Text = T("Could not remove this managed copy.",
+                    "Impossibile eliminare questa copia gestita.");
+        }
+        catch (Exception)
+        {
+            _stagedStatus.Text = T("Removal failed. Original file preserved.",
+                "Eliminazione non riuscita. File originale preservato.");
+        }
+        finally { SetBusy(false); }
+        if (refresh) await RefreshStagedPackagesAsync();
     }
 
     private void UpdatePackageStageAvailability()
@@ -1067,5 +1167,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
 }
