@@ -109,6 +109,45 @@ public sealed class GameTitleCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Named_collections_are_independent_of_tags_and_survive_a_restart()
+    {
+        var store = new GameTitleStore(_file);
+        Assert.True(store.SetTags("hades", new[] { "roguelike" }));
+        Assert.True(store.SetCollections("hades", new[] { " Couch Co-op ", "couch co-op", "Family", "" }));
+        var reloaded = new GameTitleStore(_file);
+        var state = reloaded.Snapshot()["hades"];
+        Assert.Equal(new[] { "Couch Co-op", "Family" }, state.Collections);
+        Assert.Equal(new[] { "roguelike" }, state.Tags);
+
+        var titles = GameTitleCatalog.Build(new[] { Steam("1", "Hades") }, Array.Empty<ManualGameDto>(),
+            reloaded.Snapshot());
+        Assert.Equal(1, GameTitleCatalog.Filter(titles, null, null, false, null, "family").Count);
+        Assert.Empty(GameTitleCatalog.Filter(titles, null, null, false, null, "Other"));
+    }
+
+    [Fact]
+    public void Collections_reject_invalid_values_without_overwriting_existing_state()
+    {
+        var store = new GameTitleStore(_file);
+        Assert.True(store.SetCollections("hades", new[] { "Family" }));
+        Assert.False(store.SetCollections("hades", new[] { "bad\nname" }));
+        Assert.False(store.SetCollections("hades", new[] { new string('x', GameTitleStore.MaxCollectionLength + 1) }));
+        Assert.False(store.SetCollections("hades", Enumerable.Range(0, GameTitleStore.MaxCollections + 1).Select(x => "Group" + x)));
+        Assert.Equal(new[] { "Family" }, new GameTitleStore(_file).Snapshot()["hades"].Collections);
+    }
+
+    [Fact]
+    public void Legacy_title_json_without_collections_stays_compatible()
+    {
+        File.WriteAllText(_file, "{\"Version\":1,\"Titles\":{\"hades\":{\"Favorite\":true,\"Tags\":[\"retro\"],\"PlaySeconds\":10}}}");
+        var store = new GameTitleStore(_file);
+        Assert.Null(store.LoadError);
+        Assert.Empty(store.Snapshot()["hades"].Collections);
+        Assert.True(store.SetCollections("hades", new[] { "Old favorites" }));
+        Assert.True(new GameTitleStore(_file).Snapshot()["hades"].Favorite);
+    }
+
+    [Fact]
     public void Invalid_tags_sessions_and_keys_are_rejected_without_changing_anything()
     {
         var store = new GameTitleStore(_file);
