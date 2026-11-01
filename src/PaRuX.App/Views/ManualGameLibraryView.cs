@@ -32,6 +32,10 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _displayRefresh = new();
     private readonly Button _controllerRefresh = new();
     private readonly Button _returnToAi = new();
+    private readonly StackPanel _installerSection = new() { Spacing = 8 };
+    private readonly Button _inspectInstaller = new();
+    private readonly TextBlock _installerStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private bool _installerInspectionAllowed;
     private readonly Button _gamingStatusRefresh = new();
     private readonly TextBlock _gamingStatus = new() { TextWrapping = TextWrapping.Wrap };
     private bool _returnToAiAvailable;
@@ -206,6 +210,29 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetLiveSetting(_controllerStatus, AutomationLiveSetting.Polite);
         root.Children.Add(_controllerStatus);
 
+        _installerSection.Children.Add(new TextBlock
+        {
+            Text = T("Game installer safety preflight", "Controllo preliminare installer giochi"),
+            FontSize = 20,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        _installerSection.Children.Add(new TextBlock
+        {
+            Text = T("Select a completed local installer/archive and calculate SHA-256. This does not install, execute, extract, download or prove the file is safe. Disabled during Gaming.",
+                "Seleziona un installer/archivio locale completo e calcola SHA-256. Non installa, esegue, estrae, scarica né dimostra la sicurezza del file. Disattivato durante il Gaming."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _inspectInstaller.Content = T("Inspect local installer", "Controlla installer locale");
+        _inspectInstaller.IsEnabled = false;
+        AutomationProperties.SetAutomationId(_inspectInstaller, "GameLibrary_Installer_Inspect_Button");
+        AutomationProperties.SetName(_inspectInstaller, T("Calculate SHA-256 of a selected game installer", "Calcola SHA-256 di un installer selezionato"));
+        _inspectInstaller.Click += async (_, _) => await InspectInstallerAsync();
+        _installerSection.Children.Add(_inspectInstaller);
+        AutomationProperties.SetAutomationId(_installerStatus, "GameLibrary_Installer_Status_Text");
+        AutomationProperties.SetLiveSetting(_installerStatus, AutomationLiveSetting.Polite);
+        _installerSection.Children.Add(_installerStatus);
+        root.Children.Add(_installerSection);
+
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     }
 
@@ -225,6 +252,7 @@ public sealed class ManualGameLibraryView : UserControl
         _name.Visibility = editorVisibility;
         _path.Visibility = editorVisibility;
         _manualAddActions.Visibility = editorVisibility;
+        _installerSection.Visibility = editorVisibility;
         _root.Padding = new Thickness(enabled ? 32 : 24);
         _root.Spacing = enabled ? 24 : 16;
         _heading.FontSize = enabled ? 40 : 28;
@@ -243,6 +271,9 @@ public sealed class ManualGameLibraryView : UserControl
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
         _controllerStatus.FontSize = bodySize;
+        _installerStatus.FontSize = bodySize;
+        _inspectInstaller.FontSize = bodySize;
+        _inspectInstaller.MinHeight = enabled ? 56 : 32;
         _gamingStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
@@ -274,12 +305,14 @@ public sealed class ManualGameLibraryView : UserControl
             if (status is null)
             {
                 _returnToAiAvailable = false;
+                _installerInspectionAllowed = false;
                 _gamingStatus.Text = T("Gaming status unavailable. Check the local Core connection.",
                     "Stato Gaming non disponibile. Controlla il collegamento al Core locale.");
             }
             else
             {
                 _returnToAiAvailable = status.IsGamingActive || status.State != "AiReady";
+                _installerInspectionAllowed = !_returnToAiAvailable;
                 _gamingStatus.Text = status.State == "AiReady" && status.IsGamingActive
                     ? T("Gaming resource lock is still active after Core restart. Select Return to AI to recover without closing the game.",
                         "Il blocco delle risorse Gaming è ancora attivo dopo il riavvio del Core. Seleziona Torna all'AI per recuperare senza chiudere il gioco.")
@@ -292,9 +325,11 @@ public sealed class ManualGameLibraryView : UserControl
         catch (Exception)
         {
             _returnToAiAvailable = false;
+            _installerInspectionAllowed = false;
             _gamingStatus.Text = T("Gaming status unavailable.", "Stato Gaming non disponibile.");
         }
         _returnToAi.IsEnabled = _returnToAiAvailable && !_busy;
+        _inspectInstaller.IsEnabled = _installerInspectionAllowed && !_busy;
     }
 
     private async Task RefreshGamingStatusButtonAsync()
@@ -367,6 +402,44 @@ public sealed class ManualGameLibraryView : UserControl
             await LoadAsync();
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
+        finally { SetBusy(false); }
+    }
+
+    private async Task InspectInstallerAsync()
+    {
+        if (_busy || !_installerInspectionAllowed) return;
+        SetBusy(true);
+        try
+        {
+            var picker = new FileOpenPicker();
+            foreach (string ext in new[] { ".exe", ".msi", ".msix", ".zip", ".7z", ".rar", ".iso" })
+                picker.FileTypeFilter.Add(ext);
+            WinRT.Interop.InitializeWithWindow.Initialize(
+                picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+            var chosen = await picker.PickSingleFileAsync();
+            if (chosen is null) return;
+
+            _installerStatus.Text = T("Computing SHA-256; no file is executed…",
+                "Calcolo SHA-256; nessun file viene eseguito…");
+            var result = await GamingOrchestratorClient.Current.InspectGameInstallerAsync(
+                new GameInstallerInspectionRequest(chosen.Path));
+            if (!result.Succeeded || result.Value is null)
+            {
+                _installerStatus.Text = T(
+                    "Inspection refused or failed. Verify that Gaming is off and the selected file is complete, local and supported.",
+                    "Controllo rifiutato o non riuscito. Verifica che il Gaming sia disattivato e che il file sia completo, locale e supportato.");
+                return;
+            }
+
+            _installerStatus.Text = T(
+                $"{result.Value.FileName} · {result.Value.SizeBytes:N0} bytes\nSHA-256: {result.Value.Sha256}\nA matching hash is not a malware or licensing guarantee; check it against the publisher.",
+                $"{result.Value.FileName} · {result.Value.SizeBytes:N0} byte\nSHA-256: {result.Value.Sha256}\nL'hash non garantisce sicurezza o licenza: confrontalo con quello del produttore.");
+        }
+        catch (Exception)
+        {
+            _installerStatus.Text = T("Local inspection could not be completed.",
+                "Impossibile completare il controllo locale.");
+        }
         finally { SetBusy(false); }
     }
 
@@ -711,5 +784,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
