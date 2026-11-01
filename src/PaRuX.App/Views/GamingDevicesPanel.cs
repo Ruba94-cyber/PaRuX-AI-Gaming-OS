@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using PaRuX.Contracts;
 using PaRuX.Services;
+using PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad;
 
 namespace PaRuX.Views;
 
@@ -44,6 +45,25 @@ internal sealed class GamingDevicesPanel : StackPanel
     private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox _rawDevices = new() { MinWidth = 280 };
     private readonly TextBlock _rawDeviceStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly NumberBox _rawA = RawIndex(0);
+    private readonly NumberBox _rawB = RawIndex(1);
+    private readonly NumberBox _rawLx = RawIndex(-1);
+    private readonly NumberBox _rawLy = RawIndex(-1);
+    private readonly NumberBox _rawRx = RawIndex(-1);
+    private readonly NumberBox _rawRy = RawIndex(-1);
+    private readonly NumberBox _rawLt = RawIndex(-1);
+    private readonly NumberBox _rawRt = RawIndex(-1);
+    private readonly NumberBox _rawDeadzone = new() { Minimum = 0, Maximum = 0.6, Value = 0.1, SmallChange = 0.02, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+    private readonly CheckBox _rawInvertY = new() { IsChecked = true };
+    private readonly CheckBox _rawDpad = new() { IsChecked = true };
+
+    private static NumberBox RawIndex(int value) => new()
+    {
+        Minimum = -1, Maximum = 63, Value = value, SmallChange = 1,
+        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+    };
+    private static int? SelectedIndex(NumberBox n) =>
+        double.IsNaN(n.Value) || n.Value < 0 ? null : (int)Math.Clamp(Math.Round(n.Value), 0, 63);
 
     public GamingDevicesPanel()
     {
@@ -292,6 +312,45 @@ internal sealed class GamingDevicesPanel : StackPanel
         AutomationProperties.SetAutomationId(_rawDeviceStatus, "GameDevices_Raw_Status_Text");
         AutomationProperties.SetLiveSetting(_rawDeviceStatus, AutomationLiveSetting.Polite);
         Children.Add(_rawDeviceStatus);
+
+        Children.Add(new TextBlock
+        {
+            Text = T("Raw controller mapping — manual, -1 disables a control", "Mappatura controller — manuale, -1 disabilita un controllo"),
+            TextWrapping = TextWrapping.Wrap,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        _rawA.Header = "A"; _rawB.Header = "B";
+        _rawLx.Header = "Left X"; _rawLy.Header = "Left Y";
+        _rawRx.Header = "Right X"; _rawRy.Header = "Right Y";
+        _rawLt.Header = "LT"; _rawRt.Header = "RT";
+        _rawDeadzone.Header = T("Stick deadzone", "Deadzone levette");
+        _rawInvertY.Content = T("Invert vertical axes", "Inverti assi verticali");
+        _rawDpad.Content = T("Use first hat as D-pad", "Usa prima croce direzionale");
+        var buttonRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var stickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var triggerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (NumberBox n in new[] { _rawA, _rawB }) buttonRow.Children.Add(n);
+        foreach (NumberBox n in new[] { _rawLx, _rawLy, _rawRx, _rawRy }) stickRow.Children.Add(n);
+        foreach (NumberBox n in new[] { _rawLt, _rawRt, _rawDeadzone }) triggerRow.Children.Add(n);
+        Children.Add(buttonRow);
+        Children.Add(stickRow);
+        Children.Add(triggerRow);
+        var rawFlags = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        rawFlags.Children.Add(_rawInvertY);
+        rawFlags.Children.Add(_rawDpad);
+        Children.Add(rawFlags);
+        var loadMapping = MakeButton(T("Load mapping", "Carica mappatura"),
+            "GameDevices_RawMapping_Load_Button", LoadRawMappingAsync);
+        var saveMapping = MakeButton(T("Save mapping", "Salva mappatura"),
+            "GameDevices_RawMapping_Save_Button", SaveRawMappingAsync);
+        var mappingActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        mappingActions.Children.Add(loadMapping);
+        mappingActions.Children.Add(saveMapping);
+        Children.Add(mappingActions);
+        AutomationProperties.SetAutomationId(_rawA, "GameDevices_RawMapping_A_Index");
+        AutomationProperties.SetAutomationId(_rawB, "GameDevices_RawMapping_B_Index");
+        AutomationProperties.SetAutomationId(_rawLx, "GameDevices_RawMapping_LeftX_Index");
+        AutomationProperties.SetAutomationId(_rawDeadzone, "GameDevices_RawMapping_Deadzone");
         ApplyToUi(GamingControllerProfile.Default);
     }
 
@@ -323,11 +382,85 @@ internal sealed class GamingDevicesPanel : StackPanel
                 "Il controller selezionato non è più disponibile.");
             return Task.CompletedTask;
         }
-        int pressed = sample.Buttons.Count(b => b);
-        string axes = string.Join(", ", sample.Axes.Take(6).Select(x => x.ToString("F2", CultureInfo.CurrentCulture)));
+        string pressed = string.Join(", ", sample.Buttons.Select((pressed, index) => (pressed, index))
+            .Where(x => x.pressed).Take(16).Select(x => x.index.ToString(CultureInfo.InvariantCulture)));
+        string axes = string.Join(", ", sample.Axes.Take(12)
+            .Select((value, index) => $"{index}:{value.ToString("F2", CultureInfo.CurrentCulture)}"));
         _rawDeviceStatus.Text = T(
-            $"Read-only sample: {pressed} pressed buttons, axes [{axes}], hat {sample.HatDirection}.",
-            $"Lettura diagnostica: {pressed} pulsanti premuti, assi [{axes}], direzione {sample.HatDirection}.");
+            $"Read-only sample — pressed button indices [{pressed}], axis indices/values [{axes}], hat {sample.HatDirection}.",
+            $"Lettura manuale — indici pulsanti premuti [{pressed}], indici/valori assi [{axes}], direzione {sample.HatDirection}.");
+        return Task.CompletedTask;
+    }
+
+    private Task LoadRawMappingAsync()
+    {
+        if ((_rawDevices.SelectedItem as ComboBoxItem)?.Tag is not string id)
+        {
+            _rawDeviceStatus.Text = T("Select a physical controller first.", "Seleziona prima un controller fisico.");
+            return Task.CompletedTask;
+        }
+        var loaded = new RawPadMappingStore().Load(id, out string? error);
+        if (error is not null)
+        {
+            _rawDeviceStatus.Text = T("The saved mapping could not be loaded; its file was preserved.",
+                "Impossibile caricare la mappatura; il file originale è stato preservato.");
+            return Task.CompletedTask;
+        }
+        if (loaded is null)
+        {
+            _rawDeviceStatus.Text = T("No mapping has been saved for this controller.",
+                "Nessuna mappatura salvata per questo controller.");
+            return Task.CompletedTask;
+        }
+        _rawA.Value = loaded.Buttons.FirstOrDefault(x => x.Value == Xbox360Report.A).Value == Xbox360Report.A
+            ? loaded.Buttons.First(x => x.Value == Xbox360Report.A).Key : -1;
+        _rawB.Value = loaded.Buttons.FirstOrDefault(x => x.Value == Xbox360Report.B).Value == Xbox360Report.B
+            ? loaded.Buttons.First(x => x.Value == Xbox360Report.B).Key : -1;
+        _rawLx.Value = loaded.LeftXAxis ?? -1;
+        _rawLy.Value = loaded.LeftYAxis ?? -1;
+        _rawRx.Value = loaded.RightXAxis ?? -1;
+        _rawRy.Value = loaded.RightYAxis ?? -1;
+        _rawLt.Value = loaded.LeftTriggerAxis ?? -1;
+        _rawRt.Value = loaded.RightTriggerAxis ?? -1;
+        _rawDeadzone.Value = loaded.StickDeadzone;
+        _rawInvertY.IsChecked = loaded.InvertLeftY && loaded.InvertRightY;
+        _rawDpad.IsChecked = loaded.HatIsDpad;
+        _rawDeviceStatus.Text = T("Mapping loaded. No virtual controller was started.",
+            "Mappatura caricata. Nessun controller virtuale è stato avviato.");
+        return Task.CompletedTask;
+    }
+
+    private Task SaveRawMappingAsync()
+    {
+        if ((_rawDevices.SelectedItem as ComboBoxItem)?.Tag is not string id)
+        {
+            _rawDeviceStatus.Text = T("Select a physical controller first.", "Seleziona prima un controller fisico.");
+            return Task.CompletedTask;
+        }
+        int? buttonA = SelectedIndex(_rawA), buttonB = SelectedIndex(_rawB);
+        if (buttonA is not null && buttonA == buttonB)
+        {
+            _rawDeviceStatus.Text = T("A and B cannot use the same physical button.", "A e B non possono usare lo stesso pulsante.");
+            return Task.CompletedTask;
+        }
+        var mapping = new PadMapping
+        {
+            LeftXAxis = SelectedIndex(_rawLx), LeftYAxis = SelectedIndex(_rawLy),
+            RightXAxis = SelectedIndex(_rawRx), RightYAxis = SelectedIndex(_rawRy),
+            LeftTriggerAxis = SelectedIndex(_rawLt), RightTriggerAxis = SelectedIndex(_rawRt),
+            TriggerAxisIsSigned = true, // Windows RawGameController axes were transformed from 0..1 to -1..1.
+            InvertLeftY = _rawInvertY.IsChecked == true,
+            InvertRightY = _rawInvertY.IsChecked == true,
+            HatIsDpad = _rawDpad.IsChecked == true,
+            StickDeadzone = double.IsNaN(_rawDeadzone.Value) ? double.NaN : _rawDeadzone.Value
+        };
+        if (buttonA is { } a) mapping.Buttons[a] = Xbox360Report.A;
+        if (buttonB is { } b) mapping.Buttons[b] = Xbox360Report.B;
+        bool saved = new RawPadMappingStore().Save(id, mapping, out _);
+        _rawDeviceStatus.Text = saved
+            ? T("Mapping saved locally. Virtual forwarding is still off.", "Mappatura salvata in locale. L'inoltro virtuale resta disattivato.")
+            : T("Invalid mapping or saved file is damaged; nothing was overwritten.",
+                "Mappatura non valida o file danneggiato; nessun dato è stato sovrascritto.");
         return Task.CompletedTask;
     }
 
