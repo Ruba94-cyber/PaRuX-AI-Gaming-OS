@@ -38,6 +38,18 @@ public sealed class AdvancedGameManagementUiTests
 
             // New local save-backup controls are only reachable after the owner
             // expands Advanced Game Management; this smoke never creates an archive.
+            // Downloads are owner-controlled and read-only until the user explicitly
+            // supplies a URL, local destination and confirms the action.
+            var downloadsUrl = UiWait.ById(app.MainWindow, "GameDownloads_Url", ControlType.Edit);
+            var downloadsDestination = UiWait.ById(app.MainWindow, "GameDownloads_Destination", ControlType.Edit);
+            var downloadsStart = UiWait.ById(app.MainWindow, "GameDownloads_Start", ControlType.Button);
+            var downloadsRefresh = UiWait.ById(app.MainWindow, "GameDownloads_Refresh", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(downloadsUrl.Name));
+            Assert.False(string.IsNullOrWhiteSpace(downloadsDestination.Name));
+            Assert.False(string.IsNullOrWhiteSpace(downloadsStart.Name));
+            Assert.False(string.IsNullOrWhiteSpace(downloadsRefresh.Name));
+            // No installer or download is invoked by this accessibility smoke.
+
             var savesSource = UiWait.ById(app.MainWindow, "GameSaves_Source", ControlType.Edit);
             var savesLabel = UiWait.ById(app.MainWindow, "GameSaves_Label", ControlType.Edit);
             var savesCreate = UiWait.ById(app.MainWindow, "GameSaves_Create", ControlType.Button);
