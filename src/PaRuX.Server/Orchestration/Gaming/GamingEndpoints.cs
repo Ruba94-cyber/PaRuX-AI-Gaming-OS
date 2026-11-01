@@ -112,6 +112,8 @@ public static class GamingEndpoints
         {
             if (profiles.LoadError is { } error) return Results.Problem(error, statusCode: 409);
             try { return Results.Ok(profiles.Save(profile)) as IResult; }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "Invalid Gaming profile fields." }); }
+            catch (InvalidOperationException) { return Results.Conflict(new { error = "Gaming profile name or capacity conflict." }); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { return Results.Problem("The Gaming profile could not be saved safely.", statusCode: 500); }
         }).RequireDesktopOwner();
