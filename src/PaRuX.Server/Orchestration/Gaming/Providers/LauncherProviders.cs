@@ -40,17 +40,19 @@ public sealed class PlayniteLauncherProvider : IGameLauncherProvider
                 Path.Combine(programFilesX86, "Playnite", "Playnite.FullscreenApp.exe")
             };
 
-            return candidates.FirstOrDefault(File.Exists);
+            return candidates.FirstOrDefault(CustomExecutableInputProvider.IsSafeHelperPath);
         }
     }
 
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
+        if (ct.IsCancellationRequested) return Task.FromResult(false);
         string? exe = ExecutablePath;
         if (exe == null)
         {
             // If explicit path is passed in settings, try it
-            if (profile.LauncherSettings.TryGetValue("path", out string? customPath) && File.Exists(customPath))
+            if (profile.LauncherSettings.TryGetValue("path", out string? customPath) &&
+                CustomExecutableInputProvider.IsSafeHelperPath(customPath))
             {
                 exe = customPath;
             }
@@ -67,6 +69,7 @@ public sealed class PlayniteLauncherProvider : IGameLauncherProvider
             bool alreadyRunning = existing.Length > 0;
             foreach (Process process in existing) process.Dispose();
             if (alreadyRunning) return Task.FromResult(true);
+            ct.ThrowIfCancellationRequested();
 
             var psi = new ProcessStartInfo
             {
@@ -126,17 +129,29 @@ public sealed class SteamBigPictureLauncherProvider : IGameLauncherProvider
 
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
+        // Use the vetted, installed Steam executable. Do not trust the global
+        // steam:// protocol handler, which another application may have replaced.
+        if (ct.IsCancellationRequested) return Task.FromResult(false);
+        string? steamExe = ExecutablePath;
+        if (string.IsNullOrWhiteSpace(steamExe)) return Task.FromResult(false);
+
         try
         {
+            ct.ThrowIfCancellationRequested();
             var psi = new ProcessStartInfo
             {
-                FileName = "steam://open/bigpicture",
-                UseShellExecute = true
+                FileName = steamExe,
+                WorkingDirectory = Path.GetDirectoryName(steamExe)!,
+                UseShellExecute = false
             };
-            Process.Start(psi);
-            return Task.FromResult(true);
+            psi.ArgumentList.Add("-bigpicture");
+            using Process? request = Process.Start(psi);
+            return Task.FromResult(request != null);
         }
-        catch
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or
+            UnauthorizedAccessException or System.ComponentModel.Win32Exception or
+            ArgumentException or InvalidOperationException or NotSupportedException or
+            System.Security.SecurityException)
         {
             return Task.FromResult(false);
         }
@@ -159,7 +174,9 @@ public sealed class CustomExecutableLauncherProvider : IGameLauncherProvider
 
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        if (!profile.LauncherSettings.TryGetValue("path", out string? exePath) || string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+        if (ct.IsCancellationRequested ||
+            !profile.LauncherSettings.TryGetValue("path", out string? exePath) ||
+            !CustomExecutableInputProvider.IsSafeHelperPath(exePath))
             return Task.FromResult(false);
 
         try
@@ -175,8 +192,9 @@ public sealed class CustomExecutableLauncherProvider : IGameLauncherProvider
                 psi.Arguments = args;
             }
 
-            Process.Start(psi);
-            return Task.FromResult(true);
+            ct.ThrowIfCancellationRequested();
+            using Process? launched = Process.Start(psi);
+            return Task.FromResult(launched != null);
         }
         catch
         {
