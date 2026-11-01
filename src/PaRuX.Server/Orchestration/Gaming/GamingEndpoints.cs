@@ -48,6 +48,15 @@ public static class GamingEndpoints
             { return Results.Problem("GOG installation metadata could not be read."); }
         }).RequireDesktopOwner();
 
+        // Confirmed GOG GALAXY handoff, not direct game execution. The Core
+        // resolves the installed title and client itself; caller supplies ID only.
+        app.MapPost("/api/v1/gaming/library/discover/gog/{id}/launch", async (
+            string id, ManualGameSessionService sessions, CancellationToken ct) =>
+        {
+            ManualGameLaunchResult result = await sessions.LaunchGogAsync(id, ct);
+            return result.Launched ? Results.Ok(result) : Results.Conflict(result);
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/library", (ManualGameLibrary library) =>
         {
             try { return Results.Ok(library.List()) as IResult; }
