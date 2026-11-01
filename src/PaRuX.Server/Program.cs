@@ -268,6 +268,7 @@ builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
 builder.Services.AddSingleton<GogGameDiscoveryProvider>();
 builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GameInstallerInspectionService>();
+builder.Services.AddSingleton<GamePackageStageService>();
 builder.Services.AddSingleton(sp => new WorkloadOrchestrator(
     sp.GetRequiredService<LocalRuntimeService>(),
     sp.GetRequiredService<LocalAiProcessManager>(),

@@ -113,6 +113,21 @@ public static class GamingEndpoints
             { return Results.Problem("The selected local file could not be read."); }
         }).RequireDesktopOwner();
 
+        // Explicit owner-only, independently SHA-256 checked, copy-only staging.
+        // This never downloads, unpacks, invokes Windows installers or executes code.
+        app.MapPost("/api/v1/gaming/installers/stage", async (
+            GamePackageStageRequest request, GamePackageStageService stage, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await stage.StageAsync(request, ct)) as IResult; }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "A regular local file and a 64-character publisher SHA-256 are required." }); }
+            catch (InvalidDataException) { return Results.Conflict(new { error = "Package integrity, size or destination checks failed. No package was published." }); }
+            catch (InvalidOperationException) { return Results.Conflict(new { error = "Staging is unavailable while Gaming or recovering AI." }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted package staging." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            { return Results.Problem("The selected local package could not be staged safely."); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/controllers", () =>
             Results.Ok(NativeXInputProbe.ReadStates())).RequireDesktopOwner();
 
