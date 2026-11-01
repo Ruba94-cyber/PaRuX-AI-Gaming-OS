@@ -19,21 +19,44 @@ public static class GameTitleEndpoints
         app.MapGet("/api/v1/gaming/titles", async (
             string? q, string? source, bool? favorite, string? tag, string? collection,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
-            ManualGameLibrary library, GameTitleStore store, CancellationToken ct) =>
+            ManualGameLibrary library, GameTitleStore store, GameTitleReadCache cache,
+            LocalRuntimeService runtime, CancellationToken ct) =>
         {
+            IResult FromCache()
+            {
+                // A cold Core that rebooted during Gaming has no valid snapshot;
+                // a conflict is honest, an empty catalogue would hide user games.
+                if (!cache.TryRead(out var snapshot))
+                    return Results.Conflict(new { error = "The game catalogue has not been scanned yet. Return to AI before refreshing it." });
+                return Results.Ok(GameTitleCatalog.Filter(snapshot, q, source, favorite == true, tag, collection));
+            }
+
+            // Gamepad search while playing must not wake disk-heavy store discovery.
+            if (runtime.GamingMode) return FromCache();
+            using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
             try
             {
+                CancellationToken scanToken = hardOff.Token;
                 var discovered = new List<DiscoveredGameDto>();
                 foreach (var provider in new Func<Task<IReadOnlyList<DiscoveredGameDto>>>[]
-                         { () => steam.DiscoverAsync(ct), () => epic.DiscoverAsync(ct), () => gog.DiscoverAsync(ct) })
+                         { () => steam.DiscoverAsync(scanToken), () => epic.DiscoverAsync(scanToken), () => gog.DiscoverAsync(scanToken) })
                 {
+                    if (runtime.GamingMode) return FromCache();
+                    scanToken.ThrowIfCancellationRequested();
                     try { discovered.AddRange(await provider()); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { /* one store failing must not hide the others */ }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    { /* One store failing must not hide other providers. */ }
                 }
+                if (runtime.GamingMode) return FromCache();
+                scanToken.ThrowIfCancellationRequested();
                 var titles = GameTitleCatalog.Build(discovered, library.List(), store.Snapshot());
+                if (runtime.GamingMode) return FromCache();
+                scanToken.ThrowIfCancellationRequested();
+                cache.Publish(titles);
                 return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) when (runtime.GamingMode) { return FromCache(); }
             catch (InvalidDataException) { return Results.Problem("The game library could not be read."); }
         }).RequireDesktopOwner();
 
