@@ -25,6 +25,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBlock _discoveryStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _steamRefresh = new();
     private readonly Button _epicRefresh = new();
+    private readonly Button _gogRefresh = new();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _add = new();
     private readonly Button _browse = new();
@@ -83,7 +84,7 @@ public sealed class ManualGameLibraryView : UserControl
         });
         root.Children.Add(new TextBlock
         {
-            Text = T("Read-only discovery of local Steam and Epic installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam ed Epic locali. Nessun gioco viene avviato, installato o modificato."),
+            Text = T("Read-only discovery of local Steam, Epic and GOG installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam, Epic e GOG locali. Nessun gioco viene avviato, installato o modificato."),
             TextWrapping = TextWrapping.Wrap
         });
         _steamRefresh.Content = T("Detect Steam games", "Rileva giochi Steam");
@@ -94,6 +95,11 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetAutomationId(_epicRefresh, "GameLibrary_Epic_Refresh_Button");
         _epicRefresh.Click += async (_, _) => await RefreshEpicAsync();
         root.Children.Add(_epicRefresh);
+        _gogRefresh.Content = T("Detect GOG games", "Rileva giochi GOG");
+        AutomationProperties.SetAutomationId(_gogRefresh, "GameLibrary_Gog_Refresh_Button");
+        AutomationProperties.SetName(_gogRefresh, T("Detect installed GOG games", "Rileva i giochi GOG installati"));
+        _gogRefresh.Click += async (_, _) => await RefreshGogAsync();
+        root.Children.Add(_gogRefresh);
         AutomationProperties.SetAutomationId(_discoveryStatus, "GameLibrary_Steam_Status_Text");
         AutomationProperties.SetLiveSetting(_discoveryStatus, AutomationLiveSetting.Polite);
         root.Children.Add(_discoveryStatus);
@@ -120,7 +126,7 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _steamRefresh, _epicRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
@@ -168,6 +174,9 @@ public sealed class ManualGameLibraryView : UserControl
 
     private Task RefreshEpicAsync() => RefreshDetectedAsync(
         "Epic", () => GamingOrchestratorClient.Current.DiscoverEpicGamesAsync());
+
+    private Task RefreshGogAsync() => RefreshDetectedAsync(
+        "GOG", () => GamingOrchestratorClient.Current.DiscoverGogGamesAsync());
 
     private async Task RefreshDetectedAsync(
         string provider,
@@ -337,5 +346,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
 }
