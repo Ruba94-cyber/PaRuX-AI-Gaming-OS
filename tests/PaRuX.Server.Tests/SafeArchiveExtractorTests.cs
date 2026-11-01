@@ -107,4 +107,63 @@ public sealed class SafeArchiveExtractorTests : IDisposable
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None, maxExtractedBytes: 100));
     }
+    [Fact]
+    public async Task Zip_decoder_rejects_unix_symlink_entry_without_creating_a_file()
+    {
+        string archive = Path.Combine(_root, "symlink.zip");
+        string destination = Path.Combine(_root, "out");
+        Directory.CreateDirectory(_root);
+        using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry link = zip.CreateEntry("linked.txt");
+            link.ExternalAttributes = unchecked((int)0xA0000000);
+            using var writer = new StreamWriter(link.Open());
+            writer.Write("../outside.txt");
+        }
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None));
+        Assert.False(File.Exists(Path.Combine(destination, "linked.txt")));
+    }
+
+    [Fact]
+    public async Task Zip_decoder_never_overwrites_a_preexisting_destination_file()
+    {
+        string archive = Path.Combine(_root, "duplicate.zip");
+        string destination = Path.Combine(_root, "out");
+        string existing = Path.Combine(destination, "game.txt");
+        WriteZip(archive, ("game.txt", "untrusted payload"));
+        Directory.CreateDirectory(destination);
+        File.WriteAllText(existing, "original");
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None));
+        Assert.Equal("original", File.ReadAllText(existing));
+    }
+
+    [Fact]
+    public async Task Zip_decoder_rejects_reparse_destination_parent_before_writing()
+    {
+        string archive = Path.Combine(_root, "linked-parent.zip");
+        string outside = Path.Combine(_root, "outside");
+        string link = Path.Combine(_root, "linked");
+        Directory.CreateDirectory(outside);
+        WriteZip(archive, ("nested/game.txt", "never written"));
+        try
+        {
+            Directory.CreateSymbolicLink(link, outside);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            System.Security.SecurityException or PlatformNotSupportedException)
+        {
+            // Windows without developer-mode symlink privileges; validated on a
+            // machine that supports creating the test link.
+            return;
+        }
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            SafeArchiveExtractor.ExtractAsync(archive, Path.Combine(link, "out"), CancellationToken.None));
+        Assert.False(Directory.Exists(Path.Combine(outside, "out")));
+    }
+
 }
