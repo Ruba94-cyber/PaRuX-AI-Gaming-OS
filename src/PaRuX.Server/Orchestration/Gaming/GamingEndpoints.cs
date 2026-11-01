@@ -74,9 +74,15 @@ public static class GamingEndpoints
             { return Results.Problem("The local game library could not be read."); }
         }).RequireDesktopOwner();
 
-        app.MapPost("/api/v1/gaming/library", (AddManualGameRequest request, ManualGameLibrary library) =>
+        app.MapPost("/api/v1/gaming/library", (
+            AddManualGameRequest request, ManualGameLibrary library, GameTitleReadCache cache) =>
         {
-            try { return Results.Ok(library.Add(request)) as IResult; }
+            try
+            {
+                ManualGameDto added = library.Add(request);
+                cache.Invalidate();
+                return Results.Ok(added) as IResult;
+            }
             catch (ArgumentException) { return Results.BadRequest(new { error = "Invalid game name or executable path." }); }
             catch (InvalidOperationException) { return Results.Conflict(new { error = "Game already exists or the library is full." }); }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
@@ -90,9 +96,15 @@ public static class GamingEndpoints
             return result.Launched ? Results.Ok(result) : Results.Conflict(result);
         }).RequireDesktopOwner();
 
-        app.MapDelete("/api/v1/gaming/library/{id}", (string id, ManualGameLibrary library) =>
+        app.MapDelete("/api/v1/gaming/library/{id}", (
+            string id, ManualGameLibrary library, GameTitleReadCache cache) =>
         {
-            try { return library.Remove(id) ? Results.NoContent() : Results.NotFound() as IResult; }
+            try
+            {
+                if (!library.Remove(id)) return Results.NotFound() as IResult;
+                cache.Invalidate();
+                return Results.NoContent();
+            }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
             { return Results.Problem("The local game library could not be saved."); }
         }).RequireDesktopOwner();
