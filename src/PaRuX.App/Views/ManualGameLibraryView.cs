@@ -526,8 +526,8 @@ public sealed class ManualGameLibraryView : UserControl
                         "Il blocco delle risorse Gaming è ancora attivo dopo il riavvio del Core. Seleziona Torna all'AI per recuperare senza chiudere il gioco.")
                     : status.State == "AiReady"
                         ? T("AI ready · No Gaming session active.", "AI pronta · Nessuna sessione Gaming attiva.")
-                        : T($"Gaming state: {GamingStateLabel(status.State)}. Return to AI leaves the game running.",
-                            $"Stato Gaming: {GamingStateLabel(status.State)}. Tornando all'AI il gioco rimane aperto.");
+                        : T($"Gaming state: {GamingStateLabel(status.State)}. Library search uses the last cached catalogue; Return to AI leaves the game running.",
+                            $"Stato Gaming: {GamingStateLabel(status.State)}. La ricerca usa il catalogo in cache; tornando all'AI il gioco rimane aperto.");
             }
         }
         catch (Exception)
