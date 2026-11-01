@@ -34,7 +34,6 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBox _filter = new();
     private List<ManualGameDto> _allGames = new();
     private List<DiscoveredGameDto> _lastDetectedGames = new();
-    private string _lastDetectedProvider = "Steam";
     private int _page;
     private readonly Button _previous = new();
     private readonly Button _next = new();
@@ -189,7 +188,6 @@ public sealed class ManualGameLibraryView : UserControl
     {
         if (_busy) return;
         SetBusy(true);
-        _lastDetectedProvider = "Stores";
         _lastDetectedGames.Clear();
         _discoveredGames.Children.Clear();
         _discoveryStatus.Text = T("Detecting Steam, Epic and GOG installations…",
@@ -240,7 +238,6 @@ public sealed class ManualGameLibraryView : UserControl
     {
         if (_busy) return;
         SetBusy(true);
-        _lastDetectedProvider = provider;
         _lastDetectedGames.Clear();
         _discoveredGames.Children.Clear();
         _discoveryStatus.Text = T($"Detecting installed {provider} games…", $"Rilevamento giochi {provider} installati…");
