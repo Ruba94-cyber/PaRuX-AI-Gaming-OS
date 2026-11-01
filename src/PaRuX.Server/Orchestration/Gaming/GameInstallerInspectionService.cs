@@ -16,12 +16,19 @@ public sealed class GameInstallerInspectionService
         new[] { ".exe", ".msi", ".msix", ".zip", ".7z", ".rar", ".iso" },
         StringComparer.OrdinalIgnoreCase);
     private readonly Func<bool> _gamingOrUnready;
+    private readonly Func<CancellationToken> _gamingCancellation;
 
-    public GameInstallerInspectionService(WorkloadOrchestrator orchestrator, LocalAiProcessManager process)
-        : this(() => orchestrator.CurrentState != "AiReady" || process.GamingActive) { }
+    public GameInstallerInspectionService(
+        WorkloadOrchestrator orchestrator, LocalAiProcessManager process, LocalRuntimeService runtime)
+        : this(() => orchestrator.CurrentState != "AiReady" || process.GamingActive,
+            () => runtime.GamingCancellationToken) { }
 
-    internal GameInstallerInspectionService(Func<bool> gamingOrUnready) =>
+    internal GameInstallerInspectionService(
+        Func<bool> gamingOrUnready, Func<CancellationToken>? gamingCancellation = null)
+    {
         _gamingOrUnready = gamingOrUnready ?? throw new ArgumentNullException(nameof(gamingOrUnready));
+        _gamingCancellation = gamingCancellation ?? (() => CancellationToken.None);
+    }
 
     internal static bool ValidLocalPackagePath(string? path)
     {
@@ -65,7 +72,11 @@ public sealed class GameInstallerInspectionService
             FileAccess.Read, FileShare.Read, 128 * 1024,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-        byte[] hash = await SHA256.HashDataAsync(source, ct).ConfigureAwait(false);
+        // The Core cancels this token immediately on Gaming entry, even if the
+        // user did not cancel the HTTP request. Hashing cannot continue gaming
+        // for the duration of a multi-GB installer.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingCancellation());
+        byte[] hash = await SHA256.HashDataAsync(source, linked.Token).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         if (_gamingOrUnready())
             throw new InvalidOperationException("Gaming began while inspecting; no result is accepted.");
