@@ -45,6 +45,15 @@ Target spacing scale in effective pixels: 4, 8, 12, 16, 24, 32, 48, 64. Use 8–
 
 Interactive controls must retain visible keyboard focus, clear accessible names and sufficient pointer/touch target size. Use shared WinUI styles and theme resources, with normal, hover, pressed, disabled and focus states; do not replace control templates without verifying behavior. Sidebar, top bar, cards, dialogs, fields, buttons, grids, icons, shadows and animations need shared definitions as each is migrated. Keep motion subtle and respect Windows animation settings. Desktop supports mouse and keyboard; a future console shell must provide controller focus, distance-readable type and a virtual keyboard without duplicating application services.
 
+## Flat quick-chat bubble (2026-11-01; source implemented, NOT RUN)
+
+The collapsed WinUI Quick Chat surface now consumes light/dark/high-contrast
+semantic raised-surface, border and primary-text resources instead of a decorative
+gradient and fixed white text. Existing pointer, drag, message and focus behavior
+was not intentionally changed. Static XAML regression source is included in the
+local Windows test gate; contrast in rendered Mica/translucency, keyboard focus,
+DPI and actual light/high-contrast appearance remain unverified.
+
 ## Verification and migration gates
 
 1. Migrate shared tokens and a small set of shell/Home consumers while preserving existing resource keys and light/high-contrast behavior.

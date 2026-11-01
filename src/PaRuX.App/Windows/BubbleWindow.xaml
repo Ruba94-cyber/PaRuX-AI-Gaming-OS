@@ -30,26 +30,15 @@
             RightTapped="Bubble_RightTapped"
             Background="Transparent">
 
-            <Border CornerRadius="0">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#FF101A2C" Offset="0" />
-                        <GradientStop Color="#FF0D1625" Offset="0.55" />
-                        <GradientStop Color="#FF0A0F14" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
+            <!-- Flat theme-aware surface: no AI-style gradient or decorative glow.
+                 Keep the bubble legible in light, dark and high-contrast modes. -->
+            <Border
+                CornerRadius="0"
+                Background="{ThemeResource PaRuXSurfaceRaisedBrush}"
+                BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
+                BorderThickness="1">
 
                 <Grid>
-                    <Border CornerRadius="0" Opacity="0.42">
-                        <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                <GradientStop Color="#4DFFFFFF" Offset="0" />
-                                <GradientStop Color="#00FFFFFF" Offset="0.42" />
-                                <GradientStop Color="#00000000" Offset="1" />
-                            </LinearGradientBrush>
-                        </Border.Background>
-                    </Border>
-
                     <Grid Margin="6,0,14,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -90,7 +79,7 @@
                             x:Name="CollapsedStatusText"
                             Grid.Column="1"
                             Text="PaRuX"
-                            Foreground="#FFFFFFFF"
+                            Foreground="{ThemeResource PaRuXTextPrimaryBrush}"
                             FontSize="12"
                             FontWeight="SemiBold"
                             TextTrimming="CharacterEllipsis"

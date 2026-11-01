@@ -46,6 +46,21 @@ public sealed class ThemeResourceRegressionTests
         Assert.Empty(light.Keys.Where(x => x.StartsWith("PaRuX", StringComparison.Ordinal) && !highContrast.ContainsKey(x)));
     }
 
+    [Fact]
+    public void Quick_chat_bubble_uses_flat_theme_resources_instead_of_decorative_gradients()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current != null && !File.Exists(Path.Combine(current.FullName, "PaRuX.sln"))) current = current.Parent;
+        if (current == null) throw new DirectoryNotFoundException("PaRuX.sln not found.");
+        var doc = XDocument.Load(Path.Combine(current.FullName, "src", "PaRuX.App", "Windows", "BubbleWindow.xaml"));
+        Assert.DoesNotContain(doc.Descendants(), element => element.Name.LocalName == "LinearGradientBrush");
+        XElement collapsed = doc.Descendants().Single(element =>
+            element.Name.LocalName == "Grid" && (string?)element.Attribute(Xaml + "Name") == "CollapsedView");
+        XElement label = collapsed.Descendants().Single(element =>
+            (string?)element.Attribute(Xaml + "Name") == "CollapsedStatusText");
+        Assert.Equal("{ThemeResource PaRuXTextPrimaryBrush}", (string?)label.Attribute("Foreground"));
+    }
+
     private static Dictionary<string, XElement> ReadTheme(string name)
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
