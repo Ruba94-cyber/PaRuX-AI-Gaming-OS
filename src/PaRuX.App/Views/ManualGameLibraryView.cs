@@ -26,6 +26,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _steamRefresh = new();
     private readonly Button _epicRefresh = new();
     private readonly Button _gogRefresh = new();
+    private readonly Button _allStoresRefresh = new();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _add = new();
     private readonly Button _browse = new();
@@ -68,7 +69,7 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_status);
         _filter.Header = T("Filter by name", "Filtra per nome");
         AutomationProperties.SetAutomationId(_filter, "GameLibrary_Filter_TextBox");
-        _filter.TextChanged += (_, _) => { _page = 0; RenderGames(); };
+        _filter.TextChanged += (_, _) => { _page = 0; RenderGames(); RenderDiscoveredGames(); };
         root.Children.Add(_filter); root.Children.Add(_games);
         var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         _previous.Content = T("Previous", "Precedente"); _next.Content = T("Next", "Successiva");
@@ -87,6 +88,12 @@ public sealed class ManualGameLibraryView : UserControl
             Text = T("Read-only discovery of local Steam, Epic and GOG installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam, Epic e GOG locali. Nessun gioco viene avviato, installato o modificato."),
             TextWrapping = TextWrapping.Wrap
         });
+        _allStoresRefresh.Content = T("Detect all installed games", "Rileva tutti i giochi installati");
+        AutomationProperties.SetAutomationId(_allStoresRefresh, "GameLibrary_AllStores_Refresh_Button");
+        AutomationProperties.SetName(_allStoresRefresh, T("Detect installed Steam Epic and GOG games", "Rileva i giochi Steam Epic e GOG installati"));
+        _allStoresRefresh.Click += async (_, _) => await RefreshAllStoresAsync();
+        root.Children.Add(_allStoresRefresh);
+
         _steamRefresh.Content = T("Detect Steam games", "Rileva giochi Steam");
         AutomationProperties.SetAutomationId(_steamRefresh, "GameLibrary_Steam_Refresh_Button");
         _steamRefresh.Click += async (_, _) => await RefreshSteamAsync();
@@ -126,7 +133,7 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
@@ -178,6 +185,55 @@ public sealed class ManualGameLibraryView : UserControl
     private Task RefreshGogAsync() => RefreshDetectedAsync(
         "GOG", () => GamingOrchestratorClient.Current.DiscoverGogGamesAsync());
 
+    private async Task RefreshAllStoresAsync()
+    {
+        if (_busy) return;
+        SetBusy(true);
+        _lastDetectedProvider = "Stores";
+        _lastDetectedGames.Clear();
+        _discoveredGames.Children.Clear();
+        _discoveryStatus.Text = T("Detecting Steam, Epic and GOG installations…",
+                                  "Rilevamento installazioni Steam, Epic e GOG…");
+        try
+        {
+            // Each store remains independent. A broken provider cannot erase a valid
+            // catalog result from another store. No background scan is started at boot.
+            var steam = GamingOrchestratorClient.Current.DiscoverSteamGamesAsync();
+            var epic = GamingOrchestratorClient.Current.DiscoverEpicGamesAsync();
+            var gog = GamingOrchestratorClient.Current.DiscoverGogGamesAsync();
+            await Task.WhenAll(steam, epic, gog);
+
+            var results = new[]
+            {
+                (Name: "Steam", Result: await steam),
+                (Name: "Epic", Result: await epic),
+                (Name: "GOG", Result: await gog)
+            };
+            string[] failed = results.Where(x => !x.Result.Succeeded || x.Result.Value == null)
+                .Select(x => x.Name).ToArray();
+            _lastDetectedGames = results
+                .Where(x => x.Result.Succeeded && x.Result.Value != null)
+                .SelectMany(x => x.Result.Value!)
+                .GroupBy(g => g.ProviderId + ":" + g.ProviderGameId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            _discoveryStatus.Text = T(
+                $"Found {_lastDetectedGames.Count} installed games across stores. " +
+                (failed.Length > 0 ? "Unavailable: " + string.Join(", ", failed) : "All providers responded."),
+                $"Rilevati {_lastDetectedGames.Count} giochi installati tra gli store. " +
+                (failed.Length > 0 ? "Non disponibili: " + string.Join(", ", failed) : "Tutti i provider hanno risposto."));
+            RenderDiscoveredGames();
+        }
+        catch (Exception)
+        {
+            _discoveryStatus.Text = T("Store discovery failed. Nothing was changed.",
+                "Rilevamento degli store non riuscito. Nessun dato è stato modificato.");
+        }
+        finally { SetBusy(false); }
+    }
+
     private async Task RefreshDetectedAsync(
         string provider,
         Func<Task<GamingCallResult<List<DiscoveredGameDto>>>> fetch)
@@ -212,7 +268,9 @@ public sealed class ManualGameLibraryView : UserControl
     private void RenderDiscoveredGames()
     {
         _discoveredGames.Children.Clear();
-        foreach (DiscoveredGameDto game in _lastDetectedGames.Take(100))
+        foreach (DiscoveredGameDto game in _lastDetectedGames
+                     .Where(g => g.Name.Contains(_filter.Text ?? "", StringComparison.CurrentCultureIgnoreCase))
+                     .Take(100))
         {
             var item = new StackPanel
             {
@@ -228,7 +286,7 @@ public sealed class ManualGameLibraryView : UserControl
             });
             item.Children.Add(new TextBlock
             {
-                Text = _lastDetectedProvider + " #" + game.ProviderGameId,
+                Text = game.ProviderId.ToUpperInvariant() + " #" + game.ProviderGameId,
                 FontSize = _consolePresentation ? 18 : 14,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -346,5 +404,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
 }
