@@ -516,7 +516,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         var detected = _emulators.Detected.FirstOrDefault(d => d.EmulatorId == emulator.Id);
         _emulatorExe.Text = detected?.ExecutablePath ?? string.Empty;
         _emulatorCore.IsEnabled = emulator.RequiresCore;
-        _emulatorInputProfile.IsEnabled = string.Equals(emulator.Id, "eden", StringComparison.OrdinalIgnoreCase);
+        _emulatorInputProfile.IsEnabled = emulator.Id is "eden" or "eden-cli";
         if (!_emulatorInputProfile.IsEnabled) _emulatorInputProfile.Text = string.Empty;
         _emulatorLaunchMode.Items.Clear();
         _emulatorLaunchMode.Items.Add(new ComboBoxItem
