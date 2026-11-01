@@ -124,7 +124,8 @@ public sealed class ManualGameLibraryView : UserControl
         });
         root.Children.Add(new TextBlock
         {
-            Text = T("Read-only discovery of local Steam, Epic and GOG installations. Nothing is launched, installed or modified.", "Rilevamento di sola lettura delle installazioni Steam, Epic e GOG locali. Nessun gioco viene avviato, installato o modificato."),
+            Text = T("Steam, Epic and GOG detection reads only local installation metadata. Steam games can be requested to launch separately with your confirmation; discovery never installs or changes a game.",
+                "Il rilevamento Steam, Epic e GOG legge solo i dati locali di installazione. L'avvio dei giochi Steam può essere richiesto separatamente con conferma; il rilevamento non installa né modifica giochi."),
             TextWrapping = TextWrapping.Wrap
         });
         _allStoresRefresh.Content = T("Detect all installed games", "Rileva tutti i giochi installati");
