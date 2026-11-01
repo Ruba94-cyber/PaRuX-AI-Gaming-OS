@@ -51,6 +51,25 @@ public sealed class SettingsCategoriesCoverageTests
             Assert.True(gamingRefresh == null || gamingRefresh.Properties.IsOffscreen.ValueOrDefault);
         });
 
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Settings"), Trait("Category", "Gaming")]
+    public void Console_TV_display_roles_and_automatic_output_are_reachable_in_Gaming_settings() =>
+        Run(nameof(Console_TV_display_roles_and_automatic_output_are_reachable_in_Gaming_settings), app =>
+        {
+            new MainWindowPage(app.MainWindow).OpenSettings();
+            var page = new SettingsCategoriesPage(app.MainWindow);
+            page.SelectCategory("Gaming & AI Sharing");
+
+            // No physical monitor manipulation, config write or game launch in this
+            // navigation test. Real multi-display placement is an opt-in Windows gate.
+            var refresh = UiWait.ById(app.MainWindow, "Settings_ConsoleDisplays_Refresh_Button", ControlType.Button);
+            Assert.NotNull(refresh);
+            var automatic = UiWait.ById(app.MainWindow, "Settings_ConsoleDisplays_Auto_Button", ControlType.Button);
+            Assert.NotNull(automatic);
+            var status = app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("Settings_ConsoleDisplays_Status_Text"));
+            Assert.NotNull(status);
+        });
+
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Settings")]
     public void Category_rail_contains_every_category_button_defined_in_SettingsCategories() =>
         Run(nameof(Category_rail_contains_every_category_button_defined_in_SettingsCategories), app =>
