@@ -48,11 +48,13 @@ public static class EmulatorEndpoints
         }).RequireDesktopOwner();
 
         app.MapPost("/api/v1/gaming/emulators/import", (
-            EmulatorImportRequest request, ManualGameLibrary library, LocalRuntimeService runtime) =>
+            EmulatorImportRequest request, ManualGameLibrary library, GameTitleReadCache cache,
+            LocalRuntimeService runtime) =>
         {
             if (runtime.GamingMode)
                 return Results.Conflict(new { error = "Emulator import is unavailable while Gaming." }) as IResult;
             EmulatorImportResult result = Import(request, library);
+            if (result.Added > 0) cache.Invalidate();
             return result.Problems.Count > 0 && result.Added == 0 && result.Skipped == 0
                 ? Results.BadRequest(result) : Results.Ok(result);
         }).RequireDesktopOwner();
