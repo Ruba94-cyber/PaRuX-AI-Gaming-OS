@@ -144,8 +144,8 @@ public sealed class ManualGameLibraryView : UserControl
         });
         root.Children.Add(new TextBlock
         {
-            Text = T("Steam, Epic and GOG detection reads only local installation metadata. Steam and GOG GALAXY game launches require separate confirmation; Epic discovery is read-only. No store installs or modifies games.",
-                "Il rilevamento Steam, Epic e GOG legge solo i dati locali di installazione. L'avvio tramite Steam e GOG GALAXY richiede conferma; Epic resta in sola lettura. PaRuX non installa né modifica i giochi."),
+            Text = T("Steam, Epic and GOG detection reads local installation metadata. Official-client launch requests require explicit confirmation, and do not prove the game started. No store installs or modifies games.",
+                "Il rilevamento Steam, Epic e GOG legge i dati locali di installazione. Le richieste di avvio ai client richiedono conferma esplicita e non dimostrano che il gioco sia partito. PaRuX non installa né modifica i giochi."),
             TextWrapping = TextWrapping.Wrap
         });
         _allStoresRefresh.Content = T("Detect all installed games", "Rileva tutti i giochi installati");
@@ -674,6 +674,21 @@ public sealed class ManualGameLibraryView : UserControl
                 request.Click += async (_, _) => await LaunchSteamAsync(game);
                 item.Children.Add(request);
             }
+            if (string.Equals(game.ProviderId, "epic", StringComparison.OrdinalIgnoreCase))
+            {
+                var request = new Button
+                {
+                    Content = T("Play via Epic Games Launcher", "Gioca tramite Epic Games Launcher"),
+                    FontSize = _consolePresentation ? 20 : 14,
+                    MinHeight = _consolePresentation ? 56 : 32,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+                AutomationProperties.SetAutomationId(request, "GameLibrary_Epic_Launch_" + game.ProviderGameId);
+                AutomationProperties.SetName(request,
+                    T("Request Epic Games Launcher to start ", "Chiedi a Epic Games Launcher di avviare ") + game.Name);
+                request.Click += async (_, _) => await LaunchEpicAsync(game);
+                item.Children.Add(request);
+            }
             if (string.Equals(game.ProviderId, "gog", StringComparison.OrdinalIgnoreCase))
             {
                 var request = new Button
@@ -776,6 +791,39 @@ public sealed class ManualGameLibraryView : UserControl
         catch (Exception)
         {
             _discoveryStatus.Text = T("Could not request Steam launch.", "Impossibile richiedere l'avvio a Steam.");
+        }
+        finally { SetBusy(false); }
+    }
+
+    private async Task LaunchEpicAsync(DiscoveredGameDto game)
+    {
+        if (_busy || !string.Equals(game.ProviderId, "epic", StringComparison.OrdinalIgnoreCase)) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Launch using Epic Games Launcher?", "Avviare tramite Epic Games Launcher?"),
+                Content = T(
+                    "PaRuX will prepare Gaming Mode and ask Windows to open Epic's registered game-launch protocol. The Windows protocol handler is user-configurable; verify that it opens the real Epic client. PaRuX cannot verify the game process or account ownership. Return to AI manually when finished.",
+                    "PaRuX preparerà la modalità Gaming e chiederà a Windows di aprire il protocollo di avvio registrato da Epic. Il gestore di protocollo Windows è configurabile dall'utente: verifica che apra il vero client Epic. PaRuX non può verificare il processo del gioco né la proprietà sull'account. Torna manualmente all'AI al termine."),
+                PrimaryButtonText = T("Request Epic launch", "Richiedi avvio a Epic"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            var result = await GamingOrchestratorClient.Current.RequestEpicGameLaunchAsync(game.ProviderGameId);
+            await UpdateGamingStatusAsync();
+            _discoveryStatus.Text = result.Succeeded && result.Value is { Launched: true }
+                ? T("Epic protocol request dispatched. Game start is not verified; return to AI manually.",
+                    "Richiesta al protocollo Epic inviata. L'avvio del gioco non è verificato: torna manualmente all'AI.")
+                : T("Epic request was not dispatched. Check the installed client, Windows protocol registration and Gaming state.",
+                    "Richiesta Epic non inviata. Verifica client installato, registrazione del protocollo Windows e stato Gaming.");
+        }
+        catch (Exception)
+        {
+            _discoveryStatus.Text = T("Could not request Epic launch.", "Impossibile richiedere l'avvio tramite Epic.");
         }
         finally { SetBusy(false); }
     }
