@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using PaRuX.Contracts;
 using PaRuX.Services;
 using Windows.Storage.Pickers;
@@ -140,6 +141,17 @@ public sealed class ManualGameLibraryView : UserControl
         _filter.Header = T("Filter by name", "Filtra per nome");
         AutomationProperties.SetAutomationId(_filter, "GameLibrary_Filter_TextBox");
         _filter.TextChanged += (_, _) => { _page = 0; _detectedPage = 0; RenderGames(); RenderDiscoveredGames(); };
+        // Console/TV: gamepad A or Y on the filter opens the controller-driven on-screen keyboard.
+        var keyboard = ConsoleKeyboardFlyout.Create(_filter, T("Done", "Fine"), T("Backspace", "Cancella"),
+            T("Clear", "Svuota"), T("Space", "Spazio"));
+        _filter.KeyDown += (_, e) =>
+        {
+            if (_consolePresentation && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
+            {
+                keyboard.ShowAt(_filter);
+                e.Handled = true;
+            }
+        };
         root.Children.Add(_filter); root.Children.Add(_games);
         var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         _previous.Content = T("Previous", "Precedente"); _next.Content = T("Next", "Successiva");
@@ -1167,5 +1179,30 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
+    private Control? _focusBeforeBusy;
+
+    /// <summary>Remembers the focused control when an interaction starts and puts focus back when it
+    /// ends (game launch request, dialogs, rescans), so controller users never land on nothing.
+    /// Rendering may replace the control meanwhile; then the Console home target is used.</summary>
+    private void TrackFocusAcrossBusy(bool value)
+    {
+        if (value == _busy) return;
+        if (value)
+        {
+            _focusBeforeBusy = XamlRoot is null ? null : FocusManager.GetFocusedElement(XamlRoot) as Control;
+            return;
+        }
+        Control? remembered = _focusBeforeBusy;
+        _focusBeforeBusy = null;
+        if (!_consolePresentation) return;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_busy) return;
+            if (remembered is { IsLoaded: true, IsEnabled: true } &&
+                remembered.Focus(FocusState.Programmatic)) return;
+            FocusConsoleHome();
+        });
+    }
+
+    private void SetBusy(bool value) { TrackFocusAcrossBusy(value); _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
 }
