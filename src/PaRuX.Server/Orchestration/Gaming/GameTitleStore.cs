@@ -11,6 +11,8 @@ namespace PaRuX.Server.Orchestration.Gaming;
 public sealed class GameTitleStore
 {
     public const int MaxTags = 20;
+    public const int MaxCollections = 12;
+    public const int MaxCollectionLength = 40;
     public const int MaxTagLength = 40;
     public const int MaxTitles = 20_000;
     /// <summary>One observed session cannot add more than this (a clock jump must not poison the totals).</summary>
@@ -57,6 +59,20 @@ public sealed class GameTitleStore
         }
         if (cleaned.Count > MaxTags) return false;
         return Mutate(titleKey, s => s.Tags = cleaned);
+    }
+
+    public bool SetCollections(string titleKey, IEnumerable<string>? collections)
+    {
+        var cleaned = new List<string>();
+        foreach (string raw in collections ?? Array.Empty<string>())
+        {
+            string name = (raw ?? string.Empty).Trim();
+            if (name.Length == 0) continue;
+            if (name.Length > MaxCollectionLength || name.Any(char.IsControl)) return false;
+            if (!cleaned.Contains(name, StringComparer.OrdinalIgnoreCase)) cleaned.Add(name);
+        }
+        if (cleaned.Count > MaxCollections) return false;
+        return Mutate(titleKey, s => s.Collections = cleaned);
     }
 
     public bool SetDefaultInstallation(string titleKey, string? installationId)
@@ -135,6 +151,7 @@ public sealed class GameTitleStore
     {
         Favorite = s.Favorite,
         Tags = new List<string>(s.Tags ?? new List<string>()),
+        Collections = new List<string>(s.Collections ?? new List<string>()),
         PlaySeconds = s.PlaySeconds,
         LastPlayedUtc = s.LastPlayedUtc,
         DefaultInstallationId = s.DefaultInstallationId,
