@@ -266,6 +266,7 @@ builder.Services.AddSingleton<ManualGameSessionService>();
 builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
 builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
 builder.Services.AddSingleton<GogGameDiscoveryProvider>();
+builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton(sp => new WorkloadOrchestrator(
     sp.GetRequiredService<LocalRuntimeService>(),
     sp.GetRequiredService<LocalAiProcessManager>(),
