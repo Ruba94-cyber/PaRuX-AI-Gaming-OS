@@ -26,6 +26,9 @@ internal sealed class GameDownloadsPanel : StackPanel
     private readonly TextBox _destination = new() { MaxLength = 1024 };
     private readonly TextBox _fileName = new() { MaxLength = 160 };
     private readonly TextBox _sha256 = new() { MaxLength = 64 };
+    private readonly ComboBox _priority = new() { MinWidth = 180 };
+    private readonly TextBox _speed = new() { Text = "0", MaxLength = 8, MinWidth = 160 };
+    private readonly Button _applySpeed = new();
     private readonly Button _browse = new();
     private readonly Button _enqueue = new();
     private readonly Button _refresh = new();
@@ -91,6 +94,24 @@ internal sealed class GameDownloadsPanel : StackPanel
         AutomationProperties.SetAutomationId(_sha256, "GameDownloads_SHA256");
         Children.Add(_sha256);
 
+        _priority.Header = T("Queue priority", "Priorità in coda");
+        _priority.Items.Add(new ComboBoxItem { Content = T("Low", "Bassa"), Tag = -5 });
+        _priority.Items.Add(new ComboBoxItem { Content = T("Normal", "Normale"), Tag = 0 });
+        _priority.Items.Add(new ComboBoxItem { Content = T("High", "Alta"), Tag = 5 });
+        _priority.SelectedIndex = 1;
+        AutomationProperties.SetAutomationId(_priority, "GameDownloads_Priority");
+        Children.Add(_priority);
+
+        _speed.Header = T("Maximum speed in KiB/s (0 = unlimited)", "Velocità massima in KiB/s (0 = illimitata)");
+        AutomationProperties.SetAutomationId(_speed, "GameDownloads_SpeedKiB");
+        _applySpeed.Content = T("Apply speed limit", "Applica limite velocità");
+        AutomationProperties.SetAutomationId(_applySpeed, "GameDownloads_ApplySpeed");
+        _applySpeed.Click += async (_, _) => await ApplySpeedAsync();
+        var speedRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        speedRow.Children.Add(_speed);
+        speedRow.Children.Add(_applySpeed);
+        Children.Add(speedRow);
+
         _enqueue.Content = T("Start download", "Avvia download");
         AutomationProperties.SetAutomationId(_enqueue, "GameDownloads_Start");
         _enqueue.Click += async (_, _) => await EnqueueAsync();
@@ -145,7 +166,8 @@ internal sealed class GameDownloadsPanel : StackPanel
             var request = new GameDownloadRequest(
                 address, destination,
                 string.IsNullOrWhiteSpace(_fileName.Text) ? null : _fileName.Text.Trim(),
-                checksum.Length == 0 ? null : checksum);
+                checksum.Length == 0 ? null : checksum,
+                (_priority.SelectedItem as ComboBoxItem)?.Tag is int selectedPriority ? selectedPriority : 0);
             var result = await GamingOrchestratorClient.Current.EnqueueGameDownloadAsync(request);
             _status.Text = result.Succeeded
                 ? T("Download queued. Refresh to see its progress.", "Download in coda. Aggiorna per vedere l'avanzamento.")
@@ -158,6 +180,32 @@ internal sealed class GameDownloadsPanel : StackPanel
         }
         finally { _busy = false; _enqueue.IsEnabled = true; }
         await RefreshAsync();
+    }
+
+    private async Task ApplySpeedAsync()
+    {
+        if (_busy || Visibility != Visibility.Visible) return;
+        if (!long.TryParse(_speed.Text, NumberStyles.None, CultureInfo.InvariantCulture, out long kibPerSecond)
+            || kibPerSecond < 0 || kibPerSecond > 1_000_000)
+        {
+            _status.Text = T("Enter a speed between 0 and 1,000,000 KiB/s.",
+                             "Inserisci una velocità tra 0 e 1.000.000 KiB/s.");
+            return;
+        }
+        _busy = true;
+        _applySpeed.IsEnabled = false;
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.SetGameDownloadLimitAsync(kibPerSecond * 1024);
+            _status.Text = result.Succeeded
+                ? T("Speed limit updated. Zero means unlimited.", "Limite aggiornato. Zero significa illimitato.")
+                : T("Could not update the speed limit.", "Impossibile aggiornare il limite.");
+        }
+        catch (Exception)
+        {
+            _status.Text = T("Could not update the speed limit.", "Impossibile aggiornare il limite.");
+        }
+        finally { _busy = false; _applySpeed.IsEnabled = true; }
     }
 
     private async Task RefreshAsync()

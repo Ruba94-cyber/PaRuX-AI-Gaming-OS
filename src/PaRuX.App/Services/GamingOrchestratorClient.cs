@@ -69,6 +69,10 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GameDownloadDto>> EnqueueGameDownloadAsync(GameDownloadRequest request, CancellationToken ct = default) =>
             SendAsync<GameDownloadDto>(HttpMethod.Post, "/api/v1/gaming/downloads", request, ct);
 
+        public Task<GamingCallResult<object>> SetGameDownloadLimitAsync(long bytesPerSecond, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/downloads/limit",
+                new GameDownloadLimitRequest(bytesPerSecond), ct);
+
         public Task<GamingCallResult<object>> PauseGameDownloadAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/pause", null, ct);
 
