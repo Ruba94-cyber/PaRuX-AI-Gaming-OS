@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "Reviewed direct NuGet dependencies for Windows Desktop + Server; update only after provenance and licensing review.",
+  "projects": {
+    "src/PaRuX.App/PaRuX.App.csproj": {
+      "Microsoft.WindowsAppSDK": "1.8.260804001",
+      "H.NotifyIcon.WinUI": "2.1.0",
+      "Microsoft.Data.Sqlite": "8.0.30",
+      "DocumentFormat.OpenXml": "3.5.1",
+      "ExcelDataReader": "3.9.0",
+      "QRCoder": "1.6.0",
+      "System.Security.Cryptography.ProtectedData": "8.0.0",
+      "System.Drawing.Common": "8.0.10",
+      "System.Management": "8.0.0"
+    },
+    "src/PaRuX.Server/PaRuX.Server.csproj": {
+      "Microsoft.Data.Sqlite": "8.0.30",
+      "System.Security.Cryptography.ProtectedData": "8.0.0",
+      "DocumentFormat.OpenXml": "3.5.1",
+      "ExcelDataReader": "3.9.0",
+      "ModelContextProtocol.AspNetCore": "2.2.0",
+      "ModelContextProtocol": "2.2.0",
+      "Microsoft.ML.OnnxRuntime": "1.29.0",
+      "Microsoft.ML.Tokenizers": "2.0.0",
+      "Parquet.Net": "6.1.0",
+      "SharpCompress": "0.50.4"
+    }
+  },
+  "vendored_license_files": [
+    "llama-cpp-conversion/LICENSE-llama.cpp"
+  ]
+}
