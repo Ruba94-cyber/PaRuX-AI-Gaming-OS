@@ -252,7 +252,8 @@ public sealed class GamingProfileStore
         LauncherSettings = new Dictionary<string, string>(),
         InputProvider = "native",
         InputSettings = new Dictionary<string, string>(),
-        SuspendProvider = "nyrna",
+        // First-party Windows provider; Nyrna remains opt-in for old/user profiles.
+        SuspendProvider = "win32native",
         SuspendSettings = new Dictionary<string, string>(),
         AiResourcePolicy = "release_gpu",
         QuickResumePolicy = "auto",
@@ -274,7 +275,7 @@ public sealed class GamingProfileStore
         LauncherSettings = new Dictionary<string, string>(),
         InputProvider = "sunshine",
         InputSettings = new Dictionary<string, string>(),
-        SuspendProvider = "nyrna",
+        SuspendProvider = "win32native",
         SuspendSettings = new Dictionary<string, string>(),
         AiResourcePolicy = "release_gpu",
         QuickResumePolicy = "auto",
