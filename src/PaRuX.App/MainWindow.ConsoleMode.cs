@@ -18,6 +18,16 @@ public sealed partial class MainWindow
 {
     private bool _consoleModeActive;
 
+    /// <summary>Only the user's activation of the existing PaRuX window triggers this.
+    /// No background game-process scan, focus stealing or permanent controller poller.</summary>
+    private async void OnConsoleWindowActivated(object sender, WindowActivatedEventArgs args)
+    {
+        if (!_consoleModeActive || args.WindowActivationState == WindowActivationState.Deactivated)
+            return;
+        try { await GameLibraryPage.OnConsoleForegroundActivatedAsync(); }
+        catch (Exception ex) { Log.Write("Console foreground status refresh failed: " + ex.GetType().Name); }
+    }
+
     private void ConsoleModeButton_Click(object sender, RoutedEventArgs e)
     {
         try
