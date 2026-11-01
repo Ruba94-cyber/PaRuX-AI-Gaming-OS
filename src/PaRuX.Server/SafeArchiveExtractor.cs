@@ -22,7 +22,11 @@ internal static class SafeArchiveExtractor
     {
         if (maxExtractedBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxExtractedBytes));
         string root = Path.GetFullPath(destinationRoot);
+        // Validate the entire existing parent chain BEFORE creating any output.
+        // A junction in the destination parent must never redirect extraction.
+        EnsureNoReparsePoints(root);
         Directory.CreateDirectory(root);
+        EnsureNoReparsePoints(root);
         string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
 
