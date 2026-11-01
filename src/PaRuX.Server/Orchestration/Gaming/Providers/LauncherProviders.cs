@@ -120,9 +120,7 @@ public sealed class SteamBigPictureLauncherProvider : IGameLauncherProvider
     {
         get
         {
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-            string candidate = Path.Combine(programFilesX86, "Steam", "steam.exe");
-            return File.Exists(candidate) ? candidate : null;
+            return SteamInstallLocator.FindExecutable();
         }
     }
 
