@@ -28,6 +28,8 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _gogRefresh = new();
     private readonly Button _allStoresRefresh = new();
     private readonly Button _displayRefresh = new();
+    private readonly Button _controllerRefresh = new();
+    private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _displayItems = new() { Spacing = 8 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
@@ -135,6 +137,26 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_displayStatus);
         root.Children.Add(_displayItems);
 
+        root.Children.Add(new TextBlock
+        {
+            Text = T("Controller diagnostics", "Diagnostica controller"),
+            FontSize = 20,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        root.Children.Add(new TextBlock
+        {
+            Text = T("Read connected XInput controllers only when requested. No drivers, mapping changes or persistent recording.",
+                     "Legge i controller XInput solo su richiesta. Nessun driver, modifica delle mappature o registrazione continua."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _controllerRefresh.Content = T("Check controllers", "Controlla i controller");
+        AutomationProperties.SetAutomationId(_controllerRefresh, "GameLibrary_Controllers_Refresh_Button");
+        _controllerRefresh.Click += async (_, _) => await InspectControllersAsync();
+        root.Children.Add(_controllerRefresh);
+        AutomationProperties.SetAutomationId(_controllerStatus, "GameLibrary_Controllers_Status_Text");
+        AutomationProperties.SetLiveSetting(_controllerStatus, AutomationLiveSetting.Polite);
+        root.Children.Add(_controllerStatus);
+
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     }
 
@@ -156,7 +178,7 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _displayRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
@@ -164,6 +186,7 @@ public sealed class ManualGameLibraryView : UserControl
         _status.FontSize = bodySize;
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
+        _controllerStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
     }
@@ -197,6 +220,35 @@ public sealed class ManualGameLibraryView : UserControl
             await LoadAsync();
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
+        finally { SetBusy(false); }
+    }
+
+    private async Task InspectControllersAsync()
+    {
+        if (_busy) return;
+        SetBusy(true);
+        _controllerStatus.Text = T("Checking local XInput controllers…", "Verifica dei controller XInput locali…");
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.GetControllersAsync();
+            if (!result.Succeeded || result.Value is null)
+            {
+                _controllerStatus.Text = T("Controller diagnostics are unavailable.", "Diagnostica controller non disponibile.");
+                return;
+            }
+            if (result.Value.Count == 0)
+            {
+                _controllerStatus.Text = T("No XInput controllers detected. Other input types have not been checked.",
+                    "Nessun controller XInput rilevato. Gli altri tipi di input non sono stati verificati.");
+                return;
+            }
+            _controllerStatus.Text = string.Join("   ", result.Value.Select(g =>
+                T($"XInput controller {g.Slot + 1}", $"Controller XInput {g.Slot + 1}")));
+        }
+        catch (Exception)
+        {
+            _controllerStatus.Text = T("Controller inspection failed.", "Verifica controller non riuscita.");
+        }
         finally { SetBusy(false); }
     }
 
@@ -510,5 +562,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
