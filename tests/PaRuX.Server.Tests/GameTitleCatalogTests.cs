@@ -16,6 +16,37 @@ public sealed class GameTitleCatalogTests : IDisposable
 
     private static readonly IReadOnlyDictionary<string, GameTitleState> NoState = new Dictionary<string, GameTitleState>();
 
+    [Fact]
+    public void Title_snapshot_cache_distinguishes_cold_core_from_an_intentionally_empty_library()
+    {
+        var cache = new GameTitleReadCache();
+        Assert.False(cache.TryRead(out var cold));
+        Assert.Empty(cold);
+        cache.Publish(Array.Empty<GameTitleDto>());
+        Assert.True(cache.TryRead(out var emptyButReady));
+        Assert.Empty(emptyButReady);
+    }
+
+    [Fact]
+    public void Title_snapshot_supports_favorite_search_and_installation_filters_without_a_disk_scan()
+    {
+        var cache = new GameTitleReadCache();
+        var saved = GameTitleCatalog.Build(
+            new[] { Steam("1", "Portal"), Steam("2", "Hades") },
+            new[] { Manual("local", "Hades") },
+            new Dictionary<string, GameTitleState>
+            {
+                [GameTitleCatalog.KeyFor("Hades", "irrelevant")] = new() { Favorite = true }
+            });
+        cache.Publish(saved);
+        Assert.True(cache.TryRead(out var snapshot));
+        Assert.Equal(2, snapshot.Count);
+        Assert.Single(GameTitleCatalog.Filter(snapshot, "hades", null, false, null));
+        Assert.Single(GameTitleCatalog.Filter(snapshot, null, null, true, null));
+        Assert.Single(GameTitleCatalog.Filter(snapshot, null, "manual", false, null));
+        Assert.Empty(GameTitleCatalog.Filter(snapshot, "unknown", null, false, null));
+    }
+
     [Theory]
     [InlineData(false, "AiReady", false, false)]
     [InlineData(true, "GamingLocal", true, false)]
