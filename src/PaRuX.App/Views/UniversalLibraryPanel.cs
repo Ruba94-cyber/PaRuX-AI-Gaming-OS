@@ -30,6 +30,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     // titles
     private readonly TextBox _search = new();
+    private readonly TextBox _collectionFilter = new() { MaxLength = 40 };
     private readonly ToggleButton _favoritesOnly = new() { Content = "★" };
     private readonly Button _reload = new();
     private readonly StackPanel _titleList = new() { Spacing = 8 };
@@ -110,6 +111,15 @@ internal sealed class UniversalLibraryPanel : StackPanel
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         bar.Children.Add(_search); bar.Children.Add(_favoritesOnly); bar.Children.Add(_reload);
         Children.Add(bar);
+        _collectionFilter.Header = T("Filter collection (exact name, optional)", "Filtra collezione (nome esatto, facoltativo)");
+        AutomationProperties.SetAutomationId(_collectionFilter, "GameTitles_Collection_Filter");
+        var filterCollection = new Button { Content = T("Apply collection filter", "Applica filtro collezione") };
+        AutomationProperties.SetAutomationId(filterCollection, "GameTitles_Collection_Apply");
+        filterCollection.Click += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
+        var collectionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        collectionRow.Children.Add(_collectionFilter);
+        collectionRow.Children.Add(filterCollection);
+        Children.Add(collectionRow);
         AutomationProperties.SetAutomationId(_titleStatus, "GameTitles_Status_Text");
         AutomationProperties.SetLiveSetting(_titleStatus, AutomationLiveSetting.Polite);
         Children.Add(_titleStatus);
@@ -127,7 +137,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
     {
         try
         {
-            var result = await GamingOrchestratorClient.Current.GetTitlesAsync(_search.Text, null, _favoritesOnly.IsChecked == true);
+            var result = await GamingOrchestratorClient.Current.GetTitlesAsync(
+                _search.Text, null, _favoritesOnly.IsChecked == true, collection: _collectionFilter.Text);
             if (!result.Succeeded || result.Value is null)
             {
                 _titleStatus.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
@@ -231,6 +242,27 @@ internal sealed class UniversalLibraryPanel : StackPanel
                 _titleStatus.Text = T("Tags were not saved: at most 20 tags of up to 40 characters.", "Tag non salvati: al massimo 20 tag da 40 caratteri.");
         };
         card.Children.Add(tags);
+
+        // Collections are independent from descriptive tags. The additive field
+        // defaults to empty when loading a title from a pre-collections Core.
+        var collections = new TextBox
+        {
+            Header = T("Collections (comma separated)", "Collezioni (separate da virgola)"),
+            Text = string.Join(", ", title.Collections),
+            MaxLength = 500,
+            FontSize = _console ? 20 : 14,
+            Visibility = _console ? Visibility.Collapsed : Visibility.Visible
+        };
+        AutomationProperties.SetAutomationId(collections, "GameTitle_Collections_" + title.TitleKey);
+        collections.LostFocus += async (_, _) =>
+        {
+            var parsed = (collections.Text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            var result = await GamingOrchestratorClient.Current.SetTitleCollectionsAsync(title.TitleKey, parsed);
+            if (!result.Succeeded)
+                _titleStatus.Text = T("Collections not saved: up to 12 names, each at most 40 characters.",
+                                      "Collezioni non salvate: massimo 12 nomi da 40 caratteri.");
+        };
+        card.Children.Add(collections);
 
         var play = new Button
         {
