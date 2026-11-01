@@ -57,6 +57,14 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Reuse one original C# virtual-pad protocol and mapping core in the WinUI host.
+       No separate driver/runtime package; the host owns all physical input observation. -->
+  <ItemGroup>
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\Xbox360Report.cs" Link="Gaming\Xbox360Report.cs" />
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\ViGEmBusClient.cs" Link="Gaming\ViGEmBusClient.cs" />
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\VirtualPadForwardingSession.cs" Link="Gaming\VirtualPadForwardingSession.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\PaRuX.Contracts\PaRuX.Contracts.csproj" />
     <ProjectReference Include="..\PaRuX.Intelligence\PaRuX.Intelligence.csproj" />
