@@ -271,6 +271,12 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     private async Task TransferAsync(Entry e, CancellationToken ct)
     {
+        // Never follow a user-placed symbolic link as a partial download target.
+        // The destination directory was validated at enqueue, but the part file
+        // may have been replaced since then.
+        if (File.Exists(e.PartPath) &&
+            (File.GetAttributes(e.PartPath) & FileAttributes.ReparsePoint) != 0)
+            throw new GameDownloadException("The partial download path is a linked file.");
         long existing = File.Exists(e.PartPath) ? new FileInfo(e.PartPath).Length : 0;
         // A filename is not a source identity. Never append an old partial from a
         // different URL or checksum, even when its server happens to accept Range.
@@ -299,10 +305,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
 
         bool resumed = response.StatusCode == HttpStatusCode.PartialContent;
-        if (resumed && !ResumeValidator.ContentRangeMatches(response.Content.Headers.ContentRange, existing))
+        // HTTP 206 is valid only in response to OUR own nonzero Range request.
+        // A server supplying unsolicited partial bytes must never cause us to
+        // append or publish a truncated file as if it were a complete download.
+        if (resumed && (existing == 0 ||
+            !ResumeValidator.ContentRangeMatches(response.Content.Headers.ContentRange, existing)))
         {
             CleanPartial(e);
-            throw new HttpRequestException("misaligned range");
+            throw new GameDownloadException("The server supplied an unexpected or misaligned partial response.");
         }
         if (!resumed && existing > 0) { CleanPartial(e); existing = 0; } // server ignored the range or the file changed
         if (!resumed) ResumeValidator.Write(e.PartPath, response.Headers.ETag);
