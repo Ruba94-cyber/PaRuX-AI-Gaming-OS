@@ -16,6 +16,23 @@ public static class GameDownloadEndpoints
             catch (GameDownloadException ex) { return Results.BadRequest(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        // Inspection is read-only and accepts an opaque download ID, never a caller-provided path.
+        // It does not launch, unpack, trust or install the downloaded file.
+        app.MapPost("/api/v1/gaming/downloads/{id}/inspect", async (
+            string id, GameDownloadManager downloads,
+            PaRuX.Server.Orchestration.Gaming.GameInstallerInspectionService inspector,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await downloads.InspectCompletedAsync(id, inspector, ct)) as IResult; }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "This is not a supported local installer file." }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (InvalidDataException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted inspection." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            { return Results.Problem("The completed package could not be read."); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/downloads/{id}/pause", (string id, GameDownloadManager downloads) =>
             downloads.Pause(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
