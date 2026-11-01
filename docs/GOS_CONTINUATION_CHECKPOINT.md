@@ -11,7 +11,15 @@ are protected. No force-push, GitHub Actions, private credentials, installed
 drivers or hidden test claims. Every commit since the continuation is marked
 **SOURCE IMPLEMENTED / NOT RUN**, not release approved.
 
-Current continuation HEAD at this checkpoint: `6846cb511fa44d848e602d61c449ca0b290dd1c0`.
+Current continuation HEAD at this checkpoint: see `git log -1` on `main` (previous pinned value `6846cb5…` was stale).
+
+## Verification log (Windows 11, .NET SDK 10.0.302, 2026-11-01)
+
+- `tools/test-gos-checkpoint.ps1`: Server Release build **BUILD PASSED**, WinUI App Release build **BUILD PASSED**,
+  focused Server xUnit **TESTED 266/266**. Fixed in `4d76976`: `Registry` name clash in Epic protocol probe, missing
+  `PaRuX.Services` using in `MainWindow.ConsoleMode.cs`, staging lock file counted in quota/tests, provider tests
+  depending on locally installed Playnite, stale `nyrna` preset expectation.
+- FlaUI (`-RunUi`), hardware, display, controller, FPS, streaming: **NOT RUN**.
 
 ## Implemented source increments in this continuation
 
