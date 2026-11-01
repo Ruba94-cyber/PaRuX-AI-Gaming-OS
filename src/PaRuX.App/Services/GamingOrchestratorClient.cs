@@ -73,6 +73,13 @@ namespace PaRuX.Services
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/downloads/limit",
                 new GameDownloadLimitRequest(bytesPerSecond), ct);
 
+        // Read-only completed-file inspection; no caller-provided absolute path or execution.
+        public Task<GamingCallResult<GameInstallerInspectionResult>> InspectCompletedGameDownloadAsync(
+            string id, CancellationToken ct = default) =>
+            SendAsync<GameInstallerInspectionResult>(HttpMethod.Post,
+                "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/inspect",
+                null, ct, InspectionHttpClient);
+
         public Task<GamingCallResult<object>> PauseGameDownloadAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/pause", null, ct);
 
