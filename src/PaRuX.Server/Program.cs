@@ -272,6 +272,7 @@ builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
 builder.Services.AddSingleton<GameTitleStore>();
+builder.Services.AddSingleton<GameTitleReadCache>();
 builder.Services.AddSingleton<GameSaveBackupService>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
