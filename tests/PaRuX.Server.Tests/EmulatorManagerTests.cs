@@ -58,15 +58,15 @@ public sealed class EmulatorManagerTests : IDisposable
             extraArguments: null, corePath: null,
             launchMode: EmulatorLaunchModes.Fullscreen, inputProfile: "Living Room P1");
         Assert.Null(plan.Error);
-        Assert.Equal(new[] { "-f", "-input-profile", "Living Room P1", "-g", rom }, plan.ArgumentList);
-        Assert.Contains("-input-profile \"Living Room P1\"", plan.Arguments);
+        Assert.Equal(new[] { "-f", "--input-profile", "Living Room P1", "-g", rom }, plan.ArgumentList);
+        Assert.Contains("--input-profile \"Living Room P1\"", plan.Arguments);
 
         string exe = File_("Eden/eden.exe", 20_000);
         var library = new ManualGameLibrary(Path.Combine(_root, "eden-input.json"));
         var result = EmulatorEndpoints.Import(new("eden", exe, new() { rom }, true,
             null, null, EmulatorLaunchModes.Fullscreen, "Living Room P1"), library);
         Assert.Equal(1, result.Added);
-        Assert.Contains("-input-profile \"Living Room P1\"", Assert.Single(library.List()).Arguments);
+        Assert.Contains("--input-profile \"Living Room P1\"", Assert.Single(library.List()).Arguments);
     }
 
     [Theory]
