@@ -150,7 +150,9 @@ public sealed partial class SettingsView
                     string.Equals(data.ConsoleTargetDisplayId, deviceId, StringComparison.OrdinalIgnoreCase))
                     data.ConsoleTargetDisplayId = string.Empty;
                 SettingsStore.Current.Save();
-                RenderConsoleDisplays(snapshot);
+                // Defer rebuilding the picker until WinUI has finished raising
+                // SelectionChanged for the ComboBox being removed from the tree.
+                _dispatcher.TryEnqueue(() => RenderConsoleDisplays(snapshot));
             };
             use.Click += (_, _) =>
             {
