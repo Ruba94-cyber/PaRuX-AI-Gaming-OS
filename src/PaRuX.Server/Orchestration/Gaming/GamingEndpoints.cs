@@ -30,6 +30,14 @@ public static class GamingEndpoints
             { return Results.Problem("Epic installation metadata could not be read."); }
         }).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/library/discover/gog", async (GogGameDiscoveryProvider provider, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException)
+            { return Results.Problem("GOG installation metadata could not be read."); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/library", (ManualGameLibrary library) =>
         {
             try { return Results.Ok(library.List()) as IResult; }
