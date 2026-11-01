@@ -30,7 +30,7 @@ public static class GameTitleEndpoints
     {
         // Merged read-only view over local discovery and the manual library, plus the user's per-title state.
         app.MapGet("/api/v1/gaming/titles", async (
-            string? q, string? source, bool? favorite, string? tag, string? collection,
+            string? q, string? source, bool? favorite, string? tag, string? collection, bool? refresh,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
             ManualGameLibrary library, GameTitleStore store, GameTitleReadCache cache,
             LocalRuntimeService runtime, CancellationToken ct) =>
@@ -46,6 +46,9 @@ public static class GameTitleEndpoints
 
             // Gamepad search while playing must not wake disk-heavy store discovery.
             if (runtime.GamingMode) return FromCache();
+            if (refresh != true && cache.TryReadRecent(out var recent))
+                return Results.Ok(GameTitleCatalog.Filter(recent, q, source, favorite == true, tag, collection));
+            long scanRevision = cache.Revision;
             using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
             try
             {
@@ -65,8 +68,13 @@ public static class GameTitleEndpoints
                 var titles = GameTitleCatalog.Build(discovered, library.List(), store.Snapshot());
                 if (runtime.GamingMode) return FromCache();
                 scanToken.ThrowIfCancellationRequested();
-                cache.Publish(titles);
-                return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
+                if (cache.PublishIfUnchanged(scanRevision, titles))
+                    return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
+                // A game import or owner edit raced with this scan. Preserve the newer
+                // snapshot; never replace it with results captured before the change.
+                if (cache.TryRead(out var current))
+                    return Results.Ok(GameTitleCatalog.Filter(current, q, source, favorite == true, tag, collection));
+                return Results.Conflict(new { error = "The game catalogue changed during discovery. Refresh it again." });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
             catch (OperationCanceledException) when (runtime.GamingMode) { return FromCache(); }
