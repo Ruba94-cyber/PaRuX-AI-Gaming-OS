@@ -29,6 +29,10 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _allStoresRefresh = new();
     private readonly Button _displayRefresh = new();
     private readonly Button _controllerRefresh = new();
+    private readonly Button _returnToAi = new();
+    private readonly Button _gamingStatusRefresh = new();
+    private readonly TextBlock _gamingStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private bool _returnToAiAvailable;
     private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _displayItems = new() { Spacing = 8 };
@@ -52,6 +56,32 @@ public sealed class ManualGameLibraryView : UserControl
         _heading.FontSize = 28;
         _heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         root.Children.Add(_heading);
+
+        // Real resource/session status lives on the same Games home in both TV and
+        // desktop presentations. No background polling or controller worker.
+        root.Children.Add(new TextBlock
+        {
+            Text = T("AI / Gaming session", "Sessione AI / Gaming"),
+            FontSize = 20,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        _gamingStatus.Text = T("Check the Gaming status to begin.", "Controlla lo stato Gaming per iniziare.");
+        AutomationProperties.SetAutomationId(_gamingStatus, "GameLibrary_Gaming_Status_Text");
+        AutomationProperties.SetLiveSetting(_gamingStatus, AutomationLiveSetting.Polite);
+        root.Children.Add(_gamingStatus);
+        _gamingStatusRefresh.Content = T("Refresh Gaming status", "Aggiorna stato Gaming");
+        AutomationProperties.SetAutomationId(_gamingStatusRefresh, "GameLibrary_Gaming_Refresh_Button");
+        _gamingStatusRefresh.Click += async (_, _) => await RefreshGamingStatusButtonAsync();
+        _returnToAi.Content = T("Return to AI", "Torna all'AI");
+        _returnToAi.IsEnabled = false;
+        AutomationProperties.SetAutomationId(_returnToAi, "GameLibrary_ReturnToAi_Button");
+        AutomationProperties.SetName(_returnToAi, T("Return to AI without closing the game", "Torna all'AI senza chiudere il gioco"));
+        _returnToAi.Click += async (_, _) => await ReturnToAiAsync();
+        var sessionActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        sessionActions.Children.Add(_gamingStatusRefresh);
+        sessionActions.Children.Add(_returnToAi);
+        root.Children.Add(sessionActions);
+
         root.Children.Add(new TextBlock { Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.", "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata."), TextWrapping = TextWrapping.Wrap });
         _name.Header = T("Game name", "Nome del gioco");
         _name.MaxLength = 200;
@@ -178,7 +208,7 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _returnToAi, _gamingStatusRefresh, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
@@ -187,11 +217,87 @@ public sealed class ManualGameLibraryView : UserControl
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
         _controllerStatus.FontSize = bodySize;
+        _gamingStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
     }
 
-    public async void OnShown() => await RefreshAsync();
+    public async void OnShown()
+    {
+        await RefreshAsync();
+        await UpdateGamingStatusAsync();
+    }
+
+    private async Task UpdateGamingStatusAsync()
+    {
+        try
+        {
+            GamingStatusDto? status = await GamingOrchestratorClient.Current.GetStatusAsync();
+            if (status is null)
+            {
+                _returnToAiAvailable = false;
+                _gamingStatus.Text = T("Gaming status unavailable. Check the local Core connection.",
+                    "Stato Gaming non disponibile. Controlla il collegamento al Core locale.");
+            }
+            else
+            {
+                _returnToAiAvailable = status.State != "AiReady";
+                _gamingStatus.Text = status.State == "AiReady"
+                    ? T("AI ready · No Gaming session active.", "AI pronta · Nessuna sessione Gaming attiva.")
+                    : T($"Current Gaming state: {status.State}. Return to AI leaves the game running.",
+                        $"Stato Gaming attuale: {status.State}. Tornando all'AI il gioco rimane aperto.");
+            }
+        }
+        catch (Exception)
+        {
+            _returnToAiAvailable = false;
+            _gamingStatus.Text = T("Gaming status unavailable.", "Stato Gaming non disponibile.");
+        }
+        _returnToAi.IsEnabled = _returnToAiAvailable && !_busy;
+    }
+
+    private async Task RefreshGamingStatusButtonAsync()
+    {
+        if (_busy) return;
+        SetBusy(true);
+        try { await UpdateGamingStatusAsync(); }
+        finally { SetBusy(false); }
+    }
+
+    private async Task ReturnToAiAsync()
+    {
+        if (_busy || !_returnToAiAvailable) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Return to AI?", "Tornare all'AI?"),
+                Content = T(
+                    "PaRuX will try to restore AI resources but will not terminate, suspend or close your game or Steam. If the game is still running, it may compete with AI for GPU resources.",
+                    "PaRuX tenterà di ripristinare le risorse AI senza terminare, sospendere o chiudere il gioco o Steam. Se il gioco è ancora aperto, potrebbe competere con l'AI per le risorse GPU."),
+                PrimaryButtonText = T("Return to AI", "Torna all'AI"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            GamingCallResult<GamingStatusDto> result = await GamingOrchestratorClient.Current.ExitGamingAsync();
+            if (!result.Succeeded)
+                _gamingStatus.Text = T("Return to AI could not be confirmed. Inspect Gaming status and retry.",
+                    "Ritorno all'AI non confermato. Controlla lo stato Gaming e riprova.");
+            else
+                _gamingStatus.Text = T("Return to AI requested. The game was not closed.",
+                    "Ritorno all'AI richiesto. Il gioco non è stato chiuso.");
+            await UpdateGamingStatusAsync();
+        }
+        catch (Exception)
+        {
+            _gamingStatus.Text = T("Return to AI failed. The game was not closed.",
+                "Ritorno all'AI non riuscito. Il gioco non è stato chiuso.");
+        }
+        finally { SetBusy(false); }
+    }
 
     private async void Browse_Click(object sender, RoutedEventArgs e)
     {
@@ -493,6 +599,7 @@ public sealed class ManualGameLibraryView : UserControl
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             var result = await GamingOrchestratorClient.Current.RequestSteamGameLaunchAsync(game.ProviderGameId);
+            await UpdateGamingStatusAsync();
             _discoveryStatus.Text = result.Succeeded && result.Value is { Launched: true }
                 ? T("Launch request sent to Steam. Return to AI manually after playing.",
                     "Richiesta di avvio inviata a Steam. Torna manualmente all'AI dopo aver giocato.")
@@ -533,6 +640,7 @@ public sealed class ManualGameLibraryView : UserControl
                     "Impossibile avviare il gioco. Controlla lo stato Gaming e l'eseguibile.");
                 return;
             }
+            await UpdateGamingStatusAsync();
             _status.Text = launch.AutomaticReturnOnExit
                 ? T("Game started. Automatic return to AI is monitoring the owned process.",
                     "Gioco avviato. Il ritorno automatico all'AI monitora il processo avviato.")
@@ -562,5 +670,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
