@@ -90,9 +90,12 @@ public static class GamingEndpoints
         }).RequireDesktopOwner();
 
         app.MapPost("/api/v1/gaming/library/{id}/launch", async (
-            string id, ManualGameSessionService sessions, CancellationToken ct) =>
+            string id, string? displayId, ManualGameSessionService sessions, CancellationToken ct) =>
         {
-            ManualGameLaunchResult result = await sessions.LaunchAsync(id, ct);
+            // The display id is an optional local-owner hint. The service checks
+            // current Windows topology before entering Gaming and never accepts
+            // executable paths or arbitrary window handles from the caller.
+            ManualGameLaunchResult result = await sessions.LaunchAsync(id, ct, displayId);
             return result.Launched ? Results.Ok(result) : Results.Conflict(result);
         }).RequireDesktopOwner();
 
