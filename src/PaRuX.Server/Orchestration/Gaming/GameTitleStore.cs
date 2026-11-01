@@ -23,6 +23,7 @@ public sealed class GameTitleStore
 
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private Dictionary<string, GameTitleState> _titles = new(StringComparer.Ordinal);
     private string? _loadError;
 
@@ -33,6 +34,7 @@ public sealed class GameTitleStore
     public GameTitleStore(string path)
     {
         _path = Path.GetFullPath(path);
+        _leasePath = _path + ".write-lock";
         Load();
     }
 
@@ -41,7 +43,14 @@ public sealed class GameTitleStore
     public IReadOnlyDictionary<string, GameTitleState> Snapshot()
     {
         lock (_gate)
+        {
+            // Refresh a second Core's changes on a read, not just when this Core edits.
+            // A corrupt file must not be represented as the previous valid snapshot.
+            using var lease = AcquireLease();
+            Load();
+            if (_loadError is not null) throw new InvalidDataException(_loadError);
             return _titles.ToDictionary(p => p.Key, p => Clone(p.Value), StringComparer.Ordinal);
+        }
     }
 
     public bool SetFavorite(string titleKey, bool favorite) => Mutate(titleKey, s => s.Favorite = favorite);
@@ -100,6 +109,22 @@ public sealed class GameTitleStore
         lock (_gate)
         {
             if (_loadError is not null) return false; // never overwrite a file we could not read
+            try
+            {
+                using var lease = AcquireLease();
+                Load();
+                if (_loadError is not null) return false; // a different Core may have corrupted the file
+                return MutateUnderLease(titleKey, change);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+    }
+
+    private bool MutateUnderLease(string titleKey, Action<GameTitleState> change)
+    {
             if (!_titles.TryGetValue(titleKey, out GameTitleState? state))
             {
                 if (_titles.Count >= MaxTitles) return false;
@@ -111,26 +136,51 @@ public sealed class GameTitleStore
             if (!Persist(next)) return false;
             _titles = next;
             return true;
+    }
+
+    /// <summary>OS file-sharing lock: distinct Core processes cannot overwrite each other's overlay updates.</summary>
+    private FileStream AcquireLease()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_leasePath)!);
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            try { return new FileStream(_leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException) when (attempt < 99) { Thread.Sleep(20); }
         }
+        throw new IOException("Could not acquire the game title overlay write lease.");
     }
 
     private bool Persist(Dictionary<string, GameTitleState> titles)
     {
+        string? temp = null;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            string temp = _path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(new FileModel(1, titles), JsonOptions));
+            temp = _path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(file, new FileModel(1, titles), JsonOptions);
+                file.Flush(flushToDisk: true);
+            }
             File.Move(temp, _path, overwrite: true);
+            temp = null;
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+        finally
+        {
+            if (temp is not null)
+                try { File.Delete(temp); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     private void Load()
     {
         lock (_gate)
         {
+            _loadError = null;
+            _titles = new Dictionary<string, GameTitleState>(StringComparer.Ordinal);
             try
             {
                 if (!File.Exists(_path)) return;
@@ -138,6 +188,13 @@ public sealed class GameTitleStore
                 FileModel? model = JsonSerializer.Deserialize<FileModel>(File.ReadAllText(_path), JsonOptions);
                 if (model is null || model.Version != 1 || model.Titles is null || model.Titles.Count > MaxTitles)
                 { _loadError = "The title state file has an unsupported format."; return; }
+                if (model.Titles.Any(p => p.Value is null ||
+                    string.IsNullOrWhiteSpace(p.Key) || p.Key.Length > 300 || p.Key.Any(char.IsControl) ||
+                    p.Value.PlaySeconds < 0 || p.Value.Tags is null || p.Value.Tags.Count > MaxTags ||
+                    p.Value.Collections is null || p.Value.Collections.Count > MaxCollections ||
+                    p.Value.Tags.Any(x => string.IsNullOrWhiteSpace(x) || x.Length > MaxTagLength || x.Any(char.IsControl)) ||
+                    p.Value.Collections.Any(x => string.IsNullOrWhiteSpace(x) || x.Length > MaxCollectionLength || x.Any(char.IsControl))))
+                { _loadError = "The title state file has invalid entries."; return; }
                 _titles = new Dictionary<string, GameTitleState>(model.Titles, StringComparer.Ordinal);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
