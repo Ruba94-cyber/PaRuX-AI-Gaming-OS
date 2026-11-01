@@ -24,11 +24,7 @@ public sealed class GamingDisplayTopologyService
             return new(false, "Display topology requires a Windows desktop.", Array.Empty<GamingDisplayModeDto>());
         try
         {
-            var modes = _read().Take(MaxMonitors).Where(ValidMode)
-                .GroupBy(x => x.DisplayId, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First())
-                .OrderByDescending(x => x.Primary).ThenBy(x => x.X).ThenBy(x => x.Y)
-                .ToArray();
+            var modes = NormalizeModes(_read());
             return modes.Length == 0
                 ? new(false, "Windows did not expose an active desktop monitor.", Array.Empty<GamingDisplayModeDto>())
                 : new(true, "Current display topology only. HDR, VRR and pending changes are not verified.", modes);
@@ -39,6 +35,13 @@ public sealed class GamingDisplayTopologyService
             return new(false, "Display topology is temporarily unavailable.", Array.Empty<GamingDisplayModeDto>());
         }
     }
+
+    internal static GamingDisplayModeDto[] NormalizeModes(IEnumerable<GamingDisplayModeDto> readings) =>
+        readings.Take(MaxMonitors).Where(ValidMode)
+            .GroupBy(x => x.DisplayId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderByDescending(x => x.Primary).ThenBy(x => x.X).ThenBy(x => x.Y)
+            .ToArray();
 
     internal static bool ValidMode(GamingDisplayModeDto mode) =>
         !string.IsNullOrWhiteSpace(mode.DisplayId) && mode.DisplayId.Length <= 64 &&
@@ -119,8 +122,8 @@ public sealed class GamingDisplayTopologyService
     private static IReadOnlyList<GamingDisplayModeDto> ReadWindowsTopology()
     {
         var result = new List<GamingDisplayModeDto>();
-        bool enumerated = EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
-            (IntPtr handle, IntPtr _, ref Rect _, IntPtr _) =>
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
+            (IntPtr handle, IntPtr hdc, ref Rect bounds, IntPtr context) =>
             {
                 if (result.Count >= MaxMonitors) return false;
                 var info = new MonitorInfoEx { Size = (uint)Marshal.SizeOf<MonitorInfoEx>() };
