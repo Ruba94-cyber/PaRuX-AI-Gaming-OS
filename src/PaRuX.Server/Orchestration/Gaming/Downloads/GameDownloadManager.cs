@@ -327,10 +327,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 throw new HttpRequestException("connection closed before the end of the file");
         }
 
-        string sha = await HashFileAsync(e.PartPath, ct).ConfigureAwait(false);
+        string sha = await HashFileAsync(e.PartPath, _gamingActive, ct).ConfigureAwait(false);
         if (e.ExpectedSha256 is not null && !string.Equals(sha, e.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
             throw new GameDownloadException("The file's SHA-256 does not match the expected value; it was deleted.");
 
+        // Hashing a large installer can compete with a just-started game, even
+        // when the network transfer has already finished. Respect the same hard-off
+        // fence before publishing the completed file.
+        if (_gamingActive()) throw new OperationCanceledException("Gaming interrupted integrity verification.");
         string finalPath = UniquePath(e.FinalPath);
         File.Move(e.PartPath, finalPath);
         ResumeValidator.Delete(e.PartPath);
@@ -421,10 +425,28 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         throw new GameDownloadException("Too many files with that name.");
     }
 
-    private static async Task<string> HashFileAsync(string path, CancellationToken ct)
+    /// <summary>
+    /// Streaming integrity verification with a Gaming hard-off check between bounded reads.
+    /// A canceled checksum leaves the partial file intact for explicit resume.
+    /// </summary>
+    internal static async Task<string> HashFileAsync(string path, Func<bool> gamingActive, CancellationToken ct)
     {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, useAsync: true);
-        return Convert.ToHexString(await SHA256.HashDataAsync(stream, ct).ConfigureAwait(false)).ToLowerInvariant();
+        ArgumentNullException.ThrowIfNull(gamingActive);
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.Read, 1 << 20, useAsync: true);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[1 << 20];
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (gamingActive()) throw new OperationCanceledException("Gaming interrupted integrity verification.");
+            int read = await stream.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false);
+            if (read == 0) break;
+            hash.AppendData(buffer, 0, read);
+        }
+        ct.ThrowIfCancellationRequested();
+        if (gamingActive()) throw new OperationCanceledException("Gaming interrupted integrity verification.");
+        return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
     private static void CleanPartial(Entry e)

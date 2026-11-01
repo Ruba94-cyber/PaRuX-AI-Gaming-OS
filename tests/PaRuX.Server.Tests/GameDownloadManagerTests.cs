@@ -124,6 +124,39 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Integrity_verification_is_interrupted_as_soon_as_gaming_is_detected()
+    {
+        byte[] source = Bytes(3 * 1024 * 1024);
+        string part = Path.Combine(_dir, "hash-interruption.parux-part");
+        await File.WriteAllBytesAsync(part, source);
+        int checks = 0;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            GameDownloadManager.HashFileAsync(
+                part,
+                () => Interlocked.Increment(ref checks) >= 2,
+                CancellationToken.None));
+        Assert.True(checks >= 2);
+        Assert.True(File.Exists(part)); // pausing never deletes partial data
+        Assert.Equal(source.Length, new FileInfo(part).Length);
+
+        // When Gaming ends, the same bytes are checked without needing another download.
+        string digest = await GameDownloadManager.HashFileAsync(part, () => false, CancellationToken.None);
+        Assert.Equal(Sha(source), digest);
+    }
+
+    [Fact]
+    public async Task Integrity_verification_honors_a_pre_cancelled_token()
+    {
+        string part = Path.Combine(_dir, "cancel-hash.parux-part");
+        await File.WriteAllBytesAsync(part, Bytes(65_536));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            GameDownloadManager.HashFileAsync(part, () => false, cancelled.Token));
+        Assert.True(File.Exists(part));
+    }
+
+    [Fact]
     public async Task Downloads_a_file_and_verifies_the_expected_checksum()
     {
         _server.Data = Bytes(300_000);
