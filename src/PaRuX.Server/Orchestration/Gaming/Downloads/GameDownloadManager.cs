@@ -41,6 +41,8 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         public long? TotalBytes;
         public bool IntegrityChecked;
         public string? VerifiedSha256;
+        // Session-local: never persist an absolute user folder path in download history.
+        public string? PublishedPath;
         public DateTime? FinishedUtc;
         public CancellationTokenSource? Run;
         public bool UserPause;
@@ -89,6 +91,40 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     }
 
     // ------------------------------------------------------------------ commands
+
+    /// <summary>
+    /// Read-only post-download handoff to the existing local package inspector.
+    /// Only the exact published file in this process may be inspected, not an arbitrary
+    /// path supplied by the HTTP caller. The original completion digest is rechecked:
+    /// integrity does not imply publisher trust, licensing or installer safety.
+    /// </summary>
+    public async Task<GameInstallerInspectionResult> InspectCompletedAsync(
+        string id, GameInstallerInspectionService inspector, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(inspector);
+        if (_gamingActive()) throw new InvalidOperationException("Leave Gaming before inspecting a download.");
+        string path;
+        string checksum;
+        lock (_gate)
+        {
+            Entry? entry = Find(id);
+            if (entry is null || entry.State != GameDownloadStates.Completed ||
+                string.IsNullOrWhiteSpace(entry.PublishedPath) ||
+                string.IsNullOrWhiteSpace(entry.VerifiedSha256))
+                throw new InvalidOperationException("This download is not available for inspection in the current session.");
+            path = entry.PublishedPath;
+            checksum = entry.VerifiedSha256;
+        }
+        GameInstallerInspectionResult inspected = await inspector.InspectAsync(
+            new GameInstallerInspectionRequest(path), ct).ConfigureAwait(false);
+        if (!string.Equals(inspected.Sha256, checksum, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The completed download changed since its original hash was recorded.");
+        return inspected with
+        {
+            Advisory = inspected.Advisory +
+                " The inspected bytes still match this session's original download; this is not a publisher authenticity check."
+        };
+    }
 
     public GameDownloadDto Enqueue(GameDownloadRequest request)
     {
@@ -367,6 +403,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             DeleteResumeIdentity(e);
             e.IntegrityChecked = e.ExpectedSha256 is not null;
             e.VerifiedSha256 = sha;
+            e.PublishedPath = finalPath;
             e.State = GameDownloadStates.Completed;
             e.Reason = e.ExpectedSha256 is null ? "Completed. No expected checksum was given, so the file is not verified." : "Completed and verified.";
             e.FinishedUtc = DateTime.UtcNow;
