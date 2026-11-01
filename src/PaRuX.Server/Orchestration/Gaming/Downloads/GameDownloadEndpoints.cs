@@ -33,6 +33,23 @@ public static class GameDownloadEndpoints
             { return Results.Problem("The completed package could not be read."); }
         }).RequireDesktopOwner();
 
+        // Copy-only handoff. The user must have supplied an independent checksum
+        // when starting the download; Core resolves the exact published path itself.
+        app.MapPost("/api/v1/gaming/downloads/{id}/stage", async (
+            string id, GameDownloadManager downloads,
+            PaRuX.Server.Orchestration.Gaming.GamePackageStageService staging,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await downloads.StageCompletedAsync(id, staging, ct)) as IResult; }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "A supported local package is required." }); }
+            catch (InvalidDataException) { return Results.Conflict(new { error = "Package integrity or staging capacity checks failed." }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted package staging." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            { return Results.Problem("The completed package could not be staged."); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/downloads/{id}/pause", (string id, GameDownloadManager downloads) =>
             downloads.Pause(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
