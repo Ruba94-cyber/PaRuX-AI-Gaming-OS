@@ -21,6 +21,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBlock _manualAddIntro = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _manualAddActions = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private readonly TextBox _path = new();
+    private readonly TextBox _arguments = new();
+    private readonly TextBox _workingDirectory = new();
+    private readonly ComboBox _kind = new() { MinWidth = 220 };
     private readonly StackPanel _games = new() { Spacing = 8 };
     private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _heading = new();
@@ -133,7 +136,19 @@ public sealed class ManualGameLibraryView : UserControl
         _add.Content = T("Add game", "Aggiungi gioco");
         AutomationProperties.SetAutomationId(_add, "GameLibrary_Add_Button");
         _add.Click += Add_Click;
+        _kind.Header = T("Entry type", "Tipo di voce");
+        _kind.Items.Add(new ComboBoxItem { Content = T("Game (prepares Gaming Mode)", "Gioco (prepara la modalità Gaming)"), Tag = ManualEntryKinds.Game });
+        _kind.Items.Add(new ComboBoxItem { Content = T("Application / tool (started as-is)", "Applicazione / strumento (avviata così com'è)"), Tag = ManualEntryKinds.Application });
+        _kind.SelectedIndex = 0;
+        AutomationProperties.SetAutomationId(_kind, "GameLibrary_Kind_ComboBox");
+        _arguments.Header = T("Arguments (optional)", "Argomenti (facoltativi)");
+        _arguments.MaxLength = 1024;
+        AutomationProperties.SetAutomationId(_arguments, "GameLibrary_Arguments_TextBox");
+        _workingDirectory.Header = T("Working folder (optional)", "Cartella di lavoro (facoltativa)");
+        _workingDirectory.MaxLength = 1024;
+        AutomationProperties.SetAutomationId(_workingDirectory, "GameLibrary_WorkingFolder_TextBox");
         root.Children.Add(_name); root.Children.Add(_path);
+        root.Children.Add(_kind); root.Children.Add(_arguments); root.Children.Add(_workingDirectory);
         _manualAddActions.Children.Add(_browse);
         _manualAddActions.Children.Add(_add);
         root.Children.Add(_manualAddActions);
@@ -524,9 +539,10 @@ public sealed class ManualGameLibraryView : UserControl
         SetBusy(true);
         try
         {
-            var result = await GamingOrchestratorClient.Current.AddManualGameAsync(new AddManualGameRequest(_name.Text, _path.Text));
-            if (!result.Succeeded) { _status.Text = T("Could not add the game. Check the name, local .exe path, or whether it is already listed.", "Impossibile aggiungere il gioco. Controlla nome, percorso .exe locale o eventuali duplicati."); return; }
-            _name.Text = ""; _path.Text = "";
+            var result = await GamingOrchestratorClient.Current.AddManualGameAsync(new AddManualGameRequest(_name.Text, _path.Text, _arguments.Text, _workingDirectory.Text,
+                (_kind.SelectedItem as ComboBoxItem)?.Tag as string ?? ManualEntryKinds.Game));
+            if (!result.Succeeded) { _status.Text = T("Could not add the entry. Check the name, local .exe path, arguments, working folder, or whether it is already listed.", "Impossibile aggiungere la voce. Controlla nome, percorso .exe locale, argomenti, cartella di lavoro o eventuali duplicati."); return; }
+            _name.Text = ""; _path.Text = ""; _arguments.Text = ""; _workingDirectory.Text = "";
             await LoadAsync();
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
@@ -1042,9 +1058,13 @@ public sealed class ManualGameLibraryView : UserControl
             var card = new StackPanel { Spacing = _consolePresentation ? 12 : 4, Padding = new Thickness(_consolePresentation ? 20 : 12) };
             card.Children.Add(new TextBlock { Text = game.Name, FontSize = _consolePresentation ? 24 : 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
             card.Children.Add(new TextBlock { Text = game.ExecutablePath, FontSize = _consolePresentation ? 16 : 14, TextWrapping = TextWrapping.Wrap });
+            bool isApplicationEntry = string.Equals(game.Kind, ManualEntryKinds.Application, StringComparison.OrdinalIgnoreCase);
+            string details = (isApplicationEntry ? T("Application", "Applicazione") : T("Game", "Gioco")) +
+                (string.IsNullOrEmpty(game.Arguments) ? "" : " · " + T("with arguments", "con argomenti"));
+            card.Children.Add(new TextBlock { Text = details, FontSize = _consolePresentation ? 16 : 13, Opacity = 0.8 });
             var launch = new Button
             {
-                Content = T("Play", "Gioca"),
+                Content = isApplicationEntry ? T("Start", "Avvia") : T("Play", "Gioca"),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 FontSize = _consolePresentation ? 20 : 14,
                 MinHeight = _consolePresentation ? 56 : 32
@@ -1167,11 +1187,16 @@ public sealed class ManualGameLibraryView : UserControl
         SetBusy(true);
         try
         {
+            bool isApplication = string.Equals(game.Kind, ManualEntryKinds.Application, StringComparison.OrdinalIgnoreCase);
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = T("Launch selected game?", "Avviare il gioco selezionato?"),
-                Content = T(
+                Title = isApplication ? T("Start selected application?", "Avviare l'applicazione selezionata?")
+                                      : T("Launch selected game?", "Avviare il gioco selezionato?"),
+                Content = isApplication
+                    ? T("PaRuX will start only this saved program with its saved arguments. It does not change AI or Gaming state and does not monitor or close the program.",
+                        "PaRuX avvierà solo questo programma salvato con i suoi argomenti. Non modifica lo stato AI o Gaming e non monitora né chiude il programma.")
+                    : T(
                     "PaRuX will pause local AI resources and start only this saved executable. It will not install software, suspend the game, or forcibly close it. Automatic return is enabled only if Windows confirms the owned game process.",
                     "PaRuX sospenderà le risorse AI locali e avvierà solo questo eseguibile salvato. Non installerà software, non sospenderà il gioco né lo chiuderà forzatamente. Il ritorno automatico è disponibile solo quando Windows conferma il processo del gioco avviato."),
                 PrimaryButtonText = T("Launch", "Avvia"),
@@ -1189,6 +1214,12 @@ public sealed class ManualGameLibraryView : UserControl
                 return;
             }
             await UpdateGamingStatusAsync();
+            if (isApplication)
+            {
+                _status.Text = T("Application started. PaRuX does not monitor it and AI state is unchanged.",
+                    "Applicazione avviata. PaRuX non la monitora e lo stato AI resta invariato.");
+                return;
+            }
             _status.Text = launch.StartState == GameStartStates.Verified
                 ? T("Game process verified. Automatic return to AI is monitoring it.",
                     "Processo del gioco verificato. Il ritorno automatico all'AI lo sta monitorando.")

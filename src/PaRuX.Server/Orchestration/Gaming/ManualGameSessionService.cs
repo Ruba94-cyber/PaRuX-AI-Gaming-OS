@@ -63,6 +63,14 @@ public sealed class ManualGameSessionService : IDisposable
             if (_orchestrator.CurrentState != "AiReady")
                 return new(false, false, "Return to AI before starting another manual game.");
 
+            string? launchProblem = ValidateLaunchOptions(game);
+            if (launchProblem != null)
+                return new(false, false, launchProblem);
+
+            // Applications (tools, front-ends, any other program) never change AI or Gaming state.
+            if (string.Equals(game.Kind, ManualEntryKinds.Application, StringComparison.OrdinalIgnoreCase))
+                return LaunchApplication(game);
+
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
                 return new(false, false, "Gaming resources could not be prepared. No game was launched.");
@@ -76,7 +84,8 @@ public sealed class ManualGameSessionService : IDisposable
                 var info = new ProcessStartInfo
                 {
                     FileName = path,
-                    WorkingDirectory = Path.GetDirectoryName(path)!,
+                    WorkingDirectory = string.IsNullOrEmpty(game.WorkingDirectory) ? Path.GetDirectoryName(path)! : game.WorkingDirectory,
+                    Arguments = game.Arguments ?? string.Empty,
                     UseShellExecute = false
                 };
                 process = new Process { StartInfo = info };
@@ -328,6 +337,42 @@ public sealed class ManualGameSessionService : IDisposable
             }
         }
         finally { _launchGate.Release(); }
+    }
+
+    /// <summary>Re-checks the saved options at launch time: the folder may have changed since it was added.</summary>
+    internal static string? ValidateLaunchOptions(ManualGameDto game)
+    {
+        if (!ManualGameLibrary.ValidArguments(game.Arguments ?? string.Empty))
+            return "The saved arguments are not valid.";
+        if (!string.IsNullOrEmpty(game.WorkingDirectory) &&
+            (!Path.IsPathFullyQualified(game.WorkingDirectory) || !ManualGameLibrary.IsSafeDirectory(game.WorkingDirectory)))
+            return "The saved working directory is missing or linked.";
+        return null;
+    }
+
+    private ManualGameLaunchResult LaunchApplication(ManualGameDto game)
+    {
+        try
+        {
+            string path = Path.GetFullPath(game.ExecutablePath);
+            using Process? started = Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                WorkingDirectory = string.IsNullOrEmpty(game.WorkingDirectory) ? Path.GetDirectoryName(path)! : game.WorkingDirectory,
+                Arguments = game.Arguments ?? string.Empty,
+                UseShellExecute = false
+            });
+            // The handle is released without touching the process: PaRuX does not own or monitor applications.
+            return started is null
+                ? new(false, false, "Windows did not start the application.")
+                : new ManualGameLaunchResult(true, false, "Application started. PaRuX does not monitor it or change AI state.")
+                    { StartState = GameStartStates.ProcessStarted };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
+            or InvalidOperationException or ArgumentException or NotSupportedException)
+        {
+            return new(false, false, "The application could not be started.");
+        }
     }
 
     internal static bool VerifyOwnedProcess(Process process, string expectedPath)

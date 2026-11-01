@@ -36,18 +36,55 @@ public sealed class ManualGameLibrary
             !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Enter a name and an absolute local executable path.");
         path = Path.GetFullPath(path);
+        string arguments = request.Arguments?.Trim() ?? "";
+        string workingDirectory = request.WorkingDirectory?.Trim() ?? "";
+        string kind = string.IsNullOrWhiteSpace(request.Kind) ? ManualEntryKinds.Game : request.Kind.Trim().ToLowerInvariant();
+        if (!ManualEntryKinds.IsValid(kind))
+            throw new ArgumentException("The entry type must be 'game' or 'application'.");
+        if (!ValidArguments(arguments))
+            throw new ArgumentException("Arguments must be at most 1024 characters without control characters.");
+        if (workingDirectory.Length > 0)
+        {
+            if (workingDirectory.Length > 1024 || !Path.IsPathFullyQualified(workingDirectory) ||
+                workingDirectory.StartsWith("\\\\", StringComparison.Ordinal))
+                throw new ArgumentException("The working directory must be an absolute local folder.");
+            workingDirectory = Path.GetFullPath(workingDirectory);
+            if (!IsSafeDirectory(workingDirectory))
+                throw new ArgumentException("The working directory does not exist or is a linked folder.");
+        }
         lock (_gate)
         {
             // Prevent lost updates across independent PaRuX Core instances.
             using FileStream lease = AcquireWriteLease();
             List<ManualGameDto> games = Read();
             if (games.Count >= 10000) throw new InvalidOperationException("Library limit reached.");
-            if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase)))
+            // The same program with different arguments is a different entry (e.g. one emulator, many ROMs).
+            if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
+                               string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal)))
                 throw new InvalidOperationException("This executable is already in the library.");
-            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path);
+            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind);
             games.Add(game);
             Write(games);
             return game;
+        }
+    }
+
+    internal static bool ValidArguments(string arguments) =>
+        arguments.Length <= 1024 && !arguments.Any(char.IsControl);
+
+    /// <summary>An existing local folder with no linked (junction/symlink) component.</summary>
+    internal static bool IsSafeDirectory(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path)) return false;
+            for (string? dir = Path.GetFullPath(path); dir != null; dir = Path.GetDirectoryName(dir))
+                if ((File.GetAttributes(dir) & FileAttributes.ReparsePoint) != 0) return false;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
         }
     }
 

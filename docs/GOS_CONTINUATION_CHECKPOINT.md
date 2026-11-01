@@ -111,3 +111,21 @@ Nothing below is WINDOWS VERIFIED through FlaUI/visual checks or HARDWARE VERIFI
 
 ### Reuse policy applied
 MIT/Apache-2.0 sources (Hydra, Playnite, Codex, Unsloth) may be ported with notices in `THIRD_PARTY_NOTICES.md`; GPL/AGPL sources (Nyrna, LocalUncensored) are not copied, only behaviours are reimplemented natively. No third-party code was ported in the increments above.
+
+## Later increments (same session, `main`)
+
+All SOURCE IMPLEMENTED + BUILD PASSED + TESTED (gate 613/613). FlaUI/visual/hardware NOT RUN.
+
+| Track | Increment |
+|---|---|
+| GOS-05/08 | Games workspace `GamingDevicesPanel`: display mode list/apply/confirm/revert with countdown; controller profile load/calibrate/save/reset (`/api/v1/gaming/displays/modes`, client methods) |
+| GOS-09 | Owned game process registration (PID + creation time + image path, rechecked before acting) makes Quick Resume / explicit suspend reachable; `SpeechWarmWorker._process` volatile |
+| GOS-06 | `DiscoveredGameDto.InstallState` (Steam `StateFlags` mapped conservatively, Epic installed, GOG unknown), cross-store duplicate hint and store/state filters (`GameLibraryQuery`), `ManualGameLaunchResult.StartState` (none / requested / process-started / verified) with honest UI text |
+| GOS-06 | Library entries are no longer "games only": `Kind` (game / application), `Arguments`, `WorkingDirectory` like Playnite; applications start as-is and never change AI/Gaming state; old library files load as games |
+| GOS-10 | `tools/validate-license-inventory.ps1` (in the gate; verified to fail on tampered input), five missing notice rows added (Windows ML Runtime recorded as proprietary, not cleared), notice test now has no exemptions; `tools/bench-gaming-transition.ps1` + `GamingTransitionBenchmarkTests` (stub providers: enter p50 ≈ 3.5 ms, exit p50 ≈ 0.7 ms on this machine; orchestration only, NOT a GPU/FPS/VRAM result) |
+
+### Sources deliberately NOT integrated
+Repack sites and launchers distributing unlicensed copies (FitGirl, DODI and similar) are not integrated: they conflict with the project rule against unverified repacks, cracks and DRM bypass. Game acquisition stays with Steam, Epic, GOG, official DRM-free installers and user-chosen local files verified by SHA-256.
+
+### Still open
+GOS-01/02/03 visual identity audit, GOS-04 Console shell mapping + FlaUI, GOS-05 DirectInput/HID and hot-plug, GOS-06 cover art from authorized sources and exit handling for store-owned games, GOS-07 resumable staging copy and install adapters, GOS-08 named display profiles, GOS-10 migration/offline/packaging test categories and real-hardware matrix.

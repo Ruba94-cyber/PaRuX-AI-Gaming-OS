@@ -68,3 +68,4 @@ TestResults/
 
 # Unsloth writes its compiled-kernel cache next to whatever CWD a training/benchmark run used.
 unsloth_compiled_cache/
+bench-results/
