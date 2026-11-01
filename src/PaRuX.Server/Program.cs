@@ -276,6 +276,7 @@ builder.Services.AddSingleton(sp => new WorkloadOrchestrator(
     sp.GetRequiredService<SpeechService>(),
     sp.GetRequiredService<GamingProfileStore>(),
     sp.GetService<ILogger<WorkloadOrchestrator>>(),
+    resumables: sp.GetServices<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(),
     cancelEvaluations: () => sp.GetRequiredService<CandidateEvaluationJobService>().CancelForGaming()));
 builder.Services.AddSingleton<PaRuX.Server.Control.StopAllService>();
 builder.Services.AddMcpServer().WithHttpTransport().WithToolsFromAssembly();

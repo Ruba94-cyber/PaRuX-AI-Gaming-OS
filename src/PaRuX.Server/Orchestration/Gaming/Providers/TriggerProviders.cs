@@ -82,15 +82,26 @@ public sealed class WindowsDisplayTriggerProvider : IGamingTriggerProvider
         }
     }
 
-    private static bool IsGameControllerConnected()
+    // Polled once per second by the orchestrator: look up only the four known names (no full
+    // process-table scan), dispose every handle, and reuse the answer for a few seconds.
+    private static readonly TtlValue<bool> ControllerProcessPresent =
+        new(TimeSpan.FromSeconds(5), ScanForControllerProcesses);
+
+    private static bool IsGameControllerConnected() => ControllerProcessPresent.Get();
+
+    private static bool ScanForControllerProcesses()
     {
         if (!OperatingSystem.IsWindows()) return false;
         try
         {
-            // Check if XInput or XOutput or Sunshine virtual input is active
-            Process[] processes = Process.GetProcesses();
-            string[] controllerProcesses = { "xoutput", "inputmapper", "ds4windows", "steam" };
-            return processes.Any(p => controllerProcesses.Any(cp => p.ProcessName.Equals(cp, StringComparison.OrdinalIgnoreCase)));
+            foreach (string name in new[] { "xoutput", "inputmapper", "ds4windows", "steam" })
+            {
+                Process[] found = Process.GetProcessesByName(name);
+                bool any = found.Length > 0;
+                foreach (Process process in found) process.Dispose();
+                if (any) return true;
+            }
+            return false;
         }
         catch { return false; }
     }
@@ -139,41 +150,56 @@ public sealed class SunshineSessionTriggerProvider : IGamingTriggerProvider
     {
         if (!IsProcessRunning()) return false;
 
-        // Try Sunshine HTTP status endpoint if available
-        try
-        {
-            string url = profile.TriggerSettings.TryGetValue("sunshine_url", out string? customUrl) && !string.IsNullOrWhiteSpace(customUrl)
-                ? customUrl
-                : "http://127.0.0.1:47989/api/config"; // Default Sunshine API port
+        // Sunshine HTTP status endpoint. The URL is user-editable, so only a loopback host is ever
+        // contacted (no SSRF / LAN probing from a profile), and a failed or negative answer is reused
+        // for a few seconds so a once-per-second poll does not become a once-per-second request.
+        string url = profile.TriggerSettings.TryGetValue("sunshine_url", out string? customUrl) && !string.IsNullOrWhiteSpace(customUrl)
+            ? customUrl
+            : DefaultStatusUrl;
+        if (!IsLoopbackHttpUrl(url)) url = DefaultStatusUrl;
 
-            using var response = await HttpClient.GetAsync(url, ct).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
+        bool? cached = null;
+        lock (_httpGate)
+        {
+            if (_lastHttpUrl == url && DateTime.UtcNow - _lastHttpUtc < HttpPollInterval)
+                cached = _lastHttpActive;
+        }
+
+        if (cached is null)
+        {
+            bool active = false;
+            try
             {
-                string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                if (json.Contains("\"session_active\":true", StringComparison.OrdinalIgnoreCase)
-                    || json.Contains("\"status\":\"streaming\"", StringComparison.OrdinalIgnoreCase))
+                using var response = await HttpClient.GetAsync(url, ct).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
                 {
-                    return true;
+                    string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    active = json.Contains("\"session_active\":true", StringComparison.OrdinalIgnoreCase)
+                        || json.Contains("\"status\":\"streaming\"", StringComparison.OrdinalIgnoreCase);
                 }
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch { }
+            lock (_httpGate) { _lastHttpUrl = url; _lastHttpUtc = DateTime.UtcNow; _lastHttpActive = active; }
+            cached = active;
         }
-        catch { }
+        if (cached == true) return true;
 
-        // Fallback: Check if Sunshine child streaming process (e.g. steam, playnite, or game app under Sunshine) is active
-        try
-        {
-            Process[] processes = Process.GetProcessesByName("sunshine");
-            if (processes.Length > 0)
-            {
-                // If Sunshine is running and actively using GPU/network encoder stream port 47998/47999
-                bool isPort47998Active = IsPortInUse(47998) || IsPortInUse(47999) || IsPortInUse(47989);
-                return isPort47998Active;
-            }
-        }
-        catch { }
-
-        return false;
+        // Fallback: Sunshine is running (checked above through the cached process scan) and its stream ports are bound.
+        return IsPortInUse(47998) || IsPortInUse(47999) || IsPortInUse(47989);
     }
+
+    private const string DefaultStatusUrl = "http://127.0.0.1:47989/api/config";
+    private static readonly TimeSpan HttpPollInterval = TimeSpan.FromSeconds(3);
+    private static readonly object _httpGate = new();
+    private static string? _lastHttpUrl;
+    private static DateTime _lastHttpUtc = DateTime.MinValue;
+    private static bool _lastHttpActive;
+
+    internal static bool IsLoopbackHttpUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+        uri.IsLoopback;
 
     /// <summary>The orchestrator polls this once per second; a full process-table scan each time (with undisposed Process objects)
     /// was the largest idle CPU cost in Core. The answer is reused for a few seconds, which only delays noticing a Sunshine

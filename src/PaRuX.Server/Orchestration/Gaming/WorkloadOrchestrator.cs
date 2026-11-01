@@ -188,11 +188,21 @@ public sealed class WorkloadOrchestrator : BackgroundService
         }
     }
 
-    private long ReadSystemTotalVramMib()
-    {
-        try { return _processManager.GetVramMibAsync(CancellationToken.None).GetAwaiter().GetResult(); }
-        catch { return 0; }
-    }
+    // GetStatus is polled by the UI: do not run the (possibly slow nvidia-smi / DXGI) probe on each
+    // call. Reuse the reading for a minute and bound a single probe to 3 s.
+    private long ReadSystemTotalVramMib() => _totalVramCache.Get();
+
+    private TtlValue<long>? _totalVramCacheField;
+    private TtlValue<long> _totalVramCache => LazyInitializer.EnsureInitialized(ref _totalVramCacheField, () =>
+        new TtlValue<long>(TimeSpan.FromMinutes(1), () =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                return _processManager.GetVramMibAsync(cts.Token).GetAwaiter().GetResult();
+            }
+            catch { return 0; }
+        }))!;
 
     /// <summary>
     /// Label for the text model that the gaming hard-off unloads. CPU wording applies only when DXGI

@@ -110,12 +110,16 @@ public sealed class LocalRuntimeService
     /// may start again. The workload orchestrator's Return to AI never did this, so after one use
     /// of Settings > Enter Gaming every AI request stayed refused, even across restarts.
     /// </summary>
-    public async Task EndGamingAsync(CancellationToken cancellationToken)
+    /// <returns>False when the marker was lifted but a local AI process did not stop; the result is never discarded.</returns>
+    public async Task<bool> EndGamingAsync(CancellationToken cancellationToken)
     {
-        await _process.RunActionAsync("GameStop", cancellationToken).ConfigureAwait(false);
+        var result = await _process.RunActionAsync("GameStop", cancellationToken).ConfigureAwait(false);
         // The marker is gone before the guard's next tick notices; a launch that follows immediately
         // must not read a free-VRAM sample taken while the game still held the card.
         InvalidateGpuSamples();
+        if (!result.Success)
+            System.Diagnostics.Trace.TraceWarning("Leaving Gaming Mode: " + result.Message);
+        return result.Success;
     }
 
     /// <returns>True only when every local AI runtime stopped. False means one is still holding resources, so the
