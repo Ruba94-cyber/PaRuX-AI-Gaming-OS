@@ -14,6 +14,7 @@ public sealed class ManualGameSessionService : IDisposable
     private static readonly TimeSpan MinimumMonitoredLifetime = TimeSpan.FromSeconds(5);
     private readonly ManualGameLibrary _library;
     private readonly SteamGameDiscoveryProvider _steam;
+    private readonly GogGameDiscoveryProvider _gog;
     private readonly WorkloadOrchestrator _orchestrator;
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
@@ -22,11 +23,13 @@ public sealed class ManualGameSessionService : IDisposable
     private bool _disposed;
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
-        SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null)
+        SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
+        GogGameDiscoveryProvider? gog = null)
     {
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
+        _gog = gog ?? new GogGameDiscoveryProvider();
         _logger = logger;
     }
 
@@ -194,6 +197,75 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, recovered
                     ? "Steam did not accept the launch. PaRuX returned to AI."
                     : "Steam did not accept the launch and the return-to-AI operation needs attention.");
+            }
+        }
+        finally { _launchGate.Release(); }
+    }
+
+    internal static bool ValidGogGameId(string? gameId) =>
+        !string.IsNullOrWhiteSpace(gameId) && gameId.Length <= 24 && gameId.All(char.IsAsciiDigit);
+
+    /// <summary>
+    /// Handoff to the user's GOG GALAXY client using a freshly rediscovered,
+    /// installed numeric game ID and install directory. No game ownership,
+    /// process monitoring, account/DRM bypass or automatic AI return is claimed.
+    /// </summary>
+    public async Task<ManualGameLaunchResult> LaunchGogAsync(string gameId, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!ValidGogGameId(gameId))
+            return new(false, false, "Invalid GOG game ID.");
+
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_orchestrator.CurrentState != "AiReady")
+                return new(false, false, "Return to AI before starting another game.");
+
+            var installed = await _gog.DiscoverAsync(ct).ConfigureAwait(false);
+            DiscoveredGameDto? game = installed.FirstOrDefault(g =>
+                g.ProviderId == "gog" && g.ProviderGameId == gameId);
+            if (game == null)
+                return new(false, false, "The selected GOG game is not installed locally.");
+
+            string? galaxyExe = GogGalaxyLocator.FindExecutable();
+            if (string.IsNullOrWhiteSpace(galaxyExe) || !File.Exists(galaxyExe))
+                return new(false, false, "GOG GALAXY is not installed in a supported local location.");
+
+            if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
+                return new(false, false, "Gaming resources could not be prepared; GOG was not launched.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var info = new ProcessStartInfo
+                {
+                    FileName = galaxyExe,
+                    WorkingDirectory = Path.GetDirectoryName(galaxyExe)!,
+                    UseShellExecute = false
+                };
+                info.ArgumentList.Add("/command=runGame");
+                info.ArgumentList.Add("/gameId=" + gameId);
+                info.ArgumentList.Add("/path=" + game.InstallDirectory);
+                using var request = new Process { StartInfo = info };
+                if (!request.Start())
+                    throw new InvalidOperationException("GOG GALAXY did not accept the launch request.");
+
+                return new(true, false,
+                    "Launch request sent to GOG GALAXY. Return to AI manually after playing.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.ComponentModel.Win32Exception or InvalidOperationException or
+                OperationCanceledException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                bool recovered;
+                try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
+                catch { recovered = false; }
+                return new(false, false, recovered
+                    ? "GOG GALAXY did not accept the launch. PaRuX returned to AI."
+                    : "GOG GALAXY did not accept the launch and AI recovery needs attention.");
             }
         }
         finally { _launchGate.Release(); }
