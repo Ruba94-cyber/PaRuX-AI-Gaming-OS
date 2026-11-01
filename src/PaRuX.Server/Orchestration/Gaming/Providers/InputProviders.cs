@@ -177,9 +177,26 @@ public sealed class CustomExecutableInputProvider : IInputProvider
         try
         {
             string fullPath = Path.GetFullPath(path);
-            return string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase) &&
-                File.Exists(fullPath) &&
-                (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) == 0;
+            if (!string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase) ||
+                !File.Exists(fullPath) ||
+                (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
+                return false;
+
+            // A regular leaf .exe inside a junction may still resolve to a network
+            // or unrelated target. Reject linked parents and mapped network drives.
+            string? root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrEmpty(root)) return false;
+            DriveType driveType = new DriveInfo(root).DriveType;
+            if (driveType is DriveType.Network or DriveType.NoRootDirectory or DriveType.Unknown)
+                return false;
+
+            for (string? directory = Path.GetDirectoryName(fullPath);
+                 directory != null; directory = Path.GetDirectoryName(directory))
+            {
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                    return false;
+            }
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
             ArgumentException or NotSupportedException or System.Security.SecurityException)
