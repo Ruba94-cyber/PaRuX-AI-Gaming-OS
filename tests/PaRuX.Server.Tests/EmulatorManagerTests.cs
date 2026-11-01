@@ -95,7 +95,7 @@ public sealed class EmulatorManagerTests : IDisposable
     {
         string rom = File_("game.iso");
         var plan = EmulatorCommandBuilder.Build(Def("pcsx2"), rom, true, "-nogui", null);
-        Assert.Equal(new[] { "-batch", "-fullscreen", "-nogui", "--", rom }, plan.ArgumentList);
+        Assert.Equal(new[] { "-batch", "-nogui", "-fullscreen", "--", rom }, plan.ArgumentList);
     }
 
     [Theory]
@@ -158,6 +158,17 @@ public sealed class EmulatorManagerTests : IDisposable
         var plan = EmulatorCommandBuilder.Build(Def("eden"), File_("long.nro"),
             true, null, null, EmulatorLaunchModes.Fullscreen, new string('x', 81));
         Assert.NotNull(plan.Error);
+    }
+
+    [Fact]
+    public void Explicit_windowed_mode_follows_extra_flags_so_it_remains_the_final_display_choice()
+    {
+        var plan = EmulatorCommandBuilder.Build(Def("pcsx2"), File_("override.iso"),
+            true, "-fullscreen -nogui", null, EmulatorLaunchModes.Windowed);
+        Assert.Null(plan.Error);
+        int fullscreen = Array.IndexOf(plan.ArgumentList.ToArray(), "-fullscreen -nogui");
+        int windowed = Array.IndexOf(plan.ArgumentList.ToArray(), "-nofullscreen");
+        Assert.True(fullscreen >= 0 && windowed > fullscreen);
     }
 
     [Fact]
