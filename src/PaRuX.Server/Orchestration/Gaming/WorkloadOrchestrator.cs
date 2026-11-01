@@ -335,14 +335,15 @@ public sealed class WorkloadOrchestrator : BackgroundService
             .ConfigureAwait(false);
         lock (_stateGate)
         {
-            // Accepted automatic exits increment the session version exactly once.
-            // Reject notices from a stale watcher, user exit, or a newer Gaming
-            // session. A failed resource return may be shown, never as success.
-            if (_transitionVersion == observedVersion + 1 &&
-                _state is "AiReady" or "Error")
+            // Only a confirmed successful automatic exit can publish a notice.
+            // A stale callback after an explicit Return can coincidentally see
+            // version+1 and AiReady, but TransitionToAiAsync rejects it (false).
+            // Do not turn that rejection into a misleading "game exited" event.
+            if (restored && _transitionVersion == observedVersion + 1 &&
+                _state == "AiReady" && !_runtime.GamingMode)
             {
                 _lastVerifiedOwnedExitUtc = DateTime.UtcNow;
-                _lastVerifiedOwnedExitRestoredAi = restored && _state == "AiReady" && !_runtime.GamingMode;
+                _lastVerifiedOwnedExitRestoredAi = true;
             }
         }
         return restored;
