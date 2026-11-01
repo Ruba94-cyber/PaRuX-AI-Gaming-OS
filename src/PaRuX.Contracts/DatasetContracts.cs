@@ -77,7 +77,29 @@ public sealed class DatasetCurationReport
     public int RowCount { get; set; }
     public int EmptyFieldCount { get; set; }
     public int DuplicateRowCount { get; set; }
+    /// <summary>Fine-tuning readiness checks (chat template, length distribution, near-duplicates); null on a failed read.</summary>
+    public DatasetQualityReport? Quality { get; set; }
     public string? Error { get; set; }
+}
+
+public sealed record TokenBucket(int UpToEstimatedTokens, int Rows);
+
+/// <summary>Offline checks for fine-tuning preparation. Token figures are estimates (characters / 4), not a model tokenizer.</summary>
+public sealed class DatasetQualityReport
+{
+    public int ConversationRows { get; set; }
+    /// <summary>Issue kind (e.g. "repeated-role", "no-assistant-reply") to number of occurrences.</summary>
+    public Dictionary<string, int> IssueCounts { get; set; } = new();
+    public List<string> IssueSamples { get; set; } = new();
+    public int EstimatedTokensP50 { get; set; }
+    public int EstimatedTokensP95 { get; set; }
+    public int EstimatedTokensMax { get; set; }
+    public List<TokenBucket> EstimatedTokenBuckets { get; set; } = new();
+    /// <summary>Rows above the largest bucket (8192 estimated tokens).</summary>
+    public int OverflowRows { get; set; }
+    public int NearDuplicateRows { get; set; }
+    /// <summary>1-based row numbers of the first near-duplicates found.</summary>
+    public List<int> NearDuplicateSamples { get; set; } = new();
 }
 
 public sealed class DatasetSplitRequest

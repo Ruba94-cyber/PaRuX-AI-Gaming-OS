@@ -64,6 +64,7 @@ public sealed class DatasetCurationService
                 RowCount = rows.Count,
                 EmptyFieldCount = emptyFields,
                 DuplicateRowCount = duplicates,
+                Quality = DatasetQualityAnalyzer.Analyze(rows),
             };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
