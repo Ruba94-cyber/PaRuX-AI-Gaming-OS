@@ -16,6 +16,20 @@ public sealed class GameTitleCatalogTests : IDisposable
 
     private static readonly IReadOnlyDictionary<string, GameTitleState> NoState = new Dictionary<string, GameTitleState>();
 
+    [Theory]
+    [InlineData(false, "AiReady", false, false)]
+    [InlineData(true, "GamingLocal", true, false)]
+    [InlineData(true, "RestoringAi", true, false)]
+    [InlineData(true, "AiReady", true, false)]
+    [InlineData(true, "AiReady", false, true)]
+    public void Console_foreground_refresh_only_accepts_a_confirmed_resource_return(
+        bool previouslyGaming, string state, bool hardOff, bool expected)
+    {
+        var status = new GamingStatusDto { State = state, IsGamingActive = hardOff };
+        Assert.Equal(expected, GameLibraryForegroundReturnPolicy.CanRefreshTitles(previouslyGaming, status));
+        Assert.False(GameLibraryForegroundReturnPolicy.CanRefreshTitles(true, null));
+    }
+
     [Fact]
     public void Same_game_from_store_and_portable_copy_is_one_title_with_two_installations()
     {
