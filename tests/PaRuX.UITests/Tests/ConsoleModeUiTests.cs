@@ -28,6 +28,12 @@ public sealed class ConsoleModeUiTests
             Assert.NotNull(UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem));
             Assert.NotNull(UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button));
             Assert.NotNull(UiWait.ById(app.MainWindow, "GameLibrary_ReturnToAi_Button", ControlType.Button));
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameTitles_Search_TextBox", ControlType.Edit));
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameTitles_Collection_Filter", ControlType.Edit));
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameTitles_Refresh_Button", ControlType.Button));
+            // Controller A/Y opens the existing on-screen keyboard for these fields.
+            // Physical gamepad event forwarding is verified separately on Windows.
+
             UiWait.For(() =>
             {
                 var editor = app.MainWindow.FindFirstDescendant(cf =>
