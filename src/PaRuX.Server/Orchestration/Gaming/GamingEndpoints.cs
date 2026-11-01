@@ -145,8 +145,35 @@ public static class GamingEndpoints
             { return Results.Problem("The managed package could not be safely removed."); }
         }).RequireDesktopOwner();
 
-        app.MapGet("/api/v1/gaming/controllers", () =>
-            Results.Ok(NativeXInputProbe.ReadStates())).RequireDesktopOwner();
+        app.MapGet("/api/v1/gaming/controllers", (ControllerProfileStore profiles) =>
+            Results.Ok(NativeXInputProbe.ReadStates(profiles.Get()))).RequireDesktopOwner();
+
+        app.MapGet("/api/v1/gaming/controller-profile", (ControllerProfileStore profiles) =>
+            Results.Ok(new { profile = profiles.Get(), loadError = profiles.LoadError })).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/controller-profile", (GamingControllerProfile profile, ControllerProfileStore profiles) =>
+        {
+            string? error = profiles.Save(profile);
+            return error is null ? Results.Ok(profiles.Get()) : Results.BadRequest(new { error });
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v1/gaming/controller-profile", (ControllerProfileStore profiles) =>
+        {
+            profiles.Reset();
+            return Results.NoContent();
+        }).RequireDesktopOwner();
+
+        // Explicit, user-started ~0.6 s sampling of resting sticks; refused while Gaming owns the machine.
+        app.MapPost("/api/v1/gaming/controllers/{slot:int}/calibrate", async (
+            int slot, LocalRuntimeService runtime, CancellationToken ct) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Leave Gaming before calibrating a controller." });
+            var result = await NativeXInputProbe.CalibrateAsync(slot, ct);
+            return result is { } r
+                ? Results.Ok(new { leftDeadzone = r.Left, rightDeadzone = r.Right })
+                : Results.NotFound(new { error = "No readable XInput controller in that slot." });
+        }).RequireDesktopOwner();
 
         app.MapGet("/api/v1/gaming/displays", (GamingDisplayTopologyService displays) =>
             Results.Ok(displays.Snapshot())).RequireDesktopOwner();
