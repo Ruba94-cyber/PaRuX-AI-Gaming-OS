@@ -290,6 +290,21 @@ public sealed class ManualGameLibraryView : UserControl
                 FontSize = _consolePresentation ? 18 : 14,
                 TextWrapping = TextWrapping.Wrap
             });
+            if (string.Equals(game.ProviderId, "steam", StringComparison.OrdinalIgnoreCase))
+            {
+                var request = new Button
+                {
+                    Content = T("Play via Steam", "Gioca tramite Steam"),
+                    FontSize = _consolePresentation ? 20 : 14,
+                    MinHeight = _consolePresentation ? 56 : 32,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+                AutomationProperties.SetAutomationId(request, "GameLibrary_Steam_Launch_" + game.ProviderGameId);
+                AutomationProperties.SetName(request,
+                    T("Request Steam to launch ", "Chiedi a Steam di avviare ") + game.Name);
+                request.Click += async (_, _) => await LaunchSteamAsync(game);
+                item.Children.Add(request);
+            }
             _discoveredGames.Children.Add(item);
         }
     }
@@ -348,6 +363,38 @@ public sealed class ManualGameLibraryView : UserControl
         }
     }
 
+    private async Task LaunchSteamAsync(DiscoveredGameDto game)
+    {
+        if (_busy || !string.Equals(game.ProviderId, "steam", StringComparison.OrdinalIgnoreCase)) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Launch using Steam?", "Avviare tramite Steam?"),
+                Content = T(
+                    "PaRuX will prepare Gaming Mode, then ask the installed official Steam client to launch this game. Steam owns the actual game process, so automatic Return to AI is not available. Return manually when finished.",
+                    "PaRuX preparerà la modalità Gaming e chiederà al client Steam ufficiale installato di avviare il gioco. Steam gestisce il processo effettivo: il ritorno automatico all'AI non è disponibile. Torna manualmente al termine."),
+                PrimaryButtonText = T("Request Steam launch", "Richiedi avvio a Steam"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            var result = await GamingOrchestratorClient.Current.RequestSteamGameLaunchAsync(game.ProviderGameId);
+            _discoveryStatus.Text = result.Succeeded && result.Value is { Launched: true }
+                ? T("Launch request sent to Steam. Return to AI manually after playing.",
+                    "Richiesta di avvio inviata a Steam. Torna manualmente all'AI dopo aver giocato.")
+                : T("Steam launch was not accepted. Check the installed client and Gaming state.",
+                    "Avvio tramite Steam non accettato. Controlla il client installato e lo stato Gaming.");
+        }
+        catch (Exception)
+        {
+            _discoveryStatus.Text = T("Could not request Steam launch.", "Impossibile richiedere l'avvio a Steam.");
+        }
+        finally { SetBusy(false); }
+    }
+
     private async Task LaunchAsync(ManualGameDto game)
     {
         if (_busy) return;
@@ -404,5 +451,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
