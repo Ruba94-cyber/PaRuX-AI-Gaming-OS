@@ -16,7 +16,7 @@ public static class EmulatorCommandBuilder
 
     public static EmulatorLaunchPlan Build(
         EmulatorDefinition definition, string romPath, bool fullscreen, string? extraArguments,
-        string? corePath, string? launchMode = null)
+        string? corePath, string? launchMode = null, string? inputProfile = null)
     {
         string mode = launchMode is null
             ? (fullscreen ? EmulatorLaunchModes.Fullscreen : EmulatorLaunchModes.Default)
@@ -29,6 +29,11 @@ public static class EmulatorCommandBuilder
             return Fail("This emulator has no documented command-line option for that display mode.");
         if (string.IsNullOrWhiteSpace(romPath) || romPath.Length > 1024 || romPath.Any(char.IsControl) || !Path.IsPathFullyQualified(romPath))
             return Fail("The game path must be an absolute local path.");
+        string profile = (inputProfile ?? string.Empty).Trim();
+        if (profile.Length > 80 || profile.Any(c => !(char.IsLetterOrDigit(c) || c is ' ' or '_' or '-' or '.')))
+            return Fail("The input profile must be a short name (letters, numbers, spaces, dots, hyphens or underscores).");
+        if (profile.Length > 0 && !string.Equals(definition.Id, "eden", StringComparison.OrdinalIgnoreCase))
+            return Fail("This input profile flag is currently supported only by Eden.");
         string extra = (extraArguments ?? string.Empty).Trim();
         if (extra.Length > MaxExtraArgumentsLength || extra.Any(char.IsControl))
             return Fail("Extra arguments are too long or contain control characters.");
@@ -42,6 +47,9 @@ public static class EmulatorCommandBuilder
         {
             switch (token)
             {
+                case "{input-profile}":
+                    if (profile.Length > 0) { Add("-input-profile"); Add(profile); }
+                    break;
                 case "{rom}": Add(full); break;
                 case "{romdir}": Add(Path.GetDirectoryName(full) ?? string.Empty); break;
                 case "{romname}": Add(Path.GetFileNameWithoutExtension(full)); break;
