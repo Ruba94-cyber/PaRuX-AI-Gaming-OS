@@ -53,6 +53,10 @@ public sealed class AdvancedGameManagementUiTests
             var emulatorDisplayMode = UiWait.ById(
                 app.MainWindow, "Emulators_LaunchMode_ComboBox", ControlType.ComboBox);
             Assert.False(string.IsNullOrWhiteSpace(emulatorDisplayMode.Name));
+            var edenInputProfile = UiWait.ById(
+                app.MainWindow, "Emulators_InputProfile_TextBox", ControlType.Edit);
+            Assert.False(edenInputProfile.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(string.IsNullOrWhiteSpace(edenInputProfile.Name));
             // No real emulator, game file or driver is launched by this check.
 
             var savesSource = UiWait.ById(app.MainWindow, "GameSaves_Source", ControlType.Edit);
