@@ -20,7 +20,8 @@ public sealed class SteamGameDiscoveryProvider
     private const long MaxManifestBytes = 256 * 1024;
 
     public SteamGameDiscoveryProvider()
-        : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam")) { }
+        : this(SteamInstallLocator.FindLibraryRoot() ??
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam")) { }
 
     public SteamGameDiscoveryProvider(string steamRoot) =>
         _steamRoot = Path.GetFullPath(steamRoot);
