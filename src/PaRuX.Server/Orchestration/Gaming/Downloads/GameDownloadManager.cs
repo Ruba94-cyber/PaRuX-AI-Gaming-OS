@@ -331,15 +331,20 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         if (e.ExpectedSha256 is not null && !string.Equals(sha, e.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
             throw new GameDownloadException("The file's SHA-256 does not match the expected value; it was deleted.");
 
-        // Hashing a large installer can compete with a just-started game, even
-        // when the network transfer has already finished. Respect the same hard-off
-        // fence before publishing the completed file.
-        if (_gamingActive()) throw new OperationCanceledException("Gaming interrupted integrity verification.");
-        string finalPath = UniquePath(e.FinalPath);
-        File.Move(e.PartPath, finalPath);
-        ResumeValidator.Delete(e.PartPath);
+        // Publication is the cancellation boundary: serialize the final rename
+        // with Pause/Cancel so a request accepted before the rename cannot later
+        // be overwritten by a spurious Completed state. The move is same-directory
+        // and non-overwriting. A completed move wins; a later Cancel removes only
+        // its history entry, never deletes a user-facing completed file.
         lock (_gate)
         {
+            ct.ThrowIfCancellationRequested();
+            if (_disposed || e.State == GameDownloadStates.Cancelled || e.UserPause || _gamingActive())
+                throw new OperationCanceledException("Download publication was interrupted.");
+            string finalPath = UniquePath(e.FinalPath);
+            ct.ThrowIfCancellationRequested();
+            File.Move(e.PartPath, finalPath);
+            ResumeValidator.Delete(e.PartPath);
             e.IntegrityChecked = e.ExpectedSha256 is not null;
             e.VerifiedSha256 = sha;
             e.State = GameDownloadStates.Completed;
