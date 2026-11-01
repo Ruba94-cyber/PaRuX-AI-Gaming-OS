@@ -54,6 +54,7 @@ public sealed class ManualGameLibraryView : UserControl
     private List<DiscoveredGameDto> _lastDetectedGames = new();
     private int _page;
     private int _detectedPage;
+    private GameLibraryPageWindow _lastDetectedWindow;
     private readonly Button _previous = new();
     private readonly Button _next = new();
     private readonly Button _detectedPrevious = new();
@@ -177,6 +178,8 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_discoveredGames);
         // Console and desktop share the same cached catalog, with bounded
         // page rendering instead of constructing thousands of WinUI controls.
+        _detectedPrevious.IsEnabled = false;
+        _detectedNext.IsEnabled = false;
         _detectedPrevious.Content = T("Previous store games", "Giochi store precedenti");
         _detectedNext.Content = T("Next store games", "Giochi store successivi");
         AutomationProperties.SetAutomationId(_detectedPrevious, "GameLibrary_Store_Previous_Button");
@@ -185,9 +188,12 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetLiveSetting(_detectedRange, AutomationLiveSetting.Polite);
         _detectedPrevious.Click += (_, _) =>
         {
-            if (_detectedPage > 0) { _detectedPage--; RenderDiscoveredGames(); }
+            if (!_busy && _detectedPage > 0) { _detectedPage--; RenderDiscoveredGames(); }
         };
-        _detectedNext.Click += (_, _) => { _detectedPage++; RenderDiscoveredGames(); };
+        _detectedNext.Click += (_, _) =>
+        {
+            if (!_busy && _lastDetectedWindow.HasNext) { _detectedPage++; RenderDiscoveredGames(); }
+        };
         var detectedNavigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         detectedNavigation.Children.Add(_detectedPrevious);
         detectedNavigation.Children.Add(_detectedNext);
@@ -584,7 +590,7 @@ public sealed class ManualGameLibraryView : UserControl
         SetBusy(true);
         _lastDetectedGames.Clear();
         _detectedPage = 0;
-        _discoveredGames.Children.Clear();
+        RenderDiscoveredGames();
         _discoveryStatus.Text = T("Detecting Steam, Epic and GOG installations…",
                                   "Rilevamento installazioni Steam, Epic e GOG…");
         try
@@ -667,8 +673,9 @@ public sealed class ManualGameLibraryView : UserControl
             .ToList();
         GameLibraryPageWindow window = GameLibraryPageWindow.For(matches.Count, _detectedPage);
         _detectedPage = window.Page;
-        _detectedPrevious.IsEnabled = window.HasPrevious;
-        _detectedNext.IsEnabled = window.HasNext;
+        _lastDetectedWindow = window;
+        _detectedPrevious.IsEnabled = !_busy && window.HasPrevious;
+        _detectedNext.IsEnabled = !_busy && window.HasNext;
         _detectedRange.Text = window.Count == 0
             ? T("No matching store games.", "Nessun gioco store corrispondente.")
             : T($"Showing store games {window.FirstVisible}–{window.LastVisible} of {window.Total}.",
@@ -952,5 +959,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
 }
