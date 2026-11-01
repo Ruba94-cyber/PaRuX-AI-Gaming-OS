@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using PaRuX.Contracts;
 using System.Security;
 
 namespace PaRuX.Server.Orchestration.Gaming;
@@ -15,8 +16,7 @@ internal static class EpicGameLaunchProtocol
     private const string Prefix = Scheme + "://apps/";
 
     internal static bool IsValidGameId(string? id) =>
-        !string.IsNullOrWhiteSpace(id) && id.Length <= 200 &&
-        id.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-');
+        GameStoreLaunchIdPolicy.Epic(id);
 
     internal static bool TryBuildInstalledGameUri(string? installedDirectory, out string? uri)
     {
