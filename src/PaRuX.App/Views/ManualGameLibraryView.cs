@@ -16,6 +16,8 @@ namespace PaRuX.Views;
 public sealed class ManualGameLibraryView : UserControl
 {
     private readonly TextBox _name = new();
+    private readonly TextBlock _manualAddIntro = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly StackPanel _manualAddActions = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private readonly TextBox _path = new();
     private readonly StackPanel _games = new() { Spacing = 8 };
     private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -82,7 +84,9 @@ public sealed class ManualGameLibraryView : UserControl
         sessionActions.Children.Add(_returnToAi);
         root.Children.Add(sessionActions);
 
-        root.Children.Add(new TextBlock { Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.", "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata."), TextWrapping = TextWrapping.Wrap });
+        _manualAddIntro.Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.",
+            "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata.");
+        root.Children.Add(_manualAddIntro);
         _name.Header = T("Game name", "Nome del gioco");
         _name.MaxLength = 200;
         AutomationProperties.SetAutomationId(_name, "GameLibrary_Name_TextBox");
@@ -96,8 +100,9 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetAutomationId(_add, "GameLibrary_Add_Button");
         _add.Click += Add_Click;
         root.Children.Add(_name); root.Children.Add(_path);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        buttons.Children.Add(_browse); buttons.Children.Add(_add); root.Children.Add(buttons);
+        _manualAddActions.Children.Add(_browse);
+        _manualAddActions.Children.Add(_add);
+        root.Children.Add(_manualAddActions);
         AutomationProperties.SetAutomationId(_status, "GameLibrary_Status_Text");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         root.Children.Add(_status);
@@ -199,6 +204,13 @@ public sealed class ManualGameLibraryView : UserControl
     {
         _consolePresentation = enabled;
         _root.MaxWidth = enabled ? 1400 : 900;
+        // Console Home is for playing and managing the session. Desktop-only
+        // filesystem editing remains available unchanged in normal mode.
+        Visibility editorVisibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        _manualAddIntro.Visibility = editorVisibility;
+        _name.Visibility = editorVisibility;
+        _path.Visibility = editorVisibility;
+        _manualAddActions.Visibility = editorVisibility;
         _root.Padding = new Thickness(enabled ? 32 : 24);
         _root.Spacing = enabled ? 24 : 16;
         _heading.FontSize = enabled ? 40 : 28;
