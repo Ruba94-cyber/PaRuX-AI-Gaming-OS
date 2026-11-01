@@ -1311,17 +1311,20 @@ public sealed class ManualGameLibraryView : UserControl
                 CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close
             };
+            // Make the optional TV window routing visible BEFORE permission
+            // to launch. A chosen TV does not promise fullscreen routing.
+            var displaySettings = SettingsStore.Current.Data;
+            string? gameDisplayId = !isApplication &&
+                displaySettings.RouteVerifiedWindowedGamesToTv
+                ? displaySettings.ConsoleTargetDisplayId : null;
+            if (!string.IsNullOrWhiteSpace(gameDisplayId))
+                dialog.Content = (dialog.Content?.ToString() ?? string.Empty) + "\n\n" +
+                    T("PaRuX will attempt to place one verified windowed game window on your selected TV. Exclusive fullscreen, child processes and external store launchers are not moved.",
+                      "PaRuX proverà a posizionare una finestra verificata del gioco sulla TV selezionata. Fullscreen esclusivo, processi secondari e launcher esterni non vengono spostati.");
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
-            // Choosing a TV is an explicit user preference for both Desktop
-            // and Console game launches. An independent setting can disable
-            // window placement without changing which TV hosts Console itself.
-            // Only game executables (not tools or store launcher handoffs) route.
-            var displaySettings = SettingsStore.Current.Data;
-            string? gameDisplayId = displaySettings.RouteVerifiedWindowedGamesToTv
-                ? displaySettings.ConsoleTargetDisplayId : null;
             var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(
-                game.Id, displayId: isApplication ? null : gameDisplayId);
+                game.Id, displayId: gameDisplayId);
             if (!result.Succeeded || result.Value is not { Launched: true } launch)
             {
                 _status.Text = T(
