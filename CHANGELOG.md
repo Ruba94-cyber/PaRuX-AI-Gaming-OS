@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-11-01 — Consent-based Steam client launch from unified library (source only)
+
+- The existing Steam discovery cards include **Play via Steam**, with a localized confirmation that prepares Gaming resources and delegates the request to the official installed Steam client. Only locally discovered numeric Steam IDs can be passed as separate `-applaunch` arguments; no manifest-provided command or custom executable is trusted.
+- An explicit desktop-owner API and client use the same serialized Gaming session control as manual games. The response confirms only that the request reached the Steam executable, **not** the game's actual start. Return to AI is manual for Steam-delegated games; launch failure attempts a bounded rollback.
+- Added source regression cases for numeric-ID validation/injection refusal and owner authorization. **.NET, WinUI, xUnit, FlaUI and physical Steam launch tests NOT RUN.**
+
 ### 2026-11-01 — Local GOG catalog, unified store scan and profile data safety (source only)
 
 - Added **read-only GOG discovery** through local Windows registry data (HKLM/HKCU, 32-/64-bit views) with explicit path, ID, directory and enumeration guards. The existing Games workspace and owner-authorized local API now include GOG alongside Steam and Epic.
