@@ -54,7 +54,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly TextBox _emulatorFolder = new();
     private readonly TextBox _emulatorCore = new();
     private readonly TextBox _emulatorExtra = new();
-    private readonly TextBox _emulatorInputProfile = new() { MaxLength = 80 };
+    private readonly TextBox _emulatorInputProfile = new() { MaxLength = 80, IsEnabled = false };
     private readonly ComboBox _emulatorLaunchMode = new() { MinWidth = 230 };
     private readonly StackPanel _emulatorGames = new() { Spacing = 4 };
     private readonly TextBlock _emulatorStatus = new() { TextWrapping = TextWrapping.Wrap };
