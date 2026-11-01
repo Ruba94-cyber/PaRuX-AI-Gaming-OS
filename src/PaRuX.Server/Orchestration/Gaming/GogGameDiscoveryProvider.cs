@@ -45,15 +45,16 @@ public sealed class GogGameDiscoveryProvider
     private static bool IsValidInstallDirectory(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
-            !Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal))
+            path.StartsWith(@"\\", StringComparison.Ordinal))
             return false;
         try
         {
+            if (!Path.IsPathFullyQualified(path)) return false;
             string full = Path.GetFullPath(path);
             return Directory.Exists(full) &&
                 (File.GetAttributes(full) & FileAttributes.ReparsePoint) == 0;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or SecurityException)
         {
             return false;
         }
