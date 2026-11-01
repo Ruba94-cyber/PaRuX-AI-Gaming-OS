@@ -47,6 +47,35 @@ public sealed class GameTitleCatalogTests : IDisposable
         Assert.Empty(GameTitleCatalog.Filter(snapshot, "unknown", null, false, null));
     }
 
+    [Fact]
+    public void Cached_title_edits_reflect_persisted_state_without_rescanning_game_manifests()
+    {
+        var cache = new GameTitleReadCache();
+        var titles = GameTitleCatalog.Build(new[] { Steam("1", "Portal") },
+            new[] { Manual("m1", "Portal") }, NoState);
+        cache.Publish(titles);
+        string key = Assert.Single(titles).TitleKey;
+        cache.ApplyState(key, new GameTitleState
+        {
+            Favorite = true,
+            Tags = new() { "Family" },
+            Collections = new() { "Living Room" },
+            DefaultInstallationId = "steam:1",
+            PlaySeconds = 93
+        });
+        Assert.True(cache.TryRead(out var updated));
+        var title = Assert.Single(updated);
+        Assert.True(title.Favorite);
+        Assert.Equal(new[] { "Family" }, title.Tags);
+        Assert.Equal(new[] { "Living Room" }, title.Collections);
+        Assert.Equal("steam:1", title.DefaultInstallationId);
+        Assert.Equal(93, title.PlaySeconds);
+        // An invalid/stale preference must fall back to a real installation.
+        cache.ApplyState(key, new GameTitleState { DefaultInstallationId = "steam:removed" });
+        Assert.True(cache.TryRead(out var fallback));
+        Assert.Equal("manual:m1", Assert.Single(fallback).DefaultInstallationId);
+    }
+
     [Theory]
     [InlineData(false, "AiReady", false, false)]
     [InlineData(true, "GamingLocal", true, false)]
