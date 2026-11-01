@@ -44,71 +44,107 @@ public sealed class PlayniteLauncherProvider : IGameLauncherProvider
         }
     }
 
+    // A similarly named process does not establish that this is the selected
+    // Playnite installation. Allow Desktop/Fullscreen peers only within the
+    // same checked directory; do not adopt or terminate them.
+    private static bool MatchesSelectedInstallation(string? runningPath, string selectedPath)
+    {
+        if (!CustomExecutableInputProvider.IsSafeHelperPath(runningPath)) return false;
+        string candidate = Path.GetFullPath(runningPath!);
+        if (string.Equals(candidate, Path.GetFullPath(selectedPath), StringComparison.OrdinalIgnoreCase))
+            return true;
+        string runningName = Path.GetFileName(candidate);
+        string selectedName = Path.GetFileName(selectedPath);
+        bool isOfficialPair =
+            (string.Equals(runningName, "Playnite.DesktopApp.exe", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(runningName, "Playnite.FullscreenApp.exe", StringComparison.OrdinalIgnoreCase)) &&
+            (string.Equals(selectedName, "Playnite.DesktopApp.exe", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(selectedName, "Playnite.FullscreenApp.exe", StringComparison.OrdinalIgnoreCase));
+        return isOfficialPair && string.Equals(Path.GetDirectoryName(candidate),
+            Path.GetDirectoryName(Path.GetFullPath(selectedPath)), StringComparison.OrdinalIgnoreCase);
+    }
+
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
         if (ct.IsCancellationRequested) return Task.FromResult(false);
         string? exe = ExecutablePath;
         if (exe == null)
         {
-            // If explicit path is passed in settings, try it
             if (profile.LauncherSettings.TryGetValue("path", out string? customPath) &&
                 CustomExecutableInputProvider.IsSafeHelperPath(customPath))
-            {
                 exe = customPath;
-            }
             else
+                return Task.FromResult(false);
+        }
+
+        lock (_processGate)
+        {
+            try
+            {
+                if (_startedProcess != null)
+                {
+                    if (!_startedProcess.HasExited)
+                        return Task.FromResult(MatchesSelectedInstallation(
+                            _startedProcess.StartInfo.FileName, exe));
+                    _startedProcess.Dispose();
+                    _startedProcess = null;
+                }
+
+                Process[] existing = _getRunningProcesses();
+                bool found = existing.Length > 0;
+                try
+                {
+                    // Do not claim success based on the process name alone.
+                    // If any candidate cannot be verified, fail rather than
+                    // launching a duplicate or taking ownership of it.
+                    foreach (Process process in existing)
+                    {
+                        string? runningPath = process.MainModule?.FileName;
+                        if (!MatchesSelectedInstallation(runningPath, exe))
+                            return Task.FromResult(false);
+                    }
+                }
+                finally
+                {
+                    foreach (Process process in existing) process.Dispose();
+                }
+                if (found) return Task.FromResult(true);
+
+                ct.ThrowIfCancellationRequested();
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    WorkingDirectory = Path.GetDirectoryName(exe)!,
+                    UseShellExecute = true
+                };
+                if (!exe.EndsWith("Playnite.FullscreenApp.exe", StringComparison.OrdinalIgnoreCase))
+                    psi.ArgumentList.Add("--fullscreen");
+
+                Process? launched = Process.Start(psi);
+                if (launched == null) return Task.FromResult(false);
+                _startedProcess = launched;
+                return Task.FromResult(true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.ComponentModel.Win32Exception or InvalidOperationException or
+                OperationCanceledException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
             {
                 return Task.FromResult(false);
             }
-        }
-
-        try
-        {
-            // Check if Playnite is already running
-            Process[] existing = _getRunningProcesses();
-            bool alreadyRunning = existing.Length > 0;
-            foreach (Process process in existing) process.Dispose();
-            if (alreadyRunning) return Task.FromResult(true);
-            ct.ThrowIfCancellationRequested();
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                UseShellExecute = true
-            };
-
-            if (!exe.EndsWith("Playnite.FullscreenApp.exe", StringComparison.OrdinalIgnoreCase))
-            {
-                psi.ArgumentList.Add("--fullscreen");
-            }
-
-            Process? started = Process.Start(psi);
-            if (started == null) return Task.FromResult(false);
-            lock (_processGate)
-            {
-                _startedProcess?.Dispose();
-                _startedProcess = started;
-            }
-            return Task.FromResult(true);
-        }
-        catch
-        {
-            return Task.FromResult(false);
         }
     }
 
     public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        // Returning to AI is NOT permission to close the user's launcher or any games.
-        // Releasing our handle is safe; Playnite stays under the user's control.
-        Process? started;
+        // Never close Playnite or a user's game; only forget our exact handle.
+        // Serialize with Start so a late launch cannot survive Stop unnoticed.
         lock (_processGate)
         {
-            started = _startedProcess;
+            _startedProcess?.Dispose();
             _startedProcess = null;
+            return Task.FromResult(true);
         }
-        started?.Dispose();
-        return Task.FromResult(true);
     }
 }
 

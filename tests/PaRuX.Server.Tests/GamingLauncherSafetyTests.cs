@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Providers;
 using Xunit;
@@ -6,6 +7,30 @@ namespace PaRuX.Server.Tests;
 
 public sealed class GamingLauncherSafetyTests
 {
+    [Fact]
+    public async Task Playnite_rejects_unverified_existing_process_without_launching_another()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-playnite-safety-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string fixture = Path.Combine(root, "Playnite.FullscreenApp.exe");
+            File.WriteAllText(fixture, "Fixture only. Never execute.");
+            var profile = new GamingProfileDto
+            {
+                SessionType = "local",
+                LauncherProvider = "playnite",
+                LauncherSettings = new Dictionary<string, string> { ["path"] = fixture }
+            };
+            // An unrelated process must not be treated as our chosen launcher,
+            // even when the process enumeration seam returns it.
+            var provider = new PlayniteLauncherProvider(() => new[] { Process.GetCurrentProcess() });
+            Assert.False(await provider.LaunchAsync(profile, CancellationToken.None));
+            Assert.Equal("Fixture only. Never execute.", File.ReadAllText(fixture));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Fact]
     public async Task Cancelled_launch_never_invokes_an_external_launcher()
     {
