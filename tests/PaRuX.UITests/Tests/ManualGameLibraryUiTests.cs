@@ -69,7 +69,8 @@ public sealed class ManualGameLibraryUiTests
             new InstallProgressPage(app).Invoke(navigation);
             var refreshGaming = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
             var returnToAi = UiWait.ById(app.MainWindow, "GameLibrary_ReturnToAi_Button", ControlType.Button);
-            Assert.True(refreshGaming.Properties.IsEnabled.ValueOrDefault);
+            UiWait.For(() => refreshGaming.Properties.IsEnabled.ValueOrDefault,
+                "Gaming status refresh finished initial load");
             Assert.False(string.IsNullOrWhiteSpace(returnToAi.Name));
             // In the isolated initial AI-ready state the destructive-equivalent
             // resource transition must not be offered without a known active session.
