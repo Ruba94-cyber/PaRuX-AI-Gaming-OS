@@ -91,4 +91,29 @@ public sealed class GamePackageStageTests
         }
         finally { Directory.Delete(root, true); }
     }
+    [Fact]
+    public async Task Staging_quota_rejects_another_package_without_deleting_existing_one()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string source = Path.Combine(root, "fixture.zip");
+            byte[] bytes = "a small but complete fixture"u8.ToArray();
+            await File.WriteAllBytesAsync(source, bytes);
+            string digest = Convert.ToHexString(SHA256.HashData(bytes));
+            var stage = new GamePackageStageService(
+                () => false, () => CancellationToken.None,
+                Path.Combine(root, "staging"), bytes.Length + 5);
+            var first = await stage.StageAsync(
+                new GamePackageStageRequest(source, digest), CancellationToken.None);
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                stage.StageAsync(new GamePackageStageRequest(source, digest), CancellationToken.None));
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(first.StagedPath));
+            Assert.Single(Directory.GetFiles(Path.GetDirectoryName(first.StagedPath)!, "game-*.zip"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+
 }

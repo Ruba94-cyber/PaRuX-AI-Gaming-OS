@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security;
 using System.Security.Cryptography;
 using PaRuX.Contracts;
@@ -11,6 +12,8 @@ namespace PaRuX.Server.Orchestration.Gaming;
 public sealed class GamePackageStageService
 {
     private const long MaxBytes = 8L * 1024 * 1024 * 1024;
+    private const long MaxStagedBytes = 16L * 1024 * 1024 * 1024;
+    private readonly long _maxTotalStagedBytes;
     private readonly Func<bool> _gamingOrUnready;
     private readonly Func<CancellationToken> _gamingCancellation;
     private readonly string _stagingRoot;
@@ -23,11 +26,14 @@ public sealed class GamePackageStageService
 
     internal GamePackageStageService(
         Func<bool> gamingOrUnready, Func<CancellationToken> gamingCancellation,
-        string stagingRoot)
+        string stagingRoot, long maxTotalStagedBytes = MaxStagedBytes)
     {
         _gamingOrUnready = gamingOrUnready ?? throw new ArgumentNullException(nameof(gamingOrUnready));
         _gamingCancellation = gamingCancellation ?? throw new ArgumentNullException(nameof(gamingCancellation));
         _stagingRoot = Path.GetFullPath(stagingRoot);
+        if (maxTotalStagedBytes <= 0 || maxTotalStagedBytes > MaxStagedBytes)
+            throw new ArgumentOutOfRangeException(nameof(maxTotalStagedBytes));
+        _maxTotalStagedBytes = maxTotalStagedBytes;
     }
 
     internal static bool IsPublisherHash(string? expected)
@@ -52,6 +58,52 @@ public sealed class GamePackageStageService
         }
     }
 
+    private async Task<FileStream> AcquireStagingLeaseAsync(CancellationToken ct)
+    {
+        // Keep a stable lock file: deleting it could let another Core start
+        // a second writer on a newly-created lock inode.
+        string lockPath = Path.Combine(_stagingRoot, ".parux-staging.lock");
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (File.Exists(lockPath) &&
+                (File.GetAttributes(lockPath) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Staging lock is not a regular file.");
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (elapsed.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                await Task.Delay(50, ct);
+            }
+        }
+    }
+
+    private void EnsureCapacity(long sourceBytes)
+    {
+        long used = 0;
+        int entries = 0;
+        foreach (string path in Directory.EnumerateFiles(_stagingRoot))
+        {
+            if (++entries > 256 || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Staging directory exceeds its safe entry limit.");
+            long size = new FileInfo(path).Length;
+            if (size > _maxTotalStagedBytes - used)
+                throw new InvalidDataException("Staging directory exceeds its allowed capacity.");
+            used += size;
+        }
+        if (sourceBytes > _maxTotalStagedBytes - used)
+            throw new InvalidDataException("Not enough staging quota for this package.");
+
+        string root = Path.GetPathRoot(_stagingRoot)!;
+        long available = new DriveInfo(root).AvailableFreeSpace;
+        if (available < sourceBytes + 64L * 1024 * 1024)
+            throw new InvalidDataException("Not enough free space to stage the package.");
+    }
+
     public async Task<GamePackageStageResult> StageAsync(GamePackageStageRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -70,6 +122,8 @@ public sealed class GamePackageStageService
         EnsureLocalUnlinkedDirectory(_stagingRoot);
         Directory.CreateDirectory(_stagingRoot);
         EnsureLocalUnlinkedDirectory(_stagingRoot);
+        using var stagingLease = await AcquireStagingLeaseAsync(ct);
+        EnsureCapacity(bytes);
         string id = Guid.NewGuid().ToString("N");
         string extension = Path.GetExtension(file.Name);
         string temp = Path.Combine(_stagingRoot, ".parux-game-" + id + ".partial");
