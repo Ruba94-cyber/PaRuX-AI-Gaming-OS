@@ -95,6 +95,12 @@ public sealed class ManualGameLibraryUiTests
             var allStores = UiWait.ById(app.MainWindow, "GameLibrary_AllStores_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(allStores.Name));
             Assert.True(allStores.Properties.IsEnabled.ValueOrDefault);
+            var storePrevious = UiWait.ById(app.MainWindow, "GameLibrary_Store_Previous_Button", ControlType.Button);
+            var storeNext = UiWait.ById(app.MainWindow, "GameLibrary_Store_Next_Button", ControlType.Button);
+            Assert.False(storePrevious.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(storeNext.Properties.IsEnabled.ValueOrDefault);
+            var storePage = UiWait.ById(app.MainWindow, "GameLibrary_Store_Page_Status", ControlType.Text);
+            Assert.False(string.IsNullOrWhiteSpace(storePage.Properties.AutomationId.ValueOrDefault));
             var gog = UiWait.ById(app.MainWindow, "GameLibrary_Gog_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(gog.Name));
             Assert.True(gog.Properties.IsEnabled.ValueOrDefault);
