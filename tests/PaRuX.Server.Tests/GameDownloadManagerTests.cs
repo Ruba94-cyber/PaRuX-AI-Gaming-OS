@@ -224,6 +224,47 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Completed_download_can_be_inspected_by_id_only_and_is_rechecked_against_its_original_bytes()
+    {
+        _server.Data = Bytes(64_000);
+        using var manager = Make();
+        var job = manager.Enqueue(new(_server.Url("installer.zip"), _dir,
+            ExpectedSha256: Sha(_server.Data)));
+        await WaitFor(manager, job.Id, GameDownloadStates.Completed);
+        var inspector = new PaRuX.Server.Orchestration.Gaming.GameInstallerInspectionService(() => false);
+        var inspected = await manager.InspectCompletedAsync(job.Id, inspector, CancellationToken.None);
+        Assert.Equal("installer.zip", inspected.FileName);
+        Assert.Equal(Sha(_server.Data), inspected.Sha256);
+        Assert.Contains("not a publisher authenticity check", inspected.Advisory);
+
+        // A previously completed download can be changed by the user or another program;
+        // a fresh hash must not silently attest to the original transfer.
+        await File.AppendAllTextAsync(Path.Combine(_dir, "installer.zip"), "changed");
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            manager.InspectCompletedAsync(job.Id, inspector, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            manager.InspectCompletedAsync("not-a-job", inspector, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Completed_download_inspection_does_not_persist_an_absolute_file_path()
+    {
+        _server.Data = Bytes(16_000);
+        string history = Path.Combine(_dir, "history.json");
+        string id;
+        using (var manager = Make(history: history))
+        {
+            id = manager.Enqueue(new(_server.Url("package.zip"), _dir)).Id;
+            await WaitFor(manager, id, GameDownloadStates.Completed);
+        }
+        Assert.DoesNotContain(_dir, await File.ReadAllTextAsync(history));
+        using var reopened = Make(history: history);
+        var inspector = new PaRuX.Server.Orchestration.Gaming.GameInstallerInspectionService(() => false);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reopened.InspectCompletedAsync(id, inspector, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Without_an_expected_checksum_the_file_is_hashed_but_reported_as_unverified()
     {
         _server.Data = Bytes(50_000);
