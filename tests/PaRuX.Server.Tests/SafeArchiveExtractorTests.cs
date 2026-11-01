@@ -106,6 +106,9 @@ public sealed class SafeArchiveExtractorTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None, maxExtractedBytes: 100));
+        Assert.False(File.Exists(Path.Combine(destination, "payload.bin")));
+        Assert.Empty(Directory.EnumerateFiles(destination, ".parux-extract-*.tmp"));
+
     }
     [Fact]
     public async Task Zip_decoder_rejects_unix_symlink_entry_without_creating_a_file()
@@ -139,6 +142,8 @@ public sealed class SafeArchiveExtractorTests : IDisposable
         await Assert.ThrowsAsync<IOException>(() =>
             SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None));
         Assert.Equal("original", File.ReadAllText(existing));
+        Assert.Empty(Directory.EnumerateFiles(destination, ".parux-extract-*.tmp"));
+
     }
 
     [Fact]
@@ -165,5 +170,19 @@ public sealed class SafeArchiveExtractorTests : IDisposable
             SafeArchiveExtractor.ExtractAsync(archive, Path.Combine(link, "out"), CancellationToken.None));
         Assert.False(Directory.Exists(Path.Combine(outside, "out")));
     }
+
+    [Fact]
+    public async Task Zip_duplicate_entries_preserve_first_complete_file_without_staging_debris()
+    {
+        string archive = Path.Combine(_root, "duplicate-entries.zip");
+        string destination = Path.Combine(_root, "complete-only");
+        WriteZip(archive, ("game.exe", "first"), ("game.exe", "second"));
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            SafeArchiveExtractor.ExtractAsync(archive, destination, CancellationToken.None));
+        Assert.Equal("first", File.ReadAllText(Path.Combine(destination, "game.exe")));
+        Assert.Empty(Directory.EnumerateFiles(destination, ".parux-extract-*.tmp"));
+    }
+
 
 }

@@ -48,6 +48,17 @@ checked again after hashing but cannot prove race-free Windows file identity;
 trusted-publisher validation and live Windows link/volume cases remain acceptance
 gates. No NuGet packages, services, drivers or runtime background workers added.
 
+## Atomic per-entry archive publication (2026-11-01; NOT RUN)
+
+The built-in ZIP reader and existing 7z fallback now share staging of each
+extracted regular file to a random sibling temporary file. The expected output
+name appears only after all bytes pass quota/cancellation and a non-overwriting
+same-directory move succeeds. On a failed entry PaRuX removes its temporary
+file, preserving pre-existing outputs; this is **not** an all-or-nothing archive
+transaction, publisher authenticity check or race-free Windows path guarantee.
+No runtime dependencies were added or removed. ZIP/7z, cancellation, disk full,
+reparse and crash recovery still need a Windows release build and fixture tests.
+
 ## Priority order for eliminating optional runtime dependencies
 
 1. Complete native, controller-first Console navigation, game library and session lifecycle with existing WinUI events. Keep no resident gamepad polling/voice worker during games.

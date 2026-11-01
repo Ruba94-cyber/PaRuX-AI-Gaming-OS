@@ -120,26 +120,46 @@ internal static class SafeArchiveExtractor
             return;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        // Extract to a random sibling temp file and expose the final name only
+        // after the entire entry passed quota and cancellation checks. Failed
+        // writes or duplicate archive entries must not leave a runnable partial
+        // runtime file under the expected name.
+        string parent = Path.GetDirectoryName(outputPath)!;
+        Directory.CreateDirectory(parent);
         EnsureNoReparsePoints(outputPath);
-        await using (Stream input = await openInput(ct))
+        string stagingPath = Path.Combine(parent,
+            ".parux-extract-" + Guid.NewGuid().ToString("N") + ".tmp");
+        try
         {
-            await using var output = new FileStream(
-                outputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-
-            byte[] buffer = new byte[1024 * 1024];
-            int read;
-            while ((read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), ct)) > 0)
+            await using (Stream input = await openInput(ct))
             {
-                long extracted = getExtracted() + read;
-                if (extracted > maxExtractedBytes)
-                    throw new InvalidDataException(
-                        "Archive expanded beyond the safety limit of " + maxExtractedBytes + " bytes.");
-                setExtracted(extracted);
-                await output.WriteAsync(buffer.AsMemory(0, read), ct);
+                await using var output = new FileStream(
+                    stagingPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                    1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                byte[] buffer = new byte[1024 * 1024];
+                int read;
+                while ((read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), ct)) > 0)
+                {
+                    long alreadyExtracted = getExtracted();
+                    if (read > maxExtractedBytes - alreadyExtracted)
+                        throw new InvalidDataException(
+                            "Archive expanded beyond the safety limit of " + maxExtractedBytes + " bytes.");
+                    setExtracted(alreadyExtracted + read);
+                    await output.WriteAsync(buffer.AsMemory(0, read), ct);
+                }
             }
+            ct.ThrowIfCancellationRequested();
+            EnsureNoReparsePoints(outputPath);
+            // Same-directory move does not overwrite an existing destination.
+            // A duplicate entry fails closed and preserves the first file.
+            File.Move(stagingPath, outputPath);
         }
+        finally
+        {
+            try { if (File.Exists(stagingPath)) File.Delete(stagingPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+
     }
     private static void EnsureNoReparsePoints(string path)
     {
