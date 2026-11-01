@@ -598,13 +598,19 @@ public sealed class ManualGameLibraryView : UserControl
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             GamingCallResult<GamingStatusDto> result = await GamingOrchestratorClient.Current.ExitGamingAsync();
-            await UpdateGamingStatusAsync();
-            if (!result.Succeeded)
+            GamingStatusDto? state = await UpdateGamingStatusAsync();
+            // HTTP success alone is not a confirmed state transition. In particular,
+            // a failed status read must never display "AI ready" after a gaming exit.
+            if (!result.Succeeded || !GameLibraryForegroundReturnPolicy.CanRefreshTitles(true, state))
                 _gamingStatus.Text = T("Return to AI could not be confirmed. Inspect Gaming status and retry.",
                     "Ritorno all'AI non confermato. Controlla lo stato Gaming e riprova.");
-            else if (!_returnToAiAvailable)
-                _gamingStatus.Text = T("AI ready. The game was not closed.",
-                    "AI pronta. Il gioco non è stato chiuso.");
+            else
+            {
+                if (_universal is not null)
+                    await _universal.RefreshTitlesAfterGameAsync();
+                _gamingStatus.Text = T("AI resources ready. PaRuX did not close the game.",
+                    "Risorse AI pronte. PaRuX non ha chiuso il gioco.");
+            }
         }
         catch (Exception)
         {
