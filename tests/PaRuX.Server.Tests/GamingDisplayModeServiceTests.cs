@@ -14,14 +14,15 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     private sealed class FakeApi : IDisplayModeApi
     {
         public DisplayModeEntry Now = new(1920, 1080, 60, 32, 0, 0);
-        public bool Accept = true, FailTemporary, FailPermanent, FailRevert;
+        public bool Accept = true, FailTemporary, FailPermanent, FailRevert, FailEnumeration;
         public readonly List<string> Log = new();
         public readonly List<DisplayModeEntry> Modes = new()
         {
             new(1920, 1080, 60, 32, 0, 0), new(3840, 2160, 60, 32, 0, 0), new(3840, 2160, 120, 32, 0, 0),
         };
         public DisplayModeEntry? Current(string id) => Now;
-        public IReadOnlyList<DisplayModeEntry> Supported(string id) => Modes;
+        public IReadOnlyList<DisplayModeEntry> Supported(string id) =>
+            FailEnumeration ? throw new InvalidOperationException("Display temporarily disconnected.") : Modes;
         public bool Test(string id, DisplayModeEntry m) { Log.Add("test"); return Accept; }
         public bool ApplyTemporary(string id, DisplayModeEntry m)
         {
@@ -164,6 +165,22 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
         Assert.Equal(3840, api.Now.Width);
         using var restarted = Make(api);
         Assert.True(restarted.RecoverPendingAfterRestart());
+        Assert.Equal(1920, api.Now.Width);
+        Assert.False(File.Exists(_record));
+    }
+
+    [Fact]
+    public void Driver_enumeration_failure_retains_display_journal_for_later_manual_retry()
+    {
+        var api = new FakeApi();
+        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 60));
+        api.FailEnumeration = true;
+        using var restarted = Make(api);
+        Assert.False(restarted.RecoverPendingAfterRestart());
+        Assert.True(restarted.Status().Pending);
+        Assert.True(File.Exists(_record));
+        api.FailEnumeration = false;
+        Assert.False(restarted.Revert().Pending);
         Assert.Equal(1920, api.Now.Width);
         Assert.False(File.Exists(_record));
     }
