@@ -267,6 +267,16 @@ internal sealed class GameDownloadsPanel : StackPanel
             AutomationProperties.SetAutomationId(inspect, "GameDownloads_Inspect_" + job.Id);
             inspect.Click += async (_, _) => await InspectCompletedAsync(job, inspect);
             actions.Children.Add(inspect);
+            if (job.IntegrityChecked)
+            {
+                var stage = new Button
+                {
+                    Content = T("Stage checked copy", "Prepara copia verificata")
+                };
+                AutomationProperties.SetAutomationId(stage, "GameDownloads_Stage_" + job.Id);
+                stage.Click += async (_, _) => await StageCompletedAsync(job, stage);
+                actions.Children.Add(stage);
+            }
         }
         if (job.State is GameDownloadStates.Queued or GameDownloadStates.Running)
             AddAction(T("Pause", "Pausa"), "Pause", () => GamingOrchestratorClient.Current.PauseGameDownloadAsync(job.Id));
@@ -319,6 +329,41 @@ internal sealed class GameDownloadsPanel : StackPanel
             };
             actions.Children.Add(button);
         }
+    }
+
+    private async Task StageCompletedAsync(GameDownloadDto job, Button button)
+    {
+        if (_busy || Visibility != Visibility.Visible || !job.IntegrityChecked) return;
+        _busy = true;
+        button.IsEnabled = false;
+        try
+        {
+            var confirm = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Prepare a separate managed copy?", "Preparare una copia gestita separata?"),
+                Content = T(
+                    "PaRuX will recheck this downloaded file against the SHA-256 you supplied at download creation and copy it into managed staging. It will not install, unpack or run anything. PaRuX cannot verify whether your checksum came from the publisher.",
+                    "PaRuX verificherà nuovamente il file scaricato rispetto allo SHA-256 inserito all'avvio del download e ne creerà una copia nell'area gestita. Non installerà, estrarrà né eseguirà nulla. PaRuX non può verificare che l'hash provenga dal produttore."),
+                PrimaryButtonText = T("Verify and copy", "Verifica e copia"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            _status.Text = T("Copying to verified staging…", "Preparazione della copia verificata…");
+            var result = await GamingOrchestratorClient.Current.StageCompletedGameDownloadAsync(job.Id);
+            _status.Text = result.Succeeded && result.Value is { } staged
+                ? T($"Managed copy prepared: {staged.FileName}. Nothing was installed or executed.",
+                    $"Copia gestita preparata: {staged.FileName}. Nessuna installazione o esecuzione effettuata.")
+                : T("Staging was refused. Check the original digest, file integrity and free space.",
+                    "Preparazione rifiutata. Controlla l'hash originario, l'integrità e lo spazio disponibile.");
+        }
+        catch (Exception)
+        {
+            _status.Text = T("The checked copy could not be prepared.",
+                             "Impossibile preparare la copia verificata.");
+        }
+        finally { _busy = false; button.IsEnabled = true; }
     }
 
     private async Task InspectCompletedAsync(GameDownloadDto job, Button button)
