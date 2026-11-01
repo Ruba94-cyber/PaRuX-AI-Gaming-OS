@@ -8,7 +8,12 @@ public sealed record GamingDisplayModeDto(
     int Y,
     int Width,
     int Height,
-    int RefreshRateHz);
+    int RefreshRateHz)
+{
+    /// <summary>Optional, Windows-reported friendly device description only.
+    /// No EDID serial, hardware instance ID or registry key is transmitted.</summary>
+    public string? FriendlyName { get; init; }
+}
 
 public sealed record GamingDisplaySnapshotDto(
     bool Supported,
