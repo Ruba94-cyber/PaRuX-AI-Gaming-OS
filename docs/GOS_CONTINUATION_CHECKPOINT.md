@@ -129,3 +129,9 @@ Repack sites and launchers distributing unlicensed copies (FitGirl, DODI and sim
 
 ### Still open
 GOS-01/02/03 visual identity audit, GOS-04 Console shell mapping + FlaUI, GOS-05 DirectInput/HID and hot-plug, GOS-06 cover art from authorized sources and exit handling for store-owned games, GOS-07 resumable staging copy and install adapters, GOS-08 named display profiles, GOS-10 migration/offline/packaging test categories and real-hardware matrix.
+
+### FlaUI acceptance run (Windows 11, interactive desktop, Release app)
+`PARUX_UI_APP_PATH` now defaults to the Release app inside `tools/test-gos-checkpoint.ps1 -RunUi`; `ChatHomeStarterTests.cs` was missing a `using` and the UI test project did not compile before this.
+- **WINDOWS VERIFIED (PASS):** Chat Home starter, Console presenter enter/return, store discovery controls with accessible buttons (3 of 4).
+- **BLOCKED:** `Manual_library_adds_and_removes_entry_without_removing_game_file` asserts the Core is started from `<app>\PaRuX.Server\PaRuX.Server.exe` (the published layout). A plain `dotnet build` leaves the Core in `src\PaRuX.Server\bin\Release`, so the assertion fails before any library behaviour is exercised. It needs the `publish.cmd` layout, not a code change.
+- The new Console shoulder/scroll/search mapping, on-screen keyboard, filters and devices panel have xUnit coverage of their logic only; their on-screen behaviour is NOT RUN.
