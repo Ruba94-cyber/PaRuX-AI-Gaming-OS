@@ -142,13 +142,13 @@ public sealed partial class SettingsView
             };
             panel.Children.Add(roleBox);
             panel.Children.Add(use);
-            ConsoleDisplaysList.Children.Add(new Border
-            {
-                Child = panel,
-                BorderThickness = new Thickness(1),
-                BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["PaRuXBorderBrush"],
-                CornerRadius = new CornerRadius(10)
-            });
+            // Reuse the existing theme's subtle surface; no custom brush keys
+            // or light/dark-specific inline colors are required for this control.
+            var card = new Border { Child = panel, CornerRadius = new CornerRadius(10) };
+            if (Application.Current.Resources.TryGetValue("PaRuXSurfaceSubtleBrush", out object? brush) &&
+                brush is Microsoft.UI.Xaml.Media.Brush surface)
+                card.Background = surface;
+            ConsoleDisplaysList.Children.Add(card);
         }
     }
 }
