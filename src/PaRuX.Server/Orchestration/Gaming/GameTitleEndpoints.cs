@@ -70,9 +70,10 @@ public static class GameTitleEndpoints
                 scanToken.ThrowIfCancellationRequested();
                 if (cache.PublishIfUnchanged(scanRevision, titles))
                     return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
-                // A game import or owner edit raced with this scan. Preserve the newer
-                // snapshot; never replace it with results captured before the change.
-                if (cache.TryRead(out var current))
+                // A game import or owner edit raced with this scan. A newer,
+                // confirmed fresh catalogue is safe to serve; an invalidated old
+                // snapshot is NOT a successful refresh of newly imported games.
+                if (cache.TryReadRecent(out var current))
                     return Results.Ok(GameTitleCatalog.Filter(current, q, source, favorite == true, tag, collection));
                 return Results.Conflict(new { error = "The game catalogue changed during discovery. Refresh it again." });
             }
