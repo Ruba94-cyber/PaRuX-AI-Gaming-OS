@@ -1313,11 +1313,13 @@ public sealed class ManualGameLibraryView : UserControl
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
-            // Only Console/TV launches request window placement. The Core
-            // rechecks that the selected physical display still exists before
-            // entering Gaming; ordinary desktop launches remain unchanged.
-            string? gameDisplayId = _consolePresentation
-                ? SettingsStore.Current.Data.ConsoleTargetDisplayId : null;
+            // Choosing a TV is an explicit user preference for both Desktop
+            // and Console game launches. An independent setting can disable
+            // window placement without changing which TV hosts Console itself.
+            // Only game executables (not tools or store launcher handoffs) route.
+            var displaySettings = SettingsStore.Current.Data;
+            string? gameDisplayId = displaySettings.RouteVerifiedWindowedGamesToTv
+                ? displaySettings.ConsoleTargetDisplayId : null;
             var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(
                 game.Id, displayId: isApplication ? null : gameDisplayId);
             if (!result.Succeeded || result.Value is not { Launched: true } launch)
