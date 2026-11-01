@@ -26,6 +26,11 @@ namespace PaRuX.Models
         public List<ConsoleDisplayAssignment> ConsoleDisplays { get; set; } = new();
         public string ConsoleTargetDisplayId { get; set; } = string.Empty;
 
+        /// <summary>Opt-in through choosing a TV, with an independent off switch:
+        /// attempt to move only verified, directly launched WINDOWED game processes.
+        /// External launchers and exclusive fullscreen are never forcibly rerouted.</summary>
+        public bool RouteVerifiedWindowedGamesToTv { get; set; } = true;
+
         public int ChatRoutingMirrorVersion { get; set; }
         public int CapabilityRoutingMirrorVersion { get; set; }
         public List<ScopedRoutingOverrideDto> CapabilityRoutingOverrides { get; set; } = new List<ScopedRoutingOverrideDto>();
