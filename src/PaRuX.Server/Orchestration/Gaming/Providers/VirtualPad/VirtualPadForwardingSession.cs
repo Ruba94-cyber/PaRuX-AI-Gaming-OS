@@ -1,3 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad;
 
 /// <summary>One explicitly selected physical pad source; its Windows reader is host-owned.</summary>
