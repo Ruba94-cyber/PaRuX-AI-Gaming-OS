@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-01 — Local GOG catalog, unified store scan and profile data safety (source only)
+
+- Added **read-only GOG discovery** through local Windows registry data (HKLM/HKCU, 32-/64-bit views) with explicit path, ID, directory and enumeration guards. The existing Games workspace and owner-authorized local API now include GOG alongside Steam and Epic.
+- Added **Detect all installed games** in the same Desktop/Console UI, combining the three optional storefront scans, filtering/deduplicating results per provider and making partial errors visible without silently dropping the successful catalogs. No scan runs automatically during gameplay.
+- Reworked Gaming profile persistence to write atomic same-directory replacements only after a successful flush. A malformed profile file remains untouched; editing is disabled with an explicit HTTP conflict instead of overwriting or falsely claiming to save. Added source-only tests for corruption, reload, empty valid profiles, authorization and safe scanning.
+- **Source-only changes on main. Build, xUnit, FlaUI, GOG/Steam/Epic installations, controller hardware and full GPU/voice tests NOT RUN.** No installer or licensed-store game launch was added.
+
 ### 2026-10-31 — Opt-in Console / TV presenter in the existing WinUI app (source only)
 
 - Added a reversible fullscreen Console / TV mode to the SAME PaRuX MainWindow. It navigates to the existing Game Library with larger TV-scale controls, restores the maximized desktop presenter on exit, and does not alter display configuration or install any driver.
