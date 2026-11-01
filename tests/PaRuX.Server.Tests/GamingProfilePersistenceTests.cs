@@ -106,6 +106,22 @@ public sealed class GamingProfilePersistenceTests
     }
 
     [Fact]
+    public void Invalid_or_duplicate_profile_names_do_not_change_the_saved_file()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string path = Path.Combine(dir, "profiles.json");
+            var store = new GamingProfileStore(path);
+            string original = File.ReadAllText(path);
+            Assert.Throws<ArgumentException>(() => store.Save(new GamingProfileDto { Name = " " }));
+            Assert.Throws<InvalidOperationException>(() => store.Save(new GamingProfileDto { Name = "Local Console" }));
+            Assert.Equal(original, File.ReadAllText(path));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public void Explicitly_empty_profile_list_is_not_overwritten_by_default_presets()
     {
         string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
