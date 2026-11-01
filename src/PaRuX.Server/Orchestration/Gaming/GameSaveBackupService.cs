@@ -119,16 +119,18 @@ public sealed class GameSaveBackupService
             throw new InvalidDataException("Choose a fully qualified save folder.");
 
         string source = Path.GetFullPath(request.SourceFolder);
-        CheckLocalDirectory(source);
-        CheckLocalDirectory(Path.GetDirectoryName(_root)!);
-        Directory.CreateDirectory(_root);
-        CheckLocalDirectory(_root);
+        // Reject a source inside the managed backup root, OR a source which
+        // contains that root, before creating any directories under the source.
         string prefix = _root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         string sourcePrefix = source.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (source.Equals(_root, StringComparison.OrdinalIgnoreCase) ||
             source.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
             _root.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Backing up the backup directory itself is not allowed.");
+            throw new InvalidDataException("A save source must not contain the managed backup directory.");
+        CheckLocalDirectory(source);
+        CheckLocalDirectory(Path.GetDirectoryName(_root)!);
+        Directory.CreateDirectory(_root);
+        CheckLocalDirectory(_root);
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingToken());
         using var lease = await AcquireLeaseAsync(linked.Token);
