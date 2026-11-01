@@ -63,6 +63,10 @@ namespace PaRuX.Services
         public Task<GamingCallResult<List<DiscoveredGameDto>>> DiscoverEpicGamesAsync(CancellationToken ct = default) =>
             SendAsync<List<DiscoveredGameDto>>(HttpMethod.Get, "/api/v1/gaming/library/discover/epic", null, ct);
 
+        public Task<GamingCallResult<ManualGameLaunchResult>> RequestSteamGameLaunchAsync(string appId, CancellationToken ct = default) =>
+            SendAsync<ManualGameLaunchResult>(HttpMethod.Post,
+                "/api/v1/gaming/library/discover/steam/" + Uri.EscapeDataString(appId) + "/launch", null, ct);
+
         public Task<GamingCallResult<List<DiscoveredGameDto>>> DiscoverGogGamesAsync(CancellationToken ct = default) =>
             SendAsync<List<DiscoveredGameDto>>(HttpMethod.Get, "/api/v1/gaming/library/discover/gog", null, ct);
 
