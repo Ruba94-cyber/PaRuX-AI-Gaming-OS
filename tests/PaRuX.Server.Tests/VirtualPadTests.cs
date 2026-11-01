@@ -332,6 +332,24 @@ public sealed class VirtualPadTests : IDisposable
     }
 
     [Fact]
+    public void Absent_or_invalid_signed_trigger_axis_is_released_not_half_pressed()
+    {
+        var mapping = new PadMapping { LeftTriggerAxis = 12, RightTriggerAxis = 1, TriggerAxisIsSigned = true };
+        var absent = GenericPadMapper.Map(new RawGamepadState(Array.Empty<bool>(), Array.Empty<double>(), -1), mapping);
+        Assert.Equal(0, absent.LeftTrigger);
+        Assert.Equal(0, absent.RightTrigger);
+
+        var malformed = GenericPadMapper.Map(new RawGamepadState(Array.Empty<bool>(), new[] { 0.0, double.NaN }, -1), mapping);
+        Assert.Equal(0, malformed.LeftTrigger);
+        Assert.Equal(0, malformed.RightTrigger);
+
+        var released = GenericPadMapper.Map(new RawGamepadState(Array.Empty<bool>(), new[] { -1.0, -1.0 }, -1),
+            new PadMapping { LeftTriggerAxis = 0, RightTriggerAxis = 1, TriggerAxisIsSigned = true });
+        Assert.Equal(0, released.LeftTrigger);
+        Assert.Equal(0, released.RightTrigger);
+    }
+
+    [Fact]
     public void Missing_or_nonsense_inputs_read_as_centred_and_unpressed()
     {
         var mapping = TypicalLayout();
