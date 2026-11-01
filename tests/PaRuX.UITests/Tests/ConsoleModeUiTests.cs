@@ -32,8 +32,11 @@ public sealed class ConsoleModeUiTests
             {
                 var editor = app.MainWindow.FindFirstDescendant(cf =>
                     cf.ByAutomationId("GameLibrary_Name_TextBox"));
-                return editor == null || editor.Properties.IsOffscreen.ValueOrDefault;
-            }, "Console hides filesystem editing fields");
+                var inspector = app.MainWindow.FindFirstDescendant(cf =>
+                    cf.ByAutomationId("GameLibrary_Installer_Inspect_Button"));
+                return (editor == null || editor.Properties.IsOffscreen.ValueOrDefault)
+                    && (inspector == null || inspector.Properties.IsOffscreen.ValueOrDefault);
+            }, "Console hides filesystem and installer editing actions");
 
             UiWait.ById(app.MainWindow, id, ControlType.Button).Patterns.Invoke.Pattern.Invoke();
             UiWait.For(() => UiWait.ById(app.MainWindow, id, ControlType.Button).Name == desktopName,
