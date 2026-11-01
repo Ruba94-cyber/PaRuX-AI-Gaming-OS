@@ -3,6 +3,19 @@
 Last executive refresh: **2026-11-01**.
 
 
+### 2026-11-01 continuation IV — verified owned-game exit and responsive title catalogue
+
+**Public `main`: SOURCE IMPLEMENTED / NOT RUN.** No parallel branches, CI, external dependencies, user secrets, installed games, ROMs or protected keys changed. No Windows .NET build, xUnit, FlaUI, emulator launch, actual display/controller test or GPU/CPU benchmark ran in this environment.
+
+- **Verified process-exit event:** `GamingStatusDto` now has optional `LastVerifiedOwnedGameExitUtc` and `LastVerifiedOwnedGameExitRestoredAi`. The orchestrator records a notice only when the exact already-verified directly launched process's exit successfully completes the same version's automatic AI transition. A late callback after an explicit manual Return, or an older session, cannot manufacture success; a new Gaming session clears the notice. No game name, executable path, PID or credentials are transmitted. The monitor clears only its own session's registered process identity on completion. A separately spawned game/launcher or ambiguous process identity still requires manual Return and is not assumed to have ended.
+- **Console return UX:** The existing event-driven foreground refresh distinguishes a confirmed owned-game exit from an ordinary window reactivation, shows a localizable result, and otherwise reports only the confirmed AI resource state. No focus-stealing Win32 calls or idle polling were added.
+- **Playnite-style fast browsing:** `GameTitleReadCache` reuses a recent (15-second) read snapshot for searches and collection filters in normal AI mode. Explicit Refresh and confirmed AI return bypass the freshness window. Gaming always uses the in-memory snapshot without Steam/Epic/GOG rescans. Manual library add/remove and emulator import invalidate freshness. Generation-guarded publication refuses to overwrite later imports or favorite/tag edits with an older async scan. An empty snapshot is different from a missing cold-Core snapshot; the latter remains an explicit error. This is **not** a durable cold-restart cache.
+- **Tests authored:** `GamingTransitionConcurrencyTests` exercises confirmed auto exit, stale/explicit exits, notice clearing and owner cleanup. `GameTitleCatalogTests` exercises optional exit-result policy and cache freshness, invalidation and stale scan rejection. No tests executed.
+- **Windows source test gates:** `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GamingTransitionConcurrencyTests|FullyQualifiedName~GameTitleCatalogTests|FullyQualifiedName~ManualGameLaunchTests"`, then full Server/Contracts/App build, `ConsoleModeUiTests` FlaUI, Eden/Dolphin/PCSX2/MAME actual launch/exit, 4K TV/DP/HDMI + eGPU reconnection and controller focus. Observe CPU, disk, RAM, VRAM during Gaming. Real child process handoff, gamepad UI keyboard, fullscreen/windowed options and automatic foreground focus are still **unproven**.
+- **Remaining source gaps:** reliable child-game lifetimes without observing unrelated processes, optional explicit background-to-foreground Home return, cover metadata, installer rollback, input deduplication, true model-tokenizer dataset validation, reviewed agent diffs and app/computer-use E2E. Hardware-only status is NOT claimed.
+
+
+
 ### 2026-11-01 continuation III — Console return, controller search, Gaming-safe catalogue, quantizer failure boundary
 
 **SOURCE IMPLEMENTED on public `main`; Windows .NET build, xUnit, FlaUI, emulator/controller/GPU integration NOT RUN. Not DONE or proven competitive parity.**
