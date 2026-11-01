@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-01 — First-party Console navigation, ZIP decoding and dependency gate (source only)
+
+- Console/TV now uses PaRuX's first-party controller navigation policy for Windows-delivered D-pad and left-thumbstick key events. It keeps native WinUI activation and blocks a B/Escape fullscreen exit during a confirmation action. No XOutput/Playnite/virtual driver/polling worker is required to navigate PaRuX itself; controller mapping for external games is not claimed.
+- Common archive extraction now uses built-in .NET `ZipArchive` for real ZIP files regardless of extension; archive writing still applies PaRuX path checks, cancellation, expanded-size budget, duplicate-file refusal, and additional symbolic-link/reparse-ancestor protections. SharpCompress stays for 7z and other formats, so no direct NuGet package is eliminated in this checkpoint.
+- Added `packaging/dependency-boundaries.json` (19 reviewed direct references across App and Server; 15 unique packages) and a PowerShell/.NET-only offline audit integrated into the existing Windows GOS gate. A read-only independent inventory comparison of the current GitHub sources matched the baseline. See `docs/DEPENDENCY_STRATEGY.md`.
+- **SOURCE IMPLEMENTED; .NET build, PowerShell gate execution, xUnit, WinUI/FlaUI, archive integration, and physical Windows acceptance NOT RUN.** Existing dependency counts are unchanged; this is not a release certificate.
+
 ### 2026-11-01 — Confirmed GOG GALAXY launch handoff (source only)
 
 - The existing Games and fullscreen Console/TV library can explicitly request the already-installed GOG GALAXY client to launch a locally discovered title, only after user confirmation. The desktop-owner API accepts a bounded numeric game ID and revalidates it against current read-only local discovery; PaRuX does not bypass store ownership, change game files or track the game as an owned process.
