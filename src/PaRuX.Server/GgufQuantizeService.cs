@@ -264,7 +264,21 @@ public sealed class GgufQuantizeService
         }
         catch (OperationCanceledException)
         {
-            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } catch (Win32Exception) { }
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch (InvalidOperationException) { }
+            catch (Win32Exception) { }
+            // Kill requests are not completion evidence. Verify the root process has
+            // exited before unblocking Gaming; detached grandchildren require PC tests.
+            try
+            {
+                await process.WaitForExitAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                throw new GgufQuantizeException(
+                    "The quantizer did not confirm process exit after cancellation.");
+            }
             throw;
         }
         process.WaitForExit(); // flush the redirected streams
