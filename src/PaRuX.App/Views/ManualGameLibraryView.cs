@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -34,6 +35,8 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _returnToAi = new();
     private readonly StackPanel _installerSection = new() { Spacing = 8 };
     private readonly Button _inspectInstaller = new();
+    private readonly Button _cancelInspection = new();
+    private CancellationTokenSource? _inspectionCancellation;
     private readonly TextBlock _installerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private bool _installerInspectionAllowed;
     private readonly Button _gamingStatusRefresh = new();
@@ -227,7 +230,20 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetAutomationId(_inspectInstaller, "GameLibrary_Installer_Inspect_Button");
         AutomationProperties.SetName(_inspectInstaller, T("Calculate SHA-256 of a selected game installer", "Calcola SHA-256 di un installer selezionato"));
         _inspectInstaller.Click += async (_, _) => await InspectInstallerAsync();
-        _installerSection.Children.Add(_inspectInstaller);
+        var inspectionActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        inspectionActions.Children.Add(_inspectInstaller);
+        _cancelInspection.Content = T("Cancel inspection", "Annulla controllo");
+        _cancelInspection.IsEnabled = false;
+        AutomationProperties.SetAutomationId(_cancelInspection, "GameLibrary_Installer_Cancel_Button");
+        _cancelInspection.Click += (_, _) =>
+        {
+            if (_inspectionCancellation is null) return;
+            _inspectionCancellation.Cancel();
+            _cancelInspection.IsEnabled = false;
+            _installerStatus.Text = T("Cancelling inspection…", "Annullamento controllo…");
+        };
+        inspectionActions.Children.Add(_cancelInspection);
+        _installerSection.Children.Add(inspectionActions);
         AutomationProperties.SetAutomationId(_installerStatus, "GameLibrary_Installer_Status_Text");
         AutomationProperties.SetLiveSetting(_installerStatus, AutomationLiveSetting.Polite);
         _installerSection.Children.Add(_installerStatus);
@@ -253,6 +269,7 @@ public sealed class ManualGameLibraryView : UserControl
         _path.Visibility = editorVisibility;
         _manualAddActions.Visibility = editorVisibility;
         _installerSection.Visibility = editorVisibility;
+        if (enabled) _inspectionCancellation?.Cancel();
         _root.Padding = new Thickness(enabled ? 32 : 24);
         _root.Spacing = enabled ? 24 : 16;
         _heading.FontSize = enabled ? 40 : 28;
@@ -274,6 +291,8 @@ public sealed class ManualGameLibraryView : UserControl
         _installerStatus.FontSize = bodySize;
         _inspectInstaller.FontSize = bodySize;
         _inspectInstaller.MinHeight = enabled ? 56 : 32;
+        _cancelInspection.FontSize = bodySize;
+        _cancelInspection.MinHeight = enabled ? 56 : 32;
         _gamingStatus.FontSize = bodySize;
         RenderGames(); // focusable actions remain identical, only geometry changes
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
@@ -409,6 +428,7 @@ public sealed class ManualGameLibraryView : UserControl
     {
         if (_busy || !_installerInspectionAllowed) return;
         SetBusy(true);
+        CancellationTokenSource? inspection = null;
         try
         {
             var picker = new FileOpenPicker();
@@ -419,10 +439,13 @@ public sealed class ManualGameLibraryView : UserControl
             var chosen = await picker.PickSingleFileAsync();
             if (chosen is null) return;
 
+            inspection = new CancellationTokenSource();
+            _inspectionCancellation = inspection;
+            _cancelInspection.IsEnabled = true;
             _installerStatus.Text = T("Computing SHA-256; no file is executed…",
                 "Calcolo SHA-256; nessun file viene eseguito…");
             var result = await GamingOrchestratorClient.Current.InspectGameInstallerAsync(
-                new GameInstallerInspectionRequest(chosen.Path));
+                new GameInstallerInspectionRequest(chosen.Path), inspection.Token);
             if (!result.Succeeded || result.Value is null)
             {
                 _installerStatus.Text = T(
@@ -435,12 +458,23 @@ public sealed class ManualGameLibraryView : UserControl
                 $"{result.Value.FileName} · {result.Value.SizeBytes:N0} bytes\nSHA-256: {result.Value.Sha256}\nA matching hash is not a malware or licensing guarantee; check it against the publisher.",
                 $"{result.Value.FileName} · {result.Value.SizeBytes:N0} byte\nSHA-256: {result.Value.Sha256}\nL'hash non garantisce sicurezza o licenza: confrontalo con quello del produttore.");
         }
+        catch (OperationCanceledException) when (inspection?.IsCancellationRequested == true)
+        {
+            _installerStatus.Text = T("Inspection cancelled. No file was modified.",
+                "Controllo annullato. Nessun file è stato modificato.");
+        }
         catch (Exception)
         {
             _installerStatus.Text = T("Local inspection could not be completed.",
                 "Impossibile completare il controllo locale.");
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            _inspectionCancellation = null;
+            inspection?.Dispose();
+            _cancelInspection.IsEnabled = false;
+            SetBusy(false);
+        }
     }
 
     private async Task InspectControllersAsync()
@@ -784,5 +818,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; }
 }
