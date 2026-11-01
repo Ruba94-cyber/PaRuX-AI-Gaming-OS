@@ -24,8 +24,9 @@ public static class GogGalaxyLocator
                     continue;
 
                 string path = Path.GetFullPath(value);
-                if (File.Exists(path) &&
-                    (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0)
+                // Reuse the local executable admission policy: the client must
+                // not reside on a mapped network drive or beneath a junction.
+                if (Providers.CustomExecutableInputProvider.IsSafeHelperPath(path))
                     return path;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
