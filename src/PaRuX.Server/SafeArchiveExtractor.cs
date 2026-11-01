@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using SharpCompress.Archives;
 using SharpCompress.Common;
 using SharpCompress.Readers;
@@ -5,10 +6,9 @@ using SharpCompress.Readers;
 namespace PaRuX.Server;
 
 /// <summary>
-/// Extracts archive entries manually instead of delegating path construction to the archive library.
-/// This keeps traversal checks, duplicate-file behavior, cancellation, and an expanded-size cap under
-/// PaRuX's control. SharpCompress supplies format decoding (including 7z); it never chooses where an
-/// entry is written.
+/// Extracts archives with paths/quotas owned by PaRuX. ZIP uses only the .NET BCL;
+/// SharpCompress is limited to formats such as 7z that the BCL cannot decode.
+/// Neither format decoder chooses file paths or bypasses PaRuX's safety checks.
 /// </summary>
 internal static class SafeArchiveExtractor
 {
@@ -28,23 +28,45 @@ internal static class SafeArchiveExtractor
 
         long extracted = 0;
         byte[] signature = new byte[6];
-        bool isSevenZip;
+        int signatureLength;
         using (FileStream signatureStream = File.OpenRead(archivePath))
-        {
-            isSevenZip = signatureStream.Read(signature, 0, signature.Length) == signature.Length
-                && signature.AsSpan().SequenceEqual(new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C });
-        }
+            signatureLength = signatureStream.Read(signature, 0, signature.Length);
 
-        // Select the forward-only fast path from the archive format, not its filename:
-        // installer tests and user mirrors can provide valid ZIP data under a .7z staging name.
-        if (isSevenZip)
+        bool isSevenZip = signatureLength == 6 &&
+            signature.AsSpan().SequenceEqual(new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C });
+        bool isZip = signatureLength >= 4 &&
+            signature[0] == 0x50 && signature[1] == 0x4B &&
+            (signature[2] == 0x03 && signature[3] == 0x04 ||
+             signature[2] == 0x05 && signature[3] == 0x06 ||
+             signature[2] == 0x07 && signature[3] == 0x08);
+
+        // Sniff the content, not the extension: a genuine ZIP staged as .7z
+        // must still use the dependency-free ZIP reader.
+        if (isZip)
+        {
+            await using var stream = new FileStream(archivePath, FileMode.Open, FileAccess.Read,
+                FileShare.Read, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+            foreach (ZipArchiveEntry entry in zip.Entries)
+            {
+                ct.ThrowIfCancellationRequested();
+                // Do not materialize Unix symlink entries as files or directories.
+                if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+                    throw new InvalidDataException("Symbolic-link entries are not permitted in managed ZIP extraction.");
+                bool isDirectory = entry.FullName.EndsWith("/", StringComparison.Ordinal);
+                await ExtractCurrentEntryAsync(entry.FullName, isDirectory,
+                    _ => Task.FromResult<Stream>(entry.Open()), root, rootPrefix,
+                    ct, maxExtractedBytes, () => extracted, value => extracted = value);
+            }
+        }
+        else if (isSevenZip)
         {
             using var archive = ArchiveFactory.OpenArchive(archivePath);
             using IReader reader = archive.ExtractAllEntries();
             while (reader.MoveToNextEntry())
             {
                 ct.ThrowIfCancellationRequested();
-                await ExtractCurrentEntryAsync(reader.Entry,
+                await ExtractCurrentEntryAsync(reader.Entry.Key ?? string.Empty, reader.Entry.IsDirectory,
                     _ => Task.FromResult<Stream>(reader.OpenEntryStream()), root, rootPrefix,
                     ct, maxExtractedBytes, () => extracted, value => extracted = value);
             }
@@ -55,7 +77,7 @@ internal static class SafeArchiveExtractor
             while (await reader.MoveToNextEntryAsync(ct))
             {
                 ct.ThrowIfCancellationRequested();
-                await ExtractCurrentEntryAsync(reader.Entry,
+                await ExtractCurrentEntryAsync(reader.Entry.Key ?? string.Empty, reader.Entry.IsDirectory,
                     async token => await reader.OpenEntryStreamAsync(token), root,
                     rootPrefix, ct, maxExtractedBytes, () => extracted, value => extracted = value);
             }
@@ -63,7 +85,8 @@ internal static class SafeArchiveExtractor
     }
 
     private static async Task ExtractCurrentEntryAsync(
-        IEntry entry,
+        string key,
+        bool isDirectory,
         Func<CancellationToken, Task<Stream>> openInput,
         string root,
         string rootPrefix,
@@ -72,25 +95,29 @@ internal static class SafeArchiveExtractor
         Func<long> getExtracted,
         Action<long> setExtracted)
     {
-        string key = entry.Key ?? string.Empty;
         if (string.IsNullOrWhiteSpace(key)) return;
 
         string normalized = key.Replace('/', Path.DirectorySeparatorChar)
             .Replace('\\', Path.DirectorySeparatorChar);
-        if (Path.IsPathRooted(normalized) || (OperatingSystem.IsWindows() && normalized.Contains(':')))
+        if (Path.IsPathRooted(normalized) || normalized.Contains(':'))
             throw new InvalidDataException("Archive contains an unsafe path: " + key);
 
         string outputPath = Path.GetFullPath(Path.Combine(root, normalized));
         if (!outputPath.StartsWith(rootPrefix, PaRuXPathSafety.PathComparison))
             throw new InvalidDataException("Archive entry escapes the extraction directory: " + key);
 
-        if (entry.IsDirectory)
+        // Reject an existing symlink/junction in any ancestor, including the
+        // destination itself. This prevents an archive from following a linked
+        // output directory that points outside the extraction root.
+        EnsureNoReparsePoints(outputPath);
+        if (isDirectory)
         {
             Directory.CreateDirectory(outputPath);
             return;
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        EnsureNoReparsePoints(outputPath);
         await using (Stream input = await openInput(ct))
         {
             await using var output = new FileStream(
@@ -110,4 +137,15 @@ internal static class SafeArchiveExtractor
             }
         }
     }
+    private static void EnsureNoReparsePoints(string path)
+    {
+        for (string? candidate = path; candidate != null; candidate = Path.GetDirectoryName(candidate))
+        {
+            // Creating fresh paths is allowed; existing links are not.
+            if ((File.Exists(candidate) || Directory.Exists(candidate)) &&
+                (File.GetAttributes(candidate) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Archive destination includes a linked path.");
+        }
+    }
+
 }
