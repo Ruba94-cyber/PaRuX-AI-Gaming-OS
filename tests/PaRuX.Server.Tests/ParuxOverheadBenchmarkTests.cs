@@ -543,8 +543,14 @@ public sealed class ParuxOverheadBenchmarkTests : IAsyncLifetime
         _output.WriteLine("  bounded decision window : " + ttftP50.ToString("F0") + " ms");
         _output.WriteLine("  no refusal buffering    : " + floorP50.ToString("F0") + " ms");
 
-        Assert.True(ttftP50 < beforeP50 * 0.75,
-            $"The bounded window did not materially improve TTFT ({ttftP50:F0} ms vs {beforeP50:F0} ms).");
+        // The bounded window must help when the character-threshold-only path was actually slow. When that path is
+        // already at the no-buffer floor (nothing left to improve) the window must simply not make it worse.
+        if (beforeP50 - floorP50 > 250)
+            Assert.True(ttftP50 < beforeP50 * 0.75,
+                $"The bounded window did not materially improve TTFT ({ttftP50:F0} ms vs {beforeP50:F0} ms).");
+        else
+            Assert.True(ttftP50 <= beforeP50 * 1.10 + 25,
+                $"The bounded window made TTFT worse ({ttftP50:F0} ms vs {beforeP50:F0} ms).");
         Assert.True(ttftP50 < 3500,
             $"End-to-end TTFT regressed to {ttftP50:F0} ms; this exceeds the 3500 ms bound even after accounting for context preparation.");
         Assert.True(ttftP50 - floorP50 < 250,
