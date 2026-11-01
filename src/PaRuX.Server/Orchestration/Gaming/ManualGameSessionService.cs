@@ -15,6 +15,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly ManualGameLibrary _library;
     private readonly SteamGameDiscoveryProvider _steam;
     private readonly GogGameDiscoveryProvider _gog;
+    private readonly EpicGameDiscoveryProvider _epic;
     private readonly WorkloadOrchestrator _orchestrator;
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
@@ -24,12 +25,13 @@ public sealed class ManualGameSessionService : IDisposable
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
-        GogGameDiscoveryProvider? gog = null)
+        GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null)
     {
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
         _gog = gog ?? new GogGameDiscoveryProvider();
+        _epic = epic ?? new EpicGameDiscoveryProvider();
         _logger = logger;
     }
 
@@ -197,6 +199,73 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, recovered
                     ? "Steam did not accept the launch. PaRuX returned to AI."
                     : "Steam did not accept the launch and the return-to-AI operation needs attention.");
+            }
+        }
+        finally { _launchGate.Release(); }
+    }
+
+    /// <summary>
+    /// Explicit owner-confirmed Epic Games Launcher protocol handoff for a freshly
+    /// rediscovered installed title. Epic documents install-directory URL encoding.
+    /// This opens Windows' user-registered URI handler, not a game .exe; ownership,
+    /// activation success and final game process are NOT observable by PaRuX.
+    /// </summary>
+    public async Task<ManualGameLaunchResult> LaunchEpicAsync(string appId, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!EpicGameLaunchProtocol.IsValidGameId(appId))
+            return new(false, false, "Invalid Epic app ID.");
+
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_orchestrator.CurrentState != "AiReady")
+                return new(false, false, "Return to AI before starting another game.");
+
+            var installed = await _epic.DiscoverAsync(ct).ConfigureAwait(false);
+            DiscoveredGameDto? game = installed.FirstOrDefault(g =>
+                g.ProviderId == "epic" && string.Equals(g.ProviderGameId, appId, StringComparison.Ordinal));
+            if (game == null)
+                return new(false, false, "The selected Epic game is not installed locally.");
+
+            if (!EpicGameLaunchProtocol.TryBuildInstalledGameUri(game.InstallDirectory, out string? launchUri))
+                return new(false, false, "The game's installation directory is no longer available or safe.");
+
+            if (!EpicGameLaunchProtocol.IsWindowsProtocolRegistered())
+                return new(false, false, "The Epic Games Launcher protocol is not registered in Windows.");
+
+            if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
+                return new(false, false, "Gaming resources could not be prepared; Epic was not contacted.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                // Only the URI constructed by PaRuX from a fresh installed-game
+                // manifest reaches the OS. The owner must approve this action in
+                // desktop/TV UI. No shell command, executable or manifest flags.
+                var info = new ProcessStartInfo
+                {
+                    FileName = launchUri!,
+                    UseShellExecute = true
+                };
+                using Process? dispatched = Process.Start(info);
+                // A URI activation may return null if an existing launcher accepts
+                // it; absence of an owned process is not proof of failure/success.
+                return new(true, false,
+                    "Epic protocol activation requested. Windows controls the registered handler; the final game was not verified. Return to AI manually.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.ComponentModel.Win32Exception or InvalidOperationException or
+                OperationCanceledException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                bool recovered;
+                try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
+                catch { recovered = false; }
+                return new(false, false, recovered
+                    ? "Windows did not dispatch the Epic protocol request. PaRuX returned to AI."
+                    : "Windows did not dispatch the Epic request and AI recovery needs attention.");
             }
         }
         finally { _launchGate.Release(); }
