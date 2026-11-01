@@ -13,7 +13,9 @@ public sealed record GgufQuantizeResult(string OutputPath, long OutputBytes, str
 /// <summary>A failure whose message is safe to show to the user (no paths beyond the ones they supplied).</summary>
 public sealed class GgufQuantizeException : Exception
 {
-    public GgufQuantizeException(string message) : base(message) { }
+    public bool ShutdownUnconfirmed { get; }
+    public GgufQuantizeException(string message, bool shutdownUnconfirmed = false) : base(message)
+        => ShutdownUnconfirmed = shutdownUnconfirmed;
 }
 
 /// <summary>
@@ -119,6 +121,13 @@ public sealed class GgufQuantizeService
         {
             TryDelete(partial);
             throw new GgufQuantizeException("Quantization timed out and was stopped.");
+        }
+        catch (GgufQuantizeException ex) when (ex.ShutdownUnconfirmed)
+        {
+            // An unconfirmed external process may still have an open handle on
+            // the partial output. Do not delete/replace it while the process may
+            // still be running. Keep Gaming admission blocked until remediation.
+            throw;
         }
         catch
         {
@@ -281,7 +290,8 @@ public sealed class GgufQuantizeService
             catch (TimeoutException)
             {
                 throw new GgufQuantizeException(
-                    "The quantizer did not confirm process exit after cancellation.");
+                    "The quantizer did not confirm process exit after cancellation.",
+                    shutdownUnconfirmed: true);
             }
             throw;
         }
