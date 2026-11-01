@@ -12,11 +12,65 @@ public sealed class GameTitleReadCache
 {
     private readonly object _gate = new();
     private IReadOnlyList<GameTitleDto>? _snapshot;
+    private DateTime _publishedUtc;
+    private bool _invalidated;
+    private long _revision;
+    public static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(15);
+
+    /// <summary>Monotonic mutation generation. A scan started before an import or
+    /// preference edit cannot publish an obsolete snapshot afterward.</summary>
+    public long Revision { get { lock (_gate) return _revision; } }
+
+    public void Invalidate()
+    {
+        lock (_gate)
+        {
+            _invalidated = true;
+            _revision++;
+        }
+    }
+
+    /// <summary>Only browse the stores once per short foreground window. Explicit
+    /// refresh and a changed manual/emulator library bypass this cheap read.</summary>
+    public bool TryReadRecent(out IReadOnlyList<GameTitleDto> titles)
+    {
+        lock (_gate)
+        {
+            if (_snapshot is not null && !_invalidated &&
+                DateTime.UtcNow - _publishedUtc < FreshFor)
+            {
+                titles = _snapshot;
+                return true;
+            }
+            titles = Array.Empty<GameTitleDto>();
+            return false;
+        }
+    }
+
+    public bool PublishIfUnchanged(long expectedRevision, IReadOnlyList<GameTitleDto> titles)
+    {
+        ArgumentNullException.ThrowIfNull(titles);
+        lock (_gate)
+        {
+            if (_revision != expectedRevision) return false;
+            _snapshot = titles.ToArray();
+            _publishedUtc = DateTime.UtcNow;
+            _invalidated = false;
+            _revision++;
+            return true;
+        }
+    }
 
     public void Publish(IReadOnlyList<GameTitleDto> titles)
     {
         ArgumentNullException.ThrowIfNull(titles);
-        lock (_gate) _snapshot = titles.ToArray();
+        lock (_gate)
+        {
+            _snapshot = titles.ToArray();
+            _publishedUtc = DateTime.UtcNow;
+            _invalidated = false;
+            _revision++;
+        }
     }
 
     /// <summary>Explicit owner edits remain visible in the cached Gaming library
@@ -28,6 +82,7 @@ public sealed class GameTitleReadCache
         lock (_gate)
         {
             if (_snapshot is null) return;
+            _revision++;
             _snapshot = _snapshot.Select(title =>
             {
                 if (!string.Equals(title.TitleKey, titleKey, StringComparison.Ordinal))
