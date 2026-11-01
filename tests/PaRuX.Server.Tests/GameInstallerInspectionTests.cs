@@ -25,7 +25,7 @@ public sealed class GameInstallerInspectionTests
             Assert.Equal("fixture.zip", result.FileName);
             Assert.Equal(3, result.SizeBytes);
             Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", result.Sha256);
-            Assert.Contains("NOT a malware", result.Advisory, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("did not check malware", result.Advisory, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("abc", await File.ReadAllTextAsync(path));
             Assert.Single(Directory.GetFiles(root));
         }
