@@ -130,7 +130,7 @@ public sealed class ManualGameSessionService : IDisposable
     }
 
     internal static bool ValidSteamAppId(string? appId) =>
-        !string.IsNullOrWhiteSpace(appId) && appId.Length <= 15 && appId.All(char.IsAsciiDigit);
+        GameStoreLaunchIdPolicy.Steam(appId);
 
     /// <summary>
     /// Handoff to the user's already-installed official Steam client. The child
@@ -260,7 +260,7 @@ public sealed class ManualGameSessionService : IDisposable
     }
 
     internal static bool ValidGogGameId(string? gameId) =>
-        !string.IsNullOrWhiteSpace(gameId) && gameId.Length <= 24 && gameId.All(char.IsAsciiDigit);
+        GameStoreLaunchIdPolicy.Gog(gameId);
 
     /// <summary>
     /// Handoff to the user's GOG GALAXY client using a freshly rediscovered,
