@@ -71,10 +71,10 @@ public sealed class ManualGameLibrary
             string effectiveFolder = workingDirectory.Length == 0 ? Path.GetDirectoryName(path)! : workingDirectory;
             if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
                                string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal) &&
-                               string.Equals(g.Kind ?? ManualEntryKinds.Game, kind, StringComparison.OrdinalIgnoreCase) &&
+                               string.Equals(string.IsNullOrWhiteSpace(g.Kind) ? ManualEntryKinds.Game : g.Kind, kind, StringComparison.OrdinalIgnoreCase) &&
                                string.Equals(string.IsNullOrWhiteSpace(g.WorkingDirectory)
                                    ? Path.GetDirectoryName(g.ExecutablePath)
-                                   : Path.GetFullPath(g.WorkingDirectory),
+                                   : g.WorkingDirectory,
                                    effectiveFolder, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("This executable and launch configuration are already in the library.");
             var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId);
