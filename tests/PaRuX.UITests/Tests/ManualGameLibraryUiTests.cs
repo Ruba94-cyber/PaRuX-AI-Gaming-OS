@@ -81,6 +81,9 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            var inspector = UiWait.ById(app.MainWindow, "GameLibrary_Installer_Inspect_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(inspector.Name));
+            // Never select or hash a local package in this UI smoke.
             var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(controllers.Name));
             Assert.True(controllers.Properties.IsEnabled.ValueOrDefault);
