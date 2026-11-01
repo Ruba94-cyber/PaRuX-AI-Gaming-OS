@@ -55,6 +55,31 @@ public sealed class ManualGameLibraryTests
     }
 
     [Fact]
+    public void Alternate_working_folders_are_distinct_launch_profiles_and_omitted_folder_is_not()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-profile-variants-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string program = Path.Combine(root, "game.exe");
+            string alternative = Path.Combine(root, "alternate");
+            Directory.CreateDirectory(alternative);
+            var library = new ManualGameLibrary(Path.Combine(root, "library.json"));
+            library.Add(new("Home", program));
+            // Explicitly writing the implied executable directory must not create a duplicate.
+            Assert.Throws<InvalidOperationException>(() =>
+                library.Add(new("Same", program, WorkingDirectory: root)));
+            library.Add(new("Portable alternate", program, WorkingDirectory: alternative));
+            library.Add(new("Application shortcut", program, Kind: ManualEntryKinds.Application));
+            var entries = new ManualGameLibrary(Path.Combine(root, "library.json")).List();
+            Assert.Equal(3, entries.Count);
+            Assert.Contains(entries, e => e.WorkingDirectory == alternative);
+            Assert.Contains(entries, e => e.Kind == ManualEntryKinds.Application);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public void Invalid_paths_are_rejected_without_creating_a_library()
     {
         string dir = Path.Combine(Path.GetTempPath(), "parux-games-" + Guid.NewGuid().ToString("N"));
