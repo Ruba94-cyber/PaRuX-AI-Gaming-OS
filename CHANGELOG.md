@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-01 — Read-only Display & Input Hub diagnostics (source-only)
+
+- Added an on-demand **Display & Streaming readiness** check inside the existing Games/Console workspace. The owner-only API reads active Windows monitor geometry, primary display and current reported refresh rate through bounded native Windows calls; it does not write display settings, read monitor serial numbers, or claim HDR/VRR support.
+- Added an on-demand XInput controller diagnostic endpoint and localized UI. Stick axes are normalized with radial deadzones for reporting only; game input is not remapped, recorded or injected, and no driver or continuous polling was added.
+- Serialized Gaming-profile cold start/migrations under the existing cross-process write lease, preventing multiple Core startups from racing default initialization. Added regression sources for monitor normalization, endpoint authorization, analog extremes, deadzones, focused FlaUI reachability and simultaneous profile initialization.
+- **All changes SOURCE IMPLEMENTED on main. No Server/App build, xUnit, FlaUI or physical Windows display/controller tests executed here.** This is not a completed Display Manager or controller mapping subsystem.
+
 ### 2026-11-01 — Consent-based Steam client launch from unified library (source only)
 
 - The existing Steam discovery cards include **Play via Steam**, with a localized confirmation that prepares Gaming resources and delegates the request to the official installed Steam client. Only locally discovered numeric Steam IDs can be passed as separate `-applaunch` arguments; no manifest-provided command or custom executable is trusted.
