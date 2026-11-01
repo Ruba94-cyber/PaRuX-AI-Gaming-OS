@@ -9,7 +9,7 @@ public sealed record EmulatorScanRequest(string EmulatorId, string Folder);
 
 public sealed record EmulatorImportRequest(
     string EmulatorId, string ExecutablePath, List<string> GamePaths, bool Fullscreen, string? ExtraArguments,
-    string? CorePath, string? LaunchMode = null);
+    string? CorePath, string? LaunchMode = null, string? InputProfile = null);
 
 public sealed record EmulatorImportResult(int Added, int Skipped, IReadOnlyList<string> Problems);
 
@@ -89,7 +89,7 @@ public static class EmulatorEndpoints
             { problems.Add($"{label}: not a supported local game file."); continue; }
 
             EmulatorLaunchPlan plan = EmulatorCommandBuilder.Build(definition, game!, request.Fullscreen, request.ExtraArguments,
-                request.CorePath, request.LaunchMode);
+                request.CorePath, request.LaunchMode, request.InputProfile);
             if (plan.Error is not null) { problems.Add($"{label}: {plan.Error}"); continue; }
 
             string title = definition.GameFileNames.Contains(label, StringComparer.OrdinalIgnoreCase)
