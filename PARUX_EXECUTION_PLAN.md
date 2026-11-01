@@ -2,6 +2,21 @@
 
 Last executive refresh: **2026-11-01**.
 
+
+### 2026-11-01 evening continuation — emulator breadth + safer AI GGUF export (SOURCE / NOT RUN)
+
+**Repository:** public `main`. These source changes have not passed .NET build, xUnit, FlaUI or real Windows/TV/hardware acceptance in this environment. Do not mark DONE or claim competitor superiority.
+
+- **Gaming / GOS-11:** Added a separate Eden SDL CLI profile (`eden-cli.exe`, `--game`, `--fullscreen`, `--input-profile`) alongside the existing Eden Qt profile. Extended MAME with documented `-nowindow` (fullscreen) / `-window`, with user extra arguments before the explicit mode so the per-game choice takes precedence; blocked ROM-set basenames beginning with `-` because MAME treats them as options. Extended Cemu's explicit windowed mode to `--fullscreen=false` (from upstream command-line parser). Eden named input profiles now reject special directory names (`.`/`..`). Tests written for all cases. All emulator entries retain `TemplateStatus=unverified`; these documented switches still need **installed-version** acceptance. No false windowed support for Eden/RetroArch/RPCS3.
+- **AI / GGUF quantization:** Local GGUF output refuses pre-existing `.partial` or `.quant.json` sidecars instead of deleting/overwriting user files. Input/output paths reject links and linked directory ancestors and network volumes; manifest uses exclusive `CreateNew`, retaining computed GGUF on a manifest-write failure. Tests written for pre-existing sidecars and linked input/output locations. This is a safety improvement, **not** proven tokenization, training quality, GGUF-conversion completeness or quantization speed. Filesystem checks are still not a race-free Windows handle/volume identity guarantee.
+- **Software acceptance gate:** on an isolated Windows development PC, run `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~EmulatorManagerTests|FullyQualifiedName~GgufQuantizeServiceTests"`, then project build/full server suite and relevant FlaUI. No GitHub Actions. Verify real Eden Qt/CLI, MAME and Cemu flags only against the installed release before marking profiles verified.
+- **Physical Gaming gate:** real game start to fullscreen, gamepad/keyboard/mouse navigation, high-DPI/TV multi-monitor focus, game close to Home without orphan Gaming state, user-selected windowed overrides, video mode rollback, PC sleep/reboot recovery, and XInput/DirectInput duplication without unsigned driver install. Validate on actual Windows hardware; no GPU/frame-time claims without measurement.
+- **AI quality gate:** model fit and VRAM budget, strict local networking, managed runtime setup, GGUF conversion + quantization quality/sha checks, actual tokenizer-aware dataset counts, GPU training/adapter export, Codex-like reviewed diffs/approval/STOP and reliable browser/computer-use recovery. Compare with current Playnite/Hydra/local installers/Unsloth/Locally Uncensored/Codex using reproducible legal corpora and equal hardware. Competitor parity remains TARGET/PARTIAL.
+- **Next software work:** 1) inspect/fix test/build failures; 2) focus-safe emulator return-to-Home and controller-first TV UX, including per-title alternative executables; 3) verified metadata/cover provider and owned installer crash/rollback without unauthorized sources or DRM bypass; 4) robust tokenizer/convert/adapters and agent review UX; 5) unbiased performance, multi-GPU and 4K gaming/AI benchmarks. Preserve Gaming hard-off, voice OFF while playing, consent and user data.
+
+CLI evidence: https://github.com/UzuCore/eden/blob/master/docs/user/CommandLine.md ; https://github.com/mamedev/mame/blob/master/docs/source/commandline/commandline-all.rst ; https://github.com/cemu-project/Cemu/blob/main/src/config/LaunchSettings.cpp .
+
+
 ### 2026-11-01 continuation — emulator TV launch modes, display recovery, AI + Gaming competitor parity
 
 **Code status: SOURCE IMPLEMENTED on public `main`; new builds/xUnit/FlaUI/HARDWARE acceptance NOT RUN.** This section supersedes older incomplete emulator-mode and display-recovery notes lower in this historical plan; it does not mark any remaining tracks DONE.
