@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-01 — Opt-in local game installer SHA-256 preflight (source only)
+
+- Added a **desktop-only** package inspection action in the existing Games workspace. It accepts an explicitly selected local .exe/.msi/.msix/.zip/.7z/.rar/.iso, reads at most 8 GiB through an asynchronous stream and returns filename, size and SHA-256 without downloading, extracting, modifying, running or installing anything.
+- The Core rejects hashing during Gaming or AI-recovery states and cancels a running hash through the pre-existing Gaming cancellation token. The Windows UI has a cancel button, a separate bounded HTTP budget, and cancels inspection upon navigation away, window hiding or Console mode entry. The action is hidden from TV Console.
+- The UI makes clear that a hash is not a signature, malware verdict, publisher/ownership check or license validation. The owner-only API and source-only xUnit/FlaUI checks are included in `tools/test-gos-checkpoint.ps1`.
+- **SOURCE IMPLEMENTED / NOT RUN.** Local Windows build, xUnit, FlaUI, actual multi-GB hashing, cancellation, game FPS impact and security review remain pending. Safe official download/install workflows are still incomplete.
+
 ### 2026-11-01 — Console Home return to AI, Steam relocations and safer input gating (source only)
 
 - The existing desktop/TV Games home now exposes the live, on-request AI/Gaming state and a clearly labeled **Return to AI** action with a confirmation that leaves the external game running. The Core status also detects a persisted Gaming hard-off after a restart, so the recovery control remains available even if the new orchestrator reports AiReady in memory. No resident polling service was introduced.
