@@ -48,6 +48,10 @@ public sealed class WorkloadOrchestrator : BackgroundService
     /// <summary>When the current gaming session began; only processes started after it can be "the game".</summary>
     private DateTime? _sessionStartedUtc;
     private string? _lastErrorMessage;
+    // An optional UI notice, not a game-process discovery mechanism. Never attach
+    // an old verified exit to a newer session; cleared on the next Gaming entry.
+    private DateTime? _lastVerifiedOwnedExitUtc;
+    private bool? _lastVerifiedOwnedExitRestoredAi;
 
     private int? _suspendedProcessId;
     private string? _suspendedProcessName;
@@ -188,7 +192,9 @@ public sealed class WorkloadOrchestrator : BackgroundService
                 SuspendedAiWorkloads = _suspendedAiWorkloads.ToList(),
                 CanQuickResume = _suspendedProcessId.HasValue && _suspendedProcessId > 0,
                 Message = _lastErrorMessage ?? GetStateDescription(_state),
-                LastStateChangeUtc = _lastStateChangeUtc
+                LastStateChangeUtc = _lastStateChangeUtc,
+                LastVerifiedOwnedGameExitUtc = _lastVerifiedOwnedExitUtc,
+                LastVerifiedOwnedGameExitRestoredAi = _lastVerifiedOwnedExitRestoredAi
             };
         }
     }
@@ -323,8 +329,24 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
     /// <summary>Only the exact manual session version may be auto-closed on process exit.
     /// A late process notification cannot exit a newer manual, local or remote session.</summary>
-    internal Task<bool> ExitManualGameSessionAfterProcessExitAsync(long observedVersion, CancellationToken ct) =>
-        TransitionToAiAsync(userInitiated: false, ct, observedVersion);
+    internal async Task<bool> ExitManualGameSessionAfterProcessExitAsync(long observedVersion, CancellationToken ct)
+    {
+        bool restored = await TransitionToAiAsync(userInitiated: false, ct, observedVersion)
+            .ConfigureAwait(false);
+        lock (_stateGate)
+        {
+            // Accepted automatic exits increment the session version exactly once.
+            // Reject notices from a stale watcher, user exit, or a newer Gaming
+            // session. A failed resource return may be shown, never as success.
+            if (_transitionVersion == observedVersion + 1 &&
+                _state is "AiReady" or "Error")
+            {
+                _lastVerifiedOwnedExitUtc = DateTime.UtcNow;
+                _lastVerifiedOwnedExitRestoredAi = restored && _state == "AiReady" && !_runtime.GamingMode;
+            }
+        }
+        return restored;
+    }
 
     public async Task<bool> EnterGamingSessionAsync(string? profileName = null, CancellationToken ct = default)
     {
@@ -439,6 +461,8 @@ public sealed class WorkloadOrchestrator : BackgroundService
             // No new launch while an exit, error recovery or suspended session is unresolved.
             if (_state != "AiReady" || _runtime.GamingMode) return false;
             _transitionVersion++;
+            _lastVerifiedOwnedExitUtc = null;
+            _lastVerifiedOwnedExitRestoredAi = null;
             SetState("EnteringGaming");
             _sessionStartedUtc = DateTime.UtcNow;
             _activeProfile = profile;
@@ -928,6 +952,14 @@ public sealed class WorkloadOrchestrator : BackgroundService
     internal void ClearOwnedGameProcess()
     {
         lock (_stateGate) _ownedGame = null;
+    }
+
+    /// <summary>Only the session which registered a process may forget it.
+    /// A late cleanup from an older watcher never clears the next game's owner.</summary>
+    internal void ClearOwnedGameProcess(long sessionVersion)
+    {
+        lock (_stateGate)
+            if (_ownedGame?.SessionVersion == sessionVersion) _ownedGame = null;
     }
 
     /// <summary>Pure identity rule: same PID alone is not enough (PIDs are reused), the creation time
