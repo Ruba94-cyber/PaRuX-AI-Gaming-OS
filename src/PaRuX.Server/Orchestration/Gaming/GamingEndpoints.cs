@@ -30,6 +30,15 @@ public static class GamingEndpoints
             { return Results.Problem("Epic installation metadata could not be read."); }
         }).RequireDesktopOwner();
 
+        // Explicitly authorized handoff to the official Steam client. No command
+        // arguments or executable paths are accepted from the HTTP caller.
+        app.MapPost("/api/v1/gaming/library/discover/steam/{id}/launch", async (
+            string id, ManualGameSessionService sessions, CancellationToken ct) =>
+        {
+            ManualGameLaunchResult result = await sessions.LaunchSteamAsync(id, ct);
+            return result.Launched ? Results.Ok(result) : Results.Conflict(result);
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/library/discover/gog", async (GogGameDiscoveryProvider provider, CancellationToken ct) =>
         {
             try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
