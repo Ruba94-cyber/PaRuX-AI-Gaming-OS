@@ -145,7 +145,7 @@ public static class DatasetQualityAnalyzer
             }
             string? type = StringProperty(part, "type");
             string? segment = StringProperty(part, "text");
-            if (segment is not null && type is "text" or "input_text" or "output_text")
+            if (segment is not null && (type is "text" or "input_text" or "output_text"))
                 text.Append(segment).Append(' ');
             else
                 nonText = true;
