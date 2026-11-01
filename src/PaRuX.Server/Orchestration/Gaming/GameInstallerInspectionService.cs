@@ -30,25 +30,8 @@ public sealed class GameInstallerInspectionService
         _gamingCancellation = gamingCancellation ?? (() => CancellationToken.None);
     }
 
-    internal static bool ValidLocalPackagePath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
-            path.StartsWith(@"\\", StringComparison.Ordinal))
-            return false;
-
-        try
-        {
-            return SupportedExtensions.Contains(Path.GetExtension(path)) &&
-                Path.IsPathFullyQualified(path) && Path.GetFullPath(path) == path &&
-                File.Exists(path) &&
-                (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
-            ArgumentException or NotSupportedException or SecurityException)
-        {
-            return false;
-        }
-    }
+    internal static bool ValidLocalPackagePath(string? path) =>
+        GamingLocalFileSafetyPolicy.IsSafeRegularFile(path, SupportedExtensions);
 
     public async Task<GameInstallerInspectionResult> InspectAsync(
         GameInstallerInspectionRequest request, CancellationToken ct)
@@ -82,7 +65,8 @@ public sealed class GameInstallerInspectionService
             throw new InvalidOperationException("Gaming began while inspecting; no result is accepted.");
 
         original.Refresh();
-        if (source.Length != bytes || original.Length != bytes || original.LastWriteTimeUtc != written)
+        if (source.Length != bytes || original.Length != bytes || original.LastWriteTimeUtc != written ||
+            !ValidLocalPackagePath(original.FullName))
             throw new InvalidDataException("The installer changed during inspection; select the completed file again.");
 
         return new GameInstallerInspectionResult(

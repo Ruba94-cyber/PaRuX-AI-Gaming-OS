@@ -37,6 +37,17 @@ pretext to replace proven security-critical libraries with unreviewed copies.
 - `tools/test-gos-checkpoint.ps1` runs this gate before its Windows builds. This is **not** a vulnerability scanner, a dependency-tree/SBOM transitive check, license validation of every NuGet package, a build result or a performance benchmark.
 - Update `THIRD_PARTY_NOTICES.md`, `OPEN_SOURCE_PROVENANCE.md`, lock/provenance assets and release evidence whenever an external component is added, replaced or redistributed.
 
+## Shared local-file admission (2026-11-01; source only, NOT RUN)
+
+The Steam client locator, first-party input-helper launch and selected installer
+preflight now use one PaRuX-owned local-file policy. It rejects UNC/device paths,
+relative or noncanonical paths, network-mapped drives, linked file/directory
+ancestors and unsupported extensions. The installer is still **read-only SHA-256
+inspection**, not an installer or malware/licensing verification. The policy is
+checked again after hashing but cannot prove race-free Windows file identity;
+trusted-publisher validation and live Windows link/volume cases remain acceptance
+gates. No NuGet packages, services, drivers or runtime background workers added.
+
 ## Priority order for eliminating optional runtime dependencies
 
 1. Complete native, controller-first Console navigation, game library and session lifecycle with existing WinUI events. Keep no resident gamepad polling/voice worker during games.

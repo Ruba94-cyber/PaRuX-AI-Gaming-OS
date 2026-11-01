@@ -200,44 +200,8 @@ public sealed class CustomExecutableInputProvider : IInputProvider
 
     // A custom input helper is always an explicitly selected, local Windows
     // executable. Do not follow shortcuts, network paths or reparse-point files.
-    internal static bool IsSafeHelperPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
-            path.StartsWith(@"\\", StringComparison.Ordinal) ||
-            !Path.IsPathFullyQualified(path) ||
-            !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        try
-        {
-            string fullPath = Path.GetFullPath(path);
-            if (!string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase) ||
-                !File.Exists(fullPath) ||
-                (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
-                return false;
-
-            // A regular leaf .exe inside a junction may still resolve to a network
-            // or unrelated target. Reject linked parents and mapped network drives.
-            string? root = Path.GetPathRoot(fullPath);
-            if (string.IsNullOrEmpty(root)) return false;
-            DriveType driveType = new DriveInfo(root).DriveType;
-            if (driveType is DriveType.Network or DriveType.NoRootDirectory or DriveType.Unknown)
-                return false;
-
-            for (string? directory = Path.GetDirectoryName(fullPath);
-                 directory != null; directory = Path.GetDirectoryName(directory))
-            {
-                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
-                    return false;
-            }
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
-            ArgumentException or NotSupportedException or System.Security.SecurityException)
-        {
-            return false;
-        }
-    }
+    internal static bool IsSafeHelperPath(string? path) =>
+        GamingLocalFileSafetyPolicy.IsSafeRegularFile(path, GamingLocalFileSafetyPolicy.ExecutableExtensions);
 
     public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
     {

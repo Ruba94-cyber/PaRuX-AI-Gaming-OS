@@ -24,8 +24,8 @@ public static class SteamInstallLocator
                     !string.Equals(Path.GetFileName(value), "steam.exe", StringComparison.OrdinalIgnoreCase))
                     continue;
                 string path = Path.GetFullPath(value);
-                if (File.Exists(path) &&
-                    (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0)
+                if (GamingLocalFileSafetyPolicy.IsSafeRegularFile(
+                    path, GamingLocalFileSafetyPolicy.ExecutableExtensions))
                     return path;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
