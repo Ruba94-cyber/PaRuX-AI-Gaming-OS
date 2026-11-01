@@ -312,6 +312,31 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Retroarch_import_refuses_missing_or_linked_core_before_any_game_library_mutation()
+    {
+        string exe = File_("retroarch/retroarch.exe", 20_000);
+        string rom = File_("games/Homebrew.nes");
+        string outside = File_("cores/real_libretro.dll");
+        var library = new ManualGameLibrary(Path.Combine(_root, "cores.json"));
+        var missing = EmulatorEndpoints.Import(new("retroarch", exe, new() { rom },
+            true, null, Path.Combine(_root, "cores/missing_libretro.dll")), library);
+        Assert.Equal(0, missing.Added);
+        Assert.Empty(library.List());
+
+        string link = Path.Combine(_root, "cores", "linked_libretro.dll");
+        try { File.CreateSymbolicLink(link, outside); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return;
+        }
+        var linked = EmulatorEndpoints.Import(new("retroarch", exe, new() { rom },
+            true, null, link), library);
+        Assert.Equal(0, linked.Added);
+        Assert.Empty(library.List());
+        Assert.True(File.Exists(outside));
+    }
+
+    [Fact]
     public void Import_batch_size_is_bounded()
     {
         string exe = File_("emu3/eden.exe", 20_000);
