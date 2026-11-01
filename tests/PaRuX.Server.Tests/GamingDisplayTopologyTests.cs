@@ -77,6 +77,22 @@ public sealed class GamingDisplayTopologyTests
     }
 
     [Fact]
+    public void Friendly_monitor_label_is_bounded_and_never_contains_control_characters()
+    {
+        Assert.Equal("Samsung OLED TV", GamingDisplayTopologyService.SafeFriendlyName(" Samsung OLED TV "));
+        Assert.Null(GamingDisplayTopologyService.SafeFriendlyName(""));
+        Assert.Null(GamingDisplayTopologyService.SafeFriendlyName("TV\r\nInjection"));
+        Assert.Null(GamingDisplayTopologyService.SafeFriendlyName(new string('X', 101)));
+
+        var display = new GamingDisplayModeDto("DISPLAY2", false, 1920, 0, 3840, 2160, 120)
+        {
+            FriendlyName = "Samsung OLED TV"
+        };
+        Assert.Equal("Samsung OLED TV",
+            Assert.Single(GamingDisplayTopologyService.NormalizeModes(new[] { display })).FriendlyName);
+    }
+
+    [Fact]
     public void TV_disconnection_or_role_change_fails_closed_without_automatic_monitor_rerouting()
     {
         var connected = new GamingDisplaySnapshotDto(true, "Connected", new[]
