@@ -82,6 +82,15 @@ public sealed partial class MainWindow
             return;
         }
 
+        switch (action)
+        {
+            case ConsoleNavigationAction.PreviousPage: GameLibraryPage.PageLists(-1); e.Handled = true; return;
+            case ConsoleNavigationAction.NextPage: GameLibraryPage.PageLists(1); e.Handled = true; return;
+            case ConsoleNavigationAction.ScrollUp: GameLibraryPage.ScrollBy(-240); e.Handled = true; return;
+            case ConsoleNavigationAction.ScrollDown: GameLibraryPage.ScrollBy(240); e.Handled = true; return;
+            case ConsoleNavigationAction.FocusSearch: GameLibraryPage.FocusSearch(); e.Handled = true; return;
+        }
+
         // The existing native WinUI control handles Accept (A/Enter) and text
         // input. Don't synthesize clicks: that would risk duplicate launches.
         FocusNavigationDirection? direction = action switch

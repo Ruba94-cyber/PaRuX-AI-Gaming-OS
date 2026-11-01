@@ -12,7 +12,12 @@ public enum ConsoleNavigationAction
     Up,
     Down,
     Left,
-    Right
+    Right,
+    PreviousPage,
+    NextPage,
+    ScrollUp,
+    ScrollDown,
+    FocusSearch
 }
 
 public static class ConsoleNavigationPolicy
@@ -28,6 +33,13 @@ public static class ConsoleNavigationPolicy
             204 or 212 => ConsoleNavigationAction.Down,
             205 or 214 => ConsoleNavigationAction.Left,
             206 or 213 => ConsoleNavigationAction.Right,
+            // Paging, right-stick scrolling and search are suspended while a command or dialog is active,
+            // so a held or repeated button cannot start a second page change or reopen a field on top of it.
+            200 when !interactionBusy => ConsoleNavigationAction.PreviousPage, // Left shoulder
+            199 when !interactionBusy => ConsoleNavigationAction.NextPage,     // Right shoulder
+            215 when !interactionBusy => ConsoleNavigationAction.ScrollUp,     // Right stick up
+            216 when !interactionBusy => ConsoleNavigationAction.ScrollDown,   // Right stick down
+            207 when !interactionBusy => ConsoleNavigationAction.FocusSearch,  // Menu
             _ => ConsoleNavigationAction.None
         };
     }

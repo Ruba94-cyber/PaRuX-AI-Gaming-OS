@@ -33,7 +33,6 @@ public sealed class ConsoleNavigationPolicyTests
     [InlineData(195)] // Gamepad A: native WinUI control owns activation
     [InlineData(13)]  // Enter
     [InlineData(197)] // Gamepad X
-    [InlineData(207)] // Menu button
     [InlineData(0)]
     public void Unmapped_keys_cannot_trigger_synthetic_selection_or_exit(int keyCode)
     {
@@ -45,5 +44,17 @@ public sealed class ConsoleNavigationPolicyTests
     {
         Assert.Equal(ConsoleNavigationAction.Right,
             ConsoleNavigationPolicy.Resolve(213, interactionBusy: true));
+    }
+
+    [Theory]
+    [InlineData(200, ConsoleNavigationAction.PreviousPage)]
+    [InlineData(199, ConsoleNavigationAction.NextPage)]
+    [InlineData(215, ConsoleNavigationAction.ScrollUp)]
+    [InlineData(216, ConsoleNavigationAction.ScrollDown)]
+    [InlineData(207, ConsoleNavigationAction.FocusSearch)]
+    public void Shoulders_right_stick_and_menu_work_only_when_idle(int keyCode, ConsoleNavigationAction expected)
+    {
+        Assert.Equal(expected, ConsoleNavigationPolicy.Resolve(keyCode, interactionBusy: false));
+        Assert.Equal(ConsoleNavigationAction.None, ConsoleNavigationPolicy.Resolve(keyCode, interactionBusy: true));
     }
 }

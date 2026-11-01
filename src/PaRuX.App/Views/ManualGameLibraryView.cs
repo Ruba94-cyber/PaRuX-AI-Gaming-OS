@@ -424,6 +424,32 @@ public sealed class ManualGameLibraryView : UserControl
     /// must not tear down the fullscreen presenter beneath that interaction.</summary>
     public bool IsInteractionBusy => _busy;
 
+    /// <summary>Console shoulder buttons: page the manual list, or the store list when the manual list has no further page.</summary>
+    public void PageLists(int delta)
+    {
+        if (_busy) return;
+        if (delta > 0)
+        {
+            if (_next.IsEnabled) { _page++; RenderGames(); }
+            else if (_lastDetectedWindow.HasNext) { _detectedPage++; RenderDiscoveredGames(); }
+        }
+        else
+        {
+            if (_detectedPage > 0) { _detectedPage--; RenderDiscoveredGames(); }
+            else if (_page > 0) { _page--; RenderGames(); }
+        }
+    }
+
+    /// <summary>Console right stick: scroll the page without moving focus.</summary>
+    public void ScrollBy(double pixels)
+    {
+        if (Content is ScrollViewer viewer)
+            viewer.ChangeView(null, Math.Clamp(viewer.VerticalOffset + pixels, 0, viewer.ScrollableHeight), null, disableAnimation: true);
+    }
+
+    /// <summary>Console Menu button: jump to the filter field, where A/Y opens the on-screen keyboard.</summary>
+    public void FocusSearch() => _filter.Focus(FocusState.Programmatic);
+
     /// <summary>Leaving the Games workspace cancels any expensive local hash
     /// before the next workspace resumes interactive AI activity.</summary>
     public void CancelExpensiveWork() => _inspectionCancellation?.Cancel();
