@@ -261,6 +261,13 @@ internal sealed class GameDownloadsPanel : StackPanel
             card.Children.Add(new TextBlock { Text = job.Reason, TextWrapping = TextWrapping.Wrap });
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        if (job.State == GameDownloadStates.Completed)
+        {
+            var inspect = new Button { Content = T("Inspect downloaded package", "Verifica file scaricato") };
+            AutomationProperties.SetAutomationId(inspect, "GameDownloads_Inspect_" + job.Id);
+            inspect.Click += async (_, _) => await InspectCompletedAsync(job, inspect);
+            actions.Children.Add(inspect);
+        }
         if (job.State is GameDownloadStates.Queued or GameDownloadStates.Running)
             AddAction(T("Pause", "Pausa"), "Pause", () => GamingOrchestratorClient.Current.PauseGameDownloadAsync(job.Id));
         if (job.State == GameDownloadStates.Paused)
@@ -312,6 +319,32 @@ internal sealed class GameDownloadsPanel : StackPanel
             };
             actions.Children.Add(button);
         }
+    }
+
+    private async Task InspectCompletedAsync(GameDownloadDto job, Button button)
+    {
+        if (_busy || Visibility != Visibility.Visible) return;
+        _busy = true;
+        button.IsEnabled = false;
+        try
+        {
+            _status.Text = T("Inspecting file bytes without executing the package…",
+                             "Verifica dei byte senza eseguire il pacchetto…");
+            var result = await GamingOrchestratorClient.Current.InspectCompletedGameDownloadAsync(job.Id);
+            if (result.Succeeded && result.Value is { } inspected)
+                _status.Text = T(
+                    $"{inspected.FileName}: SHA-256 {inspected.Sha256}. The file matches the original download, but is not certified safe, licensed or authentic. Compare the hash with an independent publisher source.",
+                    $"{inspected.FileName}: SHA-256 {inspected.Sha256}. Il file corrisponde al download originale, ma non è certificato sicuro, autorizzato o autentico. Confronta l'hash con una fonte indipendente del produttore.");
+            else
+                _status.Text = T(
+                    "Inspection unavailable. Only supported local package formats completed during this PaRuX session can be inspected here. You can still choose a local file in the installer inspection panel.",
+                    "Verifica non disponibile. Qui si possono esaminare solo i formati supportati completati nella sessione PaRuX corrente. Puoi comunque selezionare il file nel pannello di verifica installer.");
+        }
+        catch (Exception)
+        {
+            _status.Text = T("File inspection could not complete.", "Impossibile completare la verifica del file.");
+        }
+        finally { _busy = false; button.IsEnabled = true; }
     }
 
     private static string StateLabel(string state) => state switch
