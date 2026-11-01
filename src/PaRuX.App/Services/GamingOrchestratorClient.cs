@@ -57,6 +57,10 @@ namespace PaRuX.Services
             return list ?? new List<GamingProviderStatusDto>();
         }
 
+        public Task<GamingCallResult<GameInstallerInspectionResult>> InspectGameInstallerAsync(
+            GameInstallerInspectionRequest request, CancellationToken ct = default) =>
+            SendAsync<GameInstallerInspectionResult>(HttpMethod.Post, "/api/v1/gaming/installers/inspect", request, ct);
+
         public Task<GamingCallResult<List<GamingControllerStateDto>>> GetControllersAsync(CancellationToken ct = default) =>
             SendAsync<List<GamingControllerStateDto>>(HttpMethod.Get, "/api/v1/gaming/controllers", null, ct);
 
