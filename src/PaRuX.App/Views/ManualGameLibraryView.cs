@@ -265,11 +265,14 @@ public sealed class ManualGameLibraryView : UserControl
             }
             else
             {
-                _returnToAiAvailable = status.State != "AiReady";
-                _gamingStatus.Text = status.State == "AiReady"
-                    ? T("AI ready · No Gaming session active.", "AI pronta · Nessuna sessione Gaming attiva.")
-                    : T($"Current Gaming state: {status.State}. Return to AI leaves the game running.",
-                        $"Stato Gaming attuale: {status.State}. Tornando all'AI il gioco rimane aperto.");
+                _returnToAiAvailable = status.IsGamingActive || status.State != "AiReady";
+                _gamingStatus.Text = status.State == "AiReady" && status.IsGamingActive
+                    ? T("Gaming resource lock is still active after Core restart. Select Return to AI to recover without closing the game.",
+                        "Il blocco delle risorse Gaming è ancora attivo dopo il riavvio del Core. Seleziona Torna all'AI per recuperare senza chiudere il gioco.")
+                    : status.State == "AiReady"
+                        ? T("AI ready · No Gaming session active.", "AI pronta · Nessuna sessione Gaming attiva.")
+                        : T($"Current Gaming state: {status.State}. Return to AI leaves the game running.",
+                            $"Stato Gaming attuale: {status.State}. Tornando all'AI il gioco rimane aperto.");
             }
         }
         catch (Exception)
