@@ -107,7 +107,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
 
     private (WorkloadOrchestrator Orchestrator, Launcher Launcher, Input Input) MakeOrchestrator(
         bool blockLauncher = false, DeferredTrigger? trigger = null, string sessionType = "local",
-        int gracePeriodSeconds = 30)
+        int gracePeriodSeconds = 30, string inputProviderId = "test-input")
     {
         var store = new GamingProfileStore(Path.Combine(_root, "profiles.json"));
         foreach (GamingProfileDto preset in store.List())
@@ -123,7 +123,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
             SessionType = sessionType,
             GracePeriodSeconds = gracePeriodSeconds,
             LauncherProvider = "test-launcher",
-            InputProvider = "test-input",
+            InputProvider = inputProviderId,
             SuspendProvider = "none",
             QuickResumePolicy = "off"
         });
@@ -133,12 +133,23 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         var runtime = new LocalRuntimeService(new TestHostEnvironment(), process, new ExternalTextProviderService());
         var orchestrator = new WorkloadOrchestrator(
             runtime, process, new MediaJobService(null!), new SpeechService(runtime), store,
-            inputProviders: new IInputProvider[] { input, new NativeInputProvider() },
+            inputProviders: new IInputProvider[] { input, new NativeInputProvider(), new XOutputInputProvider(() => Array.Empty<System.Diagnostics.Process>()) },
             launcherProviders: new IGameLauncherProvider[] { launcher, new NoneLauncherProvider() },
             triggerProviders: trigger == null ? new IGamingTriggerProvider[] { new ManualTriggerProvider() } : new[] { trigger },
             runtimeHealthCheck: _ => Task.FromResult(true),
             restoreRuntimeToReady: _ => Task.CompletedTask);
         return (orchestrator, launcher, input);
+    }
+
+    [Fact]
+    public async Task Unsafe_remote_xoutput_profile_rejects_entry_before_any_provider_start()
+    {
+        var (orchestrator, launcher, input) =
+            MakeOrchestrator(sessionType: "remote", inputProviderId: "xoutput");
+        Assert.False(await orchestrator.EnterGamingSessionAsync("Race test"));
+        Assert.Equal("AiReady", orchestrator.CurrentState);
+        Assert.Equal(0, launcher.Launches);
+        Assert.Equal(0, input.Starts);
     }
 
     [Fact]
