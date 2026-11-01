@@ -42,6 +42,37 @@ public sealed class DatasetQualityAnalyzerTests
     }
 
     [Fact]
+    public void Multimodal_messages_are_not_misreported_as_empty_and_text_parts_count_toward_length()
+    {
+        string json = """
+            [
+              {"role":"user","content":[
+                {"type":"input_text","text":"Describe this picture of a mountain"},
+                {"type":"image_url","image_url":{"url":"data:image/png;base64,fixture"}}]},
+              {"role":"assistant","content":[{"type":"output_text","text":"A mountain under blue sky."}]}
+            ]
+            """;
+        var report = One(json);
+        Assert.Equal(1, report.ConversationRows);
+        Assert.Equal(1, report.IssueCounts["non-text-content"]);
+        Assert.DoesNotContain("empty-content", report.IssueCounts.Keys);
+        Assert.True(report.EstimatedTokensMax > 0);
+        Assert.Contains("text only", string.Join(" ", report.IssueSamples));
+    }
+
+    [Fact]
+    public void Image_only_message_reports_nontext_without_claiming_missing_content()
+    {
+        string json = """
+            [{"role":"user","content":[{"type":"image_url","image_url":{"url":"synthetic-only"}}]},
+             {"role":"assistant","content":"I can see a picture."}]
+            """;
+        var report = One(json);
+        Assert.Contains("non-text-content", report.IssueCounts.Keys);
+        Assert.DoesNotContain("empty-content", report.IssueCounts.Keys);
+    }
+
+    [Fact]
     public void ShareGPT_style_turns_are_understood()
     {
         var report = One("[{\"from\":\"human\",\"value\":\"q\"},{\"from\":\"gpt\",\"value\":\"a\"}]");
