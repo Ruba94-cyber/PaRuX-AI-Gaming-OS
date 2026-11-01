@@ -124,6 +124,36 @@ public sealed class GameDownloadManagerTests : IDisposable
         throw new TimeoutException($"download never reached '{state}': {m.List().First(d => d.Id == id).State} {m.List().First(d => d.Id == id).Reason}");
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(".identity")]
+    [InlineData(".validator")]
+    public async Task Linked_partial_or_resume_sidecar_is_refused_before_any_target_is_modified(string suffix)
+    {
+        // The user-selected directory may contain pre-existing data controlled by another process.
+        // Nothing outside the expected managed filename may be changed by the download manager.
+        _server.Data = Bytes(16_384);
+        string outside = Path.Combine(_dir, "sentinel-" + Guid.NewGuid().ToString("N") + ".txt");
+        await File.WriteAllTextAsync(outside, "keep-original");
+        string linked = Path.Combine(_dir, "file.bin.parux-part" + suffix);
+        try
+        {
+            File.CreateSymbolicLink(linked, outside);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            // Some locked-down Windows configurations do not permit creating test symlinks.
+            return;
+        }
+
+        using var manager = Make();
+        var job = manager.Enqueue(new(_server.Url(), _dir));
+        var failed = await WaitFor(manager, job.Id, GameDownloadStates.Failed);
+        Assert.Contains("linked", failed.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("keep-original", await File.ReadAllTextAsync(outside));
+        Assert.False(File.Exists(Path.Combine(_dir, "file.bin")));
+    }
+
     [Fact]
     public async Task Integrity_verification_is_interrupted_as_soon_as_gaming_is_detected()
     {
