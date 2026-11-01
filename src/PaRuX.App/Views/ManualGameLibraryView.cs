@@ -554,7 +554,7 @@ public sealed class ManualGameLibraryView : UserControl
         {
             bool previouslyGaming = _returnToAiAvailable;
             GamingStatusDto? state = await UpdateGamingStatusAsync();
-            if (previouslyGaming && state is { State: "AiReady", IsGamingActive: false })
+            if (GameLibraryForegroundReturnPolicy.CanRefreshTitles(previouslyGaming, state))
             {
                 if (_universal is not null)
                     await _universal.RefreshTitlesAfterGameAsync();
