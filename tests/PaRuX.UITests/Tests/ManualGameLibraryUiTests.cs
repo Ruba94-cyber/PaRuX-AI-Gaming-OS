@@ -102,6 +102,15 @@ public sealed class ManualGameLibraryUiTests
             // Read-only inventory action is not invoked in this isolated smoke.
             // No SHA-256 is supplied and no package staging is triggered in this UI smoke.
             // Never select or hash a local package in this UI smoke.
+            // Read-only RawGameController controls: no device enumeration or gamepad polling
+            // is started merely by opening Games. The actual hardware is intentionally not
+            // exercised in this fixture to keep it independent of the developer's peripherals.
+            var rawDetect = UiWait.ById(app.MainWindow, "GameDevices_Raw_Detect_Button", ControlType.Button);
+            var rawRead = UiWait.ById(app.MainWindow, "GameDevices_Raw_Read_Button", ControlType.Button);
+            var rawSelect = UiWait.ById(app.MainWindow, "GameDevices_RawController_ComboBox", ControlType.ComboBox);
+            Assert.False(string.IsNullOrWhiteSpace(rawDetect.Name));
+            Assert.False(string.IsNullOrWhiteSpace(rawRead.Name));
+            Assert.False(string.IsNullOrWhiteSpace(rawSelect.Name));
             var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(controllers.Name));
             Assert.True(controllers.Properties.IsEnabled.ValueOrDefault);
