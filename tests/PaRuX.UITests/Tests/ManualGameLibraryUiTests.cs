@@ -110,6 +110,10 @@ public sealed class ManualGameLibraryUiTests
             var rawSelect = UiWait.ById(app.MainWindow, "GameDevices_RawController_ComboBox", ControlType.ComboBox);
             var mappingLoad = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Load_Button", ControlType.Button);
             var mappingSave = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Save_Button", ControlType.Button);
+            var hidStatus = UiWait.ById(app.MainWindow, "GameDevices_HidHide_Status_Button", ControlType.Button);
+            var hidRestore = UiWait.ById(app.MainWindow, "GameDevices_HidHide_Restore_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(hidStatus.Name));
+            Assert.False(string.IsNullOrWhiteSpace(hidRestore.Name));
             var mappingA = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_A_Index");
             var mappingDeadzone = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Deadzone");
             Assert.False(string.IsNullOrWhiteSpace(mappingLoad.Name));
