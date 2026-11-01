@@ -3812,6 +3812,29 @@ if (!app.Environment.IsEnvironment("Testing"))
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.
     try { app.Services.GetRequiredService<GamingDisplayModeService>().RecoverPendingAfterRestart(); }
     catch (Exception ex) { app.Logger.LogWarning(ex, "Display change recovery failed."); }
+
+    // A previous PaRuX-owned HidHide transaction must be unwound after a crash.
+    // Never rewrite the user's own HidHide configuration or delay startup indefinitely:
+    // a failed or timed-out restore leaves its journal for a later explicit retry.
+    try
+    {
+        var hidHide = app.Services.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
+        if (hidHide.RecoveryRequired)
+        {
+            using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var recovery = await hidHide.RecoverAsync(recoveryDeadline.Token);
+            if (!recovery.Success)
+                app.Logger.LogWarning("HidHide startup recovery incomplete: {Message}", recovery.Message);
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        app.Logger.LogWarning("HidHide startup recovery exceeded its deadline; the recovery journal remains available.");
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+    {
+        app.Logger.LogWarning(ex, "HidHide startup recovery failed; the recovery journal was preserved.");
+    }
 }
 app.MapMcp("/mcp");
 
