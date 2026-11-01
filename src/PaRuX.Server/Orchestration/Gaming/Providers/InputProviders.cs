@@ -54,12 +54,10 @@ public sealed class XOutputInputProvider : IInputProvider
 
     public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
     {
-        // Safety rule: Do not start XOutput if profile is remote and using Sunshine virtual input, unless explicitly set in settings
-        if (string.Equals(profile.SessionType, "remote", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(profile.InputProvider, "sunshine", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(true);
-        }
+        // A remote stream may already expose a virtual controller through Sunshine.
+        // Refuse a second mapper rather than returning fake success or double input.
+        if (GamingInputSafetyPolicy.Validate(profile) != null)
+            return Task.FromResult(false);
 
         string? exe = ExecutablePath;
         if (exe == null)
@@ -147,7 +145,8 @@ public sealed class SunshineInputProvider : IInputProvider
     public string Name => "Sunshine Virtual Controller Input";
     public bool IsInstalled => SunshineSessionTriggerProvider.IsInstalledOnMachine;
     public string? ExecutablePath => SunshineSessionTriggerProvider.ExecutablePath;
-    public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct) => Task.FromResult(true);
+    public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct) =>
+        Task.FromResult(GamingInputSafetyPolicy.Validate(profile) == null);
     public Task<bool> StopAsync(GamingProfileDto profile, CancellationToken ct) => Task.FromResult(true);
 }
 
@@ -161,6 +160,8 @@ public sealed class CustomExecutableInputProvider : IInputProvider
 
     public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct)
     {
+        if (GamingInputSafetyPolicy.Validate(profile) != null)
+            return Task.FromResult(false);
         if (!profile.InputSettings.TryGetValue("path", out string? exePath) || string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
             return Task.FromResult(false);
 
