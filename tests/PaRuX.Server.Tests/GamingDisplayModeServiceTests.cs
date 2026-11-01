@@ -68,6 +68,58 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     }
 
     [Fact]
+    public void Failed_permanent_confirm_keeps_pending_restore_journal_and_allows_manual_revert()
+    {
+        var api = new FakeApi();
+        using var service = Make(api);
+        service.Request(new(Monitor, 3840, 2160, 120));
+        api.FailPermanent = true;
+        var status = service.Confirm();
+        Assert.True(status.Pending);
+        Assert.True(File.Exists(_record));
+        Assert.Equal(3840, api.Now.Width);
+        Assert.Contains("unconfirmed", status.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(service.Revert().Pending);
+        Assert.Equal(1920, api.Now.Width);
+        Assert.False(File.Exists(_record));
+    }
+
+    [Fact]
+    public void Failed_startup_restore_remains_retryable_without_confirming_the_old_mode()
+    {
+        var api = new FakeApi();
+        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 60));
+        api.FailRevert = true;
+        using var restarted = Make(api);
+        Assert.False(restarted.RecoverPendingAfterRestart());
+        Assert.True(File.Exists(_record));
+        Assert.True(restarted.Status().Pending);
+        Assert.Throws<InvalidOperationException>(() => restarted.Confirm());
+
+        api.FailRevert = false;
+        Assert.False(restarted.Revert().Pending);
+        Assert.Equal(1920, api.Now.Width);
+        Assert.False(File.Exists(_record));
+    }
+
+    [Fact]
+    public void Restart_does_not_apply_an_unavailable_saved_display_mode()
+    {
+        var api = new FakeApi();
+        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 120));
+        api.Modes.RemoveAll(m => m.Width == 1920);
+        api.Log.Clear();
+        using var restarted = Make(api);
+        Assert.False(restarted.RecoverPendingAfterRestart());
+        Assert.DoesNotContain(api.Log, x => x.StartsWith("temp", StringComparison.Ordinal));
+        Assert.True(File.Exists(_record));
+        Assert.True(restarted.Status().Pending);
+        Assert.True(restarted.Revert().Pending);
+        api.Modes.Add(new(1920, 1080, 60, 32, 0, 0));
+        Assert.False(restarted.Revert().Pending);
+    }
+
+    [Fact]
     public void Revert_restores_the_previous_mode()
     {
         var api = new FakeApi();
