@@ -69,7 +69,7 @@ public sealed class GgufQuantizeService
         if (!File.Exists(input)) throw new GgufQuantizeException("The input GGUF does not exist.");
         if (string.Equals(input, output, StringComparison.OrdinalIgnoreCase))
             throw new GgufQuantizeException("The output must be a different file from the input.");
-        if (File.Exists(output)) throw new GgufQuantizeException("The output file already exists; it is never overwritten.");
+        if (PathOccupied(output)) throw new GgufQuantizeException("The output file already exists; it is never overwritten.");
         string? outputDirectory = Path.GetDirectoryName(output);
         if (outputDirectory is null || !Directory.Exists(outputDirectory))
             throw new GgufQuantizeException("The output folder does not exist.");
@@ -83,7 +83,11 @@ public sealed class GgufQuantizeService
             ?? throw new GgufQuantizeException("llama-quantize is not installed in the managed runtime.");
 
         string partial = output + ".partial";
-        try { File.Delete(partial); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        string manifestPath = output + ".quant.json";
+        // A previous interrupted attempt or another tool may own these files. Never delete or
+        // replace existing sidecars, including dangling links and directories with these names.
+        if (PathOccupied(partial) || PathOccupied(manifestPath))
+            throw new GgufQuantizeException("A partial output or quantization manifest already exists. Move it aside before retrying.");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(_timeout);
@@ -125,7 +129,11 @@ public sealed class GgufQuantizeService
             quantizer = quantizerName,
             createdUtc = DateTime.UtcNow,
         };
-        File.WriteAllText(output + ".quant.json", JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
+        // An output created by this run must never overwrite a manifest owned by another run.
+        // The GGUF is retained if manifest creation fails: the user's computed model is not deleted.
+        using (var manifestStream = new FileStream(manifestPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        using (var writer = new StreamWriter(manifestStream, new UTF8Encoding(false)))
+            writer.Write(JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
         return new GgufQuantizeResult(output, outputBytes, sha256, type, quantizerName);
     }
 
@@ -137,8 +145,37 @@ public sealed class GgufQuantizeService
         string full = Path.GetFullPath(path);
         if (!string.Equals(Path.GetExtension(full), ".gguf", StringComparison.OrdinalIgnoreCase))
             throw new GgufQuantizeException($"The {role} file must be a .gguf file.");
+        // Local-only files and folders: do not follow a symlink/junction into another
+        // location, even when a nested leaf appears to be a regular file.
+        try
+        {
+            string? root = Path.GetPathRoot(full);
+            if (string.IsNullOrEmpty(root))
+                throw new GgufQuantizeException($"The {role} path has no local volume.");
+            DriveType drive = new DriveInfo(root).DriveType;
+            if (drive is DriveType.Network or DriveType.Unknown or DriveType.NoRootDirectory)
+                throw new GgufQuantizeException($"The {role} must be on a local volume.");
+            for (string? folder = Path.GetDirectoryName(full); folder != null; folder = Path.GetDirectoryName(folder))
+            {
+                if (Directory.Exists(folder) && (File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0)
+                    throw new GgufQuantizeException($"The {role} path contains a linked folder.");
+            }
+            if ((File.Exists(full) || Directory.Exists(full)) &&
+                (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0)
+                throw new GgufQuantizeException($"The {role} path is a linked file.");
+            if (new FileInfo(full).LinkTarget is not null || new DirectoryInfo(full).LinkTarget is not null)
+                throw new GgufQuantizeException($"The {role} path is linked.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw new GgufQuantizeException($"The {role} path could not be verified as local and unlinked.");
+        }
         return full;
     }
+
+    private static bool PathOccupied(string path) =>
+        File.Exists(path) || Directory.Exists(path) ||
+        new FileInfo(path).LinkTarget is not null || new DirectoryInfo(path).LinkTarget is not null;
 
     internal static bool HasGgufHeader(string path)
     {
