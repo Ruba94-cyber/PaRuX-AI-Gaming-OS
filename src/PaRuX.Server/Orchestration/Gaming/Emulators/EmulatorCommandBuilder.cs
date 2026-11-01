@@ -30,7 +30,8 @@ public static class EmulatorCommandBuilder
         if (string.IsNullOrWhiteSpace(romPath) || romPath.Length > 1024 || romPath.Any(char.IsControl) || !Path.IsPathFullyQualified(romPath))
             return Fail("The game path must be an absolute local path.");
         string profile = (inputProfile ?? string.Empty).Trim();
-        if (profile.Length > 80 || profile.Any(c => !(char.IsLetterOrDigit(c) || c is ' ' or '_' or '-' or '.')))
+        if (profile is "." or ".." || profile.Length > 80 ||
+            profile.Any(c => !(char.IsLetterOrDigit(c) || c is ' ' or '_' or '-' or '.')))
             return Fail("The input profile must be a short name (letters, numbers, spaces, dots, hyphens or underscores).");
         if (profile.Length > 0 && definition.Id is not ("eden" or "eden-cli"))
             return Fail("This input profile flag is currently supported only by Eden.");
