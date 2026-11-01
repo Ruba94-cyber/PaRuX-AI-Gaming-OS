@@ -122,6 +122,7 @@ public sealed class EmulatorManagerTests : IDisposable
     [InlineData("duckstation", "-nofullscreen")]
     [InlineData("ppsspp", "--windowed")]
     [InlineData("mame", "-window")]
+    [InlineData("cemu", "--fullscreen=false")]
     public void Explicit_windowed_overrides_an_emulators_own_fullscreen_setting(string id, string flag)
     {
         var plan = EmulatorCommandBuilder.Build(Def(id), File_("demo.iso"),
@@ -144,7 +145,7 @@ public sealed class EmulatorManagerTests : IDisposable
 
     [Theory]
     [InlineData("eden", "windowed")]
-    [InlineData("cemu", "windowed")]
+    [InlineData("retroarch", "windowed")]
     [InlineData("rpcs3", "fullscreen")]
     [InlineData("eden", "unrecognized")]
     public void Unavailable_or_invalid_explicit_display_modes_are_not_silently_ignored(string id, string mode)
