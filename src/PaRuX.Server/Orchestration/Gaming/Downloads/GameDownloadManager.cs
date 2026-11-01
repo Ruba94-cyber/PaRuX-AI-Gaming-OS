@@ -126,6 +126,35 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         };
     }
 
+    /// <summary>
+    /// Explicit, copy-only handoff from a completed job to the existing staging transaction.
+    /// A checksum the user supplied BEFORE downloading is mandatory: the self-computed
+    /// transfer digest is never accepted as a stand-in for an independent expected value.
+    /// Neither this path nor StageAsync executes, unpacks or installs anything.
+    /// </summary>
+    public Task<GamePackageStageResult> StageCompletedAsync(
+        string id, GamePackageStageService staging, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(staging);
+        ct.ThrowIfCancellationRequested();
+        if (_gamingActive()) throw new InvalidOperationException("Leave Gaming before staging a download.");
+        string path;
+        string publisherSha;
+        lock (_gate)
+        {
+            Entry? entry = Find(id);
+            if (entry is null || entry.State != GameDownloadStates.Completed ||
+                !entry.IntegrityChecked || string.IsNullOrWhiteSpace(entry.PublishedPath) ||
+                entry.ExpectedSha256 is null || entry.VerifiedSha256 is null ||
+                !string.Equals(entry.ExpectedSha256, entry.VerifiedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Only downloads completed in this session with an independently supplied SHA-256 may be staged.");
+            path = entry.PublishedPath;
+            publisherSha = entry.ExpectedSha256;
+        }
+        return staging.StageAsync(new GamePackageStageRequest(path, publisherSha), ct);
+    }
+
     public GameDownloadDto Enqueue(GameDownloadRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
