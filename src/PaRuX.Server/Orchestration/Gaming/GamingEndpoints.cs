@@ -78,6 +78,22 @@ public static class GamingEndpoints
             { return Results.Problem("The local game library could not be saved."); }
         }).RequireDesktopOwner();
 
+        // The owner must choose a local package. This never installs, executes,
+        // extracts or downloads anything; active Gaming cancels hashing.
+        app.MapPost("/api/v1/gaming/installers/inspect", async (
+            GameInstallerInspectionRequest request,
+            GameInstallerInspectionService inspector, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await inspector.InspectAsync(request, ct)) as IResult; }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "Choose an existing local installer file." }); }
+            catch (InvalidOperationException) { return Results.Conflict(new { error = "Inspection unavailable while Gaming or recovering AI." }); }
+            catch (InvalidDataException) { return Results.Conflict(new { error = "The package is empty, oversized or changed during inspection." }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted installer inspection." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            { return Results.Problem("The selected local file could not be read."); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/controllers", () =>
             Results.Ok(NativeXInputProbe.ReadStates())).RequireDesktopOwner();
 
