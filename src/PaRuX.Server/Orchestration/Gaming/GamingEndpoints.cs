@@ -155,6 +155,9 @@ public static class GamingEndpoints
         app.MapGet("/api/v1/gaming/controllers", (ControllerProfileStore profiles) =>
             Results.Ok(NativeXInputProbe.ReadStates(profiles.Get()))).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/virtual-controller", () =>
+            Results.Ok(VirtualControllerProbe.Probe())).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/controller-profile", (ControllerProfileStore profiles) =>
             Results.Ok(new { profile = profiles.Get(), loadError = profiles.LoadError })).RequireDesktopOwner();
 
