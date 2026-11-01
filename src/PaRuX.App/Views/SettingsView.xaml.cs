@@ -359,6 +359,7 @@ namespace PaRuX.Views
                     break;
                 case "Gaming & AI Sharing":
                     _ = RefreshGamingStatusAsync();
+                    _ = RefreshConsoleDisplaysAsync();
                     break;
                 case "PaRuX Platform":
                     _ = RefreshLocalAiRootAsync();
