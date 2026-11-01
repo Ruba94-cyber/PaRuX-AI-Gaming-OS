@@ -3821,10 +3821,19 @@ if (!app.Environment.IsEnvironment("Testing"))
         var hidHide = app.Services.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
         if (hidHide.RecoveryRequired)
         {
-            using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var recovery = await hidHide.RecoverAsync(recoveryDeadline.Token);
-            if (!recovery.Success)
-                app.Logger.LogWarning("HidHide startup recovery incomplete: {Message}", recovery.Message);
+            if (app.Services.GetRequiredService<LocalRuntimeService>().GamingMode)
+            {
+                // The prior Gaming session may still have a live game/driver.
+                // Do not unhide physical input until its lifecycle has been resolved.
+                app.Logger.LogWarning("HidHide recovery deferred: persisted Gaming Mode is still active.");
+            }
+            else
+            {
+                using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                var recovery = await hidHide.RecoverAsync(recoveryDeadline.Token);
+                if (!recovery.Success)
+                    app.Logger.LogWarning("HidHide startup recovery incomplete: {Message}", recovery.Message);
+            }
         }
     }
     catch (OperationCanceledException)
