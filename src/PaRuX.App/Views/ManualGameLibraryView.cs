@@ -259,6 +259,7 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetAutomationId(_controllerStatus, "GameLibrary_Controllers_Status_Text");
         AutomationProperties.SetLiveSetting(_controllerStatus, AutomationLiveSetting.Polite);
         root.Children.Add(_controllerStatus);
+        root.Children.Add(new GamingDevicesPanel());
 
         _installerSection.Children.Add(new TextBlock
         {

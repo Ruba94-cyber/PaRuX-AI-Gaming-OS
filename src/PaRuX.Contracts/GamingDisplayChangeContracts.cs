@@ -12,3 +12,6 @@ public sealed record GamingDisplayChangeStatusDto(
     string? DisplayId,
     int SecondsRemaining,
     string Message);
+
+/// <summary>One resolution / refresh-rate pair the display driver lists for a monitor.</summary>
+public sealed record GamingDisplayModeOptionDto(int Width, int Height, int RefreshRateHz);

@@ -49,3 +49,9 @@ public sealed record GamingControllerProfile
         return null;
     }
 }
+
+/// <summary>Result of an explicit idle-stick calibration.</summary>
+public sealed record ControllerCalibrationResult(int LeftDeadzone, int RightDeadzone);
+
+/// <summary>GET controller-profile response: the active profile and, when the stored file was unreadable, why.</summary>
+public sealed record ControllerProfileEnvelope(GamingControllerProfile Profile, string? LoadError);

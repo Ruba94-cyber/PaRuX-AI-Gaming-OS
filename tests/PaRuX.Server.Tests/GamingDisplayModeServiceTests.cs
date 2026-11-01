@@ -151,3 +151,32 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
         Assert.Empty(api.Log);
     }
 }
+
+public sealed class GamingDisplayModeListTests
+{
+    [Fact]
+    public void Modes_are_distinct_sorted_largest_first_and_only_for_known_monitors()
+    {
+        var topology = new GamingDisplayTopologyService(() => new[] { new GamingDisplayModeDto(@"\.\DISPLAY1", true, 0, 0, 1920, 1080, 60) });
+        var api = new ListApi();
+        using var service = new GamingDisplayModeService(api, topology, () => false,
+            Path.Combine(Path.GetTempPath(), "parux-modes-" + Guid.NewGuid().ToString("N") + ".json"), TimeSpan.FromMinutes(1));
+        var modes = service.Modes(@"\.\DISPLAY1");
+        Assert.Equal(new[] { (3840, 2160, 120), (3840, 2160, 60), (1920, 1080, 60) },
+            modes.Select(m => (m.Width, m.Height, m.RefreshRateHz)).ToArray());
+        Assert.Throws<ArgumentException>(() => service.Modes(@"\.\DISPLAY7"));
+    }
+
+    private sealed class ListApi : IDisplayModeApi
+    {
+        public DisplayModeEntry? Current(string id) => null;
+        public IReadOnlyList<DisplayModeEntry> Supported(string id) => new DisplayModeEntry[]
+        {
+            new(1920, 1080, 60, 32, 0, 0), new(1920, 1080, 60, 16, 0, 0), new(3840, 2160, 60, 32, 0, 0),
+            new(3840, 2160, 120, 32, 0, 0), new(640, 480, 1, 32, 0, 0),
+        };
+        public bool Test(string id, DisplayModeEntry m) => true;
+        public bool ApplyTemporary(string id, DisplayModeEntry m) => true;
+        public bool ApplyPermanent(string id, DisplayModeEntry m) => true;
+    }
+}

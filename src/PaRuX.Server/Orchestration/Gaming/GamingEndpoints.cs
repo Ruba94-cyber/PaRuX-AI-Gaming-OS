@@ -181,6 +181,12 @@ public static class GamingEndpoints
         app.MapGet("/api/v1/gaming/displays/change", (GamingDisplayModeService modes) =>
             Results.Ok(modes.Status())).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/displays/modes", (string display, GamingDisplayModeService modes) =>
+        {
+            try { return Results.Ok(modes.Modes(display)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/displays/change", (GamingDisplayModeChangeRequest request, GamingDisplayModeService modes) =>
         {
             try { return Results.Ok(modes.Request(request)); }

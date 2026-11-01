@@ -51,6 +51,21 @@ public sealed class GamingDisplayModeService : IDisposable
         }
     }
 
+    /// <summary>Distinct modes the driver lists for a known monitor (largest first, bounded).</summary>
+    public IReadOnlyList<GamingDisplayModeOptionDto> Modes(string displayId)
+    {
+        string id = displayId ?? string.Empty;
+        if (!_topology.Snapshot().Displays.Any(d => string.Equals(d.DisplayId, id, StringComparison.OrdinalIgnoreCase)))
+            throw new ArgumentException("That monitor is not part of the current display topology.");
+        return _api.Supported(id)
+            .Where(m => m.Width > 0 && m.Height > 0 && m.RefreshRateHz >= 24)
+            .Select(m => new GamingDisplayModeOptionDto(m.Width, m.Height, m.RefreshRateHz))
+            .Distinct()
+            .OrderByDescending(m => (long)m.Width * m.Height).ThenByDescending(m => m.RefreshRateHz)
+            .Take(200)
+            .ToArray();
+    }
+
     public GamingDisplayChangeStatusDto Request(GamingDisplayModeChangeRequest request)
     {
         if (!OperatingSystem.IsWindows() && _api is WindowsDisplayModeApi)

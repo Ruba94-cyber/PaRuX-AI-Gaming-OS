@@ -87,6 +87,34 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GamingDisplaySnapshotDto>> GetDisplayTopologyAsync(CancellationToken ct = default) =>
             SendAsync<GamingDisplaySnapshotDto>(HttpMethod.Get, "/api/v1/gaming/displays", null, ct);
 
+        public Task<GamingCallResult<List<GamingDisplayModeOptionDto>>> GetDisplayModesAsync(string displayId, CancellationToken ct = default) =>
+            SendAsync<List<GamingDisplayModeOptionDto>>(HttpMethod.Get,
+                "/api/v1/gaming/displays/modes?display=" + Uri.EscapeDataString(displayId), null, ct);
+
+        public Task<GamingCallResult<GamingDisplayChangeStatusDto>> GetDisplayChangeAsync(CancellationToken ct = default) =>
+            SendAsync<GamingDisplayChangeStatusDto>(HttpMethod.Get, "/api/v1/gaming/displays/change", null, ct);
+
+        public Task<GamingCallResult<GamingDisplayChangeStatusDto>> RequestDisplayChangeAsync(GamingDisplayModeChangeRequest request, CancellationToken ct = default) =>
+            SendAsync<GamingDisplayChangeStatusDto>(HttpMethod.Post, "/api/v1/gaming/displays/change", request, ct);
+
+        public Task<GamingCallResult<GamingDisplayChangeStatusDto>> ConfirmDisplayChangeAsync(CancellationToken ct = default) =>
+            SendAsync<GamingDisplayChangeStatusDto>(HttpMethod.Post, "/api/v1/gaming/displays/change/confirm", null, ct);
+
+        public Task<GamingCallResult<GamingDisplayChangeStatusDto>> RevertDisplayChangeAsync(CancellationToken ct = default) =>
+            SendAsync<GamingDisplayChangeStatusDto>(HttpMethod.Post, "/api/v1/gaming/displays/change/revert", null, ct);
+
+        public Task<GamingCallResult<ControllerProfileEnvelope>> GetControllerProfileAsync(CancellationToken ct = default) =>
+            SendAsync<ControllerProfileEnvelope>(HttpMethod.Get, "/api/v1/gaming/controller-profile", null, ct);
+
+        public Task<GamingCallResult<GamingControllerProfile>> SaveControllerProfileAsync(GamingControllerProfile profile, CancellationToken ct = default) =>
+            SendAsync<GamingControllerProfile>(HttpMethod.Put, "/api/v1/gaming/controller-profile", profile, ct);
+
+        public Task<GamingCallResult<GamingControllerProfile>> ResetControllerProfileAsync(CancellationToken ct = default) =>
+            SendAsync<GamingControllerProfile>(HttpMethod.Delete, "/api/v1/gaming/controller-profile", null, ct);
+
+        public Task<GamingCallResult<ControllerCalibrationResult>> CalibrateControllerAsync(int slot, CancellationToken ct = default) =>
+            SendAsync<ControllerCalibrationResult>(HttpMethod.Post, "/api/v1/gaming/controllers/" + slot + "/calibrate", null, ct);
+
         public Task<GamingCallResult<List<DiscoveredGameDto>>> DiscoverSteamGamesAsync(CancellationToken ct = default) =>
             SendAsync<List<DiscoveredGameDto>>(HttpMethod.Get, "/api/v1/gaming/library/discover/steam", null, ct);
 
