@@ -31,6 +31,16 @@ public static class GamingEndpoints
             { return Results.Problem("Epic installation metadata could not be read."); }
         }).RequireDesktopOwner();
 
+        // An explicit, owner-confirmed Epic protocol activation. HTTP cannot
+        // supply a URI or executable: the service must rediscover the installed
+        // game and construct the official deep link itself.
+        app.MapPost("/api/v1/gaming/library/discover/epic/{id}/launch", async (
+            string id, ManualGameSessionService sessions, CancellationToken ct) =>
+        {
+            ManualGameLaunchResult result = await sessions.LaunchEpicAsync(id, ct);
+            return result.Launched ? Results.Ok(result) : Results.Conflict(result);
+        }).RequireDesktopOwner();
+
         // Explicitly authorized handoff to the official Steam client. No command
         // arguments or executable paths are accepted from the HTTP caller.
         app.MapPost("/api/v1/gaming/library/discover/steam/{id}/launch", async (
