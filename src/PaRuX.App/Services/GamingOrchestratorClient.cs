@@ -115,6 +115,34 @@ namespace PaRuX.Services
         public Task<GamingCallResult<ControllerCalibrationResult>> CalibrateControllerAsync(int slot, CancellationToken ct = default) =>
             SendAsync<ControllerCalibrationResult>(HttpMethod.Post, "/api/v1/gaming/controllers/" + slot + "/calibrate", null, ct);
 
+        public Task<GamingCallResult<GameFolderInspectionDto>> InspectGameFolderAsync(string folder, CancellationToken ct = default) =>
+            SendAsync<GameFolderInspectionDto>(HttpMethod.Post, "/api/v1/gaming/library/inspect-folder", new GameFolderInspectRequest(folder), ct);
+
+        public Task<GamingCallResult<List<GameTitleDto>>> GetTitlesAsync(string? text, string? source, bool favoritesOnly, CancellationToken ct = default) =>
+            SendAsync<List<GameTitleDto>>(HttpMethod.Get,
+                "/api/v1/gaming/titles?q=" + Uri.EscapeDataString(text ?? "") + "&source=" + Uri.EscapeDataString(source ?? "")
+                + (favoritesOnly ? "&favorite=true" : ""), null, ct);
+
+        public Task<GamingCallResult<object>> SetTitleFavoriteAsync(string key, bool favorite, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put,
+                "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/favorite?favorite=" + (favorite ? "true" : "false"), null, ct);
+
+        public Task<GamingCallResult<object>> SetTitleTagsAsync(string key, List<string> tags, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/tags", new SetGameTagsRequest(tags), ct);
+
+        public Task<GamingCallResult<object>> SetTitleDefaultInstallationAsync(string key, string? installationId, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/default-installation",
+                new SetDefaultInstallationRequest(installationId), ct);
+
+        public Task<GamingCallResult<EmulatorListDto>> GetEmulatorsAsync(CancellationToken ct = default) =>
+            SendAsync<EmulatorListDto>(HttpMethod.Get, "/api/v1/gaming/emulators", null, ct);
+
+        public Task<GamingCallResult<EmulatorScanDto>> ScanEmulatorGamesAsync(string emulatorId, string folder, CancellationToken ct = default) =>
+            SendAsync<EmulatorScanDto>(HttpMethod.Post, "/api/v1/gaming/emulators/scan", new EmulatorScanRequestDto(emulatorId, folder), ct);
+
+        public Task<GamingCallResult<EmulatorImportResultDto>> ImportEmulatorGamesAsync(EmulatorImportRequestDto request, CancellationToken ct = default) =>
+            SendAsync<EmulatorImportResultDto>(HttpMethod.Post, "/api/v1/gaming/emulators/import", request, ct);
+
         public Task<GamingCallResult<List<DiscoveredGameDto>>> DiscoverSteamGamesAsync(CancellationToken ct = default) =>
             SendAsync<List<DiscoveredGameDto>>(HttpMethod.Get, "/api/v1/gaming/library/discover/steam", null, ct);
 

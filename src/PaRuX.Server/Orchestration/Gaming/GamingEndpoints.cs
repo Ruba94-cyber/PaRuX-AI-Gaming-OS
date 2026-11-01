@@ -145,6 +145,13 @@ public static class GamingEndpoints
             { return Results.Problem("The managed package could not be safely removed."); }
         }).RequireDesktopOwner();
 
+        // Read-only: proposes the main executable and a title for a folder the user chose; adds nothing.
+        app.MapPost("/api/v1/gaming/library/inspect-folder", (GameFolderInspectRequest request, CancellationToken ct) =>
+        {
+            try { return Results.Ok(GameFolderInspector.Inspect(request.Folder, ct)); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/controllers", (ControllerProfileStore profiles) =>
             Results.Ok(NativeXInputProbe.ReadStates(profiles.Get()))).RequireDesktopOwner();
 

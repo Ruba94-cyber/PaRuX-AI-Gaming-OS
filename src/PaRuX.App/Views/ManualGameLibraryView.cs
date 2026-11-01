@@ -60,6 +60,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _browse = new();
     private bool _busy;
     private readonly TextBox _filter = new();
+    private UniversalLibraryPanel? _universal;
     private readonly ComboBox _storeFilter = new() { MinWidth = 180 };
     private readonly ComboBox _stateFilter = new() { MinWidth = 180 };
     private List<ManualGameDto> _allGames = new();
@@ -120,6 +121,10 @@ public sealed class ManualGameLibraryView : UserControl
         sessionActions.Children.Add(_gamingStatusRefresh);
         sessionActions.Children.Add(_returnToAi);
         root.Children.Add(sessionActions);
+
+        // One card per game (store, local, portable or emulated installations together) and the opt-in advanced section.
+        _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
+        root.Children.Add(_universal);
 
         _manualAddIntro.Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.",
             "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata.");
@@ -403,6 +408,7 @@ public sealed class ManualGameLibraryView : UserControl
             button.MinHeight = enabled ? 56 : 32;
         }
         _status.FontSize = bodySize;
+        _universal?.SetConsolePresentation(enabled);
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
         _controllerStatus.FontSize = bodySize;
@@ -423,6 +429,32 @@ public sealed class ManualGameLibraryView : UserControl
     /// <summary>While a consent dialog or command is active, Console-wide B/Escape
     /// must not tear down the fullscreen presenter beneath that interaction.</summary>
     public bool IsInteractionBusy => _busy;
+
+    /// <summary>Starts one concrete installation of a title through the same confirmation dialogs as the lists below.</summary>
+    private async Task LaunchInstallationAsync(GameInstallationDto installation)
+    {
+        if (installation.Source is GameInstallationSources.Manual or GameInstallationSources.Emulator)
+        {
+            ManualGameDto? entry = _allGames.FirstOrDefault(g => g.Id == installation.SourceGameId);
+            if (entry is null) { await LoadAsync(); entry = _allGames.FirstOrDefault(g => g.Id == installation.SourceGameId); }
+            if (entry is null)
+            {
+                _status.Text = T("That library entry no longer exists.", "Questa voce della libreria non esiste più.");
+                return;
+            }
+            await LaunchAsync(entry);
+            return;
+        }
+
+        // Store launches only need the store and the game id; the Core re-discovers and re-validates the install.
+        var discovered = new DiscoveredGameDto(installation.Source, installation.SourceGameId, installation.Name, string.Empty);
+        switch (installation.Source)
+        {
+            case GameInstallationSources.Steam: await LaunchSteamAsync(discovered); break;
+            case GameInstallationSources.Epic: await LaunchEpicAsync(discovered); break;
+            case GameInstallationSources.Gog: await LaunchGogAsync(discovered); break;
+        }
+    }
 
     /// <summary>Console shoulder buttons: page the manual list, or the store list when the manual list has no further page.</summary>
     public void PageLists(int delta)
