@@ -80,6 +80,14 @@ namespace PaRuX.Services
                 "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/inspect",
                 null, ct, InspectionHttpClient);
 
+        // Copies a completed download to PaRuX's managed staging only when
+        // the user supplied an independent checksum at download creation.
+        public Task<GamingCallResult<GamePackageStageResult>> StageCompletedGameDownloadAsync(
+            string id, CancellationToken ct = default) =>
+            SendAsync<GamePackageStageResult>(HttpMethod.Post,
+                "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/stage",
+                null, ct, InspectionHttpClient);
+
         public Task<GamingCallResult<object>> PauseGameDownloadAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/pause", null, ct);
 
