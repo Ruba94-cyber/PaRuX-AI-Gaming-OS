@@ -674,6 +674,21 @@ public sealed class ManualGameLibraryView : UserControl
                 request.Click += async (_, _) => await LaunchSteamAsync(game);
                 item.Children.Add(request);
             }
+            if (string.Equals(game.ProviderId, "gog", StringComparison.OrdinalIgnoreCase))
+            {
+                var request = new Button
+                {
+                    Content = T("Play via GOG GALAXY", "Gioca tramite GOG GALAXY"),
+                    FontSize = _consolePresentation ? 20 : 14,
+                    MinHeight = _consolePresentation ? 56 : 32,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+                AutomationProperties.SetAutomationId(request, "GameLibrary_Gog_Launch_" + game.ProviderGameId);
+                AutomationProperties.SetName(request,
+                    T("Request GOG GALAXY to launch ", "Chiedi a GOG GALAXY di avviare ") + game.Name);
+                request.Click += async (_, _) => await LaunchGogAsync(game);
+                item.Children.Add(request);
+            }
             _discoveredGames.Children.Add(item);
         }
     }
@@ -761,6 +776,39 @@ public sealed class ManualGameLibraryView : UserControl
         catch (Exception)
         {
             _discoveryStatus.Text = T("Could not request Steam launch.", "Impossibile richiedere l'avvio a Steam.");
+        }
+        finally { SetBusy(false); }
+    }
+
+    private async Task LaunchGogAsync(DiscoveredGameDto game)
+    {
+        if (_busy || !string.Equals(game.ProviderId, "gog", StringComparison.OrdinalIgnoreCase)) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Launch using GOG GALAXY?", "Avviare tramite GOG GALAXY?"),
+                Content = T(
+                    "PaRuX will prepare Gaming Mode, then ask the installed GOG GALAXY client to launch the selected game. GALAXY owns the actual game process. Automatic Return to AI is not available; return manually when finished.",
+                    "PaRuX preparerà la modalità Gaming e chiederà al client GOG GALAXY installato di avviare il gioco selezionato. GALAXY gestisce il processo effettivo. Il ritorno automatico all'AI non è disponibile: torna manualmente al termine."),
+                PrimaryButtonText = T("Request GOG launch", "Richiedi avvio a GOG"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            var result = await GamingOrchestratorClient.Current.RequestGogGameLaunchAsync(game.ProviderGameId);
+            await UpdateGamingStatusAsync();
+            _discoveryStatus.Text = result.Succeeded && result.Value is { Launched: true }
+                ? T("Launch request sent to GOG GALAXY. Return to AI manually after playing.",
+                    "Richiesta di avvio inviata a GOG GALAXY. Torna manualmente all'AI dopo aver giocato.")
+                : T("GOG launch was not accepted. Check the installed client and Gaming state.",
+                    "Avvio tramite GOG non accettato. Controlla il client installato e lo stato Gaming.");
+        }
+        catch (Exception)
+        {
+            _discoveryStatus.Text = T("Could not request GOG launch.", "Impossibile richiedere l'avvio tramite GOG.");
         }
         finally { SetBusy(false); }
     }
