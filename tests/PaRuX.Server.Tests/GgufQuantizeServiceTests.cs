@@ -150,6 +150,58 @@ public sealed class GgufQuantizeServiceTests : IDisposable
         Assert.Equal("precious", File.ReadAllText(Out()));
     }
 
+    [Theory]
+    [InlineData(".partial")]
+    [InlineData(".quant.json")]
+    public async Task Existing_quantization_sidecar_is_never_deleted_or_overwritten(string suffix)
+    {
+        string owned = Out() + suffix;
+        File.WriteAllText(owned, "precious original");
+        bool ran = false;
+        var service = Make((spec, ct) => { ran = true; return WritesOutput(spec, ct); });
+        await Assert.ThrowsAsync<GgufQuantizeException>(() =>
+            service.QuantizeAsync(new(_input, Out(), "Q8_0"), CancellationToken.None));
+        Assert.False(ran);
+        Assert.Equal("precious original", File.ReadAllText(owned));
+        Assert.False(File.Exists(Out()));
+    }
+
+    [Fact]
+    public async Task Linked_input_cannot_be_quantized()
+    {
+        string alias = Path.Combine(_dir, "linked.gguf");
+        try { File.CreateSymbolicLink(alias, _input); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return; // synthetic filesystem link unsupported on this host
+        }
+        bool ran = false;
+        var service = Make((spec, ct) => { ran = true; return WritesOutput(spec, ct); });
+        await Assert.ThrowsAsync<GgufQuantizeException>(() =>
+            service.QuantizeAsync(new(alias, Out(), "Q8_0"), CancellationToken.None));
+        Assert.False(ran);
+        Assert.Equal(4096, new FileInfo(_input).Length);
+    }
+
+    [Fact]
+    public async Task Output_under_linked_directory_is_rejected_without_mutating_target()
+    {
+        string target = Path.Combine(_dir, "real-output");
+        Directory.CreateDirectory(target);
+        string alias = Path.Combine(_dir, "linked-output");
+        try { Directory.CreateSymbolicLink(alias, target); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return;
+        }
+        bool ran = false;
+        var service = Make((spec, ct) => { ran = true; return WritesOutput(spec, ct); });
+        await Assert.ThrowsAsync<GgufQuantizeException>(() =>
+            service.QuantizeAsync(new(_input, Path.Combine(alias, "quant.gguf"), "Q8_0"), CancellationToken.None));
+        Assert.False(ran);
+        Assert.Empty(Directory.EnumerateFiles(target));
+    }
+
     [Fact]
     public async Task Input_must_be_a_gguf_and_space_and_quantizer_must_exist()
     {
