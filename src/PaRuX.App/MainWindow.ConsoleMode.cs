@@ -62,7 +62,8 @@ public sealed partial class MainWindow
         if (!_consoleModeActive) return;
         // A modal consent or a running library action owns B/Escape until it
         // completes; never dismiss fullscreen underneath a game-launch prompt.
-        if (GameLibraryPage.IsInteractionBusy && e.Key is VirtualKey.Escape or VirtualKey.GamepadB)
+        if (GameLibraryPage.IsInteractionBusy &&
+            (e.Key is VirtualKey.Escape or VirtualKey.GamepadB))
             return;
 
         if (e.Key is VirtualKey.Escape or VirtualKey.GamepadB)
