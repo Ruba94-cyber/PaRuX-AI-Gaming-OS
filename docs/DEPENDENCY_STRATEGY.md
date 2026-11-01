@@ -23,7 +23,7 @@ pretext to replace proven security-critical libraries with unreviewed copies.
 | Standard XInput diagnostics | First-party native `XInputGetState` P/Invoke, on demand | Windows XInput runtime; diagnostics do not remap games |
 | New Gaming preset suspension | Built-in `win32native` provider selected instead of Nyrna for new stock presets | Nyrna remains opt-in and in legacy JSON defaults; owned-process admission currently refuses suspension until proof exists, Windows NT call still unverified |
 | Game library and profiles | First-party Steam/Epic/GOG discovery, JSON stores and Gaming orchestrator | User-installed official game clients for launch/DRM; no embedded store software |
-| Steam / GOG launch | Explicitly confirmed official-client handoffs | Client controls actual game; launch and ownership not verified on physical PC |
+| Steam / GOG / Epic launch | Owner-confirmed store handoffs; Epic URI built from verified installed-game metadata using .NET/Windows OS activation | Clients/OS protocol handler control actual game; Windows default handler can be changed by user; no physical launch or publisher authenticity verification |
 | Optional controller remapping | No remapper needed for PaRuX Console UI | Legacy XOutput optional; universal virtual XInput output still requires documented Windows driver/device ownership |
 | ZIP extraction | First-party extraction policy with BCL `System.IO.Compression` | `SharpCompress` remains for 7z and other unsupported formats; no NuGet package removed yet |
 | Local inference | PaRuX-owned orchestration, routing, workers and managed processes | Actual GGUF/ONNX/ComfyUI/PyTorch backends remain specialized third-party components |
