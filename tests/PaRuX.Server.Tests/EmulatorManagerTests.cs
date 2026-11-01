@@ -84,7 +84,7 @@ public sealed class EmulatorManagerTests : IDisposable
     public void Only_emulators_with_supported_display_flags_receive_explicit_fullscreen_switches()
     {
         string rom = File_("a.iso");
-        Assert.Null(Def("mame").FullscreenArguments);
+        Assert.Equal(new[] { "-nowindow" }, Def("mame").FullscreenArguments);
         Assert.Null(Def("rpcs3").FullscreenArguments);
         Assert.Equal(new[] { "-b", "-C", "Dolphin.Display.Fullscreen=True", "-e", rom },
             EmulatorCommandBuilder.Build(Def("dolphin"), rom, true, null, null).ArgumentList);
@@ -105,6 +105,8 @@ public sealed class EmulatorManagerTests : IDisposable
     [InlineData("duckstation", "-fullscreen")]
     [InlineData("ppsspp", "--fullscreen")]
     [InlineData("retroarch", "-f")]
+    [InlineData("eden-cli", "--fullscreen")]
+    [InlineData("mame", "-nowindow")]
     public void Explicit_fullscreen_adds_the_documented_flag(string id, string flag)
     {
         string rom = File_("demo.iso");
@@ -119,6 +121,7 @@ public sealed class EmulatorManagerTests : IDisposable
     [InlineData("pcsx2", "-nofullscreen")]
     [InlineData("duckstation", "-nofullscreen")]
     [InlineData("ppsspp", "--windowed")]
+    [InlineData("mame", "-window")]
     public void Explicit_windowed_overrides_an_emulators_own_fullscreen_setting(string id, string flag)
     {
         var plan = EmulatorCommandBuilder.Build(Def(id), File_("demo.iso"),
@@ -142,7 +145,7 @@ public sealed class EmulatorManagerTests : IDisposable
     [Theory]
     [InlineData("eden", "windowed")]
     [InlineData("cemu", "windowed")]
-    [InlineData("mame", "fullscreen")]
+    [InlineData("rpcs3", "fullscreen")]
     [InlineData("eden", "unrecognized")]
     public void Unavailable_or_invalid_explicit_display_modes_are_not_silently_ignored(string id, string mode)
     {
@@ -172,10 +175,60 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Eden_cli_uses_its_documented_fullscreen_game_and_input_profile_options()
+    {
+        string rom = File_("games/CLI Homebrew.nro");
+        var plan = EmulatorCommandBuilder.Build(Def("eden-cli"), rom, true,
+            extraArguments: null, corePath: null, launchMode: EmulatorLaunchModes.Fullscreen,
+            inputProfile: "Living Room P1");
+        Assert.Null(plan.Error);
+        Assert.Equal(new[] { "--fullscreen", "--input-profile", "Living Room P1", "--game", rom }, plan.ArgumentList);
+
+        string exe = File_("EdenCLI/eden-cli.exe", 20_000);
+        var library = new ManualGameLibrary(Path.Combine(_root, "eden-cli.json"));
+        var imported = EmulatorEndpoints.Import(new("eden-cli", exe, new() { rom }, true,
+            null, null, EmulatorLaunchModes.Fullscreen, "Living Room P1"), library);
+        Assert.Equal(1, imported.Added);
+        Assert.Equal("eden-cli", Assert.Single(library.List()).EmulatorId);
+        Assert.Contains("--input-profile", Assert.Single(library.List()).Arguments);
+    }
+
+    [Fact]
+    public void Mame_explicit_modes_override_advanced_extras_and_keep_default_unforced()
+    {
+        string rom = File_("arcade/galaga.zip");
+        var fullscreen = EmulatorCommandBuilder.Build(Def("mame"), rom, true,
+            "-window", null, EmulatorLaunchModes.Fullscreen);
+        Assert.Null(fullscreen.Error);
+        Assert.Equal(new[] { "-rompath", Path.GetDirectoryName(rom)!, "-window", "-nowindow", "galaga" },
+            fullscreen.ArgumentList);
+
+        var windowed = EmulatorCommandBuilder.Build(Def("mame"), rom, true,
+            "-nowindow", null, EmulatorLaunchModes.Windowed);
+        Assert.Null(windowed.Error);
+        Assert.Equal(new[] { "-rompath", Path.GetDirectoryName(rom)!, "-nowindow", "-window", "galaga" },
+            windowed.ArgumentList);
+
+        var usePreferences = EmulatorCommandBuilder.Build(Def("mame"), rom, true,
+            null, null, EmulatorLaunchModes.Default);
+        Assert.Null(usePreferences.Error);
+        Assert.DoesNotContain("-window", usePreferences.ArgumentList);
+        Assert.DoesNotContain("-nowindow", usePreferences.ArgumentList);
+    }
+
+    [Fact]
+    public void Mame_does_not_treat_a_romset_name_as_a_command_option()
+    {
+        var plan = EmulatorCommandBuilder.Build(Def("mame"), File_("roms/-window.zip"), false, null, null);
+        Assert.NotNull(plan.Error);
+        Assert.Empty(plan.ArgumentList);
+    }
+
+    [Fact]
     public void Mame_uses_the_romset_name_and_its_folder()
     {
         string rom = File_("roms/pacman.zip");
-        var plan = EmulatorCommandBuilder.Build(Def("mame"), rom, true, null, null);
+        var plan = EmulatorCommandBuilder.Build(Def("mame"), rom, false, null, null);
         Assert.Equal(new[] { "-rompath", Path.GetDirectoryName(rom)!, "pacman" }, plan.ArgumentList);
     }
 
