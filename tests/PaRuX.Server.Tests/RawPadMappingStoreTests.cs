@@ -85,6 +85,23 @@ public sealed class RawPadMappingStoreTests : IDisposable
         Assert.Single(Directory.GetFiles(_root));
     }
 
+    [Fact]
+    public void Null_button_dictionary_in_persisted_json_is_rejected_without_crashing()
+    {
+        const string id = "null-buttons-test-controller";
+        Assert.True(_store.Save(id, Mapping(), out _));
+        string file = Assert.Single(Directory.GetFiles(_root));
+        string original = File.ReadAllText(file);
+        using var document = System.Text.Json.JsonDocument.Parse(original);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(original)!.AsObject();
+        json["Mapping"]!["Buttons"] = null;
+        File.WriteAllText(file, json.ToJsonString());
+        Assert.Null(_store.Load(id, out string? reason));
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+        Assert.False(_store.Save(id, Mapping(), out _));
+        Assert.Contains("\"Buttons\":null", File.ReadAllText(file));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("  ")]
