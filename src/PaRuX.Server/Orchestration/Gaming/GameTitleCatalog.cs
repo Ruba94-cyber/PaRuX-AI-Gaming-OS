@@ -33,8 +33,10 @@ public static class GameTitleCatalog
         }
         foreach (ManualGameDto m in manual)
         {
-            installations.Add((KeyFor(m.Name, InstallationId(GameInstallationSources.Manual, m.Id)),
-                new GameInstallationDto(InstallationId(GameInstallationSources.Manual, m.Id), GameInstallationSources.Manual, m.Id,
+            // A library entry started through an emulator is an emulated installation of the title, not a local copy.
+            string entrySource = string.IsNullOrEmpty(m.EmulatorId) ? GameInstallationSources.Manual : GameInstallationSources.Emulator;
+            installations.Add((KeyFor(m.Name, InstallationId(entrySource, m.Id)),
+                new GameInstallationDto(InstallationId(entrySource, m.Id), entrySource, m.Id,
                     string.IsNullOrWhiteSpace(m.Kind) ? ManualEntryKinds.Game : m.Kind, m.Name)));
         }
 

@@ -41,6 +41,12 @@ public sealed class ManualGameLibrary
         string kind = string.IsNullOrWhiteSpace(request.Kind) ? ManualEntryKinds.Game : request.Kind.Trim().ToLowerInvariant();
         if (!ManualEntryKinds.IsValid(kind))
             throw new ArgumentException("The entry type must be 'game' or 'application'.");
+        string platform = request.Platform?.Trim() ?? "";
+        string emulatorId = request.EmulatorId?.Trim().ToLowerInvariant() ?? "";
+        if (platform.Length > 80 || platform.Any(char.IsControl))
+            throw new ArgumentException("The platform name is too long or invalid.");
+        if (emulatorId.Length > 0 && Emulators.EmulatorRegistry.Find(emulatorId) is null)
+            throw new ArgumentException("Unknown emulator.");
         if (!ValidArguments(arguments))
             throw new ArgumentException("Arguments must be at most 1024 characters without control characters.");
         if (workingDirectory.Length > 0)
@@ -62,7 +68,7 @@ public sealed class ManualGameLibrary
             if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
                                string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal)))
                 throw new InvalidOperationException("This executable is already in the library.");
-            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind);
+            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId);
             games.Add(game);
             Write(games);
             return game;

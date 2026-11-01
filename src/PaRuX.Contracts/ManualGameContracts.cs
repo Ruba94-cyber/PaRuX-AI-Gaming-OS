@@ -20,11 +20,15 @@ public sealed record ManualGameDto(
     string ExecutablePath,
     string Arguments = "",
     string WorkingDirectory = "",
-    string Kind = ManualEntryKinds.Game);
+    string Kind = ManualEntryKinds.Game,
+    string Platform = "",
+    string EmulatorId = "");
 
 public sealed record AddManualGameRequest(
     string Name,
     string ExecutablePath,
     string Arguments = "",
     string WorkingDirectory = "",
-    string Kind = ManualEntryKinds.Game);
+    string Kind = ManualEntryKinds.Game,
+    string Platform = "",
+    string EmulatorId = "");

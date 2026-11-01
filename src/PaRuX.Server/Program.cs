@@ -7,6 +7,7 @@ using PaRuX.Contracts;
 using PaRuX.Server;
 using PaRuX.Server.Orchestration;
 using PaRuX.Server.Orchestration.Gaming;
+using PaRuX.Server.Orchestration.Gaming.Emulators;
 using PaRuX.Server.Automation;
 using PaRuX.Server.ContextGraph;
 using PaRuX.Server.ArtifactWorkspace;
@@ -3801,6 +3802,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 app.MapGamingEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
+app.MapEmulatorEndpoints();
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.
