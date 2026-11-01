@@ -107,7 +107,8 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
 
     private (WorkloadOrchestrator Orchestrator, Launcher Launcher, Input Input) MakeOrchestrator(
         bool blockLauncher = false, DeferredTrigger? trigger = null, string sessionType = "local",
-        int gracePeriodSeconds = 30, string inputProviderId = "test-input")
+        int gracePeriodSeconds = 30, string inputProviderId = "test-input",
+        bool persistedHardOff = false)
     {
         var store = new GamingProfileStore(Path.Combine(_root, "profiles.json"));
         foreach (GamingProfileDto preset in store.List())
@@ -131,6 +132,7 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         var input = new Input();
         var process = new LocalAiProcessManager();
         var runtime = new LocalRuntimeService(new TestHostEnvironment(), process, new ExternalTextProviderService());
+        if (persistedHardOff) runtime.SetGamingState(true);
         var orchestrator = new WorkloadOrchestrator(
             runtime, process, new MediaJobService(null!), new SpeechService(runtime), store,
             inputProviders: new IInputProvider[] { input, new NativeInputProvider(), new XOutputInputProvider(() => Array.Empty<System.Diagnostics.Process>()) },
@@ -139,6 +141,15 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
             runtimeHealthCheck: _ => Task.FromResult(true),
             restoreRuntimeToReady: _ => Task.CompletedTask);
         return (orchestrator, launcher, input);
+    }
+
+    [Fact]
+    public void Persisted_hard_off_after_core_restart_still_allows_home_to_offer_ai_recovery()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator(persistedHardOff: true);
+        GamingStatusDto status = orchestrator.GetStatus();
+        Assert.Equal("AiReady", status.State); // in-memory Core freshly started
+        Assert.True(status.IsGamingActive); // persisted runtime Gaming lock remains
     }
 
     [Fact]
