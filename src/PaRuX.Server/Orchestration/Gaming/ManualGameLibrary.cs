@@ -64,10 +64,19 @@ public sealed class ManualGameLibrary
             using FileStream lease = AcquireWriteLease();
             List<ManualGameDto> games = Read();
             if (games.Count >= 10000) throw new InvalidOperationException("Library limit reached.");
-            // The same program with different arguments is a different entry (e.g. one emulator, many ROMs).
+            // A launch identity includes the effective working directory and entry kind:
+            // a portable game may legitimately use the same binary/args from different
+            // isolated game directories, or offer distinct application/game entries.
+            // Treat an omitted working directory as the executable's folder for compatibility.
+            string effectiveFolder = workingDirectory.Length == 0 ? Path.GetDirectoryName(path)! : workingDirectory;
             if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
-                               string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal)))
-                throw new InvalidOperationException("This executable is already in the library.");
+                               string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal) &&
+                               string.Equals(g.Kind ?? ManualEntryKinds.Game, kind, StringComparison.OrdinalIgnoreCase) &&
+                               string.Equals(string.IsNullOrWhiteSpace(g.WorkingDirectory)
+                                   ? Path.GetDirectoryName(g.ExecutablePath)
+                                   : Path.GetFullPath(g.WorkingDirectory),
+                                   effectiveFolder, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("This executable and launch configuration are already in the library.");
             var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId);
             games.Add(game);
             Write(games);
