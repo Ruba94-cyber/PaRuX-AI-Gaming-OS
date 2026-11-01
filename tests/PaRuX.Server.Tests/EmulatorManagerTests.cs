@@ -54,9 +54,10 @@ public sealed class EmulatorManagerTests : IDisposable
     public void Emulators_without_a_known_fullscreen_flag_do_not_get_a_made_up_one()
     {
         string rom = File_("a.iso");
-        Assert.DoesNotContain("fullscreen", EmulatorCommandBuilder.Build(Def("dolphin"), rom, true, null, null).Arguments, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(Def("dolphin").FullscreenArguments);
         Assert.Null(Def("mame").FullscreenArguments);
+        Assert.Null(Def("rpcs3").FullscreenArguments);
+        Assert.Equal(new[] { "-b", "-C", "Dolphin.Display.Fullscreen=True", "-e", rom },
+            EmulatorCommandBuilder.Build(Def("dolphin"), rom, true, null, null).ArgumentList);
     }
 
     [Fact]
@@ -65,6 +66,60 @@ public sealed class EmulatorManagerTests : IDisposable
         string rom = File_("game.iso");
         var plan = EmulatorCommandBuilder.Build(Def("pcsx2"), rom, true, "-nogui", null);
         Assert.Equal(new[] { "-batch", "-fullscreen", "-nogui", "--", rom }, plan.ArgumentList);
+    }
+
+    [Theory]
+    [InlineData("eden", "-f")]
+    [InlineData("cemu", "-f")]
+    [InlineData("pcsx2", "-fullscreen")]
+    [InlineData("duckstation", "-fullscreen")]
+    [InlineData("ppsspp", "--fullscreen")]
+    [InlineData("retroarch", "-f")]
+    public void Explicit_fullscreen_adds_the_documented_flag(string id, string flag)
+    {
+        string rom = File_("demo.iso");
+        string? core = id == "retroarch" ? File_("cores/core_libretro.dll") : null;
+        var plan = EmulatorCommandBuilder.Build(Def(id), rom, true, null, core, EmulatorLaunchModes.Fullscreen);
+        Assert.Null(plan.Error);
+        Assert.Contains(flag, plan.ArgumentList);
+    }
+
+    [Theory]
+    [InlineData("dolphin", "Dolphin.Display.Fullscreen=False")]
+    [InlineData("pcsx2", "-nofullscreen")]
+    [InlineData("duckstation", "-nofullscreen")]
+    [InlineData("ppsspp", "--windowed")]
+    public void Explicit_windowed_overrides_an_emulators_own_fullscreen_setting(string id, string flag)
+    {
+        var plan = EmulatorCommandBuilder.Build(Def(id), File_("demo.iso"),
+            true, null, null, EmulatorLaunchModes.Windowed);
+        Assert.Null(plan.Error);
+        Assert.Contains(flag, plan.ArgumentList);
+        Assert.DoesNotContain("-fullscreen", plan.ArgumentList);
+    }
+
+    [Fact]
+    public void Emulator_default_never_injects_a_forced_display_switch()
+    {
+        string rom = File_("demo.iso");
+        var plan = EmulatorCommandBuilder.Build(Def("pcsx2"), rom, true,
+            null, null, EmulatorLaunchModes.Default);
+        Assert.Null(plan.Error);
+        Assert.DoesNotContain("-fullscreen", plan.ArgumentList);
+        Assert.DoesNotContain("-nofullscreen", plan.ArgumentList);
+    }
+
+    [Theory]
+    [InlineData("eden", "windowed")]
+    [InlineData("cemu", "windowed")]
+    [InlineData("mame", "fullscreen")]
+    [InlineData("eden", "unrecognized")]
+    public void Unavailable_or_invalid_explicit_display_modes_are_not_silently_ignored(string id, string mode)
+    {
+        var plan = EmulatorCommandBuilder.Build(Def(id), File_("demo.iso"),
+            true, null, null, mode);
+        Assert.NotNull(plan.Error);
+        Assert.Empty(plan.ArgumentList);
     }
 
     [Fact]
@@ -224,6 +279,19 @@ public sealed class EmulatorManagerTests : IDisposable
         var again = EmulatorEndpoints.Import(new("eden", exe, new() { rom }, true, null, null), library);
         Assert.Equal(0, again.Added);
         Assert.Equal(1, again.Skipped);
+    }
+
+    [Fact]
+    public void Import_preserves_the_selected_per_game_windowed_option_in_the_library()
+    {
+        string exe = File_("emu/pcsx2-qt.exe", 20_000);
+        string rom = File_("games/Window Test.iso");
+        var library = new ManualGameLibrary(Path.Combine(_root, "windowed.json"));
+        var result = EmulatorEndpoints.Import(new("pcsx2", exe, new() { rom },
+            true, null, null, EmulatorLaunchModes.Windowed), library);
+        Assert.Equal(1, result.Added);
+        Assert.Empty(result.Problems);
+        Assert.Contains("-nofullscreen", Assert.Single(library.List()).Arguments);
     }
 
     [Fact]
