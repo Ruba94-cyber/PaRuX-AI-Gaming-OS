@@ -14,7 +14,12 @@ public static class GameInstallationSources
 /// One concrete way to run a title: a store install, a local or portable executable, or an emulated copy.
 /// <paramref name="InstallationId"/> is "{source}:{sourceGameId}" and is stable across restarts.
 /// </summary>
-public sealed record GameInstallationDto(string InstallationId, string Source, string SourceGameId, string Kind, string Name);
+public sealed record GameInstallationDto(string InstallationId, string Source, string SourceGameId, string Kind, string Name)
+{
+    /// <summary>Optional public emulator display label, never an executable/ROM path.
+    /// An older Core or stored title payload may omit it without breaking desktop/TV clients.</summary>
+    public string EmulatorName { get; init; } = string.Empty;
+}
 
 /// <summary>
 /// A game as the user thinks of it. Identity (<paramref name="TitleKey"/>) is separate from installations,
