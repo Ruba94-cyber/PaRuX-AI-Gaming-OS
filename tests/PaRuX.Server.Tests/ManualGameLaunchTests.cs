@@ -135,4 +135,13 @@ public sealed class ManualGameLaunchSecurityTests : IClassFixture<ApiSecurityTes
             "/api/v1/gaming/library/nonexistent/launch", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Manual_TV_routing_hint_cannot_bypass_desktop_owner_authorization()
+    {
+        using HttpClient client = _factory.CreateClient();
+        using HttpResponseMessage response = await client.PostAsync(
+            "/api/v1/gaming/library/nonexistent/launch?displayId=DISPLAY2", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }
