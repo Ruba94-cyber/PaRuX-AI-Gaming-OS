@@ -11,9 +11,9 @@ namespace PaRuX.Server.Orchestration.Gaming.Providers;
 public sealed class NativeInputProvider : IInputProvider
 {
     public string Id => "native";
-    public string Name => OperatingSystem.IsWindows()
-        ? $"Native Controller Input ({NativeXInputProbe.ConnectedSlots().Count} XInput slots connected)"
-        : "Native Controller Input";
+    // Provider enumeration must never poll controller hardware. Live slots are
+    // queried only by the explicit desktop-owner diagnostics endpoint.
+    public string Name => "Native Controller Input";
     public bool IsInstalled => true;
     public string? ExecutablePath => null;
     public Task<bool> StartAsync(GamingProfileDto profile, CancellationToken ct) => Task.FromResult(true);
