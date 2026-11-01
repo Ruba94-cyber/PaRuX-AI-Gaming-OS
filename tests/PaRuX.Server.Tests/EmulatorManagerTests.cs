@@ -409,6 +409,24 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Mame_import_persists_explicit_windowed_mode_and_refuses_option_like_romsets()
+    {
+        string exe = File_("mame/mame.exe", 20_000);
+        string game = File_("arcade/galaga.zip");
+        string unsafeName = File_("arcade/-window.zip");
+        var library = new ManualGameLibrary(Path.Combine(_root, "arcade.json"));
+        var result = EmulatorEndpoints.Import(new("mame", exe, new() { game, unsafeName },
+            true, null, null, EmulatorLaunchModes.Windowed), library);
+        Assert.Equal(1, result.Added);
+        Assert.Single(result.Problems);
+        var saved = Assert.Single(library.List());
+        Assert.Equal("mame", saved.EmulatorId);
+        Assert.Contains("-window", saved.Arguments);
+        Assert.DoesNotContain("-nowindow", saved.Arguments);
+        Assert.Contains("galaga", saved.Arguments);
+    }
+
+    [Fact]
     public void Import_refuses_a_program_that_is_not_the_named_emulator_and_unsupported_files()
     {
         string notEmulator = File_("emu/calc.exe", 20_000);
