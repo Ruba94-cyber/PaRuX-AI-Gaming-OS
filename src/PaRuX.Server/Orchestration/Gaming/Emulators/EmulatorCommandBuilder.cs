@@ -1,4 +1,5 @@
 using System.Text;
+using PaRuX.Contracts;
 
 namespace PaRuX.Server.Orchestration.Gaming.Emulators;
 
@@ -14,8 +15,18 @@ public static class EmulatorCommandBuilder
     public const int MaxExtraArgumentsLength = 512;
 
     public static EmulatorLaunchPlan Build(
-        EmulatorDefinition definition, string romPath, bool fullscreen, string? extraArguments, string? corePath)
+        EmulatorDefinition definition, string romPath, bool fullscreen, string? extraArguments,
+        string? corePath, string? launchMode = null)
     {
+        string mode = launchMode is null
+            ? (fullscreen ? EmulatorLaunchModes.Fullscreen : EmulatorLaunchModes.Default)
+            : launchMode.Trim().ToLowerInvariant();
+        if (mode is not (EmulatorLaunchModes.Default or EmulatorLaunchModes.Fullscreen or EmulatorLaunchModes.Windowed))
+            return Fail("Choose a supported emulator display mode.");
+        if (launchMode is not null &&
+            ((mode == EmulatorLaunchModes.Fullscreen && definition.FullscreenArguments is not { Count: > 0 }) ||
+             (mode == EmulatorLaunchModes.Windowed && definition.WindowedArguments is not { Count: > 0 })))
+            return Fail("This emulator has no documented command-line option for that display mode.");
         if (string.IsNullOrWhiteSpace(romPath) || romPath.Length > 1024 || romPath.Any(char.IsControl) || !Path.IsPathFullyQualified(romPath))
             return Fail("The game path must be an absolute local path.");
         string extra = (extraArguments ?? string.Empty).Trim();
@@ -36,7 +47,13 @@ public static class EmulatorCommandBuilder
                 case "{romname}": Add(Path.GetFileNameWithoutExtension(full)); break;
                 case "{core}": Add(Path.GetFullPath(corePath!)); break;
                 case "{fullscreen}":
-                    if (fullscreen && definition.FullscreenArguments is { Count: > 0 } flags)
+                    IReadOnlyList<string>? flags = mode switch
+                    {
+                        EmulatorLaunchModes.Fullscreen => definition.FullscreenArguments,
+                        EmulatorLaunchModes.Windowed => definition.WindowedArguments,
+                        _ => null
+                    };
+                    if (flags is not null)
                         foreach (string flag in flags) { arguments.Add(Quote(flag)); plain.Add(flag); }
                     break;
                 case "{extra}":
