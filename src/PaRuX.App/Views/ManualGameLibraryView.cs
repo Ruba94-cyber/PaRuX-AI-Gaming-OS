@@ -283,13 +283,13 @@ public sealed class ManualGameLibraryView : UserControl
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             GamingCallResult<GamingStatusDto> result = await GamingOrchestratorClient.Current.ExitGamingAsync();
+            await UpdateGamingStatusAsync();
             if (!result.Succeeded)
                 _gamingStatus.Text = T("Return to AI could not be confirmed. Inspect Gaming status and retry.",
                     "Ritorno all'AI non confermato. Controlla lo stato Gaming e riprova.");
-            else
-                _gamingStatus.Text = T("Return to AI requested. The game was not closed.",
-                    "Ritorno all'AI richiesto. Il gioco non è stato chiuso.");
-            await UpdateGamingStatusAsync();
+            else if (!_returnToAiAvailable)
+                _gamingStatus.Text = T("AI ready. The game was not closed.",
+                    "AI pronta. Il gioco non è stato chiuso.");
         }
         catch (Exception)
         {
