@@ -47,8 +47,11 @@ public static class EmulatorEndpoints
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
         }).RequireDesktopOwner();
 
-        app.MapPost("/api/v1/gaming/emulators/import", (EmulatorImportRequest request, ManualGameLibrary library) =>
+        app.MapPost("/api/v1/gaming/emulators/import", (
+            EmulatorImportRequest request, ManualGameLibrary library, LocalRuntimeService runtime) =>
         {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Emulator import is unavailable while Gaming." }) as IResult;
             EmulatorImportResult result = Import(request, library);
             return result.Problems.Count > 0 && result.Added == 0 && result.Skipped == 0
                 ? Results.BadRequest(result) : Results.Ok(result);
@@ -68,6 +71,11 @@ public static class EmulatorEndpoints
             return new(0, 0, new[] { $"The executable must be a local, regular {definition.Name} program file ({string.Join(" / ", definition.ExecutableNames)})." });
         if (request.GamePaths is not { Count: > 0 } || request.GamePaths.Count > MaxImportBatch)
             return new(0, 0, new[] { $"Select between 1 and {MaxImportBatch} games." });
+        // Libretro cores are executable third-party code. They must be regular,
+        // non-linked local .dll files, not arbitrary UNC, device or junction paths.
+        if (definition.RequiresCore && !GamingLocalFileSafetyPolicy.IsSafeRegularFile(
+                request.CorePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".dll" }))
+            return new(0, 0, new[] { "Select an existing regular local .dll core for this emulator." });
 
         string workingDirectory = Path.GetDirectoryName(Path.GetFullPath(exe))!;
         var allowedExtensions = new HashSet<string>(definition.GameExtensions, StringComparer.OrdinalIgnoreCase);
