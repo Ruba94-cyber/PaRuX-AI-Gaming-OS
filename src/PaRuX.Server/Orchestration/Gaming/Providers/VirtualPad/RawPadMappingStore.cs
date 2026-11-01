@@ -62,8 +62,9 @@ public sealed class RawPadMappingStore
         error = null;
         string? hash = DeviceHash(deviceId);
         if (hash is null) { error = "Select a valid physical gamepad."; return false; }
-        if (mapping is null || mapping.Validate() is { } problem)
-        { error = problem ?? "Choose a mapping."; return false; }
+        if (mapping is null) { error = "Choose a mapping."; return false; }
+        if (mapping.Validate() is { } problem)
+        { error = problem; return false; }
         string target = FileFor(hash);
         string? temp = null;
         try
