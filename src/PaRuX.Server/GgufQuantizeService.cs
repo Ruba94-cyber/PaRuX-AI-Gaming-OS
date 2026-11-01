@@ -98,6 +98,9 @@ public sealed class GgufQuantizeService
         {
             var spec = new ProcessSpec(quantizer, new[] { input, partial, type }, Path.GetDirectoryName(quantizer)!);
             (int exit, string tail) = await _run(spec, timeout.Token).ConfigureAwait(false);
+            // A third-party quantizer or injected runner may ignore cancellation.
+            // Never publish its output when Gaming has already cancelled the job.
+            timeout.Token.ThrowIfCancellationRequested();
             if (exit != 0)
                 throw new GgufQuantizeException($"llama-quantize failed (exit {exit}). {Tail(tail)}".TrimEnd());
             if (!File.Exists(partial) || new FileInfo(partial).Length == 0 || !HasGgufHeader(partial))
@@ -109,6 +112,7 @@ public sealed class GgufQuantizeService
             if (!string.Equals(currentSourceHash, inputSha256, StringComparison.Ordinal))
                 throw new GgufQuantizeException("The source GGUF changed during quantization. No output was published.");
 
+            timeout.Token.ThrowIfCancellationRequested();
             File.Move(partial, output); // never overwrites: the target was checked and Move without overwrite throws
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
