@@ -40,9 +40,9 @@ public sealed class WorkloadOrchestratorTests
             Assert.Contains(profiles, p => p.Name.Contains("Remote", StringComparison.OrdinalIgnoreCase));
             GamingProfileDto local = Assert.Single(profiles.Where(p => p.Id == "preset-local-console"));
             Assert.Equal("native", local.InputProvider);
-            Assert.Equal("nyrna", local.SuspendProvider);
+            Assert.Equal("win32native", local.SuspendProvider);
             GamingProfileDto remote = Assert.Single(profiles.Where(p => p.Id == "preset-remote-sunshine"));
-            Assert.Equal("nyrna", remote.SuspendProvider);
+            Assert.Equal("win32native", remote.SuspendProvider);
         }
         finally
         {

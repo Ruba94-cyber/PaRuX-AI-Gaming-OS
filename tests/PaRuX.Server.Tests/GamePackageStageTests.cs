@@ -12,6 +12,11 @@ public sealed class GamePackageStageTests
     private static string NewRoot() => Path.Combine(Path.GetTempPath(),
         "parux-stage-" + Guid.NewGuid().ToString("N"));
 
+    // The persistent .parux-staging.lock is intentional infrastructure, not a package or temp file.
+    private static string[] NonLockFiles(string dir) => Directory.EnumerateFiles(dir)
+        .Where(f => !string.Equals(Path.GetFileName(f), ".parux-staging.lock", StringComparison.Ordinal))
+        .ToArray();
+
     [Fact]
     public async Task Valid_external_digest_stages_one_byte_exact_copy_without_executing()
     {
@@ -31,7 +36,7 @@ public sealed class GamePackageStageTests
             Assert.Equal(data.Length, result.SizeBytes);
             Assert.Equal(digest.ToLowerInvariant(), result.Sha256);
             Assert.Equal(data, await File.ReadAllBytesAsync(input));
-            Assert.Single(Directory.GetFiles(Path.GetDirectoryName(result.StagedPath)!));
+            Assert.Single(NonLockFiles(Path.GetDirectoryName(result.StagedPath)!));
         }
         finally { Directory.Delete(root, true); }
     }
@@ -49,7 +54,7 @@ public sealed class GamePackageStageTests
             var service = new GamePackageStageService(() => false, () => CancellationToken.None, staged);
             await Assert.ThrowsAsync<InvalidDataException>(() =>
                 service.StageAsync(new GamePackageStageRequest(input, new string('0', 64)), CancellationToken.None));
-            Assert.Empty(Directory.EnumerateFiles(staged));
+            Assert.Empty(NonLockFiles(staged));
         }
         finally { Directory.Delete(root, true); }
     }
@@ -89,7 +94,7 @@ public sealed class GamePackageStageTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 service.StageAsync(new GamePackageStageRequest(source,
                     Convert.ToHexString(SHA256.HashData(new byte[65536]))), CancellationToken.None));
-            Assert.Empty(Directory.EnumerateFiles(Path.Combine(root, "staging")));
+            Assert.Empty(NonLockFiles(Path.Combine(root, "staging")));
         }
         finally { Directory.Delete(root, true); }
     }

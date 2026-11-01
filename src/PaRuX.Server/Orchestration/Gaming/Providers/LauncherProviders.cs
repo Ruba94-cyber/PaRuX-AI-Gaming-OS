@@ -67,15 +67,13 @@ public sealed class PlayniteLauncherProvider : IGameLauncherProvider
     public Task<bool> LaunchAsync(GamingProfileDto profile, CancellationToken ct)
     {
         if (ct.IsCancellationRequested) return Task.FromResult(false);
-        string? exe = ExecutablePath;
+        // An explicit, validated path chosen in the profile outranks auto-detection.
+        string? exe = profile.LauncherSettings.TryGetValue("path", out string? customPath) &&
+            CustomExecutableInputProvider.IsSafeHelperPath(customPath)
+            ? customPath
+            : ExecutablePath;
         if (exe == null)
-        {
-            if (profile.LauncherSettings.TryGetValue("path", out string? customPath) &&
-                CustomExecutableInputProvider.IsSafeHelperPath(customPath))
-                exe = customPath;
-            else
-                return Task.FromResult(false);
-        }
+            return Task.FromResult(false);
 
         lock (_processGate)
         {

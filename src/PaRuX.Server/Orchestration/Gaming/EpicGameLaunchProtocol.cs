@@ -65,7 +65,7 @@ internal static class EpicGameLaunchProtocol
         if (!OperatingSystem.IsWindows()) return false;
         try
         {
-            using RegistryKey? key = Registry.ClassesRoot.OpenSubKey(Scheme, writable: false);
+            using RegistryKey? key = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(Scheme, writable: false);
             // The existence of this registration is an OS dispatch prerequisite,
             // NOT attestation that the registered executable is publisher-signed.
             return key != null;

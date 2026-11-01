@@ -58,11 +58,13 @@ public sealed class GamePackageStageService
         }
     }
 
+    internal const string LockFileName = ".parux-staging.lock";
+
     private async Task<FileStream> AcquireStagingLeaseAsync(CancellationToken ct)
     {
         // Keep a stable lock file: deleting it could let another Core start
         // a second writer on a newly-created lock inode.
-        string lockPath = Path.Combine(_stagingRoot, ".parux-staging.lock");
+        string lockPath = Path.Combine(_stagingRoot, LockFileName);
         var elapsed = Stopwatch.StartNew();
         while (true)
         {
@@ -88,6 +90,8 @@ public sealed class GamePackageStageService
         int entries = 0;
         foreach (string path in Directory.EnumerateFiles(_stagingRoot))
         {
+            // The persistent lease file is infrastructure: it neither consumes quota nor entry budget.
+            if (string.Equals(Path.GetFileName(path), LockFileName, StringComparison.Ordinal)) continue;
             if (++entries > 256 || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("Staging directory exceeds its safe entry limit.");
             long size = new FileInfo(path).Length;
