@@ -81,7 +81,7 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
-    public void Emulators_without_a_known_fullscreen_flag_do_not_get_a_made_up_one()
+    public void Only_emulators_with_supported_display_flags_receive_explicit_fullscreen_switches()
     {
         string rom = File_("a.iso");
         Assert.Null(Def("mame").FullscreenArguments);
@@ -150,6 +150,14 @@ public sealed class EmulatorManagerTests : IDisposable
             true, null, null, mode);
         Assert.NotNull(plan.Error);
         Assert.Empty(plan.ArgumentList);
+    }
+
+    [Fact]
+    public void Very_long_Eden_input_profile_is_rejected()
+    {
+        var plan = EmulatorCommandBuilder.Build(Def("eden"), File_("long.nro"),
+            true, null, null, EmulatorLaunchModes.Fullscreen, new string('x', 81));
+        Assert.NotNull(plan.Error);
     }
 
     [Fact]
