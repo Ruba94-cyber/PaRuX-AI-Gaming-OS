@@ -59,6 +59,29 @@ public sealed class ManualGameLaunchTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Fact]
+    public void Manual_game_launch_rejects_a_regular_exe_under_an_existing_junction()
+    {
+        string root = Path.Combine(Path.GetTempPath(),
+            "parux-game-parent-link-" + Guid.NewGuid().ToString("N"));
+        string installed = Path.Combine(root, "game");
+        string link = Path.Combine(root, "linked-game");
+        Directory.CreateDirectory(installed);
+        try
+        {
+            File.WriteAllText(Path.Combine(installed, "game.exe"), "fixture only");
+            try { Directory.CreateSymbolicLink(link, installed); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.Security.SecurityException or PlatformNotSupportedException)
+            {
+                return; // Link creation is privileged on some Windows machines.
+            }
+            Assert.False(ManualGameSessionService.IsSafeLocalExecutable(
+                Path.Combine(link, "game.exe")));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Theory]
     [InlineData("730", true)]
     [InlineData("123456789012345", true)]
