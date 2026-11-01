@@ -20,6 +20,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly WorkloadOrchestrator _orchestrator;
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly GameTitleStore? _titles;
+    private readonly OwnedGameWindowPlacementService? _windowPlacement;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
@@ -28,9 +29,10 @@ public sealed class ManualGameSessionService : IDisposable
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
-        GameTitleStore? titles = null)
+        GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null)
     {
         _titles = titles;
+        _windowPlacement = windowPlacement;
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
@@ -45,7 +47,8 @@ public sealed class ManualGameSessionService : IDisposable
     internal static bool IsSafeLocalExecutable(string? path) =>
         CustomExecutableInputProvider.IsSafeHelperPath(path);
 
-    public async Task<ManualGameLaunchResult> LaunchAsync(string gameId, CancellationToken ct)
+    public async Task<ManualGameLaunchResult> LaunchAsync(string gameId, CancellationToken ct,
+        string? targetDisplayId = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (string.IsNullOrWhiteSpace(gameId))
@@ -73,6 +76,13 @@ public sealed class ManualGameSessionService : IDisposable
             // Applications (tools, front-ends, any other program) never change AI or Gaming state.
             if (string.Equals(game.Kind, ManualEntryKinds.Application, StringComparison.OrdinalIgnoreCase))
                 return LaunchApplication(game);
+
+            // A disconnected/reidentified TV must not start the game on the wrong
+            // monitor. Revalidate the destination immediately before Gaming entry.
+            if (targetDisplayId is { Length: > 0 } &&
+                (_windowPlacement is null || !_windowPlacement.HasConnectedTarget(targetDisplayId)))
+                return new(false, false,
+                    "The selected game TV is unavailable. Check the connected displays in Settings; no game was launched.");
 
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
@@ -119,7 +129,21 @@ public sealed class ManualGameSessionService : IDisposable
                 // This monitor never kills the process. Its cancellation only stops observation.
                 _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop,
                     SessionTitleKey(game), DateTime.UtcNow);
-                return new(true, true, "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.");
+
+                string placement = string.Empty;
+                if (targetDisplayId is { Length: > 0 } && _windowPlacement is not null)
+                {
+                    // Bounded observation of only this exact process's one stable
+                    // window. Never adopt child/launcher processes or foreground
+                    // someone else's application. No game process is terminated.
+                    placement = await _windowPlacement.TryPlaceAsync(
+                        process, path, targetDisplayId, stop.Token).ConfigureAwait(false);
+                }
+                return new ManualGameLaunchResult(true, true,
+                    "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")
+                {
+                    WindowPlacement = placement
+                };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
                 or InvalidOperationException or OperationCanceledException or ArgumentException or NotSupportedException
