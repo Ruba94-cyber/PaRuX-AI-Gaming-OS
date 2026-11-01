@@ -53,8 +53,12 @@ public sealed class ManualGameLibraryView : UserControl
     private List<ManualGameDto> _allGames = new();
     private List<DiscoveredGameDto> _lastDetectedGames = new();
     private int _page;
+    private int _detectedPage;
     private readonly Button _previous = new();
     private readonly Button _next = new();
+    private readonly Button _detectedPrevious = new();
+    private readonly Button _detectedNext = new();
+    private readonly TextBlock _detectedRange = new() { TextWrapping = TextWrapping.Wrap };
     private static bool Italian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
     private static string T(string en, string it) => Italian ? it : en;
 
@@ -128,7 +132,7 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_status);
         _filter.Header = T("Filter by name", "Filtra per nome");
         AutomationProperties.SetAutomationId(_filter, "GameLibrary_Filter_TextBox");
-        _filter.TextChanged += (_, _) => { _page = 0; RenderGames(); RenderDiscoveredGames(); };
+        _filter.TextChanged += (_, _) => { _page = 0; _detectedPage = 0; RenderGames(); RenderDiscoveredGames(); };
         root.Children.Add(_filter); root.Children.Add(_games);
         var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         _previous.Content = T("Previous", "Precedente"); _next.Content = T("Next", "Successiva");
@@ -171,6 +175,24 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetLiveSetting(_discoveryStatus, AutomationLiveSetting.Polite);
         root.Children.Add(_discoveryStatus);
         root.Children.Add(_discoveredGames);
+        // Console and desktop share the same cached catalog, with bounded
+        // page rendering instead of constructing thousands of WinUI controls.
+        _detectedPrevious.Content = T("Previous store games", "Giochi store precedenti");
+        _detectedNext.Content = T("Next store games", "Giochi store successivi");
+        AutomationProperties.SetAutomationId(_detectedPrevious, "GameLibrary_Store_Previous_Button");
+        AutomationProperties.SetAutomationId(_detectedNext, "GameLibrary_Store_Next_Button");
+        AutomationProperties.SetAutomationId(_detectedRange, "GameLibrary_Store_Page_Status");
+        AutomationProperties.SetLiveSetting(_detectedRange, AutomationLiveSetting.Polite);
+        _detectedPrevious.Click += (_, _) =>
+        {
+            if (_detectedPage > 0) { _detectedPage--; RenderDiscoveredGames(); }
+        };
+        _detectedNext.Click += (_, _) => { _detectedPage++; RenderDiscoveredGames(); };
+        var detectedNavigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        detectedNavigation.Children.Add(_detectedPrevious);
+        detectedNavigation.Children.Add(_detectedNext);
+        root.Children.Add(_detectedRange);
+        root.Children.Add(detectedNavigation);
 
         root.Children.Add(new TextBlock
         {
@@ -279,7 +301,7 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
-        foreach (Button button in new[] { _add, _browse, _returnToAi, _gamingStatusRefresh, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next })
+        foreach (Button button in new[] { _add, _browse, _returnToAi, _gamingStatusRefresh, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next, _detectedPrevious, _detectedNext })
         {
             button.FontSize = bodySize;
             button.MinHeight = enabled ? 56 : 32;
@@ -561,6 +583,7 @@ public sealed class ManualGameLibraryView : UserControl
         if (_busy) return;
         SetBusy(true);
         _lastDetectedGames.Clear();
+        _detectedPage = 0;
         _discoveredGames.Children.Clear();
         _discoveryStatus.Text = T("Detecting Steam, Epic and GOG installations…",
                                   "Rilevamento installazioni Steam, Epic e GOG…");
@@ -622,9 +645,11 @@ public sealed class ManualGameLibraryView : UserControl
                 return;
             }
             _lastDetectedGames = result.Value.ToList();
+            _detectedPage = 0;
             _discoveryStatus.Text = result.Value.Count == 0
                 ? T($"No installed {provider} games found.", $"Nessun gioco {provider} installato rilevato.")
-                : T($"Found {result.Value.Count} {provider} games (showing up to 100).", $"Rilevati {result.Value.Count} giochi {provider} (massimo 100 visualizzati).");
+                : T($"Found {result.Value.Count} installed {provider} games. Use pagination to view them all.",
+                    $"Rilevati {result.Value.Count} giochi {provider} installati. Usa le pagine per consultarli tutti.");
             RenderDiscoveredGames();
         }
         catch (Exception)
@@ -637,9 +662,18 @@ public sealed class ManualGameLibraryView : UserControl
     private void RenderDiscoveredGames()
     {
         _discoveredGames.Children.Clear();
-        foreach (DiscoveredGameDto game in _lastDetectedGames
-                     .Where(g => g.Name.Contains(_filter.Text ?? "", StringComparison.CurrentCultureIgnoreCase))
-                     .Take(100))
+        var matches = _lastDetectedGames
+            .Where(g => g.Name.Contains(_filter.Text ?? "", StringComparison.CurrentCultureIgnoreCase))
+            .ToList();
+        GameLibraryPageWindow window = GameLibraryPageWindow.For(matches.Count, _detectedPage);
+        _detectedPage = window.Page;
+        _detectedPrevious.IsEnabled = window.HasPrevious;
+        _detectedNext.IsEnabled = window.HasNext;
+        _detectedRange.Text = window.Count == 0
+            ? T("No matching store games.", "Nessun gioco store corrispondente.")
+            : T($"Showing store games {window.FirstVisible}–{window.LastVisible} of {window.Total}.",
+                $"Mostrati giochi store {window.FirstVisible}–{window.LastVisible} di {window.Total}.");
+        foreach (DiscoveredGameDto game in matches.Skip(window.Offset).Take(window.Count))
         {
             var item = new StackPanel
             {
