@@ -28,7 +28,7 @@
 - **Work with coding agents:** plan, implement, review and test changes with task progress and reviewable results.
 - **Use Computer Use:** run approval-aware Windows tasks rather than giving an AI unrestricted desktop access.
 - **Connect your tools:** optional file and knowledge sources, Skills, MCP, workflows and a local API compatible with popular AI clients.
-- **Keep control of performance:** runtime suggestions, local benchmarks, model optimization and a Gaming Mode to reduce competition for PC resources. The Games workspace also includes source-implemented, on-demand display and XInput diagnostics (not Windows-verified). Voice input and speech warmup are disabled when Gaming Mode is active by default; owned speech-process shutdown and GPU resource release remain under validation.
+- **Keep control of performance:** runtime suggestions, local benchmarks, model optimization and a Gaming Mode to reduce competition for PC resources. The Games/Console home now provides a user-confirmed Return-to-AI action without closing the game, and an explicitly requested read-only XInput/display diagnostic view; real Windows acceptance is still pending. The Games workspace also includes source-implemented, on-demand display and XInput diagnostics (not Windows-verified). Voice input and speech warmup are disabled when Gaming Mode is active by default; owned speech-process shutdown and GPU resource release remain under validation.
 - **Access it your way:** Windows desktop first, plus an optional browser client and an Android companion for supervising the Windows host.
 
 Available features depend on your installed models, runtimes and hardware. **Not every feature or model will work on every PC during beta.**
