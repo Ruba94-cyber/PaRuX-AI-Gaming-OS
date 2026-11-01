@@ -52,6 +52,28 @@ public sealed class EpicGameLaunchProtocolTests
     }
 
     [Fact]
+    public void Epic_activation_refuses_linked_parent_install_folders()
+    {
+        string root = Path.Combine(Path.GetTempPath(),
+            "parux-epic-linked-" + Guid.NewGuid().ToString("N"));
+        string installed = Path.Combine(root, "real", "game");
+        string shortcut = Path.Combine(root, "linked");
+        Directory.CreateDirectory(installed);
+        try
+        {
+            try { Directory.CreateSymbolicLink(shortcut, Path.Combine(root, "real")); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.Security.SecurityException or PlatformNotSupportedException)
+            {
+                return;
+            }
+            Assert.False(EpicGameLaunchProtocol.TryBuildInstalledGameUri(
+                Path.Combine(shortcut, "game"), out _));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public void Non_windows_environment_has_no_epic_registered_protocol()
     {
         if (!OperatingSystem.IsWindows())
