@@ -32,7 +32,8 @@ public sealed class WindowsNativeSuspendProvider : IGameSuspendProvider
 
     public Task<bool> SuspendProcessAsync(int processId, CancellationToken ct)
     {
-        if (!OperatingSystem.IsWindows() || processId <= 0) return Task.FromResult(false);
+        if (ct.IsCancellationRequested || !OperatingSystem.IsWindows() || processId <= 0)
+            return Task.FromResult(false);
 
         IntPtr handle = IntPtr.Zero;
         try
@@ -55,7 +56,8 @@ public sealed class WindowsNativeSuspendProvider : IGameSuspendProvider
 
     public Task<bool> ResumeProcessAsync(int processId, CancellationToken ct)
     {
-        if (!OperatingSystem.IsWindows() || processId <= 0) return Task.FromResult(false);
+        if (ct.IsCancellationRequested || !OperatingSystem.IsWindows() || processId <= 0)
+            return Task.FromResult(false);
 
         IntPtr handle = IntPtr.Zero;
         try
@@ -201,6 +203,8 @@ public sealed class NoneGameSuspendProvider : IGameSuspendProvider
     public string Id => "none";
     public string Name => "No Suspension (Manage Game Lifecycle Directly)";
     public bool IsAvailable => true;
-    public Task<bool> SuspendProcessAsync(int processId, CancellationToken ct) => Task.FromResult(true);
-    public Task<bool> ResumeProcessAsync(int processId, CancellationToken ct) => Task.FromResult(true);
+    // "none" is an explicit no-op, not evidence a process was suspended/resumed.
+    // Never let orchestration report a fake successful Quick Resume transition.
+    public Task<bool> SuspendProcessAsync(int processId, CancellationToken ct) => Task.FromResult(false);
+    public Task<bool> ResumeProcessAsync(int processId, CancellationToken ct) => Task.FromResult(false);
 }
