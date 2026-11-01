@@ -14,6 +14,7 @@ publish/
 installer/output/
 
 # Runtime state and private machine configuration
+.ai/telemetry/
 data/
 logs/
 backups/
