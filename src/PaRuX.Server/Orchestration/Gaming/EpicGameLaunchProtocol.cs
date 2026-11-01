@@ -29,9 +29,23 @@ internal static class EpicGameLaunchProtocol
         try
         {
             string normalized = Path.GetFullPath(installedDirectory);
-            if (!Directory.Exists(normalized) ||
-                (File.GetAttributes(normalized) & FileAttributes.ReparsePoint) != 0)
+            if (!Directory.Exists(normalized)) return false;
+            string? root = Path.GetPathRoot(normalized);
+            if (string.IsNullOrEmpty(root)) return false;
+            DriveType drive = new DriveInfo(root).DriveType;
+            if (drive is DriveType.Network or DriveType.NoRootDirectory or DriveType.Unknown)
                 return false;
+
+            // Install folders may themselves be ordinary directories inside a
+            // junction pointing elsewhere. Reject every linked ancestor, as in
+            // PaRuX's executable/installer preflight. Never dereference an
+            // untrusted manifest path to construct the launcher protocol request.
+            for (string? directory = normalized; directory != null;
+                 directory = Path.GetDirectoryName(directory))
+            {
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                    return false;
+            }
 
             // Epic's Protocol Activation guide explicitly supports a URL-encoded
             // *local install directory*, without requiring the namespace/catalog IDs.
