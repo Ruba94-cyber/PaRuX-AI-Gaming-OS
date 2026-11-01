@@ -6,29 +6,11 @@ namespace PaRuX.Server.Tests;
 
 public sealed class ThirdPartyNoticeCoverageTests
 {
-    private static readonly string[] ExpectedMissingPackageNoticeRows =
-    {
-        "Microsoft.CodeAnalysis.CSharp",
-        "Microsoft.ML.OnnxRuntimeGenAI.WinML",
-        "Microsoft.Windows.AI.MachineLearning",
-        "System.Management",
-        "System.Security.Cryptography.ProtectedData"
-    };
+    // Every shipped direct package now has a notice row; any new gap must be fixed, not exempted.
+    private static readonly string[] ExpectedMissingPackageNoticeRows = Array.Empty<string>();
 
     private static readonly IReadOnlyDictionary<string, string> PackageNoticeExemptions =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Microsoft.CodeAnalysis.CSharp"] =
-                "Known notice-table gap retained for owner follow-up; this test-only task cannot edit the notice document, and this is not license clearance.",
-            ["Microsoft.ML.OnnxRuntimeGenAI.WinML"] =
-                "Known notice-table gap retained for owner follow-up; this test-only task cannot edit the notice document, and this is not license clearance.",
-            ["Microsoft.Windows.AI.MachineLearning"] =
-                "Known notice-table gap retained for owner follow-up; this test-only task cannot edit the notice document, and this is not license clearance.",
-            ["System.Management"] =
-                "Known notice-table gap retained for owner follow-up; this test-only task cannot edit the notice document, and this is not license clearance.",
-            ["System.Security.Cryptography.ProtectedData"] =
-                "Known notice-table gap retained for owner follow-up; this test-only task cannot edit the notice document, and this is not license clearance."
-        };
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
     public void Shipped_project_package_references_have_notice_rows_or_reasoned_exemptions()

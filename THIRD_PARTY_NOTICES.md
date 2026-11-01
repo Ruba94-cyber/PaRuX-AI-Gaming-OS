@@ -21,6 +21,11 @@ The GitHub MSI includes the self-contained WinUI desktop application, self-conta
 | ModelContextProtocol | Apache-2.0 | Server | Outbound MCP client capabilities |
 | ModelContextProtocol.AspNetCore | Apache-2.0 | Server | PaRuX MCP server/ASP.NET integration |
 | Microsoft.ML.OnnxRuntime | MIT | Server | Local ONNX embedding inference |
+| Microsoft.CodeAnalysis.CSharp | MIT | Server | Roslyn C# syntax/semantic analysis used by code-aware tooling |
+| Microsoft.ML.OnnxRuntimeGenAI.WinML | MIT | Server | ONNX Runtime GenAI Windows ML worker (`PaRuX.WinMlWorker`) |
+| Microsoft.Windows.AI.MachineLearning | Microsoft Software License Terms - Windows ML Runtime (proprietary; text shipped in the NuGet package as `license.txt`) | Server | Windows ML execution-provider management. Redistribution is limited to the "Distributable Code" section of that license; this row records the terms and is not a legal clearance. |
+| System.Management | MIT | Server | Windows WMI hardware inventory |
+| System.Security.Cryptography.ProtectedData | MIT | Server | Windows DPAPI protection of local secrets |
 | Microsoft.ML.Tokenizers | MIT | Server | Tokenization for local embedding/retrieval pipeline |
 | Parquet.Net | MIT | Server | Dataset Hub Parquet reading/writing |
 | SharpCompress | MIT | Server | Safe extraction support for managed runtime archives; retain any notices present in the upstream package/distribution |
