@@ -269,6 +269,51 @@ public sealed class GgufQuantizeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Gaming_stop_waits_for_cancelled_quantization_before_allowing_a_game()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = Make(async (spec, ct) =>
+        {
+            entered.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return (0, "");
+        });
+        var jobs = new GgufQuantizeJobs(service, () => false);
+        jobs.Start(new(_input, Out(), "Q8_0"));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(await jobs.StopForGamingAsync(CancellationToken.None, TimeSpan.FromSeconds(5)));
+        Assert.Equal("cancelled", jobs.Current!.State);
+        Assert.False(File.Exists(Out()));
+        Assert.False(File.Exists(Out() + ".partial"));
+    }
+
+    [Fact]
+    public async Task Gaming_refuses_to_enter_when_quantizer_ignores_cancel_until_it_releases_the_job()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = Make(async (spec, ct) =>
+        {
+            entered.TrySetResult();
+            await release.Task; // deliberately ignores the cancellation token
+            return await WritesOutput(spec, ct);
+        });
+        var jobs = new GgufQuantizeJobs(service, () => false);
+        jobs.Start(new(_input, Out(), "Q8_0"));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(await jobs.StopForGamingAsync(CancellationToken.None, TimeSpan.FromMilliseconds(50)));
+        Assert.Equal("running", jobs.Current!.State);
+        release.TrySetResult();
+        await jobs.WhenIdleAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("cancelled", jobs.Current!.State);
+        Assert.False(File.Exists(Out())); // a cancelled runner must not publish a GGUF
+        Assert.False(File.Exists(Out() + ".partial"));
+        Assert.True(await jobs.StopForGamingAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public void Jobs_refuse_to_start_while_gaming_or_without_a_quantizer()
     {
         Assert.Throws<InvalidOperationException>(() => new GgufQuantizeJobs(Make(WritesOutput), () => true).Start(new(_input, Out(), "Q8_0")));
