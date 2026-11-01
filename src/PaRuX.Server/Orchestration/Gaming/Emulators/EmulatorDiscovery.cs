@@ -90,7 +90,21 @@ public static class EmulatorDiscovery
             return new(Array.Empty<EmulatedGameCandidate>(), false, "Choose an absolute local folder.");
         string root = Path.GetFullPath(folder);
         if (!Directory.Exists(root)) return new(Array.Empty<EmulatedGameCandidate>(), false, "The folder does not exist.");
-        if (IsLink(root)) return new(Array.Empty<EmulatedGameCandidate>(), false, "Linked folders are not scanned.");
+        // A root can be under a junction even when its own directory has no
+        // reparse attribute. Refuse every linked ancestor and remote mapped volume,
+        // before any ROM directory traversal or metadata read.
+        if (!ManualGameLibrary.IsSafeDirectory(root))
+            return new(Array.Empty<EmulatedGameCandidate>(), false, "Linked folders or linked ancestors are not scanned.");
+        try
+        {
+            DriveType driveType = new DriveInfo(Path.GetPathRoot(root)!).DriveType;
+            if (driveType is DriveType.Network or DriveType.Unknown or DriveType.NoRootDirectory)
+                return new(Array.Empty<EmulatedGameCandidate>(), false, "Choose a local volume for emulator discovery.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return new(Array.Empty<EmulatedGameCandidate>(), false, "The selected local volume is unavailable.");
+        }
 
         var games = new List<EmulatedGameCandidate>();
         int entries = 0;
