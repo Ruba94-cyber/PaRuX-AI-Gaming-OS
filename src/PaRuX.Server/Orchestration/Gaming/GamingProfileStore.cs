@@ -122,31 +122,36 @@ public sealed class GamingProfileStore
         lock (_gate)
         {
             _loadError = null;
-            if (File.Exists(_storePath))
+            try
             {
-                try
+                // Serialize cold-start and migrations with Save/Delete in every Core
+                // process. Two simultaneous starts cannot both seed default presets
+                // or overwrite a newer writer with a stale migration snapshot.
+                using FileStream lease = AcquireWriteLease();
+                if (File.Exists(_storePath))
                 {
-                    _profiles = ReadValidatedProfiles();
-                    if (MigrateUnavailableBuiltInProviders()) Persist(_profiles);
-                    return;
+                    try
+                    {
+                        _profiles = ReadValidatedProfiles();
+                        if (MigrateUnavailableBuiltInProviders()) Persist(_profiles);
+                        return;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                        JsonException or InvalidDataException or ArgumentException)
+                    {
+                        _loadError = "Gaming profiles could not be loaded safely. Original file preserved; editing is disabled.";
+                        _profiles = BuildDefaultPresets();
+                        return;
+                    }
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or
-                    InvalidDataException or ArgumentException)
-                {
-                    // Preserve the original corrupt/inaccessible file byte-for-byte.
-                    // Safe defaults are in-memory only; no save/delete until the user
-                    // manually recovers the original file.
-                    _loadError = "Gaming profiles could not be loaded safely. Original file preserved; editing is disabled.";
-                    _profiles = BuildDefaultPresets();
-                    return;
-                }
-            }
 
-            _profiles = BuildDefaultPresets();
-            try { Persist(_profiles); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                _profiles = BuildDefaultPresets();
+                Persist(_profiles);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
-                _loadError = "Gaming profiles cannot be written. Editing is disabled until storage is repaired.";
+                _loadError = "Gaming profiles could not be opened or written safely. Editing is disabled until storage is repaired.";
+                _profiles = BuildDefaultPresets();
             }
         }
     }
