@@ -153,6 +153,29 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_refuses_a_game_folder_beneath_a_linked_parent()
+    {
+        // The selected leaf is a normal directory, but a parent is a junction/symlink.
+        // Discovery must not walk through a linked ancestor.
+        string original = Path.Combine(_root, "real", "games");
+        Directory.CreateDirectory(original);
+        File_("real/games/Homebrew.nro");
+        string alias = Path.Combine(_root, "linked-parent");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, Path.Combine(_root, "real"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return; // local policy prevents building the synthetic symlink fixture
+        }
+        var result = EmulatorDiscovery.Scan(Def("eden"), Path.Combine(alias, "games"));
+        Assert.NotNull(result.Error);
+        Assert.Empty(result.Games);
+        Assert.True(File.Exists(Path.Combine(original, "Homebrew.nro")));
+    }
+
+    [Fact]
     public void Scan_takes_the_title_of_a_generic_eboot_from_the_game_folder()
     {
         File_("ps3/Space Demo/PS3_GAME/USRDIR/EBOOT.BIN");
