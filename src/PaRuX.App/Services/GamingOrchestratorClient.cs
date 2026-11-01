@@ -145,14 +145,20 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GameFolderInspectionDto>> InspectGameFolderAsync(string folder, CancellationToken ct = default) =>
             SendAsync<GameFolderInspectionDto>(HttpMethod.Post, "/api/v1/gaming/library/inspect-folder", new GameFolderInspectRequest(folder), ct);
 
-        public Task<GamingCallResult<List<GameTitleDto>>> GetTitlesAsync(string? text, string? source, bool favoritesOnly, CancellationToken ct = default) =>
+        public Task<GamingCallResult<List<GameTitleDto>>> GetTitlesAsync(string? text, string? source, bool favoritesOnly,
+            CancellationToken ct = default, string? collection = null) =>
             SendAsync<List<GameTitleDto>>(HttpMethod.Get,
                 "/api/v1/gaming/titles?q=" + Uri.EscapeDataString(text ?? "") + "&source=" + Uri.EscapeDataString(source ?? "")
-                + (favoritesOnly ? "&favorite=true" : ""), null, ct);
+                + (favoritesOnly ? "&favorite=true" : "")
+                + (string.IsNullOrWhiteSpace(collection) ? "" : "&collection=" + Uri.EscapeDataString(collection)), null, ct);
 
         public Task<GamingCallResult<object>> SetTitleFavoriteAsync(string key, bool favorite, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put,
                 "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/favorite?favorite=" + (favorite ? "true" : "false"), null, ct);
+
+        public Task<GamingCallResult<object>> SetTitleCollectionsAsync(string key, List<string> collections, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/collections",
+                new SetGameCollectionsRequest(collections), ct);
 
         public Task<GamingCallResult<object>> SetTitleTagsAsync(string key, List<string> tags, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/tags", new SetGameTagsRequest(tags), ct);
