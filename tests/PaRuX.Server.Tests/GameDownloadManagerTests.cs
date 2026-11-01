@@ -247,6 +247,51 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Only_a_download_with_an_independently_supplied_digest_may_stage_a_checked_copy()
+    {
+        _server.Data = Bytes(42_000);
+        string stagedFolder = Path.Combine(_dir, "managed-staging");
+        var stage = new PaRuX.Server.Orchestration.Gaming.GamePackageStageService(
+            () => _gaming, () => CancellationToken.None, stagedFolder);
+        using var manager = Make();
+        var withoutExpected = manager.Enqueue(new(_server.Url("unchecked.zip"), _dir));
+        await WaitFor(manager, withoutExpected.Id, GameDownloadStates.Completed);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            manager.StageCompletedAsync(withoutExpected.Id, stage, CancellationToken.None));
+        Assert.False(Directory.Exists(stagedFolder));
+
+        var verified = manager.Enqueue(new(_server.Url("checked.zip"), _dir,
+            ExpectedSha256: Sha(_server.Data)));
+        await WaitFor(manager, verified.Id, GameDownloadStates.Completed);
+        var staged = await manager.StageCompletedAsync(verified.Id, stage, CancellationToken.None);
+        Assert.Equal("checked.zip", staged.FileName);
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(staged.StagedPath));
+        Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "checked.zip")));
+        Assert.Single(Directory.GetFiles(stagedFolder, "game-*.zip"));
+        _gaming = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            manager.StageCompletedAsync(verified.Id, stage, CancellationToken.None));
+        Assert.Single(Directory.GetFiles(stagedFolder, "game-*.zip"));
+    }
+
+    [Fact]
+    public async Task Mutated_finished_download_is_not_published_as_a_staged_package()
+    {
+        _server.Data = Bytes(4096);
+        using var manager = Make();
+        var job = manager.Enqueue(new(_server.Url("mutated.zip"), _dir,
+            ExpectedSha256: Sha(_server.Data)));
+        await WaitFor(manager, job.Id, GameDownloadStates.Completed);
+        await File.AppendAllTextAsync(Path.Combine(_dir, "mutated.zip"), "changed");
+        string folder = Path.Combine(_dir, "verified-copies");
+        var stage = new PaRuX.Server.Orchestration.Gaming.GamePackageStageService(
+            () => false, () => CancellationToken.None, folder);
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            manager.StageCompletedAsync(job.Id, stage, CancellationToken.None));
+        Assert.Empty(Directory.GetFiles(folder, "game-*.zip"));
+    }
+
+    [Fact]
     public async Task Completed_download_inspection_does_not_persist_an_absolute_file_path()
     {
         _server.Data = Bytes(16_000);
