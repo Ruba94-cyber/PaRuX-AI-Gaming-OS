@@ -96,6 +96,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
     private readonly Func<CancellationToken, Task> _restoreRuntimeToReady;
 
     private readonly Action? _cancelEvaluations;
+    private readonly Func<CancellationToken, Task<bool>>? _stopQuantizationForGaming;
 
     internal static readonly TimeSpan ProviderStartTimeout = TimeSpan.FromSeconds(30);
 
@@ -113,7 +114,8 @@ public sealed class WorkloadOrchestrator : BackgroundService
         IEnumerable<IGamingResumable>? resumables = null,
         Action? cancelEvaluations = null,
         IReadOnlyCollection<IGamingTriggerProvider>? triggerProviders = null,
-        IReadOnlyCollection<IGameSuspendProvider>? suspendProviders = null)
+        IReadOnlyCollection<IGameSuspendProvider>? suspendProviders = null,
+        Func<CancellationToken, Task<bool>>? stopQuantizationForGaming = null)
     {
         _resumables = resumables?.ToList() ?? new List<IGamingResumable>();
         _runtime = runtime;
@@ -125,6 +127,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
         _runtimeHealthCheck = runtimeHealthCheck ?? runtime.IsHealthyAsync;
         _restoreRuntimeToReady = restoreRuntimeToReady ?? runtime.EnsureReadyAsync;
         _cancelEvaluations = cancelEvaluations;
+        _stopQuantizationForGaming = stopQuantizationForGaming;
         _triggerProviders = triggerProviders?.ToList() ?? new()
         {
             new ManualTriggerProvider(),
@@ -659,6 +662,14 @@ public sealed class WorkloadOrchestrator : BackgroundService
         _jobs.CancelAllForGaming();
         bool speechStopped = _speech.StopWorkersForGaming();
         _cancelEvaluations?.Invoke();
+        // A GGUF export is CPU/disk-heavy despite not owning GPU VRAM. A running
+        // quantizer cannot spill into the Gaming session: cancellation must be
+        // confirmed, not merely requested, before starting an actual game.
+        bool quantizerStopped = _stopQuantizationForGaming is null ||
+            await _stopQuantizationForGaming(ct).ConfigureAwait(false);
+        if (!quantizerStopped)
+            throw new InvalidOperationException(
+                "An active GGUF quantizer did not confirm shutdown; Gaming entry remains blocked.");
 
         string unloadedLabel = TextModelUnloadedLabel(new GpuInventoryService().GetStatus());
         lock (_stateGate)
