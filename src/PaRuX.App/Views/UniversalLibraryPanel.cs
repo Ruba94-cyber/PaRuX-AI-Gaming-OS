@@ -140,6 +140,10 @@ internal sealed class UniversalLibraryPanel : StackPanel
         Children.Add(pages);
     }
 
+    /// <summary>One-shot catalog refresh after a foreground return from Gaming.
+    /// Never scan stores periodically or while the game owns the PC.</summary>
+    internal Task RefreshTitlesAfterGameAsync() => ReloadTitlesAsync();
+
     private async Task ReloadTitlesAsync()
     {
         try
