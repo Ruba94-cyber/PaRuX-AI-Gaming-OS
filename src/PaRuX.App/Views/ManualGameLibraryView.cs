@@ -51,6 +51,19 @@ public sealed class ManualGameLibraryView : UserControl
     private static bool Italian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
     private static string T(string en, string it) => Italian ? it : en;
 
+    private static string GamingStateLabel(string state) => state switch
+    {
+        "AiReady" => T("AI ready", "AI pronta"),
+        "EnteringGaming" => T("Preparing Gaming", "Preparazione Gaming"),
+        "GamingLocal" => T("Local Gaming", "Gioco locale"),
+        "GamingRemote" => T("Remote Gaming", "Gioco remoto"),
+        "ExitingGaming" => T("Leaving Gaming", "Uscita da Gaming"),
+        "RestoringAi" => T("Restoring AI", "Ripristino AI"),
+        "GameSuspended" => T("Game suspended", "Gioco sospeso"),
+        "Error" => T("Recovery required", "Recupero necessario"),
+        _ => T("Unknown", "Sconosciuto")
+    };
+
     public ManualGameLibraryView()
     {
         var root = _root;
@@ -272,8 +285,8 @@ public sealed class ManualGameLibraryView : UserControl
                         "Il blocco delle risorse Gaming è ancora attivo dopo il riavvio del Core. Seleziona Torna all'AI per recuperare senza chiudere il gioco.")
                     : status.State == "AiReady"
                         ? T("AI ready · No Gaming session active.", "AI pronta · Nessuna sessione Gaming attiva.")
-                        : T($"Current Gaming state: {status.State}. Return to AI leaves the game running.",
-                            $"Stato Gaming attuale: {status.State}. Tornando all'AI il gioco rimane aperto.");
+                        : T($"Gaming state: {GamingStateLabel(status.State)}. Return to AI leaves the game running.",
+                            $"Stato Gaming: {GamingStateLabel(status.State)}. Tornando all'AI il gioco rimane aperto.");
             }
         }
         catch (Exception)
