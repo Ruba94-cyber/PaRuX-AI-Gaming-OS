@@ -36,6 +36,20 @@ public sealed class AdvancedGameManagementUiTests
                 cf => cf.ByAutomationId("AdvancedGameManagement_Expander")), "advanced section");
             expander.Patterns.ExpandCollapse.Pattern.Expand();
 
+            // New local save-backup controls are only reachable after the owner
+            // expands Advanced Game Management; this smoke never creates an archive.
+            var savesSource = UiWait.ById(app.MainWindow, "GameSaves_Source", ControlType.Edit);
+            var savesLabel = UiWait.ById(app.MainWindow, "GameSaves_Label", ControlType.Edit);
+            var savesCreate = UiWait.ById(app.MainWindow, "GameSaves_Create", ControlType.Button);
+            var savesRefresh = UiWait.ById(app.MainWindow, "GameSaves_Refresh", ControlType.Button);
+            var savesCancel = UiWait.ById(app.MainWindow, "GameSaves_Cancel", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(savesSource.Name));
+            Assert.False(string.IsNullOrWhiteSpace(savesLabel.Name));
+            Assert.False(string.IsNullOrWhiteSpace(savesCreate.Name));
+            Assert.True(savesCreate.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(savesCancel.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(string.IsNullOrWhiteSpace(savesRefresh.Name));
+
             var folder = UiWait.ById(app.MainWindow, "GameImport_Folder_TextBox", ControlType.Edit).AsTextBox();
             folder.Text = gameFolder;
             var inspect = UiWait.ById(app.MainWindow, "GameImport_Inspect_Button", ControlType.Button);
