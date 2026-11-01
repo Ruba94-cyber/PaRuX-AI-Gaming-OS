@@ -62,6 +62,35 @@ public sealed class GgufQuantizeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Changed_source_during_quantization_is_detected_before_output_publication()
+    {
+        var service = Make(async (spec, ct) =>
+        {
+            await WritesOutput(spec, ct);
+            File.WriteAllBytes(_input, Header(8192)); // same GGUF magic, different source bytes
+            return (0, "finished");
+        });
+        var failure = await Assert.ThrowsAsync<GgufQuantizeException>(() =>
+            service.QuantizeAsync(new(_input, Out(), "Q4_K_M"), CancellationToken.None));
+        Assert.Contains("changed", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Out()));
+        Assert.False(File.Exists(Out() + ".partial"));
+        Assert.False(File.Exists(Out() + ".quant.json"));
+        Assert.Equal(8192, new FileInfo(_input).Length);
+    }
+
+    [Fact]
+    public async Task Manifest_records_original_source_sha256_for_reproducible_export()
+    {
+        var service = Make(WritesOutput);
+        string expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(_input)))
+            .ToLowerInvariant();
+        await service.QuantizeAsync(new(_input, Out(), "Q4_K_M"), CancellationToken.None);
+        using var manifest = JsonDocument.Parse(File.ReadAllText(Out() + ".quant.json"));
+        Assert.Equal(expected, manifest.RootElement.GetProperty("sourceSha256").GetString());
+    }
+
+    [Fact]
     public async Task Nonzero_exit_removes_the_partial_and_reports_the_tail()
     {
         var service = Make((spec, ct) =>
