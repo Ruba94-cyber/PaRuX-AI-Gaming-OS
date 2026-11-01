@@ -269,6 +269,28 @@ public sealed class GgufQuantizeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task External_gaming_marker_cancels_a_running_quantization_without_an_explicit_stop_request()
+    {
+        int gaming = 0;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = Make(async (spec, ct) =>
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return (0, "");
+        });
+        var jobs = new GgufQuantizeJobs(service, () => Volatile.Read(ref gaming) != 0);
+        jobs.Start(new(_input, Out(), "Q8_0"));
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Interlocked.Exchange(ref gaming, 1);
+        await jobs.WhenIdleAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("cancelled", jobs.Current!.State);
+        Assert.False(File.Exists(Out()));
+        Assert.Throws<InvalidOperationException>(() => jobs.Start(new(_input, Out(), "Q8_0")));
+    }
+
+    [Fact]
     public async Task Gaming_stop_waits_for_cancelled_quantization_before_allowing_a_game()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
