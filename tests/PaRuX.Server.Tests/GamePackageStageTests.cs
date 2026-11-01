@@ -167,8 +167,14 @@ public sealed class GamePackageStageSecurityTests : IClassFixture<ApiSecurityTes
         using var stage = await client.PostAsJsonAsync(
             "/api/v1/gaming/installers/stage",
             new GamePackageStageRequest("missing.zip", new string('a', 64)));
+        using var completedDownloadStage = await client.PostAsync(
+            "/api/v1/gaming/downloads/00000000000000000000000000000000/stage", null);
+        using var completedDownloadInspect = await client.PostAsync(
+            "/api/v1/gaming/downloads/00000000000000000000000000000000/inspect", null);
         Assert.Equal(HttpStatusCode.Unauthorized, list.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, stage.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, completedDownloadStage.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, completedDownloadInspect.StatusCode);
     }
 }
