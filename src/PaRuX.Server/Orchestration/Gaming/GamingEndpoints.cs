@@ -97,18 +97,22 @@ public static class GamingEndpoints
         }).RequireDesktopOwner();
 
         app.MapGet("/api/v1/gaming/profiles", (GamingProfileStore profiles) =>
-            Results.Ok(profiles.List()));
+            profiles.LoadError is { } error ? Results.Problem(error, statusCode: 409) : Results.Ok(profiles.List()));
 
         app.MapPost("/api/v1/gaming/profiles", (GamingProfileDto profile, GamingProfileStore profiles) =>
         {
-            GamingProfileDto saved = profiles.Save(profile);
-            return Results.Ok(saved);
+            if (profiles.LoadError is { } error) return Results.Problem(error, statusCode: 409);
+            try { return Results.Ok(profiles.Save(profile)) as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("The Gaming profile could not be saved safely.", statusCode: 500); }
         }).RequireDesktopOwner();
 
         app.MapDelete("/api/v1/gaming/profiles/{id}", (string id, GamingProfileStore profiles) =>
         {
-            bool deleted = profiles.Delete(id);
-            return deleted ? Results.NoContent() : Results.NotFound();
+            if (profiles.LoadError is { } error) return Results.Problem(error, statusCode: 409);
+            try { return profiles.Delete(id) ? Results.NoContent() : Results.NotFound() as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("The Gaming profile could not be deleted safely.", statusCode: 500); }
         }).RequireDesktopOwner();
 
         app.MapGet("/api/v1/gaming/providers", (WorkloadOrchestrator orchestrator) =>
