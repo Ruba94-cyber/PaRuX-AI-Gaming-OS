@@ -295,7 +295,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
         GameInstallationSources.Steam => "Steam",
         GameInstallationSources.Epic => "Epic Games",
         GameInstallationSources.Gog => "GOG",
-        GameInstallationSources.Emulator => T("Emulator", "Emulatore"),
+        GameInstallationSources.Emulator => string.IsNullOrWhiteSpace(i.EmulatorName)
+            ? T("Emulator", "Emulatore")
+            : T("Emulator · ", "Emulatore · ") + i.EmulatorName,
         _ => i.Kind == ManualEntryKinds.Application ? T("Application on this PC", "Applicazione su questo PC") : T("Copy on this PC", "Copia su questo PC"),
     };
 
