@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-11-01 — Prefer first-party Windows suspend for new Gaming presets (source only)
+
+- New stock local and remote profiles select PaRuX's existing Windows native suspend provider rather than Nyrna. Previously serialized profiles and user-selected providers are not rewritten; the legacy DTO fallback remains to preserve older JSON.
+- The explicit `none` suspension provider no longer reports successful suspension/resume without touching a process. Native provider refuses already-cancelled operations. Added xUnit regression sources and a local Windows gate filter.
+- **SOURCE IMPLEMENTED / NOT RUN.** Actual suspension is still unavailable without independently verified, owned game-process identity; Windows API behavior and game compatibility are not certified.
+
 ### 2026-11-01 — First-party Console navigation, ZIP decoding and dependency gate (source only)
 
 - Console/TV now uses PaRuX's first-party controller navigation policy for Windows-delivered D-pad and left-thumbstick key events. It keeps native WinUI activation and blocks a B/Escape fullscreen exit during a confirmation action. No XOutput/Playnite/virtual driver/polling worker is required to navigate PaRuX itself; controller mapping for external games is not claimed.
