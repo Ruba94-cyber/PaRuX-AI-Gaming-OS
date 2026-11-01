@@ -266,7 +266,8 @@ public sealed class GameSaveBackupService
         Manifest? manifest = ReadManifest(id);
         string path = Path.Combine(_root, "save-" + id + ".zip");
         if (manifest is null || !File.Exists(path) ||
-            (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0 ||
+            new FileInfo(path).Length > MaxBytes + 16L * 1024 * 1024)
             return new(id, false, "Backup or manifest is missing or unreadable.", 0);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingToken());
         try
@@ -282,11 +283,13 @@ public sealed class GameSaveBackupService
                 return new(id, false, "Archive file count differs from its manifest.", 0);
             int verified = 0;
             var expected = manifest.Items.ToDictionary(i => i.Name, StringComparer.Ordinal);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entry in zip.Entries)
             {
                 linked.Token.ThrowIfCancellationRequested();
                 if (_gaming()) return new(id, false, "Verification interrupted by Gaming.", verified);
-                if (!expected.TryGetValue(entry.FullName, out var item) || entry.Length != item.Bytes ||
+                if (!seen.Add(entry.FullName) ||
+                    !expected.TryGetValue(entry.FullName, out var item) || entry.Length != item.Bytes ||
                     item.Bytes < 0 || item.Bytes > MaxBytes)
                     return new(id, false, "The archive contains unexpected file metadata.", verified);
                 await using var input = entry.Open();
@@ -307,6 +310,8 @@ public sealed class GameSaveBackupService
                     return new(id, false, "A save file failed the SHA-256 check.", verified);
                 verified++;
             }
+            if (seen.Count != expected.Count)
+                return new(id, false, "The archive is missing a declared file.", verified);
             return new(id, true, "Archive, manifest and every file hash matched.", verified);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
