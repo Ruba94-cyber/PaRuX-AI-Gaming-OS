@@ -109,7 +109,9 @@ public sealed partial class SettingsView
             var panel = new StackPanel { Spacing = 8, Padding = new Thickness(10) };
             panel.Children.Add(new TextBlock
             {
-                Text = $"{deviceId} · {display.Width} × {display.Height}" +
+                Text = (string.IsNullOrWhiteSpace(display.FriendlyName)
+                    ? deviceId : display.FriendlyName + " · " + deviceId) +
+                    $" · {display.Width} × {display.Height}" +
                     (display.RefreshRateHz > 0 ? $" · {display.RefreshRateHz} Hz" : "") +
                     (display.Primary ? TvT(" · Primary", " · Principale") : ""),
                 TextWrapping = TextWrapping.Wrap
