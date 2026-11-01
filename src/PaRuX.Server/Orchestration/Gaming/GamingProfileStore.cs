@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Linq;
 using System.Text.Json;
 using PaRuX.Contracts;
@@ -75,9 +77,11 @@ public sealed class GamingProfileStore
             if (string.IsNullOrWhiteSpace(profile.Id))
                 profile.Id = Guid.NewGuid().ToString("N");
 
-            // Only publish to memory after a durable, atomic on-disk replacement.
-            // Do not return a successful save if disk, antivirus or permissions deny it.
-            var next = _profiles.ToList();
+            // A second Core process may have saved profiles since this instance loaded.
+            // Lock and re-read before changing the file. The in-memory list is committed
+            // only after an atomic same-directory replacement succeeds.
+            using FileStream lease = AcquireWriteLease();
+            var next = ReadValidatedProfiles();
             int index = next.FindIndex(p => string.Equals(p.Id, profile.Id, StringComparison.OrdinalIgnoreCase));
             if (index >= 0) next[index] = profile;
             else next.Add(profile);
@@ -92,7 +96,8 @@ public sealed class GamingProfileStore
         lock (_gate)
         {
             ThrowIfWriteBlocked();
-            var next = _profiles.ToList();
+            using FileStream lease = AcquireWriteLease();
+            var next = ReadValidatedProfiles();
             int index = next.FindIndex(p => string.Equals(p.Id, idOrName, StringComparison.OrdinalIgnoreCase) ||
                                              string.Equals(p.Name, idOrName, StringComparison.OrdinalIgnoreCase));
             if (index < 0) return false;
@@ -112,13 +117,7 @@ public sealed class GamingProfileStore
             {
                 try
                 {
-                    string json = File.ReadAllText(_storePath);
-                    List<GamingProfileDto>? loaded = JsonSerializer.Deserialize<List<GamingProfileDto>>(json, JsonOptions);
-                    if (loaded is null || loaded.Count > 1024 ||
-                        loaded.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) ||
-                            string.IsNullOrWhiteSpace(p.Name)))
-                        throw new InvalidDataException("Gaming profile JSON is invalid.");
-                    _profiles = loaded;
+                    _profiles = ReadValidatedProfiles();
                     if (MigrateUnavailableBuiltInProviders()) Persist(_profiles);
                     return;
                 }
@@ -146,6 +145,35 @@ public sealed class GamingProfileStore
     private void ThrowIfWriteBlocked()
     {
         if (_loadError != null) throw new InvalidDataException(_loadError);
+    }
+
+    private List<GamingProfileDto> ReadValidatedProfiles()
+    {
+        string json = File.ReadAllText(_storePath);
+        List<GamingProfileDto>? loaded = JsonSerializer.Deserialize<List<GamingProfileDto>>(json, JsonOptions);
+        if (loaded is null || loaded.Count > 1024 ||
+            loaded.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) ||
+                string.IsNullOrWhiteSpace(p.Name)))
+            throw new InvalidDataException("Gaming profile JSON is invalid.");
+        return loaded;
+    }
+
+    /// <summary>
+    /// A bounded cross-process lock protects read-modify-atomic-replace. Keep
+    /// the lock file even after release so a second process cannot race a
+    /// deleted/recreated lock inode. OS releases the handle after a crash.
+    /// </summary>
+    private FileStream AcquireWriteLease()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
+        string lockPath = _storePath + ".lock";
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            try { return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException) when (elapsed.Elapsed < TimeSpan.FromSeconds(5))
+            { Thread.Sleep(30); }
+        }
     }
 
     private void Persist(IReadOnlyList<GamingProfileDto> profiles)
