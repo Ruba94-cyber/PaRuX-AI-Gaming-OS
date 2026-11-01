@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-11-01 — Confirmed GOG GALAXY launch handoff (source only)
+
+- The existing Games and fullscreen Console/TV library can explicitly request the already-installed GOG GALAXY client to launch a locally discovered title, only after user confirmation. The desktop-owner API accepts a bounded numeric game ID and revalidates it against current read-only local discovery; PaRuX does not bypass store ownership, change game files or track the game as an owned process.
+- The Core attempts to roll back the Gaming transition if the client launch fails. The user must return to AI manually after playing. Added safe client path/ID and authorization regression sources and included them in the existing local Windows test gate.
+- **SOURCE IMPLEMENTED / NOT RUN:** no Windows compilation, client launch, store integration, xUnit, FlaUI, controller or GPU acceptance executed. Epic game launch, installation and download workflows are not implemented.
+
 ### 2026-11-01 — Gaming input helper lifecycle and safer launch handoffs (source only)
 
 - Custom controller helpers now retain only their exact PaRuX-launched process handle, refuse a duplicate mapper while it remains running, request a graceful close on Gaming exit and report an incomplete stop instead of force-killing or claiming a successful cleanup.
