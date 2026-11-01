@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
