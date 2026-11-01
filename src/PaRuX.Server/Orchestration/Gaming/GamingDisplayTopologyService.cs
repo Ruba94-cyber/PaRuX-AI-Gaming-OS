@@ -68,6 +68,47 @@ public sealed class GamingDisplayTopologyService
         public string Device;
     }
 
+    // Windows displays sometimes expose a useful model/vendor description
+    // ("Samsung ...") through DISPLAY_DEVICE. Do not read or persist DeviceID,
+    // DeviceKey or monitor serial numbers; only DeviceString is returned.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DisplayDevice
+    {
+        public uint Size;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString;
+        public uint StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceId;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
+    }
+
+    [DllImport("user32.dll", EntryPoint = "EnumDisplayDevicesW", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumDisplayDevices(string deviceName, uint deviceIndex,
+        ref DisplayDevice displayDevice, uint flags);
+
+    internal static string? SafeFriendlyName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string trimmed = value.Trim();
+        return trimmed.Length <= 100 && !trimmed.Any(char.IsControl) ? trimmed : null;
+    }
+
+    private static string? ReadFriendlyName(string id)
+    {
+        try
+        {
+            var device = new DisplayDevice { Size = (uint)Marshal.SizeOf<DisplayDevice>() };
+            return EnumDisplayDevices(id, 0, ref device, 0)
+                ? SafeFriendlyName(device.DeviceString) : null;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException
+            or BadImageFormatException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
+    }
+
     // DEVMODEW: the 16-byte display union is expanded as position X/Y,
     // orientation and fixed output. Query only frequency; never change modes.
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -149,7 +190,10 @@ public sealed class GamingDisplayTopologyService
                 }
 
                 result.Add(new GamingDisplayModeDto(info.Device, (info.Flags & PrimaryMonitor) != 0,
-                    info.Monitor.Left, info.Monitor.Top, width, height, hz));
+                    info.Monitor.Left, info.Monitor.Top, width, height, hz)
+                {
+                    FriendlyName = ReadFriendlyName(info.Device)
+                });
                 return true;
             }, IntPtr.Zero);
         return result;
