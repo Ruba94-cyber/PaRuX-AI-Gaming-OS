@@ -203,7 +203,8 @@ public sealed class GamingTransitionIntegrationTests : IDisposable
     }
 
     private (WorkloadOrchestrator Orchestrator, Func<int> Restores) NewOrchestrator(
-        string name, bool restoreOnExit, bool failingLauncher, IGamingResumable? resumable = null)
+        string name, bool restoreOnExit, bool failingLauncher, IGamingResumable? resumable = null,
+        Func<CancellationToken, Task<bool>>? stopQuantization = null)
     {
         string store = Path.Combine(_root, "profiles-" + Guid.NewGuid().ToString("N") + ".json");
         new GamingProfileStore(store).Save(new GamingProfileDto
@@ -226,8 +227,33 @@ public sealed class GamingTransitionIntegrationTests : IDisposable
             launcherProviders: new IGameLauncherProvider[] { failingLauncher ? new FailingLauncher() : new OkLauncher() },
             runtimeHealthCheck: _ => Task.FromResult(true),
             restoreRuntimeToReady: _ => { Interlocked.Increment(ref restores); return Task.CompletedTask; },
-            resumables: resumable == null ? null : new[] { resumable });
+            resumables: resumable == null ? null : new[] { resumable },
+            stopQuantizationForGaming: stopQuantization);
         return (orchestrator, () => Volatile.Read(ref restores));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Gaming_entry_requires_positive_quantizer_stop_acknowledgement(bool quantizerStopped)
+    {
+        using IDisposable finder = WorkloadOrchestrator.UseActiveGameProcessFinderForTests(() => null);
+        int calls = 0;
+        string name = "S3 quantizer stop " + quantizerStopped;
+        var (orchestrator, _) = NewOrchestrator(name, restoreOnExit: false, failingLauncher: false,
+            stopQuantization: ct =>
+            {
+                Interlocked.Increment(ref calls);
+                return Task.FromResult(quantizerStopped);
+            });
+
+        bool entered = await orchestrator.EnterGamingSessionAsync(name);
+        Assert.Equal(quantizerStopped, entered);
+        Assert.Equal(1, calls);
+        Assert.Equal(quantizerStopped ? "GamingLocal" : "AiReady", orchestrator.CurrentState);
+        Assert.Equal(quantizerStopped, File.Exists(LocalAiPaths.GameMarkerFile));
+        if (entered)
+            Assert.True(await orchestrator.ExitGamingSessionAsync());
     }
 
     [Theory]
