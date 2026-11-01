@@ -61,6 +61,23 @@ namespace PaRuX.Services
             return list ?? new List<GamingProviderStatusDto>();
         }
 
+        // First-party HTTP(S) game download queue. All mutations require desktop ownership in Core.
+        // Transfers never execute the downloaded file or run while Gaming is active.
+        public Task<GamingCallResult<List<GameDownloadDto>>> ListGameDownloadsAsync(CancellationToken ct = default) =>
+            SendAsync<List<GameDownloadDto>>(HttpMethod.Get, "/api/v1/gaming/downloads", null, ct);
+
+        public Task<GamingCallResult<GameDownloadDto>> EnqueueGameDownloadAsync(GameDownloadRequest request, CancellationToken ct = default) =>
+            SendAsync<GameDownloadDto>(HttpMethod.Post, "/api/v1/gaming/downloads", request, ct);
+
+        public Task<GamingCallResult<object>> PauseGameDownloadAsync(string id, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/pause", null, ct);
+
+        public Task<GamingCallResult<object>> ResumeGameDownloadAsync(string id, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/resume", null, ct);
+
+        public Task<GamingCallResult<object>> RemoveGameDownloadAsync(string id, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Delete, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id), null, ct);
+
         public Task<GamingCallResult<List<StagedGamePackageDto>>> ListStagedPackagesAsync(
             CancellationToken ct = default) =>
             SendAsync<List<StagedGamePackageDto>>(

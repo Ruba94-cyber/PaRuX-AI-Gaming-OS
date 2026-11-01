@@ -61,6 +61,7 @@ public sealed class ManualGameLibraryView : UserControl
     private bool _busy;
     private readonly TextBox _filter = new();
     private UniversalLibraryPanel? _universal;
+    private readonly GameDownloadsPanel _downloads = new();
     private readonly ComboBox _storeFilter = new() { MinWidth = 180 };
     private readonly ComboBox _stateFilter = new() { MinWidth = 180 };
     private List<ManualGameDto> _allGames = new();
@@ -125,6 +126,8 @@ public sealed class ManualGameLibraryView : UserControl
         // One card per game (store, local, portable or emulated installations together) and the opt-in advanced section.
         _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
         root.Children.Add(_universal);
+        // Explicit, desktop-only downloads; never create a polling workload in the TV/Console presentation.
+        root.Children.Add(_downloads);
 
         _manualAddIntro.Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.",
             "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata.");
@@ -392,6 +395,7 @@ public sealed class ManualGameLibraryView : UserControl
         _path.Visibility = editorVisibility;
         _manualAddActions.Visibility = editorVisibility;
         _installerSection.Visibility = editorVisibility;
+        _downloads.Visibility = editorVisibility;
         if (enabled) _inspectionCancellation?.Cancel();
         _root.Padding = new Thickness(enabled ? 32 : 24);
         _root.Spacing = enabled ? 24 : 16;
