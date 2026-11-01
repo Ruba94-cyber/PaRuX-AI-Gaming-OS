@@ -8,7 +8,8 @@ namespace PaRuX.Server.Orchestration.Gaming.Emulators;
 public sealed record EmulatorScanRequest(string EmulatorId, string Folder);
 
 public sealed record EmulatorImportRequest(
-    string EmulatorId, string ExecutablePath, List<string> GamePaths, bool Fullscreen, string? ExtraArguments, string? CorePath);
+    string EmulatorId, string ExecutablePath, List<string> GamePaths, bool Fullscreen, string? ExtraArguments,
+    string? CorePath, string? LaunchMode = null);
 
 public sealed record EmulatorImportResult(int Added, int Skipped, IReadOnlyList<string> Problems);
 
@@ -29,6 +30,7 @@ public static class EmulatorEndpoints
                 {
                     d.Id, d.Name, d.Platform, extensions = d.GameExtensions, d.RequiresCore, d.TemplateStatus,
                     fullscreenSupported = d.FullscreenArguments is { Count: > 0 },
+                    windowedSupported = d.WindowedArguments is { Count: > 0 },
                 }),
                 detected,
             });
@@ -78,7 +80,8 @@ public static class EmulatorEndpoints
             if (!GamingLocalFileSafetyPolicy.IsSafeRegularFile(game, allowedExtensions) || !EmulatorRegistry.IsGameFile(definition, game!))
             { problems.Add($"{label}: not a supported local game file."); continue; }
 
-            EmulatorLaunchPlan plan = EmulatorCommandBuilder.Build(definition, game!, request.Fullscreen, request.ExtraArguments, request.CorePath);
+            EmulatorLaunchPlan plan = EmulatorCommandBuilder.Build(definition, game!, request.Fullscreen, request.ExtraArguments,
+                request.CorePath, request.LaunchMode);
             if (plan.Error is not null) { problems.Add($"{label}: {plan.Error}"); continue; }
 
             string title = definition.GameFileNames.Contains(label, StringComparer.OrdinalIgnoreCase)
