@@ -47,7 +47,7 @@ public sealed partial class SettingsView
         {
             var reply = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
             if (version != _consoleDisplayRefreshVersion) return;
-            if (!reply.Succeeded || reply.Value is not { Supported: true } snapshot)
+            if (!reply.Succeeded || reply.Value is null || !reply.Value.Supported)
             {
                 ConsoleDisplaysList.Children.Clear();
                 ConsoleDisplaysStatus.Text = TvT(
@@ -56,6 +56,7 @@ public sealed partial class SettingsView
                 return;
             }
 
+            GamingDisplaySnapshotDto snapshot = reply.Value;
             _lastConsoleDisplaySnapshot = snapshot;
             RenderConsoleDisplays(snapshot);
         }
