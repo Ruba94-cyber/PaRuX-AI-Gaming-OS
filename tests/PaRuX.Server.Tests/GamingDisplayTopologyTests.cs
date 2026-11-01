@@ -90,6 +90,14 @@ public sealed class GamingDisplayTopologyTests
         Assert.True(ConsoleDisplaySelectionPolicy.ValidDisplayId("DISPLAY2"));
         Assert.False(ConsoleDisplaySelectionPolicy.ValidDisplayId("DISPLAY\n2"));
         Assert.False(ConsoleDisplaySelectionPolicy.ValidRole("projector"));
+        // A hand-edited settings file may contain contradictory roles for the
+        // same Windows device. Never pick a destination from ambiguous input.
+        Assert.Null(ConsoleDisplaySelectionPolicy.SelectTarget(connected,
+            new[]
+            {
+                new ConsoleDisplayAssignment("DISPLAY1", ConsoleDisplaySelectionPolicy.TvRole),
+                new ConsoleDisplayAssignment("DISPLAY1", ConsoleDisplaySelectionPolicy.MonitorRole)
+            }, "DISPLAY1"));
     }
 
     [Fact]
