@@ -108,6 +108,14 @@ public sealed class ManualGameLibraryUiTests
             var rawDetect = UiWait.ById(app.MainWindow, "GameDevices_Raw_Detect_Button", ControlType.Button);
             var rawRead = UiWait.ById(app.MainWindow, "GameDevices_Raw_Read_Button", ControlType.Button);
             var rawSelect = UiWait.ById(app.MainWindow, "GameDevices_RawController_ComboBox", ControlType.ComboBox);
+            var mappingLoad = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Load_Button", ControlType.Button);
+            var mappingSave = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Save_Button", ControlType.Button);
+            var mappingA = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_A_Index");
+            var mappingDeadzone = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Deadzone");
+            Assert.False(string.IsNullOrWhiteSpace(mappingLoad.Name));
+            Assert.False(string.IsNullOrWhiteSpace(mappingSave.Name));
+            Assert.False(string.IsNullOrWhiteSpace(mappingA.Properties.AutomationId.ValueOrDefault));
+            Assert.False(string.IsNullOrWhiteSpace(mappingDeadzone.Properties.AutomationId.ValueOrDefault));
             Assert.False(string.IsNullOrWhiteSpace(rawDetect.Name));
             Assert.False(string.IsNullOrWhiteSpace(rawRead.Name));
             Assert.False(string.IsNullOrWhiteSpace(rawSelect.Name));
