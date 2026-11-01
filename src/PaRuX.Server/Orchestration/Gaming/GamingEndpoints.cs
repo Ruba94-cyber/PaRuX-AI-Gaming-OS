@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using PaRuX.Contracts;
+using PaRuX.Server.Orchestration.Gaming.Providers;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
