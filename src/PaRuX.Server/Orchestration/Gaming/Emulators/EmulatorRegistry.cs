@@ -32,7 +32,7 @@ public static class EmulatorRegistry
     {
         new("eden", "Eden", "Nintendo Switch", new[] { "eden.exe" },
             new[] { ".nsp", ".xci", ".nro", ".nso", ".nca" }, None,
-            new[] { "{extra}", "{fullscreen}", "-g", "{rom}" }, new[] { "-f" }, false),
+            new[] { "{extra}", "{fullscreen}", "{input-profile}", "-g", "{rom}" }, new[] { "-f" }, false),
         new("dolphin", "Dolphin", "GameCube / Wii", new[] { "Dolphin.exe" },
             new[] { ".iso", ".gcm", ".gcz", ".rvz", ".wbfs", ".wad", ".dol", ".elf" }, None,
             new[] { "-b", "{fullscreen}", "{extra}", "-e", "{rom}" },
