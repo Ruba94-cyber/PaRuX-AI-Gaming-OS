@@ -306,6 +306,10 @@ public sealed class ManualGameLibraryView : UserControl
     /// must not tear down the fullscreen presenter beneath that interaction.</summary>
     public bool IsInteractionBusy => _busy;
 
+    /// <summary>Leaving the Games workspace cancels any expensive local hash
+    /// before the next workspace resumes interactive AI activity.</summary>
+    public void CancelExpensiveWork() => _inspectionCancellation?.Cancel();
+
     public async void OnShown()
     {
         await RefreshAsync();
