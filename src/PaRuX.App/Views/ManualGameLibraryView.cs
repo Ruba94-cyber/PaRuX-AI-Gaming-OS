@@ -701,7 +701,19 @@ public sealed class ManualGameLibraryView : UserControl
                 FontSize = _consolePresentation ? 18 : 14,
                 TextWrapping = TextWrapping.Wrap
             });
-            if (string.Equals(game.ProviderId, "steam", StringComparison.OrdinalIgnoreCase))
+            bool canUseStoreHandoff = GameStoreLaunchIdPolicy.SupportsOfficialLaunch(
+                game.ProviderId, game.ProviderGameId);
+            if (!canUseStoreHandoff)
+            {
+                item.Children.Add(new TextBlock
+                {
+                    Text = T("This store entry has no supported launch identifier.",
+                        "Questa voce store non ha un identificativo di avvio supportato."),
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = _consolePresentation ? 18 : 14
+                });
+            }
+            if (canUseStoreHandoff && string.Equals(game.ProviderId, "steam", StringComparison.OrdinalIgnoreCase))
             {
                 var request = new Button
                 {
@@ -716,7 +728,7 @@ public sealed class ManualGameLibraryView : UserControl
                 request.Click += async (_, _) => await LaunchSteamAsync(game);
                 item.Children.Add(request);
             }
-            if (string.Equals(game.ProviderId, "epic", StringComparison.OrdinalIgnoreCase))
+            if (canUseStoreHandoff && string.Equals(game.ProviderId, "epic", StringComparison.OrdinalIgnoreCase))
             {
                 var request = new Button
                 {
@@ -731,7 +743,7 @@ public sealed class ManualGameLibraryView : UserControl
                 request.Click += async (_, _) => await LaunchEpicAsync(game);
                 item.Children.Add(request);
             }
-            if (string.Equals(game.ProviderId, "gog", StringComparison.OrdinalIgnoreCase))
+            if (canUseStoreHandoff && string.Equals(game.ProviderId, "gog", StringComparison.OrdinalIgnoreCase))
             {
                 var request = new Button
                 {
