@@ -41,7 +41,7 @@ public static class GameTitleCatalog
                 {
                     EmulatorName = string.IsNullOrEmpty(m.EmulatorId)
                         ? string.Empty
-                        : Emulators.EmulatorRegistry.Find(m.EmulatorId)?.Name ?? m.EmulatorId
+                        : Emulators.EmulatorRegistry.Find(m.EmulatorId)?.Name ?? string.Empty
                 }));
         }
 
