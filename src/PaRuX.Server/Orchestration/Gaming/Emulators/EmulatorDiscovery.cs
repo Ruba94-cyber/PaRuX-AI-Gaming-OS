@@ -99,33 +99,36 @@ public static class EmulatorDiscovery
         void Walk(string directory, int depth)
         {
             if (truncated) return;
-            string[] files, subdirectories;
             try
             {
-                files = Directory.GetFiles(directory);
-                subdirectories = depth < MaxScanDepth ? Directory.GetDirectories(directory) : Array.Empty<string>();
+                // Stream entries as they are visited. GetFiles/GetDirectories would
+                // allocate the whole directory before the safety budget could apply.
+                foreach (string file in Directory.EnumerateFiles(directory))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (++entries > MaxScanEntries || games.Count >= MaxGames)
+                    { truncated = true; return; }
+                    if (!EmulatorRegistry.IsGameFile(definition, file) || IsLink(file)) continue;
+                    long size;
+                    try { size = new FileInfo(file).Length; }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+                    string title = definition.GameFileNames.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)
+                        ? TitleForGenericFileName(file)
+                        : GameFolderInspector.CleanTitle(Path.GetFileNameWithoutExtension(file));
+                    games.Add(new EmulatedGameCandidate(file, title, size));
+                }
+                if (depth >= MaxScanDepth) return;
+                foreach (string sub in Directory.EnumerateDirectories(directory))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (++entries > MaxScanEntries) { truncated = true; return; }
+                    if (!IsLink(sub)) Walk(sub, depth + 1);
+                    if (truncated) return;
+                }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
-
-            foreach (string file in files)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                ct.ThrowIfCancellationRequested();
-                if (++entries > MaxScanEntries || games.Count >= MaxGames) { truncated = true; return; }
-                if (!EmulatorRegistry.IsGameFile(definition, file) || IsLink(file)) continue;
-                long size;
-                try { size = new FileInfo(file).Length; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-                // EBOOT.BIN is named the same in every game: the title comes from the folder that holds it.
-                string title = definition.GameFileNames.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)
-                    ? TitleForGenericFileName(file)
-                    : GameFolderInspector.CleanTitle(Path.GetFileNameWithoutExtension(file));
-                games.Add(new EmulatedGameCandidate(file, title, size));
-            }
-            foreach (string sub in subdirectories)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (++entries > MaxScanEntries) { truncated = true; return; }
-                if (!IsLink(sub)) Walk(sub, depth + 1);
+                // A user-inaccessible subtree does not invalidate other verified results.
             }
         }
 
