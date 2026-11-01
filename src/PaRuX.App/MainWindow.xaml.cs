@@ -101,6 +101,10 @@ namespace PaRuX
 
             // Closing the window parks PaRuX in the tray; only the tray Exit really quits.
             AppWindow.Closing += OnAppWindowClosing;
+            // A fullscreen game may leave the PaRuX window deactivated. Refresh
+            // the Gaming return state only when the user/OS foregrounds PaRuX.
+            // Never focus-steal or run an idle status poll during gameplay.
+            Activated += OnConsoleWindowActivated;
 
             IntPtr hwnd = WindowNative.GetWindowHandle(this);
             App.Hotkey.Attach(hwnd);
