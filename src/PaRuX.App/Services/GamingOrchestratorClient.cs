@@ -82,6 +82,20 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> RemoveGameDownloadAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Delete, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id), null, ct);
 
+        // Local save snapshots are explicit and can stream for several minutes.
+        // The Core refuses these calls while Gaming or during Gaming hard-off.
+        public Task<GamingCallResult<List<GameSaveBackupDto>>> ListGameSaveBackupsAsync(CancellationToken ct = default) =>
+            SendAsync<List<GameSaveBackupDto>>(HttpMethod.Get, "/api/v1/gaming/save-backups", null, ct);
+
+        public Task<GamingCallResult<GameSaveBackupDto>> CreateGameSaveBackupAsync(
+            GameSaveBackupRequest request, CancellationToken ct = default) =>
+            SendAsync<GameSaveBackupDto>(HttpMethod.Post, "/api/v1/gaming/save-backups", request, ct, InspectionHttpClient);
+
+        public Task<GamingCallResult<GameSaveVerificationDto>> VerifyGameSaveBackupAsync(
+            string id, CancellationToken ct = default) =>
+            SendAsync<GameSaveVerificationDto>(HttpMethod.Post,
+                "/api/v1/gaming/save-backups/" + Uri.EscapeDataString(id) + "/verify", null, ct, InspectionHttpClient);
+
         public Task<GamingCallResult<List<StagedGamePackageDto>>> ListStagedPackagesAsync(
             CancellationToken ct = default) =>
             SendAsync<List<StagedGamePackageDto>>(
