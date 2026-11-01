@@ -33,13 +33,13 @@ public sealed class GameInstallerInspectionService
     internal static bool ValidLocalPackagePath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 ||
-            path.StartsWith(@"\\", StringComparison.Ordinal) ||
-            !SupportedExtensions.Contains(Path.GetExtension(path)))
+            path.StartsWith(@"\\", StringComparison.Ordinal))
             return false;
 
         try
         {
-            return Path.IsPathFullyQualified(path) && Path.GetFullPath(path) == path &&
+            return SupportedExtensions.Contains(Path.GetExtension(path)) &&
+                Path.IsPathFullyQualified(path) && Path.GetFullPath(path) == path &&
                 File.Exists(path) &&
                 (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0;
         }
