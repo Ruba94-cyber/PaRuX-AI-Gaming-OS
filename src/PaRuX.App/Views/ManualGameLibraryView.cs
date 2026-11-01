@@ -52,6 +52,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _gamingStatusRefresh = new();
     private readonly TextBlock _gamingStatus = new() { TextWrapping = TextWrapping.Wrap };
     private bool _returnToAiAvailable;
+    private bool _consoleForegroundRefreshInFlight;
     private readonly TextBlock _controllerStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _displayItems = new() { Spacing = 8 };
@@ -500,11 +501,15 @@ public sealed class ManualGameLibraryView : UserControl
             FocusConsoleHome();
     }
 
-    private async Task UpdateGamingStatusAsync()
+    /// <summary>Returns null when status cannot be confirmed. A failed read never
+    /// counts as a game exit or an unlocked AI runtime.</summary>
+    private async Task<GamingStatusDto?> UpdateGamingStatusAsync()
     {
+        GamingStatusDto? observed = null;
         try
         {
             GamingStatusDto? status = await GamingOrchestratorClient.Current.GetStatusAsync();
+            observed = status;
             if (status is null)
             {
                 _returnToAiAvailable = false;
@@ -535,6 +540,35 @@ public sealed class ManualGameLibraryView : UserControl
         _inspectInstaller.IsEnabled = _installerInspectionAllowed && !_busy;
         _refreshStaged.IsEnabled = _installerInspectionAllowed && !_busy;
         UpdatePackageStageAvailability();
+        return observed;
+    }
+
+    /// <summary>Refresh only when the user brings the Console window back into
+    /// the foreground. Do not steal focus from a running emulator or poll in the
+    /// background. An unconfirmed Core response never implies a game ended.</summary>
+    public async Task OnConsoleForegroundActivatedAsync()
+    {
+        if (!_consolePresentation || _busy || _consoleForegroundRefreshInFlight) return;
+        _consoleForegroundRefreshInFlight = true;
+        try
+        {
+            bool previouslyGaming = _returnToAiAvailable;
+            GamingStatusDto? state = await UpdateGamingStatusAsync();
+            if (previouslyGaming && state is { State: "AiReady", IsGamingActive: false })
+            {
+                if (_universal is not null)
+                    await _universal.RefreshTitlesAfterGameAsync();
+                _gamingStatus.Text = T(
+                    "AI resources available again. Your game or launcher was not terminated by PaRuX.",
+                    "Risorse AI nuovamente disponibili. PaRuX non ha terminato il gioco o il launcher.");
+            }
+        }
+        catch (Exception)
+        {
+            _gamingStatus.Text = T("Could not refresh Gaming status after returning to PaRuX.",
+                "Impossibile aggiornare lo stato Gaming al ritorno in PaRuX.");
+        }
+        finally { _consoleForegroundRefreshInFlight = false; }
     }
 
     private async Task RefreshGamingStatusButtonAsync()
