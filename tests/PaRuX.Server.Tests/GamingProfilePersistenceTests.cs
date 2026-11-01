@@ -63,6 +63,24 @@ public sealed class GamingProfilePersistenceTests
     }
 
     [Fact]
+    public async Task Concurrent_cold_starts_do_not_reset_existing_or_duplicate_default_profiles()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string path = Path.Combine(dir, "profiles.json");
+            var concurrent = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+                new GamingProfileStore(path))));
+            Assert.All(concurrent, instance => Assert.Null(instance.LoadError));
+            var last = new GamingProfileStore(path);
+            Assert.Equal(2, last.List().Count);
+            Assert.Equal(2, last.List().Select(p => p.Id).Distinct().Count());
+            Assert.Empty(Directory.GetFiles(dir, ".gaming-profiles-*.tmp"));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public void Two_core_instances_merge_unrelated_changes_instead_of_overwriting_stale_cache()
     {
         string dir = Path.Combine(Path.GetTempPath(), "parux-profiles-" + Guid.NewGuid().ToString("N"));
