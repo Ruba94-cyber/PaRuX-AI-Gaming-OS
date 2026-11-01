@@ -73,6 +73,9 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            var allStores = UiWait.ById(app.MainWindow, "GameLibrary_AllStores_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(allStores.Name));
+            Assert.True(allStores.Properties.IsEnabled.ValueOrDefault);
             var gog = UiWait.ById(app.MainWindow, "GameLibrary_Gog_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(gog.Name));
             Assert.True(gog.Properties.IsEnabled.ValueOrDefault);
