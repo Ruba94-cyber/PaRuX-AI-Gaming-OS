@@ -155,6 +155,16 @@ public static class GamingEndpoints
         app.MapGet("/api/v1/gaming/controllers", (ControllerProfileStore profiles) =>
             Results.Ok(NativeXInputProbe.ReadStates(profiles.Get()))).RequireDesktopOwner();
 
+        // Optional companion of a virtual controller: reports only whether HidHide's command-line tool is present.
+        app.MapGet("/api/v1/gaming/hidhide", (PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager hidHide) =>
+            Results.Ok(new
+            {
+                available = hidHide.IsAvailable,
+                message = hidHide.IsAvailable
+                    ? "HidHide is installed. PaRuX only changes what it has been asked to change and restores it afterwards."
+                    : "HidHide is not installed. It is optional and only useful together with a virtual controller; PaRuX never installs drivers on its own.",
+            })).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/virtual-controller", () =>
             Results.Ok(VirtualControllerProbe.Probe())).RequireDesktopOwner();
 

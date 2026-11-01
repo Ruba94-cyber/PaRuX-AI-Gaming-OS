@@ -272,6 +272,7 @@ builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
 builder.Services.AddSingleton<GameTitleStore>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(sp => sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>());
 builder.Services.AddSingleton<GgufQuantizeJobs>();

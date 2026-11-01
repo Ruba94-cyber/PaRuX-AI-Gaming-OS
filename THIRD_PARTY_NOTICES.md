@@ -113,3 +113,13 @@ Features whose purpose is explicitly online (for example checking GitHub Release
 ## Release audit note
 
 Because self-contained .NET and Android builds include transitive dependencies, a public release should still run the package-manager license/vulnerability inventory during local release validation and preserve any upstream NOTICE files that require redistribution. This document is the maintained human-readable summary, not a substitute for the exact upstream license texts.
+
+
+## Optional virtual-controller components (not redistributed)
+
+PaRuX never installs drivers. These are programs the user may install; PaRuX only talks to them when present.
+
+| Component | License | How PaRuX uses it |
+|---|---|---|
+| ViGEmBus (driver) and ViGEmClient (client library) | BSD-3-Clause (driver contract header) / MIT (client) | `ViGEmBusClient.cs` is an original C# implementation of the published IOCTL contract; request layouts and control codes were adapted from the upstream `BusShared.h`, `Common.h` and `ViGEmClient.cpp`. Copyright (c) Nefarius Software Solutions e.U. / Benjamin Hoglinger-Stelzer. Both projects are archived upstream. SOURCE IMPLEMENTED, NOT RUN. |
+| HidHide | MIT | Only its command-line tool is executed (`HidHideCLI.exe`, installed by the user); no code copied. NOT RUN against a real installation. |
