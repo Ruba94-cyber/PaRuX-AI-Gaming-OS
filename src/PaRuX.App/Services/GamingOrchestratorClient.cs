@@ -102,6 +102,12 @@ namespace PaRuX.Services
             SendAsync<GameInstallerInspectionResult>(
                 HttpMethod.Post, "/api/v1/gaming/installers/inspect", request, ct, InspectionHttpClient);
 
+        public Task<GamingCallResult<HidHideHealthDto>> GetHidHideStatusAsync(CancellationToken ct = default) =>
+            SendAsync<HidHideHealthDto>(HttpMethod.Get, "/api/v1/gaming/hidhide", null, ct);
+
+        public Task<GamingCallResult<object>> RecoverHidHideAsync(CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/hidhide/recover", null, ct);
+
         public Task<GamingCallResult<List<GamingControllerStateDto>>> GetControllersAsync(CancellationToken ct = default) =>
             SendAsync<List<GamingControllerStateDto>>(HttpMethod.Get, "/api/v1/gaming/controllers", null, ct);
 
