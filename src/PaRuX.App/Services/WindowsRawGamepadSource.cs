@@ -89,9 +89,18 @@ public sealed class WindowsRawGamepadSource : IRawGamepadSource
     }
 
     // The documented WinRT values are Center=0, Up=1 ... UpLeft=8.
-    internal static int Hat(GameControllerSwitchPosition position) =>
-        position == GameControllerSwitchPosition.Center ? -1 : (int)position - 1 is >= 0 and <= 7
-            ? (int)position - 1 : -1;
+    internal static int Hat(GameControllerSwitchPosition position) => position switch
+    {
+        GameControllerSwitchPosition.Up => 0,
+        GameControllerSwitchPosition.UpRight => 1,
+        GameControllerSwitchPosition.Right => 2,
+        GameControllerSwitchPosition.DownRight => 3,
+        GameControllerSwitchPosition.Down => 4,
+        GameControllerSwitchPosition.DownLeft => 5,
+        GameControllerSwitchPosition.Left => 6,
+        GameControllerSwitchPosition.UpLeft => 7,
+        _ => -1
+    };
 
     private static bool Valid(RawGameController device)
     {
