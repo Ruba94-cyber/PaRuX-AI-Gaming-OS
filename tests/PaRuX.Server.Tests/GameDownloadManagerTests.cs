@@ -155,6 +155,30 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Dangling_download_partial_link_cannot_create_a_file_outside_the_destination()
+    {
+        _server.Data = Bytes(4096);
+        string outside = Path.Combine(_dir, "should-not-be-created.bin");
+        string linked = Path.Combine(_dir, "file.bin.parux-part");
+        try
+        {
+            File.CreateSymbolicLink(linked, outside);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            // Test fixture cannot create links on this Windows configuration.
+            return;
+        }
+
+        using var manager = Make();
+        var failed = await WaitFor(manager,
+            manager.Enqueue(new(_server.Url(), _dir)).Id, GameDownloadStates.Failed);
+        Assert.Contains("linked", failed.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(outside));
+        Assert.False(File.Exists(Path.Combine(_dir, "file.bin")));
+    }
+
+    [Fact]
     public async Task Integrity_verification_is_interrupted_as_soon_as_gaming_is_detected()
     {
         byte[] source = Bytes(3 * 1024 * 1024);
