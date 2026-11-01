@@ -435,6 +435,12 @@ public sealed class WorkloadOrchestrator : BackgroundService
         bool launcherStartAttempted = false;
         try
         {
+            // Reject impossible / duplicated local-remote controller topologies
+            // before stopping AI workers or starting any optional helper.
+            string? inputError = GamingInputSafetyPolicy.Validate(profile);
+            if (inputError != null)
+                throw new InvalidOperationException(inputError);
+
             inputProvider = ResolveInputProvider(profile.InputProvider);
             launcherProvider = ResolveLauncherProvider(profile.LauncherProvider);
             if (!inputProvider.IsInstalled)
