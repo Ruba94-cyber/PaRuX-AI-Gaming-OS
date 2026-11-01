@@ -54,6 +54,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly TextBox _emulatorFolder = new();
     private readonly TextBox _emulatorCore = new();
     private readonly TextBox _emulatorExtra = new();
+    private readonly TextBox _emulatorInputProfile = new() { MaxLength = 80 };
     private readonly ComboBox _emulatorLaunchMode = new() { MinWidth = 230 };
     private readonly StackPanel _emulatorGames = new() { Spacing = 4 };
     private readonly TextBlock _emulatorStatus = new() { TextWrapping = TextWrapping.Wrap };
@@ -78,7 +79,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
             _advanced.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
             if (enabled) _advanced.IsExpanded = false;
         }
-        foreach (var box in new[] { _search, _folder, _emulatorExe, _emulatorFolder, _emulatorCore, _emulatorExtra })
+        foreach (var box in new[] { _search, _folder, _emulatorExe, _emulatorFolder, _emulatorCore, _emulatorExtra, _emulatorInputProfile })
             box.FontSize = enabled ? 20 : 14;
         foreach (var button in new[] { _reload, _previous, _next, _browseFolder, _inspectFolder })
         {
@@ -355,6 +356,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _emulatorFolder.Header = T("Folder with your game files", "Cartella con i tuoi file di gioco");
         _emulatorCore.Header = T("Core file (RetroArch only)", "File core (solo RetroArch)");
         _emulatorExtra.Header = T("Extra arguments (optional)", "Argomenti aggiuntivi (facoltativi)");
+        _emulatorInputProfile.Header = T("Eden controller input profile (player 1, optional)",
+            "Profilo input controller Eden (giocatore 1, facoltativo)");
+        AutomationProperties.SetAutomationId(_emulatorInputProfile, "Emulators_InputProfile_TextBox");
         _emulatorLaunchMode.Header = T("Display mode on launch", "Modalità schermo all'avvio");
         AutomationProperties.SetAutomationId(_emulatorLaunchMode, "Emulators_LaunchMode_ComboBox");
         foreach (var (box, id) in new[] { (_emulatorExe, "Emulators_Exe_TextBox"), (_emulatorFolder, "Emulators_Folder_TextBox"),
@@ -373,6 +377,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         import.Click += async (_, _) => await ImportEmulatorGamesAsync();
         content.Children.Add(loadEmulators); content.Children.Add(_emulatorBox);
         content.Children.Add(_emulatorExe); content.Children.Add(_emulatorCore); content.Children.Add(_emulatorExtra);
+        content.Children.Add(_emulatorInputProfile);
         content.Children.Add(_emulatorLaunchMode); content.Children.Add(_emulatorFolder);
         content.Children.Add(new TextBlock
         {
@@ -511,6 +516,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         var detected = _emulators.Detected.FirstOrDefault(d => d.EmulatorId == emulator.Id);
         _emulatorExe.Text = detected?.ExecutablePath ?? string.Empty;
         _emulatorCore.IsEnabled = emulator.RequiresCore;
+        _emulatorInputProfile.IsEnabled = string.Equals(emulator.Id, "eden", StringComparison.OrdinalIgnoreCase);
+        if (!_emulatorInputProfile.IsEnabled) _emulatorInputProfile.Text = string.Empty;
         _emulatorLaunchMode.Items.Clear();
         _emulatorLaunchMode.Items.Add(new ComboBoxItem
         {
@@ -573,7 +580,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
                 emulator.Id, _emulatorExe.Text ?? "", selected, mode == EmulatorLaunchModes.Fullscreen,
                 string.IsNullOrWhiteSpace(_emulatorExtra.Text) ? null : _emulatorExtra.Text,
                 string.IsNullOrWhiteSpace(_emulatorCore.Text) ? null : _emulatorCore.Text,
-                mode));
+                mode,
+                string.IsNullOrWhiteSpace(_emulatorInputProfile.Text) ? null : _emulatorInputProfile.Text));
             if (!result.Succeeded || result.Value is null)
             {
                 _emulatorStatus.Text = T("Nothing was added. Check that the program is the selected emulator and the files are local.",
