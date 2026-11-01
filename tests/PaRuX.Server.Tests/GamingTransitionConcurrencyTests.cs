@@ -132,7 +132,13 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         var input = new Input();
         var process = new LocalAiProcessManager();
         var runtime = new LocalRuntimeService(new TestHostEnvironment(), process, new ExternalTextProviderService());
-        if (persistedHardOff) runtime.SetGamingState(true);
+        if (persistedHardOff)
+        {
+            // The Core reads the persisted marker on disk after restart. Merely
+            // cancelling the Testing runtime token would not simulate this state.
+            Directory.CreateDirectory(Path.GetDirectoryName(LocalAiPaths.GameMarkerFile)!);
+            File.WriteAllText(LocalAiPaths.GameMarkerFile, "gaming");
+        }
         var orchestrator = new WorkloadOrchestrator(
             runtime, process, new MediaJobService(null!), new SpeechService(runtime), store,
             inputProviders: new IInputProvider[] { input, new NativeInputProvider(), new XOutputInputProvider(() => Array.Empty<System.Diagnostics.Process>()) },
