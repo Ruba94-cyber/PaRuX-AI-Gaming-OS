@@ -27,6 +27,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly Func<GameInstallationDto, Task> _launch;
     private readonly Func<Task> _refreshLibrary;
     private bool _console;
+    private Expander? _advanced;
 
     // titles
     private readonly TextBox _search = new();
@@ -72,6 +73,11 @@ internal sealed class UniversalLibraryPanel : StackPanel
     public void SetConsolePresentation(bool enabled)
     {
         _console = enabled;
+        if (_advanced is not null)
+        {
+            _advanced.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+            if (enabled) _advanced.IsExpanded = false;
+        }
         foreach (var box in new[] { _search, _folder, _emulatorExe, _emulatorFolder, _emulatorCore, _emulatorExtra })
             box.FontSize = enabled ? 20 : 14;
         foreach (var button in new[] { _reload, _previous, _next, _browseFolder, _inspectFolder })
@@ -334,6 +340,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetLiveSetting(_folderStatus, AutomationLiveSetting.Polite);
         content.Children.Add(_folderStatus); content.Children.Add(_candidates);
 
+        // Opt-in save backups are fully isolated from game launch and never restore files.
+        content.Children.Add(new GameSaveBackupPanel());
+
         // emulators
         content.Children.Add(Heading(T("Emulators", "Emulatori")));
         var loadEmulators = new Button { Content = T("Look for installed emulators", "Cerca gli emulatori installati"), MinHeight = 32 };
@@ -381,6 +390,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
             HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
         AutomationProperties.SetAutomationId(expander, "AdvancedGameManagement_Expander");
+        _advanced = expander;
         Children.Add(expander);
     }
 
