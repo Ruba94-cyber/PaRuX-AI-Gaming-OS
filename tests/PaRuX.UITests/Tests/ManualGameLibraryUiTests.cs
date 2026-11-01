@@ -73,6 +73,11 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            var displays = UiWait.ById(app.MainWindow, "GameLibrary_Displays_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(displays.Name));
+            Assert.True(displays.Properties.IsEnabled.ValueOrDefault);
+            // Read-only display probe is not clicked in fixture: it must not depend on
+            // the current machine monitor layout or change its configuration.
             var allStores = UiWait.ById(app.MainWindow, "GameLibrary_AllStores_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(allStores.Name));
             Assert.True(allStores.Properties.IsEnabled.ValueOrDefault);
