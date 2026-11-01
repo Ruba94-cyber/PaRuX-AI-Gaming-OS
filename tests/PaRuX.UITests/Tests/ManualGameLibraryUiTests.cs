@@ -132,6 +132,51 @@ public sealed class ManualGameLibraryUiTests
         }
     }
 
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Game_download_ui_requires_consent_and_does_not_start_unapproved_transfer()
+    {
+        using var app = new UiTestApplication(nameof(Game_download_ui_requires_consent_and_does_not_start_unapproved_transfer));
+        try
+        {
+            var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
+            new InstallProgressPage(app).Invoke(navigation);
+
+            var refresh = UiWait.ById(app.MainWindow, "GameDownloads_Refresh", ControlType.Button);
+            var start = UiWait.ById(app.MainWindow, "GameDownloads_Start", ControlType.Button);
+            var speed = UiWait.ById(app.MainWindow, "GameDownloads_SpeedKiB", ControlType.Edit);
+            var applySpeed = UiWait.ById(app.MainWindow, "GameDownloads_ApplySpeed", ControlType.Button);
+            var priority = UiWait.ById(app.MainWindow, "GameDownloads_Priority", ControlType.ComboBox);
+            var url = UiWait.ById(app.MainWindow, "GameDownloads_Url", ControlType.Edit).AsTextBox();
+            var folder = UiWait.ById(app.MainWindow, "GameDownloads_Destination", ControlType.Edit).AsTextBox();
+
+            UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault,
+                "the downloads panel finished its initial read");
+            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
+            Assert.False(string.IsNullOrWhiteSpace(start.Name));
+            Assert.False(string.IsNullOrWhiteSpace(speed.Name));
+            Assert.False(string.IsNullOrWhiteSpace(applySpeed.Name));
+            Assert.False(string.IsNullOrWhiteSpace(priority.Name));
+
+            // A local loopback URL is accepted by the validation policy; cancellation
+            // must prevent the Core from making any request or creating a part file.
+            url.Text = "http://127.0.0.1:9/not-a-real-game.bin";
+            folder.Text = app.DataRoot;
+            start.Patterns.Invoke.Pattern.Invoke();
+            var cancel = Find(() => app.MainWindow.FindFirstDescendant(
+                cf => cf.ByAutomationId("CloseButton").And(cf.ByControlType(ControlType.Button))),
+                "download-start consent dialog");
+            cancel.Patterns.Invoke.Pattern.Invoke();
+
+            Assert.Empty(Directory.GetFiles(app.DataRoot, "*.parux-part", SearchOption.AllDirectories));
+            Assert.Empty(Directory.GetFiles(app.DataRoot, "*.parux-part.validator", SearchOption.AllDirectories));
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(nameof(Game_download_ui_requires_consent_and_does_not_start_unapproved_transfer), ex);
+            throw;
+        }
+    }
+
     private static AutomationElement Find(Func<AutomationElement?> find, string description)
     {
         AutomationElement? element = null;
