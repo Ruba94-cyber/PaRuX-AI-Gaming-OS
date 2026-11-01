@@ -73,6 +73,9 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(controllers.Name));
+            Assert.True(controllers.Properties.IsEnabled.ValueOrDefault);
             var displays = UiWait.ById(app.MainWindow, "GameLibrary_Displays_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(displays.Name));
             Assert.True(displays.Properties.IsEnabled.ValueOrDefault);
