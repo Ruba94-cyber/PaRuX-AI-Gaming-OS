@@ -19,6 +19,19 @@ namespace PaRuX.Views;
 public sealed partial class SettingsView
 {
     private int _consoleDisplayRefreshVersion;
+    private GamingDisplaySnapshotDto? _lastConsoleDisplaySnapshot;
+
+    private void ConsoleDisplaysUseCurrent_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsStore.Current.Data.ConsoleTargetDisplayId = string.Empty;
+        SettingsStore.Current.Save();
+        if (_lastConsoleDisplaySnapshot is { Supported: true } snapshot)
+            RenderConsoleDisplays(snapshot);
+        else
+            ConsoleDisplaysStatus.Text = TvT(
+                "Automatic output restored: Console opens on the current monitor.",
+                "Destinazione automatica ripristinata: Console si apre sul monitor attuale.");
+    }
     private static bool TvSettingsItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
     private static string TvT(string en, string it) => TvSettingsItalian ? it : en;
 
@@ -43,6 +56,7 @@ public sealed partial class SettingsView
                 return;
             }
 
+            _lastConsoleDisplaySnapshot = snapshot;
             RenderConsoleDisplays(snapshot);
         }
         catch (Exception)
