@@ -415,7 +415,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         {
             try
             {
-                if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                // LinkTarget also catches dangling symlinks, for which File.Exists may be false.
+                if (new FileInfo(path).LinkTarget is not null ||
+                    (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                     throw new GameDownloadException("A download temporary file or sidecar is a linked file.");
             }
             catch (FileNotFoundException) { /* A new, regular file may be created. */ }
@@ -444,7 +446,18 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             !Path.IsPathFullyQualified(directory) || directory.StartsWith(@"\\", StringComparison.Ordinal))
             throw new GameDownloadException("Choose an absolute local destination folder.");
         string full = Path.GetFullPath(directory);
-        if (!ManualGameLibrary.IsSafeDirectory(full)) throw new GameDownloadException("The destination folder does not exist or is a linked folder.");
+        if (!ManualGameLibrary.IsSafeDirectory(full))
+            throw new GameDownloadException("The destination folder does not exist or is a linked folder.");
+        try
+        {
+            var volume = new DriveInfo(Path.GetPathRoot(full)!);
+            if (volume.DriveType is DriveType.Network or DriveType.Unknown or DriveType.NoRootDirectory)
+                throw new GameDownloadException("Choose a local volume rather than a mapped network folder.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            throw new GameDownloadException("The download destination volume is unavailable.");
+        }
         return full;
     }
 
