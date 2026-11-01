@@ -43,7 +43,7 @@ public sealed partial class MainWindow
         GameLibraryPage.ApplyConsoleMode(true);
         GameLibraryPage.OnShown();
         UpdateConsoleModeButton();
-        GameLibraryNavItem.Focus(FocusState.Programmatic);
+        GameLibraryPage.FocusConsoleHome();
     }
 
     private void ExitConsoleMode()
@@ -60,6 +60,11 @@ public sealed partial class MainWindow
     private void RootGrid_ConsoleKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (!_consoleModeActive) return;
+        // A modal consent or a running library action owns B/Escape until it
+        // completes; never dismiss fullscreen underneath a game-launch prompt.
+        if (GameLibraryPage.IsInteractionBusy && e.Key is VirtualKey.Escape or VirtualKey.GamepadB)
+            return;
+
         if (e.Key is VirtualKey.Escape or VirtualKey.GamepadB)
         {
             try
