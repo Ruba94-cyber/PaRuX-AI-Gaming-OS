@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -41,6 +42,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private List<GameTitleDto> _titles = new();
     private int _page;
     private const int PageSize = 25;
+    private int _searchEditGeneration;
+    private int _catalogGeneration;
+    private CancellationTokenSource? _catalogCancellation;
 
     // advanced
     private readonly TextBox _folder = new();
@@ -108,7 +112,26 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _search.Header = T("Search your games", "Cerca nei tuoi giochi");
         _search.MaxLength = 100;
         AutomationProperties.SetAutomationId(_search, "GameTitles_Search_TextBox");
-        _search.TextChanged += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
+        // Debounce user typing (including the TV keyboard) instead of rescanning
+        // Steam/Epic/GOG on every key; an older request cannot overwrite newer results.
+        _search.TextChanged += async (_, _) =>
+        {
+            int generation = ++_searchEditGeneration;
+            await Task.Delay(300);
+            if (generation != _searchEditGeneration) return;
+            _page = 0;
+            await ReloadTitlesAsync();
+        };
+        var searchKeyboard = ConsoleKeyboardFlyout.Create(_search, T("Done", "Fine"),
+            T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
+        _search.KeyDown += (_, e) =>
+        {
+            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
+            {
+                searchKeyboard.ShowAt(_search);
+                e.Handled = true;
+            }
+        };
         _favoritesOnly.Click += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
         AutomationProperties.SetAutomationId(_favoritesOnly, "GameTitles_FavoritesOnly_Toggle");
         AutomationProperties.SetName(_favoritesOnly, T("Show favorites only", "Mostra solo i preferiti"));
@@ -120,6 +143,16 @@ internal sealed class UniversalLibraryPanel : StackPanel
         Children.Add(bar);
         _collectionFilter.Header = T("Filter collection (exact name, optional)", "Filtra collezione (nome esatto, facoltativo)");
         AutomationProperties.SetAutomationId(_collectionFilter, "GameTitles_Collection_Filter");
+        var collectionsKeyboard = ConsoleKeyboardFlyout.Create(_collectionFilter, T("Done", "Fine"),
+            T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
+        _collectionFilter.KeyDown += (_, e) =>
+        {
+            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
+            {
+                collectionsKeyboard.ShowAt(_collectionFilter);
+                e.Handled = true;
+            }
+        };
         var filterCollection = new Button { Content = T("Apply collection filter", "Applica filtro collezione") };
         AutomationProperties.SetAutomationId(filterCollection, "GameTitles_Collection_Apply");
         filterCollection.Click += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
@@ -146,10 +179,17 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     private async Task ReloadTitlesAsync()
     {
+        int generation = ++_catalogGeneration;
+        var cancellation = new CancellationTokenSource();
+        var previous = _catalogCancellation;
+        _catalogCancellation = cancellation;
+        previous?.Cancel();
         try
         {
             var result = await GamingOrchestratorClient.Current.GetTitlesAsync(
-                _search.Text, null, _favoritesOnly.IsChecked == true, collection: _collectionFilter.Text);
+                _search.Text, null, _favoritesOnly.IsChecked == true,
+                ct: cancellation.Token, collection: _collectionFilter.Text);
+            if (generation != _catalogGeneration || cancellation.IsCancellationRequested) return;
             if (!result.Succeeded || result.Value is null)
             {
                 _titleStatus.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
@@ -158,9 +198,17 @@ internal sealed class UniversalLibraryPanel : StackPanel
             _titles = result.Value;
             RenderTitles();
         }
+        catch (OperationCanceledException) { /* Superseded by a newer search or filter. */ }
         catch (Exception)
         {
-            _titleStatus.Text = T("Could not read your games.", "Impossibile leggere i tuoi giochi.");
+            if (generation == _catalogGeneration && !cancellation.IsCancellationRequested)
+                _titleStatus.Text = T("Could not read your games.", "Impossibile leggere i tuoi giochi.");
+        }
+        finally
+        {
+            if (ReferenceEquals(_catalogCancellation, cancellation))
+                _catalogCancellation = null;
+            cancellation.Dispose();
         }
     }
 
