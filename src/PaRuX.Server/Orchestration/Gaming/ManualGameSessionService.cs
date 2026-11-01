@@ -118,8 +118,7 @@ public sealed class ManualGameSessionService : IDisposable
                 try { previous?.Cancel(); } catch (ObjectDisposedException) { }
                 // This monitor never kills the process. Its cancellation only stops observation.
                 _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop,
-                    GameTitleCatalog.KeyFor(game.Name, GameTitleCatalog.InstallationId(GameInstallationSources.Manual, game.Id)),
-                    DateTime.UtcNow);
+                    SessionTitleKey(game), DateTime.UtcNow);
                 return new(true, true, "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
@@ -143,6 +142,17 @@ public sealed class ManualGameSessionService : IDisposable
             }
         }
         finally { _launchGate.Release(); }
+    }
+
+    /// <summary>Use the same fallback installation identity as the unified title catalog.
+    /// Ordinary titles use their normalized names, but one-letter/symbol-only names
+    /// would otherwise lose play time when launched through an emulator.</summary>
+    internal static string SessionTitleKey(ManualGameDto game)
+    {
+        string source = string.IsNullOrEmpty(game.EmulatorId)
+            ? GameInstallationSources.Manual : GameInstallationSources.Emulator;
+        return GameTitleCatalog.KeyFor(game.Name,
+            GameTitleCatalog.InstallationId(source, game.Id));
     }
 
     internal static bool ValidSteamAppId(string? appId) =>
