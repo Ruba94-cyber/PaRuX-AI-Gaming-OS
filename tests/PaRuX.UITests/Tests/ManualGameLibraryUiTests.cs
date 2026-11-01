@@ -73,6 +73,12 @@ public sealed class ManualGameLibraryUiTests
         {
             var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
             new InstallProgressPage(app).Invoke(navigation);
+            var collectionFilter = UiWait.ById(app.MainWindow, "GameTitles_Collection_Filter", ControlType.Edit);
+            var collectionApply = UiWait.ById(app.MainWindow, "GameTitles_Collection_Apply", ControlType.Button);
+            Assert.False(string.IsNullOrWhiteSpace(collectionFilter.Name));
+            Assert.False(string.IsNullOrWhiteSpace(collectionApply.Name));
+            // A fixture with no games must still expose and permit the read-only filter.
+            // No real store discovery, game execution or collection mutation is required.
             var refreshGaming = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
             var returnToAi = UiWait.ById(app.MainWindow, "GameLibrary_ReturnToAi_Button", ControlType.Button);
             UiWait.For(() => refreshGaming.Properties.IsEnabled.ValueOrDefault,
