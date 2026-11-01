@@ -74,6 +74,10 @@ public sealed class GamingProfileStore
         lock (_gate)
         {
             ThrowIfWriteBlocked();
+            if (string.IsNullOrWhiteSpace(profile.Name) || profile.Name.Length > 200)
+                throw new ArgumentException("Gaming profile name must contain 1–200 characters.");
+            if (!string.IsNullOrWhiteSpace(profile.Id) && profile.Id.Length > 128)
+                throw new ArgumentException("Gaming profile ID is too long.");
             if (string.IsNullOrWhiteSpace(profile.Id))
                 profile.Id = Guid.NewGuid().ToString("N");
 
@@ -83,6 +87,11 @@ public sealed class GamingProfileStore
             using FileStream lease = AcquireWriteLease();
             var next = ReadValidatedProfiles();
             int index = next.FindIndex(p => string.Equals(p.Id, profile.Id, StringComparison.OrdinalIgnoreCase));
+            if (index < 0 && next.Count >= 1024)
+                throw new InvalidOperationException("Gaming profile limit reached.");
+            if (next.Any(p => !string.Equals(p.Id, profile.Id, StringComparison.OrdinalIgnoreCase) &&
+                              string.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("A Gaming profile with this name already exists.");
             if (index >= 0) next[index] = profile;
             else next.Add(profile);
             Persist(next);
@@ -153,7 +162,7 @@ public sealed class GamingProfileStore
         List<GamingProfileDto>? loaded = JsonSerializer.Deserialize<List<GamingProfileDto>>(json, JsonOptions);
         if (loaded is null || loaded.Count > 1024 ||
             loaded.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) ||
-                string.IsNullOrWhiteSpace(p.Name)))
+                p.Id.Length > 128 || string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 200))
             throw new InvalidDataException("Gaming profile JSON is invalid.");
         return loaded;
     }
