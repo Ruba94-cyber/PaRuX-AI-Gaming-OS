@@ -81,8 +81,9 @@ public sealed class GgufQuantizeJobs
         catch (TimeoutException) { return false; }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception) { return false; }
-        // A generic failed job is not proof that cancellation stopped an external tool.
-        return Current is { State: "cancelled" };
+        // A completed job has released its process too; a generic failure cannot
+        // independently prove that the quantizer stopped.
+        return Current is { State: "cancelled" or "completed" };
     }
 
     internal Task WhenIdleAsync(TimeSpan timeout) => Task.Run(() =>
