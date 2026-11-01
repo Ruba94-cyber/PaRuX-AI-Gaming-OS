@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-11-01 — Full Steam/Epic/GOG catalog pagination (source only)
+
+- Replaced the 100-title display cutoff with 50-title cached pages, Next/Previous store buttons, IT/EN page counts and name filtering. Pages work in desktop and fullscreen Console without new background scans, dependencies or unbounded WinUI child rendering.
+- Empty/failed scans and busy operations disable stale paging controls. Added a shared first-party page-window contract, xUnit boundary coverage and FlaUI accessibility checks.
+- **SOURCE IMPLEMENTED / WINDOWS NOT RUN:** actual rendered keyboard/controller focus, accessibility, high-DPI UI and large-catalog responsiveness still need acceptance.
+
 ### 2026-11-01 — Epic official protocol activation and mapper ownership fixes (source only)
 
 - Added a first-party Epic URI builder using the installed-game path form documented by Epic. The desktop-owner route rediscovers the game, validates local paths and the Windows URI registration, enters Gaming, and requests OS activation; there are no caller-provided executable paths, URI schemes or launch switches. The shared Games/Console UI now has a bilingual confirmation for **Play via Epic Games Launcher**. This does not prove the genuine Epic handler or game started; users must Return to AI manually. The protocol handler is OS/user-configurable.
