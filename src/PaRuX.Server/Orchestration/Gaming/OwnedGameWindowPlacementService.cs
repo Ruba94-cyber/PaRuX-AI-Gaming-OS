@@ -19,6 +19,7 @@ public sealed class OwnedGameWindowPlacementService
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoOwnerZOrder = 0x0200;
+    private const uint SwpAsyncWindowPos = 0x4000;
     private const long WsCaption = 0x00C00000L;
     private const long WsExToolWindow = 0x00000080L;
     private readonly GamingDisplayTopologyService _topology;
@@ -106,17 +107,33 @@ public sealed class OwnedGameWindowPlacementService
                         return "already-on-tv";
                     // Keep size/z-order/focus exactly as before. Win32 may refuse
                     // foreign-integrity/elevated windows: report, never escalate.
+                    GetWindowThreadProcessId(candidate, out uint finalPid);
+                    if (finalPid != (uint)owned.Id ||
+                        !ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
+                        return "not-confirmed";
+                    // The game owns its input queue. Post to that queue rather
+                    // than blocking a Core request on a hung GUI thread.
                     if (!SetWindowPos(candidate, IntPtr.Zero, centered.Value.X,
                         centered.Value.Y, 0, 0, SwpNoSize | SwpNoZOrder |
-                        SwpNoActivate | SwpNoOwnerZOrder))
+                        SwpNoActivate | SwpNoOwnerZOrder | SwpAsyncWindowPos))
                         return "not-confirmed";
-                    // A successful Windows call is not proof the game retained
-                    // that geometry. Do not claim the TV placement if its window
-                    // manager immediately ignored or overrode the move.
-                    if (!GetWindowRect(candidate, out WinRect finalRect))
-                        return "not-confirmed";
-                    return finalRect.Left == centered.Value.X && finalRect.Top == centered.Value.Y
-                        ? "placed" : "not-confirmed";
+                    // The async placement may not have executed yet. Confirm the
+                    // actual bounds and still verify that the HWND belongs to
+                    // this process; do not claim a successful TV route otherwise.
+                    for (int check = 0; check < 5; check++)
+                    {
+                        if (stop.IsCancellationRequested ||
+                            !ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
+                            return "not-confirmed";
+                        GetWindowThreadProcessId(candidate, out uint pidAfterMove);
+                        if (pidAfterMove != (uint)owned.Id)
+                            return "not-confirmed";
+                        if (GetWindowRect(candidate, out WinRect actual) &&
+                            actual.Left == centered.Value.X && actual.Top == centered.Value.Y)
+                            return "placed";
+                        await Task.Delay(120, stop).ConfigureAwait(false);
+                    }
+                    return "not-confirmed";
                 }
                 await Task.Delay(250, stop).ConfigureAwait(false);
             }
