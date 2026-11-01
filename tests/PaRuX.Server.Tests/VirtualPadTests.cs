@@ -28,13 +28,14 @@ public sealed class VirtualPadTests : IDisposable
         public readonly List<string> Devices = new();
         public readonly List<string> Log = new();
         public string? FailOn;   // command that returns a failure exit code
+        public readonly HashSet<string> AlsoFailOn = new(StringComparer.Ordinal);
 
         public Task<(int, string)> Run(HidHideManager.ProcessSpec spec, CancellationToken ct)
         {
             string cmd = spec.Arguments[0];
             string arg = spec.Arguments.Count > 1 ? spec.Arguments[1] : "";
             Log.Add(spec.Arguments.Count > 1 ? cmd + " " + arg : cmd);
-            if (cmd == FailOn) return Task.FromResult((1, "denied"));
+            if (cmd == FailOn || AlsoFailOn.Contains(cmd)) return Task.FromResult((1, "denied"));
             switch (cmd)
             {
                 case "--cloak-state": return Task.FromResult((0, Cloak ? "--cloak-on" : "--cloak-off"));
@@ -121,6 +122,62 @@ public sealed class VirtualPadTests : IDisposable
     }
 
     [Fact]
+    public async Task A_partial_restore_keeps_a_journal_for_a_later_retry()
+    {
+        var cli = new FakeCli();
+        var manager = Make(cli);
+        Assert.True((await manager.HideAsync(new[] { PadA }, _exe, CancellationToken.None)).Success);
+        cli.FailOn = "--dev-unhide";
+        Assert.False((await manager.RestoreAsync(CancellationToken.None)).Success);
+        Assert.True(File.Exists(_journal));
+        Assert.Contains(PadA, cli.Devices);
+        cli.FailOn = null;
+        Assert.True((await manager.RestoreAsync(CancellationToken.None)).Success);
+        Assert.Empty(cli.Devices);
+        Assert.False(File.Exists(_journal));
+    }
+
+    [Fact]
+    public async Task Failed_apply_reports_incomplete_rollback_and_retains_recovery_journal()
+    {
+        var cli = new FakeCli { FailOn = "--cloak-on" };
+        cli.AlsoFailOn.Add("--dev-unhide");
+        var manager = Make(cli);
+        var result = await manager.HideAsync(new[] { PadA }, _exe, CancellationToken.None);
+        Assert.False(result.Success);
+        Assert.Contains("incomplete", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(_journal));
+        cli.FailOn = null;
+        cli.AlsoFailOn.Clear();
+        Assert.True((await manager.RecoverAsync(CancellationToken.None)).Success);
+        Assert.Empty(cli.Devices);
+    }
+
+    [Fact]
+    public async Task Cancellation_during_apply_attempts_uncancelled_recovery()
+    {
+        var cli = new FakeCli();
+        using var cts = new CancellationTokenSource();
+        var manager = new HidHideManager(
+            () => @"C:\fake\HidHideCLI.exe",
+            (spec, ct) =>
+            {
+                if (spec.Arguments[0] == "--dev-hide")
+                {
+                    cts.Cancel();
+                    return Task.FromCanceled<(int ExitCode, string Output)>(cts.Token);
+                }
+                return cli.Run(spec, ct);
+            }, _journal);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => manager.HideAsync(new[] { PadA }, _exe, cts.Token));
+        Assert.Empty(cli.Apps);
+        Assert.Empty(cli.Devices);
+        Assert.False(cli.Cloak);
+        Assert.False(File.Exists(_journal));
+    }
+
+    [Fact]
     public async Task A_second_hide_is_refused_until_the_first_is_restored()
     {
         var cli = new FakeCli();
@@ -155,12 +212,14 @@ public sealed class VirtualPadTests : IDisposable
     }
 
     [Fact]
-    public async Task A_tampered_journal_is_ignored_instead_of_being_executed()
+    public async Task A_tampered_journal_is_refused_instead_of_being_executed()
     {
         File.WriteAllText(_journal, "{\"HiddenByUs\":[\"--cloak-off\"],\"AppRegisteredByUs\":null,\"CloakTurnedOnByUs\":false}");
         var cli = new FakeCli();
         var result = await Make(cli).RestoreAsync(CancellationToken.None);
-        Assert.True(result.Success);                 // treated as "nothing to restore"
+        Assert.False(result.Success);
+        Assert.Contains("journal", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(_journal));
         Assert.Empty(cli.Log);
     }
 
@@ -275,6 +334,30 @@ public sealed class VirtualPadTests : IDisposable
         var mapping = TypicalLayout();
         var report = GenericPadMapper.Map(new RawGamepadState(Array.Empty<bool>(), new[] { double.NaN, double.PositiveInfinity }, -1), mapping);
         Assert.Equal(default, report);
+    }
+
+    [Fact]
+    public void Negative_mapping_indices_are_ignored_even_before_validation()
+    {
+        var mapping = new PadMapping
+        {
+            Buttons = new() { [-1] = Xbox360Report.A },
+            LeftXAxis = -1,
+            LeftTriggerAxis = -1,
+            LeftTriggerButton = -1,
+        };
+        Assert.NotNull(mapping.Validate());
+        Assert.Equal(default, GenericPadMapper.Map(State(), mapping));
+    }
+
+    [Fact]
+    public void Nonfinite_deadzone_is_rejected_by_validation()
+    {
+        var mapping = TypicalLayout();
+        mapping.StickDeadzone = double.NaN;
+        Assert.NotNull(mapping.Validate());
+        mapping.StickDeadzone = double.PositiveInfinity;
+        Assert.NotNull(mapping.Validate());
     }
 
     [Fact]

@@ -87,15 +87,27 @@ public sealed class HidHideManager
                 !before.CloakOn);
             SaveJournal(journal); // written first: a crash after this point can still be undone
 
-            foreach (string command in PlanFor(journal))
+            try
             {
-                string[] args = command.Split('\u0001');
-                var result = await _run(new(cli, args), ct).ConfigureAwait(false);
-                if (result.ExitCode != 0)
+                foreach (string command in PlanFor(journal))
                 {
-                    await RestoreCoreAsync(cli, journal, CancellationToken.None).ConfigureAwait(false);
-                    return new(false, "HidHide refused the change; everything PaRuX changed was undone.");
+                    string[] args = command.Split('\u0001');
+                    var result = await _run(new(cli, args), ct).ConfigureAwait(false);
+                    if (result.ExitCode == 0) continue;
+
+                    bool restored = await RestoreCoreAsync(cli, journal, CancellationToken.None).ConfigureAwait(false);
+                    return restored
+                        ? new(false, "HidHide refused a change; the PaRuX changes were undone.")
+                        : new(false, "HidHide refused a change, and automatic rollback was incomplete. The recovery journal was kept.");
                 }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // A command might have changed the driver's configuration before cancellation was observed.
+                // Restore with an independent token, keeping the journal if the cleanup fails.
+                try { await RestoreCoreAsync(cli, journal, CancellationToken.None).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception) { }
+                throw;
             }
             return new(true, "The controllers are hidden from games. PaRuX restores them when it stops.");
         }
@@ -108,8 +120,10 @@ public sealed class HidHideManager
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (!File.Exists(_journalPath)) return new(true, "Nothing to restore.");
             Journal? journal = LoadJournal();
-            if (journal is null) return new(true, "Nothing to restore.");
+            if (journal is null)
+                return new(false, "HidHide recovery journal is unreadable or invalid. No restore commands were run; inspect the journal and HidHide device list before proceeding.");
             string? cli = _locateCli();
             if (cli is null) return new(false, "HidHide is no longer available, so the earlier change could not be undone automatically.");
             return await RestoreCoreAsync(cli, journal, ct).ConfigureAwait(false)

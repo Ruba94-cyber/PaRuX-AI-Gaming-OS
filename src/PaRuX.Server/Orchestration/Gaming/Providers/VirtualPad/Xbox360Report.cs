@@ -48,7 +48,8 @@ public sealed class PadMapping
             if (axis is < 0 or >= Max) return "An axis index is out of range.";
         foreach (int? button in new[] { LeftTriggerButton, RightTriggerButton })
             if (button is < 0 or >= Max) return "A trigger button index is out of range.";
-        if (StickDeadzone is < 0 or > 0.6) return "The stick deadzone must be between 0 and 0.6.";
+        if (!double.IsFinite(StickDeadzone) || StickDeadzone is < 0 or > 0.6)
+            return "The stick deadzone must be a finite number between 0 and 0.6.";
         return null;
     }
 }
@@ -60,7 +61,7 @@ public static class GenericPadMapper
     {
         ushort buttons = 0;
         foreach (var (index, bit) in mapping.Buttons)
-            if (index < state.Buttons.Count && state.Buttons[index]) buttons |= bit;
+            if (index >= 0 && index < state.Buttons.Count && state.Buttons[index]) buttons |= bit;
         if (mapping.HatIsDpad) buttons |= HatToDpad(state.HatDirection);
 
         short lx = Stick(state, mapping.LeftXAxis, false, mapping.StickDeadzone);
@@ -86,7 +87,8 @@ public static class GenericPadMapper
     };
 
     private static double Axis(RawGamepadState state, int? index) =>
-        index is { } i && i < state.Axes.Count && double.IsFinite(state.Axes[i]) ? Math.Clamp(state.Axes[i], -1.0, 1.0) : 0.0;
+        index is { } i && i >= 0 && i < state.Axes.Count && double.IsFinite(state.Axes[i])
+            ? Math.Clamp(state.Axes[i], -1.0, 1.0) : 0.0;
 
     private static short Stick(RawGamepadState state, int? axis, bool invert, double deadzone)
     {
@@ -100,7 +102,7 @@ public static class GenericPadMapper
 
     private static byte Trigger(RawGamepadState state, int? axis, int? button, bool signed)
     {
-        if (button is { } b && b < state.Buttons.Count && state.Buttons[b]) return 255;
+        if (button is { } b && b >= 0 && b < state.Buttons.Count && state.Buttons[b]) return 255;
         if (axis is null) return 0;
         double v = Axis(state, axis);
         double unit = signed ? (v + 1.0) / 2.0 : Math.Max(0.0, v);
