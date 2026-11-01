@@ -178,6 +178,25 @@ public static class GamingEndpoints
         app.MapGet("/api/v1/gaming/displays", (GamingDisplayTopologyService displays) =>
             Results.Ok(displays.Snapshot())).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/displays/change", (GamingDisplayModeService modes) =>
+            Results.Ok(modes.Status())).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/displays/change", (GamingDisplayModeChangeRequest request, GamingDisplayModeService modes) =>
+        {
+            try { return Results.Ok(modes.Request(request)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/displays/change/confirm", (GamingDisplayModeService modes) =>
+        {
+            try { return Results.Ok(modes.Confirm()); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/displays/change/revert", (GamingDisplayModeService modes) =>
+            Results.Ok(modes.Revert())).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/status", (WorkloadOrchestrator orchestrator) =>
             Results.Ok(orchestrator.GetStatus()));
 

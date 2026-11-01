@@ -86,3 +86,28 @@ notes described an unmerged interrupted branch at `2c5a0b4`; they were
 accurate for that historical snapshot but do **not** describe the current
 source on public `main`. Its pending race and verification concerns are
 retained as open gates in `PARUX_EXECUTION_PLAN.md`.
+
+## Increments after the Windows verification (same session, all on `main`)
+
+Each row: SOURCE IMPLEMENTED + BUILD PASSED + TESTED (xUnit, `tools/test-gos-checkpoint.ps1`, 579/579 at the last run).
+Nothing below is WINDOWS VERIFIED through FlaUI/visual checks or HARDWARE VERIFIED (all NOT RUN).
+
+| Track | Increment | Key files |
+|---|---|---|
+| GOS-09 | Bounded polling cost (controller trigger TTL + disposed handles, Sunshine loopback-only URL + 3 s reuse), cached VRAM in `GetStatus`, 30 s provider start timeout, `IGamingResumable` wired in `Program.cs`, `EndGamingAsync` reports failure | `TriggerProviders.cs`, `WorkloadOrchestrator.cs`, `LocalRuntimeService.cs`, `Program.cs` |
+| GOS-09 | Crash recovery: persisted `gaming-session.json` (profile/trigger/input/launcher ids) resumed by `ReconcileWithPersistedRuntimeState` | `GamingSessionRecord.cs` |
+| GOS-07 | Model download resume: `If-Range` with stored strong ETag, `Content-Range` start must equal local length, validator cleaned with partial artifacts | `ResumeValidator.cs`, `ModelDownloadService.cs` |
+| GOS-05 | Persisted controller profile (deadzones, trigger threshold, Y invert, button remap), explicit bounded calibration, endpoints; diagnostics/Console only, no virtual device | `GamingControllerProfile.cs`, `ControllerProfileStore.cs`, `ControllerProfileMath.cs`, `NativeXInputProbe.cs` |
+| GOS-04 | Focus restored after busy interactions; controller on-screen keyboard for the library filter (gamepad A/Y) | `ManualGameLibraryView.cs`, `ConsoleKeyboardFlyout.cs`, `ConsoleTextEntry.cs` |
+| GOS-08 | Reversible display mode change: driver test, session-temporary apply, 15 s auto-revert, persisted restore point + restart recovery, refused during Gaming; HDR/VRR untouched | `GamingDisplayModeService.cs`, `DisplayModeApi.cs`, `GamingEndpoints.cs` |
+
+### Known software gaps still open (not SOURCE COMPLETE)
+- GOS-09: Quick Resume / `GameSuspended` unreachable (`FindOwnedSuspendableGameProcessId` always null); 1 s orchestrator loop not yet event-driven; `SpeechWarmWorker._process` unlocked read; missing rollback/restart-in-remote tests.
+- GOS-05: no DirectInput/HID, no hot-plug events, remap/profile has no App UI yet and is not injected into games (by design).
+- GOS-08: no App UI for display change; no stored named display profiles; HDR/VRR not read.
+- GOS-04: key/stick mapping for bumpers/menu, Console-level Accept path, FlaUI coverage of the keyboard and focus restore.
+- GOS-07: `GamePackageStageService` copy is not resumable; no install adapters.
+- GOS-01..03, GOS-06, GOS-10: not advanced in this session.
+
+### Reuse policy applied
+MIT/Apache-2.0 sources (Hydra, Playnite, Codex, Unsloth) may be ported with notices in `THIRD_PARTY_NOTICES.md`; GPL/AGPL sources (Nyrna, LocalUncensored) are not copied, only behaviours are reimplemented natively. No third-party code was ported in the increments above.
