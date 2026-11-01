@@ -55,3 +55,15 @@ public sealed record SetDefaultInstallationRequest(string? InstallationId);
 
 /// <summary>Up to 12 named local user collections for one title; no cloud account or scraping.</summary>
 public sealed record SetGameCollectionsRequest(List<string> Collections);
+
+/// <summary>
+/// On a user-initiated return to the foreground, refresh potentially changed game
+/// statistics only when a previously observed Gaming session is confirmed finished.
+/// Unreachable Core, an in-progress transition or a persisted Gaming hard-off
+/// cannot be interpreted as success. This helper performs no background polling.
+/// </summary>
+public static class GameLibraryForegroundReturnPolicy
+{
+    public static bool CanRefreshTitles(bool previouslyGaming, GamingStatusDto? status) =>
+        previouslyGaming && status is { State: "AiReady", IsGamingActive: false };
+}
