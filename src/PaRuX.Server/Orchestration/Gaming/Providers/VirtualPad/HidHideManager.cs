@@ -47,6 +47,8 @@ public sealed class HidHideManager
     }
 
     public bool IsAvailable => _locateCli() is not null;
+    /// <summary>Only reports the existence of a recovery transaction, not device paths.</summary>
+    public bool RecoveryRequired => File.Exists(_journalPath);
 
     public async Task<HidHideState?> GetStateAsync(CancellationToken ct)
     {
