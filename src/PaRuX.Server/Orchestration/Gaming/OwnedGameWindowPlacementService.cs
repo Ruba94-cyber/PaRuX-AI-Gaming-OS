@@ -15,10 +15,10 @@ public sealed class OwnedGameWindowPlacementService
     private const int GwlStyle = -16;
     private const int GwlExStyle = -20;
     private const int GwOwner = 4;
-    private const int SwpNoSize = 0x0001;
-    private const int SwpNoZOrder = 0x0004;
-    private const int SwpNoActivate = 0x0010;
-    private const int SwpNoOwnerZOrder = 0x0200;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoOwnerZOrder = 0x0200;
     private const long WsCaption = 0x00C00000L;
     private const long WsExToolWindow = 0x00000080L;
     private readonly GamingDisplayTopologyService _topology;
