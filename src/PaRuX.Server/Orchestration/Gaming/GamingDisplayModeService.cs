@@ -122,17 +122,22 @@ public sealed class GamingDisplayModeService : IDisposable
         lock (_gate)
         {
             if (_pending is null) throw new InvalidOperationException("There is no pending display change.");
+            // A restore-only record loaded after a crash cannot be "confirmed".
+            if (_applied is null)
+                throw new InvalidOperationException("A previous display mode must be restored before applying a new one.");
+            string id = _pending.DisplayId;
+            if (!_api.ApplyPermanent(id, _applied))
+            {
+                // Keep both the restore journal and automatic timeout.
+                _lastMessage = "Windows could not save that mode. It is still unconfirmed; revert or retry before the timeout.";
+                return Status();
+            }
             _timer?.Dispose();
             _timer = null;
-            string id = _pending.DisplayId;
-            DisplayModeEntry kept = _applied ?? _pending.Previous;
-            bool saved = _api.ApplyPermanent(id, kept);
             _pending = null;
             _applied = null;
             DeleteRecord();
-            _lastMessage = saved
-                ? "Display change confirmed and saved."
-                : "Display change confirmed for this session; Windows could not save it as the default.";
+            _lastMessage = "Display change confirmed and saved.";
             return new(false, null, 0, _lastMessage);
         }
     }
@@ -146,7 +151,7 @@ public sealed class GamingDisplayModeService : IDisposable
             if (_pending is null) return new(false, null, 0, _lastMessage);
             _timer?.Dispose();
             _timer = null;
-            if (!_api.ApplyTemporary(_pending.DisplayId, _pending.Previous))
+            if (!CanRestore(_pending) || !_api.ApplyTemporary(_pending.DisplayId, _pending.Previous))
             {
                 // Keep the record: the next Revert call or the next start retries.
                 _lastMessage = "Windows could not restore the previous mode yet. Try Revert again.";
@@ -163,15 +168,51 @@ public sealed class GamingDisplayModeService : IDisposable
     /// <summary>Called at startup: a record left by a crash during an unconfirmed change is reverted.</summary>
     public bool RecoverPendingAfterRestart()
     {
-        PendingRecord? record = LoadRecord();
-        if (record is null) return false;
-        bool restored = _api.ApplyTemporary(record.DisplayId, record.Previous);
-        if (restored) DeleteRecord();
         lock (_gate)
-            _lastMessage = restored
-                ? "A display change left unconfirmed by a previous run was reverted."
-                : "An unconfirmed display change could not be reverted automatically; use Revert.";
-        return restored;
+        {
+            if (_pending is not null) return false;
+            PendingRecord? record = LoadRecord();
+            if (record is null) return false;
+
+            // A journal on disk is not authority to control an unknown display.
+            // Keep it for diagnosis, but never apply a stale/invalid device mode.
+            if (!CanRestore(record))
+            {
+                _pending = record;
+                _lastMessage = "The saved display restore point does not match an available monitor/mode. The record was kept for recovery.";
+                return false;
+            }
+
+            bool restored = _api.ApplyTemporary(record.DisplayId, record.Previous);
+            if (restored)
+            {
+                DeleteRecord();
+                _lastMessage = "A display change left unconfirmed by a previous run was reverted.";
+                return true;
+            }
+
+            // Preserve in-memory pending state so the manual Revert action
+            // retries the saved mode rather than silently reporting a no-op.
+            _pending = record;
+            _lastMessage = "Automatic display recovery failed; use Revert once the monitor is available.";
+            return false;
+        }
+    }
+
+    private bool CanRestore(PendingRecord record)
+    {
+        if (string.IsNullOrWhiteSpace(record.DisplayId) ||
+            record.Previous is null ||
+            record.Previous.Width <= 0 || record.Previous.Height <= 0 ||
+            record.Previous.RefreshRateHz < 24)
+            return false;
+        if (!_topology.Snapshot().Displays.Any(d =>
+                string.Equals(d.DisplayId, record.DisplayId, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        return _api.Supported(record.DisplayId).Any(m =>
+            m.Width == record.Previous.Width && m.Height == record.Previous.Height &&
+            m.RefreshRateHz == record.Previous.RefreshRateHz &&
+            m.BitsPerPixel == record.Previous.BitsPerPixel);
     }
 
     private void SaveRecord(PendingRecord record)
