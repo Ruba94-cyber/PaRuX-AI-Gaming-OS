@@ -50,6 +50,8 @@ public sealed class ManualGameLibraryUiTests
                 "manual game launch consent dialog");
             cancelLaunch.Patterns.Invoke.Pattern.Invoke();
             Assert.Equal("fixture, not executable", File.ReadAllText(marker));
+            // Cancelling the dialog ends the library's busy state a moment later; a click before that is ignored by design.
+            UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after the launch dialog was cancelled");
             var remove = UiWait.ById(app.MainWindow, "GameLibrary_Remove_" + gameId, ControlType.Button);
             remove.Patterns.Invoke.Pattern.Invoke();
             var confirm = Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton").And(cf.ByControlType(ControlType.Button))), "remove confirmation");

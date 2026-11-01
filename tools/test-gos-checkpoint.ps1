@@ -51,6 +51,15 @@ try {
     Invoke-GosStep 'GOS focused Server xUnit regression' @('test', $serverTests, '-c', 'Release', '-p:Platform=x64', '--filter', $testFilter)
     if ($RunUi) {
         # The gate builds Release; the FlaUI harness defaults to Debug output, so point it at what was just built.
+        # The shipped layout keeps the Core beside the app in PaRuX.Server\. Stage the freshly built Core there
+        # (build output only; nothing is installed and no registry or user data is touched).
+        $appDir = Join-Path $root 'src/PaRuX.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64'
+        $coreOut = Join-Path $root 'src/PaRuX.Server/bin/Release/net8.0'
+        if ((Test-Path (Join-Path $coreOut 'PaRuX.Server.exe')) -and (Test-Path $appDir)) {
+            robocopy $coreOut (Join-Path $appDir 'PaRuX.Server') /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw '[GOS] FAIL: could not stage the Core beside the app' }
+            $global:LASTEXITCODE = 0
+        }
         if ([string]::IsNullOrWhiteSpace($env:PARUX_UI_APP_PATH)) {
             $env:PARUX_UI_APP_PATH = Join-Path $root 'src/PaRuX.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/PaRuX.exe'
         }

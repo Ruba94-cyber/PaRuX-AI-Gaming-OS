@@ -132,6 +132,6 @@ GOS-01/02/03 visual identity audit, GOS-04 Console shell mapping + FlaUI, GOS-05
 
 ### FlaUI acceptance run (Windows 11, interactive desktop, Release app)
 `PARUX_UI_APP_PATH` now defaults to the Release app inside `tools/test-gos-checkpoint.ps1 -RunUi`; `ChatHomeStarterTests.cs` was missing a `using` and the UI test project did not compile before this.
-- **WINDOWS VERIFIED (PASS):** Chat Home starter, Console presenter enter/return, store discovery controls with accessible buttons (3 of 4).
-- **BLOCKED:** `Manual_library_adds_and_removes_entry_without_removing_game_file` asserts the Core is started from `<app>\PaRuX.Server\PaRuX.Server.exe` (the published layout). A plain `dotnet build` leaves the Core in `src\PaRuX.Server\bin\Release`, so the assertion fails before any library behaviour is exercised. It needs the `publish.cmd` layout, not a code change.
+- **WINDOWS VERIFIED (PASS):** Chat Home starter, Console presenter enter/return, store discovery controls, manual library add/launch-cancel/remove (4 of 4).
+- **FIXED:** the manual-library test needed the shipped layout (the gate now stages the freshly built Core into `PaRuX.Server` beside the Release app) and a wait for the library to leave its busy state. All 4 FlaUI tests PASS (WINDOWS VERIFIED).
 - The new Console shoulder/scroll/search mapping, on-screen keyboard, filters and devices panel have xUnit coverage of their logic only; their on-screen behaviour is NOT RUN.
