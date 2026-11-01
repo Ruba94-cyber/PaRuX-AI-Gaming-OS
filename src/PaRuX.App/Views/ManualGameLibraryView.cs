@@ -222,6 +222,14 @@ public sealed class ManualGameLibraryView : UserControl
         RenderDiscoveredGames(); // reuse the cached scan; never rescan disks for a UI resize
     }
 
+    /// <summary>Controller-first focus target; reuses the exact same UI actions
+    /// as desktop and never installs an input remapper.</summary>
+    public void FocusConsoleHome() => _gamingStatusRefresh.Focus(FocusState.Programmatic);
+
+    /// <summary>While a consent dialog or command is active, Console-wide B/Escape
+    /// must not tear down the fullscreen presenter beneath that interaction.</summary>
+    public bool IsInteractionBusy => _busy;
+
     public async void OnShown()
     {
         await RefreshAsync();
