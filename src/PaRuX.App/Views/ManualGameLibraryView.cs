@@ -35,6 +35,9 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _returnToAi = new();
     private readonly StackPanel _installerSection = new() { Spacing = 8 };
     private readonly Button _inspectInstaller = new();
+    private readonly TextBox _expectedPublisherSha = new();
+    private readonly Button _stagePackage = new();
+    private string? _inspectedInstallerPath;
     private readonly Button _cancelInspection = new();
     private CancellationTokenSource? _inspectionCancellation;
     private readonly TextBlock _installerStatus = new() { TextWrapping = TextWrapping.Wrap };
@@ -273,6 +276,28 @@ public sealed class ManualGameLibraryView : UserControl
         };
         inspectionActions.Children.Add(_cancelInspection);
         _installerSection.Children.Add(inspectionActions);
+        _installerSection.Children.Add(new TextBlock
+        {
+            Text = T("Optional: independently verify and stage a copy of the selected package. Paste the SHA-256 published by a trusted independent source. PaRuX never runs or installs the package.",
+                     "Facoltativo: verifica e prepara una copia del pacchetto selezionato. Incolla lo SHA-256 pubblicato da una fonte attendibile indipendente. PaRuX non esegue né installa il pacchetto."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _expectedPublisherSha.PlaceholderText = T("Publisher SHA-256 (64 hex characters)",
+            "SHA-256 del produttore (64 caratteri esadecimali)");
+        _expectedPublisherSha.MaxLength = 64;
+        _expectedPublisherSha.IsEnabled = true;
+        AutomationProperties.SetAutomationId(_expectedPublisherSha, "GameLibrary_Installer_PublisherHash_Input");
+        AutomationProperties.SetName(_expectedPublisherSha, T("Independent publisher SHA-256",
+            "SHA-256 indipendente del produttore"));
+        _expectedPublisherSha.TextChanged += (_, _) => UpdatePackageStageAvailability();
+        _installerSection.Children.Add(_expectedPublisherSha);
+        _stagePackage.Content = T("Verify and stage copy", "Verifica e prepara una copia");
+        _stagePackage.IsEnabled = false;
+        AutomationProperties.SetAutomationId(_stagePackage, "GameLibrary_Installer_Stage_Button");
+        AutomationProperties.SetName(_stagePackage, T("Verify package and stage a copy without executing",
+            "Verifica il pacchetto e prepara una copia senza eseguirlo"));
+        _stagePackage.Click += async (_, _) => await StageInspectedPackageAsync();
+        _installerSection.Children.Add(_stagePackage);
         AutomationProperties.SetAutomationId(_installerStatus, "GameLibrary_Installer_Status_Text");
         AutomationProperties.SetLiveSetting(_installerStatus, AutomationLiveSetting.Polite);
         _installerSection.Children.Add(_installerStatus);
@@ -382,6 +407,7 @@ public sealed class ManualGameLibraryView : UserControl
         }
         _returnToAi.IsEnabled = _returnToAiAvailable && !_busy;
         _inspectInstaller.IsEnabled = _installerInspectionAllowed && !_busy;
+        UpdatePackageStageAvailability();
     }
 
     private async Task RefreshGamingStatusButtonAsync()
@@ -457,9 +483,77 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
+    private void UpdatePackageStageAvailability()
+    {
+        string digest = _expectedPublisherSha.Text?.Trim() ?? "";
+        _stagePackage.IsEnabled = !_busy && !_consolePresentation && _installerInspectionAllowed &&
+            !string.IsNullOrEmpty(_inspectedInstallerPath) &&
+            digest.Length == 64 && digest.All(Uri.IsHexDigit);
+    }
+
+    private async Task StageInspectedPackageAsync()
+    {
+        if (_busy || !_installerInspectionAllowed || _consolePresentation ||
+            string.IsNullOrEmpty(_inspectedInstallerPath)) return;
+        string publisherHash = _expectedPublisherSha.Text?.Trim() ?? "";
+        if (publisherHash.Length != 64 || !publisherHash.All(Uri.IsHexDigit)) return;
+
+        SetBusy(true);
+        CancellationTokenSource? staging = null;
+        try
+        {
+            var confirmation = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Verify and stage a copy?", "Verificare e preparare una copia?"),
+                Content = T(
+                    "Only proceed if you obtained this checksum independently from the trusted publisher. PaRuX will copy the local package into its private application folder after verifying every byte. It will NOT open, run, install or unpack it.",
+                    "Procedi solo se hai ottenuto questo codice SHA-256 in modo indipendente da un produttore attendibile. PaRuX copierà il pacchetto nella propria cartella privata dopo averne verificato ogni byte. NON lo aprirà, eseguirà, installerà né estrarrà."),
+                PrimaryButtonText = T("Verify and stage", "Verifica e prepara"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await confirmation.ShowAsync() != ContentDialogResult.Primary) return;
+            staging = new CancellationTokenSource();
+            _inspectionCancellation = staging; // shared Gaming/leave-page cancellation policy
+            _cancelInspection.IsEnabled = true;
+            _installerStatus.Text = T("Verifying and staging a local package…",
+                "Verifica e preparazione del pacchetto locale…");
+            var result = await GamingOrchestratorClient.Current.StageGamePackageAsync(
+                new GamePackageStageRequest(_inspectedInstallerPath, publisherHash), staging.Token);
+            if (result.Succeeded && result.Value is not null)
+                _installerStatus.Text = T(
+                    $"Checked copy ready: {result.Value.FileName}\nSHA-256: {result.Value.Sha256}\nStored locally in PaRuX app data. No software was installed or executed.",
+                    $"Copia verificata pronta: {result.Value.FileName}\nSHA-256: {result.Value.Sha256}\nSalvata nei dati locali di PaRuX. Nessun software è stato installato o eseguito.");
+            else
+                _installerStatus.Text = T(
+                    "Verification or staging was refused. Check the publisher's independent SHA-256 and the Gaming status. No completed package was published.",
+                    "Verifica o preparazione rifiutata. Controlla lo SHA-256 indipendente del produttore e lo stato Gaming. Nessun pacchetto completo è stato pubblicato.");
+        }
+        catch (OperationCanceledException) when (staging?.IsCancellationRequested == true)
+        {
+            _installerStatus.Text = T("Staging cancelled; no completed package was published.",
+                "Preparazione annullata; nessun pacchetto completo è stato pubblicato.");
+        }
+        catch (Exception)
+        {
+            _installerStatus.Text = T("Package staging could not be completed.",
+                "Impossibile completare la preparazione del pacchetto.");
+        }
+        finally
+        {
+            _inspectionCancellation = null;
+            staging?.Dispose();
+            _cancelInspection.IsEnabled = false;
+            SetBusy(false);
+        }
+    }
+
     private async Task InspectInstallerAsync()
     {
         if (_busy || !_installerInspectionAllowed) return;
+        _inspectedInstallerPath = null;
+        _expectedPublisherSha.Text = "";
         SetBusy(true);
         CancellationTokenSource? inspection = null;
         try
@@ -487,6 +581,7 @@ public sealed class ManualGameLibraryView : UserControl
                 return;
             }
 
+            _inspectedInstallerPath = chosen.Path;
             _installerStatus.Text = T(
                 $"{result.Value.FileName} · {result.Value.SizeBytes:N0} bytes\nSHA-256: {result.Value.Sha256}\nA matching hash is not a malware or licensing guarantee; check it against the publisher.",
                 $"{result.Value.FileName} · {result.Value.SizeBytes:N0} byte\nSHA-256: {result.Value.Sha256}\nL'hash non garantisce sicurezza o licenza: confrontalo con quello del produttore.");
@@ -972,5 +1067,5 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
+    private void SetBusy(bool value) { _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
 }
