@@ -145,6 +145,7 @@
                         </StackPanel>
 
                         <Button
+                            x:Name="BubbleOpenInMain"
                             Grid.Column="1"
                             Content="Open in PaRuX"
                             FontSize="{StaticResource PaRuXFontSizeCaption}"
@@ -158,6 +159,7 @@
                             ToolTipService.ToolTip="Continue this thread in the main window" />
 
                         <Button
+                            x:Name="BubbleCollapse"
                             Grid.Column="2"
                             Width="28"
                             Height="28"
@@ -197,11 +199,13 @@
                         Foreground="{ThemeResource PaRuXTextTertiaryBrush}"
                         HorizontalAlignment="Center" />
                     <TextBlock
+                        x:Name="BubbleEmptyTitle"
                         Text="Ask me something"
                         Style="{StaticResource PaRuXBodyStrongTextStyle}"
                         Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
                         HorizontalAlignment="Center" />
                     <TextBlock
+                        x:Name="BubbleEmptyDescription"
                         Text="Answers stay on this machine."
                         Style="{StaticResource PaRuXCaptionTextStyle}"
                         Foreground="{ThemeResource PaRuXTextTertiaryBrush}"

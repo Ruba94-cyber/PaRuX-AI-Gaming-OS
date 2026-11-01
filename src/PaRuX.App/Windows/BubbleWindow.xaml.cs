@@ -142,6 +142,7 @@ namespace PaRuX.Shell
         public BubbleWindow()
         {
             InitializeComponent();
+            ApplyQuickChatLocalization();
 
             _dispatcher = DispatcherQueue.GetForCurrentThread();
             _hwnd = WindowNative.GetWindowHandle(this);
