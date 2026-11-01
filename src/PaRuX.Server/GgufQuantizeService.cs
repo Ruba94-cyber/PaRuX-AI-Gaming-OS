@@ -81,6 +81,9 @@ public sealed class GgufQuantizeService
 
         string quantizer = _locateQuantizer()
             ?? throw new GgufQuantizeException("llama-quantize is not installed in the managed runtime.");
+        // Preserve source provenance and detect in-place modification while quantizing.
+        // Hashing may add disk I/O; it is intentionally restricted to an explicit export job.
+        string inputSha256 = await HashAsync(input, ct).ConfigureAwait(false);
 
         string partial = output + ".partial";
         string manifestPath = output + ".quant.json";
@@ -99,6 +102,12 @@ public sealed class GgufQuantizeService
                 throw new GgufQuantizeException($"llama-quantize failed (exit {exit}). {Tail(tail)}".TrimEnd());
             if (!File.Exists(partial) || new FileInfo(partial).Length == 0 || !HasGgufHeader(partial))
                 throw new GgufQuantizeException("llama-quantize finished but did not produce a valid GGUF file.");
+
+            string currentSourceHash;
+            try { currentSourceHash = await HashAsync(input, ct).ConfigureAwait(false); }
+            catch (IOException) { throw new GgufQuantizeException("The source GGUF became unavailable during quantization."); }
+            if (!string.Equals(currentSourceHash, inputSha256, StringComparison.Ordinal))
+                throw new GgufQuantizeException("The source GGUF changed during quantization. No output was published.");
 
             File.Move(partial, output); // never overwrites: the target was checked and Move without overwrite throws
         }
@@ -122,6 +131,7 @@ public sealed class GgufQuantizeService
             schema = 1,
             source = Path.GetFileName(input),
             sourceBytes = inputBytes,
+            sourceSha256 = inputSha256,
             type,
             output = Path.GetFileName(output),
             outputBytes,
