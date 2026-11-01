@@ -14,6 +14,10 @@ namespace PaRuX.Services
         public static GamingOrchestratorClient Current { get; } = new GamingOrchestratorClient();
 
         private static readonly HttpClient HttpClient = PaRuXServerController.CreateControlPlaneClient(TimeSpan.FromSeconds(10));
+        // Large local archives need a dedicated opt-in transfer timeout. Ordinary
+        // Gaming control/status requests retain their tight ten-second budget.
+        private static readonly HttpClient InspectionHttpClient =
+            PaRuXServerController.CreateControlPlaneClient(TimeSpan.FromMinutes(10));
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
         private GamingOrchestratorClient() { }
@@ -59,7 +63,8 @@ namespace PaRuX.Services
 
         public Task<GamingCallResult<GameInstallerInspectionResult>> InspectGameInstallerAsync(
             GameInstallerInspectionRequest request, CancellationToken ct = default) =>
-            SendAsync<GameInstallerInspectionResult>(HttpMethod.Post, "/api/v1/gaming/installers/inspect", request, ct);
+            SendAsync<GameInstallerInspectionResult>(
+                HttpMethod.Post, "/api/v1/gaming/installers/inspect", request, ct, InspectionHttpClient);
 
         public Task<GamingCallResult<List<GamingControllerStateDto>>> GetControllersAsync(CancellationToken ct = default) =>
             SendAsync<List<GamingControllerStateDto>>(HttpMethod.Get, "/api/v1/gaming/controllers", null, ct);
@@ -93,7 +98,8 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> RemoveManualGameAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Delete, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), null, ct);
 
-        private static async Task<GamingCallResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct)
+        private static async Task<GamingCallResult<T>> SendAsync<T>(
+            HttpMethod method, string path, object? body, CancellationToken ct, HttpClient? client = null)
         {
             try
             {
@@ -105,7 +111,7 @@ namespace PaRuX.Services
                     request.Content = JsonContent.Create(body, options: JsonOptions);
                 }
 
-                using HttpResponseMessage response = await HttpClient.SendAsync(request, ct).ConfigureAwait(false);
+                using HttpResponseMessage response = await (client ?? HttpClient).SendAsync(request, ct).ConfigureAwait(false);
                 return await GamingResponseReader.ReadAsync<T>(response, JsonOptions, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
