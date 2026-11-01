@@ -89,9 +89,9 @@ public sealed class OwnedGameWindowPlacementService
                     stableCount = 0;
                 previousWindow = candidate;
 
-                // A single transient splash/dialog must not be treated as the
-                // game's main window; demand one stable candidate across 2 reads.
-                if (candidate != IntPtr.Zero && stableCount >= 1)
+                // A transient splash/dialog must not be treated as the main
+                // game window: demand three consecutive identical observations.
+                if (candidate != IntPtr.Zero && stableCount >= 2)
                 {
                     if (!ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath) ||
                         SelectUniqueWindow(FindWindows(owned.Id), owned.Id) != candidate)
@@ -106,9 +106,16 @@ public sealed class OwnedGameWindowPlacementService
                         return "already-on-tv";
                     // Keep size/z-order/focus exactly as before. Win32 may refuse
                     // foreign-integrity/elevated windows: report, never escalate.
-                    return SetWindowPos(candidate, IntPtr.Zero, centered.Value.X,
+                    if (!SetWindowPos(candidate, IntPtr.Zero, centered.Value.X,
                         centered.Value.Y, 0, 0, SwpNoSize | SwpNoZOrder |
-                        SwpNoActivate | SwpNoOwnerZOrder)
+                        SwpNoActivate | SwpNoOwnerZOrder))
+                        return "not-confirmed";
+                    // A successful Windows call is not proof the game retained
+                    // that geometry. Do not claim the TV placement if its window
+                    // manager immediately ignored or overrode the move.
+                    if (!GetWindowRect(candidate, out WinRect finalRect))
+                        return "not-confirmed";
+                    return finalRect.Left == centered.Value.X && finalRect.Top == centered.Value.Y
                         ? "placed" : "not-confirmed";
                 }
                 await Task.Delay(250, stop).ConfigureAwait(false);
@@ -169,13 +176,14 @@ public sealed class OwnedGameWindowPlacementService
     private static IReadOnlyList<WindowCandidate> FindWindows(int pid)
     {
         var list = new List<WindowCandidate>();
+        bool overflow = false;
         EnumWindows((window, _) =>
         {
             GetWindowThreadProcessId(window, out uint ownerPid);
             if (ownerPid != (uint)pid) return true;
             // Bounded observation: don't enumerate arbitrary child processes
             // or resolve titles and executable paths of unrelated windows.
-            if (list.Count >= 16) return false;
+            if (list.Count >= 16) { overflow = true; return false; }
             int style = GetWindowLong(window, GwlStyle);
             int exStyle = GetWindowLong(window, GwlExStyle);
             list.Add(new WindowCandidate(window, (int)ownerPid, IsWindowVisible(window),
@@ -184,6 +192,8 @@ public sealed class OwnedGameWindowPlacementService
                 IsZoomed(window), (style & WsCaption) == WsCaption));
             return true;
         }, IntPtr.Zero);
-        return list;
+        // Seeing more windows than our bounded audit can cover must not be
+        // mistaken for exactly one eligible main window.
+        return overflow ? Array.Empty<WindowCandidate>() : list;
     }
 }
