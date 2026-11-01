@@ -3,6 +3,19 @@
 Last executive refresh: **2026-11-01**.
 
 
+### 2026-11-01 continuation II — multi-installation choice, session identity, safer GGUF export
+
+**SOURCE IMPLEMENTED / WINDOWS BUILD, xUnit, FlaUI and physical integration NOT RUN.** Public `main`; deliberately no CI/GitHub Actions.
+
+- **Playnite-class choices / Emulator UI:** `GameInstallationDto.EmulatorName` is additive/optional, emitted from the built-in emulator registry and shown in the same desktop/TV installation picker, distinguishing Eden, Dolphin, PCSX2 etc. without exposing ROM paths, firmware, keys, or private file locations. The older JSON shape without the new property still deserializes with an empty label. It does not claim window focus or a 4K UI test.
+- **Session accounting:** a manual-library game launched via an emulator uses the same source-specific installation fallback as `GameTitleCatalog`; short/symbol-only title names no longer receive playtime under the wrong key. Inferred child/bootstrap processes are still NOT tracked and never treated as proof of game exit.
+- **Portable launch variants:** duplicate matching now takes executable, exact arguments, normalized effective working directory and game/application kind into account. An explicit working directory equal to the implicit executable folder stays a duplicate; another folder or application kind can coexist as a distinct launch choice. The existing v1 library schema remains unchanged and corrupt-file fail-closed behavior is retained.
+- **Unsloth-class export safety:** GGUF quantization now records SHA-256 of the source file in the sidecar manifest, re-hashes the source after the quantizer exits and refuses to publish a mutated source's output. Existing local files and sidecars still are not overwritten. This adds two source reads and is NOT a race-free snapshot or a real-world speed/quality improvement claim; measure I/O overhead on large GGUF files.
+- **Focused gates to run on Windows development PC:** `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GameTitleCatalogTests|FullyQualifiedName~ManualGameLibraryTests|FullyQualifiedName~GgufQuantizeServiceTests|FullyQualifiedName~EmulatorManagerTests"` then full .NET build and relevant WinUI/FlaUI. Verify per-title selection and labels with multiple emulators in a real TV/controller session, an actual emulator close/return, and quantization on a real model. Tests were authored but not run here.
+- **Remaining source work:** automated return-to-Home/focus remains unverified, child-process handoffs are intentionally owner/manual instead of unsafe process discovery, game cover/metadata integrity and full installer rollback are incomplete; AI tokenizer-accurate training dataset gates, GGUF conversion compatibility, reviewed coding diffs, agent/computer-use E2E, eGPU/dual-monitor/fps/VRAM evidence and measured competitor parity are not DONE.
+
+
+
 ### 2026-11-01 evening continuation — emulator breadth + safer AI GGUF export (SOURCE / NOT RUN)
 
 **Repository:** public `main`. These source changes have not passed .NET build, xUnit, FlaUI or real Windows/TV/hardware acceptance in this environment. Do not mark DONE or claim competitor superiority.
