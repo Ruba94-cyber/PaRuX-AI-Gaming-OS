@@ -59,6 +59,19 @@ public sealed class ManualGameLaunchTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Theory]
+    [InlineData("730", true)]
+    [InlineData("123456789012345", true)]
+    [InlineData("730 -console", false)]
+    [InlineData("730/launch", false)]
+    [InlineData("steam://rungameid/730", false)]
+    [InlineData("", false)]
+    [InlineData("1234567890123456", false)]
+    public void Steam_launch_only_accepts_numeric_installed_game_ids(string id, bool expected)
+    {
+        Assert.Equal(expected, ManualGameSessionService.ValidSteamAppId(id));
+    }
+
     [Fact]
     public void A_different_executable_is_not_the_launched_process()
     {
@@ -72,6 +85,15 @@ public sealed class ManualGameLaunchSecurityTests : IClassFixture<ApiSecurityTes
 {
     private readonly ApiSecurityTests.PaRuXFactory _factory;
     public ManualGameLaunchSecurityTests(ApiSecurityTests.PaRuXFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task Steam_launch_requires_desktop_owner_authorization()
+    {
+        using HttpClient client = _factory.CreateClient();
+        using HttpResponseMessage response = await client.PostAsync(
+            "/api/v1/gaming/library/discover/steam/730/launch", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 
     [Fact]
     public async Task Manual_game_launch_requires_desktop_owner_authorization()
