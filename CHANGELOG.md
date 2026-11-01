@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-01 — Epic official protocol activation and mapper ownership fixes (source only)
+
+- Added a first-party Epic URI builder using the installed-game path form documented by Epic. The desktop-owner route rediscovers the game, validates local paths and the Windows URI registration, enters Gaming, and requests OS activation; there are no caller-provided executable paths, URI schemes or launch switches. The shared Games/Console UI now has a bilingual confirmation for **Play via Epic Games Launcher**. This does not prove the genuine Epic handler or game started; users must Return to AI manually. The protocol handler is OS/user-configurable.
+- XOutput's optional helper lifecycle is serialized under one owned-process lock to avoid duplicate starts or unsafe cleanup races, and same-name unknown external processes are no longer treated as a trusted running mapper. Manual game launching now shares the local non-junction executable policy with controller helpers.
+- Added xUnit source for Epic IDs/URI encoding, linked directories, authentication, XOutput unverified processes and linked manual-game paths, with Epic test classes included in the local Windows GOS checkpoint.
+- **SOURCE IMPLEMENTED, NOT RUN:** no Windows build, actual Epic legacy/preview activation, game launch, FlaUI or input integration validation was executed. No virtual controller, DRM bypass, untrusted installer executor or additional NuGet package was added.
+
 ### 2026-11-01 — Prefer first-party Windows suspend for new Gaming presets (source only)
 
 - New stock local and remote profiles select PaRuX's existing Windows native suspend provider rather than Nyrna. Previously serialized profiles and user-selected providers are not rewritten; the legacy DTO fallback remains to preserve older JSON.
