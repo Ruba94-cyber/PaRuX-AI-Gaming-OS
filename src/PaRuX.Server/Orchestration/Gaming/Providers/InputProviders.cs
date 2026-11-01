@@ -48,7 +48,7 @@ public sealed class XOutputInputProvider : IInputProvider
                 @"C:\XOutput\XOutput.exe"
             };
 
-            return candidates.FirstOrDefault(File.Exists);
+            return candidates.FirstOrDefault(CustomExecutableInputProvider.IsSafeHelperPath);
         }
     }
 
@@ -56,13 +56,14 @@ public sealed class XOutputInputProvider : IInputProvider
     {
         // A remote stream may already expose a virtual controller through Sunshine.
         // Refuse a second mapper rather than returning fake success or double input.
-        if (GamingInputSafetyPolicy.Validate(profile) != null)
+        if (ct.IsCancellationRequested || GamingInputSafetyPolicy.Validate(profile) != null)
             return Task.FromResult(false);
 
         string? exe = ExecutablePath;
         if (exe == null)
         {
-            if (profile.InputSettings.TryGetValue("path", out string? customPath) && File.Exists(customPath))
+            if (profile.InputSettings.TryGetValue("path", out string? customPath) &&
+                CustomExecutableInputProvider.IsSafeHelperPath(customPath))
             {
                 exe = customPath;
             }
@@ -74,10 +75,12 @@ public sealed class XOutputInputProvider : IInputProvider
 
         try
         {
+            ct.ThrowIfCancellationRequested();
             Process[] existing = _getRunningProcesses();
             bool alreadyRunning = existing.Length > 0;
             foreach (Process process in existing) process.Dispose();
             if (alreadyRunning) return Task.FromResult(true);
+            ct.ThrowIfCancellationRequested();
 
             var psi = new ProcessStartInfo
             {
