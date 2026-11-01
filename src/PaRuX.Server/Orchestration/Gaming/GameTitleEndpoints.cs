@@ -13,6 +13,19 @@ public static class GameTitleEndpoints
             ? key.Length > 3 && key[3..].All(c => char.IsLetterOrDigit(c) || c is ':' or '_' or '-' or '.')
             : key.All(char.IsLetterOrDigit));
 
+    /// <summary>Read back the persisted, validated state after an explicit owner edit.
+    /// Keep cache changes best-effort: a successful persisted mutation must not be
+    /// misreported as failed because a separate cache refresh encountered I/O.</summary>
+    private static void UpdateCachedState(string key, GameTitleStore store, GameTitleReadCache cache)
+    {
+        try
+        {
+            if (store.Snapshot().TryGetValue(key, out GameTitleState? state))
+                cache.ApplyState(key, state);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { }
+    }
+
     public static void MapGameTitleEndpoints(this WebApplication app)
     {
         // Merged read-only view over local discovery and the manual library, plus the user's per-title state.
@@ -60,24 +73,42 @@ public static class GameTitleEndpoints
             catch (InvalidDataException) { return Results.Problem("The game library could not be read."); }
         }).RequireDesktopOwner();
 
-        app.MapPut("/api/v1/gaming/titles/{key}/favorite", (string key, bool favorite, GameTitleStore store) =>
-            !ValidTitleKey(key) ? Results.BadRequest() : store.SetFavorite(key, favorite) ? Results.NoContent() : Results.Problem("The state could not be saved."))
-            .RequireDesktopOwner();
+        app.MapPut("/api/v1/gaming/titles/{key}/favorite", (
+            string key, bool favorite, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key)) return Results.BadRequest() as IResult;
+            if (!store.SetFavorite(key, favorite)) return Results.Problem("The state could not be saved.");
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
 
-        app.MapPut("/api/v1/gaming/titles/{key}/tags", (string key, SetGameTagsRequest request, GameTitleStore store) =>
-            !ValidTitleKey(key) ? Results.BadRequest()
-            : store.SetTags(key, request.Tags) ? Results.NoContent() : Results.BadRequest(new { error = "Tags: at most 20, each up to 40 characters, no control characters." }))
-            .RequireDesktopOwner();
+        app.MapPut("/api/v1/gaming/titles/{key}/tags", (
+            string key, SetGameTagsRequest request, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key)) return Results.BadRequest() as IResult;
+            if (!store.SetTags(key, request.Tags))
+                return Results.BadRequest(new { error = "Tags: at most 20, each up to 40 characters, no control characters." });
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
 
-        app.MapPut("/api/v1/gaming/titles/{key}/collections", (string key, SetGameCollectionsRequest request, GameTitleStore store) =>
-            !ValidTitleKey(key) ? Results.BadRequest()
-            : store.SetCollections(key, request.Collections) ? Results.NoContent()
-            : Results.BadRequest(new { error = "Collections: at most 12, each up to 40 characters, no control characters." }))
-            .RequireDesktopOwner();
+        app.MapPut("/api/v1/gaming/titles/{key}/collections", (
+            string key, SetGameCollectionsRequest request, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key)) return Results.BadRequest() as IResult;
+            if (!store.SetCollections(key, request.Collections))
+                return Results.BadRequest(new { error = "Collections: at most 12, each up to 40 characters, no control characters." });
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
 
-        app.MapPut("/api/v1/gaming/titles/{key}/default-installation", (string key, SetDefaultInstallationRequest request, GameTitleStore store) =>
-            !ValidTitleKey(key) ? Results.BadRequest()
-            : store.SetDefaultInstallation(key, request.InstallationId) ? Results.NoContent() : Results.BadRequest())
-            .RequireDesktopOwner();
+        app.MapPut("/api/v1/gaming/titles/{key}/default-installation", (
+            string key, SetDefaultInstallationRequest request, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key)) return Results.BadRequest() as IResult;
+            if (!store.SetDefaultInstallation(key, request.InstallationId)) return Results.BadRequest();
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
     }
 }
