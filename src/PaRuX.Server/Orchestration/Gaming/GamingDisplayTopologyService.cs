@@ -130,13 +130,23 @@ public sealed class GamingDisplayTopologyService
                 if (!GetMonitorInfo(handle, ref info) || string.IsNullOrEmpty(info.Device))
                     return true;
 
+                // MONITORINFOEX coordinates can be DPI-logical. Prefer the OS
+                // current DEVMODE pixel resolution for a 4K/TV-capable display.
                 int width = info.Monitor.Right - info.Monitor.Left;
                 int height = info.Monitor.Bottom - info.Monitor.Top;
                 var settings = new DevMode { Size = (ushort)Marshal.SizeOf<DevMode>() };
                 int hz = 0; // 0 means Windows did not report a reliable rate.
-                if (EnumDisplaySettings(info.Device, CurrentSettings, ref settings) &&
-                    settings.Frequency is >= 2 and <= 1000)
-                    hz = (int)settings.Frequency;
+                if (EnumDisplaySettings(info.Device, CurrentSettings, ref settings))
+                {
+                    if (settings.PixelsWidth is > 0 and <= 32768 &&
+                        settings.PixelsHeight is > 0 and <= 32768)
+                    {
+                        width = (int)settings.PixelsWidth;
+                        height = (int)settings.PixelsHeight;
+                    }
+                    if (settings.Frequency is >= 2 and <= 1000)
+                        hz = (int)settings.Frequency;
+                }
 
                 result.Add(new GamingDisplayModeDto(info.Device, (info.Flags & PrimaryMonitor) != 0,
                     info.Monitor.Left, info.Monitor.Top, width, height, hz));
