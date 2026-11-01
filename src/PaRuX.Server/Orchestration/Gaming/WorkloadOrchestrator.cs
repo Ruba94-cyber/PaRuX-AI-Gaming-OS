@@ -486,6 +486,8 @@ public sealed class WorkloadOrchestrator : BackgroundService
             {
                 string nextState = string.Equals(profile.SessionType, "remote", StringComparison.OrdinalIgnoreCase) ? "GamingRemote" : "GamingLocal";
                 SetState(nextState);
+                GamingSessionRecord.Save(new GamingSessionRecord(
+                    profile.Id, triggerId, _activeInputId, _activeLauncherId, _sessionStartedUtc ?? DateTime.UtcNow));
             }
 
             return true;
@@ -532,6 +534,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
             {
                 _lastErrorMessage = "Failed to enter gaming: " + ex.Message;
                 if (recoveryFailure != null) _lastErrorMessage += "; " + recoveryFailure;
+                GamingSessionRecord.Delete();
                 _activeProfile = null;
                 _activeLauncherId = null;
                 _activeInputId = null;
@@ -627,6 +630,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
 
             lock (_stateGate)
             {
+                GamingSessionRecord.Delete();
                 _activeProfile = null;
                 _activeLauncherId = null;
                 _activeInputId = null;
@@ -688,6 +692,21 @@ public sealed class WorkloadOrchestrator : BackgroundService
         lock (_stateGate)
         {
             if (_state != "AiReady") return;
+            GamingSessionRecord? record = GamingSessionRecord.Load();
+            GamingProfileDto? profile = record?.ProfileId is { Length: > 0 } id ? _profileStore.Get(id) : null;
+            if (profile != null)
+            {
+                // Resume the session type that was really running (remote disconnect handling,
+                // manual-game auto-exit) instead of a profile-less local session.
+                _activeProfile = profile;
+                _activeTriggerId = record!.TriggerId;
+                _activeInputId = record.InputId;
+                _activeLauncherId = record.LauncherId;
+                _sessionStartedUtc ??= record.StartedUtc;
+                SetState(string.Equals(profile.SessionType, "remote", StringComparison.OrdinalIgnoreCase)
+                    ? "GamingRemote" : "GamingLocal");
+                return;
+            }
             _sessionStartedUtc ??= DateTime.UtcNow;
             SetState("GamingLocal");
         }
