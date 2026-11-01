@@ -26,10 +26,19 @@ public sealed class ConsoleModeUiTests
             UiWait.For(() => UiWait.ById(app.MainWindow, id, ControlType.Button).Name != desktopName,
                 "Console mode button changed to Return to desktop");
             Assert.NotNull(UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem));
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button));
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameLibrary_ReturnToAi_Button", ControlType.Button));
+            UiWait.For(() =>
+            {
+                var editor = app.MainWindow.FindFirstDescendant(cf =>
+                    cf.ByAutomationId("GameLibrary_Name_TextBox"));
+                return editor == null || editor.Properties.IsOffscreen.ValueOrDefault;
+            }, "Console hides filesystem editing fields");
 
             UiWait.ById(app.MainWindow, id, ControlType.Button).Patterns.Invoke.Pattern.Invoke();
             UiWait.For(() => UiWait.ById(app.MainWindow, id, ControlType.Button).Name == desktopName,
                 "Console mode returned to normal desktop presenter");
+            Assert.NotNull(UiWait.ById(app.MainWindow, "GameLibrary_Name_TextBox", ControlType.Edit));
         }
         catch (Exception ex)
         {
