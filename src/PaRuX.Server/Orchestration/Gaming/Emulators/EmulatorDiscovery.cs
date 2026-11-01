@@ -18,6 +18,7 @@ public static class EmulatorDiscovery
     public const int MaxGames = 2_000;
     public const int MaxScanDepth = 6;
     private const int MaxDetectDepth = 2;
+    public const int MaxDetectEntries = 4_000;
 
     public static IReadOnlyList<string> DefaultSearchRoots()
     {
@@ -35,8 +36,12 @@ public static class EmulatorDiscovery
         return roots;
     }
 
-    public static IReadOnlyList<DetectedEmulator> Detect(IEnumerable<string> searchRoots, CancellationToken ct = default)
+    public static IReadOnlyList<DetectedEmulator> Detect(
+        IEnumerable<string> searchRoots, CancellationToken ct = default, int maxEntries = MaxDetectEntries)
     {
+        if (maxEntries is < 1 or > MaxDetectEntries)
+            throw new ArgumentOutOfRangeException(nameof(maxEntries));
+        int remaining = maxEntries;
         var found = new List<DetectedEmulator>();
         foreach (EmulatorDefinition definition in EmulatorRegistry.Builtin)
         {
@@ -44,7 +49,8 @@ public static class EmulatorDiscovery
             foreach (string root in searchRoots)
             {
                 ct.ThrowIfCancellationRequested();
-                match = FindExecutable(root, definition.ExecutableNames, MaxDetectDepth, ct);
+                if (remaining <= 0) return found;
+                match = FindExecutable(root, definition.ExecutableNames, MaxDetectDepth, ref remaining, ct);
                 if (match is not null) break;
             }
             if (match is not null) found.Add(new DetectedEmulator(definition.Id, match));
@@ -52,9 +58,10 @@ public static class EmulatorDiscovery
         return found;
     }
 
-    private static string? FindExecutable(string directory, IReadOnlyList<string> names, int depth, CancellationToken ct)
+    private static string? FindExecutable(
+        string directory, IReadOnlyList<string> names, int depth, ref int remaining, CancellationToken ct)
     {
-        if (!Directory.Exists(directory)) return null;
+        if (remaining-- <= 0 || !Directory.Exists(directory)) return null;
         try
         {
             foreach (string name in names)
@@ -67,7 +74,8 @@ public static class EmulatorDiscovery
             {
                 ct.ThrowIfCancellationRequested();
                 if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0) continue;
-                string? hit = FindExecutable(sub, names, depth - 1, ct);
+                if (remaining <= 0) return null;
+                string? hit = FindExecutable(sub, names, depth - 1, ref remaining, ct);
                 if (hit is not null) return hit;
             }
         }
