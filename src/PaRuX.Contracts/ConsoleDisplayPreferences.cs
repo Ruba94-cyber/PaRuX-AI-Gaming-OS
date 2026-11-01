@@ -28,9 +28,13 @@ public static class ConsoleDisplaySelectionPolicy
     {
         if (topology is not { Supported: true } || !ValidDisplayId(targetDisplayId) ||
             roles is null) return null;
-        if (!roles.Any(a =>
-            string.Equals(a.DisplayId, targetDisplayId, StringComparison.OrdinalIgnoreCase)
-            && a.Role == TvRole))
+        // User settings can be edited or corrupted outside PaRuX. Reject
+        // conflicting duplicate assignments instead of choosing whichever
+        // happens to be enumerated first.
+        var matches = roles.Where(a => a is not null &&
+            string.Equals(a.DisplayId, targetDisplayId, StringComparison.OrdinalIgnoreCase))
+            .Take(2).ToArray();
+        if (matches.Length != 1 || matches[0].Role != TvRole)
             return null;
         return topology.Displays.FirstOrDefault(d =>
             string.Equals(d.DisplayId, targetDisplayId, StringComparison.OrdinalIgnoreCase) &&
