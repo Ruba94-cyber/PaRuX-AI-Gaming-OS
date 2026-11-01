@@ -57,12 +57,15 @@ public sealed class GameSaveBackupService
         var queue = new Queue<(string Folder, int Depth)>();
         queue.Enqueue((directory, 0));
         long total = 0;
+        int visitedEntries = 0;
         while (queue.Count != 0)
         {
             var (folder, depth) = queue.Dequeue();
             if (depth > MaxDepth) throw new InvalidDataException("Save folder nesting is too deep.");
             foreach (string entry in Directory.EnumerateFileSystemEntries(folder))
             {
+                if (++visitedEntries > 1024)
+                    throw new InvalidDataException("Save folder has too many nested entries.");
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
                     throw new InvalidDataException("Linked save files or directories are not permitted.");
@@ -121,8 +124,10 @@ public sealed class GameSaveBackupService
         Directory.CreateDirectory(_root);
         CheckLocalDirectory(_root);
         string prefix = _root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string sourcePrefix = source.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (source.Equals(_root, StringComparison.OrdinalIgnoreCase) ||
-            source.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            source.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            _root.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Backing up the backup directory itself is not allowed.");
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingToken());
@@ -136,6 +141,8 @@ public sealed class GameSaveBackupService
         string zipPath = Path.Combine(_root, "save-" + id + ".zip");
         string manifestPath = Path.Combine(_root, "save-" + id + ".json");
         string? manifestTemp = null;
+        bool zipPublished = false;
+        bool published = false;
         try
         {
             var items = new List<Item>();
@@ -188,12 +195,16 @@ public sealed class GameSaveBackupService
             linked.Token.ThrowIfCancellationRequested();
             if (_gaming()) throw new OperationCanceledException("Gaming started before save backup publication.");
             File.Move(temp, zipPath);
+            zipPublished = true;
             File.Move(manifestTemp, manifestPath);
             manifestTemp = null;
+            published = true;
             return dto;
         }
         finally
         {
+            if (zipPublished && !published)
+                try { File.Delete(zipPath); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             try { File.Delete(temp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             if (manifestTemp is not null)
                 try { File.Delete(manifestTemp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
@@ -211,11 +222,21 @@ public sealed class GameSaveBackupService
         try
         {
             Manifest? manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(path));
-            if (manifest?.Version != 1 || manifest.Backup.Id != id ||
-                manifest.Items is null || manifest.Items.Count is <= 0 or > MaxFiles ||
+            if (manifest is null || manifest.Version != 1 || manifest.Backup is null ||
+                manifest.Backup.Id != id || manifest.Items is null ||
+                manifest.Items.Count is <= 0 or > MaxFiles ||
                 manifest.Backup.Files != manifest.Items.Count ||
                 manifest.Backup.Bytes < 0 || manifest.Backup.Bytes > MaxBytes ||
-                manifest.Backup.ArchiveSha256.Length != 64)
+                manifest.Backup.ArchiveSha256 is not { Length: 64 } ||
+                !manifest.Backup.ArchiveSha256.All(Uri.IsHexDigit) ||
+                manifest.Backup.Label is null || manifest.Backup.Label.Length > 100 ||
+                manifest.Items.Any(i => i is null || i.Name is null || i.Name.Length > 512 ||
+                    i.Name.StartsWith("/", StringComparison.Ordinal) ||
+                    i.Name.Split('/').Any(part => part is "" or "." or "..") ||
+                    i.Bytes < 0 || i.Bytes > MaxBytes || i.Sha256 is not { Length: 64 } ||
+                    !i.Sha256.All(Uri.IsHexDigit)) ||
+                manifest.Items.Select(i => i.Name).Distinct(StringComparer.Ordinal).Count() != manifest.Items.Count ||
+                manifest.Items.Sum(i => i.Bytes) != manifest.Backup.Bytes)
                 return null;
             return manifest;
         }
