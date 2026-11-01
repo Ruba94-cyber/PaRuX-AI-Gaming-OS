@@ -184,6 +184,7 @@ public sealed class ManualGameLibraryView : UserControl
         _detectedNext.Content = T("Next store games", "Giochi store successivi");
         AutomationProperties.SetAutomationId(_detectedPrevious, "GameLibrary_Store_Previous_Button");
         AutomationProperties.SetAutomationId(_detectedNext, "GameLibrary_Store_Next_Button");
+        _detectedRange.Text = T("No store games scanned yet.", "Nessun gioco store ancora rilevato.");
         AutomationProperties.SetAutomationId(_detectedRange, "GameLibrary_Store_Page_Status");
         AutomationProperties.SetLiveSetting(_detectedRange, AutomationLiveSetting.Polite);
         _detectedPrevious.Click += (_, _) =>
