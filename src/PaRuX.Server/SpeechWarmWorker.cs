@@ -17,7 +17,7 @@ internal sealed class SpeechWarmWorker : IDisposable
     private readonly string _scriptPath;
     private readonly SpeechProcessAdmission _admission;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private Process? _process;
+    private volatile Process? _process;
     private readonly StringBuilder _stderr = new();
     private bool _disposed;
 

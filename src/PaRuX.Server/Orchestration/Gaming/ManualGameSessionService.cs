@@ -94,6 +94,8 @@ public sealed class ManualGameSessionService : IDisposable
                     return new(true, false, "Game started. Automatic return is unavailable because its exact process identity could not be verified; return to AI manually.");
                 }
 
+                _orchestrator.RegisterOwnedGameProcess(new WorkloadOrchestrator.OwnedGameProcess(
+                    process.Id, process.StartTime.ToUniversalTime(), path, sessionVersion.Value));
                 var stop = new CancellationTokenSource();
                 CancellationTokenSource? previous;
                 lock (_monitorGate)

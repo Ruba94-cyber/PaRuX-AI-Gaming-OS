@@ -902,15 +902,57 @@ public sealed class WorkloadOrchestrator : BackgroundService
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
-    /// <summary>
-    /// Fail closed until a launcher can supply an owned, verified game process instance.
-    /// A window/title/start-time heuristic is discovery evidence, not authority to suspend
-    /// an unrelated Windows process. Both explicit Suspend and automatic Quick Resume use
-    /// this admission boundary; neither may act on FindActiveGameProcessId candidates.
-    /// TODO: replace with a tracked launcher-owned PID, executable identity and process
-    /// start-time validation, rechecked immediately before suspension.
-    /// </summary>
-    private static int? FindOwnedSuspendableGameProcessId() => null;
+    /// <summary>A game process PaRuX itself started and verified (PID + OS creation time + image path).</summary>
+    internal sealed record OwnedGameProcess(int Pid, DateTime StartUtc, string ImagePath, long SessionVersion);
+
+    private OwnedGameProcess? _ownedGame;
+
+    /// <summary>Called by the launcher that started the process. Window/title/start-time heuristics never
+    /// create ownership; only a handle PaRuX obtained from Windows when it started the executable does.</summary>
+    internal void RegisterOwnedGameProcess(OwnedGameProcess owned)
+    {
+        lock (_stateGate) _ownedGame = owned;
+    }
+
+    internal void ClearOwnedGameProcess()
+    {
+        lock (_stateGate) _ownedGame = null;
+    }
+
+    /// <summary>Pure identity rule: same PID alone is not enough (PIDs are reused), the creation time
+    /// (within 2 s) and the image path must match as well.</summary>
+    internal static bool MatchesOwnedIdentity(OwnedGameProcess owned, DateTime liveStartUtc, string? livePath) =>
+        Math.Abs((liveStartUtc - owned.StartUtc).TotalSeconds) <= 2 &&
+        livePath is not null &&
+        string.Equals(Path.GetFullPath(livePath), Path.GetFullPath(owned.ImagePath), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Rechecks the owned process immediately before it is acted upon. Returns null (fail closed)
+    /// when nothing is registered, the Gaming session changed, or the process is gone / no longer the same.</summary>
+    internal static int? ValidateOwnedProcess(OwnedGameProcess? owned, long? activeSessionVersion)
+    {
+        if (owned is null || activeSessionVersion != owned.SessionVersion) return null;
+        try
+        {
+            using Process live = Process.GetProcessById(owned.Pid);
+            if (live.HasExited) return null;
+            return MatchesOwnedIdentity(owned, live.StartTime.ToUniversalTime(), live.MainModule?.FileName)
+                ? owned.Pid : null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+            System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private int? FindOwnedSuspendableGameProcessId()
+    {
+        OwnedGameProcess? owned;
+        lock (_stateGate) owned = _ownedGame;
+        int? pid = ValidateOwnedProcess(owned, ActiveManualGameSessionVersion);
+        if (pid is null && owned is not null) ClearOwnedGameProcess();
+        return pid;
+    }
 
     private static int? FindActiveGameProcessId(DateTime? sessionStartedUtc)
     {
