@@ -18,6 +18,10 @@ public sealed class GamingProfileStore
     private readonly string _storePath;
     private readonly object _gate = new();
     private List<GamingProfileDto> _profiles = new();
+    private string? _loadError;
+
+    /// <summary>A protected/corrupt user store is never replaced with defaults.</summary>
+    public string? LoadError { get { lock (_gate) return _loadError; } }
 
     public GamingProfileStore()
         : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PaRuX", "server", "gaming-profiles.json"))
@@ -67,22 +71,18 @@ public sealed class GamingProfileStore
         ArgumentNullException.ThrowIfNull(profile);
         lock (_gate)
         {
+            ThrowIfWriteBlocked();
             if (string.IsNullOrWhiteSpace(profile.Id))
-            {
                 profile.Id = Guid.NewGuid().ToString("N");
-            }
 
-            int index = _profiles.FindIndex(p => string.Equals(p.Id, profile.Id, StringComparison.OrdinalIgnoreCase));
-            if (index >= 0)
-            {
-                _profiles[index] = profile;
-            }
-            else
-            {
-                _profiles.Add(profile);
-            }
-
-            Persist();
+            // Only publish to memory after a durable, atomic on-disk replacement.
+            // Do not return a successful save if disk, antivirus or permissions deny it.
+            var next = _profiles.ToList();
+            int index = next.FindIndex(p => string.Equals(p.Id, profile.Id, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0) next[index] = profile;
+            else next.Add(profile);
+            Persist(next);
+            _profiles = next;
             return profile;
         }
     }
@@ -91,11 +91,14 @@ public sealed class GamingProfileStore
     {
         lock (_gate)
         {
-            int index = _profiles.FindIndex(p => string.Equals(p.Id, idOrName, StringComparison.OrdinalIgnoreCase) ||
-                                                 string.Equals(p.Name, idOrName, StringComparison.OrdinalIgnoreCase));
+            ThrowIfWriteBlocked();
+            var next = _profiles.ToList();
+            int index = next.FindIndex(p => string.Equals(p.Id, idOrName, StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(p.Name, idOrName, StringComparison.OrdinalIgnoreCase));
             if (index < 0) return false;
-            _profiles.RemoveAt(index);
-            Persist();
+            next.RemoveAt(index);
+            Persist(next);
+            _profiles = next;
             return true;
         }
     }
@@ -104,36 +107,65 @@ public sealed class GamingProfileStore
     {
         lock (_gate)
         {
-            try
+            _loadError = null;
+            if (File.Exists(_storePath))
             {
-                if (File.Exists(_storePath))
+                try
                 {
                     string json = File.ReadAllText(_storePath);
                     List<GamingProfileDto>? loaded = JsonSerializer.Deserialize<List<GamingProfileDto>>(json, JsonOptions);
-                    if (loaded is { Count: > 0 })
-                    {
-                        _profiles = loaded;
-                        if (MigrateUnavailableBuiltInProviders()) Persist();
-                        return;
-                    }
+                    if (loaded is null || loaded.Count > 1024 ||
+                        loaded.Any(p => p == null || string.IsNullOrWhiteSpace(p.Id) ||
+                            string.IsNullOrWhiteSpace(p.Name)))
+                        throw new InvalidDataException("Gaming profile JSON is invalid.");
+                    _profiles = loaded;
+                    if (MigrateUnavailableBuiltInProviders()) Persist(_profiles);
+                    return;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or
+                    InvalidDataException or ArgumentException)
+                {
+                    // Preserve the original corrupt/inaccessible file byte-for-byte.
+                    // Safe defaults are in-memory only; no save/delete until the user
+                    // manually recovers the original file.
+                    _loadError = "Gaming profiles could not be loaded safely. Original file preserved; editing is disabled.";
+                    _profiles = BuildDefaultPresets();
+                    return;
                 }
             }
-            catch { }
 
             _profiles = BuildDefaultPresets();
-            Persist();
+            try { Persist(_profiles); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _loadError = "Gaming profiles cannot be written. Editing is disabled until storage is repaired.";
+            }
         }
     }
 
-    private void Persist()
+    private void ThrowIfWriteBlocked()
     {
+        if (_loadError != null) throw new InvalidDataException(_loadError);
+    }
+
+    private void Persist(IReadOnlyList<GamingProfileDto> profiles)
+    {
+        string directory = Path.GetDirectoryName(_storePath)!;
+        Directory.CreateDirectory(directory);
+        string temp = Path.Combine(directory, ".gaming-profiles-" + Guid.NewGuid().ToString("N") + ".tmp");
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
-            string json = JsonSerializer.Serialize(_profiles, JsonOptions);
-            File.WriteAllText(_storePath, json);
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, profiles, JsonOptions);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temp, _storePath, overwrite: true);
         }
-        catch { }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
     }
 
     /// <summary>
