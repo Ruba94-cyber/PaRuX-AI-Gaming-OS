@@ -25,6 +25,7 @@ public sealed class GamingDisplayModeService : IDisposable
     private PendingRecord? _pending;
     private DisplayModeEntry? _applied;
     private Timer? _timer;
+    private long _generation; // identifies the pending change a timer callback belongs to
     private string _lastMessage = "No display change is pending.";
 
     public GamingDisplayModeService(GamingDisplayTopologyService topology, LocalRuntimeService runtime)
@@ -70,10 +71,10 @@ public sealed class GamingDisplayModeService : IDisposable
     {
         if (!OperatingSystem.IsWindows() && _api is WindowsDisplayModeApi)
             throw new InvalidOperationException("Display changes require a Windows desktop.");
-        if (_gamingActive())
-            throw new InvalidOperationException("Leave Gaming before changing the display mode.");
         lock (_gate)
         {
+            if (_gamingActive())
+                throw new InvalidOperationException("Leave Gaming before changing the display mode.");
             if (_pending is not null)
                 throw new InvalidOperationException("Confirm or revert the pending display change first.");
 
@@ -98,6 +99,9 @@ public sealed class GamingDisplayModeService : IDisposable
             }
             if (!_api.Test(id, target))
                 throw new InvalidOperationException("The display driver rejected that mode.");
+            // Re-check right before the change: Gaming may have started while the driver was testing the mode.
+            if (_gamingActive())
+                throw new InvalidOperationException("Leave Gaming before changing the display mode.");
 
             var record = new PendingRecord(id, current, DateTime.UtcNow + _timeout);
             SaveRecord(record);
@@ -109,7 +113,8 @@ public sealed class GamingDisplayModeService : IDisposable
             _pending = record;
             _applied = target;
             _timer?.Dispose();
-            _timer = new Timer(_ => { try { Revert("The change was not confirmed in time and was reverted."); } catch { } },
+            long generation = ++_generation;
+            _timer = new Timer(_ => { try { TimedRevert(generation); } catch { } },
                 null, _timeout, Timeout.InfiniteTimeSpan);
             _lastMessage = "Display changed temporarily. Confirm to keep it; otherwise it reverts automatically.";
             return Status();
@@ -136,6 +141,7 @@ public sealed class GamingDisplayModeService : IDisposable
             _timer = null;
             _pending = null;
             _applied = null;
+            _generation++;
             DeleteRecord();
             _lastMessage = "Display change confirmed and saved.";
             return new(false, null, 0, _lastMessage);
@@ -144,6 +150,17 @@ public sealed class GamingDisplayModeService : IDisposable
 
     public GamingDisplayChangeStatusDto Revert() => Revert("Display change reverted.");
 
+    // A timer callback that was already queued when its change was confirmed/reverted must never
+    // revert a newer change: it only acts if it still belongs to the current pending generation.
+    private void TimedRevert(long generation)
+    {
+        lock (_gate)
+        {
+            if (generation != _generation || _pending is null) return;
+            Revert("The change was not confirmed in time and was reverted.");
+        }
+    }
+
     private GamingDisplayChangeStatusDto Revert(string message)
     {
         lock (_gate)
@@ -151,6 +168,17 @@ public sealed class GamingDisplayModeService : IDisposable
             if (_pending is null) return new(false, null, 0, _lastMessage);
             _timer?.Dispose();
             _timer = null;
+            if (MonitorGone(_pending.DisplayId))
+            {
+                // Nothing can be restored on a monitor that is no longer connected; keeping the
+                // record would block every later display change forever.
+                _pending = null;
+                _applied = null;
+                _generation++;
+                DeleteRecord();
+                _lastMessage = "The monitor is no longer connected; there was nothing to restore.";
+                return new(false, null, 0, _lastMessage);
+            }
             if (!CanRestore(_pending) || !_api.ApplyTemporary(_pending.DisplayId, _pending.Previous))
             {
                 // Keep the record: the next Revert call or the next start retries.
@@ -159,6 +187,7 @@ public sealed class GamingDisplayModeService : IDisposable
             }
             _pending = null;
             _applied = null;
+            _generation++;
             DeleteRecord();
             _lastMessage = message;
             return new(false, null, 0, _lastMessage);
@@ -173,6 +202,14 @@ public sealed class GamingDisplayModeService : IDisposable
             if (_pending is not null) return false;
             PendingRecord? record = LoadRecord();
             if (record is null) return false;
+
+            // The monitor is gone: there is nothing to restore, and keeping the record would block changes.
+            if (MonitorGone(record.DisplayId))
+            {
+                DeleteRecord();
+                _lastMessage = "A display change left unconfirmed by a previous run targeted a monitor that is no longer connected.";
+                return false;
+            }
 
             // A journal on disk is not authority to control an unknown display.
             // Keep it for diagnosis, but never apply a stale/invalid device mode.
@@ -195,6 +232,22 @@ public sealed class GamingDisplayModeService : IDisposable
             // retries the saved mode rather than silently reporting a no-op.
             _pending = record;
             _lastMessage = "Automatic display recovery failed; use Revert once the monitor is available.";
+            return false;
+        }
+    }
+
+    /// <summary>True only when the topology was read successfully and positively lacks the monitor.</summary>
+    private bool MonitorGone(string displayId)
+    {
+        try
+        {
+            var snapshot = _topology.Snapshot();
+            return snapshot.Supported && snapshot.Displays.Count > 0 &&
+                !snapshot.Displays.Any(d => string.Equals(d.DisplayId, displayId, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
             return false;
         }
     }
@@ -259,6 +312,17 @@ public sealed class GamingDisplayModeService : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) { _timer?.Dispose(); _timer = null; }
+        lock (_gate)
+        {
+            _timer?.Dispose();
+            _timer = null;
+            // Host shutdown with an unconfirmed change: restore now (best effort). If this fails the
+            // journal stays on disk and RecoverPendingAfterRestart retries at the next start.
+            if (_pending is not null && _applied is not null)
+            {
+                try { Revert("The service stopped before the display change was confirmed; it was reverted."); }
+                catch { }
+            }
+        }
     }
 }

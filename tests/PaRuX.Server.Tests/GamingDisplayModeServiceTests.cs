@@ -23,7 +23,8 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
         public DisplayModeEntry? Current(string id) => Now;
         public IReadOnlyList<DisplayModeEntry> Supported(string id) =>
             FailEnumeration ? throw new InvalidOperationException("Display temporarily disconnected.") : Modes;
-        public bool Test(string id, DisplayModeEntry m) { Log.Add("test"); return Accept; }
+        public Action? OnTest;
+        public bool Test(string id, DisplayModeEntry m) { Log.Add("test"); OnTest?.Invoke(); return Accept; }
         public bool ApplyTemporary(string id, DisplayModeEntry m)
         {
             if (FailTemporary || (FailRevert && m.Width == 1920)) return false;
@@ -39,11 +40,100 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
         }
     }
 
+    // Simulates a process crash: the change is applied and journaled but the service is never disposed.
+    private static void Crash(GamingDisplayModeService service, GamingDisplayModeChangeRequest request) => service.Request(request);
+
+    private bool _monitorPresent = true;
+    private bool _gamingFlag;
+
     private GamingDisplayModeService Make(FakeApi api, bool gaming = false, TimeSpan? timeout = null) =>
-        new(api, new GamingDisplayTopologyService(() => new[]
-            {
-                new GamingDisplayModeDto(Monitor, true, 0, 0, 1920, 1080, 60)
-            }), () => gaming, _record, timeout ?? TimeSpan.FromMinutes(5));
+        new(api, new GamingDisplayTopologyService(() => _monitorPresent
+                ? new[] { new GamingDisplayModeDto(Monitor, true, 0, 0, 1920, 1080, 60) }
+                : new[] { new GamingDisplayModeDto(@"\.\DISPLAY2", true, 0, 0, 1920, 1080, 60) }),
+            () => gaming || _gamingFlag, _record, timeout ?? TimeSpan.FromMinutes(5));
+
+    [Fact]
+    public void Hot_unplugged_monitor_does_not_leave_the_change_pending_forever()
+    {
+        var api = new FakeApi();
+        using var service = Make(api);
+        service.Request(new(Monitor, 3840, 2160, 60));
+        _monitorPresent = false;
+        var status = service.Revert();
+        Assert.False(status.Pending);
+        Assert.False(File.Exists(_record));
+        _monitorPresent = true;
+        api.Now = new(1920, 1080, 60, 32, 0, 0); // replugged monitor starts from its default mode
+        Assert.True(service.Request(new(Monitor, 3840, 2160, 60)).Pending);
+    }
+
+    [Fact]
+    public void Unplugged_monitor_after_restart_clears_the_stale_journal()
+    {
+        var api = new FakeApi();
+        Crash(Make(api), new(Monitor, 3840, 2160, 60));
+        _monitorPresent = false;
+        api.Log.Clear();
+        using var restarted = Make(api);
+        Assert.False(restarted.RecoverPendingAfterRestart());
+        Assert.False(restarted.Status().Pending);
+        Assert.False(File.Exists(_record));
+        Assert.DoesNotContain(api.Log, x => x.StartsWith("temp", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Dispose_with_an_unconfirmed_change_restores_the_previous_mode()
+    {
+        var api = new FakeApi();
+        var service = Make(api);
+        service.Request(new(Monitor, 3840, 2160, 60));
+        service.Dispose();
+        Assert.Equal(1920, api.Now.Width);
+        Assert.False(File.Exists(_record));
+    }
+
+    [Fact]
+    public void Dispose_after_confirm_does_not_touch_the_display()
+    {
+        var api = new FakeApi();
+        var service = Make(api);
+        service.Request(new(Monitor, 3840, 2160, 60));
+        service.Confirm();
+        api.Log.Clear();
+        service.Dispose();
+        Assert.Empty(api.Log);
+        Assert.Equal(3840, api.Now.Width);
+    }
+
+    [Fact]
+    public void Gaming_starting_during_the_driver_test_prevents_the_change()
+    {
+        var api = new FakeApi { OnTest = () => { } };
+        using var service = Make(api);
+        api.OnTest = () => _gamingFlag = true;
+        Assert.Throws<InvalidOperationException>(() => service.Request(new(Monitor, 3840, 2160, 60)));
+        Assert.DoesNotContain(api.Log, l => l.StartsWith("temp"));
+        Assert.False(File.Exists(_record));
+        Assert.False(service.Status().Pending);
+    }
+
+    [Fact]
+    public async Task Stale_timer_callback_never_reverts_a_newer_change()
+    {
+        var api = new FakeApi();
+        using var service = Make(api, timeout: TimeSpan.FromMilliseconds(400));
+        service.Request(new(Monitor, 3840, 2160, 60));
+        service.Confirm();
+        service.Request(new(Monitor, 1920, 1080, 60)); // new pending, new generation
+        service.Confirm();
+        service.Request(new(Monitor, 3840, 2160, 120));
+        // Only the latest change's own timeout may revert it.
+        await Task.Delay(100);
+        Assert.True(service.Status().Pending);
+        Assert.Equal(120, api.Now.RefreshRateHz);
+        for (int i = 0; i < 50 && api.Now.Width != 1920; i++) await Task.Delay(50);
+        Assert.Equal(1920, api.Now.Width);
+    }
 
     [Fact]
     public void Request_tests_then_applies_temporarily_and_records_a_restore_point()
@@ -89,7 +179,7 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     public void Failed_startup_restore_remains_retryable_without_confirming_the_old_mode()
     {
         var api = new FakeApi();
-        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 60));
+        Crash(Make(api), new(Monitor, 3840, 2160, 60));
         api.FailRevert = true;
         using var restarted = Make(api);
         Assert.False(restarted.RecoverPendingAfterRestart());
@@ -107,7 +197,7 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     public void Restart_does_not_apply_an_unavailable_saved_display_mode()
     {
         var api = new FakeApi();
-        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 120));
+        Crash(Make(api), new(Monitor, 3840, 2160, 120));
         api.Modes.RemoveAll(m => m.Width == 1920);
         api.Log.Clear();
         using var restarted = Make(api);
@@ -161,7 +251,7 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     public void Restart_recovery_reverts_a_change_that_was_never_confirmed()
     {
         var api = new FakeApi();
-        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 60));
+        Crash(Make(api), new(Monitor, 3840, 2160, 60));
         Assert.Equal(3840, api.Now.Width);
         using var restarted = Make(api);
         Assert.True(restarted.RecoverPendingAfterRestart());
@@ -173,7 +263,7 @@ public sealed class GamingDisplayModeServiceTests : IDisposable
     public void Driver_enumeration_failure_retains_display_journal_for_later_manual_retry()
     {
         var api = new FakeApi();
-        using (var first = Make(api)) first.Request(new(Monitor, 3840, 2160, 60));
+        Crash(Make(api), new(Monitor, 3840, 2160, 60));
         api.FailEnumeration = true;
         using var restarted = Make(api);
         Assert.False(restarted.RecoverPendingAfterRestart());
