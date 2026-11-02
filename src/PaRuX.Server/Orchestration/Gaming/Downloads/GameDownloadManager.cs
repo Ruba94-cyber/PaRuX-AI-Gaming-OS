@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -7,7 +5,7 @@ using PaRuX.Contracts;
 
 namespace PaRuX.Server.Orchestration.Gaming.Downloads;
 
-public sealed class GameDownloadException : Exception
+public class GameDownloadException : Exception
 {
     public GameDownloadException(string message) : base(message) { }
 }
@@ -22,37 +20,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 {
     public const int MaxHistory = 200;
     public const long DefaultMaxFileBytes = 200L * 1024 * 1024 * 1024;
-    private const long FreeSpaceMarginBytes = 256L * 1024 * 1024;
-    private const int MaxRedirects = 5;
+    internal const long FreeSpaceMarginBytes = 256L * 1024 * 1024;
     private const string PartExtension = ".parux-part";
 
-    private sealed class Entry
-    {
-        public required string Id { get; init; }
-        public required Uri Url { get; init; }
-        public required string FileName { get; init; }
-        public required string Directory { get; init; }
-        public string? ExpectedSha256 { get; init; }
-        public int Priority { get; init; }
-        public DateTime CreatedUtc { get; init; } = DateTime.UtcNow;
-        public string State = GameDownloadStates.Queued;
-        public string? Reason;
-        public long BytesDone;
-        public long? TotalBytes;
-        public bool IntegrityChecked;
-        public string? VerifiedSha256;
-        // Session-local: never persist an absolute user folder path in download history.
-        public string? PublishedPath;
-        public DateTime? FinishedUtc;
-        public CancellationTokenSource? Run;
-        public bool UserPause;
-        public string PartPath => Path.Combine(Directory, FileName + PartExtension);
-        public string FinalPath => Path.Combine(Directory, FileName);
-    }
-
     private readonly object _gate = new();
-    private readonly List<Entry> _entries = new();
+    private readonly List<GameDownloadJob> _entries = new();
     private readonly HttpClient _http;
+    private readonly Dictionary<string, IGameDownloadTransport> _transports = new(StringComparer.Ordinal);
+    private readonly ExternalTorrentClientTransport? _torrent;
     private readonly Func<bool> _gamingActive;
     private readonly Func<string, long> _freeBytes;
     private readonly string? _historyPath;
@@ -62,21 +37,28 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     private long _maxFileBytes = DefaultMaxFileBytes;
     private bool _disposed;
 
-    public GameDownloadManager(LocalRuntimeService runtime)
+    public GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent)
         : this(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(20) })
                { Timeout = Timeout.InfiniteTimeSpan },
             () => runtime.GamingMode, DefaultFreeBytes,
             Path.Combine(PaRuXDataRoot.Path, "server", "game-downloads.json"),
-            new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) }) { }
+            new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) }, torrent) { }
 
     internal GameDownloadManager(HttpClient http, Func<bool> gamingActive, Func<string, long> freeBytes,
-        string? historyPath, TimeSpan[] retryDelays)
+        string? historyPath, TimeSpan[] retryDelays, ExternalTorrentClientTransport? torrent = null)
     {
         _http = http;
         _gamingActive = gamingActive;
         _freeBytes = freeBytes;
         _historyPath = historyPath;
         _retryDelays = retryDelays;
+        _transports[GameDownloadKinds.Http] = new HttpGameDownloadTransport(http);
+        _torrent = torrent;
+        if (torrent is not null)
+        {
+            _transports[GameDownloadKinds.Magnet] = torrent;
+            _transports[GameDownloadKinds.TorrentFile] = torrent;
+        }
         LoadHistory();
     }
 
@@ -107,7 +89,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         string checksum;
         lock (_gate)
         {
-            Entry? entry = Find(id);
+            GameDownloadJob? entry = Find(id);
             if (entry is null || entry.State != GameDownloadStates.Completed ||
                 string.IsNullOrWhiteSpace(entry.PublishedPath) ||
                 string.IsNullOrWhiteSpace(entry.VerifiedSha256))
@@ -142,7 +124,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         string publisherSha;
         lock (_gate)
         {
-            Entry? entry = Find(id);
+            GameDownloadJob? entry = Find(id);
             if (entry is null || entry.State != GameDownloadStates.Completed ||
                 !entry.IntegrityChecked || string.IsNullOrWhiteSpace(entry.PublishedPath) ||
                 entry.ExpectedSha256 is null || entry.VerifiedSha256 is null ||
@@ -158,9 +140,39 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     public GameDownloadDto Enqueue(GameDownloadRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        Uri url = ValidateUrl(request.Url);
+        string kind = GameDownloadKinds.Normalize(request.Kind)
+            ?? throw new GameDownloadException("The download kind must be http, magnet or torrentfile.");
+        // Kind-specific validation of the source. Nothing below logs or persists the raw source.
+        Uri? url = null;
+        string target, source, defaultName;
+        string? infoHash = null;
+        switch (kind)
+        {
+            case GameDownloadKinds.Magnet:
+                GameMagnetLink magnet = GameDownloadSourceValidator.ValidateMagnet(request.Url);
+                target = magnet.Normalized;
+                infoHash = magnet.InfoHashHex;
+                source = "magnet/" + magnet.InfoHashHex;
+                defaultName = magnet.DisplayName ?? magnet.InfoHashHex;
+                break;
+            case GameDownloadKinds.TorrentFile:
+                GameTorrentFile torrentFile = GameDownloadSourceValidator.ValidateTorrentFile(request.Url);
+                target = torrentFile.FullPath;
+                infoHash = torrentFile.InfoHashHex;
+                source = "torrent-file/" + (SafeFileName(Path.GetFileName(torrentFile.FullPath)) ?? "file");
+                defaultName = torrentFile.Name;
+                break;
+            default:
+                url = ValidateUrl(request.Url);
+                target = url.AbsoluteUri;
+                source = url.Host + url.AbsolutePath;
+                defaultName = Path.GetFileName(Uri.UnescapeDataString(url.AbsolutePath));
+                break;
+        }
+        if (kind != GameDownloadKinds.Http && (_torrent is null || !_torrent.IsEnabled))
+            throw new GameDownloadException("The external torrent client adapter is off. Configure it in the download settings first.");
         string directory = ValidateDirectory(request.DestinationDirectory);
-        string name = SafeFileName(request.FileName) ?? SafeFileName(Path.GetFileName(Uri.UnescapeDataString(url.AbsolutePath))) ?? "download";
+        string name = SafeFileName(request.FileName) ?? SafeFileName(defaultName) ?? "download";
         string? sha = NormalizeSha(request.ExpectedSha256);
         if (request.ExpectedSha256 is { Length: > 0 } && sha is null) throw new GameDownloadException("The SHA-256 must be 64 hexadecimal characters.");
         if (_gamingActive()) throw new GameDownloadException("Downloads are paused while a game is running.");
@@ -175,9 +187,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             if (_entries.Any(e => !GameDownloadStates.IsTerminal(e.State) &&
                                   string.Equals(e.PartPath, Path.Combine(directory, name + PartExtension), StringComparison.OrdinalIgnoreCase)))
                 throw new GameDownloadException("A download to that file is already in progress.");
-            var entry = new Entry
+            var entry = new GameDownloadJob
             {
-                Id = Guid.NewGuid().ToString("N"), Url = url, FileName = name, Directory = directory,
+                Id = Guid.NewGuid().ToString("N"), Kind = kind, InfoHash = infoHash, Url = url, Target = target, Source = source, FileName = name, Directory = directory,
                 ExpectedSha256 = sha, Priority = Math.Clamp(request.Priority, -10, 10),
             };
             _entries.Add(entry);
@@ -190,7 +202,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     {
         lock (_gate)
         {
-            Entry? e = Find(id);
+            GameDownloadJob? e = Find(id);
             if (e is null || GameDownloadStates.IsTerminal(e.State)) return false;
             e.UserPause = true;
             e.Reason = "Paused by you.";
@@ -203,7 +215,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     {
         lock (_gate)
         {
-            Entry? e = Find(id);
+            GameDownloadJob? e = Find(id);
             if (e is null || e.State != GameDownloadStates.Paused) return false;
             if (_gamingActive()) { e.Reason = "A game is running; the download will continue afterwards."; return false; }
             e.UserPause = false;
@@ -219,7 +231,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     {
         lock (_gate)
         {
-            Entry? e = Find(id);
+            GameDownloadJob? e = Find(id);
             if (e is null) return false;
             if (GameDownloadStates.IsTerminal(e.State))
             {
@@ -233,6 +245,8 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             e.FinishedUtc = DateTime.UtcNow;
             e.Run?.Cancel();
             if (!running) CleanPartial(e);
+            if (e.ExternalId is not null && _transports.TryGetValue(e.Kind, out IGameDownloadTransport? owner))
+                _ = AbandonExternalAsync(owner, e);
             SaveHistory();
             Pump();
             return true;
@@ -251,7 +265,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             // Never report that downloads were resumed after hard-off.
             if (_gamingActive()) return Task.FromResult(0);
             var paused = _entries.Where(e => e.State == GameDownloadStates.Paused && !e.UserPause).ToList();
-            foreach (Entry e in paused) { e.State = GameDownloadStates.Queued; e.Reason = null; }
+            foreach (GameDownloadJob e in paused) { e.State = GameDownloadStates.Queued; e.Reason = null; }
             Pump();
             return Task.FromResult(paused.Count);
         }
@@ -275,7 +289,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     {
         if (_disposed || _gamingActive()) return;
         int running = _entries.Count(e => e.State == GameDownloadStates.Running);
-        foreach (Entry next in _entries.Where(e => e.State == GameDownloadStates.Queued)
+        foreach (GameDownloadJob next in _entries.Where(e => e.State == GameDownloadStates.Queued)
                      .OrderByDescending(e => e.Priority).ThenBy(e => e.CreatedUtc).ToList())
         {
             if (running >= _maxConcurrent) break;
@@ -291,9 +305,10 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
     }
 
-    private async Task RunAsync(Entry e, CancellationToken ct)
+    private async Task RunAsync(GameDownloadJob e, CancellationToken ct)
     {
         string? failure = null;
+        string? externalPause = null;
         try
         {
             ct.ThrowIfCancellationRequested();
@@ -309,7 +324,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             }
         }
         catch (OperationCanceledException) { /* pause, cancel or Gaming: handled below */ }
+        catch (GameDownloadPausedException ex) { externalPause = ex.Message; }
         catch (GameDownloadException ex) { failure = ex.Message; }
+        catch (HttpRequestException) when (e.Kind != GameDownloadKinds.Http) { failure = "The torrent client could not be reached."; }
         catch (HttpRequestException ex)
         {
             failure = ex.StatusCode is { } status ? $"The server answered HTTP {(int)status}." : "The server could not be reached.";
@@ -330,6 +347,13 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 if (failure.Contains("SHA-256", StringComparison.Ordinal)) CleanPartial(e); // a corrupt file is not kept for resume
             }
             else if (e.State == GameDownloadStates.Completed) { /* set by TransferAsync */ }
+            else if (externalPause is not null)
+            {
+                // Paused inside the user's own client: stays paused until the user resumes it here.
+                e.UserPause = true;
+                e.State = GameDownloadStates.Paused;
+                e.Reason = externalPause;
+            }
             else
             {
                 // Interrupted: by the user, or because a game started. Either way the partial file is kept.
@@ -341,7 +365,13 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
     }
 
-    private static bool DiskIsFull(Entry e)
+    private static async Task AbandonExternalAsync(IGameDownloadTransport transport, GameDownloadJob job)
+    {
+        try { await transport.AbandonAsync(job, CancellationToken.None).ConfigureAwait(false); }
+        catch (Exception) { /* best effort: the user's own client may be gone */ }
+    }
+
+    private static bool DiskIsFull(GameDownloadJob e)
     {
         try { return new DriveInfo(Path.GetPathRoot(e.Directory)!).AvailableFreeSpace < 1024 * 1024; }
         catch (Exception) { return false; }
@@ -349,84 +379,24 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     // ------------------------------------------------------------------ transfer
 
-    private async Task TransferAsync(Entry e, CancellationToken ct)
+    private async Task TransferAsync(GameDownloadJob e, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         if (_gamingActive())
             throw new OperationCanceledException("Gaming disabled new download disk and network work.");
-        // Never follow a user-placed symbolic link as a partial download target.
-        // The destination directory was validated at enqueue, but the part file
-        // may have been replaced since then.
         EnsureSafeDownloadPaths(e);
-        long existing = File.Exists(e.PartPath) ? new FileInfo(e.PartPath).Length : 0;
-        // A filename is not a source identity. Never append an old partial from a
-        // different URL or checksum, even when its server happens to accept Range.
-        if (existing > 0 && !ResumeIdentityMatches(e))
+        IGameDownloadTransport transport = _transports.TryGetValue(e.Kind, out IGameDownloadTransport? t)
+            ? t : throw new GameDownloadException("This kind of download is not available.");
+        var context = new GameDownloadTransferContext
         {
-            CleanPartial(e);
-            existing = 0;
-        }
-        if (existing == 0) WriteResumeIdentity(e);
-        EnsureSafeDownloadPaths(e);
-        EntityTagHeaderValue? validator = ResumeValidator.Read(e.PartPath);
-
-        using HttpResponseMessage response = await SendFollowingRedirectsAsync(e.Url, existing, validator, ct).ConfigureAwait(false);
-        if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable && existing > 0)
-        {
-            // Our partial file no longer matches the server: start again from zero.
-            CleanPartial(e);
-            throw new HttpRequestException("range not satisfiable");
-        }
-        if (!response.IsSuccessStatusCode)
-        {
-            int code = (int)response.StatusCode;
-            // Timeouts, rate limits and server errors are temporary: retry. Anything else (404, 403...) will not change.
-            if (code is 408 or 429 or >= 500)
-                throw new HttpRequestException($"The server answered HTTP {code}.", null, response.StatusCode);
-            throw new GameDownloadException($"The server answered HTTP {code}.");
-        }
-
-        bool resumed = response.StatusCode == HttpStatusCode.PartialContent;
-        // HTTP 206 is valid only in response to OUR own nonzero Range request.
-        // A server supplying unsolicited partial bytes must never cause us to
-        // append or publish a truncated file as if it were a complete download.
-        if (resumed && (existing == 0 ||
-            !ResumeValidator.ContentRangeMatches(response.Content.Headers.ContentRange, existing)))
-        {
-            CleanPartial(e);
-            throw new GameDownloadException("The server supplied an unexpected or misaligned partial response.");
-        }
-        if (!resumed && existing > 0) { CleanPartial(e); existing = 0; } // server ignored the range or the file changed
-        if (!resumed) ResumeValidator.Write(e.PartPath, response.Headers.ETag);
-
-        long? total = resumed
-            ? response.Content.Headers.ContentRange?.Length
-            : response.Content.Headers.ContentLength;
-        if (total is > 0 && total > _maxFileBytes) throw new GameDownloadException("The file is larger than the allowed maximum.");
-        long needed = (total ?? 0) - existing;
-        if (needed > 0 && _freeBytes(e.Directory) < needed + FreeSpaceMarginBytes) throw new GameDownloadException("Not enough free disk space.");
-        lock (_gate) { e.TotalBytes = total; e.BytesDone = existing; }
-
-        EnsureSafeDownloadPaths(e);
-        await using (var target = new FileStream(e.PartPath, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read, 1 << 16, useAsync: true))
-        await using (Stream source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
-        {
-            var buffer = new byte[1 << 16];
-            long written = existing;
-            int read;
-            while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
-            {
-                if (_gamingActive()) throw new OperationCanceledException(); // no transfer competes with a game
-                written += read;
-                if (written > _maxFileBytes) throw new GameDownloadException("The file is larger than the allowed maximum.");
-                await _limiter.WaitAsync(read, ct).ConfigureAwait(false);
-                await target.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
-                lock (_gate) e.BytesDone = written;
-            }
-            await target.FlushAsync(ct).ConfigureAwait(false);
-            if (total is not null && written != total)
-                throw new HttpRequestException("connection closed before the end of the file");
-        }
+            Job = e, GamingActive = _gamingActive, FreeBytes = _freeBytes, MaxFileBytes = _maxFileBytes,
+            Throttle = _limiter.WaitAsync,
+            Report = (done, total) => { lock (_gate) { e.BytesDone = done; if (total is not null) e.TotalBytes = total; } },
+            UserCancelled = () => { lock (_gate) return e.State == GameDownloadStates.Cancelled || _disposed; },
+        };
+        // The transport only produces the finished bytes at PartPath. Hashing, the
+        // expected-checksum comparison and publication below never trust it.
+        await transport.FetchAsync(context, ct).ConfigureAwait(false);
 
         string sha = await HashFileAsync(e.PartPath, _gamingActive, ct).ConfigureAwait(false);
         if (e.ExpectedSha256 is not null && !string.Equals(sha, e.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
@@ -457,31 +427,6 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
     }
 
-    private async Task<HttpResponseMessage> SendFollowingRedirectsAsync(Uri url, long rangeFrom, EntityTagHeaderValue? validator, CancellationToken ct)
-    {
-        Uri current = url;
-        for (int hop = 0; hop <= MaxRedirects; hop++)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, current);
-            if (rangeFrom > 0)
-            {
-                request.Headers.Range = new RangeHeaderValue(rangeFrom, null);
-                if (validator is not null) request.Headers.IfRange = new RangeConditionHeaderValue(validator);
-            }
-            HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-            if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)
-            {
-                response.Dispose();
-                Uri next = location.IsAbsoluteUri ? location : new Uri(current, location);
-                ValidateUrl(next.ToString()); // every hop obeys the same rules: no downgrade, no credentials
-                current = next;
-                continue;
-            }
-            return response;
-        }
-        throw new GameDownloadException("Too many redirects.");
-    }
-
     // ------------------------------------------------------------------ validation and helpers
 
     /// <summary>
@@ -490,7 +435,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     /// app-owned resume sidecars may have been exchanged for links by a different local process.
     /// This is path hygiene, not a race-free filesystem identity or malware trust guarantee.
     /// </summary>
-    private static void EnsureSafeDownloadPaths(Entry e)
+    internal static void EnsureSafeDownloadPaths(GameDownloadJob e)
     {
         if (!string.Equals(ValidateDirectory(e.Directory), e.Directory, StringComparison.OrdinalIgnoreCase))
             throw new GameDownloadException("The download destination changed since it was selected.");
@@ -600,15 +545,15 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     // Do not persist credential-bearing URLs: only a versioned SHA-256 of the
     // entire URL (including its query) and the independently expected checksum.
     // A changed signed link starts afresh instead of silently stitching bytes.
-    private static string ResumeIdentityPath(Entry e) => e.PartPath + ".identity";
+    internal static string ResumeIdentityPath(GameDownloadJob e) => e.PartPath + ".identity";
 
-    private static string ExpectedResumeIdentity(Entry e)
+    private static string ExpectedResumeIdentity(GameDownloadJob e)
     {
         string material = e.Url.AbsoluteUri + "\n" + (e.ExpectedSha256 ?? "");
         return "v1:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
     }
 
-    private static bool ResumeIdentityMatches(Entry e)
+    internal static bool ResumeIdentityMatches(GameDownloadJob e)
     {
         try
         {
@@ -619,7 +564,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
-    private static void WriteResumeIdentity(Entry e)
+    internal static void WriteResumeIdentity(GameDownloadJob e)
     {
         string path = ResumeIdentityPath(e);
         string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -635,13 +580,13 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
     }
 
-    private static void DeleteResumeIdentity(Entry e)
+    private static void DeleteResumeIdentity(GameDownloadJob e)
     {
         try { File.Delete(ResumeIdentityPath(e)); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
-    private static void CleanPartial(Entry e)
+    internal static void CleanPartial(GameDownloadJob e)
     {
         try { File.Delete(e.PartPath); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         ResumeValidator.Delete(e.PartPath);
@@ -654,10 +599,10 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { return 0; }
     }
 
-    private Entry? Find(string id) => _entries.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.Ordinal));
+    private GameDownloadJob? Find(string id) => _entries.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.Ordinal));
 
-    private static GameDownloadDto ToDto(Entry e) => new(
-        e.Id, e.FileName, e.Url.Host + e.Url.AbsolutePath, e.State, e.Reason, e.BytesDone, e.TotalBytes,
+    private static GameDownloadDto ToDto(GameDownloadJob e) => new(
+        e.Id, e.FileName, e.Source, e.State, e.Reason, e.BytesDone, e.TotalBytes,
         e.Priority, e.IntegrityChecked, e.VerifiedSha256, e.CreatedUtc, e.FinishedUtc);
 
     // ------------------------------------------------------------------ history
@@ -671,7 +616,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         try
         {
             var items = _entries.Where(x => GameDownloadStates.IsTerminal(x.State)).OrderByDescending(x => x.FinishedUtc).Take(MaxHistory)
-                .Select(x => new HistoryItem(x.Id, x.FileName, x.Url.Host + x.Url.AbsolutePath, x.State, x.Reason, x.BytesDone, x.TotalBytes,
+                .Select(x => new HistoryItem(x.Id, x.FileName, x.Source, x.State, x.Reason, x.BytesDone, x.TotalBytes,
                     x.Priority, x.IntegrityChecked, x.VerifiedSha256, x.CreatedUtc, x.FinishedUtc)).ToList();
             Directory.CreateDirectory(Path.GetDirectoryName(_historyPath)!);
             string temp = _historyPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -692,15 +637,15 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             foreach (HistoryItem h in items.Take(MaxHistory))
             {
                 if (!GameDownloadStates.IsTerminal(h.State)) continue;
-                _entries.Add(new Entry
+                _entries.Add(new GameDownloadJob
                 {
-                    Id = h.Id, Url = new Uri("https://" + h.Source), FileName = h.FileName, Directory = string.Empty, Priority = h.Priority,
+                    Id = h.Id, Kind = GameDownloadKinds.Http, Target = string.Empty, Source = h.Source, FileName = h.FileName, Directory = string.Empty, Priority = h.Priority,
                     CreatedUtc = h.CreatedUtc, State = h.State, Reason = h.Reason, BytesDone = h.BytesDone, TotalBytes = h.TotalBytes,
                     IntegrityChecked = h.IntegrityChecked, VerifiedSha256 = h.VerifiedSha256, FinishedUtc = h.FinishedUtc,
                 });
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or UriFormatException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
     }
 
     public void Dispose()
@@ -708,9 +653,10 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         lock (_gate)
         {
             _disposed = true;
-            foreach (Entry e in _entries) e.Run?.Cancel();
+            foreach (GameDownloadJob e in _entries) e.Run?.Cancel();
         }
         _http.Dispose();
+        _torrent?.Dispose();
     }
 
     // ------------------------------------------------------------------ bandwidth

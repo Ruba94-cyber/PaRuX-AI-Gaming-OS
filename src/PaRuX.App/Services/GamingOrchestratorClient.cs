@@ -69,6 +69,14 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GameDownloadDto>> EnqueueGameDownloadAsync(GameDownloadRequest request, CancellationToken ct = default) =>
             SendAsync<GameDownloadDto>(HttpMethod.Post, "/api/v1/gaming/downloads", request, ct);
 
+        // Optional external torrent client adapter (user's own qBittorrent on loopback). Off until configured.
+        public Task<GamingCallResult<GameTorrentClientStatusDto>> GetGameTorrentClientAsync(CancellationToken ct = default) =>
+            SendAsync<GameTorrentClientStatusDto>(HttpMethod.Get, "/api/v1/gaming/downloads/torrent-client", null, ct);
+
+        public Task<GamingCallResult<GameTorrentClientStatusDto>> ConfigureGameTorrentClientAsync(
+            GameTorrentClientConfigRequest request, CancellationToken ct = default) =>
+            SendAsync<GameTorrentClientStatusDto>(HttpMethod.Put, "/api/v1/gaming/downloads/torrent-client", request, ct);
+
         public Task<GamingCallResult<object>> SetGameDownloadLimitAsync(long bytesPerSecond, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/downloads/limit",
                 new GameDownloadLimitRequest(bytesPerSecond), ct);

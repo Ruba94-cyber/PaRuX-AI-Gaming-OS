@@ -276,6 +276,7 @@ builder.Services.AddSingleton<GameTitleStore>();
 builder.Services.AddSingleton<GameTitleReadCache>();
 builder.Services.AddSingleton<GameSaveBackupService>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.ExternalTorrentClientTransport>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(sp => sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>());
 builder.Services.AddSingleton<GgufQuantizeJobs>();
