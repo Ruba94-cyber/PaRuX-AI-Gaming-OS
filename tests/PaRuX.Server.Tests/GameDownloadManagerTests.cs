@@ -11,7 +11,7 @@ public sealed class GameDownloadManagerTests : IDisposable
 {
     private sealed class TestServer : IDisposable
     {
-        private readonly HttpListener _listener = new();
+        private HttpListener _listener = new();
         private readonly CancellationTokenSource _stop = new();
         public byte[] Data = Array.Empty<byte>();
         public string ETag = "\"v1\"";
@@ -28,7 +28,7 @@ public sealed class GameDownloadManagerTests : IDisposable
             Port = Random.Shared.Next(20000, 60000);
             while (true)
             {
-                try { _listener.Prefixes.Clear(); _listener.Prefixes.Add($"http://127.0.0.1:{Port}/"); _listener.Start(); break; }
+                try { _listener = new HttpListener(); _listener.Prefixes.Add($"http://127.0.0.1:{Port}/"); _listener.Start(); break; }
                 catch (HttpListenerException) { Port = Random.Shared.Next(20000, 60000); }
             }
             _ = Task.Run(Loop);

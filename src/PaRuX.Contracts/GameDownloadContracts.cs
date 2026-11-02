@@ -12,12 +12,36 @@ public static class GameDownloadStates
     public static bool IsTerminal(string state) => state is Completed or Failed or Cancelled;
 }
 
+public static class GameDownloadKinds
+{
+    public const string Http = "http";
+    public const string Magnet = "magnet";
+    public const string TorrentFile = "torrentfile";
+
+    /// <summary>Null or blank means the legacy default (http). Returns null for an unknown kind.</summary>
+    public static string? Normalize(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return Http;
+        string k = kind.Trim().ToLowerInvariant();
+        return k is Http or Magnet or TorrentFile ? k : null;
+    }
+}
+
 /// <summary>
 /// A download the user asked for. There is no built-in catalogue: the address always comes from the user.
 /// <paramref name="ExpectedSha256"/> is optional; when given, a mismatch deletes the file and fails the job.
+/// <paramref name="Kind"/> is http (default, <paramref name="Url"/> is an https address), magnet (a magnet:?xt=urn:btih: link) or
+/// torrentfile (<paramref name="Url"/> is a local .torrent path chosen by the user). The two torrent kinds need the optional
+/// external client adapter, which is off unless the user configured it.
 /// </summary>
 public sealed record GameDownloadRequest(
-    string Url, string DestinationDirectory, string? FileName = null, string? ExpectedSha256 = null, int Priority = 0);
+    string Url, string DestinationDirectory, string? FileName = null, string? ExpectedSha256 = null, int Priority = 0,
+    string Kind = GameDownloadKinds.Http);
+
+/// <summary>Loopback WebUI settings of the user's own qBittorrent. Held in memory only, never persisted.</summary>
+public sealed record GameTorrentClientConfigRequest(int Port, string Username, string Password);
+
+public sealed record GameTorrentClientStatusDto(bool Enabled, int? Port);
 
 /// <param name="Source">Host and path only: query strings and fragments (which may carry tokens) are never stored or shown.</param>
 /// <param name="Reason">Why a job is paused or failed, in plain words.</param>

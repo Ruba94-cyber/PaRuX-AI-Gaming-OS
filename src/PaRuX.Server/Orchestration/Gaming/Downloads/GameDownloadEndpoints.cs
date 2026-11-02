@@ -59,6 +59,28 @@ public static class GameDownloadEndpoints
         app.MapDelete("/api/v1/gaming/downloads/{id}", (string id, GameDownloadManager downloads) =>
             downloads.CancelOrRemove(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
+        // Optional external torrent client adapter (the user's own qBittorrent, loopback only). Off by default;
+        // the credentials live in memory only and are never echoed back.
+        app.MapGet("/api/v1/gaming/downloads/torrent-client", (ExternalTorrentClientTransport torrent) =>
+            Results.Ok(new GameTorrentClientStatusDto(torrent.IsEnabled, torrent.Port))).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/downloads/torrent-client", async (
+            GameTorrentClientConfigRequest request, ExternalTorrentClientTransport torrent, CancellationToken ct) =>
+        {
+            try
+            {
+                await torrent.ConfigureAsync(request.Port, request.Username, request.Password, ct);
+                return Results.Ok(new GameTorrentClientStatusDto(torrent.IsEnabled, torrent.Port));
+            }
+            catch (GameDownloadException ex) { return Results.BadRequest(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v1/gaming/downloads/torrent-client", (ExternalTorrentClientTransport torrent) =>
+        {
+            torrent.Disable();
+            return Results.NoContent();
+        }).RequireDesktopOwner();
+
         app.MapPut("/api/v1/gaming/downloads/limit", (GameDownloadLimitRequest request, GameDownloadManager downloads) =>
         {
             downloads.SetBandwidthLimit(request.BytesPerSecond);
