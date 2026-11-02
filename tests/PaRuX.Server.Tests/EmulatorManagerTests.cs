@@ -90,6 +90,19 @@ public sealed class EmulatorManagerTests : IDisposable
             EmulatorCommandBuilder.Build(Def("dolphin"), rom, true, null, null).ArgumentList);
     }
 
+    [Theory]
+    [InlineData("pcsx2", "pcsx2-qt.exe", true)]
+    [InlineData("pcsx2", "PCSX2-QT.EXE", true)]
+    [InlineData("pcsx2", "pcsx2.exe", false)]
+    [InlineData("eden", "pcsx2-qt.exe", false)]
+    [InlineData("pcsx2", "unrelated.exe", false)]
+    [InlineData("pcsx2", "", false)]
+    public void Controller_UI_availability_requires_an_actual_PCSX2_Qt_frontend(
+        string emulatorId, string exe, bool expected)
+    {
+        Assert.Equal(expected, EmulatorControllerUiPolicy.SupportsPcsx2BigPicture(emulatorId, exe));
+    }
+
     [Fact]
     public void Pcsx2_controller_first_flag_is_opt_in_and_precedes_the_boot_file()
     {

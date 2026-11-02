@@ -18,6 +18,14 @@ public static class EmulatorLaunchModes
     public const string Windowed = "windowed";
 }
 
+/// <summary>Shared, conservative capability predicate for optional PCSX2 Qt Big Picture.</summary>
+public static class EmulatorControllerUiPolicy
+{
+    public static bool SupportsPcsx2BigPicture(string? emulatorId, string? executablePath) =>
+        string.Equals(emulatorId, "pcsx2", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(Path.GetFileName(executablePath), "pcsx2-qt.exe", StringComparison.OrdinalIgnoreCase);
+}
+
 public sealed record EmulatorDescriptorDto(
     string Id, string Name, string Platform, List<string> Extensions, bool RequiresCore, string TemplateStatus,
     bool FullscreenSupported, bool WindowedSupported = false);

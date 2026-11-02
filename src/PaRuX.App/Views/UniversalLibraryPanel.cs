@@ -408,6 +408,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetAutomationId(_emulatorBox, "Emulators_Select_ComboBox");
         _emulatorBox.SelectionChanged += (_, _) => OnEmulatorSelected();
         _emulatorExe.Header = T("Emulator program (.exe)", "Programma dell'emulatore (.exe)");
+        _emulatorExe.TextChanged += (_, _) => UpdatePcsx2ControllerUiAvailability();
         _emulatorFolder.Header = T("Folder with your game files", "Cartella con i tuoi file di gioco");
         _emulatorCore.Header = T("Core file (RetroArch only)", "File core (solo RetroArch)");
         _emulatorExtra.Header = T("Extra arguments (optional)", "Argomenti aggiuntivi (facoltativi)");
@@ -570,6 +571,14 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     private EmulatorDescriptorDto? SelectedEmulator => (_emulatorBox.SelectedItem as ComboBoxItem)?.Tag as EmulatorDescriptorDto;
 
+    private void UpdatePcsx2ControllerUiAvailability()
+    {
+        bool supported = EmulatorControllerUiPolicy.SupportsPcsx2BigPicture(
+            SelectedEmulator?.Id, _emulatorExe.Text);
+        _emulatorPcsx2BigPicture.IsEnabled = supported;
+        if (!supported) _emulatorPcsx2BigPicture.IsChecked = false;
+    }
+
     private void OnEmulatorSelected()
     {
         if (SelectedEmulator is not { } emulator || _emulators is null) return;
@@ -578,8 +587,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _emulatorCore.IsEnabled = emulator.RequiresCore;
         _emulatorInputProfile.IsEnabled = emulator.Id is "eden" or "eden-cli";
         if (!_emulatorInputProfile.IsEnabled) _emulatorInputProfile.Text = string.Empty;
-        _emulatorPcsx2BigPicture.IsEnabled = emulator.Id == "pcsx2";
         _emulatorPcsx2BigPicture.IsChecked = false;
+        UpdatePcsx2ControllerUiAvailability();
         _emulatorLaunchMode.Items.Clear();
         _emulatorLaunchMode.Items.Add(new ComboBoxItem
         {

@@ -105,8 +105,7 @@ public static class EmulatorEndpoints
         // Big Picture is documented for the Qt executable only: never inject it
         // into legacy PCSX2 or an unrelated emulator.
         if (request.Pcsx2BigPicture &&
-            (definition.Id != "pcsx2" ||
-             !string.Equals(Path.GetFileName(exe), "pcsx2-qt.exe", StringComparison.OrdinalIgnoreCase)))
+            !EmulatorControllerUiPolicy.SupportsPcsx2BigPicture(definition.Id, exe))
             return new(0, 0, new[] { "Controller-first Big Picture requires the PCSX2 Qt executable." });
         if (request.GamePaths is not { Count: > 0 } || request.GamePaths.Count > MaxImportBatch)
             return new(0, 0, new[] { $"Select between 1 and {MaxImportBatch} games." });
