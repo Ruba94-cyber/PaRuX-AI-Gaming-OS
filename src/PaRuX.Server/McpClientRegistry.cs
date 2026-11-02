@@ -37,6 +37,7 @@ public sealed class McpClientRegistry : IAsyncDisposable
     private readonly KnowledgeBrowserTools? _knowledge;
     private readonly DesktopIntegrationTools _desktop;
     private readonly DocumentWriteTools _documents;
+    private readonly PaRuX.Server.Orchestration.AgentLibraryTools? _library;
     private List<McpServerConfig>? _configCache;
     private readonly Dictionary<string, McpClient> _liveClients = new();
 
@@ -77,8 +78,12 @@ public sealed class McpClientRegistry : IAsyncDisposable
     public McpClientRegistry(
         RagStore rag,
         PaRuX.Server.DesktopIntegration.DesktopIntegrationService desktop,
-        PaRuX.Server.DesktopIntegration.DocumentWriteService documents)
-        : this(ServerState.StateDirectory, new KnowledgeBrowserTools(rag), desktop, documents) { }
+        PaRuX.Server.DesktopIntegration.DocumentWriteService documents,
+        PaRuX.Server.Orchestration.AgentLibraryTools? library = null)
+        : this(ServerState.StateDirectory, new KnowledgeBrowserTools(rag), desktop, documents)
+    {
+        _library = library;
+    }
 
     /// <summary>Test-only entry point (see BackupServiceTests) so backup/restore round-trip tests
     /// can point this registry at an isolated temp directory instead of the real
@@ -354,6 +359,15 @@ public sealed class McpClientRegistry : IAsyncDisposable
             if (!TryAddSchema(schema)) return schemas;
         }
 
+        if (_library != null)
+        {
+            foreach (JsonNode? schema in _library.GetToolSchemas(allowedTools))
+            {
+                if (schema == null) continue;
+                if (!TryAddSchema(schema)) return schemas;
+            }
+        }
+
         if (_knowledge != null)
         {
             foreach (JsonNode? schema in _knowledge.GetToolSchemas(allowedTools))
@@ -583,6 +597,14 @@ public sealed class McpClientRegistry : IAsyncDisposable
                 success = !desktopResult.StartsWith("Desktop tool failed:", StringComparison.OrdinalIgnoreCase);
                 outcome = success ? "success" : "tool-error";
                 return desktopResult;
+            }
+
+            if (_library != null && PaRuX.Server.Orchestration.AgentLibraryTools.IsBuiltInTool(toolName))
+            {
+                string libraryResult = await _library.CallAsync(toolName, argumentsJson, ct, allowedTools).ConfigureAwait(false);
+                success = !libraryResult.StartsWith("Library tool failed:", StringComparison.OrdinalIgnoreCase);
+                outcome = success ? "success" : "tool-error";
+                return libraryResult;
             }
 
             if (_knowledge != null && KnowledgeBrowserTools.IsBuiltInTool(toolName))
