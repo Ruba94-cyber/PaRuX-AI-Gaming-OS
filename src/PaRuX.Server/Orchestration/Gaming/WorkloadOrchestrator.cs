@@ -333,17 +333,34 @@ public sealed class WorkloadOrchestrator : BackgroundService
     {
         bool restored = await TransitionToAiAsync(userInitiated: false, ct, observedVersion)
             .ConfigureAwait(false);
+        VerifiedGameReturnSignal? notice = null;
         lock (_stateGate)
         {
-            // Only a confirmed successful automatic exit can publish a notice.
-            // A stale callback after an explicit Return can coincidentally see
-            // version+1 and AiReady, but TransitionToAiAsync rejects it (false).
-            // Do not turn that rejection into a misleading "game exited" event.
+            // A stale callback after manual Return may see version+1/AiReady,
+            // but an actual automatic transition must also report success.
             if (restored && _transitionVersion == observedVersion + 1 &&
                 _state == "AiReady" && !_runtime.GamingMode)
             {
                 _lastVerifiedOwnedExitUtc = DateTime.UtcNow;
                 _lastVerifiedOwnedExitRestoredAi = true;
+                notice = new VerifiedGameReturnSignal(observedVersion, _lastVerifiedOwnedExitUtc.Value);
+            }
+        }
+        // Publishing only AFTER verified recovery keeps the existing state watcher
+        // truly event-driven. File I/O failure never turns a successful AI recovery
+        // into a failed Gaming session; the user can return to Home manually.
+        if (notice is not null)
+        {
+            try
+            {
+                VerifiedGameReturnSignal.Publish(
+                    VerifiedGameReturnSignal.FileIn(LocalAiPaths.StateDir), notice);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                ArgumentException or NotSupportedException)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "Verified Gaming return notice could not be published: " + ex.GetType().Name);
             }
         }
         return restored;
