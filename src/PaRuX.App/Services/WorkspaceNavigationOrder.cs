@@ -12,7 +12,8 @@ namespace PaRuX.Services
         string Tag,
         string DisplayName,
         bool IsAdvancedOnly,
-        bool IsHome = false);
+        bool IsHome = false,
+        bool IsGamingOnly = false);
 
     /// <summary>
     /// Pure policy defining the canonical ordered list of workspace entries,
@@ -24,6 +25,11 @@ namespace PaRuX.Services
         public const string ChatAutomationId = "Navigation_Chat_Item";
         public const string CreateAutomationId = "Navigation_Create_Item";
         public const string ProjectsAutomationId = "Navigation_Projects_Item";
+        // Gaming-tab workspace (AI|Gaming top tabs). It sits after Projects in MainWindow.xaml, so it
+        // is part of the canonical XAML order, but it is only reachable while the Gaming tab is
+        // active: the AI tab hides it and the Gaming tab hides every AI workspace.
+        public const string GameLibraryAutomationId = "Navigation_GameLibrary_Item";
+        public const string GamesWorkspaceTag = "__games__";
         public const string ModelHubAutomationId = "Navigation_ModelHub_Item";
         public const string ModelRoutingAutomationId = "Navigation_ModelRouting_Item";
         public const string LifecycleAutomationId = "Navigation_Lifecycle_Item";
@@ -40,6 +46,7 @@ namespace PaRuX.Services
             new(ChatAutomationId, ChatHomeNavigationPolicy.ChatWorkspaceTag, "Chat", IsAdvancedOnly: false, IsHome: true),
             new(CreateAutomationId, ChatHomeNavigationPolicy.CreateWorkspaceTag, "Create", IsAdvancedOnly: false),
             new(ProjectsAutomationId, ChatHomeNavigationPolicy.ProjectsWorkspaceTag, "Projects", IsAdvancedOnly: false),
+            new(GameLibraryAutomationId, GamesWorkspaceTag, "Games", IsAdvancedOnly: false, IsGamingOnly: true),
             new(ModelHubAutomationId, ChatHomeNavigationPolicy.ModelHubWorkspaceTag, "Model Hub", IsAdvancedOnly: false),
             new(ModelRoutingAutomationId, ChatHomeNavigationPolicy.ModelRoutingWorkspaceTag, "Model Intelligence", IsAdvancedOnly: true),
             new(LifecycleAutomationId, ChatHomeNavigationPolicy.LifecycleWorkspaceTag, "Lifecycle Lab", IsAdvancedOnly: true),
@@ -68,10 +75,12 @@ namespace PaRuX.Services
         /// <summary>
         /// Gets the ordered workspace entries filtered by interface mode (Simple vs Advanced).
         /// </summary>
-        public static IReadOnlyList<WorkspaceNavigationEntry> GetEntries(bool isAdvancedMode)
+        public static IReadOnlyList<WorkspaceNavigationEntry> GetEntries(bool isAdvancedMode, bool isGamingMode = false)
         {
             return AllEntries
-                .Where(e => isAdvancedMode || !e.IsAdvancedOnly)
+                .Where(e => isGamingMode
+                    ? e.IsGamingOnly || IsSharedAcrossModes(e)
+                    : !e.IsGamingOnly && (isAdvancedMode || !e.IsAdvancedOnly))
                 .ToList()
                 .AsReadOnly();
         }
@@ -79,13 +88,17 @@ namespace PaRuX.Services
         /// <summary>
         /// Gets the ordered AutomationIds filtered by interface mode.
         /// </summary>
-        public static IReadOnlyList<string> GetOrderedAutomationIds(bool isAdvancedMode)
+        public static IReadOnlyList<string> GetOrderedAutomationIds(bool isAdvancedMode, bool isGamingMode = false)
         {
-            return GetEntries(isAdvancedMode)
+            return GetEntries(isAdvancedMode, isGamingMode)
                 .Select(e => e.AutomationId)
                 .ToList()
                 .AsReadOnly();
         }
+
+        // Settings and Help stay visible in both top tabs.
+        private static bool IsSharedAcrossModes(WorkspaceNavigationEntry e) =>
+            e.AutomationId == SettingsAutomationId || e.AutomationId == HelpAutomationId;
 
         public static IReadOnlyList<string> SimpleOrder => GetOrderedAutomationIds(isAdvancedMode: false);
         public static IReadOnlyList<string> AdvancedOrder => GetOrderedAutomationIds(isAdvancedMode: true);
@@ -99,9 +112,10 @@ namespace PaRuX.Services
             string? focusedAutomationId,
             string? selectedAutomationId,
             bool keyboardFocusIsCurrent,
-            bool isAdvancedMode)
+            bool isAdvancedMode,
+            bool isGamingMode = false)
         {
-            IReadOnlyList<string> visibleIds = GetOrderedAutomationIds(isAdvancedMode);
+            IReadOnlyList<string> visibleIds = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
             bool focusedIsVisible = !string.IsNullOrWhiteSpace(focusedAutomationId)
                 && IndexOf(visibleIds, focusedAutomationId) >= 0;
             bool selectedIsVisible = !string.IsNullOrWhiteSpace(selectedAutomationId)
@@ -132,19 +146,19 @@ namespace PaRuX.Services
         /// <summary>
         /// Resolves the next workspace AutomationId in visual order, with defined end (null at boundary).
         /// </summary>
-        public static string? Next(string currentAutomationId, bool isAdvancedMode) =>
-            GetNext(currentAutomationId, isAdvancedMode);
+        public static string? Next(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false) =>
+            GetNext(currentAutomationId, isAdvancedMode, isGamingMode);
 
         /// <summary>
         /// Resolves the previous workspace AutomationId in visual order, with defined start (null at boundary).
         /// </summary>
-        public static string? Previous(string currentAutomationId, bool isAdvancedMode) =>
-            GetPrevious(currentAutomationId, isAdvancedMode);
+        public static string? Previous(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false) =>
+            GetPrevious(currentAutomationId, isAdvancedMode, isGamingMode);
 
-        public static string? GetNext(string currentAutomationId, bool isAdvancedMode)
+        public static string? GetNext(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false)
         {
             if (string.IsNullOrWhiteSpace(currentAutomationId)) return null;
-            var list = GetOrderedAutomationIds(isAdvancedMode);
+            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
             int index = IndexOf(list, currentAutomationId);
             if (index < 0 || index >= list.Count - 1)
             {
@@ -153,10 +167,10 @@ namespace PaRuX.Services
             return list[index + 1];
         }
 
-        public static string? GetPrevious(string currentAutomationId, bool isAdvancedMode)
+        public static string? GetPrevious(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false)
         {
             if (string.IsNullOrWhiteSpace(currentAutomationId)) return null;
-            var list = GetOrderedAutomationIds(isAdvancedMode);
+            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
             int index = IndexOf(list, currentAutomationId);
             if (index <= 0)
             {

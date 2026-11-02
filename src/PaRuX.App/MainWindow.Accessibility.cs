@@ -172,15 +172,16 @@ namespace PaRuX
                 focusedAutomationId,
                 selectedAutomationId,
                 keyboardFocusIsCurrent,
-                isAdvanced);
+                isAdvanced,
+                IsGamingModeTab);
             if (currentAutomationId == null)
             {
                 return false;
             }
 
             string? targetAutomationId = key == VirtualKey.Up
-                ? WorkspaceNavigationOrder.GetPrevious(currentAutomationId, isAdvanced)
-                : WorkspaceNavigationOrder.GetNext(currentAutomationId, isAdvanced);
+                ? WorkspaceNavigationOrder.GetPrevious(currentAutomationId, isAdvanced, IsGamingModeTab)
+                : WorkspaceNavigationOrder.GetNext(currentAutomationId, isAdvanced, IsGamingModeTab);
 
             if (string.IsNullOrEmpty(targetAutomationId))
             {
@@ -254,6 +255,7 @@ namespace PaRuX
             WorkspaceNavigationOrder.ChatAutomationId => ChatNavItem,
             WorkspaceNavigationOrder.CreateAutomationId => CreateNavItem,
             WorkspaceNavigationOrder.ProjectsAutomationId => ProjectsNavItem,
+            WorkspaceNavigationOrder.GameLibraryAutomationId => GameLibraryNavItem,
             WorkspaceNavigationOrder.ModelHubAutomationId => ModelHubNavItem,
             WorkspaceNavigationOrder.ModelRoutingAutomationId => ModelRoutingNavItem,
             WorkspaceNavigationOrder.LifecycleAutomationId => LifecycleNavItem,

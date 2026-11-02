@@ -15,14 +15,21 @@ public sealed class WorkspaceNavigationLayoutContractTests
         XNamespace ui = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
 
-        Assert.Empty(document.Descendants(ui + "NavigationView.PaneFooter"));
+        // Contract update (44a827c): the pane footer is allowed for exactly one pinned, non-workspace
+        // control, the Console / TV entry button. Workspaces and recent chats must still never live
+        // in the footer: they share the MenuItems scroll surface.
+        XElement paneFooter = Assert.Single(document.Descendants(ui + "NavigationView.PaneFooter"));
+        XElement footerButton = Assert.Single(paneFooter.Elements());
+        Assert.Equal("Button", footerButton.Name.LocalName);
+        Assert.Equal("ConsoleModeButton", (string?)footerButton.Attribute(x + "Name"));
+        Assert.Equal("MainWindow_ConsoleMode_Button", (string?)footerButton.Attribute("AutomationProperties.AutomationId"));
         Assert.Empty(document.Descendants(ui + "NavigationView.FooterMenuItems"));
         XElement menuItems = Assert.Single(document.Descendants(ui + "NavigationView.MenuItems"));
         XElement workspaceHeader = Assert.Single(menuItems.Elements(ui + "NavigationViewItemHeader"));
         Assert.Equal("WorkspaceSectionHeader", (string?)workspaceHeader.Attribute(x + "Name"));
         string[] requiredNames =
         {
-            "ChatNavItem", "CreateNavItem", "ProjectsNavItem", "ModelHubNavItem", "ModelRoutingNavItem",
+            "ChatNavItem", "CreateNavItem", "ProjectsNavItem", "GameLibraryNavItem", "ModelHubNavItem", "ModelRoutingNavItem",
             "LifecycleNavItem", "WorkflowNavItem", "ToolsNavItem", "ObservabilityNavItem",
             "UpdatesNavItem", "RuntimeNavItem", "SettingsNavItem", "HelpNavItem"
         };

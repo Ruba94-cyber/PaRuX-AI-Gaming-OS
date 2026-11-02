@@ -17,8 +17,15 @@ public sealed class AdaptiveWorkspaceUiContractTests
         var grid = Assert.Single(doc.Descendants(ui + "Grid")
             .Where(element => (string?)element.Attribute(x + "Name") == "SettingsLayoutGrid"));
         Assert.Equal("SettingsLayoutGrid_SizeChanged", (string?)grid.Attribute("SizeChanged"));
-        var picker = Assert.Single(grid.Elements(ui + "ComboBox")
+        // Contract update (29eedfd): the picker lives in the header StackPanel (Row 0, Column 1) that
+        // also holds the settings search box, so it is no longer a direct child of the grid.
+        var picker = Assert.Single(grid.Descendants(ui + "ComboBox")
             .Where(element => (string?)element.Attribute(x + "Name") == "SettingsCompactCategoryPicker"));
+        XElement header = Assert.IsType<XElement>(picker.Parent);
+        Assert.Equal(ui + "StackPanel", header.Name);
+        Assert.Same(grid, header.Parent);
+        Assert.Equal("0", (string?)header.Attribute("Grid.Row"));
+        Assert.Equal("1", (string?)header.Attribute("Grid.Column"));
         Assert.Equal("Collapsed", (string?)picker.Attribute("Visibility"));
         Assert.Equal("SettingsCompactCategoryPicker_SelectionChanged", (string?)picker.Attribute("SelectionChanged"));
         Assert.Single(grid.Elements(ui + "ScrollViewer")
