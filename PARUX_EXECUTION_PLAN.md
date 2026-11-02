@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation X — Gaming hard-off for store/portable discovery
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED, NOT RUN.** Steam, Epic and GOG direct discovery endpoints and owner-selected local game-folder inspection now share the guarded read helper. It refuses new scans when Gaming is active, cancels ongoing reads cooperatively through the existing hard-off token, and checks the marker before returning success. No new polling service, game process or installed software is touched. Caller cancellation remains HTTP 499; Gaming interruption returns 409.
+
+- Four synthetic xUnit tests cover blocked admission, a racing mode change, successful AI-mode reads and caller cancellation. **No .NET build/xUnit/FlaUI/hardware tests were executed.**
+- Verify on Windows with `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GamingDiscoveryHardOffTests|FullyQualifiedName~GameTitleCatalogTests|FullyQualifiedName~EmulatorDiscoverySinglePassTests"`, then Server/App builds and real launcher/discovery transition tests.
+- Remaining work: verified child-game lifetime, native per-emulator fullscreen TV output, controller-first handoff, installer recovery and performance QA.
+
+
 ### 2026-11-02 continuation IX — re-anchor verified Console Home on user-selected TV
 
 **Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED, NOT RUN.** The prior verified owned-process exit proof, opt-in setting, Core readiness and Gaming hard-off remain mandatory. No new window, driver, external dependency, display-mode switch or input injection.

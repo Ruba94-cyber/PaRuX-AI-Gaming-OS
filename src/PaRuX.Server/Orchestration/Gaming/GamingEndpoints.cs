@@ -12,24 +12,47 @@ namespace PaRuX.Server.Orchestration.Gaming;
 
 public static class GamingEndpoints
 {
+    /// <summary>Admission, cancellation and truthful read outcomes for all
+    /// manifest/folder discovery that must not compete with active Gaming.</summary>
+    internal static async Task<IResult> GuardedDiscoveryAsync<T>(
+        Func<CancellationToken, Task<T>> discover, Func<bool> gamingActive,
+        CancellationToken caller, string operation)
+    {
+        ArgumentNullException.ThrowIfNull(discover);
+        ArgumentNullException.ThrowIfNull(gamingActive);
+        if (gamingActive())
+            return Results.Conflict(new { error = operation + " discovery is disabled while Gaming." });
+        using var hardOff = new GamingHardOffWatch(gamingActive, caller);
+        try
+        {
+            T result = await discover(hardOff.Token).ConfigureAwait(false);
+            if (hardOff.Triggered || gamingActive())
+                return Results.Conflict(new { error = operation + " discovery stopped when Gaming began." });
+            return Results.Ok(result);
+        }
+        catch (OperationCanceledException) when (caller.IsCancellationRequested)
+        { return Results.StatusCode(499); }
+        catch (OperationCanceledException) when (hardOff.Triggered || gamingActive())
+        { return Results.Conflict(new { error = operation + " discovery stopped when Gaming began." }); }
+        catch (OperationCanceledException)
+        { return Results.Conflict(new { error = operation + " discovery was interrupted." }); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            InvalidDataException or System.Security.SecurityException)
+        { return Results.Problem(operation + " metadata could not be read."); }
+    }
+
     public static void MapGamingEndpoints(this WebApplication app)
     {
         // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
-        app.MapGet("/api/v1/gaming/library/discover/steam", async (SteamGameDiscoveryProvider provider, CancellationToken ct) =>
-        {
-            try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            { return Results.Problem("Steam installation metadata could not be read."); }
-        }).RequireDesktopOwner();
+        app.MapGet("/api/v1/gaming/library/discover/steam", (
+            SteamGameDiscoveryProvider provider, LocalRuntimeService runtime, CancellationToken ct) =>
+            GuardedDiscoveryAsync(provider.DiscoverAsync, () => runtime.GamingMode, ct, "STEAM store"))
+            .RequireDesktopOwner();
 
-        app.MapGet("/api/v1/gaming/library/discover/epic", async (EpicGameDiscoveryProvider provider, CancellationToken ct) =>
-        {
-            try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            { return Results.Problem("Epic installation metadata could not be read."); }
-        }).RequireDesktopOwner();
+        app.MapGet("/api/v1/gaming/library/discover/epic", (
+            EpicGameDiscoveryProvider provider, LocalRuntimeService runtime, CancellationToken ct) =>
+            GuardedDiscoveryAsync(provider.DiscoverAsync, () => runtime.GamingMode, ct, "EPIC store"))
+            .RequireDesktopOwner();
 
         // An explicit, owner-confirmed Epic protocol activation. HTTP cannot
         // supply a URI or executable: the service must rediscover the installed
@@ -50,13 +73,10 @@ public static class GamingEndpoints
             return result.Launched ? Results.Ok(result) : Results.Conflict(result);
         }).RequireDesktopOwner();
 
-        app.MapGet("/api/v1/gaming/library/discover/gog", async (GogGameDiscoveryProvider provider, CancellationToken ct) =>
-        {
-            try { return Results.Ok(await provider.DiscoverAsync(ct)) as IResult; }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException)
-            { return Results.Problem("GOG installation metadata could not be read."); }
-        }).RequireDesktopOwner();
+        app.MapGet("/api/v1/gaming/library/discover/gog", (
+            GogGameDiscoveryProvider provider, LocalRuntimeService runtime, CancellationToken ct) =>
+            GuardedDiscoveryAsync(provider.DiscoverAsync, () => runtime.GamingMode, ct, "GOG store"))
+            .RequireDesktopOwner();
 
         // Confirmed GOG GALAXY handoff, not direct game execution. The Core
         // resolves the installed title and client itself; caller supplies ID only.
@@ -161,11 +181,12 @@ public static class GamingEndpoints
         }).RequireDesktopOwner();
 
         // Read-only: proposes the main executable and a title for a folder the user chose; adds nothing.
-        app.MapPost("/api/v1/gaming/library/inspect-folder", (GameFolderInspectRequest request, CancellationToken ct) =>
-        {
-            try { return Results.Ok(GameFolderInspector.Inspect(request.Folder, ct)); }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
-        }).RequireDesktopOwner();
+        app.MapPost("/api/v1/gaming/library/inspect-folder", (
+            GameFolderInspectRequest request, LocalRuntimeService runtime, CancellationToken ct) =>
+            GuardedDiscoveryAsync(token =>
+                Task.FromResult(GameFolderInspector.Inspect(request.Folder, token)),
+                () => runtime.GamingMode, ct, "Local game folder"))
+            .RequireDesktopOwner();
 
         app.MapGet("/api/v1/gaming/controllers", (ControllerProfileStore profiles) =>
             Results.Ok(NativeXInputProbe.ReadStates(profiles.Get()))).RequireDesktopOwner();
