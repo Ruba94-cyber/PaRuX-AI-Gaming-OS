@@ -19,6 +19,13 @@ public sealed record GameInstallationDto(string InstallationId, string Source, s
     /// <summary>Optional public emulator display label, never an executable/ROM path.
     /// An older Core or stored title payload may omit it without breaking desktop/TV clients.</summary>
     public string EmulatorName { get; init; } = string.Empty;
+
+    /// <summary>Additive: public platform label ("PC" for store/local installs, the emulator platform otherwise).
+    /// Older payloads omit it.</summary>
+    public string Platform { get; init; } = string.Empty;
+
+    /// <summary>Additive: one of <see cref="GameInstallStates"/>; defaults to unknown when a source cannot tell.</summary>
+    public string InstallState { get; init; } = GameInstallStates.Unknown;
 }
 
 /// <summary>
@@ -37,12 +44,34 @@ public sealed record GameTitleDto(
 {
     // Optional additive property; older clients can omit it without invalidating titles.
     public IReadOnlyList<string> Collections { get; init; } = Array.Empty<string>();
+
+    // Optional additive property: a hidden title is excluded from the library unless explicitly requested.
+    public bool Hidden { get; init; }
+
+    // Optional additive property: when the title first received user state (null for older state).
+    public DateTime? AddedUtc { get; init; }
+}
+
+/// <summary>Allowlisted sort orders of the title list; anything else is rejected.</summary>
+public static class GameTitleSorts
+{
+    public const string Name = "name";
+    public const string LastPlayed = "lastplayed";
+    public const string PlayTime = "playtime";
+    public const string RecentlyAdded = "recentlyadded";
+
+    public static bool IsValid(string? sort) =>
+        string.IsNullOrEmpty(sort) || sort.Trim().ToLowerInvariant() is Name or LastPlayed or PlayTime or RecentlyAdded;
 }
 
 /// <summary>User state kept per title (the persisted overlay). Installations are never persisted: they are re-derived.</summary>
 public sealed class GameTitleState
 {
     public bool Favorite { get; set; }
+    /// <summary>Absent in files written before this field existed, which load as not hidden.</summary>
+    public bool Hidden { get; set; }
+    /// <summary>When the title first got user state; drives "recently added". Absent in older files.</summary>
+    public DateTime? AddedUtc { get; set; }
     public List<string> Tags { get; set; } = new();
     public List<string> Collections { get; set; } = new();
     public long PlaySeconds { get; set; }
@@ -52,6 +81,21 @@ public sealed class GameTitleState
 
 public sealed record SetGameTagsRequest(List<string> Tags);
 public sealed record SetDefaultInstallationRequest(string? InstallationId);
+
+/// <summary>
+/// One atomic edit of up to 100 titles. Only the fields that are set are changed; Tags and Collections
+/// replace the full list for every key. All keys and values are validated before anything is written.
+/// </summary>
+public sealed record BulkGameTitleRequest(List<string> TitleKeys)
+{
+    public const int MaxKeys = 100;
+    public bool? Favorite { get; init; }
+    public bool? Hidden { get; init; }
+    public List<string>? Tags { get; init; }
+    public List<string>? Collections { get; init; }
+}
+
+public sealed record BulkGameTitleResult(int Updated);
 
 /// <summary>Up to 12 named local user collections for one title; no cloud account or scraping.</summary>
 public sealed record SetGameCollectionsRequest(List<string> Collections);

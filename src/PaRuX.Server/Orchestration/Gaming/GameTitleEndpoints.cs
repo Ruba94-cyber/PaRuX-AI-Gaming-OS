@@ -31,23 +31,32 @@ public static class GameTitleEndpoints
         // Merged read-only view over local discovery and the manual library, plus the user's per-title state.
         app.MapGet("/api/v1/gaming/titles", async (
             string? q, string? source, bool? favorite, string? tag, string? collection, bool? refresh,
+            string? sort, string? platform, bool? installed, string? hidden,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
             ManualGameLibrary library, GameTitleStore store, GameTitleReadCache cache,
             LocalRuntimeService runtime, CancellationToken ct) =>
         {
+            // Reject unknown sort/hidden values instead of silently ignoring a typo.
+            if (!GameTitleSorts.IsValid(sort) || GameTitleCatalog.HiddenModes.Parse(hidden) is null ||
+                (platform?.Length ?? 0) > 80 || (source?.Length ?? 0) > 40 || (tag?.Length ?? 0) > 80 ||
+                (collection?.Length ?? 0) > 80 || (q?.Length ?? 0) > 200)
+                return Results.BadRequest(new { error = "Invalid sort, hidden or filter value." });
+            var query = new GameTitleQuery(q, source, favorite == true, tag, collection)
+            { Platform = platform, Installed = installed, Hidden = hidden, Sort = sort };
+
             IResult FromCache()
             {
                 // A cold Core that rebooted during Gaming has no valid snapshot;
                 // a conflict is honest, an empty catalogue would hide user games.
                 if (!cache.TryRead(out var snapshot))
                     return Results.Conflict(new { error = "The game catalogue has not been scanned yet. Return to AI before refreshing it." });
-                return Results.Ok(GameTitleCatalog.Filter(snapshot, q, source, favorite == true, tag, collection));
+                return Results.Ok(GameTitleCatalog.Query(snapshot, query));
             }
 
             // Gamepad search while playing must not wake disk-heavy store discovery.
             if (runtime.GamingMode) return FromCache();
             if (refresh != true && cache.TryReadRecent(out var recent))
-                return Results.Ok(GameTitleCatalog.Filter(recent, q, source, favorite == true, tag, collection));
+                return Results.Ok(GameTitleCatalog.Query(recent, query));
             long scanRevision = cache.Revision;
             using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
             try
@@ -69,17 +78,66 @@ public static class GameTitleEndpoints
                 if (runtime.GamingMode) return FromCache();
                 scanToken.ThrowIfCancellationRequested();
                 if (cache.PublishIfUnchanged(scanRevision, titles))
-                    return Results.Ok(GameTitleCatalog.Filter(titles, q, source, favorite == true, tag, collection));
+                    return Results.Ok(GameTitleCatalog.Query(titles, query));
                 // A game import or owner edit raced with this scan. A newer,
                 // confirmed fresh catalogue is safe to serve; an invalidated old
                 // snapshot is NOT a successful refresh of newly imported games.
                 if (cache.TryReadRecent(out var current))
-                    return Results.Ok(GameTitleCatalog.Filter(current, q, source, favorite == true, tag, collection));
+                    return Results.Ok(GameTitleCatalog.Query(current, query));
                 return Results.Conflict(new { error = "The game catalogue changed during discovery. Refresh it again." });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
             catch (OperationCanceledException) when (runtime.GamingMode) { return FromCache(); }
             catch (InvalidDataException) { return Results.Problem("The game library could not be read."); }
+        }).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/titles/{key}/hidden", (
+            string key, bool hidden, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key)) return Results.BadRequest() as IResult;
+            if (!store.SetHidden(key, hidden)) return Results.Problem("The state could not be saved.");
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
+
+        // One atomic edit of up to 100 titles: all keys and values are validated first, one write persists them.
+        app.MapPut("/api/v1/gaming/titles/bulk", (
+            BulkGameTitleRequest request, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (request?.TitleKeys is null || request.TitleKeys.Count is 0 or > BulkGameTitleRequest.MaxKeys ||
+                request.TitleKeys.Any(k => !ValidTitleKey(k)))
+                return Results.BadRequest(new { error = "Provide 1 to 100 valid title keys." }) as IResult;
+            if (request.Favorite is null && request.Hidden is null && request.Tags is null && request.Collections is null)
+                return Results.BadRequest(new { error = "Nothing to change." });
+            int? updated = store.BulkUpdate(request.TitleKeys, request.Favorite, request.Hidden, request.Tags, request.Collections);
+            if (updated is null)
+                return Results.BadRequest(new { error = "Invalid tags or collections (tags: at most 20, collections: at most 12, each up to 40 characters, no control characters) or the state could not be saved." });
+            try
+            {
+                var snapshot = store.Snapshot();
+                foreach (string key in request.TitleKeys.Distinct(StringComparer.Ordinal))
+                    if (snapshot.TryGetValue(key, out GameTitleState? state)) cache.ApplyState(key, state);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { }
+            return Results.Ok(new BulkGameTitleResult(updated.Value));
+        }).RequireDesktopOwner();
+
+        // Edit a saved manual entry with the same validation as adding one. Never touches game files.
+        app.MapPut("/api/v1/gaming/library/{id}", (
+            string id, UpdateManualGameRequest request, ManualGameLibrary library, GameTitleReadCache cache) =>
+        {
+            if (request is null) return Results.BadRequest() as IResult;
+            try
+            {
+                ManualGameDto? updated = library.Update(id, request);
+                if (updated is null) return Results.NotFound();
+                cache.Invalidate();
+                return Results.Ok(updated);
+            }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "Invalid game name, executable path or options." }); }
+            catch (InvalidOperationException) { return Results.Conflict(new { error = "This executable and launch configuration are already in the library." }); }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            { return Results.Problem("The local game library could not be saved."); }
         }).RequireDesktopOwner();
 
         app.MapPut("/api/v1/gaming/titles/{key}/favorite", (
