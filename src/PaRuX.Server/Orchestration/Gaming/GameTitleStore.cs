@@ -58,30 +58,86 @@ public sealed class GameTitleStore
     /// <returns>False when the tag list is invalid (nothing is changed).</returns>
     public bool SetTags(string titleKey, IEnumerable<string>? tags)
     {
-        var cleaned = new List<string>();
-        foreach (string raw in tags ?? Array.Empty<string>())
-        {
-            string tag = (raw ?? string.Empty).Trim();
-            if (tag.Length == 0) continue;
-            if (tag.Length > MaxTagLength || tag.Any(char.IsControl)) return false;
-            if (!cleaned.Contains(tag, StringComparer.OrdinalIgnoreCase)) cleaned.Add(tag);
-        }
-        if (cleaned.Count > MaxTags) return false;
-        return Mutate(titleKey, s => s.Tags = cleaned);
+        List<string>? cleaned = CleanList(tags, MaxTagLength, MaxTags);
+        return cleaned is not null && Mutate(titleKey, s => s.Tags = cleaned);
     }
 
     public bool SetCollections(string titleKey, IEnumerable<string>? collections)
     {
+        List<string>? cleaned = CleanList(collections, MaxCollectionLength, MaxCollections);
+        return cleaned is not null && Mutate(titleKey, s => s.Collections = cleaned);
+    }
+
+    public bool SetHidden(string titleKey, bool hidden) => Mutate(titleKey, s => s.Hidden = hidden);
+
+    /// <summary>Trim, drop empties, de-duplicate case-insensitively; null when any item or the count is invalid.</summary>
+    private static List<string>? CleanList(IEnumerable<string>? items, int maxLength, int maxCount)
+    {
         var cleaned = new List<string>();
-        foreach (string raw in collections ?? Array.Empty<string>())
+        foreach (string raw in items ?? Array.Empty<string>())
         {
-            string name = (raw ?? string.Empty).Trim();
-            if (name.Length == 0) continue;
-            if (name.Length > MaxCollectionLength || name.Any(char.IsControl)) return false;
-            if (!cleaned.Contains(name, StringComparer.OrdinalIgnoreCase)) cleaned.Add(name);
+            string item = (raw ?? string.Empty).Trim();
+            if (item.Length == 0) continue;
+            if (item.Length > maxLength || item.Any(char.IsControl)) return null;
+            if (!cleaned.Contains(item, StringComparer.OrdinalIgnoreCase)) cleaned.Add(item);
         }
-        if (cleaned.Count > MaxCollections) return false;
-        return Mutate(titleKey, s => s.Collections = cleaned);
+        return cleaned.Count > maxCount ? null : cleaned;
+    }
+
+    /// <summary>
+    /// Applies the same favourite/hidden/tag/collection edit to up to <see cref="BulkGameTitleRequest.MaxKeys"/>
+    /// titles in ONE atomic write. Everything is validated first; on any invalid input or failed write nothing changes.
+    /// </summary>
+    /// <returns>The number of distinct titles updated, or null when the request is invalid or could not be saved.</returns>
+    public int? BulkUpdate(IEnumerable<string>? titleKeys, bool? favorite, bool? hidden,
+        IEnumerable<string>? tags, IEnumerable<string>? collections)
+    {
+        if (titleKeys is null) return null;
+        var keys = new List<string>();
+        foreach (string key in titleKeys)
+        {
+            if (!GameTitleEndpoints.ValidTitleKey(key)) return null;
+            if (!keys.Contains(key, StringComparer.Ordinal)) keys.Add(key);
+            if (keys.Count > BulkGameTitleRequest.MaxKeys) return null;
+        }
+        if (keys.Count == 0) return null;
+        List<string>? cleanTags = null, cleanCollections = null;
+        if (tags is not null && (cleanTags = CleanList(tags, MaxTagLength, MaxTags)) is null) return null;
+        if (collections is not null && (cleanCollections = CleanList(collections, MaxCollectionLength, MaxCollections)) is null) return null;
+        if (favorite is null && hidden is null && cleanTags is null && cleanCollections is null) return null;
+        lock (_gate)
+        {
+            if (_loadError is not null) return null;
+            try
+            {
+                using var lease = AcquireLease();
+                Load();
+                if (_loadError is not null) return null;
+                var next = new Dictionary<string, GameTitleState>(_titles, StringComparer.Ordinal);
+                foreach (string key in keys)
+                {
+                    GameTitleState updated;
+                    if (next.TryGetValue(key, out GameTitleState? existing)) updated = Clone(existing);
+                    else
+                    {
+                        if (next.Count >= MaxTitles) return null;
+                        updated = new GameTitleState { AddedUtc = DateTime.UtcNow };
+                    }
+                    if (favorite is { } f) updated.Favorite = f;
+                    if (hidden is { } h) updated.Hidden = h;
+                    if (cleanTags is not null) updated.Tags = new List<string>(cleanTags);
+                    if (cleanCollections is not null) updated.Collections = new List<string>(cleanCollections);
+                    next[key] = updated;
+                }
+                if (!Persist(next)) return null;
+                _titles = next;
+                return keys.Count;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        }
     }
 
     public bool SetDefaultInstallation(string titleKey, string? installationId)
@@ -128,7 +184,7 @@ public sealed class GameTitleStore
             if (!_titles.TryGetValue(titleKey, out GameTitleState? state))
             {
                 if (_titles.Count >= MaxTitles) return false;
-                state = new GameTitleState();
+                state = new GameTitleState { AddedUtc = DateTime.UtcNow };
             }
             var updated = Clone(state);
             change(updated);
@@ -207,6 +263,8 @@ public sealed class GameTitleStore
     private static GameTitleState Clone(GameTitleState s) => new()
     {
         Favorite = s.Favorite,
+        Hidden = s.Hidden,
+        AddedUtc = s.AddedUtc,
         Tags = new List<string>(s.Tags ?? new List<string>()),
         Collections = new List<string>(s.Collections ?? new List<string>()),
         PlaySeconds = s.PlaySeconds,

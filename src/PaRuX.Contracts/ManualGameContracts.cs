@@ -34,3 +34,15 @@ public sealed record AddManualGameRequest(
     string Platform = "",
     string EmulatorId = "",
     string GameFilePath = "");
+
+/// <summary>
+/// Replaces the editable fields of a saved entry; the id, kind and emulator game file stay as saved unless
+/// provided. The executable and working directory pass the same validation as adding an entry.
+/// </summary>
+public sealed record UpdateManualGameRequest(
+    string Name,
+    string ExecutablePath,
+    string Arguments = "",
+    string WorkingDirectory = "",
+    string EmulatorId = "",
+    string Platform = "");

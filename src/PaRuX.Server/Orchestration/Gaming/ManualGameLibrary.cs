@@ -29,30 +29,88 @@ public sealed class ManualGameLibrary
     public ManualGameDto Add(AddManualGameRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string name = request.Name?.Trim() ?? "";
-        string path = request.ExecutablePath?.Trim() ?? "";
+        string kind = string.IsNullOrWhiteSpace(request.Kind) ? ManualEntryKinds.Game : request.Kind.Trim().ToLowerInvariant();
+        if (!ManualEntryKinds.IsValid(kind))
+            throw new ArgumentException("The entry type must be 'game' or 'application'.");
+        var v = ValidateFields(request.Name, request.ExecutablePath, request.Arguments, request.WorkingDirectory,
+            request.Platform, request.EmulatorId);
+        // Only newly imported emulator titles carry optional typed game-file
+        // metadata. Legacy library entries stay readable without migration.
+        string gameFilePath = request.GameFilePath?.Trim() ?? "";
+        if (gameFilePath.Length > 0 &&
+            !ManualGameSessionService.IsSafeEmulatorGameFile(v.EmulatorId, gameFilePath))
+            throw new ArgumentException("The emulator game file must be a supported regular local file.");
+        lock (_gate)
+        {
+            // Prevent lost updates across independent PaRuX Core instances.
+            using FileStream lease = AcquireWriteLease();
+            List<ManualGameDto> games = Read();
+            if (games.Count >= 10000) throw new InvalidOperationException("Library limit reached.");
+            if (IsDuplicate(games, null, v.Path, v.Arguments, kind, v.WorkingDirectory))
+                throw new InvalidOperationException("This executable and launch configuration are already in the library.");
+            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), v.Name, v.Path, v.Arguments, v.WorkingDirectory, kind, v.Platform, v.EmulatorId, gameFilePath);
+            games.Add(game);
+            Write(games);
+            return game;
+        }
+    }
+
+    /// <summary>
+    /// Edits name, executable, arguments, working directory, emulator and platform of a saved entry using the
+    /// exact validation of <see cref="Add"/>. The id, kind and imported game file are kept; nothing on disk
+    /// other than the library file is touched.
+    /// </summary>
+    /// <returns>The updated entry, or null when the id does not exist.</returns>
+    /// <exception cref="ArgumentException">Invalid input (nothing is changed).</exception>
+    /// <exception cref="InvalidOperationException">The new launch configuration duplicates another entry.</exception>
+    public ManualGameDto? Update(string id, UpdateManualGameRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(id) || id.Length > 100)
+            throw new ArgumentException("Invalid entry id.");
+        var v = ValidateFields(request.Name, request.ExecutablePath, request.Arguments, request.WorkingDirectory,
+            request.Platform, request.EmulatorId);
+        lock (_gate)
+        {
+            using FileStream lease = AcquireWriteLease();
+            List<ManualGameDto> games = Read();
+            int index = games.FindIndex(g => string.Equals(g.Id, id, StringComparison.Ordinal));
+            if (index < 0) return null;
+            ManualGameDto current = games[index];
+            string kind = string.IsNullOrWhiteSpace(current.Kind) ? ManualEntryKinds.Game : current.Kind;
+            // An imported emulator game file must still belong to the (possibly changed) emulator.
+            string gameFile = current.GameFilePath ?? "";
+            if (gameFile.Length > 0 && !ManualGameSessionService.IsSafeEmulatorGameFile(v.EmulatorId, gameFile))
+                throw new ArgumentException("The imported game file does not match the chosen emulator.");
+            if (IsDuplicate(games, id, v.Path, v.Arguments, kind, v.WorkingDirectory))
+                throw new InvalidOperationException("This executable and launch configuration are already in the library.");
+            var updated = new ManualGameDto(current.Id, v.Name, v.Path, v.Arguments, v.WorkingDirectory, kind, v.Platform, v.EmulatorId, gameFile);
+            games[index] = updated;
+            Write(games);
+            return updated;
+        }
+    }
+
+    private sealed record ValidatedFields(string Name, string Path, string Arguments, string WorkingDirectory, string Platform, string EmulatorId);
+
+    private static ValidatedFields ValidateFields(string? rawName, string? rawPath, string? rawArguments,
+        string? rawWorkingDirectory, string? rawPlatform, string? rawEmulatorId)
+    {
+        string name = rawName?.Trim() ?? "";
+        string path = rawPath?.Trim() ?? "";
         if (name.Length is < 1 or > 200 || path.Length is < 1 or > 1024 ||
             !Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal) ||
             !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Enter a name and an absolute local executable path.");
         path = Path.GetFullPath(path);
-        string arguments = request.Arguments?.Trim() ?? "";
-        string workingDirectory = request.WorkingDirectory?.Trim() ?? "";
-        string kind = string.IsNullOrWhiteSpace(request.Kind) ? ManualEntryKinds.Game : request.Kind.Trim().ToLowerInvariant();
-        if (!ManualEntryKinds.IsValid(kind))
-            throw new ArgumentException("The entry type must be 'game' or 'application'.");
-        string platform = request.Platform?.Trim() ?? "";
-        string emulatorId = request.EmulatorId?.Trim().ToLowerInvariant() ?? "";
+        string arguments = rawArguments?.Trim() ?? "";
+        string workingDirectory = rawWorkingDirectory?.Trim() ?? "";
+        string platform = rawPlatform?.Trim() ?? "";
+        string emulatorId = rawEmulatorId?.Trim().ToLowerInvariant() ?? "";
         if (platform.Length > 80 || platform.Any(char.IsControl))
             throw new ArgumentException("The platform name is too long or invalid.");
         if (emulatorId.Length > 0 && Emulators.EmulatorRegistry.Find(emulatorId) is null)
             throw new ArgumentException("Unknown emulator.");
-        // Only newly imported emulator titles carry optional typed game-file
-        // metadata. Legacy library entries stay readable without migration.
-        string gameFilePath = request.GameFilePath?.Trim() ?? "";
-        if (gameFilePath.Length > 0 &&
-            !ManualGameSessionService.IsSafeEmulatorGameFile(emulatorId, gameFilePath))
-            throw new ArgumentException("The emulator game file must be a supported regular local file.");
         if (!ValidArguments(arguments))
             throw new ArgumentException("Arguments must be at most 1024 characters without control characters.");
         if (workingDirectory.Length > 0)
@@ -64,30 +122,24 @@ public sealed class ManualGameLibrary
             if (!IsSafeDirectory(workingDirectory))
                 throw new ArgumentException("The working directory does not exist or is a linked folder.");
         }
-        lock (_gate)
-        {
-            // Prevent lost updates across independent PaRuX Core instances.
-            using FileStream lease = AcquireWriteLease();
-            List<ManualGameDto> games = Read();
-            if (games.Count >= 10000) throw new InvalidOperationException("Library limit reached.");
-            // A launch identity includes the effective working directory and entry kind:
-            // a portable game may legitimately use the same binary/args from different
-            // isolated game directories, or offer distinct application/game entries.
-            // Treat an omitted working directory as the executable's folder for compatibility.
-            string effectiveFolder = workingDirectory.Length == 0 ? Path.GetDirectoryName(path)! : workingDirectory;
-            if (games.Any(g => string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
-                               string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal) &&
-                               string.Equals(string.IsNullOrWhiteSpace(g.Kind) ? ManualEntryKinds.Game : g.Kind, kind, StringComparison.OrdinalIgnoreCase) &&
-                               string.Equals(string.IsNullOrWhiteSpace(g.WorkingDirectory)
-                                   ? Path.GetDirectoryName(g.ExecutablePath)
-                                   : g.WorkingDirectory,
-                                   effectiveFolder, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("This executable and launch configuration are already in the library.");
-            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId, gameFilePath);
-            games.Add(game);
-            Write(games);
-            return game;
-        }
+        return new ValidatedFields(name, path, arguments, workingDirectory, platform, emulatorId);
+    }
+
+    // A launch identity includes the effective working directory and entry kind:
+    // a portable game may legitimately use the same binary/args from different
+    // isolated game directories, or offer distinct application/game entries.
+    // Treat an omitted working directory as the executable's folder for compatibility.
+    private static bool IsDuplicate(List<ManualGameDto> games, string? ignoreId, string path, string arguments, string kind, string workingDirectory)
+    {
+        string effectiveFolder = workingDirectory.Length == 0 ? Path.GetDirectoryName(path)! : workingDirectory;
+        return games.Any(g => !string.Equals(g.Id, ignoreId, StringComparison.Ordinal) &&
+                           string.Equals(g.ExecutablePath, path, StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(g.Arguments ?? "", arguments, StringComparison.Ordinal) &&
+                           string.Equals(string.IsNullOrWhiteSpace(g.Kind) ? ManualEntryKinds.Game : g.Kind, kind, StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(string.IsNullOrWhiteSpace(g.WorkingDirectory)
+                               ? Path.GetDirectoryName(g.ExecutablePath)
+                               : g.WorkingDirectory,
+                               effectiveFolder, StringComparison.OrdinalIgnoreCase));
     }
 
     internal static bool ValidArguments(string arguments) =>
@@ -109,6 +161,7 @@ public sealed class ManualGameLibrary
         }
     }
 
+    /// <summary>Removes only the library entry. The executable, game files and folders are never touched.</summary>
     public bool Remove(string id)
     {
         lock (_gate)
