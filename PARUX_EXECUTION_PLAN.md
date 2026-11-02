@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XIII — store game-launch discovery cannot overlap Gaming hard-off
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Direct owner-confirmed game handoffs through Steam, Epic and GOG previously did local installation discovery outside the existing hard-off wrappers. These three paths now share `GuardedStoreLaunchDiscoveryAsync`, which refuses scans outside AiReady, cancels in-flight manifest/registry reads if another gaming transition starts, and checks readiness before handing off to the official launcher. A stale installed-game snapshot cannot authorize a second launch. Explicit caller cancellation is preserved; neither launcher nor child process identity is inferred.
+
+- Four synthetic xUnit tests cover blocked admission, racing Gaming entry, valid AI-mode snapshot and caller cancellation. No launcher executable, OS registry, ROM, driver or game process is touched by tests.
+- **Build/xUnit/FlaUI/hardware NOT RUN.** Windows gate: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GamingStoreLaunchAdmissionTests|FullyQualifiedName~ManualGameLaunchTests|FullyQualifiedName~GamingTransitionConcurrencyTests"`; then official clients installed, simultaneous game starts, manual Return, and AI/Gaming resource telemetry.
+- Still open: reliable tracking of official launcher child lifetimes, native fullscreen selection for emulators, complete controller input integration, installer rollback and real FPS/VRAM tests.
+
+
 ### 2026-11-02 continuation XII — typed emulator game-file preflight and backward compatibility
 
 **Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** New emulator imports persist a typed, optional `GameFilePath` alongside the executable and command line in the existing version-1 manual library. The selected path is validated as a regular local file of a format supported by that emulator during import and rechecked before launching the process, including immediately after the AI-to-Gaming resource transition. A moved, deleted, linked or unsupported game file fails closed; on failure after entering Gaming, the existing no-process rollback restores state. No game file is downloaded, copied or parsed.

@@ -183,6 +183,34 @@ public sealed class ManualGameSessionService : IDisposable
             GameTitleCatalog.InstallationId(source, game.Id));
     }
 
+    /// <summary>
+    /// Read-only official-store install checks can overlap another Gaming
+    /// entry. Cancel the manifest/registry read when PaRuX leaves AiReady,
+    /// and never authorize a handoff from a stale snapshot. We don't infer
+    /// ownership of any Steam/Epic/GOG child process here.
+    /// </summary>
+    internal static async Task<IReadOnlyList<DiscoveredGameDto>?> GuardedStoreLaunchDiscoveryAsync(
+        Func<CancellationToken, Task<IReadOnlyList<DiscoveredGameDto>>> discover,
+        Func<bool> aiReady, CancellationToken caller)
+    {
+        ArgumentNullException.ThrowIfNull(discover);
+        ArgumentNullException.ThrowIfNull(aiReady);
+        caller.ThrowIfCancellationRequested();
+        if (!aiReady()) return null;
+        using var hardOff = new GamingHardOffWatch(() => !aiReady(), caller);
+        try
+        {
+            IReadOnlyList<DiscoveredGameDto> items = await discover(hardOff.Token).ConfigureAwait(false);
+            caller.ThrowIfCancellationRequested();
+            return hardOff.Triggered || !aiReady() ? null : items;
+        }
+        catch (OperationCanceledException) when (!caller.IsCancellationRequested &&
+            (hardOff.Triggered || !aiReady()))
+        {
+            return null;
+        }
+    }
+
     internal static bool ValidSteamAppId(string? appId) =>
         GameStoreLaunchIdPolicy.Steam(appId);
 
@@ -202,7 +230,11 @@ public sealed class ManualGameSessionService : IDisposable
             if (_orchestrator.CurrentState != "AiReady")
                 return new(false, false, "Return to AI before starting another game.");
 
-            var installed = await _steam.DiscoverAsync(ct).ConfigureAwait(false);
+            var installed = await GuardedStoreLaunchDiscoveryAsync(
+                _steam.DiscoverAsync, () => _orchestrator.CurrentState == "AiReady", ct)
+                .ConfigureAwait(false);
+            if (installed is null)
+                return new(false, false, "Gaming began while Steam games were being checked. No launch was requested.");
             if (!installed.Any(g => g.ProviderId == "steam" && g.ProviderGameId == appId))
                 return new(false, false, "The selected Steam game is not installed locally.");
 
@@ -264,7 +296,11 @@ public sealed class ManualGameSessionService : IDisposable
             if (_orchestrator.CurrentState != "AiReady")
                 return new(false, false, "Return to AI before starting another game.");
 
-            var installed = await _epic.DiscoverAsync(ct).ConfigureAwait(false);
+            var installed = await GuardedStoreLaunchDiscoveryAsync(
+                _epic.DiscoverAsync, () => _orchestrator.CurrentState == "AiReady", ct)
+                .ConfigureAwait(false);
+            if (installed is null)
+                return new(false, false, "Gaming began while Epic games were being checked. No launch was requested.");
             DiscoveredGameDto? game = installed.FirstOrDefault(g =>
                 g.ProviderId == "epic" && string.Equals(g.ProviderGameId, appId, StringComparison.Ordinal));
             if (game == null)
@@ -333,7 +369,11 @@ public sealed class ManualGameSessionService : IDisposable
             if (_orchestrator.CurrentState != "AiReady")
                 return new(false, false, "Return to AI before starting another game.");
 
-            var installed = await _gog.DiscoverAsync(ct).ConfigureAwait(false);
+            var installed = await GuardedStoreLaunchDiscoveryAsync(
+                _gog.DiscoverAsync, () => _orchestrator.CurrentState == "AiReady", ct)
+                .ConfigureAwait(false);
+            if (installed is null)
+                return new(false, false, "Gaming began while GOG games were being checked. No launch was requested.");
             DiscoveredGameDto? game = installed.FirstOrDefault(g =>
                 g.ProviderId == "gog" && g.ProviderGameId == gameId);
             if (game == null)
