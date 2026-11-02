@@ -102,7 +102,8 @@ public sealed class ChatComposerCoverageTests
     }
 
     private static AutomationElement? FindEmptyStateHeading(UiTestApplication app) =>
-        FindNamed(app, ControlType.Text, "Ask PaRuX anything");
+        // Located by AutomationId: the headline text is localised ("Ask PaRuX anything" / "Chiedi qualcosa a PaRuX").
+        app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("HomeHeadline").And(cf.ByControlType(ControlType.Text)));
 
     private static bool IsEmptyStateVisible(UiTestApplication app)
     {

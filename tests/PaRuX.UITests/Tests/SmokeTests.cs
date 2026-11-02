@@ -698,9 +698,9 @@ public sealed class SmokeTests
             AutomationElement? createWorkspaceStatus = null;
             UiWait.For(() =>
             {
+                // Status text depends on the machine's media setup (ready vs needs setup), so locate it by id.
                 createWorkspaceStatus = app.MainWindow.FindFirstDescendant(cf =>
-                    cf.ByName("Create is ready. Every generation runs locally through PaRuX Core.")
-                        .And(cf.ByControlType(ControlType.Text)));
+                    cf.ByAutomationId("Create_Operation_Status_Text").And(cf.ByControlType(ControlType.Text)));
                 return createWorkspaceStatus != null
                     && !createWorkspaceStatus.Properties.IsOffscreen.ValueOrDefault;
             }, "Create workspace content displayed after keyboard activation");
