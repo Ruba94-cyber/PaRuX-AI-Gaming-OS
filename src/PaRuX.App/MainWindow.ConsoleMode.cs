@@ -74,6 +74,21 @@ public sealed partial class MainWindow
                 LocalAiController.Current.IsGameActive(), state, notice, DateTime.UtcNow))
                 return;
 
+            // A TV disconnected during gameplay may have caused Windows to
+            // relocate PaRuX to another screen. Never automatically show Home
+            // on an unselected PC monitor when the user chose TV-only Console.
+            string displayId = SettingsStore.Current.Data.ConsoleTargetDisplayId ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(displayId))
+            {
+                var topology = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
+                if (!topology.Succeeded ||
+                    ConsoleDisplaySelectionPolicy.SelectTarget(topology.Value,
+                        SettingsStore.Current.Data.ConsoleDisplays, displayId) is null)
+                    return;
+            }
+            if (App.IsShuttingDown || !_consoleModeActive ||
+                LocalAiController.Current.IsGameActive()) return;
+
             // This is the sole intentionally foregrounding behavior: explicitly
             // opt-in, same Console window, exact Core-confirmed process exit.
             // Windows may still deny foreground activation; never force it with
