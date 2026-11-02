@@ -105,6 +105,7 @@ namespace PaRuX
             // the Gaming return state only when the user/OS foregrounds PaRuX.
             // Never focus-steal or run an idle status poll during gameplay.
             Activated += OnConsoleWindowActivated;
+            InitializeConsoleVerifiedReturn();
 
             IntPtr hwnd = WindowNative.GetWindowHandle(this);
             App.Hotkey.Attach(hwnd);
