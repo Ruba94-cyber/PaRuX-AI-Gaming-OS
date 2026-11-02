@@ -267,10 +267,26 @@ internal sealed class ProjectsWorkspacePage
         }
     }
 
+    /// <summary>"All artifacts" and "version history" are collapsible sections (Expanders); their body is only in the UIA
+    /// tree once expanded.</summary>
+    internal AutomationElement FindExpanderSection(string expanderId, string expectedTitle)
+    {
+        AutomationElement? element = null;
+        UiWait.For(() =>
+        {
+            element = _app.FindRawDescendant(_window, el =>
+                el.Properties.AutomationId.ValueOrDefault == expanderId
+                && string.Equals(el.Properties.Name.ValueOrDefault, expectedTitle, StringComparison.Ordinal));
+            return element != null;
+        }, "Collapsible section " + expectedTitle);
+        return element!;
+    }
+
     internal AutomationElement AllArtifactsText
     {
         get
         {
+            UiWait.ExpandById(_window, "Projects_AllArtifacts_Expander");
             AutomationElement? element = null;
             UiWait.For(() =>
             {

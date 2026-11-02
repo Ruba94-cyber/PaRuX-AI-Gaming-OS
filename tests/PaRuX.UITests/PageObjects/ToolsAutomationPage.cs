@@ -140,10 +140,18 @@ internal sealed class ToolsAutomationPage
             el.Properties.ControlType.ValueOrDefault == ControlType.Text
             && el.Properties.Name.ValueOrDefault == "No workflow templates yet.");
 
+    /// <summary>The MCP / automation / workflow editors are progressive-disclosure Expanders; their controls are not in
+    /// the UIA tree until the expander is opened.</summary>
+    private void ExpandEditor(params string[] expanderIds)
+    {
+        foreach (string id in expanderIds) UiWait.ExpandById(_window, id);
+    }
+
     internal AutomationElement AddMcpButton
     {
         get
         {
+            ExpandEditor("Tools_Mcp_Create_Expander");
             AutomationElement? element = null;
             UiWait.For(() =>
             {
@@ -160,6 +168,7 @@ internal sealed class ToolsAutomationPage
     {
         get
         {
+            ExpandEditor("Tools_Automation_Create_Expander");
             AutomationElement? element = null;
             UiWait.For(() =>
             {
@@ -176,6 +185,7 @@ internal sealed class ToolsAutomationPage
     {
         get
         {
+            ExpandEditor("Tools_Workflow_Create_Expander");
             AutomationElement? element = null;
             UiWait.For(() =>
             {
@@ -226,6 +236,7 @@ internal sealed class ToolsAutomationPage
 
     internal AutomationElement? FindWorkflowStepsTextBox()
     {
+        ExpandEditor("Tools_Workflow_Create_Expander", "Tools_Workflow_Json_Expander");
         return _app.FindRawDescendant(_window, el =>
         {
             if (el.Properties.ControlType.ValueOrDefault != ControlType.Edit) return false;

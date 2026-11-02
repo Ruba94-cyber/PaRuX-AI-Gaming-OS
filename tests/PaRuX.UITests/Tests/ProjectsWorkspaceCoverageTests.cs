@@ -61,8 +61,8 @@ public sealed class ProjectsWorkspaceCoverageTests
             Assert.NotNull(page.FindSectionHeader("PROJECT REPOSITORY · DESKTOP ONLY"));
             Assert.NotNull(page.FindSectionHeader("PROJECTS"));
             Assert.NotNull(page.FindSectionHeader("ARTIFACTS IN ACTIVE PROJECT"));
-            Assert.NotNull(page.FindSectionHeader("ALL ARTIFACTS · LINK EXPLICITLY"));
-            Assert.NotNull(page.FindSectionHeader("SELECTED ARTIFACT VERSION HISTORY"));
+            Assert.NotNull(page.FindExpanderSection("Projects_AllArtifacts_Expander", "All artifacts · link explicitly"));
+            Assert.NotNull(page.FindExpanderSection("Projects_Versions_Expander", "Selected artifact version history"));
         });
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "Projects"), Trait("Category", "FlaUI")]
