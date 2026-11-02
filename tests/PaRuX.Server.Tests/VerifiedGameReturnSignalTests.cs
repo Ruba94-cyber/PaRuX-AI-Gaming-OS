@@ -57,12 +57,12 @@ public sealed class VerifiedGameReturnSignalTests
             true, true, false, false, ready,
             eventRecord with { ExitUtc = now.AddSeconds(-2) }, now));
         Assert.False(ConsoleAutoReturnPolicy.CanActivate(
-            true, true, false, false, ready with { IsGamingActive = true }, eventRecord, now));
+            true, true, false, false, new GamingStatusDto { State = "AiReady", IsGamingActive = true, LastVerifiedOwnedGameExitUtc = eventRecord.ExitUtc, LastVerifiedOwnedGameExitRestoredAi = true }, eventRecord, now));
         Assert.False(ConsoleAutoReturnPolicy.CanActivate(
-            true, true, false, false, ready with { LastVerifiedOwnedGameExitRestoredAi = false },
+            true, true, false, false, new GamingStatusDto { State = "AiReady", LastVerifiedOwnedGameExitUtc = eventRecord.ExitUtc, LastVerifiedOwnedGameExitRestoredAi = false },
             eventRecord, now));
         Assert.False(ConsoleAutoReturnPolicy.CanActivate(
-            true, true, false, false, ready with { State = "RestoringAi" }, eventRecord, now));
+            true, true, false, false, new GamingStatusDto { State = "RestoringAi", LastVerifiedOwnedGameExitUtc = eventRecord.ExitUtc, LastVerifiedOwnedGameExitRestoredAi = true }, eventRecord, now));
     }
 
     [Fact]
