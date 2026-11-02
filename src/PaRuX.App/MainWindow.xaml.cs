@@ -63,6 +63,7 @@ namespace PaRuX
         {
             InitializeComponent();
             InitializeAccessibilityKeyboardHandling();
+            InitializeModeTabs();
             TrayIcon.LeftClickCommand = new ActionCommand(ExecuteNotificationOrOpenMainWindow);
             TrayIcon.DoubleClickCommand = new ActionCommand(ExecuteNotificationOrOpenMainWindow);
             // H.NotifyIcon turns a WinUI ContextFlyout into a native Win32 menu by
@@ -396,6 +397,7 @@ namespace PaRuX
                     : NavView.MenuItems.OfType<NavigationViewItem>()
                         .FirstOrDefault(item => string.Equals(item.Tag as string, selectedTag, StringComparison.Ordinal));
                 NavView.SelectedItem = previousSelection ?? (liveConversationItem ?? ChatNavItem);
+                ApplyModeTabVisibility();
 
                 if (ChatNavItem != null)
                 {
@@ -719,6 +721,7 @@ namespace PaRuX
 
         public void ShowChat()
         {
+            SyncModeTabToWorkspace(gaming: false);
             NavView.IsPaneVisible = true;
             if (NavView.SelectedItem is NavigationViewItem selectedItem
                 && selectedItem.Tag is string selectedTag
