@@ -1,5 +1,12 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XXII — PCSX2 Qt Big Picture controller-first launch
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** The existing Advanced Game Management emulator import now has a localized, off-by-default controller-first checkbox for PCSX2 Qt. The common, version-compatible request contracts and argument builder append the documented `-bigpicture` before `-- <game>` when explicitly selected; the imported game saves the resulting parameters in the existing library. Non-PCSX2 and legacy `pcsx2.exe` requests are refused before writing entries. Changing emulator selection clears the option. Existing games, requests and fullscreen/windowed flags retain their behavior. This only requests PCSX2's native controller UI; it does NOT force a monitor, verify exclusive fullscreen, install a ROM, patch firmware or launch another application.
+
+- Two synthetic xUnit regressions authored covering exact argument order, backward compatibility and import guard/persistence. No .NET, xUnit, WinUI, controller, PCSX2, TV or Windows hardware execution performed in this session.
+- Windows gate: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~EmulatorManagerTests"`, build Contracts/Server/WinUI, check the checkbox in EN/IT, launch an installed PCSX2 Qt with controller and selected TV; verify fullscreen/controller focus, game exit/manual AI Return and settings isolation. No new dependencies, processes, drivers, GitHub Actions or branches.
+
 ### 2026-11-02 continuation XXI — race-free game download worker admission
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** The GameDownloadManager scheduler previously deferred reading `next.Run.Token` into a queued Task.Run lambda. A fast Pause/Cancel could cancel and dispose the mutable CTS before the lambda executed, producing an unobserved exception and a permanently stale running entry. The token is now captured before scheduling, and the worker checks Gaming/cancellation before any transfer preparation. Enqueue and Gaming-paused resume recheck hard-off under the queue lock (including explicit caller cancellation) to avoid accepting queued jobs across a concurrent Gaming entry. Transfer also checks hard-off before touching partial download files or issuing a network request.

@@ -16,7 +16,8 @@ public static class EmulatorCommandBuilder
 
     public static EmulatorLaunchPlan Build(
         EmulatorDefinition definition, string romPath, bool fullscreen, string? extraArguments,
-        string? corePath, string? launchMode = null, string? inputProfile = null)
+        string? corePath, string? launchMode = null, string? inputProfile = null,
+        bool pcsx2BigPicture = false)
     {
         string mode = launchMode is null
             ? (fullscreen ? EmulatorLaunchModes.Fullscreen : EmulatorLaunchModes.Default)
@@ -35,6 +36,8 @@ public static class EmulatorCommandBuilder
             return Fail("The input profile must be a short name (letters, numbers, spaces, dots, hyphens or underscores).");
         if (profile.Length > 0 && definition.Id is not ("eden" or "eden-cli"))
             return Fail("This input profile flag is currently supported only by Eden.");
+        if (pcsx2BigPicture && definition.Id != "pcsx2")
+            return Fail("Controller-first Big Picture is currently supported only by PCSX2.");
         string extra = (extraArguments ?? string.Empty).Trim();
         if (extra.Length > MaxExtraArgumentsLength || extra.Any(char.IsControl))
             return Fail("Extra arguments are too long or contain control characters.");
@@ -52,6 +55,9 @@ public static class EmulatorCommandBuilder
         {
             switch (token)
             {
+                case "{controller-ui}":
+                    if (pcsx2BigPicture) Add("-bigpicture"); // PCSX2 Qt option
+                    break;
                 case "{input-profile}":
                     if (profile.Length > 0)
                     {

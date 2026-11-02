@@ -4,7 +4,8 @@ namespace PaRuX.Server.Orchestration.Gaming.Emulators;
 /// How an emulator is started. <see cref="Template"/> is an argument LIST (never a shell string) with these tokens:
 /// {rom} full path of the game file, {romdir} its folder, {romname} file name without extension, {core} libretro core
 /// (RetroArch), {fullscreen} expands to the documented fullscreen/windowed switches selected by the user,
-/// {input-profile} inserts the optional sanitized Eden controller profile, and {extra} inserts explicitly
+/// {input-profile} inserts the optional sanitized Eden controller profile,
+/// {controller-ui} inserts opt-in PCSX2 Qt Big Picture, and {extra} inserts explicitly
 /// provided advanced arguments before PaRuX's display selection. The launch syntax is sourced from project docs,
 /// but <see cref="TemplateStatus"/> stays "unverified" until the installed emulator build is tested.
 /// </summary>
@@ -49,7 +50,7 @@ public static class EmulatorRegistry
             WindowedArguments: new[] { "--fullscreen=false" }),
         new("pcsx2", "PCSX2", "PlayStation 2", new[] { "pcsx2-qt.exe", "pcsx2.exe" },
             new[] { ".iso", ".chd", ".cso", ".bin", ".elf", ".gz" }, None,
-            new[] { "-batch", "{extra}", "{fullscreen}", "--", "{rom}" }, new[] { "-fullscreen" }, false,
+            new[] { "-batch", "{extra}", "{fullscreen}", "{controller-ui}", "--", "{rom}" }, new[] { "-fullscreen" }, false,
             WindowedArguments: new[] { "-nofullscreen" }),
         new("rpcs3", "RPCS3", "PlayStation 3", new[] { "rpcs3.exe" },
             new[] { ".elf" }, new[] { "EBOOT.BIN" },

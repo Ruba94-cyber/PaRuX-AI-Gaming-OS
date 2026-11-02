@@ -60,6 +60,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly TextBox _emulatorExtra = new();
     private readonly TextBox _emulatorInputProfile = new() { MaxLength = 80, IsEnabled = false };
     private readonly ComboBox _emulatorLaunchMode = new() { MinWidth = 230 };
+    private readonly CheckBox _emulatorPcsx2BigPicture = new() { IsEnabled = false, IsChecked = false };
     private readonly StackPanel _emulatorGames = new() { Spacing = 4 };
     private readonly TextBlock _emulatorStatus = new() { TextWrapping = TextWrapping.Wrap };
     private EmulatorListDto? _emulators;
@@ -415,6 +416,10 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetAutomationId(_emulatorInputProfile, "Emulators_InputProfile_TextBox");
         _emulatorLaunchMode.Header = T("Display mode on launch", "Modalità schermo all'avvio");
         AutomationProperties.SetAutomationId(_emulatorLaunchMode, "Emulators_LaunchMode_ComboBox");
+        _emulatorPcsx2BigPicture.Content = T(
+            "PCSX2 Qt: controller-first Big Picture interface",
+            "PCSX2 Qt: interfaccia Big Picture per controller");
+        AutomationProperties.SetAutomationId(_emulatorPcsx2BigPicture, "Emulators_Pcsx2_BigPicture_CheckBox");
         foreach (var (box, id) in new[] { (_emulatorExe, "Emulators_Exe_TextBox"), (_emulatorFolder, "Emulators_Folder_TextBox"),
                                           (_emulatorCore, "Emulators_Core_TextBox"), (_emulatorExtra, "Emulators_Extra_TextBox") })
         {
@@ -432,7 +437,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         content.Children.Add(loadEmulators); content.Children.Add(_emulatorBox);
         content.Children.Add(_emulatorExe); content.Children.Add(_emulatorCore); content.Children.Add(_emulatorExtra);
         content.Children.Add(_emulatorInputProfile);
-        content.Children.Add(_emulatorLaunchMode); content.Children.Add(_emulatorFolder);
+        content.Children.Add(_emulatorLaunchMode); content.Children.Add(_emulatorPcsx2BigPicture);
+        content.Children.Add(_emulatorFolder);
         content.Children.Add(new TextBlock
         {
             Text = T("Fullscreen and windowed launch switches are offered only where documented. 'Use emulator settings' keeps its own saved video preferences. Your selected mode is stored with the imported game; verify it on your installed emulator version.",
@@ -572,6 +578,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _emulatorCore.IsEnabled = emulator.RequiresCore;
         _emulatorInputProfile.IsEnabled = emulator.Id is "eden" or "eden-cli";
         if (!_emulatorInputProfile.IsEnabled) _emulatorInputProfile.Text = string.Empty;
+        _emulatorPcsx2BigPicture.IsEnabled = emulator.Id == "pcsx2";
+        _emulatorPcsx2BigPicture.IsChecked = false;
         _emulatorLaunchMode.Items.Clear();
         _emulatorLaunchMode.Items.Add(new ComboBoxItem
         {
@@ -635,7 +643,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
                 string.IsNullOrWhiteSpace(_emulatorExtra.Text) ? null : _emulatorExtra.Text,
                 string.IsNullOrWhiteSpace(_emulatorCore.Text) ? null : _emulatorCore.Text,
                 mode,
-                string.IsNullOrWhiteSpace(_emulatorInputProfile.Text) ? null : _emulatorInputProfile.Text));
+                string.IsNullOrWhiteSpace(_emulatorInputProfile.Text) ? null : _emulatorInputProfile.Text,
+                _emulatorPcsx2BigPicture.IsEnabled && _emulatorPcsx2BigPicture.IsChecked == true));
             if (!result.Succeeded || result.Value is null)
             {
                 _emulatorStatus.Text = T("Nothing was added. Check that the program is the selected emulator and the files are local.",

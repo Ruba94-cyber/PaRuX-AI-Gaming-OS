@@ -34,6 +34,7 @@ public sealed record EmulatorScanDto(List<EmulatedGameDto> Games, bool Truncated
 
 public sealed record EmulatorImportRequestDto(
     string EmulatorId, string ExecutablePath, List<string> GamePaths, bool Fullscreen, string? ExtraArguments,
-    string? CorePath, string? LaunchMode = null, string? InputProfile = null);
+    string? CorePath, string? LaunchMode = null, string? InputProfile = null,
+    bool Pcsx2BigPicture = false);
 
 public sealed record EmulatorImportResultDto(int Added, int Skipped, List<string> Problems);

@@ -9,7 +9,8 @@ public sealed record EmulatorScanRequest(string EmulatorId, string Folder);
 
 public sealed record EmulatorImportRequest(
     string EmulatorId, string ExecutablePath, List<string> GamePaths, bool Fullscreen, string? ExtraArguments,
-    string? CorePath, string? LaunchMode = null, string? InputProfile = null);
+    string? CorePath, string? LaunchMode = null, string? InputProfile = null,
+    bool Pcsx2BigPicture = false);
 
 public sealed record EmulatorImportResult(int Added, int Skipped, IReadOnlyList<string> Problems);
 
@@ -101,6 +102,12 @@ public static class EmulatorEndpoints
         if (!definition.ExecutableNames.Contains(Path.GetFileName(exe), StringComparer.OrdinalIgnoreCase) ||
             !CustomExecutableInputProvider.IsSafeHelperPath(exe))
             return new(0, 0, new[] { $"The executable must be a local, regular {definition.Name} program file ({string.Join(" / ", definition.ExecutableNames)})." });
+        // Big Picture is documented for the Qt executable only: never inject it
+        // into legacy PCSX2 or an unrelated emulator.
+        if (request.Pcsx2BigPicture &&
+            (definition.Id != "pcsx2" ||
+             !string.Equals(Path.GetFileName(exe), "pcsx2-qt.exe", StringComparison.OrdinalIgnoreCase)))
+            return new(0, 0, new[] { "Controller-first Big Picture requires the PCSX2 Qt executable." });
         if (request.GamePaths is not { Count: > 0 } || request.GamePaths.Count > MaxImportBatch)
             return new(0, 0, new[] { $"Select between 1 and {MaxImportBatch} games." });
         // Libretro cores are executable third-party code. They must be regular,
@@ -128,7 +135,7 @@ public static class EmulatorEndpoints
             { problems.Add($"{label}: not a supported local game file."); continue; }
 
             EmulatorLaunchPlan plan = EmulatorCommandBuilder.Build(definition, game!, request.Fullscreen, request.ExtraArguments,
-                request.CorePath, request.LaunchMode, request.InputProfile);
+                request.CorePath, request.LaunchMode, request.InputProfile, request.Pcsx2BigPicture);
             if (plan.Error is not null) { problems.Add($"{label}: {plan.Error}"); continue; }
 
             string title = definition.GameFileNames.Contains(label, StringComparer.OrdinalIgnoreCase)

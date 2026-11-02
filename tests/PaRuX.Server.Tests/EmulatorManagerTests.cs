@@ -91,6 +91,39 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Pcsx2_controller_first_flag_is_opt_in_and_precedes_the_boot_file()
+    {
+        string game = File_("games/Living Room.iso");
+        var plan = EmulatorCommandBuilder.Build(Def("pcsx2"), game, true, null, null,
+            EmulatorLaunchModes.Fullscreen, pcsx2BigPicture: true);
+        Assert.Null(plan.Error);
+        Assert.Equal(new[] { "-batch", "-fullscreen", "-bigpicture", "--", game }, plan.ArgumentList);
+        Assert.DoesNotContain("-bigpicture", EmulatorCommandBuilder.Build(
+            Def("pcsx2"), game, true, null, null).ArgumentList);
+        Assert.NotNull(EmulatorCommandBuilder.Build(
+            Def("eden"), game, true, null, null, pcsx2BigPicture: true).Error);
+    }
+
+    [Fact]
+    public void BigPicture_import_rejects_legacy_executable_and_preserves_library()
+    {
+        string game = File_("games/Living Room.iso");
+        string legacy = File_("legacy/pcsx2.exe", 20_000);
+        string qt = File_("qt/pcsx2-qt.exe", 20_000);
+        var library = new ManualGameLibrary(Path.Combine(_root, "bigpicture.json"));
+        var invalid = EmulatorEndpoints.Import(new("pcsx2", legacy,
+            new() { game }, true, null, null, Pcsx2BigPicture: true), library);
+        Assert.Equal(0, invalid.Added);
+        Assert.Empty(library.List());
+        var accepted = EmulatorEndpoints.Import(new("pcsx2", qt,
+            new() { game }, true, null, null, Pcsx2BigPicture: true), library);
+        Assert.Equal(1, accepted.Added);
+        Assert.Empty(accepted.Problems);
+        Assert.Contains("-bigpicture", Assert.Single(library.List()).Arguments);
+        Assert.Equal(game, Assert.Single(library.List()).GameFilePath);
+    }
+
+    [Fact]
     public void Pcsx2_and_duckstation_put_the_game_after_the_double_dash()
     {
         string rom = File_("game.iso");
