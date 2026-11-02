@@ -48,6 +48,8 @@ public sealed class WorkloadOrchestrator : BackgroundService
     /// <summary>When the current gaming session began; only processes started after it can be "the game".</summary>
     private DateTime? _sessionStartedUtc;
     private string? _lastErrorMessage;
+    // Session-scoped generic reason, never private game/process metadata.
+    private string? _manualReturnRequiredReason;
     // An optional UI notice, not a game-process discovery mechanism. Never attach
     // an old verified exit to a newer session; cleared on the next Gaming entry.
     private DateTime? _lastVerifiedOwnedExitUtc;
@@ -193,6 +195,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
                 CanQuickResume = _suspendedProcessId.HasValue && _suspendedProcessId > 0,
                 Message = _lastErrorMessage ?? GetStateDescription(_state),
                 LastStateChangeUtc = _lastStateChangeUtc,
+                ManualReturnRequiredReason = _manualReturnRequiredReason,
                 LastVerifiedOwnedGameExitUtc = _lastVerifiedOwnedExitUtc,
                 LastVerifiedOwnedGameExitRestoredAi = _lastVerifiedOwnedExitRestoredAi
             };
@@ -324,6 +327,22 @@ public sealed class WorkloadOrchestrator : BackgroundService
                     string.Equals(_activeTriggerId, "manual-game", StringComparison.Ordinal)
                     ? _transitionVersion
                     : null;
+        }
+    }
+
+    /// <summary>Only an active exact-version manual session may report a
+    /// predefined manual-return reason. Stale/invalid data cannot reach status.</summary>
+    internal bool ReportManualReturnRequired(long observedVersion, string reason)
+    {
+        if (reason is not ("bootstrap-exited-early" or "child-still-active" or "child-check-inconclusive"))
+            return false;
+        lock (_stateGate)
+        {
+            if (_state != "GamingLocal" || _activeTriggerId != "manual-game" ||
+                _transitionVersion != observedVersion || !_runtime.GamingMode)
+                return false;
+            _manualReturnRequiredReason = reason;
+            return true;
         }
     }
 
@@ -481,6 +500,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
             _transitionVersion++;
             _lastVerifiedOwnedExitUtc = null;
             _lastVerifiedOwnedExitRestoredAi = null;
+            _manualReturnRequiredReason = null;
             SetState("EnteringGaming");
             _sessionStartedUtc = DateTime.UtcNow;
             _activeProfile = profile;
@@ -682,6 +702,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
                 _activeTriggerId = null;
                 _remoteDisconnectUtc = null;
                 _sessionStartedUtc = null;
+                _manualReturnRequiredReason = null;
                 SetState(_suspendedProcessId.HasValue ? "GameSuspended" : "AiReady");
             }
 

@@ -505,12 +505,20 @@ public sealed class ManualGameSessionService : IDisposable
         try
         {
             await process.WaitForExitAsync(stop.Token).ConfigureAwait(false);
-            if (uptime.Elapsed < MinimumMonitoredLifetime || stop.IsCancellationRequested) return;
+            if (stop.IsCancellationRequested) return;
+            if (uptime.Elapsed < MinimumMonitoredLifetime)
+            {
+                _orchestrator.ReportManualReturnRequired(sessionVersion, "bootstrap-exited-early");
+                return;
+            }
 
             OwnedGameChildExitGuard.Result children = OwnedGameChildExitGuard.InspectAtParentExit(
                 process.Id, verifiedStartUtc, DateTime.UtcNow, stop.Token);
             if (children != OwnedGameChildExitGuard.Result.NoLiveDirectChild)
             {
+                _orchestrator.ReportManualReturnRequired(sessionVersion,
+                    children == OwnedGameChildExitGuard.Result.LiveDirectChild
+                        ? "child-still-active" : "child-check-inconclusive");
                 _logger?.LogInformation(
                     "Automatic Return to AI suppressed: child-process check is {Result}. Return to AI manually after closing the game.",
                     children);

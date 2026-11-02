@@ -830,6 +830,9 @@ public sealed class GamingStatusDto
     public bool CanQuickResume { get; set; }
     public string? Message { get; set; }
     public DateTime LastStateChangeUtc { get; set; } = DateTime.UtcNow;
+    /// <summary>Optional code: bootstrap-exited-early, child-still-active or
+    /// child-check-inconclusive. Contains no PID, paths, titles or private data.</summary>
+    public string? ManualReturnRequiredReason { get; set; }
 
     /// <summary>Only populated when PaRuX observed exit of the exact process it launched
     /// and verified. Not a window scan or proof that a child/bootstrap game exited.

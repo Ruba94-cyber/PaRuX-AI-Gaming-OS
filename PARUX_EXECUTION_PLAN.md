@@ -1,5 +1,13 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XVI — explain conservative manual Gaming return
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Direct owned games that exit before the bootstrap grace, leave a live direct child or have an inconclusive Toolhelp snapshot now publish a strictly allowlisted **session-version-verified** manual-return reason in Gaming status. The existing unified Games Desktop/Console view explains it in IT/EN and leaves the explicit Return-to-AI action available. The reason never contains PIDs, paths, titles or machine-private details. It clears on the next Gaming entry and after successful Return. This nullable API addition is compatible with older clients.
+
+- Two synthetic orchestrator tests cover allowlisting, version checks, clearing and no false verified AI-exit notice. **Server/WinUI builds and Windows xUnit/FlaUI or game tests NOT RUN.**
+- Run `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~OwnedGameChildExitGuardTests|FullyQualifiedName~GamingTransitionConcurrencyTests"`, then verify the localized TV UI with a 6+ second bootstrapper and a normal direct game.
+
+
 ### 2026-11-02 continuation XV — fail-closed owned game child guard on verified process exit
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** When an owned direct-executable or emulator process exits after the existing 5-second bootstrap grace, the automatic AI/TV Home return now performs **one** Windows Toolhelp process snapshot. A still-running **direct child**, created during that exact verified process's lifetime, vetoes automatic resource recovery: Gaming stays active until explicit user Return. Unavailable snapshots, unreadable potential children, process identity uncertainty or cancellation also fail closed. There is no process kill, adoption, background poller, driver, elevation, or Steam/Epic/GOG auto-return.

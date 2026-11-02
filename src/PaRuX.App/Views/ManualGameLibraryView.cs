@@ -525,7 +525,21 @@ public sealed class ManualGameLibraryView : UserControl
                 _returnToAiAvailable = status.IsGamingActive || status.State != "AiReady";
                 _lastConfirmedGamingActive = _returnToAiAvailable;
                 _installerInspectionAllowed = !_returnToAiAvailable;
-                _gamingStatus.Text = status.State == "AiReady" && status.IsGamingActive
+                _gamingStatus.Text = status.State == "GamingLocal" && status.IsGamingActive &&
+                    status.ManualReturnRequiredReason is { Length: > 0 } manualReason
+                    ? manualReason switch
+                    {
+                        "bootstrap-exited-early" => T(
+                            "The launched process ended too quickly to confirm the game ended. Gaming remains active; return to AI manually when finished.",
+                            "Il processo avviato si è chiuso troppo presto per confermare la fine del gioco. Gaming rimane attivo; torna all'AI manualmente quando hai finito."),
+                        "child-still-active" => T(
+                            "A child process is still running after the game launcher closed. Gaming remains active; use Return to AI after playing.",
+                            "Dopo la chiusura del launcher è ancora attivo un processo figlio. Gaming rimane attivo; usa Torna all'AI dopo aver giocato."),
+                        _ => T(
+                            "PaRuX could not verify that every game process exited. Gaming stays active; use Return to AI manually.",
+                            "PaRuX non può confermare che tutti i processi del gioco siano terminati. Gaming rimane attivo; usa Torna all'AI manualmente.")
+                    }
+                    : status.State == "AiReady" && status.IsGamingActive
                     ? T("Gaming resource lock is still active after Core restart. Select Return to AI to recover without closing the game.",
                         "Il blocco delle risorse Gaming è ancora attivo dopo il riavvio del Core. Seleziona Torna all'AI per recuperare senza chiudere il gioco.")
                     : status.State == "AiReady"

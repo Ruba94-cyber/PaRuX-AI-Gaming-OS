@@ -241,6 +241,42 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
     }
 
     [Fact]
+    public async Task Manual_return_reason_is_allowlisted_session_bound_and_cleared()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long version = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+        Assert.Null(orchestrator.GetStatus().ManualReturnRequiredReason);
+
+        Assert.False(orchestrator.ReportManualReturnRequired(version, "arbitrary-private-path"));
+        Assert.False(orchestrator.ReportManualReturnRequired(version - 1, "child-still-active"));
+        Assert.True(orchestrator.ReportManualReturnRequired(version, "child-still-active"));
+        Assert.Equal("child-still-active", orchestrator.GetStatus().ManualReturnRequiredReason);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+        Assert.Null(orchestrator.GetStatus().ManualReturnRequiredReason);
+
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        Assert.Null(orchestrator.GetStatus().ManualReturnRequiredReason);
+        Assert.False(orchestrator.ReportManualReturnRequired(version, "child-check-inconclusive"));
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
+    public async Task Short_bootstrap_reason_does_not_mimic_a_verified_AI_restore()
+    {
+        var (orchestrator, _, _) = MakeOrchestrator();
+        Assert.True(await orchestrator.EnterManualGameSessionAsync());
+        long version = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
+        Assert.True(orchestrator.ReportManualReturnRequired(version, "bootstrap-exited-early"));
+        GamingStatusDto state = orchestrator.GetStatus();
+        Assert.Equal("GamingLocal", state.State);
+        Assert.True(state.IsGamingActive);
+        Assert.Equal("bootstrap-exited-early", state.ManualReturnRequiredReason);
+        Assert.Null(state.LastVerifiedOwnedGameExitUtc);
+        Assert.True(await orchestrator.ExitGamingSessionAsync());
+    }
+
+    [Fact]
     public async Task Stale_exit_and_explicit_AI_return_do_not_publish_a_verified_automatic_exit()
     {
         var (orchestrator, _, _) = MakeOrchestrator();
