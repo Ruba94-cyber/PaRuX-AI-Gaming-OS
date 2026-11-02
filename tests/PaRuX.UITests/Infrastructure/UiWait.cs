@@ -82,9 +82,26 @@ internal static class UiWait
         AutomationElement? element = null;
         For(() =>
         {
+            EnsureModeTabFor(root, id);
             element = root.FindFirstDescendant(cf => cf.ByAutomationId(id).And(cf.ByControlType(type)));
             return element != null;
         }, "UI element " + id + " (" + type + ")");
         return element ?? throw new InvalidOperationException("Missing UI element: " + id + " (" + type + ").");
+    }
+
+    /// <summary>The AI | Gaming mode tabs hide the sidebar items of the other tab, and hidden items are not in the UIA tree.
+    /// Before looking up a Navigation_* item, select the tab that owns it. Settings and Help are visible in both tabs.</summary>
+    internal static void EnsureModeTabFor(AutomationElement root, string id)
+    {
+        if (!id.StartsWith("Navigation_", StringComparison.Ordinal)) return;
+        if (id is "Navigation_Settings_Item" or "Navigation_Help_Item") return;
+        string tabId = id == "Navigation_GameLibrary_Item" ? "MainWindow_ModeTab_Gaming" : "MainWindow_ModeTab_AI";
+        try
+        {
+            AutomationElement? tab = root.FindFirstDescendant(cf => cf.ByAutomationId(tabId));
+            var selection = tab?.Patterns.SelectionItem.PatternOrDefault;
+            if (selection != null && !selection.IsSelected.ValueOrDefault) selection.Select();
+        }
+        catch (Exception) { /* the tab strip is not reachable yet; the caller keeps polling */ }
     }
 }
