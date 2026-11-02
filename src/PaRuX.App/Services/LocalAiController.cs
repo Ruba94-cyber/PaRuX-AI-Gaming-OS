@@ -28,6 +28,10 @@ namespace PaRuX.Services
         /// <summary>Raised (on a background thread) whenever a LocalAI state file changes.</summary>
         public event EventHandler? StateChanged;
 
+        /// <summary>Raised only when Core publishes its atomic verified-game
+        /// return receipt. Same filesystem watcher, no polling or new service.</summary>
+        public event EventHandler? VerifiedGameReturnChanged;
+
         private LocalAiController() { }
 
         public async Task<string?> GetManagedProviderEndpointAsync(CancellationToken ct)
@@ -144,15 +148,41 @@ namespace PaRuX.Services
                     IncludeSubdirectories = false,
                     EnableRaisingEvents = true
                 };
-                FileSystemEventHandler onChange = (s, e) => RaiseStateChanged();
+                FileSystemEventHandler onChange = (s, e) =>
+                {
+                    RaiseStateChanged();
+                    RaiseVerifiedGameReturnChanged(e.Name);
+                };
                 _watcher.Changed += onChange;
                 _watcher.Created += onChange;
-                _watcher.Deleted += onChange;
-                _watcher.Renamed += (s, e) => RaiseStateChanged();
+                _watcher.Deleted += (s, e) => RaiseStateChanged();
+                _watcher.Renamed += (s, e) =>
+                {
+                    RaiseStateChanged();
+                    RaiseVerifiedGameReturnChanged(e.Name);
+                };
             }
             catch (Exception ex)
             {
                 Log.Write("LocalAiController.StartWatching failed: " + ex.Message);
+            }
+        }
+
+        private void RaiseVerifiedGameReturnChanged(string? fileName)
+        {
+            // Atomic Publish writes .tmp first, then renames to exactly this
+            // basename. Never activate Home on an intermediate write or other
+            // AI status-file notification.
+            if (!string.Equals(fileName, VerifiedGameReturnSignal.FileName,
+                StringComparison.OrdinalIgnoreCase)) return;
+            if (VerifiedGameReturnChanged is not { } handlers) return;
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try { ((EventHandler)handler)(this, EventArgs.Empty); }
+                catch (Exception ex)
+                {
+                    Log.Write("Verified game return notification failed: " + ex.GetType().Name);
+                }
             }
         }
 
