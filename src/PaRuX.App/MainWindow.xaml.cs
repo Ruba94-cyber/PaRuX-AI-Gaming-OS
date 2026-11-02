@@ -121,7 +121,10 @@ namespace PaRuX
 
             _activeIndicatorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _activeIndicatorTimer.Tick += OnActiveIndicatorTimerTick;
-            _activeIndicatorTimer.Start();
+            // Reuse the existing Gaming marker watcher. No agent API polling
+            // while the game owns CPU/GPU/VRAM, even if Core is unreachable.
+            GamingManager.Current.StateChanged += OnGamingModeChangedForIndicatorTimer;
+            if (!GamingManager.Current.IsActive) _activeIndicatorTimer.Start();
 
             OnboardingPage.Completed += OnOnboardingCompleted;
             OnboardingPage.FindModelRequested += OnFirstModelRequested;
@@ -497,12 +500,27 @@ namespace PaRuX
             catch { }
         }
 
+        private void OnGamingModeChangedForIndicatorTimer(object? sender, EventArgs e)
+        {
+            // GamingManager marshals StateChanged onto the WinUI thread.
+            if (GamingManager.Current.IsActive)
+                _activeIndicatorTimer?.Stop();
+            else
+            {
+                if (_activeIndicatorTimer is { IsEnabled: false })
+                    _activeIndicatorTimer.Start();
+                _dispatcher.TryEnqueue(RefreshActiveIndicators);
+            }
+        }
+
         private async void OnActiveIndicatorTimerTick(object? sender, object e)
         {
+            if (GamingManager.Current.IsActive) return;
             _ = CheckBackgroundWorkNotificationsAsync();
             try
             {
                 AgentTaskListResponse list = await AgentOrchestratorClient.Current.ListAsync(CancellationToken.None).ConfigureAwait(false);
+                if (GamingManager.Current.IsActive) return; // do not update UI mid-game
                 var running = list.Tasks
                     .Where(t => string.Equals(t.Status, AgentTaskStatus.Running, StringComparison.OrdinalIgnoreCase)
                              || string.Equals(t.Status, "running", StringComparison.OrdinalIgnoreCase))
@@ -1114,6 +1132,9 @@ namespace PaRuX
         {
             if (_trayDisposed) return;
             _trayDisposed = true;
+            GamingManager.Current.StateChanged -= OnGamingModeChangedForIndicatorTimer;
+            LocalAiController.Current.StateChanged -= OnLocalAiStateChangedForConsoleReturn;
+            _activeIndicatorTimer?.Stop();
             try
             {
                 TrayIcon.Dispose();
