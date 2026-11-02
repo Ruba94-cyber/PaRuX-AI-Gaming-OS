@@ -357,7 +357,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
                     VerifiedGameReturnSignal.FileIn(LocalAiPaths.StateDir), notice);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
-                ArgumentException or NotSupportedException)
+                ArgumentException or NotSupportedException or System.Security.SecurityException)
             {
                 System.Diagnostics.Trace.TraceWarning(
                     "Verified Gaming return notice could not be published: " + ex.GetType().Name);
