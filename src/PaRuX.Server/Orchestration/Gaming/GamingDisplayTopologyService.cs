@@ -176,6 +176,7 @@ public sealed class GamingDisplayTopologyService
                 int width = info.Monitor.Right - info.Monitor.Left;
                 int height = info.Monitor.Bottom - info.Monitor.Top;
                 var settings = new DevMode { Size = (ushort)Marshal.SizeOf<DevMode>() };
+                int left = info.Monitor.Left, top = info.Monitor.Top;
                 int hz = 0; // 0 means Windows did not report a reliable rate.
                 if (EnumDisplaySettings(info.Device, CurrentSettings, ref settings))
                 {
@@ -184,13 +185,15 @@ public sealed class GamingDisplayTopologyService
                     {
                         width = (int)settings.PixelsWidth;
                         height = (int)settings.PixelsHeight;
+                        // DEVMODE position is in physical pixels like the size above; MONITORINFO may be DPI-virtualized.
+                        if ((settings.Fields & 0x20) != 0) { left = settings.PositionX; top = settings.PositionY; }
                     }
                     if (settings.Frequency is >= 2 and <= 1000)
                         hz = (int)settings.Frequency;
                 }
 
                 result.Add(new GamingDisplayModeDto(info.Device, (info.Flags & PrimaryMonitor) != 0,
-                    info.Monitor.Left, info.Monitor.Top, width, height, hz)
+                    left, top, width, height, hz)
                 {
                     FriendlyName = ReadFriendlyName(info.Device)
                 });
