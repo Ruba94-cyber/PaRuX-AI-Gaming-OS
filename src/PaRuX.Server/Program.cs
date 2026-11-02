@@ -3817,6 +3817,7 @@ PaRuX.Server.Orchestration.AgentLibraryEndpoints.MapAgentLibraryEndpoints(app);
 app.MapGameSaveBackupEndpoints();
 app.MapEmulatorEndpoints();
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
+PaRuX.Server.Orchestration.Gaming.Discover.GameDiscoverEndpoints.MapGameDiscoverEndpoints(app);
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.
