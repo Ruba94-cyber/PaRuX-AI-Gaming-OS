@@ -63,3 +63,18 @@ public sealed record VerifiedGameReturnSignal(long SessionVersion, DateTime Exit
         }
     }
 }
+
+    
+/// <summary>Pure permission gate for any automatic foreground activation.
+/// Every condition must be true; no mere focus event or removed Gaming marker
+/// can authorize bringing Console Home over another application.</summary>
+public static class ConsoleAutoReturnPolicy
+{
+    public static bool CanActivate(bool enabled, bool consoleIsOpen,
+        bool interactionBusy, bool gamingActive, GamingStatusDto? status,
+        VerifiedGameReturnSignal? signal, DateTime nowUtc) =>
+        enabled && consoleIsOpen && !interactionBusy && !gamingActive &&
+        GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(status) &&
+        VerifiedGameReturnSignal.IsRecentAndMatching(
+            signal, status?.LastVerifiedOwnedGameExitUtc, nowUtc);
+}
