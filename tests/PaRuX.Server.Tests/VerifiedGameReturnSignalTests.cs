@@ -28,6 +28,44 @@ public sealed class VerifiedGameReturnSignalTests
     }
 
     [Fact]
+    public void Console_foreground_activation_requires_opt_in_open_console_and_verified_Core_receipt()
+    {
+        DateTime now = DateTime.UtcNow;
+        var eventRecord = new VerifiedGameReturnSignal(19, now.AddSeconds(-1));
+        var ready = new GamingStatusDto
+        {
+            State = "AiReady",
+            IsGamingActive = false,
+            LastVerifiedOwnedGameExitUtc = eventRecord.ExitUtc,
+            LastVerifiedOwnedGameExitRestoredAi = true
+        };
+        Assert.True(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            false, true, false, false, ready, eventRecord, now)); // default off
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, false, false, false, ready, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, true, false, ready, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, true, ready, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, null, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready, null, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready,
+            eventRecord with { ExitUtc = now.AddSeconds(-2) }, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready with { IsGamingActive = true }, eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready with { LastVerifiedOwnedGameExitRestoredAi = false },
+            eventRecord, now));
+        Assert.False(ConsoleAutoReturnPolicy.CanActivate(
+            true, true, false, false, ready with { State = "RestoringAi" }, eventRecord, now));
+    }
+
+    [Fact]
     public void Atomic_file_round_trip_contains_only_session_number_and_UTC_exit_time()
     {
         string root = Path.Combine(Path.GetTempPath(), "parux-return-" + Guid.NewGuid().ToString("N"));
