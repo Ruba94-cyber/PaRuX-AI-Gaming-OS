@@ -30,7 +30,7 @@ public sealed partial class MainWindow
     private void InitializeConsoleVerifiedReturn()
     {
         RememberLatestVerifiedReturn();
-        LocalAiController.Current.StateChanged += OnLocalAiStateChangedForConsoleReturn;
+        LocalAiController.Current.VerifiedGameReturnChanged += OnVerifiedGameReturnChanged;
     }
 
     private void RememberLatestVerifiedReturn()
@@ -40,7 +40,7 @@ public sealed partial class MainWindow
             _lastObservedVerifiedReturnUtc = notice?.ExitUtc;
     }
 
-    private void OnLocalAiStateChangedForConsoleReturn(object? sender, EventArgs args)
+    private void OnVerifiedGameReturnChanged(object? sender, EventArgs args)
     {
         // The FileSystemWatcher callback is a worker thread, not a WinUI thread.
         // It already listens to the exact directory in which Core publishes the
