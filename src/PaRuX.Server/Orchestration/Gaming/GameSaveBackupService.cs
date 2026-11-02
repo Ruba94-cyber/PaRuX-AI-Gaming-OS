@@ -53,7 +53,7 @@ public sealed class GameSaveBackupService
 
     private static List<(string Absolute, string Relative, long Bytes)> Inspect(string directory)
     {
-        var files = new List<(string, string, long)>();
+        var files = new List<(string Absolute, string Relative, long Bytes)>();
         var queue = new Queue<(string Folder, int Depth)>();
         queue.Enqueue((directory, 0));
         long total = 0;

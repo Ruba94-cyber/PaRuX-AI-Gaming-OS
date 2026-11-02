@@ -339,7 +339,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
         lock (_stateGate)
         {
             if (_state != "GamingLocal" || _activeTriggerId != "manual-game" ||
-                _transitionVersion != observedVersion || !_runtime.GamingMode)
+                _transitionVersion != observedVersion || !_processManager.GamingActive)
                 return false;
             _manualReturnRequiredReason = reason;
             return true;
@@ -358,7 +358,7 @@ public sealed class WorkloadOrchestrator : BackgroundService
             // A stale callback after manual Return may see version+1/AiReady,
             // but an actual automatic transition must also report success.
             if (restored && _transitionVersion == observedVersion + 1 &&
-                _state == "AiReady" && !_runtime.GamingMode)
+                _state == "AiReady" && !_processManager.GamingActive)
             {
                 _lastVerifiedOwnedExitUtc = DateTime.UtcNow;
                 _lastVerifiedOwnedExitRestoredAi = true;

@@ -1328,7 +1328,9 @@ public sealed class ManualGameLibraryView : UserControl
             // Make the optional TV window routing visible BEFORE permission
             // to launch. A chosen TV does not promise fullscreen routing.
             var displaySettings = SettingsStore.Current.Data;
-            bool routeToTv = !isApplication && displaySettings.RouteVerifiedWindowedGamesToTv;
+            // Routing is opt-in through choosing a TV; with none chosen the game launches normally.
+            bool routeToTv = !isApplication && displaySettings.RouteVerifiedWindowedGamesToTv &&
+                !string.IsNullOrWhiteSpace(displaySettings.ConsoleTargetDisplayId);
             string? gameDisplayId = null;
             if (routeToTv)
             {

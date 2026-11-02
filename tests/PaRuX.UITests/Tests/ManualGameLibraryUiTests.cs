@@ -49,9 +49,19 @@ public sealed class ManualGameLibraryUiTests
             // The game is deliberately non-executable. Verify the confirmation appears
             // and that cancelling it cannot start the fixture or change Gaming state.
             launch.Patterns.Invoke.Pattern.Invoke();
-            var cancelLaunch = Find(() => app.MainWindow.FindFirstDescendant(
-                cf => cf.ByAutomationId("CloseButton").And(cf.ByControlType(ControlType.Button))),
-                "manual game launch consent dialog");
+            AutomationElement cancelLaunch;
+            try
+            {
+                cancelLaunch = Find(() => app.MainWindow.FindFirstDescendant(
+                    cf => cf.ByAutomationId("CloseButton").And(cf.ByControlType(ControlType.Button))),
+                    "manual game launch consent dialog");
+            }
+            catch (TimeoutException ex)
+            {
+                string? status = app.MainWindow.FindFirstDescendant(
+                    cf => cf.ByAutomationId("GameLibrary_Status_Text"))?.Name;
+                throw new TimeoutException(ex.Message + " Library status: " + (status ?? "<none>"), ex);
+            }
             cancelLaunch.Patterns.Invoke.Pattern.Invoke();
             Assert.Equal("fixture, not executable", File.ReadAllText(marker));
             // Cancelling the dialog ends the library's busy state a moment later; a click before that is ignored by design.
@@ -120,8 +130,8 @@ public sealed class ManualGameLibraryUiTests
             var hidRestore = UiWait.ById(app.MainWindow, "GameDevices_HidHide_Restore_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(hidStatus.Name));
             Assert.False(string.IsNullOrWhiteSpace(hidRestore.Name));
-            var mappingA = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_A_Index");
-            var mappingDeadzone = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Deadzone");
+            var mappingA = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_A_Index", ControlType.Spinner);
+            var mappingDeadzone = UiWait.ById(app.MainWindow, "GameDevices_RawMapping_Deadzone", ControlType.Spinner);
             Assert.False(string.IsNullOrWhiteSpace(mappingLoad.Name));
             Assert.False(string.IsNullOrWhiteSpace(mappingSave.Name));
             Assert.False(string.IsNullOrWhiteSpace(mappingA.Properties.AutomationId.ValueOrDefault));
