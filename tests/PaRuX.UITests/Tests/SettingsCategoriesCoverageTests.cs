@@ -71,6 +71,9 @@ public sealed class SettingsCategoriesCoverageTests
             var routeGames = app.MainWindow.FindFirstDescendant(cf =>
                 cf.ByAutomationId("Settings_ConsoleDisplays_RouteGames_Toggle"));
             Assert.NotNull(routeGames); // no click: persistent preferences stay untouched
+            var autoReturn = app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("Settings_ConsoleDisplays_AutoReturn_Toggle"));
+            Assert.NotNull(autoReturn); // opt-in control, never toggled by smoke test
         });
 
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Settings")]
