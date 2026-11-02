@@ -910,6 +910,26 @@ public sealed class SmokeTests
         }
     }
 
+    /// <summary>Opens the Model Hub "Hardware details" dialog, returns its full hardware text and closes it again.</summary>
+    private static string ReadHardwareDetails(UiTestApplication app)
+    {
+        UiWait.ById(app.MainWindow, "ModelHub_HardwareDetails_Button", ControlType.Button).Patterns.Invoke.Pattern.Invoke();
+        string text = string.Empty;
+        UiWait.For(() =>
+        {
+            AutomationElement? el = app.FindRawDescendant(app.MainWindow, e =>
+                e.Properties.ControlType.ValueOrDefault == ControlType.Text
+                && (e.Properties.Name.ValueOrDefault ?? string.Empty).StartsWith("Hardware fit source:", StringComparison.Ordinal));
+            text = el?.Properties.Name.ValueOrDefault ?? string.Empty;
+            return text.Length > 0;
+        }, "Hardware details dialog text");
+        FlaUI.Core.Input.Keyboard.Press(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+        UiWait.For(() => app.FindRawDescendant(app.MainWindow, e =>
+            (e.Properties.Name.ValueOrDefault ?? string.Empty).StartsWith("Hardware fit source:", StringComparison.Ordinal)) == null,
+            "Hardware details dialog closed");
+        return text;
+    }
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "Models"), Trait("Category", "Accessibility")]
     public void Model_hub_discloses_shared_memory_as_RAM_not_dedicated_VRAM()
     {
@@ -922,9 +942,12 @@ public sealed class SmokeTests
 
             AutomationElement summary = UiWait.ById(app.MainWindow, "ModelHub_HardwareSummary_Text", ControlType.Text);
             Assert.Contains("AMD Radeon 780M Graphics", summary.Name, StringComparison.Ordinal);
-            Assert.True(Regex.IsMatch(summary.Name, @"15[,.]0 GB shared system-memory limit"), summary.Name);
-            Assert.Contains("not extra VRAM", summary.Name, StringComparison.Ordinal);
-            Assert.Contains("text-vulkan", summary.Name, StringComparison.Ordinal);
+            // The summary line is compact (ellipsised); the full "shared memory is not VRAM" disclosure is in Hardware details.
+            Assert.True(Regex.IsMatch(summary.Name, @"15[,.]0 GB"), summary.Name);
+            string details = ReadHardwareDetails(app);
+            Assert.True(Regex.IsMatch(details, @"15[,.]0 GB shared system-memory limit"), details);
+            Assert.Contains("not extra VRAM", details, StringComparison.Ordinal);
+            Assert.Contains("text-vulkan", details, StringComparison.Ordinal);
             Assert.Contains("no runtime or model action occurred", UiWait.ById(
                 app.MainWindow, "ModelHub_Status_Text", ControlType.Text).Name, StringComparison.Ordinal);
 
@@ -933,8 +956,9 @@ public sealed class SmokeTests
             UiWait.For(() => summary.Name.Contains("no compatible installed PaRuX text backend", StringComparison.Ordinal),
                 "physical GPU without executable text backend disclosure");
             Assert.Contains("AMD discrete test adapter detected", summary.Name, StringComparison.Ordinal);
-            Assert.Contains("current model fit uses CPU/RAM only", summary.Name, StringComparison.Ordinal);
-            Assert.DoesNotContain("8 GB dedicated", summary.Name, StringComparison.Ordinal);
+            string ineligibleDetails = ReadHardwareDetails(app);
+            Assert.Contains("current model fit uses CPU/RAM only", ineligibleDetails, StringComparison.Ordinal);
+            Assert.DoesNotContain("8 GB dedicated", summary.Name + ineligibleDetails, StringComparison.Ordinal);
             Assert.Contains("CPU/RAM-only", UiWait.ById(
                 app.MainWindow, "ModelHub_Status_Text", ControlType.Text).Name, StringComparison.Ordinal);
         }

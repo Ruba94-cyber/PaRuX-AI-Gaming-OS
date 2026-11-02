@@ -309,14 +309,16 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
 
             UiWait.ById(app.MainWindow, "ModelHub_Search_TextBox", ControlType.Edit);
 
-            AutomationElement? modelHubIntro = null;
+            // The Model Hub no longer has a marketing intro; its local-only honesty lives in the suggestions disclosure,
+            // which says candidates are public-feed metadata and nothing is downloaded or routed without review.
+            AutomationElement? disclosure = null;
             UiWait.For(() =>
             {
-                modelHubIntro = page.FindTextElement("Choose the right local model, not just a file.");
-                return modelHubIntro != null && !modelHubIntro.Properties.IsOffscreen.ValueOrDefault;
-            }, "Model Hub introductory local-only text");
-            Assert.NotNull(modelHubIntro);
-            Assert.Contains("Compare GGUF quantizations against this PC's real GPU/RAM capacity", modelHubIntro.Name, StringComparison.Ordinal);
+                disclosure = page.FindTextElement("nothing is downloaded, validated or routed until you review it");
+                return disclosure != null;
+            }, "Model Hub no-automatic-download disclosure");
+            Assert.NotNull(disclosure);
+            Assert.Contains("Chosen from public model feeds by how well they fit this PC", disclosure.Name, StringComparison.Ordinal);
         });
 
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Settings")]

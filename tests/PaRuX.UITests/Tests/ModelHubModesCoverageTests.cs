@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
@@ -60,7 +61,12 @@ public sealed class ModelHubModesCoverageTests
                 UiWait.For(() => Find(app, id) != null, id + " visible in Advanced mode");
             AutomationElement filter = UiWait.ById(app.MainWindow, "ModelHub_CandidateFilter_TextBox", ControlType.Edit);
             AutomationElement search = UiWait.ById(app.MainWindow, "ModelHub_Search_TextBox", ControlType.Edit);
-            Assert.True(filter.BoundingRectangle.Top > search.BoundingRectangle.Top,
+            // Compare layout (document) order rather than screen coordinates: on a small or scaled window the Candidate
+            // controls are scrolled off-screen and report no usable bounding rectangle.
+            string?[] order = app.MainWindow.FindAllDescendants().Select(e => e.Properties.AutomationId.ValueOrDefault).ToArray();
+            int searchIndex = Array.IndexOf(order, "ModelHub_Search_TextBox");
+            int filterIndex = Array.IndexOf(order, "ModelHub_CandidateFilter_TextBox");
+            Assert.True(searchIndex >= 0 && filterIndex > searchIndex,
                 "The search row stays at the top; Candidate controls follow it in Advanced mode.");
         });
 }
