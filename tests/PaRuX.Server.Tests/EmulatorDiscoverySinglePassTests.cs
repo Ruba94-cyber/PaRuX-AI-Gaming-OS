@@ -1,3 +1,4 @@
+using PaRuX.Server.Orchestration.Gaming;
 using PaRuX.Server.Orchestration.Gaming.Emulators;
 using Xunit;
 
@@ -64,6 +65,39 @@ public sealed class EmulatorDiscoverySinglePassTests : IDisposable
         stop.Cancel();
         Assert.Throws<OperationCanceledException>(() =>
             EmulatorDiscovery.Detect(new[] { _root }, stop.Token));
+    }
+
+    [Fact]
+    public void Import_fails_closed_when_Gaming_is_already_active()
+    {
+        string exe = FakeExe("Eden/eden.exe");
+        string rom = FakeExe("Games/First.nro");
+        var library = new ManualGameLibrary(Path.Combine(_root, "blocked-library.json"));
+        var outcome = EmulatorEndpoints.Import(
+            new EmulatorImportRequest("eden", exe, new() { rom }, true, null, null),
+            library, () => true);
+        Assert.Equal(0, outcome.Added);
+        Assert.Empty(library.List());
+        Assert.Contains(outcome.Problems, p => p.Contains("Gaming", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Import_preserves_a_truthful_partial_result_when_Gaming_starts_mid_batch()
+    {
+        string exe = FakeExe("Eden/eden.exe");
+        string first = FakeExe("Games/First.nro");
+        string second = FakeExe("Games/Second.nro");
+        var library = new ManualGameLibrary(Path.Combine(_root, "partial-library.json"));
+        bool GamingBegan() => library.List().Count > 0;
+
+        var outcome = EmulatorEndpoints.Import(
+            new EmulatorImportRequest("eden", exe, new() { first, second }, true, null, null),
+            library, GamingBegan);
+
+        Assert.Equal(1, outcome.Added);
+        Assert.Equal(0, outcome.Skipped);
+        Assert.Equal("First", Assert.Single(library.List()).Name);
+        Assert.Contains(outcome.Problems, p => p.Contains("Gaming started", StringComparison.Ordinal));
     }
 
     public void Dispose()

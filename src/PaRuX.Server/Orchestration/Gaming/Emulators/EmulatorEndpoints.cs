@@ -77,16 +77,22 @@ public static class EmulatorEndpoints
         {
             if (runtime.GamingMode)
                 return Results.Conflict(new { error = "Emulator import is unavailable while Gaming." }) as IResult;
-            EmulatorImportResult result = Import(request, library);
+            EmulatorImportResult result = Import(request, library, () => runtime.GamingMode);
             if (result.Added > 0) cache.Invalidate();
+            // If Gaming began mid-batch, preserve a truthful partial result; do
+            // not report a completed import while the GPU/disk hard-off is active.
+            if (runtime.GamingMode) return Results.Conflict(result) as IResult;
             return result.Problems.Count > 0 && result.Added == 0 && result.Skipped == 0
                 ? Results.BadRequest(result) : Results.Ok(result);
         }).RequireDesktopOwner();
     }
 
-    internal static EmulatorImportResult Import(EmulatorImportRequest request, ManualGameLibrary library)
+    internal static EmulatorImportResult Import(EmulatorImportRequest request, ManualGameLibrary library,
+        Func<bool>? gamingActive = null)
     {
         var problems = new List<string>();
+        if (gamingActive?.Invoke() == true)
+            return new(0, 0, new[] { "Gaming is active; emulator import was not started." });
         EmulatorDefinition? definition = EmulatorRegistry.Find(request.EmulatorId);
         if (definition is null) return new(0, 0, new[] { "Unknown emulator." });
 
@@ -110,6 +116,13 @@ public static class EmulatorEndpoints
         int added = 0, skipped = 0;
         foreach (string game in request.GamePaths)
         {
+            // Multi-game import writes one entry at a time. Stop before touching
+            // the next file if Gaming starts; already persisted entries remain.
+            if (gamingActive?.Invoke() == true)
+            {
+                problems.Add("Gaming started during import. Previously added games were preserved; remaining games were not processed.");
+                break;
+            }
             string label = Path.GetFileName(game ?? string.Empty);
             if (!GamingLocalFileSafetyPolicy.IsSafeRegularFile(game, allowedExtensions) || !EmulatorRegistry.IsGameFile(definition, game!))
             { problems.Add($"{label}: not a supported local game file."); continue; }
@@ -126,6 +139,11 @@ public static class EmulatorEndpoints
                 library.Add(new AddManualGameRequest(title, Path.GetFullPath(exe), plan.Arguments, workingDirectory,
                     ManualEntryKinds.Game, definition.Platform, definition.Id));
                 added++;
+                if (gamingActive?.Invoke() == true)
+                {
+                    problems.Add("Gaming started during import. Previously added games were preserved; remaining games were not processed.");
+                    break;
+                }
             }
             catch (InvalidOperationException) { skipped++; } // already in the library
             catch (ArgumentException ex) { problems.Add($"{label}: {ex.Message}"); }
