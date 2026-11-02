@@ -6,7 +6,7 @@
 
 **GPU VERIFIED (engine level, NOT through PaRuX Runtime Manager):** official llama.cpp b12050 CUDA 13.4 (hashes checked) with Qwen3.5-4B Q4_K_M on the RTX 5080 (CC 12.0, driver 621.01, 16 GB): `llama-bench` pp512 about 12035 t/s, tg128 about 200.7 t/s; `llama-server` ready in 2.8 s, about 3.3 GB VRAM loaded, first token 123 ms, VRAM 0 MiB after the process stopped. Not yet measured: PaRuX-installed runtime selection, Gaming-mode VRAM release through PaRuX, larger models, stability over time, FPS overhead.
 
-**Download manager audit (open work):** only HTTPS works; no magnet/.torrent, no source abstraction (`GameDownloadManager` is HTTP-hardwired), no install hand-off, completed paths and interrupted jobs are lost on restart. Planned: `IGameDownloadTransport`, persistence, external torrent-client adapter (e.g. qBittorrent WebUI) with re-hash before publish, install hand-off. No repack catalogue or built-in source by design.
+**Download manager audit (open work):** only HTTPS works; no magnet/.torrent, no source abstraction (`GameDownloadManager` is HTTP-hardwired), no install hand-off. Not defects: completed paths and interrupted jobs are intentionally not persisted (no absolute user paths and no secret query strings in history); any restart-time inspect/stage needs a new explicit design that keeps that guarantee. Planned: `IGameDownloadTransport`, external torrent-client adapter (e.g. qBittorrent WebUI) with re-hash before publish, install hand-off. No repack catalogue or built-in source by design.
 
 ### 2026-11-02 continuation XXII — PCSX2 Qt Big Picture controller-first launch
 
