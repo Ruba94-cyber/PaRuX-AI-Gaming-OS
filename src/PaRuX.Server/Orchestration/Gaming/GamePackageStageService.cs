@@ -198,12 +198,20 @@ public sealed class GamePackageStageService
             throw new InvalidOperationException("Staging management unavailable while Gaming.");
         if (!Directory.Exists(_stagingRoot)) return false;
         EnsureLocalUnlinkedDirectory(_stagingRoot);
-        using var lease = await AcquireStagingLeaseAsync(ct);
+        // Cancel even while a different PaRuX instance holds the persistent
+        // staging lease. A Gaming transition must not queue a delayed deletion.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingCancellation());
+        using var lease = await AcquireStagingLeaseAsync(linked.Token);
+        linked.Token.ThrowIfCancellationRequested();
+        if (_gamingOrUnready())
+            throw new InvalidOperationException("Gaming interrupted staged-package deletion.");
         string[] matches = EnumerateManagedPackageFiles()
             .Where(p => string.Equals(Path.GetFileNameWithoutExtension(p),
                 "game-" + id, StringComparison.OrdinalIgnoreCase)).ToArray();
         if (matches.Length != 1) return false;
-        ct.ThrowIfCancellationRequested();
+        linked.Token.ThrowIfCancellationRequested();
+        if (_gamingOrUnready())
+            throw new InvalidOperationException("Gaming interrupted staged-package deletion.");
         File.Delete(matches[0]);
         return true;
     }
@@ -226,8 +234,10 @@ public sealed class GamePackageStageService
         EnsureLocalUnlinkedDirectory(_stagingRoot);
         Directory.CreateDirectory(_stagingRoot);
         EnsureLocalUnlinkedDirectory(_stagingRoot);
-        using var stagingLease = await AcquireStagingLeaseAsync(ct);
+        // Admission and lease acquisition share the Gaming cancellation token:
+        // staging must not remain queued behind another writer after hard-off.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingCancellation());
+        using var stagingLease = await AcquireStagingLeaseAsync(linked.Token);
         linked.Token.ThrowIfCancellationRequested();
         if (_gamingOrUnready())
             throw new InvalidOperationException("Gaming interrupted package staging.");

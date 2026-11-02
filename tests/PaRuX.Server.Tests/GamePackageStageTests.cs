@@ -118,6 +118,65 @@ public sealed class GamePackageStageTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public async Task Gaming_transition_cancels_stage_while_another_process_holds_the_lease()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string source = Path.Combine(root, "fixture.zip");
+            byte[] content = "source"u8.ToArray();
+            await File.WriteAllBytesAsync(source, content);
+            string staging = Path.Combine(root, "staging");
+            Directory.CreateDirectory(staging);
+            using var held = new FileStream(Path.Combine(staging, GamePackageStageService.LockFileName),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            using var gaming = new CancellationTokenSource();
+            var stage = new GamePackageStageService(
+                () => gaming.IsCancellationRequested, () => gaming.Token, staging);
+            Task<GamePackageStageResult> pending = stage.StageAsync(
+                new GamePackageStageRequest(source, Convert.ToHexString(SHA256.HashData(content))),
+                CancellationToken.None);
+            gaming.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            Assert.Empty(Directory.GetFiles(staging, "game-*.zip"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Gaming_transition_cancels_delete_during_lease_wait_without_removing_package()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string source = Path.Combine(root, "fixture.zip");
+            byte[] content = "source"u8.ToArray();
+            await File.WriteAllBytesAsync(source, content);
+            string staging = Path.Combine(root, "staging");
+            var setup = new GamePackageStageService(() => false,
+                () => CancellationToken.None, staging);
+            var saved = await setup.StageAsync(new GamePackageStageRequest(source,
+                Convert.ToHexString(SHA256.HashData(content))), CancellationToken.None);
+            string id = Path.GetFileNameWithoutExtension(saved.StagedPath)[5..];
+
+            using var held = new FileStream(Path.Combine(staging, GamePackageStageService.LockFileName),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            using var gaming = new CancellationTokenSource();
+            var stage = new GamePackageStageService(
+                () => gaming.IsCancellationRequested, () => gaming.Token, staging);
+            Task<bool> pending = stage.DeleteStagedAsync(id, CancellationToken.None);
+            gaming.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            Assert.Equal(content, await File.ReadAllBytesAsync(saved.StagedPath));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("deadbeef")]

@@ -176,6 +176,7 @@ public static class GamingEndpoints
             try { return await staged.DeleteStagedAsync(id, ct) ? Results.NoContent() : Results.NotFound() as IResult; }
             catch (InvalidOperationException) { return Results.Conflict(new { error = "Leave Gaming before removing a managed package." }); }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted staged-package deletion." }); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { return Results.Problem("The managed package could not be safely removed."); }
         }).RequireDesktopOwner();

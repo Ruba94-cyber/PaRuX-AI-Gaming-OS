@@ -1,5 +1,12 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XIX — immediate Gaming cancellation while staging lease is busy
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Both copy-only package staging and explicit deletion of managed packages now link the existing Gaming hard-off token **before** waiting for the persistent cross-process staging lease. Delete also revalidates readiness and cancellation after acquiring the lease and immediately before removing its exact managed file. The owner-only Delete endpoint reports a Gaming-interrupted operation as HTTP 409 rather than an unhandled cancellation; caller-canceled requests still report 499. No new polling, background service, driver, package execution or dependency.
+
+- Two synthetic xUnit cases exercise a held staging lock while Gaming activates, for both stage and deletion. Tests deliberately do not install or run any package. **No dotnet compiler/xUnit, Windows lock contention or hardware execution in this session.**
+- Validate on Windows: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GamePackageStageTests|FullyQualifiedName~GameInstallerInspectionTests"`; use two Core processes/lease contention, switch immediately to Gaming and verify zero delayed copy/delete and no stale response.
+
 ### 2026-11-02 continuation XVIII — bounded interrupted-package recovery
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** After an interrupted package-staging copy, exact `.parux-game-<32 lowercase hex>.partial` files may reserve the staging quota indefinitely. The next explicit Stage action now recovers only exact-named, unlinked partials older than 24 hours while holding the existing cross-process lease. It does not touch completed packages, recent/foreign files, in-use handles, symlinks or games. DeleteOnClose binds deletion to the opened file. Recovery is bounded at 256 candidates, honors Gaming cancellation and does no background work.
