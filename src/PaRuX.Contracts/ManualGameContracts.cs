@@ -22,7 +22,8 @@ public sealed record ManualGameDto(
     string WorkingDirectory = "",
     string Kind = ManualEntryKinds.Game,
     string Platform = "",
-    string EmulatorId = "");
+    string EmulatorId = "",
+    string GameFilePath = "");
 
 public sealed record AddManualGameRequest(
     string Name,
@@ -31,4 +32,5 @@ public sealed record AddManualGameRequest(
     string WorkingDirectory = "",
     string Kind = ManualEntryKinds.Game,
     string Platform = "",
-    string EmulatorId = "");
+    string EmulatorId = "",
+    string GameFilePath = "");

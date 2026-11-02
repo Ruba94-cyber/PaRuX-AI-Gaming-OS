@@ -137,7 +137,7 @@ public static class EmulatorEndpoints
             try
             {
                 library.Add(new AddManualGameRequest(title, Path.GetFullPath(exe), plan.Arguments, workingDirectory,
-                    ManualEntryKinds.Game, definition.Platform, definition.Id));
+                    ManualEntryKinds.Game, definition.Platform, definition.Id, Path.GetFullPath(game!)));
                 added++;
                 if (gamingActive?.Invoke() == true)
                 {

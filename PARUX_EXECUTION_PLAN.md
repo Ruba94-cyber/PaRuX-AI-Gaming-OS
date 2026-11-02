@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XII — typed emulator game-file preflight and backward compatibility
+
+**Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** New emulator imports persist a typed, optional `GameFilePath` alongside the executable and command line in the existing version-1 manual library. The selected path is validated as a regular local file of a format supported by that emulator during import and rechecked before launching the process, including immediately after the AI-to-Gaming resource transition. A moved, deleted, linked or unsupported game file fails closed; on failure after entering Gaming, the existing no-process rollback restores state. No game file is downloaded, copied or parsed.
+
+- Existing library JSON and manual applications without the new optional metadata retain legacy behavior, with no automatic migration/re-import. The check is a path preflight, not a race-free file-content or ownership guarantee and does not control emulator-native fullscreen screens.
+- Added synthetic xUnit cases for persisted file metadata and deleted game refusal, unsupported metadata rejection before any library write, and old JSON deserialization.
+- Windows checks **NOT RUN**: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~EmulatorManagerTests|FullyQualifiedName~ManualGameLaunchTests"`; build Contracts/Server/App, then real Eden/Dolphin/PCSX2 launch, corrupt/missing image, driver/eGPU Gaming transitions and old installed library migration. No ROM, key, BIOS, driver or emulator is bundled.
+
+
 ### 2026-11-02 continuation XI — portable folder scan remains cancellable and local
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** `GameFolderInspector` previously materialized all `*.exe` and subdirectory entries with `ToArray()` before respecting the 5,000-entry limit or hard-off cancellation. It now uses streaming enumerators with a check per entry, early cancellation and early exit after truncation. It refuses selected folders beneath linked ancestors and remote mapped volumes, consistently with emulator discovery; it still only suggests executables for owner confirmation and never launches software.

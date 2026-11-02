@@ -427,6 +427,51 @@ public sealed class EmulatorManagerTests : IDisposable
     }
 
     [Fact]
+    public void Imported_game_remembers_file_and_rejects_a_deleted_game_before_launch()
+    {
+        string exe = File_("Eden/eden.exe", 20_000);
+        string rom = File_("Games/Homebrew.nro");
+        string libraryFile = Path.Combine(_root, "game-preflight.json");
+        var library = new ManualGameLibrary(libraryFile);
+        var imported = EmulatorEndpoints.Import(new("eden", exe, new() { rom }, true, null, null), library);
+        Assert.Equal(1, imported.Added);
+        var entry = Assert.Single(library.List());
+        Assert.Equal(rom, entry.GameFilePath);
+        Assert.Null(ManualGameSessionService.ValidateLaunchOptions(entry));
+        File.Delete(rom);
+        Assert.NotNull(ManualGameSessionService.ValidateLaunchOptions(entry));
+        Assert.Equal(rom, Assert.Single(new ManualGameLibrary(libraryFile).List()).GameFilePath);
+    }
+
+    [Fact]
+    public void Unsupported_game_file_metadata_cannot_be_saved_as_an_emulator_title()
+    {
+        string exe = File_("Eden/eden.exe", 20_000);
+        string unsupported = File_("Games/readme.txt");
+        var library = new ManualGameLibrary(Path.Combine(_root, "invalid-game-file.json"));
+        Assert.Throws<ArgumentException>(() => library.Add(new AddManualGameRequest(
+            "Test", exe, "", Path.GetDirectoryName(exe)!, ManualEntryKinds.Game,
+            "Nintendo Switch", "eden", unsupported)));
+        Assert.Empty(library.List());
+    }
+
+    [Fact]
+    public void Older_library_json_without_game_file_path_remains_readable()
+    {
+        string json = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Id = "old",
+            Name = "Existing Homebrew",
+            ExecutablePath = @"C:\Emulators\eden.exe",
+            EmulatorId = "eden"
+        });
+        var existing = System.Text.Json.JsonSerializer.Deserialize<ManualGameDto>(json);
+        Assert.NotNull(existing);
+        Assert.Equal(string.Empty, existing.GameFilePath);
+        Assert.Null(ManualGameSessionService.ValidateLaunchOptions(existing));
+    }
+
+    [Fact]
     public void Import_refuses_a_program_that_is_not_the_named_emulator_and_unsupported_files()
     {
         string notEmulator = File_("emu/calc.exe", 20_000);

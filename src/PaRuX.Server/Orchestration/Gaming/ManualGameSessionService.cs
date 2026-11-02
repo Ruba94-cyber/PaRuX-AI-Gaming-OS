@@ -93,6 +93,10 @@ public sealed class ManualGameSessionService : IDisposable
             try
             {
                 ct.ThrowIfCancellationRequested();
+                // File may have moved while gaming resources were being released.
+                // A failed recheck takes the normal no-process rollback path.
+                string? changedFile = ValidateLaunchOptions(game);
+                if (changedFile is not null) throw new InvalidOperationException(changedFile);
                 string path = Path.GetFullPath(game.ExecutablePath);
                 var info = new ProcessStartInfo
                 {
@@ -378,11 +382,29 @@ public sealed class ManualGameSessionService : IDisposable
         finally { _launchGate.Release(); }
     }
 
-    /// <summary>Re-checks the saved options at launch time: the folder may have changed since it was added.</summary>
+    /// <summary>Validate the typed game-file path recorded by new emulator
+    /// imports, without executing, copying or parsing a game image.</summary>
+    internal static bool IsSafeEmulatorGameFile(string? emulatorId, string? gameFilePath)
+    {
+        var definition = Emulators.EmulatorRegistry.Find(emulatorId);
+        if (definition is null || string.IsNullOrWhiteSpace(gameFilePath) ||
+            gameFilePath.Length > 1024 || gameFilePath.Any(char.IsControl))
+            return false;
+        var allowed = new HashSet<string>(definition.GameExtensions, StringComparer.OrdinalIgnoreCase);
+        foreach (string filename in definition.GameFileNames)
+            allowed.Add(Path.GetExtension(filename));
+        return GamingLocalFileSafetyPolicy.IsSafeRegularFile(gameFilePath, allowed) &&
+               Emulators.EmulatorRegistry.IsGameFile(definition, gameFilePath);
+    }
+
+    /// <summary>Re-checks saved file and options at launch time.</summary>
     internal static string? ValidateLaunchOptions(ManualGameDto game)
     {
         if (!ManualGameLibrary.ValidArguments(game.Arguments ?? string.Empty))
             return "The saved arguments are not valid.";
+        if (!string.IsNullOrWhiteSpace(game.GameFilePath) &&
+            !IsSafeEmulatorGameFile(game.EmulatorId, game.GameFilePath))
+            return "The imported emulator game file is missing, linked or unsupported. Re-import the game before launching.";
         if (!string.IsNullOrEmpty(game.WorkingDirectory) &&
             (!Path.IsPathFullyQualified(game.WorkingDirectory) || !ManualGameLibrary.IsSafeDirectory(game.WorkingDirectory)))
             return "The saved working directory is missing or linked.";

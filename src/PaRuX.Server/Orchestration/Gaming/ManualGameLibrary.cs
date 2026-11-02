@@ -47,6 +47,12 @@ public sealed class ManualGameLibrary
             throw new ArgumentException("The platform name is too long or invalid.");
         if (emulatorId.Length > 0 && Emulators.EmulatorRegistry.Find(emulatorId) is null)
             throw new ArgumentException("Unknown emulator.");
+        // Only newly imported emulator titles carry optional typed game-file
+        // metadata. Legacy library entries stay readable without migration.
+        string gameFilePath = request.GameFilePath?.Trim() ?? "";
+        if (gameFilePath.Length > 0 &&
+            !ManualGameSessionService.IsSafeEmulatorGameFile(emulatorId, gameFilePath))
+            throw new ArgumentException("The emulator game file must be a supported regular local file.");
         if (!ValidArguments(arguments))
             throw new ArgumentException("Arguments must be at most 1024 characters without control characters.");
         if (workingDirectory.Length > 0)
@@ -77,7 +83,7 @@ public sealed class ManualGameLibrary
                                    : g.WorkingDirectory,
                                    effectiveFolder, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("This executable and launch configuration are already in the library.");
-            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId);
+            var game = new ManualGameDto(Guid.NewGuid().ToString("N"), name, path, arguments, workingDirectory, kind, platform, emulatorId, gameFilePath);
             games.Add(game);
             Write(games);
             return game;
