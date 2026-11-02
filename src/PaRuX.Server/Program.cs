@@ -104,6 +104,9 @@ builder.Services.AddSingleton<PresentationService>();
 builder.Services.AddSingleton<SkillRegistryService>();
 builder.Services.AddSingleton<SkillRouter>();
 builder.Services.AddSingleton<PersonaService>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.AgentLibraryConsentStore>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.IAgentLibraryBackend, PaRuX.Server.Orchestration.AgentLibraryBackend>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.AgentLibraryTools>();
 builder.Services.AddSingleton<McpClientRegistry>();
 builder.Services.AddSingleton<AvatarEngineService>();
 builder.Services.AddSingleton<AvatarProviderService>();
@@ -3809,6 +3812,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 app.MapGamingEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
+PaRuX.Server.Orchestration.AgentLibraryEndpoints.MapAgentLibraryEndpoints(app);
 app.MapGameSaveBackupEndpoints();
 app.MapEmulatorEndpoints();
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
