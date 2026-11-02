@@ -1,5 +1,19 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XXIV - owner UX direction: AI and Gaming as two top-level tabs, Playnite/Xbox-style library, AI-aware library (PLAN; NOT STARTED)
+
+Owner requirements (2026-11-02): (1) two main tabs at the top, **AI** and **Gaming**, navigable like two apps in one window; (2) very friendly, striking UI within the PRX Orbit palette (no purple gradients, no glow); (3) a Playnite/Xbox-style library managing everything; (4) the AI can operate on the library on request. Repack catalogues / unauthorised sources stay excluded; user-provided URL/magnet/.torrent is supported generically (adapter, no built-in source).
+
+Today: one left NavigationView (about 15 items, Games is one item, `MainWindow.xaml:39-79`); the title list is a vertical card list (`UniversalLibraryPanel.cs:228-232`, no covers, no sort, no edit/remove, no hidden flag, play time only for manual launches); no agent tool touches the library.
+
+Slices, in order (each ends with build + xUnit + FlaUI; existing `Navigation_*_Item` AutomationIds must stay stable):
+1. Top mode switch AI | Gaming (SelectorBar/segmented) that filters which left-pane items are visible; remembers the last tab; keyboard and controller reachable; IT/EN; FlaUI.
+2. Library sort and filters (recent, play time, installed, platform, source, tag) in `GameTitleCatalog`/`/titles`, plus source/tag controls in the UI.
+3. Cover-tile grid (WrapPanel) with optional user-picked cover and a per-title detail page (profile, emulator, controller, saves, downloads).
+4. Edit/remove entries, hidden flag, bulk favourite/tag/collection.
+5. Play-time and launch tracking for Steam/Epic/GOG launches.
+6. AI library tools for the agent: search/list/favourite/tag/collection freely; launch, remove and download only after an explicit user confirmation; refused while Gaming hard-off requires it.
+
 ### 2026-11-02 continuation XXIII - Windows gate green on updated main; first real GPU measurement
 
 **Gate (this PC, Windows 11, .NET 10): BUILD PASSED / xUnit 1000/1000 / FlaUI 6/6 WINDOWS VERIFIED** after fixing a broken build on `main` (unnamed tuple fields in GameSaveBackupService, missing Automation.Peers import in two panels), two orchestrator tests (runtime.GamingMode is always false under Testing; guards now read the persisted Gaming marker) and a product bug (TV routing was on by default and refused every launch without a chosen TV; it now applies only when a TV is selected).
