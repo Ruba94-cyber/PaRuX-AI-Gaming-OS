@@ -50,7 +50,7 @@ public sealed partial class MainWindow
 
     private async Task HandleVerifiedGameReturnAsync()
     {
-        if (_handlingVerifiedReturn) return;
+        if (_handlingVerifiedReturn || App.IsShuttingDown) return;
         if (!VerifiedGameReturnSignal.TryRead(
                 VerifiedGameReturnSignal.FileIn(AppPaths.LocalAiStateDir), out var notice)
             || notice is null || _lastObservedVerifiedReturnUtc == notice.ExitUtc)
@@ -66,11 +66,10 @@ public sealed partial class MainWindow
         try
         {
             GamingStatusDto? state = await GamingOrchestratorClient.Current.GetStatusAsync();
-            if (!_consoleModeActive || !SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit
-                || GameLibraryPage.IsInteractionBusy || GamingManager.Current.IsActive ||
-                !GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(state) ||
-                !VerifiedGameReturnSignal.IsRecentAndMatching(
-                    notice, state?.LastVerifiedOwnedGameExitUtc, DateTime.UtcNow))
+            if (App.IsShuttingDown || !ConsoleAutoReturnPolicy.CanActivate(
+                SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit,
+                _consoleModeActive, GameLibraryPage.IsInteractionBusy,
+                GamingManager.Current.IsActive, state, notice, DateTime.UtcNow))
                 return;
 
             // This is the sole intentionally foregrounding behavior: explicitly
