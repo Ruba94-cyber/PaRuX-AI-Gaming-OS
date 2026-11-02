@@ -53,6 +53,7 @@ namespace PaRuX
             }
             UpdateContentStudioModeControlsVisibility(NavView.IsPaneOpen);
             ApplyNavigationMode(navigateHomeIfHidden: false);
+            RestoreModeTabFromSettings();
 
             if (!_mediaEditSourceBridgeSubscribed)
             {
@@ -108,8 +109,9 @@ namespace PaRuX
             RuntimeNavItem.Visibility = advanced;
             ChatPage.ApplyInterfaceMode(studio);
             ModelHubPage.ApplyInterfaceMode(studio);
+            ApplyModeTabVisibility();
 
-            if (!studio && navigateHomeIfHidden)
+            if (!studio && navigateHomeIfHidden && !IsGamingModeTab)
             {
                 ShowChat();
                 RefreshHistory();
@@ -245,6 +247,7 @@ namespace PaRuX
                 return;
             }
 
+            SyncModeTabToWorkspace(gaming: workspace == StudioWorkspace.Games);
             NavView.IsPaneVisible = true;
             ChatPage.Visibility = Visibility.Collapsed;
             SettingsPage.Visibility = Visibility.Collapsed;

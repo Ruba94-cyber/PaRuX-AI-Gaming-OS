@@ -16,7 +16,48 @@
     </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid" SizeChanged="RootGrid_SizeChanged" KeyDown="RootGrid_ConsoleKeyDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top-level mode switch (AI / Gaming). Logic lives in MainWindow.ModeTabs.cs. -->
+        <Border
+            x:Name="ModeTabsHost"
+            Grid.Row="0"
+            Padding="12,4,12,4"
+            BorderBrush="{ThemeResource PaRuXStrokeBrush}"
+            BorderThickness="0,0,0,1">
+            <SelectorBar
+                x:Name="ModeTabs"
+                HorizontalAlignment="Left"
+                SelectionChanged="ModeTabs_SelectionChanged"
+                KeyDown="ModeTabs_KeyDown"
+                AutomationProperties.AutomationId="MainWindow_ModeTabs"
+                AutomationProperties.Name="Workspace mode">
+                <SelectorBarItem
+                    x:Name="ModeTabAiItem"
+                    Text="AI"
+                    MinHeight="44"
+                    MinWidth="96"
+                    FontSize="{StaticResource PaRuXFontSizeSubtitle}"
+                    AutomationProperties.AutomationId="MainWindow_ModeTab_AI"
+                    AutomationProperties.Name="AI mode"
+                    ToolTipService.ToolTip="AI (Ctrl+1)" />
+                <SelectorBarItem
+                    x:Name="ModeTabGamingItem"
+                    Text="Gaming"
+                    MinHeight="44"
+                    MinWidth="96"
+                    FontSize="{StaticResource PaRuXFontSizeSubtitle}"
+                    AutomationProperties.AutomationId="MainWindow_ModeTab_Gaming"
+                    AutomationProperties.Name="Gaming mode"
+                    ToolTipService.ToolTip="Gaming (Ctrl+2)" />
+            </SelectorBar>
+        </Border>
+
         <tb:TaskbarIcon
+            Grid.Row="1"
             x:Name="TrayIcon"
             ToolTipText="PaRuX AI &amp; Gaming OS"
             IconSource="Assets/prx-orbit-tray.ico">
@@ -37,6 +78,7 @@
         </tb:TaskbarIcon>
 
         <NavigationView
+            Grid.Row="1"
             x:Name="NavView"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"

@@ -8,6 +8,8 @@ namespace PaRuX.Models
         public string Theme { get; set; } = "System";
         public bool StartWithWindows { get; set; }
         public bool StudioModeEnabled { get; set; }
+        /// <summary>Last top-level shell tab: "AI" (default, also used for any unknown value) or "Gaming".</summary>
+        public string LastModeTab { get; set; } = "AI";
         public bool OnboardingCompleted { get; set; }
         /// <summary>Model Hub suggestion lane the user last picked: "standard" or "uncensored". Empty means not chosen (Standard is shown).</summary>
         public string ModelHubSuggestionLane { get; set; } = string.Empty;
