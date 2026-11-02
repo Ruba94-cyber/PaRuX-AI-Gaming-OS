@@ -59,6 +59,65 @@ public sealed class GamePackageStageTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public async Task Old_exact_partial_is_reclaimed_under_lease_but_foreign_file_survives()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string input = Path.Combine(root, "fixture.zip");
+            byte[] content = "verified bytes"u8.ToArray();
+            await File.WriteAllBytesAsync(input, content);
+            string staging = Path.Combine(root, "staging");
+            Directory.CreateDirectory(staging);
+            string partial = Path.Combine(staging, ".parux-game-" + Guid.NewGuid().ToString("N") + ".partial");
+            await File.WriteAllBytesAsync(partial, new byte[4096]);
+            File.SetLastWriteTimeUtc(partial, DateTime.UtcNow.AddDays(-2));
+
+            string foreign = Path.Combine(staging, "foreign.partial");
+            await File.WriteAllTextAsync(foreign, "keep");
+            File.SetLastWriteTimeUtc(foreign, DateTime.UtcNow.AddDays(-2));
+
+            // Without reclamation, the orphan exceeds this staging quota.
+            var service = new GamePackageStageService(() => false,
+                () => CancellationToken.None, staging, maxTotalStagedBytes: 128);
+            var result = await service.StageAsync(new GamePackageStageRequest(
+                input, Convert.ToHexString(SHA256.HashData(content))), CancellationToken.None);
+
+            Assert.False(File.Exists(partial));
+            Assert.Equal("keep", await File.ReadAllTextAsync(foreign));
+            Assert.Equal(content, await File.ReadAllBytesAsync(result.StagedPath));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Recent_partial_is_retained_and_still_reserves_quota()
+    {
+        string root = NewRoot();
+        Directory.CreateDirectory(root);
+        try
+        {
+            string input = Path.Combine(root, "fixture.zip");
+            byte[] content = "source"u8.ToArray();
+            await File.WriteAllBytesAsync(input, content);
+            string staging = Path.Combine(root, "staging");
+            Directory.CreateDirectory(staging);
+            string partial = Path.Combine(staging, ".parux-game-" + Guid.NewGuid().ToString("N") + ".partial");
+            await File.WriteAllBytesAsync(partial, new byte[256]);
+            var service = new GamePackageStageService(() => false,
+                () => CancellationToken.None, staging, maxTotalStagedBytes: 128);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                service.StageAsync(new GamePackageStageRequest(
+                    input, Convert.ToHexString(SHA256.HashData(content))), CancellationToken.None));
+            Assert.Equal(256L, new FileInfo(partial).Length);
+            Assert.Empty(Directory.GetFiles(staging, "game-*.zip"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("deadbeef")]

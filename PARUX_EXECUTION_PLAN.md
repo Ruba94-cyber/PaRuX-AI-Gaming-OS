@@ -1,5 +1,12 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XVIII — bounded interrupted-package recovery
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** After an interrupted package-staging copy, exact `.parux-game-<32 lowercase hex>.partial` files may reserve the staging quota indefinitely. The next explicit Stage action now recovers only exact-named, unlinked partials older than 24 hours while holding the existing cross-process lease. It does not touch completed packages, recent/foreign files, in-use handles, symlinks or games. DeleteOnClose binds deletion to the opened file. Recovery is bounded at 256 candidates, honors Gaming cancellation and does no background work.
+
+- Two synthetic xUnit tests authored: old partial reclamation without touching foreign files, and recent partial preservation with quota refusal. **No compiler, xUnit, Windows UI, emulator or hardware run in this session.**
+- Windows verification: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GamePackageStageTests"`; simulate a crash mid-copy, a second process holding the partial, Gaming transition, storage exhaustion and catalog/delete behavior. This closes a *copy-staging* recovery gap, **not** actual installer execution/rollback.
+
 ### 2026-11-02 continuation XVII — immutable cancellation token for instant-exit TV launch
 
 **Public main: SOURCE IMPLEMENTED / NOT RUN.** The direct-game launcher now captures a `CancellationToken` before scheduling the exit observer, and passes the captured token to optional selected-TV placement. An instantly exiting .exe can complete the observer and dispose its `CancellationTokenSource` before the placement call is evaluated; the old `stop.Token` property access could throw `ObjectDisposedException` and cause a misleading "game started but automatic return unavailable" response. The immutable captured token remains valid after source disposal; the placement service still fails closed for an exited process. No additional polling, driver or display mutation.

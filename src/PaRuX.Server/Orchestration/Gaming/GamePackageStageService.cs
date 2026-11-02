@@ -13,6 +13,7 @@ public sealed class GamePackageStageService
 {
     private const long MaxBytes = 8L * 1024 * 1024 * 1024;
     private const long MaxStagedBytes = 16L * 1024 * 1024 * 1024;
+    private static readonly TimeSpan InterruptedPartialRetention = TimeSpan.FromHours(24);
     private readonly long _maxTotalStagedBytes;
     private readonly Func<bool> _gamingOrUnready;
     private readonly Func<CancellationToken> _gamingCancellation;
@@ -84,12 +85,60 @@ public sealed class GamePackageStageService
         }
     }
 
-    private void EnsureCapacity(long sourceBytes)
+    /// <summary>
+    /// Reclaim stale PaRuX transaction partials only under the existing staging
+    /// lease, during an explicit AI-ready Stage action. Never sweep in Gaming.
+    /// Completed files, recent/in-use partials, links and foreign names survive.
+    /// </summary>
+    private void PruneInterruptedPartials(CancellationToken ct)
+    {
+        DateTime cutoff = DateTime.UtcNow - InterruptedPartialRetention;
+        int inspected = 0;
+        foreach (string path in Directory.EnumerateFiles(_stagingRoot, ".parux-game-*.partial",
+                     SearchOption.TopDirectoryOnly))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (_gamingOrUnready())
+                throw new InvalidOperationException("Gaming interrupted package recovery.");
+            if (++inspected > 256)
+                throw new InvalidDataException("Too many partial packages to recover safely.");
+
+            string name = Path.GetFileName(path);
+            const string prefix = ".parux-game-";
+            const string suffix = ".partial";
+            if (name.Length != prefix.Length + 32 + suffix.Length ||
+                !name.StartsWith(prefix, StringComparison.Ordinal) ||
+                !name.EndsWith(suffix, StringComparison.Ordinal) ||
+                !ValidStagedId(name.Substring(prefix.Length, 32)))
+                continue;
+
+            var file = new FileInfo(path);
+            file.Refresh();
+            if (!file.Exists || (file.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                file.LastWriteTimeUtc > cutoff)
+                continue;
+
+            // DeleteOnClose acts on the already opened file, avoiding a second
+            // path lookup after the safety check. Never force-delete a file
+            // currently held by another process.
+            try
+            {
+                using var retired = new FileStream(path, FileMode.Open, FileAccess.ReadWrite,
+                    FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) { /* In use, disappeared, or unavailable: retain it. */ }
+        }
+    }
+
+    private void EnsureCapacity(long sourceBytes, CancellationToken ct)
     {
         long used = 0;
         int entries = 0;
         foreach (string path in Directory.EnumerateFiles(_stagingRoot))
         {
+            ct.ThrowIfCancellationRequested();
+            if (_gamingOrUnready())
+                throw new InvalidOperationException("Gaming interrupted staging capacity checks.");
             // The persistent lease file is infrastructure: it neither consumes quota nor entry budget.
             if (string.Equals(Path.GetFileName(path), LockFileName, StringComparison.Ordinal)) continue;
             if (++entries > 256 || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
@@ -178,12 +227,16 @@ public sealed class GamePackageStageService
         Directory.CreateDirectory(_stagingRoot);
         EnsureLocalUnlinkedDirectory(_stagingRoot);
         using var stagingLease = await AcquireStagingLeaseAsync(ct);
-        EnsureCapacity(bytes);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingCancellation());
+        linked.Token.ThrowIfCancellationRequested();
+        if (_gamingOrUnready())
+            throw new InvalidOperationException("Gaming interrupted package staging.");
+        PruneInterruptedPartials(linked.Token);
+        EnsureCapacity(bytes, linked.Token);
         string id = Guid.NewGuid().ToString("N");
         string extension = Path.GetExtension(file.Name);
         string temp = Path.Combine(_stagingRoot, ".parux-game-" + id + ".partial");
         string final = Path.Combine(_stagingRoot, "game-" + id + extension);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingCancellation());
         try
         {
             await using var input = new FileStream(file.FullName, FileMode.Open,
