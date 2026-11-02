@@ -59,6 +59,21 @@ public sealed class RetrievalRuntimeRestartAttestationTests : IDisposable
         return false;
     }
 
+    private static string RepoFile(params string[] parts)
+    {
+        string current = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(current, "PaRuX.sln")))
+        {
+            string? parent = Directory.GetParent(current)?.FullName;
+            if (string.IsNullOrEmpty(parent))
+            {
+                throw new InvalidOperationException("Could not find repository root containing PaRuX.sln");
+            }
+            current = parent;
+        }
+        return Path.Combine(current, string.Join(Path.DirectorySeparatorChar.ToString(), parts));
+    }
+
     [Fact]
     public async Task A_restarted_core_launches_and_attests_its_own_runtime_and_refuses_the_previous_one()
     {
@@ -123,8 +138,7 @@ public sealed class RetrievalRuntimeRestartAttestationTests : IDisposable
     [Fact]
     public void The_retrieval_runtime_never_persists_a_pid_file_that_a_later_core_could_trust()
     {
-        string source = File.ReadAllText(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "PaRuX.Server", "LlamaCppRetrievalProviders.cs"));
+        string source = File.ReadAllText(RepoFile("src", "PaRuX.Server", "LlamaCppRetrievalProviders.cs"));
         Assert.DoesNotContain("PidFile", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(".pid", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TryCaptureIdentity", source, StringComparison.Ordinal);
