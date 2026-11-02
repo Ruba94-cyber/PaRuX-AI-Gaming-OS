@@ -52,13 +52,33 @@ public sealed class OwnedGameWindowPlacementService
             y is >= int.MinValue and <= int.MaxValue ? ((int)x, (int)y) : null;
     }
 
+    /// <summary>Only the same unique physical desktop target geometry may
+    /// authorize an already-on-TV or placed receipt.</summary>
+    internal static bool HasUnchangedTarget(GamingDisplaySnapshotDto? current,
+        GamingDisplayModeDto? expected)
+    {
+        if (current is not { Supported: true } || expected is null ||
+            !ConsoleDisplaySelectionPolicy.ValidDisplayId(expected.DisplayId))
+            return false;
+        var candidates = current.Displays.Where(d =>
+            string.Equals(d.DisplayId, expected.DisplayId, StringComparison.OrdinalIgnoreCase))
+            .Take(2).ToArray();
+        return candidates.Length == 1 &&
+            candidates[0].X == expected.X && candidates[0].Y == expected.Y &&
+            candidates[0].Width == expected.Width && candidates[0].Height == expected.Height &&
+            candidates[0].RefreshRateHz == expected.RefreshRateHz &&
+            candidates[0].Primary == expected.Primary;
+    }
+
     /// <summary>Fail before launching if the requested destination is no longer
     /// connected. Only the current OS topology can authorize positioning.</summary>
     public bool HasConnectedTarget(string? displayId) =>
         OperatingSystem.IsWindows() &&
         ConsoleDisplaySelectionPolicy.ValidDisplayId(displayId) &&
         _topology.Snapshot() is { Supported: true } topology &&
-        topology.Displays.Any(d => string.Equals(d.DisplayId, displayId, StringComparison.OrdinalIgnoreCase));
+        topology.Displays.Count(d =>
+            string.Equals(d.DisplayId, displayId, StringComparison.OrdinalIgnoreCase) &&
+            d.Width > 0 && d.Height > 0) == 1;
 
     /// <summary>Returns a truthful bounded outcome, never throws for a GUI that
     /// is absent, running fullscreen, or refusing repositioning. No periodic
@@ -103,14 +123,21 @@ public sealed class OwnedGameWindowPlacementService
                     int height = rect.Bottom - rect.Top;
                     var centered = CenterUnchangedWindow(destination, width, height);
                     if (!centered.HasValue) return GameWindowPlacementStates.UnsupportedWindow;
+                    if (!HasUnchangedTarget(_topology.Snapshot(), destination))
+                        return GameWindowPlacementStates.DisplayUnavailable;
                     if (rect.Left == centered.Value.X && rect.Top == centered.Value.Y)
-                        return GameWindowPlacementStates.AlreadyOnTv;
+                        return ConsoleHomeRepositionPolicy.IsOnTarget(destination,
+                            new ConsoleHomeRepositionPolicy.Bounds(rect.Left, rect.Top, width, height))
+                            ? GameWindowPlacementStates.AlreadyOnTv
+                            : GameWindowPlacementStates.NotConfirmed;
                     // Keep size/z-order/focus exactly as before. Win32 may refuse
                     // foreign-integrity/elevated windows: report, never escalate.
                     GetWindowThreadProcessId(candidate, out uint finalPid);
                     if (finalPid != (uint)owned.Id ||
                         !ManualGameSessionService.VerifyOwnedProcess(owned, verifiedImagePath))
                         return GameWindowPlacementStates.NotConfirmed;
+                    if (!HasUnchangedTarget(_topology.Snapshot(), destination))
+                        return GameWindowPlacementStates.DisplayUnavailable;
                     // The game owns its input queue. Post to that queue rather
                     // than blocking a Core request on a hung GUI thread.
                     if (!SetWindowPos(candidate, IntPtr.Zero, centered.Value.X,
@@ -128,8 +155,14 @@ public sealed class OwnedGameWindowPlacementService
                         GetWindowThreadProcessId(candidate, out uint pidAfterMove);
                         if (pidAfterMove != (uint)owned.Id)
                             return GameWindowPlacementStates.NotConfirmed;
+                        if (!HasUnchangedTarget(_topology.Snapshot(), destination))
+                            return GameWindowPlacementStates.DisplayUnavailable;
                         if (GetWindowRect(candidate, out WinRect actual) &&
-                            actual.Left == centered.Value.X && actual.Top == centered.Value.Y)
+                            actual.Left == centered.Value.X && actual.Top == centered.Value.Y &&
+                            (long)actual.Right == (long)actual.Left + width &&
+                            (long)actual.Bottom == (long)actual.Top + height &&
+                            ConsoleHomeRepositionPolicy.IsOnTarget(destination,
+                                new ConsoleHomeRepositionPolicy.Bounds(actual.Left, actual.Top, width, height)))
                             return GameWindowPlacementStates.Placed;
                         await Task.Delay(120, stop).ConfigureAwait(false);
                     }

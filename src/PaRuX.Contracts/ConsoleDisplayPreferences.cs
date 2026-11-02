@@ -44,6 +44,26 @@ public static class ConsoleDisplaySelectionPolicy
 
 
 /// <summary>
+/// Fail-closed policy for opt-in per-game TV routing. Never infer TV role from
+/// resolution, labels or a stale monitor ID.
+/// </summary>
+public static class GameTvLaunchAdmissionPolicy
+{
+    public static bool TryResolveTarget(bool enabled, GamingDisplaySnapshotDto? topology,
+        IEnumerable<ConsoleDisplayAssignment>? roles, string? targetDisplayId,
+        out string? resolvedDisplayId)
+    {
+        resolvedDisplayId = null;
+        if (!enabled) return true;
+        GamingDisplayModeDto? selected =
+            ConsoleDisplaySelectionPolicy.SelectTarget(topology, roles, targetDisplayId);
+        if (selected is null) return false;
+        resolvedDisplayId = selected.DisplayId;
+        return true;
+    }
+}
+
+/// <summary>
 /// Pure window-placement decisions for an opt-in TV Console Home. No OS calls:
 /// moving the app or switching presenters is the sole responsibility of WinUI.
 /// A configured target must first pass ConsoleDisplaySelectionPolicy.SelectTarget.

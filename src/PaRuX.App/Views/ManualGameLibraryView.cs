@@ -1328,14 +1328,46 @@ public sealed class ManualGameLibraryView : UserControl
             // Make the optional TV window routing visible BEFORE permission
             // to launch. A chosen TV does not promise fullscreen routing.
             var displaySettings = SettingsStore.Current.Data;
-            string? gameDisplayId = !isApplication &&
-                displaySettings.RouteVerifiedWindowedGamesToTv
-                ? displaySettings.ConsoleTargetDisplayId : null;
+            bool routeToTv = !isApplication && displaySettings.RouteVerifiedWindowedGamesToTv;
+            string? gameDisplayId = null;
+            if (routeToTv)
+            {
+                var snapshot = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
+                if (!snapshot.Succeeded ||
+                    !GameTvLaunchAdmissionPolicy.TryResolveTarget(true, snapshot.Value,
+                        displaySettings.ConsoleDisplays, displaySettings.ConsoleTargetDisplayId,
+                        out gameDisplayId))
+                {
+                    _status.Text = T(
+                        "TV routing is enabled but no connected, user-classified TV is selected. No game started. Check Gaming display settings.",
+                        "Instradamento TV attivo, ma nessuna TV collegata e classificata è selezionata. Nessun gioco avviato. Controlla le impostazioni Gaming.");
+                    return;
+                }
+            }
             if (!string.IsNullOrWhiteSpace(gameDisplayId))
                 dialog.Content = (dialog.Content?.ToString() ?? string.Empty) + "\n\n" +
                     T("PaRuX will attempt to place one verified windowed game window on your selected TV. Exclusive fullscreen, child processes and external store launchers are not moved.",
                       "PaRuX proverà a posizionare una finestra verificata del gioco sulla TV selezionata. Fullscreen esclusivo, processi secondari e launcher esterni non vengono spostati.");
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (routeToTv)
+            {
+                // Roles/topology may change while the confirmation is shown.
+                // Never silently launch onto a different monitor.
+                var latest = SettingsStore.Current.Data;
+                var snapshot = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
+                if (!latest.RouteVerifiedWindowedGamesToTv ||
+                    !string.Equals(latest.ConsoleTargetDisplayId, gameDisplayId,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !snapshot.Succeeded ||
+                    !GameTvLaunchAdmissionPolicy.TryResolveTarget(true, snapshot.Value,
+                        latest.ConsoleDisplays, gameDisplayId, out _))
+                {
+                    _status.Text = T(
+                        "The selected TV changed or disconnected before launch. No game was started; select it again in Gaming settings.",
+                        "La TV selezionata è cambiata o scollegata prima dell'avvio. Nessun gioco avviato; riselezionala nelle impostazioni Gaming.");
+                    return;
+                }
+            }
 
             var result = await GamingOrchestratorClient.Current.LaunchManualGameAsync(
                 game.Id, displayId: gameDisplayId);

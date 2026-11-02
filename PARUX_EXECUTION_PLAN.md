@@ -1,5 +1,12 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XX — fail-closed selected-TV routing and live placement verification
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** When optional windowed-game TV routing is enabled, the existing Games UI requires a connected display explicitly classified as TV; it checks fresh Core topology before confirmation and after closing the dialog. Invalid/missing/duplicate/reclassified TV settings refuse launch, never silently default to the PC monitor. Applications and opt-out are unchanged. Core verifies the exact selected target's coordinates, dimensions, refresh rate and primary role before/after moving a verified owned window; a "placed" receipt requires unchanged window size and the whole window inside the selected TV. No new timers, fullscreen overrides, OS mode writes or child-process adoption.
+
+- Pure xUnit regression cases authored for missing TV role, opt-out, duplicate assignments, disconnected monitor, changed geometry/refresh and duplicate display IDs. **Not compiled or executed** in this session.
+- On Windows run `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~OwnedGameWindowPlacementPolicyTests|FullyQualifiedName~GamingDisplayTopologyTests"`, build Server/WinUI, and physically test monitor/TV role changes during confirmation, unplug/replug, negative coordinates, DPI, resolution and refresh changes, real emulator windows. Native exclusive-fullscreen monitor selection remains open.
+
 ### 2026-11-02 continuation XIX — immediate Gaming cancellation while staging lease is busy
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Both copy-only package staging and explicit deletion of managed packages now link the existing Gaming hard-off token **before** waiting for the persistent cross-process staging lease. Delete also revalidates readiness and cancellation after acquiring the lease and immediately before removing its exact managed file. The owner-only Delete endpoint reports a Gaming-interrupted operation as HTTP 409 rather than an unhandled cancellation; caller-canceled requests still report 499. No new polling, background service, driver, package execution or dependency.

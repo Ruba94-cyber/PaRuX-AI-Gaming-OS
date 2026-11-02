@@ -117,6 +117,30 @@ public sealed class GamingDisplayTopologyTests
     }
 
     [Fact]
+    public void Opt_in_TV_routing_never_silently_falls_back_to_a_monitor()
+    {
+        var tv = new GamingDisplayModeDto("TV2", false, -3840, 0, 3840, 2160, 120);
+        var connected = new GamingDisplaySnapshotDto(true, "Windows", new[] { tv });
+        var assigned = new[] { new ConsoleDisplayAssignment("TV2", ConsoleDisplaySelectionPolicy.TvRole) };
+        Assert.True(GameTvLaunchAdmissionPolicy.TryResolveTarget(true, connected,
+            assigned, "TV2", out string? id));
+        Assert.Equal("TV2", id);
+        Assert.True(GameTvLaunchAdmissionPolicy.TryResolveTarget(false, null, null, null, out id));
+        Assert.Null(id);
+        Assert.False(GameTvLaunchAdmissionPolicy.TryResolveTarget(true, connected, assigned, null, out _));
+        Assert.False(GameTvLaunchAdmissionPolicy.TryResolveTarget(true, connected,
+            new[] { new ConsoleDisplayAssignment("TV2", ConsoleDisplaySelectionPolicy.MonitorRole) },
+            "TV2", out _));
+        Assert.False(GameTvLaunchAdmissionPolicy.TryResolveTarget(true,
+            connected with { Supported = false }, assigned, "TV2", out _));
+        Assert.False(GameTvLaunchAdmissionPolicy.TryResolveTarget(true,
+            connected with { Displays = Array.Empty<GamingDisplayModeDto>() },
+            assigned, "TV2", out _));
+        Assert.False(GameTvLaunchAdmissionPolicy.TryResolveTarget(true, connected,
+            new[] { assigned[0], assigned[0] }, "TV2", out _));
+    }
+
+    [Fact]
     public void Missing_platform_or_monitor_does_not_claim_HDR_or_available_displays()
     {
         var service = new GamingDisplayTopologyService(() => Array.Empty<GamingDisplayModeDto>());

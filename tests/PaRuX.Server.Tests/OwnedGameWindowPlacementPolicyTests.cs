@@ -79,6 +79,24 @@ public sealed class OwnedGameWindowPlacementPolicyTests
     }
 
     [Fact]
+    public void Placement_fails_closed_on_changed_or_ambiguous_target()
+    {
+        var tv = new GamingDisplayModeDto("TV2", false, -3840, 0, 3840, 2160, 120);
+        var snapshot = new GamingDisplaySnapshotDto(true, "Windows", new[] { tv });
+        Assert.True(OwnedGameWindowPlacementService.HasUnchangedTarget(snapshot, tv));
+        Assert.False(OwnedGameWindowPlacementService.HasUnchangedTarget(
+            snapshot with { Supported = false }, tv));
+        Assert.False(OwnedGameWindowPlacementService.HasUnchangedTarget(
+            snapshot with { Displays = Array.Empty<GamingDisplayModeDto>() }, tv));
+        Assert.False(OwnedGameWindowPlacementService.HasUnchangedTarget(
+            snapshot with { Displays = new[] { tv with { X = 0 } } }, tv));
+        Assert.False(OwnedGameWindowPlacementService.HasUnchangedTarget(
+            snapshot with { Displays = new[] { tv with { RefreshRateHz = 60 } } }, tv));
+        Assert.False(OwnedGameWindowPlacementService.HasUnchangedTarget(
+            snapshot with { Displays = new[] { tv, tv } }, tv));
+    }
+
+    [Fact]
     public void Optional_placement_result_preserves_legacy_manual_launch_json()
     {
         var legacy = System.Text.Json.JsonSerializer.Deserialize<ManualGameLaunchResult>(
