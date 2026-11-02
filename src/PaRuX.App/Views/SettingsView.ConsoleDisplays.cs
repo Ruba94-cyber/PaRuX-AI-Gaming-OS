@@ -29,6 +29,14 @@ public sealed partial class SettingsView
             ConsoleRouteOwnedGamesSwitch.IsOn;
         SettingsStore.Current.Save();
     }
+
+    private void ConsoleAutoReturnHomeSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_consoleTvSettingsInitialized || _syncingOwnedGameRouteSwitch) return;
+        SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit =
+            ConsoleAutoReturnHomeSwitch.IsOn;
+        SettingsStore.Current.Save();
+    }
     private GamingDisplaySnapshotDto? _lastConsoleDisplaySnapshot;
 
     private void ConsoleDisplaysUseCurrent_Click(object sender, RoutedEventArgs e)
@@ -59,11 +67,19 @@ public sealed partial class SettingsView
         ConsoleRouteOwnedGamesSwitch.Header = TvT(
             "Prefer selected TV for directly launched windowed games (never force fullscreen or third-party launchers)",
             "Preferisci la TV scelta per i giochi in finestra avviati direttamente (mai forzare fullscreen o launcher esterni)");
+        ConsoleAutoReturnHomeSwitch.Header = TvT(
+            "Automatically show Console Home after a verified game exit (off by default)",
+            "Mostra automaticamente la Home Console dopo la chiusura verificata del gioco (disattivo di base)");
+        ConsoleAutoReturnExplanation.Text = TvT(
+            "Only a verified directly launched process exit and completed AI recovery can trigger this. Manual Return, store handoffs and unknown child processes are ignored. Windows may deny foreground activation.",
+            "Si attiva soltanto dopo la chiusura verificata di un processo avviato direttamente e il ripristino dell'AI. Il ritorno manuale, gli store e i processi secondari sconosciuti sono esclusi. Windows può impedire l'attivazione in primo piano.");
         _syncingOwnedGameRouteSwitch = true;
         try
         {
             ConsoleRouteOwnedGamesSwitch.IsOn =
                 SettingsStore.Current.Data.RouteVerifiedWindowedGamesToTv;
+            ConsoleAutoReturnHomeSwitch.IsOn =
+                SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit;
         }
         finally { _syncingOwnedGameRouteSwitch = false; }
         _consoleTvSettingsInitialized = true;
