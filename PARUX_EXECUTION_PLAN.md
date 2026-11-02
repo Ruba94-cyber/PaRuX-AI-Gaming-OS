@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XI — portable folder scan remains cancellable and local
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** `GameFolderInspector` previously materialized all `*.exe` and subdirectory entries with `ToArray()` before respecting the 5,000-entry limit or hard-off cancellation. It now uses streaming enumerators with a check per entry, early cancellation and early exit after truncation. It refuses selected folders beneath linked ancestors and remote mapped volumes, consistently with emulator discovery; it still only suggests executables for owner confirmation and never launches software.
+
+- Added a synthetic linked-parent regression; existing tests cover truncation, cancellation, deep/filtered folders and portable executable ranking. No Windows build, xUnit, FlaUI, eGPU or actual game scan executed.
+- Required: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~GameFolderInspectorTests|FullyQualifiedName~GamingDiscoveryHardOffTests"` then verify large folders, junction parents, cancellation during Gaming entry and launch from a known local SSD.
+- This closes a particular disk-work leak, not native emulator fullscreen routing or process-tree lifetime tracking.
+
+
 ### 2026-11-02 continuation X — Gaming hard-off for store/portable discovery
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED, NOT RUN.** Steam, Epic and GOG direct discovery endpoints and owner-selected local game-folder inspection now share the guarded read helper. It refuses new scans when Gaming is active, cancels ongoing reads cooperatively through the existing hard-off token, and checks the marker before returning success. No new polling service, game process or installed software is touched. Caller cancellation remains HTTP 499; Gaming interruption returns 409.

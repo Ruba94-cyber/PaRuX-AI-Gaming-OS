@@ -44,8 +44,20 @@ public static class GameFolderInspector
         try { root = Path.GetFullPath(folder); }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         { return Failure(folder, "The folder path is not valid."); }
+        ct.ThrowIfCancellationRequested();
         if (!Directory.Exists(root)) return Failure(root, "The folder does not exist.");
-        if (IsLink(root)) return Failure(root, "Linked folders are not imported.");
+        // A normal leaf may still be reached through a parent junction. The
+        // entire chosen ancestor chain must be local and regular.
+        if (!ManualGameLibrary.IsSafeDirectory(root))
+            return Failure(root, "Linked folders or linked ancestors are not imported.");
+        try
+        {
+            DriveType volume = new DriveInfo(Path.GetPathRoot(root)!).DriveType;
+            if (volume is DriveType.Network or DriveType.Unknown or DriveType.NoRootDirectory)
+                return Failure(root, "Select a folder on a local volume.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        { return Failure(root, "The selected local volume is unavailable."); }
 
         var candidates = new List<ExecutableCandidate>();
         int entries = 0;
@@ -55,36 +67,39 @@ public static class GameFolderInspector
         void Walk(string directory, int depth)
         {
             if (truncated) return;
-            IEnumerable<string> files, subdirectories;
+            ct.ThrowIfCancellationRequested();
             try
             {
-                files = Directory.EnumerateFiles(directory, "*.exe", SearchOption.TopDirectoryOnly).ToArray();
-                subdirectories = Directory.EnumerateDirectories(directory).ToArray();
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
+                // Stream entries, never materialize an entire unbounded folder
+                // with ToArray() before checking cancellation and the scan cap.
+                foreach (string file in Directory.EnumerateFiles(directory, "*.exe", SearchOption.TopDirectoryOnly))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (++entries > MaxEntries) { truncated = true; return; }
+                    if (IsLink(file)) continue;
+                    string name = Path.GetFileNameWithoutExtension(file);
+                    if (RejectedNameParts.Any(part => name.Contains(part, StringComparison.OrdinalIgnoreCase))) continue;
+                    long size;
+                    try { size = new FileInfo(file).Length; }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+                    if (size < 10_000) continue; // stubs and shortcuts are not games
+                    (int score, string reason) = Score(name, folderKey, depth, size);
+                    candidates.Add(new ExecutableCandidate(Path.GetRelativePath(root, file).Replace('\\', '/'), size, score, reason));
+                }
 
-            foreach (string file in files)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (++entries > MaxEntries) { truncated = true; return; }
-                if (IsLink(file)) continue;
-                string name = Path.GetFileNameWithoutExtension(file);
-                if (RejectedNameParts.Any(part => name.Contains(part, StringComparison.OrdinalIgnoreCase))) continue;
-                long size;
-                try { size = new FileInfo(file).Length; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-                if (size < 10_000) continue; // stubs and shortcuts are not games
-                (int score, string reason) = Score(name, folderKey, depth, size);
-                candidates.Add(new ExecutableCandidate(Path.GetRelativePath(root, file).Replace('\\', '/'), size, score, reason));
+                if (depth >= MaxDepth) return;
+                foreach (string sub in Directory.EnumerateDirectories(directory))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (++entries > MaxEntries) { truncated = true; return; }
+                    if (IsLink(sub) || RejectedFolders.Contains(Path.GetFileName(sub))) continue;
+                    Walk(sub, depth + 1);
+                    if (truncated) return;
+                }
             }
-
-            if (depth >= MaxDepth) return;
-            foreach (string sub in subdirectories)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                ct.ThrowIfCancellationRequested();
-                if (++entries > MaxEntries) { truncated = true; return; }
-                if (IsLink(sub) || RejectedFolders.Contains(Path.GetFileName(sub))) continue;
-                Walk(sub, depth + 1);
+                // An unreadable subtree must not hide other completed results.
             }
         }
 

@@ -107,6 +107,21 @@ public sealed class GameFolderInspectorTests : IDisposable
         Assert.Equal(expected, GameFolderInspector.CleanTitle(folder));
 
     [Fact]
+    public void A_normal_game_folder_beneath_a_linked_parent_is_refused()
+    {
+        Make("real/subfolder/Example.exe", 5_000_000);
+        string alias = Path.Combine(_root, "linked-parent");
+        try { Directory.CreateSymbolicLink(alias, Path.Combine(_root, "real")); }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            return; // OS policy can disallow the synthetic link fixture.
+        }
+        var result = GameFolderInspector.Inspect(Path.Combine(alias, "subfolder"));
+        Assert.NotNull(result.Error);
+        Assert.Empty(result.Candidates);
+    }
+
+    [Fact]
     public void Junction_folders_are_not_followed()
     {
         Make("Real/Real.exe", 5_000_000);
