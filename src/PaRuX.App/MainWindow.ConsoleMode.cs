@@ -45,7 +45,9 @@ public sealed partial class MainWindow
         // The FileSystemWatcher callback is a worker thread, not a WinUI thread.
         // It already listens to the exact directory in which Core publishes the
         // atomic verified-return notice. No long-lived polling task is needed.
-        DispatcherQueue.TryEnqueue(() => _ = HandleVerifiedGameReturnAsync());
+        // _dispatcher is captured on MainWindow's owning thread in its
+        // constructor; do not read a WinUI Window property from the watcher.
+        _dispatcher.TryEnqueue(() => _ = HandleVerifiedGameReturnAsync());
     }
 
     private async Task HandleVerifiedGameReturnAsync()
