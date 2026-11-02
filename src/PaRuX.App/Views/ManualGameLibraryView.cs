@@ -102,6 +102,10 @@ public sealed class ManualGameLibraryView : UserControl
         _heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         root.Children.Add(_heading);
 
+        // The Gaming home (Continue shelf, tile library, detail panel) opens first; it also hosts the opt-in advanced section.
+        _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
+        root.Children.Add(_universal);
+
         // Real resource/session status lives on the same Games home in both TV and
         // desktop presentations. No background polling or controller worker.
         root.Children.Add(new TextBlock
@@ -127,9 +131,6 @@ public sealed class ManualGameLibraryView : UserControl
         sessionActions.Children.Add(_returnToAi);
         root.Children.Add(sessionActions);
 
-        // One card per game (store, local, portable or emulated installations together) and the opt-in advanced section.
-        _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
-        root.Children.Add(_universal);
         // Explicit, desktop-only downloads; never create a polling workload in the TV/Console presentation.
         root.Children.Add(_downloads);
 
