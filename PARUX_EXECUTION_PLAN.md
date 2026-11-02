@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XIV — virtual-pad worker fault recovery
+
+**Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** The optional first-party RawGameController → VirtualPad forwarding path now reports recoverable physical-device/isolation/virtual backend exceptions from `Start` as failures instead of crashing the UI command. `StopAsync` retires a worker that faulted unexpectedly after its neutral-report/Dispose cleanup, so an explicit retry is not blocked by a stale task. Normal stop timeouts or caller-cancelled stop still refuse to claim the pad was released. Ordinary I/O and COM device exceptions during forwarding are handled as a stopped session, without activating another source, installing drivers or altering HidHide state.
+
+- Two synthetic xUnit tests cover driver creation faults and unexpected reader exceptions followed by an explicit stop/retry. **No Windows build, xUnit run, WinUI interaction, ViGEmBus/HidHide, Xbox/DualSense/Stadia hardware, FPS or duplicate-input verification was executed.**
+- Windows gate: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~VirtualPadForwardingSessionTests"`; compile Server and WinUI App (the latter links this shared implementation), then verify optional driver installed/uninstalled, unplug while gaming, isolation failure, game return, duplicate-input prevention and no background pad after exit. Do not claim driver compatibility before real device tests.
+- Open Input Hub items still include comprehensive mapping UI, physical-versus-virtual deduplication with real controllers, and multi-pad/session management.
+
+
 ### 2026-11-02 continuation XIII — store game-launch discovery cannot overlap Gaming hard-off
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Direct owner-confirmed game handoffs through Steam, Epic and GOG previously did local installation discovery outside the existing hard-off wrappers. These three paths now share `GuardedStoreLaunchDiscoveryAsync`, which refuses scans outside AiReady, cancels in-flight manifest/registry reads if another gaming transition starts, and checks readiness before handing off to the official launcher. A stale installed-game snapshot cannot authorize a second launch. Explicit caller cancellation is preserved; neither launcher nor child process identity is inferred.

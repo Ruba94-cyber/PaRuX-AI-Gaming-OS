@@ -9,8 +9,10 @@ public sealed class VirtualPadForwardingSessionTests
     {
         public string DeviceId => @"HID\VID_1234&PID_5678\1";
         public bool Connected = true;
+        public bool ThrowOnNextRead;
         public bool TryRead(out RawGamepadState? state)
         {
+            if (ThrowOnNextRead) throw new ApplicationException("synthetic unexpected reader fault");
             state = Connected ? new RawGamepadState(new[] { true }, new[] { 0.5 }, -1) : null;
             return Connected;
         }
@@ -30,9 +32,15 @@ public sealed class VirtualPadForwardingSessionTests
     {
         public string Id => "synthetic";
         public int Starts;
+        public bool ThrowOnCreate;
         public readonly Pad Pad = new();
         public IVirtualXboxPad? TryCreatePad(out string? error)
-        { Starts++; error = null; return Pad; }
+        {
+            Starts++;
+            if (ThrowOnCreate) throw new InvalidOperationException("synthetic unavailable driver");
+            error = null;
+            return Pad;
+        }
     }
 
     private static PadMapping Map() => new() { Buttons = new() { [0] = Xbox360Report.A }, LeftXAxis = 0 };
@@ -95,6 +103,36 @@ public sealed class VirtualPadForwardingSessionTests
         isolated = false;
         await WaitUntil(() => backend.Pad.Disposals == 1);
         Assert.True(backend.Pad.NeutralEnd);
+    }
+
+    [Fact]
+    public async Task Unavailable_virtual_driver_returns_error_without_starting_a_worker()
+    {
+        var backend = new Backend { ThrowOnCreate = true };
+        await using var session = new VirtualPadForwardingSession(backend, new RawSource(), () => true);
+        var outcome = session.Start(Map(), TimeSpan.FromMilliseconds(10));
+        Assert.False(outcome.Running);
+        Assert.Contains("unavailable", outcome.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(session.Status.Running);
+        Assert.Equal(0, backend.Pad.Disposals);
+    }
+
+    [Fact]
+    public async Task Unexpected_reader_fault_can_be_stopped_and_retried_without_a_stale_worker()
+    {
+        var backend = new Backend();
+        var reader = new RawSource();
+        await using var session = new VirtualPadForwardingSession(backend, reader, () => true);
+        Assert.True(session.Start(Map(), TimeSpan.FromMilliseconds(10)).Running);
+        await WaitUntil(() => backend.Pad.Pressed);
+        reader.ThrowOnNextRead = true;
+        await WaitUntil(() => backend.Pad.Disposals == 1);
+        var stopped = await session.StopAsync();
+        Assert.False(stopped.Running);
+        Assert.Contains("stopped after", stopped.Message, StringComparison.OrdinalIgnoreCase);
+        reader.ThrowOnNextRead = false;
+        Assert.True(session.Start(Map(), TimeSpan.FromMilliseconds(10)).Running);
+        Assert.False((await session.StopAsync()).Running);
     }
 
     [Fact]

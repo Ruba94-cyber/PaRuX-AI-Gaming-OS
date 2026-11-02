@@ -54,11 +54,32 @@ public sealed class VirtualPadForwardingSession : IAsyncDisposable
         lock (_gate)
         {
             if (_worker is not null) return new(false, "Stop the previous session first.");
-            if (!_isolationReady()) return new(false, "Physical input isolation was not confirmed.");
-            if (!_source.TryRead(out RawGamepadState? first) || first is null)
-                return new(false, "The physical pad could not be read.");
-            IVirtualXboxPad? pad = _backend.TryCreatePad(out string? problem);
-            if (pad is null) return new(false, problem ?? "Virtual device unavailable.");
+            // A failed driver query or unplugged WinRT device must report an
+            // unavailable controller, not crash a UI command or leak a pad.
+            bool isolated;
+            RawGamepadState? first;
+            try
+            {
+                isolated = _isolationReady();
+                if (!isolated) return new(false, "Physical input isolation was not confirmed.");
+                if (!_source.TryRead(out first) || first is null)
+                    return new(false, "The physical pad could not be read.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                InvalidOperationException or ObjectDisposedException or
+                System.Runtime.InteropServices.COMException)
+            {
+                return new(false, "Physical controller or isolation state is unavailable.");
+            }
+            IVirtualXboxPad? pad;
+            try { pad = _backend.TryCreatePad(out string? problem);
+                if (pad is null) return new(false, problem ?? "Virtual device unavailable."); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                InvalidOperationException or ObjectDisposedException or DllNotFoundException or
+                EntryPointNotFoundException or System.Runtime.InteropServices.COMException)
+            {
+                return new(false, "Virtual controller backend is unavailable.");
+            }
             // Do not let UI edits mutate an active game's mapping.
             var chosen = new PadMapping
             {
@@ -96,7 +117,9 @@ public sealed class VirtualPadForwardingSession : IAsyncDisposable
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { outcome = "Stopped by owner."; }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or ObjectDisposedException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or
+            ObjectDisposedException or UnauthorizedAccessException or
+            System.Runtime.InteropServices.COMException)
         { outcome = "Controller I/O failed."; }
         finally
         {
@@ -119,6 +142,14 @@ public sealed class VirtualPadForwardingSession : IAsyncDisposable
         catch (TimeoutException) { return new(true, "Stop timeout; do not create another pad."); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         { return new(true, "Stop was interrupted; device ownership remains until cleanup."); }
+        catch (Exception ex)
+        {
+            // The worker may fault with an unexpected source/driver exception.
+            // Its finally block already neutralizes and disposes the owned
+            // virtual pad. Retire the faulted task so a later explicit Start
+            // is possible; never silently keep the session marked running.
+            lock (_gate) _message = "Controller worker stopped after " + ex.GetType().Name + ".";
+        }
         lock (_gate)
         {
             if (ReferenceEquals(task, _worker))
