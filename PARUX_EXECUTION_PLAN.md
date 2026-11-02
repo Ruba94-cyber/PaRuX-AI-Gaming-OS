@@ -1,5 +1,15 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation IX — re-anchor verified Console Home on user-selected TV
+
+**Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED, NOT RUN.** The prior verified owned-process exit proof, opt-in setting, Core readiness and Gaming hard-off remain mandatory. No new window, driver, external dependency, display-mode switch or input injection.
+
+- WinUI now checks the existing fullscreen Console window's actual virtual-desktop position after the verified Core receipt. If Windows moved it away from the explicitly selected connected TV, the existing AppWindow is temporarily restored to its overlapped presenter, re-anchored within that TV, then returned to fullscreen before any foreground activation. A TV which is absent, no longer TV-classified or cannot be confirmed **never** triggers automatic foregrounding on another monitor. The original desktop bounds remain untouched for Exit Console.
+- Shared `ConsoleHomeRepositionPolicy` implements overflow-safe positioning for positive and negative monitor coordinates, and is also used for initial Console entry. WinUI aborts foreground activation when repositioning or its observed result is unsuccessful. This cannot reposition arbitrary emulator/game windows or control exclusive fullscreen.
+- Four synthetic xUnit policy tests cover selected-TV and wrong-monitor windows, negative coordinates, safe centered anchors and invalid geometry. **Windows build/xUnit/FlaUI/hardware testing NOT RUN.** Run `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~ConsoleHomeRepositionPolicyTests|FullyQualifiedName~GamingDisplayTopologyTests|FullyQualifiedName~VerifiedGameReturnSignalTests"` and build `src/PaRuX.App/PaRuX.App.csproj`. Test physically with two displays, exclusive fullscreen exit, unplug/replug, different DPI, opt-in off, user Return and Windows foreground denial.
+- Remaining software gaps include child-game lifetime verification for launchers, per-emulator native fullscreen output, controller-first recovery, and end-to-end Gaming/resource/monitor verification.
+
+
 ### 2026-11-02 continuation VIII — one-pass emulator discovery and Gaming hard-off scan cancellation
 
 **Public main: SOURCE IMPLEMENTED / NOT RUN in this environment.** No new dependencies, emulators, ROMs, firmware, installers, drivers, GitHub Actions or changes to Windows display settings.

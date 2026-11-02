@@ -41,3 +41,43 @@ public static class ConsoleDisplaySelectionPolicy
             d.Width > 0 && d.Height > 0);
     }
 }
+
+
+/// <summary>
+/// Pure window-placement decisions for an opt-in TV Console Home. No OS calls:
+/// moving the app or switching presenters is the sole responsibility of WinUI.
+/// A configured target must first pass ConsoleDisplaySelectionPolicy.SelectTarget.
+/// </summary>
+public static class ConsoleHomeRepositionPolicy
+{
+    public readonly record struct Bounds(int X, int Y, int Width, int Height);
+
+    /// <summary>A Windows fullscreen window is on the requested TV if its
+    /// center lies inside that TV's actual virtual-desktop rectangle.</summary>
+    public static bool IsOnTarget(GamingDisplayModeDto target, Bounds current)
+    {
+        if (target.Width <= 0 || target.Height <= 0 ||
+            current.Width <= 0 || current.Height <= 0) return false;
+        long right = (long)target.X + target.Width;
+        long bottom = (long)target.Y + target.Height;
+        long cx2 = 2L * current.X + current.Width;
+        long cy2 = 2L * current.Y + current.Height;
+        return cx2 >= 2L * target.X && cx2 < 2L * right &&
+               cy2 >= 2L * target.Y && cy2 < 2L * bottom;
+    }
+
+    /// <summary>A safely bounded, windowed anchor which Windows can then make
+    /// fullscreen on the chosen display. Supports negative monitor coordinates
+    /// without overflow; never requests changes to OS display configuration.</summary>
+    public static Bounds? CenteredAnchor(GamingDisplayModeDto target)
+    {
+        if (target.Width < 2 || target.Height < 2) return null;
+        int width = Math.Max(1, target.Width / 2);
+        int height = Math.Max(1, target.Height / 2);
+        long x = (long)target.X + (target.Width - width) / 2;
+        long y = (long)target.Y + (target.Height - height) / 2;
+        if (x < int.MinValue || x > int.MaxValue ||
+            y < int.MinValue || y > int.MaxValue) return null;
+        return new Bounds((int)x, (int)y, width, height);
+    }
+}

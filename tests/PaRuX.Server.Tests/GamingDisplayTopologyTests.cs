@@ -127,6 +127,59 @@ public sealed class GamingDisplayTopologyTests
     }
 }
 
+
+public sealed class ConsoleHomeRepositionPolicyTests
+{
+    [Fact]
+    public void Fullscreen_window_on_chosen_secondary_TV_needs_no_move()
+    {
+        var tv = new GamingDisplayModeDto("DISPLAY2", false, 1920, 0, 3840, 2160, 120);
+        Assert.True(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(1920, 0, 3840, 2160)));
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(0, 0, 1920, 1080)));
+    }
+
+    [Fact]
+    public void Offscreen_and_cross_monitor_windows_must_not_count_as_on_TV()
+    {
+        var tv = new GamingDisplayModeDto("TV", false, -3840, -200, 3840, 2160, 120);
+        Assert.True(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(-3840, -200, 3840, 2160)));
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(0, 0, 1920, 1080)));
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(-1920, -200, 3840, 2160)));
+    }
+
+    [Fact]
+    public void Recentered_anchor_stays_inside_a_negative_coordinate_TV()
+    {
+        var tv = new GamingDisplayModeDto("TV", false, -3840, -2160, 3840, 2160, 120);
+        var centered = ConsoleHomeRepositionPolicy.CenteredAnchor(tv);
+        Assert.NotNull(centered);
+        Assert.True(ConsoleHomeRepositionPolicy.IsOnTarget(tv, centered.Value));
+        Assert.Equal(-2880, centered.Value.X);
+        Assert.Equal(-1620, centered.Value.Y);
+        Assert.Equal(1920, centered.Value.Width);
+        Assert.Equal(1080, centered.Value.Height);
+    }
+
+    [Fact]
+    public void Invalid_or_overflowing_geometry_fails_closed()
+    {
+        var invalid = new GamingDisplayModeDto("TV", false, 0, 0, 0, 2160, 120);
+        Assert.Null(ConsoleHomeRepositionPolicy.CenteredAnchor(invalid));
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(invalid,
+            new ConsoleHomeRepositionPolicy.Bounds(0, 0, 1, 1)));
+        Assert.Null(ConsoleHomeRepositionPolicy.CenteredAnchor(
+            new GamingDisplayModeDto("TV", false, int.MaxValue, int.MaxValue, 3840, 2160, 120)));
+        var normal = new GamingDisplayModeDto("TV", false, 0, 0, 3840, 2160, 120);
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(normal,
+            new ConsoleHomeRepositionPolicy.Bounds(0, 0, 0, 2160)));
+    }
+}
+
 public sealed class GamingDisplayTopologySecurityTests : IClassFixture<ApiSecurityTests.PaRuXFactory>
 {
     private readonly ApiSecurityTests.PaRuXFactory _factory;

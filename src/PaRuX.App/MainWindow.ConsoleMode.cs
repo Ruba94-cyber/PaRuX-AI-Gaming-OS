@@ -78,16 +78,29 @@ public sealed partial class MainWindow
             // relocate PaRuX to another screen. Never automatically show Home
             // on an unselected PC monitor when the user chose TV-only Console.
             string displayId = SettingsStore.Current.Data.ConsoleTargetDisplayId ?? string.Empty;
+            GamingDisplayModeDto? selectedTv = null;
             if (!string.IsNullOrWhiteSpace(displayId))
             {
                 var topology = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
-                if (!topology.Succeeded ||
-                    ConsoleDisplaySelectionPolicy.SelectTarget(topology.Value,
-                        SettingsStore.Current.Data.ConsoleDisplays, displayId) is null)
-                    return;
+                if (!topology.Succeeded) return;
+                selectedTv = ConsoleDisplaySelectionPolicy.SelectTarget(topology.Value,
+                    SettingsStore.Current.Data.ConsoleDisplays, displayId);
+                if (selectedTv is null) return;
             }
-            if (App.IsShuttingDown || !_consoleModeActive ||
-                LocalAiController.Current.IsGameActive()) return;
+            if (App.IsShuttingDown || !_consoleModeActive || _consoleRoutingInProgress ||
+                LocalAiController.Current.IsGameActive() || GameLibraryPage.IsInteractionBusy)
+                return;
+
+            // Windows can relocate our existing fullscreen presenter during a
+            // game's exclusive display changes. Re-anchor only THIS PaRuX window
+            // to the explicitly selected connected TV before foregrounding it.
+            // Never select another monitor, change Windows display settings,
+            // affect the owned game, or foreground on an unsuccessful move.
+            if (selectedTv is not null && !TryRestoreConsoleHomeToSelectedTv(selectedTv))
+                return;
+            if (App.IsShuttingDown || !_consoleModeActive || _consoleRoutingInProgress ||
+                LocalAiController.Current.IsGameActive() || GameLibraryPage.IsInteractionBusy)
+                return;
 
             // This is the sole intentionally foregrounding behavior: explicitly
             // opt-in, same Console window, exact Core-confirmed process exit.
@@ -101,6 +114,67 @@ public sealed partial class MainWindow
             Log.Write("Verified Console Home return failed: " + ex.GetType().Name);
         }
         finally { _handlingVerifiedReturn = false; }
+    }
+
+    /// <summary>
+    /// When a game changes Windows fullscreen topology, our one existing
+    /// Console window can end up on a different monitor. The selected TV was
+    /// already revalidated against Core's current topology by the caller.
+    /// No second window, no display-mode mutation and no foreground activation
+    /// on an unsuccessful or ambiguous route.
+    /// </summary>
+    private bool TryRestoreConsoleHomeToSelectedTv(GamingDisplayModeDto tv)
+    {
+        if (!_consoleModeActive || _consoleRoutingInProgress ||
+            AppWindow.Presenter.Kind != AppWindowPresenterKind.FullScreen)
+            return false;
+
+        var position = AppWindow.Position;
+        var size = AppWindow.Size;
+        if (ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+                new ConsoleHomeRepositionPolicy.Bounds(position.X, position.Y, size.Width, size.Height)))
+            return true;
+
+        ConsoleHomeRepositionPolicy.Bounds? anchor = ConsoleHomeRepositionPolicy.CenteredAnchor(tv);
+        if (anchor is null) return false;
+        _consoleRoutingInProgress = true;
+        try
+        {
+            // Only AppWindow changes: temporarily leave fullscreen, move the
+            // normal window inside the chosen TV, then restore fullscreen.
+            // Do not overwrite the saved desktop bounds from EnterConsoleMode.
+            AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+            AppWindow.MoveAndResize(new RectInt32(
+                anchor.Value.X, anchor.Value.Y, anchor.Value.Width, anchor.Value.Height));
+            AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+
+            var finalPosition = AppWindow.Position;
+            var finalSize = AppWindow.Size;
+            return AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen &&
+                ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+                    new ConsoleHomeRepositionPolicy.Bounds(
+                        finalPosition.X, finalPosition.Y, finalSize.Width, finalSize.Height));
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Console TV return route failed: " + ex.GetType().Name);
+            // The user may still restore the app manually. Do not call
+            // ShowMainWindow() if presenter restoration is unsuccessful.
+            try
+            {
+                if (AppWindow.Presenter.Kind != AppWindowPresenterKind.FullScreen)
+                    AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+            }
+            catch (Exception restoreEx)
+            {
+                Log.Write("Console fullscreen restore failed: " + restoreEx.GetType().Name);
+            }
+            _consoleModeActive = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+            if (!_consoleModeActive) GameLibraryPage.ApplyConsoleMode(false);
+            UpdateConsoleModeButton();
+            return false;
+        }
+        finally { _consoleRoutingInProgress = false; }
     }
 
     /// <summary>Only the user's activation of the existing PaRuX window triggers this.
@@ -174,14 +248,12 @@ public sealed partial class MainWindow
             _consolePreviousWindowBounds = new RectInt32(pos.X, pos.Y, size.Width, size.Height);
             if (AppWindow.Presenter is OverlappedPresenter overlapped)
                 overlapped.Restore();
-            // Center a bounded normal window fully inside the selected physical
-            // desktop display BEFORE asking Windows to fullscreen this window.
-            // The fullscreen presenter then uses the monitor that owns the window.
+            // Use the same overflow-safe anchor as verified return routing.
+            // The fullscreen presenter then uses the monitor owning this window.
+            var anchor = ConsoleHomeRepositionPolicy.CenteredAnchor(destination);
+            if (anchor is null) throw new InvalidOperationException("Invalid Console TV geometry.");
             AppWindow.MoveAndResize(new RectInt32(
-                destination.X + destination.Width / 4,
-                destination.Y + destination.Height / 4,
-                Math.Max(1, destination.Width / 2),
-                Math.Max(1, destination.Height / 2)));
+                anchor.Value.X, anchor.Value.Y, anchor.Value.Width, anchor.Value.Height));
         }
 
         try
