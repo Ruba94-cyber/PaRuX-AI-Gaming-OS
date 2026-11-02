@@ -1,5 +1,13 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XXIII - Windows gate green on updated main; first real GPU measurement
+
+**Gate (this PC, Windows 11, .NET 10): BUILD PASSED / xUnit 1000/1000 / FlaUI 6/6 WINDOWS VERIFIED** after fixing a broken build on `main` (unnamed tuple fields in GameSaveBackupService, missing Automation.Peers import in two panels), two orchestrator tests (runtime.GamingMode is always false under Testing; guards now read the persisted Gaming marker) and a product bug (TV routing was on by default and refused every launch without a chosen TV; it now applies only when a TV is selected).
+
+**GPU VERIFIED (engine level, NOT through PaRuX Runtime Manager):** official llama.cpp b12050 CUDA 13.4 (hashes checked) with Qwen3.5-4B Q4_K_M on the RTX 5080 (CC 12.0, driver 621.01, 16 GB): `llama-bench` pp512 about 12035 t/s, tg128 about 200.7 t/s; `llama-server` ready in 2.8 s, about 3.3 GB VRAM loaded, first token 123 ms, VRAM 0 MiB after the process stopped. Not yet measured: PaRuX-installed runtime selection, Gaming-mode VRAM release through PaRuX, larger models, stability over time, FPS overhead.
+
+**Download manager audit (open work):** only HTTPS works; no magnet/.torrent, no source abstraction (`GameDownloadManager` is HTTP-hardwired), no install hand-off, completed paths and interrupted jobs are lost on restart. Planned: `IGameDownloadTransport`, persistence, external torrent-client adapter (e.g. qBittorrent WebUI) with re-hash before publish, install hand-off. No repack catalogue or built-in source by design.
+
 ### 2026-11-02 continuation XXII — PCSX2 Qt Big Picture controller-first launch
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** The existing Advanced Game Management emulator import now has a localized, off-by-default controller-first checkbox for PCSX2 Qt. The common, version-compatible request contracts and argument builder append the documented `-bigpicture` before `-- <game>` when explicitly selected; the imported game saves the resulting parameters in the existing library. Non-PCSX2 and legacy `pcsx2.exe` requests are refused before writing entries. Changing emulator selection clears the option. Existing games, requests and fullscreen/windowed flags retain their behavior. This only requests PCSX2's native controller UI; it does NOT force a monitor, verify exclusive fullscreen, install a ROM, patch firmware or launch another application.
