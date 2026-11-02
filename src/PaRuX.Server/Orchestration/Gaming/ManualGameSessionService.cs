@@ -120,8 +120,11 @@ public sealed class ManualGameSessionService : IDisposable
                     return new ManualGameLaunchResult(true, false, "Game started. Automatic return is unavailable because its exact process identity could not be verified; return to AI manually.") { StartState = GameStartStates.ProcessStarted };
                 }
 
+                // Capture OS start time while the owned handle is alive. A PID
+                // alone is insufficient for exit/child-process identity checks.
+                DateTime verifiedStartUtc = process.StartTime.ToUniversalTime();
                 _orchestrator.RegisterOwnedGameProcess(new WorkloadOrchestrator.OwnedGameProcess(
-                    process.Id, process.StartTime.ToUniversalTime(), path, sessionVersion.Value));
+                    process.Id, verifiedStartUtc, path, sessionVersion.Value));
                 var stop = new CancellationTokenSource();
                 CancellationTokenSource? previous;
                 lock (_monitorGate)
@@ -131,7 +134,7 @@ public sealed class ManualGameSessionService : IDisposable
                 }
                 try { previous?.Cancel(); } catch (ObjectDisposedException) { }
                 // This monitor never kills the process. Its cancellation only stops observation.
-                _ = ObserveOwnedExitAsync(process, sessionVersion.Value, stop,
+                _ = ObserveOwnedExitAsync(process, sessionVersion.Value, verifiedStartUtc, stop,
                     SessionTitleKey(game), DateTime.UtcNow);
 
                 string placement = string.Empty;
@@ -489,11 +492,14 @@ public sealed class ManualGameSessionService : IDisposable
     }
 
     /// <summary>
-    /// A tiny launcher/bootstrap that exits immediately cannot prove that its spawned
-    /// game also ended. Such short-lived processes never cause an automatic AI switch.
+    /// Even a verified game executable can be a bootstrapper that launches a
+    /// child, stays up for several seconds, and then exits. Never release Gaming
+    /// resources merely because that parent exited while a direct child may
+    /// still be playing. This one-shot Windows check does not adopt, poll, move,
+    /// suspend, or terminate any child. Uncertainty requires manual Return.
     /// </summary>
-    private async Task ObserveOwnedExitAsync(Process process, long sessionVersion, CancellationTokenSource stop,
-        string titleKey, DateTime startedUtc)
+    private async Task ObserveOwnedExitAsync(Process process, long sessionVersion,
+        DateTime verifiedStartUtc, CancellationTokenSource stop, string titleKey, DateTime startedUtc)
     {
         var uptime = Stopwatch.StartNew();
         try
@@ -501,6 +507,16 @@ public sealed class ManualGameSessionService : IDisposable
             await process.WaitForExitAsync(stop.Token).ConfigureAwait(false);
             if (uptime.Elapsed < MinimumMonitoredLifetime || stop.IsCancellationRequested) return;
 
+            OwnedGameChildExitGuard.Result children = OwnedGameChildExitGuard.InspectAtParentExit(
+                process.Id, verifiedStartUtc, DateTime.UtcNow, stop.Token);
+            if (children != OwnedGameChildExitGuard.Result.NoLiveDirectChild)
+            {
+                _logger?.LogInformation(
+                    "Automatic Return to AI suppressed: child-process check is {Result}. Return to AI manually after closing the game.",
+                    children);
+                return;
+            }
+            if (stop.IsCancellationRequested) return;
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             bool restored = await _orchestrator.ExitManualGameSessionAfterProcessExitAsync(
                 sessionVersion, timeout.Token).ConfigureAwait(false);

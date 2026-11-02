@@ -1,5 +1,14 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XV — fail-closed owned game child guard on verified process exit
+
+**Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** When an owned direct-executable or emulator process exits after the existing 5-second bootstrap grace, the automatic AI/TV Home return now performs **one** Windows Toolhelp process snapshot. A still-running **direct child**, created during that exact verified process's lifetime, vetoes automatic resource recovery: Gaming stays active until explicit user Return. Unavailable snapshots, unreadable potential children, process identity uncertainty or cancellation also fail closed. There is no process kill, adoption, background poller, driver, elevation, or Steam/Epic/GOG auto-return.
+
+- Five pure xUnit tests cover a live direct child, unrelated processes/PID reuse, incomplete/unreadable snapshots, no children, and irrelevant unreadable processes. The monitor now carries verified OS start time rather than re-reading it from an exited process. No Windows SDK, compiler, .NET tests, emulator, controller or game has been run.
+- **Bounded limitation:** Toolhelp snapshots observe currently live *direct* children only, not a detached grandchild whose intermediate parent already exited. For Steam/Epic/GOG handoffs and unverifiable process trees, explicit Return remains required. This is a conservative risk reduction, not a claim of complete process-tree ownership.
+- Windows checks: `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~OwnedGameChildExitGuardTests|FullyQualifiedName~GamingTransitionConcurrencyTests"`; build Server and WinUI; test a normal direct executable, a 6+ second bootstrapper leaving a live child, denied child access, PID reuse, and canceled/manual Return. Validate AI VRAM and Console focus only after verified safe exit.
+
+
 ### 2026-11-02 continuation XIV — virtual-pad worker fault recovery
 
 **Public `main`: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** The optional first-party RawGameController → VirtualPad forwarding path now reports recoverable physical-device/isolation/virtual backend exceptions from `Start` as failures instead of crashing the UI command. `StopAsync` retires a worker that faulted unexpectedly after its neutral-report/Dispose cleanup, so an explicit retry is not blocked by a stale task. Normal stop timeouts or caller-cancelled stop still refuse to claim the pad was released. Ordinary I/O and COM device exceptions during forwarding are handled as a stopped session, without activating another source, installing drivers or altering HidHide state.
