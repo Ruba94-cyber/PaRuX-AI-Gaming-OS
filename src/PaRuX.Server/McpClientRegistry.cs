@@ -37,7 +37,12 @@ public sealed class McpClientRegistry : IAsyncDisposable
     private readonly KnowledgeBrowserTools? _knowledge;
     private readonly DesktopIntegrationTools _desktop;
     private readonly DocumentWriteTools _documents;
-    private readonly PaRuX.Server.Orchestration.AgentLibraryTools? _library;
+    // Resolved on first use, never in the constructor: AgentLibraryTools reaches the WorkloadOrchestrator,
+    // which the host builds on another thread, so constructor injection deadlocked Core startup.
+    private readonly IServiceProvider? _services;
+    private PaRuX.Server.Orchestration.AgentLibraryTools? _libraryTools;
+    private PaRuX.Server.Orchestration.AgentLibraryTools? _library =>
+        _libraryTools ??= _services?.GetService(typeof(PaRuX.Server.Orchestration.AgentLibraryTools)) as PaRuX.Server.Orchestration.AgentLibraryTools;
     private List<McpServerConfig>? _configCache;
     private readonly Dictionary<string, McpClient> _liveClients = new();
 
@@ -79,10 +84,10 @@ public sealed class McpClientRegistry : IAsyncDisposable
         RagStore rag,
         PaRuX.Server.DesktopIntegration.DesktopIntegrationService desktop,
         PaRuX.Server.DesktopIntegration.DocumentWriteService documents,
-        PaRuX.Server.Orchestration.AgentLibraryTools? library = null)
+        IServiceProvider? services = null)
         : this(ServerState.StateDirectory, new KnowledgeBrowserTools(rag), desktop, documents)
     {
-        _library = library;
+        _services = services;
     }
 
     /// <summary>Test-only entry point (see BackupServiceTests) so backup/restore round-trip tests
