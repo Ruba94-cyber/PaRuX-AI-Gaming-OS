@@ -22,6 +22,70 @@ public sealed partial class MainWindow
     private bool _consoleModeActive;
     private bool _consoleRoutingInProgress;
     private RectInt32? _consolePreviousWindowBounds;
+    private DateTime? _lastObservedVerifiedReturnUtc;
+    private bool _handlingVerifiedReturn;
+
+    /// <summary>Subscribe to the already-running LocalAI state watcher, not a
+    /// second watcher or a timer. Ignore any event already on disk at startup.</summary>
+    private void InitializeConsoleVerifiedReturn()
+    {
+        RememberLatestVerifiedReturn();
+        LocalAiController.Current.StateChanged += OnLocalAiStateChangedForConsoleReturn;
+    }
+
+    private void RememberLatestVerifiedReturn()
+    {
+        if (VerifiedGameReturnSignal.TryRead(
+                VerifiedGameReturnSignal.FileIn(AppPaths.LocalAiStateDir), out var notice))
+            _lastObservedVerifiedReturnUtc = notice?.ExitUtc;
+    }
+
+    private void OnLocalAiStateChangedForConsoleReturn(object? sender, EventArgs args)
+    {
+        // The FileSystemWatcher callback is a worker thread, not a WinUI thread.
+        // It already listens to the exact directory in which Core publishes the
+        // atomic verified-return notice. No long-lived polling task is needed.
+        DispatcherQueue.TryEnqueue(() => _ = HandleVerifiedGameReturnAsync());
+    }
+
+    private async Task HandleVerifiedGameReturnAsync()
+    {
+        if (_handlingVerifiedReturn) return;
+        if (!VerifiedGameReturnSignal.TryRead(
+                VerifiedGameReturnSignal.FileIn(AppPaths.LocalAiStateDir), out var notice)
+            || notice is null || _lastObservedVerifiedReturnUtc == notice.ExitUtc)
+            return;
+        // Consume the signal exactly once, including when the opt-in is off,
+        // Console is closed, or user interaction makes focus restoration unsafe.
+        _lastObservedVerifiedReturnUtc = notice.ExitUtc;
+        if (!_consoleModeActive || !SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit
+            || GameLibraryPage.IsInteractionBusy || GamingManager.Current.IsActive)
+            return;
+
+        _handlingVerifiedReturn = true;
+        try
+        {
+            GamingStatusDto? state = await GamingOrchestratorClient.Current.GetStatusAsync();
+            if (!_consoleModeActive || !SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit
+                || GameLibraryPage.IsInteractionBusy || GamingManager.Current.IsActive ||
+                !GameLibraryForegroundReturnPolicy.HasConfirmedOwnedExit(state) ||
+                !VerifiedGameReturnSignal.IsRecentAndMatching(
+                    notice, state?.LastVerifiedOwnedGameExitUtc, DateTime.UtcNow))
+                return;
+
+            // This is the sole intentionally foregrounding behavior: explicitly
+            // opt-in, same Console window, exact Core-confirmed process exit.
+            // Windows may still deny foreground activation; never force it with
+            // synthetic keyboard input, taskbar hacks or process privileges.
+            App.ShowMainWindow();
+            await GameLibraryPage.OnConsoleForegroundActivatedAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Verified Console Home return failed: " + ex.GetType().Name);
+        }
+        finally { _handlingVerifiedReturn = false; }
+    }
 
     /// <summary>Only the user's activation of the existing PaRuX window triggers this.
     /// No background game-process scan, focus stealing or permanent controller poller.</summary>
@@ -63,6 +127,8 @@ public sealed partial class MainWindow
 
     private async Task EnterConsoleModeAsync()
     {
+        // A previous session's verified exit is not a future Home-return event.
+        RememberLatestVerifiedReturn();
         // A selected TV changes only THIS app window's display. It does not
         // change Windows' monitor arrangement, mirroring, HDR, VRR, or default.
         string targetId = SettingsStore.Current.Data.ConsoleTargetDisplayId ?? string.Empty;
