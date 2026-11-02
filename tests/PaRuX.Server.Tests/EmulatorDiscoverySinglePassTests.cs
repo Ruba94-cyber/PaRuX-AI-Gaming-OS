@@ -56,6 +56,16 @@ public sealed class EmulatorDiscoverySinglePassTests : IDisposable
         Assert.Empty(EmulatorDiscovery.Detect(new[] { link }));
     }
 
+    [Fact]
+    public void Detect_honors_a_canceled_scan_before_inspecting_emulator_files()
+    {
+        FakeExe("Portable/Cemu.exe");
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
+        Assert.Throws<OperationCanceledException>(() =>
+            EmulatorDiscovery.Detect(new[] { _root }, stop.Token));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }

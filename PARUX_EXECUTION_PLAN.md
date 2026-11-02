@@ -1,5 +1,16 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation VIII — one-pass emulator discovery and Gaming hard-off scan cancellation
+
+**Public main: SOURCE IMPLEMENTED / NOT RUN in this environment.** No new dependencies, emulators, ROMs, firmware, installers, drivers, GitHub Actions or changes to Windows display settings.
+
+- Replaced one separate directory traversal per emulator with one bounded breadth-first traversal across all eligible roots. The shared 4,000-directory ceiling is now fairly distributed across roots; each directory is visited once and checked for every registered executable name. Duplicate roots, ancestor junctions/symlinks and unsafe local executables are refused. Cancellation is checked throughout; outputs remain deterministic in registry order.
+- `GET /api/v1/gaming/emulators` and `POST /api/v1/gaming/emulators/scan` now use the existing `GamingHardOffWatch`. If Gaming activates mid-search, scanning stops cooperatively and returns a conflict, rather than waking disk during gameplay or returning a stale successful scan.
+- Added synthetic xUnit regression cases for multiple emulators under a tight budget, multi-root fairness and duplicate roots, symlink exclusion and cancellation. These test sources are authored, **not executed**.
+- Windows verification: build Server and Contracts; run `dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj --filter "FullyQualifiedName~EmulatorDiscoverySinglePassTests|FullyQualifiedName~EmulatorManagerTests"`; exercise each emulator discovery/scan API with a transition to Gaming mid-request, test installed/portable emulators on separate SSDs, and inspect idle CPU/disk while a game runs. No physical compatibility or performance claim has been established.
+- This is a focused Gaming improvement, **not** completion of native remapping, safe launcher-child process ownership, emulator fullscreen monitor selection, installer recovery or the remaining GOS tracks.
+
+
 Last executive refresh: **2026-11-02**.
 
 ### 2026-11-02 continuation VII — event-driven verified game exit and opt-in Console Home recovery

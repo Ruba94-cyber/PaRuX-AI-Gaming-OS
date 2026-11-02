@@ -23,17 +23,30 @@ public static class EmulatorEndpoints
         {
             if (runtime.GamingMode)
                 return Results.Conflict(new { error = "Emulator disk discovery is disabled while Gaming." }) as IResult;
-            var detected = EmulatorDiscovery.Detect(EmulatorDiscovery.DefaultSearchRoots(), ct);
-            return Results.Ok(new
+            // An emulator search that began before Gaming must also stop as
+            // soon as the hard-off marker appears, not just at admission time.
+            using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
+            try
             {
-                emulators = EmulatorRegistry.Builtin.Select(d => new
+                var detected = EmulatorDiscovery.Detect(EmulatorDiscovery.DefaultSearchRoots(), hardOff.Token);
+                if (hardOff.Triggered || runtime.GamingMode)
+                    return Results.Conflict(new { error = "Emulator disk discovery stopped because Gaming started." }) as IResult;
+                return Results.Ok(new
                 {
-                    d.Id, d.Name, d.Platform, extensions = d.GameExtensions, d.RequiresCore, d.TemplateStatus,
-                    fullscreenSupported = d.FullscreenArguments is { Count: > 0 },
-                    windowedSupported = d.WindowedArguments is { Count: > 0 },
-                }),
-                detected,
-            });
+                    emulators = EmulatorRegistry.Builtin.Select(d => new
+                    {
+                        d.Id, d.Name, d.Platform, extensions = d.GameExtensions, d.RequiresCore, d.TemplateStatus,
+                        fullscreenSupported = d.FullscreenArguments is { Count: > 0 },
+                        windowedSupported = d.WindowedArguments is { Count: > 0 },
+                    }),
+                    detected,
+                });
+            }
+            catch (OperationCanceledException) when (hardOff.Triggered)
+            {
+                return Results.Conflict(new { error = "Emulator disk discovery stopped because Gaming started." }) as IResult;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
         }).RequireDesktopOwner();
 
         app.MapPost("/api/v1/gaming/emulators/scan", (
@@ -43,7 +56,18 @@ public static class EmulatorEndpoints
                 return Results.Conflict(new { error = "Emulator folder scanning is disabled while Gaming." }) as IResult;
             EmulatorDefinition? definition = EmulatorRegistry.Find(request.EmulatorId);
             if (definition is null) return Results.BadRequest(new { error = "Unknown emulator." });
-            try { return Results.Ok(EmulatorDiscovery.Scan(definition, request.Folder, ct)); }
+            using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
+            try
+            {
+                var scan = EmulatorDiscovery.Scan(definition, request.Folder, hardOff.Token);
+                if (hardOff.Triggered || runtime.GamingMode)
+                    return Results.Conflict(new { error = "Emulator folder scanning stopped because Gaming started." }) as IResult;
+                return Results.Ok(scan);
+            }
+            catch (OperationCanceledException) when (hardOff.Triggered)
+            {
+                return Results.Conflict(new { error = "Emulator folder scanning stopped because Gaming started." }) as IResult;
+            }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
         }).RequireDesktopOwner();
 
