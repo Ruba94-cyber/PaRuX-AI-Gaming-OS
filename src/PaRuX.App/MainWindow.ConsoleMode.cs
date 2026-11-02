@@ -61,7 +61,7 @@ public sealed partial class MainWindow
         // Console is closed, or user interaction makes focus restoration unsafe.
         _lastObservedVerifiedReturnUtc = notice.ExitUtc;
         if (!_consoleModeActive || !SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit
-            || GameLibraryPage.IsInteractionBusy || GamingManager.Current.IsActive)
+            || GameLibraryPage.IsInteractionBusy || LocalAiController.Current.IsGameActive())
             return;
 
         _handlingVerifiedReturn = true;
@@ -71,7 +71,7 @@ public sealed partial class MainWindow
             if (App.IsShuttingDown || !ConsoleAutoReturnPolicy.CanActivate(
                 SettingsStore.Current.Data.AutoShowConsoleAfterVerifiedGameExit,
                 _consoleModeActive, GameLibraryPage.IsInteractionBusy,
-                GamingManager.Current.IsActive, state, notice, DateTime.UtcNow))
+                LocalAiController.Current.IsGameActive(), state, notice, DateTime.UtcNow))
                 return;
 
             // This is the sole intentionally foregrounding behavior: explicitly
