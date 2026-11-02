@@ -56,8 +56,8 @@ public sealed class CreateModeTabsAndSetupTests
                 Assert.True(page.IsModeSelected(tab), tab + " tab should be selected after choosing it.");
             }
 
-            // The status, cancel and provenance stay available whichever mode is shown.
-            Assert.NotNull(page.CancelActiveJobButton);
+            // The status stays available whichever mode is shown; cancel is contextual and hidden while idle.
+            page.AssertNoActiveJob();
             Assert.False(string.IsNullOrWhiteSpace(page.GetStatusText()));
         });
 
@@ -73,15 +73,14 @@ public sealed class CreateModeTabsAndSetupTests
                 // A card is Collapsed (absent from the tree) once that capability is ready; otherwise it must say what is missing.
                 UiWait.For(() =>
                 {
-                    var card = page.FindRawById("Create_Setup_" + type + "_Card");
-                    if (card == null) return true;
+                    if (!page.IsSetupCardShown(type)) return true;
                     var headline = page.FindRawById("Create_Setup_" + type + "_Headline");
                     return !string.IsNullOrWhiteSpace(headline?.Properties.Name.ValueOrDefault);
                 }, "the " + tab + " setup card is either hidden (ready) or explains what is missing");
             }
 
             page.SelectMode("Image");
-            bool imageCardShown = page.FindRawById("Create_Setup_image_Card") != null;
+            bool imageCardShown = page.IsSetupCardShown("image");
             if (settled == CreateWorkspaceModesPage.NeedsSetupStatus)
             {
                 Assert.True(imageCardShown, "The status says image generation needs setup, so the Image setup card must be shown.");
@@ -111,8 +110,7 @@ public sealed class CreateModeTabsAndSetupTests
 
             UiWait.For(() => prompt.Patterns.Value.Pattern.Value == example, "image prompt is filled with the chosen example");
             // Only the prompt changes: no job started, so the cancel control still reports idle.
-            page.ClickById("Create_Cancel_Active_Job_Button", ControlType.Button);
-            UiWait.For(() => page.GetStatusText() == "No Create job is active.", "no job was started by the example chip");
+            page.AssertNoActiveJob();
 
             page.SelectMode("Video");
             AutomationElement videoPrompt = UiWait.ById(app.MainWindow, "Create_Video_Prompt_Box", ControlType.Edit);

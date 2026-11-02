@@ -108,8 +108,22 @@ internal sealed class CreateWorkspaceModesPage
         return UiWait.ById(_window, "Create_Operation_Status_Text", ControlType.Text).Name;
     }
 
+    /// <summary>The cancel button only appears while a Create job runs (product contract: cancellation is contextual).</summary>
     internal AutomationElement CancelActiveJobButton =>
         UiWait.ById(_window, "Create_Cancel_Active_Job_Button", ControlType.Button);
+
+    /// <summary>A collapsed setup card is absent from the UIA tree. The card panel itself is not exposed as an element
+    /// (a StackPanel has no automation peer), so its headline is the observable proof that the card is shown.</summary>
+    internal bool IsSetupCardShown(string type) => FindRawById("Create_Setup_" + type + "_Headline") != null;
+
+    internal bool IsCancelActiveJobButtonPresent() => FindRawById("Create_Cancel_Active_Job_Button") != null;
+
+    /// <summary>Idle workspace: no job is running, so the contextual cancel control must not be exposed.</summary>
+    internal void AssertNoActiveJob()
+    {
+        Xunit.Assert.False(IsCancelActiveJobButtonPresent(),
+            "Cancel active job must stay hidden while no Create job is running.");
+    }
 
     internal AutomationElement ProvenanceText =>
         UiWait.ById(_window, "Create_Media_Provenance_Text", ControlType.Text);

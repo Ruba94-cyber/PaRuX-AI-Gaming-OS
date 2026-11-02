@@ -26,7 +26,6 @@ public sealed class CreateWorkspaceSpeechCancellationTests
             AutomationElement voice = UiWait.ById(app.MainWindow, "Create_TTS_Voice_Box", ControlType.Edit);
             voice.Patterns.Value.Pattern.SetValue("af_heart");
             AutomationElement run = UiWait.ById(app.MainWindow, "Create_TTS_Run_Button", ControlType.Button);
-            AutomationElement cancel = UiWait.ById(app.MainWindow, "Create_Cancel_Active_Job_Button", ControlType.Button);
             AutomationElement status = UiWait.ById(app.MainWindow, "Create_Operation_Status_Text", ControlType.Text);
 
             run.Patterns.Invoke.Pattern.Invoke();
@@ -36,6 +35,8 @@ public sealed class CreateWorkspaceSpeechCancellationTests
                 && Directory.EnumerateFiles(audioDirectory, "*.partial", SearchOption.TopDirectoryOnly)
                     .Any(path => new FileInfo(path).Length > 44),
                 "product writer consumed PCM before cancellation", TimeSpan.FromSeconds(15));
+            // Cancel is only exposed while the job runs, so it is resolved after the run has started.
+            AutomationElement cancel = UiWait.ById(app.MainWindow, "Create_Cancel_Active_Job_Button", ControlType.Button);
             cancel.Patterns.Invoke.Pattern.Invoke();
             await app.SpeechFirstCancellation.WaitAsync(TimeSpan.FromSeconds(15));
             UiWait.For(() => status.Name == "Speech was stopped; no file was kept.", "Create reports speech cancellation");

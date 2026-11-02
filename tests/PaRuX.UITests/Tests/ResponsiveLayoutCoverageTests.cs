@@ -175,21 +175,15 @@ public sealed class ResponsiveLayoutCoverageTests
             {
                 ResizeWindow(app, width, height);
 
-                var cancelBtn = UiWait.ById(app.MainWindow, "Create_Cancel_Active_Job_Button", ControlType.Button);
                 var status = UiWait.ById(app.MainWindow, "Create_Operation_Status_Text", ControlType.Text);
 
-                // Status and cancel sit below the selected mode's panel, so on a small window they are reached by scrolling.
-                // Bring them into view first; they must then be fully inside the window and clear of the navigation.
-                cancelBtn.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
+                // Status sits below the selected mode's panel header, so on a small window it is reached by scrolling.
+                // Cancel is contextual (hidden while idle), so only the status is bounded here.
                 status.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
-                UiWait.For(() => cancelBtn.Properties.BoundingRectangle.ValueOrDefault.Height > 0
-                    && status.Properties.BoundingRectangle.ValueOrDefault.Height > 0,
-                    $"Create cancel button and status visible after scrolling at {label}");
+                UiWait.For(() => status.Properties.BoundingRectangle.ValueOrDefault.Height > 0,
+                    $"Create status visible after scrolling at {label}");
 
-                AssertInsideWindow(app.MainWindow, cancelBtn, $"Create cancel button at {label}");
                 AssertInsideWindow(app.MainWindow, status, $"Create status text at {label}");
-
-                AssertNoOverlapWithNav(app, cancelBtn, $"Create cancel button at {label}");
                 AssertNoOverlapWithNav(app, status, $"Create status text at {label}");
 
                 Assert.True(

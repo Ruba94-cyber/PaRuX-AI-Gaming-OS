@@ -48,7 +48,7 @@ public sealed class CreateWorkspaceModesCoverageTests
                 Assert.Equal(section, heading.Name);
             }
 
-            var subtitle = page.FindTextElement("Image, video, edit, 3D and speech share one local workspace.");
+            var subtitle = page.FindTextElement("Create images, videos, music, speech and more with local AI.");
             Assert.NotNull(subtitle);
         });
 
@@ -56,14 +56,10 @@ public sealed class CreateWorkspaceModesCoverageTests
     public void Create_cancel_control_exists_and_reports_idle_state_when_no_job_active() => Run(
         nameof(Create_cancel_control_exists_and_reports_idle_state_when_no_job_active), (app, page) =>
         {
-            var cancel = page.CancelActiveJobButton;
-            Assert.True(cancel.IsEnabled, "Cancel button should be enabled when the workspace is idle.");
-
-            page.ClickById("Create_Cancel_Active_Job_Button", ControlType.Button);
-
-            UiWait.For(() => page.GetStatusText() == "No Create job is active.",
-                "status updates to idle cancellation note");
-            Assert.Equal("No Create job is active.", page.GetStatusText());
+            // Cancellation is contextual: with no job running the control is not exposed, and the status is not a progress line.
+            page.WaitForSettledSetupStatus();
+            page.AssertNoActiveJob();
+            Assert.False(string.IsNullOrWhiteSpace(page.GetStatusText()));
         });
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "Create"), Trait("Category", "FlaUI")]
@@ -176,9 +172,7 @@ public sealed class CreateWorkspaceModesCoverageTests
             Assert.True(string.IsNullOrEmpty(page.TtsTextBox.Patterns.Value.Pattern.Value),
                 "TTS text box must still be empty after switching modes.");
 
-            page.ClickById("Create_Cancel_Active_Job_Button", ControlType.Button);
-            UiWait.For(() => page.GetStatusText() == "No Create job is active.",
-                "status reports no active job after input modification");
+            page.AssertNoActiveJob();
         });
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "Create"), Trait("Category", "FlaUI")]
@@ -205,14 +199,14 @@ public sealed class CreateWorkspaceModesCoverageTests
         page.SelectMode("Image");
         if (settledStatus == CreateWorkspaceModesPage.NeedsSetupStatus)
         {
-            UiWait.For(() => page.FindRawById("Create_Setup_image_Card") is { } card && !card.Properties.IsOffscreen.ValueOrDefault,
+            UiWait.For(() => page.IsSetupCardShown("image"),
                 "Image setup card is shown while image generation needs setup");
             Assert.NotNull(page.FindRawById("Create_Setup_image_Button"));
         }
         else
         {
             Assert.Equal(CreateWorkspaceModesPage.ReadyStatus, settledStatus);
-            UiWait.For(() => page.FindRawById("Create_Setup_image_Card") is not { } card || card.Properties.IsOffscreen.ValueOrDefault,
+            UiWait.For(() => !page.IsSetupCardShown("image"),
                 "Image setup card is hidden once image generation is ready");
         }
     }
