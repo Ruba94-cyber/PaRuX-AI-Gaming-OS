@@ -36,51 +36,92 @@ public static class EmulatorDiscovery
         return roots;
     }
 
+    /// <summary>
+    /// Traverse each eligible directory at most once for all registered emulators.
+    /// A shared global budget and breadth-first root ordering prevent a missing
+    /// early emulator from starving every later emulator/root. Only local regular,
+    /// unlinked executable files are ever reported; none are started.
+    /// </summary>
     public static IReadOnlyList<DetectedEmulator> Detect(
         IEnumerable<string> searchRoots, CancellationToken ct = default, int maxEntries = MaxDetectEntries)
     {
+        ArgumentNullException.ThrowIfNull(searchRoots);
         if (maxEntries is < 1 or > MaxDetectEntries)
             throw new ArgumentOutOfRangeException(nameof(maxEntries));
-        int remaining = maxEntries;
-        var found = new List<DetectedEmulator>();
-        foreach (EmulatorDefinition definition in EmulatorRegistry.Builtin)
-        {
-            string? match = null;
-            foreach (string root in searchRoots)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (remaining <= 0) return found;
-                match = FindExecutable(root, definition.ExecutableNames, MaxDetectDepth, ref remaining, ct);
-                if (match is not null) break;
-            }
-            if (match is not null) found.Add(new DetectedEmulator(definition.Id, match));
-        }
-        return found;
-    }
 
-    private static string? FindExecutable(
-        string directory, IReadOnlyList<string> names, int depth, ref int remaining, CancellationToken ct)
-    {
-        if (remaining-- <= 0 || !Directory.Exists(directory)) return null;
-        try
-        {
-            foreach (string name in names)
+        var byName = new Dictionary<string, List<EmulatorDefinition>>(StringComparer.OrdinalIgnoreCase);
+        foreach (EmulatorDefinition emulator in EmulatorRegistry.Builtin)
+            foreach (string name in emulator.ExecutableNames)
             {
-                string candidate = Path.Combine(directory, name);
-                if (File.Exists(candidate) && CustomExecutableInputProvider.IsSafeHelperPath(candidate)) return candidate;
+                if (!byName.TryGetValue(name, out var definitions))
+                    byName[name] = definitions = new List<EmulatorDefinition>();
+                definitions.Add(emulator);
             }
-            if (depth <= 0) return null;
-            foreach (string sub in Directory.EnumerateDirectories(directory))
+
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Queue<(string Directory, int Depth)>();
+
+        // Queue all roots first. A huge Program Files subtree must not consume
+        // the entire budget before another user-installed emulator location is visited.
+        foreach (string root in searchRoots)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (seen.Count >= maxEntries) break;
+            if (string.IsNullOrWhiteSpace(root)) continue;
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0) continue;
-                if (remaining <= 0) return null;
-                string? hit = FindExecutable(sub, names, depth - 1, ref remaining, ct);
-                if (hit is not null) return hit;
+                if (!Path.IsPathFullyQualified(root) || root.StartsWith(@"\\", StringComparison.Ordinal))
+                    continue;
+                string full = Path.GetFullPath(root);
+                if (ManualGameLibrary.IsSafeDirectory(full) && seen.Add(full))
+                    pending.Enqueue((full, 0));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                ArgumentException or NotSupportedException) { /* Ignore an unusable root. */ }
+        }
+
+        while (pending.Count > 0 && found.Count < EmulatorRegistry.Builtin.Count)
+        {
+            ct.ThrowIfCancellationRequested();
+            var (directory, depth) = pending.Dequeue();
+            try
+            {
+                // The caller's folder can change between enumeration and inspection.
+                if (!ManualGameLibrary.IsSafeDirectory(directory)) continue;
+                foreach (var pair in byName)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (pair.Value.All(d => found.ContainsKey(d.Id))) continue;
+                    string candidate = Path.Combine(directory, pair.Key);
+                    if (!File.Exists(candidate) ||
+                        !CustomExecutableInputProvider.IsSafeHelperPath(candidate)) continue;
+                    foreach (EmulatorDefinition definition in pair.Value)
+                        found.TryAdd(definition.Id, candidate);
+                }
+
+                if (depth >= MaxDetectDepth || seen.Count >= maxEntries) continue;
+                foreach (string child in Directory.EnumerateDirectories(directory))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (seen.Count >= maxEntries) break;
+                    // No junctions or symlink traversals, including the chosen root's ancestors.
+                    if (!ManualGameLibrary.IsSafeDirectory(child)) continue;
+                    string full = Path.GetFullPath(child);
+                    if (seen.Add(full)) pending.Enqueue((full, depth + 1));
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                ArgumentException or NotSupportedException)
+            {
+                // A missing or protected directory must not prevent another root from being visited.
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        return null;
+
+        return EmulatorRegistry.Builtin
+            .Where(d => found.ContainsKey(d.Id))
+            .Select(d => new DetectedEmulator(d.Id, found[d.Id]))
+            .ToArray();
     }
 
     public static EmulatorScanResult Scan(EmulatorDefinition definition, string? folder, CancellationToken ct = default)
