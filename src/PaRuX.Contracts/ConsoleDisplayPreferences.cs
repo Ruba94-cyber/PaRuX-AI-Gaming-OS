@@ -52,18 +52,21 @@ public static class ConsoleHomeRepositionPolicy
 {
     public readonly record struct Bounds(int X, int Y, int Width, int Height);
 
-    /// <summary>A Windows fullscreen window is on the requested TV if its
-    /// center lies inside that TV's actual virtual-desktop rectangle.</summary>
+    /// <summary>A Windows fullscreen window is on the requested TV only when its entire
+    /// rectangle lies inside the selected TV's virtual-desktop rectangle.</summary>
     public static bool IsOnTarget(GamingDisplayModeDto target, Bounds current)
     {
         if (target.Width <= 0 || target.Height <= 0 ||
             current.Width <= 0 || current.Height <= 0) return false;
         long right = (long)target.X + target.Width;
         long bottom = (long)target.Y + target.Height;
-        long cx2 = 2L * current.X + current.Width;
-        long cy2 = 2L * current.Y + current.Height;
-        return cx2 >= 2L * target.X && cx2 < 2L * right &&
-               cy2 >= 2L * target.Y && cy2 < 2L * bottom;
+        // The entire visible window must fit on the selected TV. Testing
+        // only its center would accept a game/Console window leaking onto a
+        // neighboring monitor, especially with mixed DPI or negative origins.
+        long currentRight = (long)current.X + current.Width;
+        long currentBottom = (long)current.Y + current.Height;
+        return current.X >= target.X && current.Y >= target.Y &&
+               currentRight <= right && currentBottom <= bottom;
     }
 
     /// <summary>A safely bounded, windowed anchor which Windows can then make

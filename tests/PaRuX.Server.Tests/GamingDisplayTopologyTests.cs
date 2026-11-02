@@ -150,6 +150,9 @@ public sealed class ConsoleHomeRepositionPolicyTests
             new ConsoleHomeRepositionPolicy.Bounds(0, 0, 1920, 1080)));
         Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
             new ConsoleHomeRepositionPolicy.Bounds(-1920, -200, 3840, 2160)));
+        // Its center is inside the TV but a portion would appear on the PC monitor.
+        Assert.False(ConsoleHomeRepositionPolicy.IsOnTarget(tv,
+            new ConsoleHomeRepositionPolicy.Bounds(-3000, -200, 3840, 2160)));
     }
 
     [Fact]

@@ -96,8 +96,28 @@ public sealed partial class MainWindow
             // to the explicitly selected connected TV before foregrounding it.
             // Never select another monitor, change Windows display settings,
             // affect the owned game, or foreground on an unsuccessful move.
-            if (selectedTv is not null && !TryRestoreConsoleHomeToSelectedTv(selectedTv))
-                return;
+            if (selectedTv is not null)
+            {
+                if (!TryRestoreConsoleHomeToSelectedTv(selectedTv)) return;
+                // The HDMI device can vanish or be reidentified while the
+                // presenter switches. Re-check the selected TV immediately
+                // before foregrounding; a stale topology is not authorization.
+                var updated = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
+                GamingDisplayModeDto? stillSelected = updated.Succeeded
+                    ? ConsoleDisplaySelectionPolicy.SelectTarget(updated.Value,
+                        SettingsStore.Current.Data.ConsoleDisplays, displayId)
+                    : null;
+                if (stillSelected is null || stillSelected.X != selectedTv.X ||
+                    stillSelected.Y != selectedTv.Y || stillSelected.Width != selectedTv.Width ||
+                    stillSelected.Height != selectedTv.Height)
+                    return;
+                var finalPosition = AppWindow.Position;
+                var finalSize = AppWindow.Size;
+                if (!ConsoleHomeRepositionPolicy.IsOnTarget(stillSelected,
+                        new ConsoleHomeRepositionPolicy.Bounds(finalPosition.X, finalPosition.Y,
+                            finalSize.Width, finalSize.Height)))
+                    return;
+            }
             if (App.IsShuttingDown || !_consoleModeActive || _consoleRoutingInProgress ||
                 LocalAiController.Current.IsGameActive() || GameLibraryPage.IsInteractionBusy)
                 return;
