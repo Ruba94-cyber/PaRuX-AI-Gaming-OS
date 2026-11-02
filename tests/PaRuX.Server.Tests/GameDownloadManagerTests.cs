@@ -11,7 +11,7 @@ public sealed class GameDownloadManagerTests : IDisposable
 {
     private sealed class TestServer : IDisposable
     {
-        private HttpListener _listener = new();
+        private readonly HttpListener _listener;
         private readonly CancellationTokenSource _stop = new();
         public byte[] Data = Array.Empty<byte>();
         public string ETag = "\"v1\"";
@@ -25,11 +25,21 @@ public sealed class GameDownloadManagerTests : IDisposable
 
         public TestServer()
         {
-            Port = Random.Shared.Next(20000, 60000);
+            // A failed Start() leaves that HttpListener instance aborted/disposed, so every
+            // attempt gets a brand-new listener instead of re-using (and re-touching) the old one.
             while (true)
             {
-                try { _listener = new HttpListener(); _listener.Prefixes.Add($"http://127.0.0.1:{Port}/"); _listener.Start(); break; }
-                catch (HttpListenerException) { Port = Random.Shared.Next(20000, 60000); }
+                int port = Random.Shared.Next(20000, 60000);
+                var candidate = new HttpListener();
+                try
+                {
+                    candidate.Prefixes.Add($"http://127.0.0.1:{port}/");
+                    candidate.Start();
+                    _listener = candidate;
+                    Port = port;
+                    break;
+                }
+                catch (HttpListenerException) { try { candidate.Close(); } catch { } }
             }
             _ = Task.Run(Loop);
         }
@@ -38,10 +48,11 @@ public sealed class GameDownloadManagerTests : IDisposable
 
         private async Task Loop()
         {
-            while (!_stop.IsCancellationRequested)
+            while (!_stop.IsCancellationRequested && _listener.IsListening)
             {
                 HttpListenerContext ctx;
-                try { ctx = await _listener.GetContextAsync(); } catch { return; }
+                try { ctx = await _listener.GetContextAsync(); }
+                catch (Exception e) when (e is ObjectDisposedException or HttpListenerException or InvalidOperationException) { return; }
                 _ = Task.Run(() => Handle(ctx));
             }
         }
@@ -84,7 +95,12 @@ public sealed class GameDownloadManagerTests : IDisposable
             catch { try { ctx.Response.Abort(); } catch { } }
         }
 
-        public void Dispose() { _stop.Cancel(); try { _listener.Stop(); _listener.Close(); } catch { } }
+        public void Dispose()
+        {
+            _stop.Cancel();
+            try { _listener.Stop(); } catch (ObjectDisposedException) { }
+            try { _listener.Close(); } catch (ObjectDisposedException) { }
+        }
     }
 
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "parux-dl-" + Guid.NewGuid().ToString("N"));

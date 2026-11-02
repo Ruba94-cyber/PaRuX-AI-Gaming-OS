@@ -50,7 +50,7 @@ namespace PaRuX.Services
         internal AddResult TryRecordVerifiedWindow(
             ComputerUseGuiFinalProof? proof,
             ComputerUseWindowFocusPolicy.Candidate? osVerifiedWindow) =>
-            Record(proof, osVerifiedWindow);
+            osVerifiedWindow == null ? AddResult.InvalidProof : Record(proof, osVerifiedWindow);
 
         private AddResult Record(
             ComputerUseGuiFinalProof? proof,

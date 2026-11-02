@@ -52,6 +52,10 @@ Available features depend on your installed models, runtimes and hardware. **Not
 - **Internet features are optional**, except when you choose actions such as downloading models, checking updates or doing online research.
 - **Remote browser access is opt-in.** The desktop PC remains the execution host; see [local gateway and integrations](docs/UNIVERSAL_GATEWAY.md).
 
+## Project status
+
+**PARTIAL — active software gaps; PHYSICAL_PC_ACCEPTANCE_REQUIRED.** The canonical status and the open work (the BIC-01 to BIC-17 backlog) live in [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md). Earlier "software complete" markers in the documentation are dated historical evidence, not the status of the current code. The Release build and the test classes touched in the latest fixes pass; the full xUnit suite and the FlaUI UI tests were NOT RUN for this statement.
+
 ## Beta limitations
 
 - Development and acceptance testing are ongoing; **this is not production-ready software**.

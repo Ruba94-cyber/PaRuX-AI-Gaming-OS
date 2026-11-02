@@ -57,10 +57,13 @@ namespace PaRuX.Services
                 {
                     if (window.ValueKind != JsonValueKind.Object
                         || !window.TryGetProperty("hwnd", out JsonElement hwnd)
-                        || !MatchesWindow(hwnd, expectedWindow)
-                        || !window.TryGetProperty("elements", out JsonElement elements)
-                        || elements.ValueKind != JsonValueKind.Array)
+                        || !MatchesWindow(hwnd, expectedWindow))
                         continue;
+                    // The foreground window itself is malformed: refuse verification
+                    // rather than reporting a benign "target missing".
+                    if (!window.TryGetProperty("elements", out JsonElement elements)
+                        || elements.ValueKind != JsonValueKind.Array)
+                        return Verdict.InvalidObservation;
 
                     if (!FindElement(elements, selector!, 0, ref matched, ref matches))
                         return Verdict.InvalidObservation;
