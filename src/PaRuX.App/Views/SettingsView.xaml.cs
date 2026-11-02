@@ -317,6 +317,10 @@ namespace PaRuX.Views
                     _ = RefreshDiagnosticsAsync();
                     break;
                 case "Models":
+                    // The local AI root and runtime components panels live in this category (not "PaRuX Platform").
+                    _ = RefreshLocalAiRootAsync();
+                    _ = RefreshRuntimeComponentsAsync();
+                    _ = RefreshCloudFallbackAsync(); // the cloud-fallback panel also lives in Models
                     _ = RefreshDetectedModelsAsync();
                     _ = RefreshDiscoveryPolicyAsync();
                     _ = RefreshAutoCheckAsync();
@@ -362,14 +366,11 @@ namespace PaRuX.Views
                     _ = RefreshConsoleDisplaysAsync();
                     break;
                 case "PaRuX Platform":
-                    _ = RefreshLocalAiRootAsync();
-                    _ = RefreshRuntimeComponentsAsync();
                     break;
                 case "Privacy & Network":
                     _ = RefreshRemoteAccessAsync();
                     _ = RefreshInternetStatusAsync();
                     _ = RefreshWebAccessAsync();
-                    _ = RefreshCloudFallbackAsync();
                     break;
                 case "Data":
                     _ = RefreshMemoryListAsync();
