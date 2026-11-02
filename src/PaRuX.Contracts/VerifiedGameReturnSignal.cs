@@ -38,7 +38,7 @@ public sealed record VerifiedGameReturnSignal(long SessionVersion, DateTime Exit
             return signal is { SessionVersion: > 0 } && signal.ExitUtc.Kind == DateTimeKind.Utc;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
-            or ArgumentException or NotSupportedException)
+            or ArgumentException or NotSupportedException or System.Security.SecurityException)
         {
             return false;
         }
@@ -59,7 +59,8 @@ public sealed record VerifiedGameReturnSignal(long SessionVersion, DateTime Exit
         finally
         {
             try { File.Delete(temp); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or System.Security.SecurityException) { }
         }
     }
 }
