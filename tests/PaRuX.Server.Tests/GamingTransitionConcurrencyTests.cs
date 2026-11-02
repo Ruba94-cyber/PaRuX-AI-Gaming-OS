@@ -225,6 +225,13 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         Assert.NotNull(exited.LastVerifiedOwnedGameExitUtc);
         Assert.True(exited.LastVerifiedOwnedGameExitRestoredAi);
         Assert.False(exited.IsGamingActive);
+        // Signal must be emitted only after the exact Core exit status exists.
+        Assert.True(VerifiedGameReturnSignal.TryRead(
+            VerifiedGameReturnSignal.FileIn(LocalAiPaths.StateDir), out var signal));
+        Assert.NotNull(signal);
+        Assert.Equal(version, signal.SessionVersion);
+        Assert.True(VerifiedGameReturnSignal.IsRecentAndMatching(
+            signal, exited.LastVerifiedOwnedGameExitUtc, DateTime.UtcNow));
 
         Assert.True(await orchestrator.EnterManualGameSessionAsync());
         GamingStatusDto next = orchestrator.GetStatus();
@@ -240,8 +247,12 @@ public sealed class GamingTransitionConcurrencyTests : IDisposable
         Assert.True(await orchestrator.EnterManualGameSessionAsync());
         long oldVersion = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
         Assert.True(await orchestrator.ExitGamingSessionAsync());
+        Assert.False(VerifiedGameReturnSignal.TryRead(
+            VerifiedGameReturnSignal.FileIn(LocalAiPaths.StateDir), out _));
         Assert.False(await orchestrator.ExitManualGameSessionAfterProcessExitAsync(oldVersion, CancellationToken.None));
         Assert.Null(orchestrator.GetStatus().LastVerifiedOwnedGameExitUtc);
+        Assert.False(VerifiedGameReturnSignal.TryRead(
+            VerifiedGameReturnSignal.FileIn(LocalAiPaths.StateDir), out _));
 
         Assert.True(await orchestrator.EnterManualGameSessionAsync());
         long newVersion = Assert.IsType<long>(orchestrator.ActiveManualGameSessionVersion);
