@@ -126,6 +126,12 @@ public sealed class ManualGameSessionService : IDisposable
                 _orchestrator.RegisterOwnedGameProcess(new WorkloadOrchestrator.OwnedGameProcess(
                     process.Id, verifiedStartUtc, path, sessionVersion.Value));
                 var stop = new CancellationTokenSource();
+                // The exit observer can complete synchronously for an
+                // instantly terminating game and dispose this CTS before the
+                // window-placement await below. Capture the immutable token
+                // now: accessing stop.Token after Dispose throws, but a
+                // captured CancellationToken remains safe to inspect.
+                CancellationToken observationToken = stop.Token;
                 CancellationTokenSource? previous;
                 lock (_monitorGate)
                 {
@@ -144,7 +150,7 @@ public sealed class ManualGameSessionService : IDisposable
                     // window. Never adopt child/launcher processes or foreground
                     // someone else's application. No game process is terminated.
                     placement = await _windowPlacement.TryPlaceAsync(
-                        process, path, targetDisplayId, stop.Token).ConfigureAwait(false);
+                        process, path, targetDisplayId, observationToken).ConfigureAwait(false);
                 }
                 return new ManualGameLaunchResult(true, true,
                     "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")

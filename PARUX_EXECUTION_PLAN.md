@@ -1,5 +1,12 @@
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
+### 2026-11-02 continuation XVII — immutable cancellation token for instant-exit TV launch
+
+**Public main: SOURCE IMPLEMENTED / NOT RUN.** The direct-game launcher now captures a `CancellationToken` before scheduling the exit observer, and passes the captured token to optional selected-TV placement. An instantly exiting .exe can complete the observer and dispose its `CancellationTokenSource` before the placement call is evaluated; the old `stop.Token` property access could throw `ObjectDisposedException` and cause a misleading "game started but automatic return unavailable" response. The immutable captured token remains valid after source disposal; the placement service still fails closed for an exited process. No additional polling, driver or display mutation.
+
+- Validate on Windows with direct games and a synthetic executable that exits immediately, with selected TV and without; verify launch-result messages and manual Return. **No compilation, xUnit, FlaUI or hardware execution in this session.**
+
+
 ### 2026-11-02 continuation XVI — explain conservative manual Gaming return
 
 **Public main: SOURCE IMPLEMENTED / TESTS AUTHORED NOT RUN.** Direct owned games that exit before the bootstrap grace, leave a live direct child or have an inconclusive Toolhelp snapshot now publish a strictly allowlisted **session-version-verified** manual-return reason in Gaming status. The existing unified Games Desktop/Console view explains it in IT/EN and leaves the explicit Return-to-AI action available. The reason never contains PIDs, paths, titles or machine-private details. It clears on the next Gaming entry and after successful Return. This nullable API addition is compatible with older clients.
