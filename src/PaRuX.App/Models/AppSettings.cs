@@ -31,6 +31,12 @@ namespace PaRuX.Models
         /// External launchers and exclusive fullscreen are never forcibly rerouted.</summary>
         public bool RouteVerifiedWindowedGamesToTv { get; set; } = true;
 
+        /// <summary>Explicit opt-in: bring the existing fullscreen Console Home
+        /// to the foreground only after Core signals a verified owned-game exit
+        /// AND confirms the AI resources were restored. Never on manual Return,
+        /// game handoffs, splash exits or generic Gaming marker disappearance.</summary>
+        public bool AutoShowConsoleAfterVerifiedGameExit { get; set; } = false;
+
         public int ChatRoutingMirrorVersion { get; set; }
         public int CapabilityRoutingMirrorVersion { get; set; }
         public List<ScopedRoutingOverrideDto> CapabilityRoutingOverrides { get; set; } = new List<ScopedRoutingOverrideDto>();
