@@ -483,6 +483,51 @@ public sealed class GameDownloadManagerTests : IDisposable
     }
 
     [Fact]
+    public void Enqueue_refuses_a_Gaming_transition_between_admission_and_queue_lock()
+    {
+        int reads = 0;
+        using var manager = new GameDownloadManager(
+            new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }),
+            () => Interlocked.Increment(ref reads) >= 2,
+            _ => long.MaxValue, null, Array.Empty<TimeSpan>());
+
+        Assert.Throws<GameDownloadException>(() =>
+            manager.Enqueue(new(_server.Url("never-started.zip"), _dir)));
+        Assert.Empty(manager.List());
+        Assert.Equal(2, reads);
+        Assert.Equal(0, _server.Requests);
+    }
+
+    [Fact]
+    public async Task Pre_cancelled_Gaming_resume_leaves_queue_untouched()
+    {
+        using var manager = Make();
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            manager.ResumeGamingPausedAsync(stop.Token));
+        Assert.Empty(manager.List());
+    }
+
+    [Fact]
+    public async Task Immediate_cancel_of_many_queued_download_workers_remains_terminal()
+    {
+        _server.Data = Bytes(8192);
+        using var manager = Make();
+        manager.MaxConcurrent = 1;
+        var ids = new List<string>();
+        for (int i = 0; i < 25; i++)
+        {
+            var item = manager.Enqueue(new(_server.Url("cancel-" + i + ".zip"), _dir));
+            ids.Add(item.Id);
+            Assert.True(manager.CancelOrRemove(item.Id));
+        }
+        await Task.Delay(150);
+        Assert.All(manager.List().Where(d => ids.Contains(d.Id)),
+            d => Assert.Equal(GameDownloadStates.Cancelled, d.State));
+    }
+
+    [Fact]
     public async Task A_running_game_blocks_new_work_pauses_running_work_and_resumption_is_explicit()
     {
         _server.Data = Bytes(2_000_000);

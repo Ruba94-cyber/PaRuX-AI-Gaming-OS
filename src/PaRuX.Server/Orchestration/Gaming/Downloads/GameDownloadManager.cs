@@ -167,6 +167,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
         lock (_gate)
         {
+            // Gaming can start after the first admission check but before
+            // acquiring the queue lock. Refuse rather than accept a stale job.
+            if (_gamingActive()) throw new GameDownloadException("Downloads are paused while a game is running.");
             if (_entries.Count(e => !GameDownloadStates.IsTerminal(e.State)) >= 200) throw new GameDownloadException("Too many active downloads.");
             // Two active jobs for the same target file would corrupt each other's part file.
             if (_entries.Any(e => !GameDownloadStates.IsTerminal(e.State) &&
@@ -239,9 +242,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     /// <summary>Called when Gaming ends: jobs paused only because of the game are queued again.</summary>
     public Task<int> ResumeGamingPausedAsync(CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         if (_gamingActive()) return Task.FromResult(0);
         lock (_gate)
         {
+            ct.ThrowIfCancellationRequested();
+            // A new Gaming entry can race the check before the queue lock.
+            // Never report that downloads were resumed after hard-off.
+            if (_gamingActive()) return Task.FromResult(0);
             var paused = _entries.Where(e => e.State == GameDownloadStates.Paused && !e.UserPause).ToList();
             foreach (Entry e in paused) { e.State = GameDownloadStates.Queued; e.Reason = null; }
             Pump();
@@ -273,9 +281,13 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             if (running >= _maxConcurrent) break;
             next.State = GameDownloadStates.Running;
             next.Reason = null;
-            next.Run = new CancellationTokenSource();
+            var run = new CancellationTokenSource();
+            next.Run = run;
+            // Cancel/Pause may finish and dispose next.Run before Task.Run
+            // executes. Capture a stable token now, not from the mutable slot.
+            CancellationToken token = run.Token;
             running++;
-            _ = Task.Run(() => RunAsync(next, next.Run.Token));
+            _ = Task.Run(() => RunAsync(next, token));
         }
     }
 
@@ -284,6 +296,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         string? failure = null;
         try
         {
+            ct.ThrowIfCancellationRequested();
+            if (_gamingActive())
+                throw new OperationCanceledException("Gaming started before the download worker ran.");
             for (int attempt = 0; ; attempt++)
             {
                 try { await TransferAsync(e, ct).ConfigureAwait(false); break; }
@@ -336,6 +351,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     private async Task TransferAsync(Entry e, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+        if (_gamingActive())
+            throw new OperationCanceledException("Gaming disabled new download disk and network work.");
         // Never follow a user-placed symbolic link as a partial download target.
         // The destination directory was validated at enqueue, but the part file
         // may have been replaced since then.
