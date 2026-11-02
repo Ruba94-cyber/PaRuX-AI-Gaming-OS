@@ -14,6 +14,14 @@ Slices, in order (each ends with build + xUnit + FlaUI; existing `Navigation_*_I
 5. Play-time and launch tracking for Steam/Epic/GOG launches.
 6. AI library tools for the agent: search/list/favourite/tag/collection freely; launch, remove and download only after an explicit user confirmation; refused while Gaming hard-off requires it.
 
+### 2026-11-02 continuation XXV - FlaUI coverage measured; owner tab layout refinement
+
+**FlaUI (this PC, Windows 11): measured against the Debug app, which is what the suite requires** (fixture buttons are `#if DEBUG`; running against Release gives 88 false failures). Existing suite: 210 passed / 34 failed / 2 skipped of 246, all 34 outside Gaming (Create, Model Routing, Tools & Automations, Projects, Onboarding); not yet classified product-defect vs machine-state (several assume a blank PC; one asserts an iGPU text on this host). The Gaming and Console tests pass. New in this batch: `GamingDownloadsAndDevicesUiTests` (3) and `ConsoleAndLanguageUiTests` (6), 9/9 three runs in a row, plus an AutoSuggestBox inner-edit entry in the accessibility allowlist (sweep 2/2). Added to the GOS gate UI filter. There is no in-app language switch (language follows Windows), so IT<->EN switching cannot be automated yet.
+
+**Local coding model measured (engine level):** Qwen3-Coder-30B-A3B UD-Q3_K_XL on the RTX 5080: pp512 about 4826 t/s, tg128 about 220 t/s, about 13.8 GB VRAM sampled peak (fits 16 GB, little headroom, must be unloaded for Gaming).
+
+**Owner refinement of XXIV:** AI tab opens on Chat in the foreground. Gaming tab opens on the library with Continue/frequent games ready to launch. A second Gaming tab, Steam-store style, recommends games to download based on recent play (genres/tags). Recommendations come from official public store catalogues; install goes through the official clients (Steam/Epic/GOG) or legal free sources, never an unauthorised source. Needs a metadata source (the title DTOs carry no genre/tag data today).
+
 ### 2026-11-02 continuation XXIII - Windows gate green on updated main; first real GPU measurement
 
 **Gate (this PC, Windows 11, .NET 10): BUILD PASSED / xUnit 1000/1000 / FlaUI 6/6 WINDOWS VERIFIED** after fixing a broken build on `main` (unnamed tuple fields in GameSaveBackupService, missing Automation.Peers import in two panels), two orchestrator tests (runtime.GamingMode is always false under Testing; guards now read the persisted Gaming marker) and a product bug (TV routing was on by default and refused every launch without a chosen TV; it now applies only when a TV is selected).

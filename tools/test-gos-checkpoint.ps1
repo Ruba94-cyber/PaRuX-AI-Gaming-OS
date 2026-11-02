@@ -63,7 +63,7 @@ try {
         if ([string]::IsNullOrWhiteSpace($env:PARUX_UI_APP_PATH)) {
             $env:PARUX_UI_APP_PATH = Join-Path $root 'src/PaRuX.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/PaRuX.exe'
         }
-        Invoke-GosStep 'Chat Home FlaUI acceptance' @('test', $uiTests, '-c', 'Release', '-p:Platform=x64', '--filter', 'FullyQualifiedName~ChatHomeStarterTests|FullyQualifiedName~ConsoleModeUiTests|FullyQualifiedName~ManualGameLibraryUiTests|FullyQualifiedName~AdvancedGameManagementUiTests')
+        Invoke-GosStep 'Chat Home FlaUI acceptance' @('test', $uiTests, '-c', 'Release', '-p:Platform=x64', '--filter', 'FullyQualifiedName~ChatHomeStarterTests|FullyQualifiedName~ConsoleModeUiTests|FullyQualifiedName~ManualGameLibraryUiTests|FullyQualifiedName~AdvancedGameManagementUiTests|FullyQualifiedName~GamingDownloadsAndDevicesUiTests|FullyQualifiedName~ConsoleAndLanguageUiTests')
     } else {
         Write-Host '[GOS] Chat Home FlaUI acceptance: NOT RUN (pass -RunUi on an interactive Windows desktop)'
     }
