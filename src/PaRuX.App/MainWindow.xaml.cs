@@ -1133,7 +1133,7 @@ namespace PaRuX
             if (_trayDisposed) return;
             _trayDisposed = true;
             GamingManager.Current.StateChanged -= OnGamingModeChangedForIndicatorTimer;
-            LocalAiController.Current.StateChanged -= OnLocalAiStateChangedForConsoleReturn;
+            LocalAiController.Current.VerifiedGameReturnChanged -= OnVerifiedGameReturnChanged;
             _activeIndicatorTimer?.Stop();
             try
             {
