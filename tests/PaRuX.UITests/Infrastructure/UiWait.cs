@@ -48,6 +48,35 @@ internal static class UiWait
         throw new TimeoutException("Timed out waiting for " + description + ".");
     }
 
+    /// <summary>Expands a collapsed WinUI Expander. Collapsed expander content is not part of the UIA tree, so controls
+    /// inside it can only be found after this. Idempotent when already expanded.</summary>
+    internal static void ExpandById(AutomationElement root, string expanderId)
+    {
+        AutomationElement expander = For<AutomationElement>(() =>
+            root.FindFirstDescendant(cf => cf.ByAutomationId(expanderId)), "expander " + expanderId);
+        For(() =>
+        {
+            var pattern = expander.Patterns.ExpandCollapse.PatternOrDefault;
+            if (pattern == null) return false;
+            if (pattern.ExpandCollapseState.ValueOrDefault != FlaUI.Core.Definitions.ExpandCollapseState.Expanded) pattern.Expand();
+            return pattern.ExpandCollapseState.ValueOrDefault == FlaUI.Core.Definitions.ExpandCollapseState.Expanded;
+        }, "expander " + expanderId + " to expand");
+    }
+
+    /// <summary>AutomationId of the currently selected item of a ComboBox (null when nothing is selected).</summary>
+    internal static string? SelectedItemId(AutomationElement combo)
+    {
+        var selection = combo.Patterns.Selection.PatternOrDefault?.Selection.ValueOrDefault;
+        return selection is { Length: > 0 } ? selection[0].Properties.AutomationId.ValueOrDefault : null;
+    }
+
+    private static T For<T>(Func<T?> find, string description) where T : class
+    {
+        T? result = null;
+        For(() => (result = find()) != null, description);
+        return result!;
+    }
+
     internal static AutomationElement ById(AutomationElement root, string id, ControlType type)
     {
         AutomationElement? element = null;

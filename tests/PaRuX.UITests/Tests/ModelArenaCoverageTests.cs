@@ -20,6 +20,7 @@ public sealed class ModelArenaCoverageTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Arena_Expander");
 
             UiWait.ById(app.MainWindow, "Arena_Model_0", ControlType.ComboBox);
             UiWait.ById(app.MainWindow, "Arena_Model_1", ControlType.ComboBox);

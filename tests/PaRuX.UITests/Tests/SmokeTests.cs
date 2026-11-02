@@ -278,6 +278,7 @@ public sealed class SmokeTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
 
             AutomationElement picker = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModel_ComboBox", ControlType.ComboBox);
@@ -293,8 +294,10 @@ public sealed class SmokeTests
 
             AutomationElement selectionStatus = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModelStatus_Text", ControlType.Text);
-            UiWait.For(() => selectionStatus.Name.Contains("Selected: managed-fixture.gguf", StringComparison.Ordinal),
-                "selected model status");
+            // The status line reports the available count; the selection itself is the combo's selected item.
+            UiWait.For(() => UiWait.SelectedItemId(picker) == "ModelRouting_InstalledModel_managed_fixture_gguf_Item"
+                    && selectionStatus.Name.Contains("1 installed model(s) available", StringComparison.Ordinal),
+                "selected model reflected by the picker and status");
         }
         catch (Exception ex)
         {
@@ -313,6 +316,7 @@ public sealed class SmokeTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
 
             AutomationElement emptyStatus = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModelStatus_Text", ControlType.Text);
@@ -336,6 +340,7 @@ public sealed class SmokeTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
 
             AutomationElement picker = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModel_ComboBox", ControlType.ComboBox);
@@ -364,6 +369,7 @@ public sealed class SmokeTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
 
             AutomationElement installedStatus = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModelStatus_Text", ControlType.Text);
@@ -390,6 +396,7 @@ public sealed class SmokeTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
 
             AutomationElement installedStatus = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModelStatus_Text", ControlType.Text);

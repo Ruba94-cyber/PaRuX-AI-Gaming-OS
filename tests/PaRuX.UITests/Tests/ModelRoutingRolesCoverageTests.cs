@@ -142,8 +142,9 @@ public sealed class ModelRoutingRolesCoverageTests
                 "ModelRouting_InstalledModel_ComboBox", ControlType.ComboBox);
             AutomationElement selectionStatus = UiWait.ById(app.MainWindow,
                 "ModelRouting_InstalledModelStatus_Text", ControlType.Text);
-            UiWait.For(() => selectionStatus.Name.Contains("Selected: managed-fixture.gguf", StringComparison.Ordinal),
-                "fixture model available in the picker");
+            UiWait.For(() => selectionStatus.Name.Contains("1 installed model(s) available", StringComparison.Ordinal)
+                    && UiWait.SelectedItemId(installedPicker) == "ModelRouting_InstalledModel_managed_fixture_gguf_Item",
+                "fixture model available and selected in the picker");
 
             installedPicker.Focus();
             Keyboard.Press(VirtualKeyShort.F4);
@@ -153,7 +154,7 @@ public sealed class ModelRoutingRolesCoverageTests
             UiWait.For(() => installedPicker.Patterns.ExpandCollapse.Pattern.ExpandCollapseState == ExpandCollapseState.Collapsed,
                 "installed-model picker cancelled by keyboard");
 
-            Assert.Contains("Selected: managed-fixture.gguf", selectionStatus.Name, StringComparison.Ordinal);
+            Assert.Equal("ModelRouting_InstalledModel_managed_fixture_gguf_Item", UiWait.SelectedItemId(installedPicker));
         }
         catch (Exception error)
         {
@@ -167,6 +168,7 @@ public sealed class ModelRoutingRolesCoverageTests
         var main = new MainWindowPage(app.MainWindow);
         main.EnableAdvanced();
         main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+        UiWait.ExpandById(app.MainWindow, "ModelRouting_Candidates_Expander");
     }
 
     private static string[] ReadRoleNames(AutomationElement rolePicker)

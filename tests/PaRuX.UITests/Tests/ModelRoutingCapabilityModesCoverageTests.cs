@@ -23,6 +23,7 @@ public sealed class ModelRoutingCapabilityModesCoverageTests
             var main = new MainWindowPage(app.MainWindow);
             main.EnableAdvanced();
             main.Click("Navigation_ModelRouting_Item", ControlType.ListItem);
+            UiWait.ExpandById(app.MainWindow, "ModelRouting_Capabilities_Expander");
 
             AutomationElement mode = UiWait.ById(app.MainWindow, "routing.cap." + capability + ".mode", ControlType.ComboBox);
             AutomationElement model = UiWait.ById(app.MainWindow, "routing.cap." + capability + ".model", ControlType.ComboBox);
