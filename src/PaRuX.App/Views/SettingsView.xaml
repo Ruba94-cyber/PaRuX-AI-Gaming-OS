@@ -1169,6 +1169,13 @@
                             Header="Prefer selected TV for directly launched windowed games"
                             AutomationProperties.AutomationId="Settings_ConsoleDisplays_RouteGames_Toggle"
                             IsOn="True" Toggled="ConsoleRouteOwnedGamesSwitch_Toggled" />
+                        <ToggleSwitch x:Name="ConsoleAutoReturnHomeSwitch"
+                            Header="Show Console Home after a verified game exit (off by default)"
+                            AutomationProperties.AutomationId="Settings_ConsoleDisplays_AutoReturn_Toggle"
+                            IsOn="False" Toggled="ConsoleAutoReturnHomeSwitch_Toggled" />
+                        <TextBlock x:Name="ConsoleAutoReturnExplanation" TextWrapping="Wrap"
+                            Style="{StaticResource PaRuXCaptionTextStyle}"
+                            Text="When enabled, PaRuX can bring its existing fullscreen Console window forward only after the directly launched game process closes and the Core verifies AI recovery. External launchers and uncertain child processes do not trigger this. Windows may deny foreground activation." />
                         <StackPanel x:Name="ConsoleDisplaysList" Spacing="8" />
                     </StackPanel>
                 </Border>
