@@ -30,21 +30,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private bool _console;
     private Expander? _advanced;
 
-    // titles
-    private readonly TextBox _search = new();
-    private readonly TextBox _collectionFilter = new() { MaxLength = 40 };
-    private readonly ToggleButton _favoritesOnly = new() { Content = "★" };
-    private readonly Button _reload = new();
-    private readonly StackPanel _titleList = new() { Spacing = 8 };
-    private readonly TextBlock _titleStatus = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly Button _previous = new();
-    private readonly Button _next = new();
-    private List<GameTitleDto> _titles = new();
-    private int _page;
-    private const int PageSize = 25;
-    private int _searchEditGeneration;
-    private int _catalogGeneration;
-    private CancellationTokenSource? _catalogCancellation;
+    // titles: the Gaming home (Continue shelf, tile grid, detail panel) lives in GamingHomeView
+    private readonly GamingHomeView _home;
 
     // advanced
     private readonly TextBox _folder = new();
@@ -71,9 +58,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _launch = launch;
         _refreshLibrary = refreshLibrary;
         Spacing = 12;
-        BuildTitles();
+        _home = new GamingHomeView(launch, refreshLibrary);
+        Children.Add(_home);
         BuildAdvanced();
-        Loaded += async (_, _) => await ReloadTitlesAsync();
     }
 
     public void SetConsolePresentation(bool enabled)
@@ -84,287 +71,26 @@ internal sealed class UniversalLibraryPanel : StackPanel
             _advanced.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
             if (enabled) _advanced.IsExpanded = false;
         }
-        foreach (var box in new[] { _search, _folder, _emulatorExe, _emulatorFolder, _emulatorCore, _emulatorExtra, _emulatorInputProfile })
+        foreach (var box in new[] { _folder, _emulatorExe, _emulatorFolder, _emulatorCore, _emulatorExtra, _emulatorInputProfile })
             box.FontSize = enabled ? 20 : 14;
-        foreach (var button in new[] { _reload, _previous, _next, _browseFolder, _inspectFolder })
+        foreach (var button in new[] { _browseFolder, _inspectFolder })
         {
             button.FontSize = enabled ? 20 : 14;
             button.MinHeight = enabled ? 56 : 32;
         }
-        RenderTitles();
+        _home.SetConsolePresentation(enabled);
     }
 
     // ---------------------------------------------------------------- titles
 
-    private void BuildTitles()
-    {
-        Children.Add(new TextBlock
-        {
-            Text = T("Your games", "I tuoi giochi"),
-            FontSize = 22,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-        });
-        Children.Add(new TextBlock
-        {
-            Text = T("One card per game. A game found in a store, as a portable copy or through an emulator is shown once, with a choice of how to start it.",
-                     "Una scheda per gioco. Un gioco trovato in uno store, come copia portable o tramite emulatore compare una sola volta, con la scelta di come avviarlo."),
-            TextWrapping = TextWrapping.Wrap
-        });
-        _search.Header = T("Search your games", "Cerca nei tuoi giochi");
-        _search.MaxLength = 100;
-        AutomationProperties.SetAutomationId(_search, "GameTitles_Search_TextBox");
-        // Debounce user typing (including the TV keyboard) instead of rescanning
-        // Steam/Epic/GOG on every key; an older request cannot overwrite newer results.
-        _search.TextChanged += async (_, _) =>
-        {
-            int generation = ++_searchEditGeneration;
-            await Task.Delay(300);
-            if (generation != _searchEditGeneration) return;
-            _page = 0;
-            await ReloadTitlesAsync();
-        };
-        var searchKeyboard = ConsoleKeyboardFlyout.Create(_search, T("Done", "Fine"),
-            T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
-        _search.KeyDown += (_, e) =>
-        {
-            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                searchKeyboard.ShowAt(_search);
-                e.Handled = true;
-            }
-        };
-        _favoritesOnly.Click += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
-        AutomationProperties.SetAutomationId(_favoritesOnly, "GameTitles_FavoritesOnly_Toggle");
-        AutomationProperties.SetName(_favoritesOnly, T("Show favorites only", "Mostra solo i preferiti"));
-        _reload.Content = T("Refresh", "Aggiorna");
-        AutomationProperties.SetAutomationId(_reload, "GameTitles_Refresh_Button");
-        _reload.Click += async (_, _) => await ReloadTitlesAsync(refresh: true);
-        var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        bar.Children.Add(_search); bar.Children.Add(_favoritesOnly); bar.Children.Add(_reload);
-        Children.Add(bar);
-        _collectionFilter.Header = T("Filter collection (exact name, optional)", "Filtra collezione (nome esatto, facoltativo)");
-        AutomationProperties.SetAutomationId(_collectionFilter, "GameTitles_Collection_Filter");
-        var collectionsKeyboard = ConsoleKeyboardFlyout.Create(_collectionFilter, T("Done", "Fine"),
-            T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
-        _collectionFilter.KeyDown += (_, e) =>
-        {
-            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                collectionsKeyboard.ShowAt(_collectionFilter);
-                e.Handled = true;
-            }
-        };
-        var filterCollection = new Button { Content = T("Apply collection filter", "Applica filtro collezione") };
-        AutomationProperties.SetAutomationId(filterCollection, "GameTitles_Collection_Apply");
-        filterCollection.Click += async (_, _) => { _page = 0; await ReloadTitlesAsync(); };
-        var collectionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        collectionRow.Children.Add(_collectionFilter);
-        collectionRow.Children.Add(filterCollection);
-        Children.Add(collectionRow);
-        AutomationProperties.SetAutomationId(_titleStatus, "GameTitles_Status_Text");
-        AutomationProperties.SetLiveSetting(_titleStatus, AutomationLiveSetting.Polite);
-        Children.Add(_titleStatus);
-        Children.Add(_titleList);
-        _previous.Content = T("Previous", "Precedente");
-        _next.Content = T("Next", "Successiva");
-        _previous.Click += (_, _) => { if (_page > 0) { _page--; RenderTitles(); } };
-        _next.Click += (_, _) => { if ((_page + 1) * PageSize < _titles.Count) { _page++; RenderTitles(); } };
-        var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        pages.Children.Add(_previous); pages.Children.Add(_next);
-        Children.Add(pages);
-    }
-
     /// <summary>One-shot catalog refresh after a foreground return from Gaming.
     /// Never scan stores periodically or while the game owns the PC.</summary>
-    internal Task RefreshTitlesAfterGameAsync() => ReloadTitlesAsync(refresh: true);
+    internal Task RefreshTitlesAfterGameAsync() => _home.RefreshAfterGameAsync();
 
-    private async Task ReloadTitlesAsync(bool refresh = false)
-    {
-        int generation = ++_catalogGeneration;
-        var cancellation = new CancellationTokenSource();
-        var previous = _catalogCancellation;
-        _catalogCancellation = cancellation;
-        previous?.Cancel();
-        try
-        {
-            var result = await GamingOrchestratorClient.Current.GetTitlesAsync(
-                _search.Text, null, _favoritesOnly.IsChecked == true,
-                ct: cancellation.Token, collection: _collectionFilter.Text, refresh: refresh);
-            if (generation != _catalogGeneration || cancellation.IsCancellationRequested) return;
-            if (!result.Succeeded || result.Value is null)
-            {
-                _titleStatus.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
-                return;
-            }
-            _titles = result.Value;
-            RenderTitles();
-        }
-        catch (OperationCanceledException) { /* Superseded by a newer search or filter. */ }
-        catch (Exception)
-        {
-            if (generation == _catalogGeneration && !cancellation.IsCancellationRequested)
-                _titleStatus.Text = T("Could not read your games.", "Impossibile leggere i tuoi giochi.");
-        }
-        finally
-        {
-            if (ReferenceEquals(_catalogCancellation, cancellation))
-                _catalogCancellation = null;
-            cancellation.Dispose();
-        }
-    }
+    /// <summary>Console Menu button: jump to the Gaming home search field.</summary>
+    internal bool FocusSearch() => _home.FocusSearch();
 
-    private void RenderTitles()
-    {
-        _titleList.Children.Clear();
-        int pages = Math.Max(1, (_titles.Count + PageSize - 1) / PageSize);
-        _page = Math.Clamp(_page, 0, pages - 1);
-        _previous.IsEnabled = _page > 0;
-        _next.IsEnabled = _page + 1 < pages;
-        _titleStatus.Text = _titles.Count == 0
-            ? T("No games yet. Add one below, or use Advanced Game Management to import a folder or an emulator.",
-                "Ancora nessun gioco. Aggiungine uno qui sotto, oppure usa Advanced Game Management per importare una cartella o un emulatore.")
-            : T($"{_titles.Count} games · page {_page + 1} of {pages}", $"{_titles.Count} giochi · pagina {_page + 1} di {pages}");
-
-        foreach (GameTitleDto title in _titles.Skip(_page * PageSize).Take(PageSize))
-            _titleList.Children.Add(BuildTitleCard(title));
-    }
-
-    private UIElement BuildTitleCard(GameTitleDto title)
-    {
-        var card = new StackPanel { Spacing = _console ? 10 : 4, Padding = new Thickness(_console ? 20 : 12) };
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var star = new ToggleButton { Content = title.Favorite ? "★" : "☆", IsChecked = title.Favorite, MinHeight = _console ? 56 : 32, FontSize = _console ? 22 : 14 };
-        AutomationProperties.SetName(star, T("Favorite: ", "Preferito: ") + title.Name);
-        AutomationProperties.SetAutomationId(star, "GameTitle_Favorite_" + title.TitleKey);
-        star.Click += async (_, _) =>
-        {
-            bool wanted = star.IsChecked == true;
-            var result = await GamingOrchestratorClient.Current.SetTitleFavoriteAsync(title.TitleKey, wanted);
-            if (!result.Succeeded) { star.IsChecked = !wanted; return; }
-            star.Content = wanted ? "★" : "☆";
-        };
-        header.Children.Add(star);
-        header.Children.Add(new TextBlock
-        {
-            Text = title.Name,
-            FontSize = _console ? 24 : 16,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        card.Children.Add(header);
-
-        card.Children.Add(new TextBlock
-        {
-            Text = PlaySummary(title),
-            FontSize = _console ? 18 : 13,
-            Opacity = 0.8,
-            TextWrapping = TextWrapping.Wrap
-        });
-
-        GameInstallationDto chosen = title.Installations.FirstOrDefault(i => i.InstallationId == title.DefaultInstallationId)
-                                     ?? title.Installations[0];
-        if (title.Installations.Count > 1)
-        {
-            var choice = new ComboBox { MinWidth = 320, Header = T("Start with", "Avvia con"), FontSize = _console ? 20 : 14 };
-            foreach (GameInstallationDto installation in title.Installations)
-                choice.Items.Add(new ComboBoxItem { Content = Describe(installation), Tag = installation });
-            choice.SelectedIndex = Math.Max(0, title.Installations.ToList().IndexOf(chosen));
-            AutomationProperties.SetAutomationId(choice, "GameTitle_Installation_" + title.TitleKey);
-            choice.SelectionChanged += async (_, _) =>
-            {
-                if ((choice.SelectedItem as ComboBoxItem)?.Tag is GameInstallationDto picked)
-                {
-                    chosen = picked;
-                    await GamingOrchestratorClient.Current.SetTitleDefaultInstallationAsync(title.TitleKey, picked.InstallationId);
-                }
-            };
-            card.Children.Add(choice);
-        }
-        else
-        {
-            card.Children.Add(new TextBlock { Text = Describe(chosen), FontSize = _console ? 18 : 13, Opacity = 0.8 });
-        }
-
-        var tags = new TextBox
-        {
-            Header = T("Tags (comma separated)", "Tag (separati da virgola)"),
-            Text = string.Join(", ", title.Tags),
-            MaxLength = 400,
-            FontSize = _console ? 20 : 14
-        };
-        AutomationProperties.SetAutomationId(tags, "GameTitle_Tags_" + title.TitleKey);
-        tags.LostFocus += async (_, _) =>
-        {
-            var parsed = (tags.Text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            var result = await GamingOrchestratorClient.Current.SetTitleTagsAsync(title.TitleKey, parsed);
-            if (!result.Succeeded)
-                _titleStatus.Text = T("Tags were not saved: at most 20 tags of up to 40 characters.", "Tag non salvati: al massimo 20 tag da 40 caratteri.");
-        };
-        card.Children.Add(tags);
-
-        // Collections are independent from descriptive tags. The additive field
-        // defaults to empty when loading a title from a pre-collections Core.
-        var collections = new TextBox
-        {
-            Header = T("Collections (comma separated)", "Collezioni (separate da virgola)"),
-            Text = string.Join(", ", title.Collections),
-            MaxLength = 500,
-            FontSize = _console ? 20 : 14,
-            Visibility = _console ? Visibility.Collapsed : Visibility.Visible
-        };
-        AutomationProperties.SetAutomationId(collections, "GameTitle_Collections_" + title.TitleKey);
-        collections.LostFocus += async (_, _) =>
-        {
-            var parsed = (collections.Text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            var result = await GamingOrchestratorClient.Current.SetTitleCollectionsAsync(title.TitleKey, parsed);
-            if (!result.Succeeded)
-                _titleStatus.Text = T("Collections not saved: up to 12 names, each at most 40 characters.",
-                                      "Collezioni non salvate: massimo 12 nomi da 40 caratteri.");
-        };
-        card.Children.Add(collections);
-
-        var play = new Button
-        {
-            Content = chosen.Kind == ManualEntryKinds.Application ? T("Start", "Avvia") : T("Play", "Gioca"),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MinHeight = _console ? 56 : 32,
-            FontSize = _console ? 20 : 14
-        };
-        AutomationProperties.SetAutomationId(play, "GameTitle_Play_" + title.TitleKey);
-        AutomationProperties.SetName(play, T("Start ", "Avvia ") + title.Name);
-        play.Click += async (_, _) =>
-        {
-            play.IsEnabled = false;
-            try { await _launch(chosen); await ReloadTitlesAsync(); }
-            finally { play.IsEnabled = true; }
-        };
-        card.Children.Add(play);
-        return card;
-    }
-
-    private static string Describe(GameInstallationDto i) => i.Source switch
-    {
-        GameInstallationSources.Steam => "Steam",
-        GameInstallationSources.Epic => "Epic Games",
-        GameInstallationSources.Gog => "GOG",
-        GameInstallationSources.Emulator => string.IsNullOrWhiteSpace(i.EmulatorName)
-            ? T("Emulator", "Emulatore")
-            : T("Emulator · ", "Emulatore · ") + i.EmulatorName,
-        _ => i.Kind == ManualEntryKinds.Application ? T("Application on this PC", "Applicazione su questo PC") : T("Copy on this PC", "Copia su questo PC"),
-    };
-
-    private static string PlaySummary(GameTitleDto title)
-    {
-        string played = title.PlaySeconds < 60
-            ? T("Not played yet", "Mai giocato")
-            : T("Played ", "Giocato ") + (title.PlaySeconds >= 3600
-                ? $"{title.PlaySeconds / 3600} h {title.PlaySeconds % 3600 / 60} min"
-                : $"{title.PlaySeconds / 60} min");
-        return title.LastPlayedUtc is { } last
-            ? played + " · " + T("last ", "ultima volta ") + last.ToLocalTime().ToString("d", CultureInfo.CurrentUICulture)
-            : played;
-    }
+    private Task ReloadTitlesAsync() => _home.ReloadAsync();
 
     // ---------------------------------------------------------------- advanced
 

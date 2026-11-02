@@ -10,6 +10,19 @@ namespace PaRuX.Models
         public bool StudioModeEnabled { get; set; }
         /// <summary>Last top-level shell tab: "AI" (default, also used for any unknown value) or "Gaming".</summary>
         public string LastModeTab { get; set; } = "AI";
+        // Gaming library view (remembered between runs). Unknown or invalid values fall back to the defaults.
+        /// <summary>Sort: "name" (default), "lastplayed", "playtime" or "recentlyadded".</summary>
+        public string GameLibrarySort { get; set; } = "name";
+        /// <summary>"grid" (default) or "list".</summary>
+        public string GameLibraryLayout { get; set; } = "grid";
+        /// <summary>Source filter: empty (all), "steam", "epic", "gog", "manual" or "emulator".</summary>
+        public string GameLibrarySource { get; set; } = string.Empty;
+        public string GameLibraryPlatform { get; set; } = string.Empty;
+        /// <summary>Empty (all), "installed" or "notinstalled".</summary>
+        public string GameLibraryInstalled { get; set; } = string.Empty;
+        public bool GameLibraryFavoritesOnly { get; set; }
+        public string GameLibraryTag { get; set; } = string.Empty;
+        public bool GameLibraryShowHidden { get; set; }
         public bool OnboardingCompleted { get; set; }
         /// <summary>Model Hub suggestion lane the user last picked: "standard" or "uncensored". Empty means not chosen (Standard is shown).</summary>
         public string ModelHubSuggestionLane { get; set; } = string.Empty;
