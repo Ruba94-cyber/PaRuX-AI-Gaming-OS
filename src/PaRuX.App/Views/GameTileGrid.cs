@@ -152,6 +152,7 @@ internal sealed class GameTileGrid : StackPanel
         public required ButtonBase Main { get; init; }
         public required UIElement SelectedBadge { get; init; }
         public required Button Play { get; init; }
+        public required Action RepaintTheme { get; init; }
         public bool Hovering { get; set; }
     }
 
@@ -185,7 +186,18 @@ internal sealed class GameTileGrid : StackPanel
         _showMore.Visibility = Visibility.Collapsed;
         AutomationProperties.SetAutomationId(_showMore, "GameHome_ShowMore");
         _showMore.Click += (_, _) => ShowMore();
-        ActualThemeChanged += (_, _) => { if (_titles.Count > 0) Render(_titles, _selected, _openKey); };
+        // Repaint visible cards in place: do not reset "Show more", scroll position,
+        // focused Play/Configure buttons or decoded cover bitmaps on theme switches.
+        ActualThemeChanged += (_, _) => RepaintTheme();
+    }
+
+    private void RepaintTheme()
+    {
+        foreach (TileParts parts in _tiles.Values)
+        {
+            parts.RepaintTheme();
+            ApplyState(parts);
+        }
     }
 
     internal int Count => _titles.Count;
@@ -427,7 +439,8 @@ internal sealed class GameTileGrid : StackPanel
         return configure;
     }
 
-    private UIElement BuildCover(GameTitleDto title, double width, double height, out UIElement selectedBadge)
+    private UIElement BuildCover(GameTitleDto title, double width, double height,
+        out UIElement selectedBadge, out Action repaintCover)
     {
         var cover = new Grid { Width = width, Height = height };
         var surface = new Border
@@ -450,9 +463,10 @@ internal sealed class GameTileGrid : StackPanel
             }
             catch (Exception) { /* A damaged local copy falls back to the lettered tile. */ }
         }
+        TextBlock? initials = null;
         if (!hasImage)
         {
-            cover.Children.Add(new TextBlock
+            initials = new TextBlock
             {
                 Text = GameUi.Initials(title.Name),
                 FontSize = Math.Max(18, height / 3.2),
@@ -460,14 +474,30 @@ internal sealed class GameTileGrid : StackPanel
                 Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
-            });
+            };
+            cover.Children.Add(initials);
         }
 
+        var overlayPills = new List<Border>();
         if (title.Favorite)
-            cover.Children.Add(Pill("★", GameUi.T("Favorite", "Preferito"), HorizontalAlignment.Right, VerticalAlignment.Top));
+        {
+            var pill = Pill("★", GameUi.T("Favorite", "Preferito"), HorizontalAlignment.Right, VerticalAlignment.Top);
+            overlayPills.Add(pill);
+            cover.Children.Add(pill);
+        }
         if (title.Hidden)
-            cover.Children.Add(Pill(GameUi.T("Hidden", "Nascosto"), null, HorizontalAlignment.Left, VerticalAlignment.Bottom));
+        {
+            var pill = Pill(GameUi.T("Hidden", "Nascosto"), null, HorizontalAlignment.Left, VerticalAlignment.Bottom);
+            overlayPills.Add(pill);
+            cover.Children.Add(pill);
+        }
 
+        var badgeInk = new TextBlock
+        {
+            Text = "✓", FontSize = 16,
+            Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush"),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+        };
         var badge = new Border
         {
             Background = GameUi.ThemeBrush(this, "PaRuXBrandBrush"),
@@ -478,15 +508,27 @@ internal sealed class GameTileGrid : StackPanel
             VerticalAlignment = VerticalAlignment.Top,
             Visibility = Visibility.Collapsed,
             IsHitTestVisible = false,
-            Child = new TextBlock
-            {
-                Text = "✓", FontSize = 16,
-                Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush"),
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
-            }
+            Child = badgeInk
         };
         cover.Children.Add(badge);
         selectedBadge = badge;
+
+        // The image brush must survive the repaint. Only flat fallback surfaces,
+        // text and small state badges change with the active OS theme.
+        repaintCover = () =>
+        {
+            if (!hasImage) surface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+            if (initials is not null) initials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
+            foreach (Border pill in overlayPills)
+            {
+                pill.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
+                pill.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+                if (pill.Child is TextBlock label)
+                    label.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
+            }
+            badge.Background = GameUi.ThemeBrush(this, "PaRuXBrandBrush");
+            badgeInk.Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush");
+        };
         return cover;
     }
 
@@ -544,9 +586,10 @@ internal sealed class GameTileGrid : StackPanel
 
     // Hover only updates the hovered card, with no animation, polling or library refresh.
     private TileParts MakeInteractiveParts(GameTitleDto title, Border card, ButtonBase main,
-        UIElement badge, Button play)
+        UIElement badge, Button play, Action repaint)
     {
-        var parts = new TileParts { Title = title, Card = card, Main = main, SelectedBadge = badge, Play = play };
+        var parts = new TileParts { Title = title, Card = card, Main = main,
+            SelectedBadge = badge, Play = play, RepaintTheme = repaint };
         card.PointerEntered += (_, _) => { parts.Hovering = true; ApplyState(parts); };
         card.PointerExited += (_, _) => { parts.Hovering = false; ApplyState(parts); };
         return parts;
@@ -555,9 +598,11 @@ internal sealed class GameTileGrid : StackPanel
     private TileParts BuildTile(GameTitleDto title)
     {
         var face = new StackPanel { Spacing = 6, Width = CoverWidth };
-        face.Children.Add(BuildCover(title, CoverWidth, CoverHeight, out UIElement badge));
-        face.Children.Add(NameText(title));
-        face.Children.Add(SubText(title));
+        face.Children.Add(BuildCover(title, CoverWidth, CoverHeight, out UIElement badge, out Action repaintCover));
+        var titleText = NameText(title);
+        var secondaryText = SubText(title);
+        face.Children.Add(titleText);
+        face.Children.Add(secondaryText);
         ButtonBase main = NewMain(title);
         main.Content = face;
         Button play = NewPlay(title);
@@ -585,7 +630,20 @@ internal sealed class GameTileGrid : StackPanel
             BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
             Child = stack
         };
-        return MakeInteractiveParts(title, card, main, badge, play);
+        return MakeInteractiveParts(title, card, main, badge, play, () =>
+        {
+            repaintCover();
+            titleText.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+            secondaryText.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
+            RepaintConfigure(configure);
+        });
+    }
+
+    private void RepaintConfigure(Button configure)
+    {
+        configure.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush");
+        configure.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush");
+        configure.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
     }
 
     private TileParts BuildRow(GameTitleDto title)
@@ -594,7 +652,7 @@ internal sealed class GameTileGrid : StackPanel
         var face = new Grid { ColumnSpacing = 12 };
         face.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        UIElement cover = BuildCover(title, thumb, thumb, out UIElement badge);
+        UIElement cover = BuildCover(title, thumb, thumb, out UIElement badge, out Action repaintCover);
         face.Children.Add(cover);
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
         var name = NameText(title);
@@ -636,6 +694,12 @@ internal sealed class GameTileGrid : StackPanel
             BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
             Child = row
         };
-        return MakeInteractiveParts(title, card, main, badge, play);
+        return MakeInteractiveParts(title, card, main, badge, play, () =>
+        {
+            repaintCover();
+            name.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+            sub.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
+            RepaintConfigure(configure);
+        });
     }
 }

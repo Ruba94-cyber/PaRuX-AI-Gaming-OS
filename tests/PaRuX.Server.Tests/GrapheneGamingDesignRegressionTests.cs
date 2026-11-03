@@ -34,6 +34,19 @@ public sealed class GrapheneGamingDesignRegressionTests
     }
 
     [Fact]
+    public void Changing_graphene_theme_repaints_tiles_without_destroying_focus_or_cover_images()
+    {
+        string code = Source("src", "PaRuX.App", "Views", "GameTileGrid.cs");
+        Assert.Contains("ActualThemeChanged += (_, _) => RepaintTheme()", code);
+        Assert.DoesNotContain("ActualThemeChanged += (_, _) => { if (_titles.Count > 0) Render(", code);
+        Assert.Contains("parts.RepaintTheme();", code);
+        Assert.Contains("RepaintConfigure(configure);", code);
+        Assert.Contains("if (!hasImage) surface.Background", code);
+        Assert.Contains("badgeInk.Foreground = GameUi.ThemeBrush(this, \"PaRuXOnBrandBrush\")", code);
+        Assert.Contains("var bitmap = new BitmapImage", code);
+    }
+
+    [Fact]
     public void Empty_library_has_a_recoverable_graphene_state_without_mutating_game_entries()
     {
         string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");
