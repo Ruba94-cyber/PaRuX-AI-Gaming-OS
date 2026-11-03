@@ -33,6 +33,9 @@ public sealed class AccessibilitySweepCoverageTests
     {
         new("focus", "Minimize-Restore", null, "Framework-owned window caption button (system title bar); focus is managed by the OS caption."),
         new("focus", "Maximize-Restore", null, "Framework-owned window caption button (system title bar); focus is managed by the OS caption."),
+        new("focus", "Minimize", null, "Themed system title bar caption button; the OS caption manages focus (reachable with Alt+Space)."),
+        new("focus", "Maximize", null, "Themed system title bar caption button; the OS caption manages focus (reachable with Alt+Space)."),
+        new("focus", "Restore", null, "Themed system title bar caption button; the OS caption manages focus (reachable with Alt+Space)."),
         new("focus", "Close", null, "Framework-owned window caption button (system title bar); focus is managed by the OS caption."),
         new("dup-id", "InputBox", null, "Framework-owned inner edit of every WinUI NumberBox template; the NumberBox host carries the unique id/name."),
         new("dup-id", "TextBox", null, "Framework-owned inner edit of every WinUI AutoSuggestBox template; each AutoSuggestBox host carries its own unique id and accessible name."),
