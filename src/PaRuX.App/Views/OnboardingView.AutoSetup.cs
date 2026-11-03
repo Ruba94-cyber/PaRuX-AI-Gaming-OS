@@ -167,6 +167,23 @@ namespace PaRuX.Views
                 };
                 if (info.IsUserManaged) return info;
 
+                ComponentStatus? cuda = text.FirstOrDefault(c => c.Id == "llama-server-cuda");
+                bool nvidia = (await TryHardwareAsync(ct))?.GpuAdapters.Any(a =>
+                    !a.IsSoftware && a.Name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) == true;
+
+                if (active == null && nvidia && cuda is { Skipped: false })
+                {
+                    // An NVIDIA GPU runs the CUDA build; Vulkan would pick whichever adapter enumerates first.
+                    info.Offer = new AutoSetupRuntimeOffer
+                    {
+                        ComponentId = "llama-server-cuda",
+                        Title = cuda.DisplayName,
+                        Reason = "An NVIDIA GPU was found. PaRuX will install the CUDA runtime that matches it.",
+                        Required = true
+                    };
+                    return info;
+                }
+
                 if (active == null)
                 {
                     ComponentStatus? baseline = text.FirstOrDefault(c => c.Id == "llama-server-vulkan");
@@ -182,9 +199,6 @@ namespace PaRuX.Views
 
                 // Optional accelerator: only for an NVIDIA GPU with no CUDA runtime yet and never
                 // when the user skipped it. It is offered, not installed, until the user confirms.
-                ComponentStatus? cuda = text.FirstOrDefault(c => c.Id == "llama-server-cuda");
-                bool nvidia = (await TryHardwareAsync(ct))?.GpuAdapters.Any(a =>
-                    !a.IsSoftware && a.Name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) == true;
                 if (cuda is { Detected: false, Skipped: false } && nvidia)
                 {
                     info.Offer = new AutoSetupRuntimeOffer

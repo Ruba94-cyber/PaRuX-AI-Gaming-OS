@@ -104,7 +104,8 @@ public static class RuntimeLaunchOptimizer
 
         if (!hasCuda)
         {
-            profile.Device = "Vulkan0";
+            // Vulkan0 is often the integrated GPU; choose the adapter with the most dedicated memory.
+            profile.Device = await VulkanDeviceSelector.ResolveAsync(inventory, ct).ConfigureAwait(false);
             // Auto rather than a pinned single slot: measured on the iGPU reference machine,
             // "--parallel 1" cost ~4.1 s to first token against ~1.0 s when llama.cpp sized the
             // slots itself (which chose 4 slots while keeping the full per-slot context), with
