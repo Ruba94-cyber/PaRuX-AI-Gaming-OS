@@ -4,6 +4,10 @@ PRX Orbit is the visual identity for **RBG PaRuX AI Studio**. The approved mark
 is fixed artwork: the metallic `PRX` monogram, two open blue/violet arcs and four
 nodes must not be redrawn or geometrically reinterpreted.
 
+## Dark Graphene Luxury UI decision (2026-11-03)
+
+The owner now prefers a **near-black graphite/titanium shell without cyan/violet highlights**. The active WinUI/Android semantic palette is defined in `docs/DESIGN_SYSTEM.md` and supersedes the old Core/Orbit blue/cyan/violet **colour recommendations** for app UI. The existing PRX Orbit fixed logo artwork remains unchanged in binaries as an asset-compatibility exception; it is **not yet graphene-monochrome**. This is an outstanding asset-production/approval step, not a completed logo refresh. The icons/tray/splash/installer/Android mipmaps need a coordinated, reviewed multi-resolution replacement before anyone claims that the entire app is visually free of the former bright artwork. Preserve the original geometry and do not silently recolour or remove the canonical artwork.
+
 ## System
 
 - **Primary app mark:** use the approved bitmap unchanged; cropping out the source
@@ -16,7 +20,7 @@ nodes must not be redrawn or geometrically reinterpreted.
 - **Tone:** dark-first, technical and premium. Avoid extra gradients, glows,
   sparkle motifs, robot/brain imagery and high-frequency animation.
 
-## Core palette
+## Legacy PRX Orbit bitmap palette (NOT the active app UI)
 
 - PRX Core `#0A0F14`
 - Orbit Blue `#2563EB`
