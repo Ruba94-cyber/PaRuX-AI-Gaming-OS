@@ -100,7 +100,15 @@ internal static class UiWait
         {
             AutomationElement? tab = root.FindFirstDescendant(cf => cf.ByAutomationId(tabId));
             var selection = tab?.Patterns.SelectionItem.PatternOrDefault;
-            if (selection != null && !selection.IsSelected.ValueOrDefault) selection.Select();
+            if (selection != null)
+            {
+                if (!selection.IsSelected.ValueOrDefault) selection.Select();
+            }
+            else
+            {
+                // SelectorBarItem may expose only Invoke.
+                tab?.Patterns.Invoke.PatternOrDefault?.Invoke();
+            }
         }
         catch (Exception) { /* the tab strip is not reachable yet; the caller keeps polling */ }
     }
