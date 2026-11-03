@@ -128,6 +128,22 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("ExpandedView.Opacity = 1", next);
     }
 
+    [Fact]
+    public void Local_software_complete_gate_verifies_brand_assets_in_published_windows_bytes()
+    {
+        var root = Root();
+        string script = File.ReadAllText(Path.Combine(root, "tools", "branding", "verify-px-orbit-assets.ps1"));
+        string gate = File.ReadAllText(Path.Combine(root, "tools", "validate-software-complete.ps1"));
+        Assert.Contains("Read-PngUInt32", script);
+        Assert.Contains("Assert-Ico", script);
+        Assert.Contains("px-orbit-app.png", script);
+        Assert.Contains("px-orbit-chat.png", script);
+        Assert.Contains("Android launcher artwork does not match", script);
+        Assert.Contains("Published Windows asset hash mismatch", script);
+        Assert.Contains("verify-px-orbit-assets.ps1", gate);
+        Assert.Contains("-PublishDirectory $appPublish", gate);
+    }
+
     private static int CountOccurrences(string haystack, string needle) =>
         haystack.Split(new[] { needle }, StringSplitOptions.None).Length - 1;
 

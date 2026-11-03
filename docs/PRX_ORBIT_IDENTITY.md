@@ -32,3 +32,8 @@ Android notification vector is a monochrome PX plus ellipse (the OS owns tint); 
 ## Adaptive launcher safe area and motion completion
 
 Android adaptive icons use a centered 68dp foreground inside the 108dp canvas (20dp inset each side) so the PX/X and the orbital stroke remain within the system's 66dp safe-zone guidance even with circular/rounded OEM masks. The monochrome foreground uses the matching PX Orbit status silhouette and is offered to launchers that support themed icons. The full-colour launcher remains graphite/titanium/champagne by default. Quick-chat **expansion transitions** now respect Windows reduced-motion in addition to the orbital status animation. Validate actual 108dp Android icon clipping and light/dark themed rendering on a device; source checks alone do not replace that evidence.
+
+
+## Local, offline source and publish gate
+
+Run `powershell -ExecutionPolicy Bypass -File tools\branding\verify-px-orbit-assets.ps1` to inspect existing PNG/ICO frames, XAML and Android artwork without modifying the checkout. The normal Windows `tools\validate-software-complete.ps1` gate now calls the same verifier **after** self-contained WinUI publish with `-PublishDirectory`; it compares every published icon's SHA-256 with the source and refuses mismatched/stale brand assets. This is a static/payload gate, not evidence that Windows, Android, animation, installer or accessibility look correct in a real display.

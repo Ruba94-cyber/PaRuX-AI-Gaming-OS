@@ -148,6 +148,11 @@ try {
         throw 'Desktop publish completed without PaRuX.exe.'
     }
 
+    # Read-only PX Orbit provenance and all icon frames: published bytes must match
+    # the source, with no online build service or additional runtime.
+    & (Join-Path $repo 'tools\branding\verify-px-orbit-assets.ps1') -PublishDirectory $appPublish
+
+
     dotnet publish src/PaRuX.Cli/PaRuX.Cli.csproj -c Release -r win-x64 --self-contained true --no-restore -o $cliPublish
     if ($LASTEXITCODE -ne 0) { throw 'Self-contained PaRuX CLI publish failed.' }
     if (-not (Test-Path (Join-Path $cliPublish 'parux.exe') -PathType Leaf)) {
