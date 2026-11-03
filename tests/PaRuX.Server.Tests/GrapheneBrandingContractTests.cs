@@ -91,6 +91,43 @@ public sealed class GrapheneBrandingContractTests
         System.Xml.Linq.XDocument.Parse(xml);
     }
 
+    [Fact]
+    public void Android_adaptive_launcher_keeps_px_inside_safe_zone_with_monochrome_fallback()
+    {
+        var root = Root();
+        string res = Path.Combine(root, "src", "PaRuX.Android", "app", "src", "main", "res");
+        string foreground = File.ReadAllText(Path.Combine(res, "drawable", "ic_launcher_foreground.xml"));
+        string monochrome = File.ReadAllText(Path.Combine(res, "drawable", "ic_launcher_monochrome.xml"));
+        string bitmap = File.ReadAllText(Path.Combine(res, "drawable", "px_orbit_launcher_bitmap.xml"));
+        Assert.Contains("@drawable/px_orbit_launcher_bitmap", foreground);
+        Assert.Contains("@drawable/prx_orbit_approved", bitmap);
+        foreach (var source in new[] { foreground, monochrome })
+        {
+            foreach (var side in new[] { "Top", "Bottom", "Left", "Right" })
+                Assert.Contains("android:inset" + side + "=\"20dp\"", source);
+            System.Xml.Linq.XDocument.Parse(source);
+        }
+        foreach (var launcher in new[] { "ic_launcher.xml", "ic_launcher_round.xml" })
+        {
+            string xml = File.ReadAllText(Path.Combine(res, "mipmap-anydpi-v26", launcher));
+            Assert.Contains("@drawable/ic_launcher_foreground", xml);
+            Assert.Contains("@drawable/ic_launcher_monochrome", xml);
+            System.Xml.Linq.XDocument.Parse(xml);
+        }
+    }
+
+    [Fact]
+    public void Quick_chat_expansion_respects_reduced_motion()
+    {
+        var root = Root();
+        string code = File.ReadAllText(Path.Combine(root, "src", "PaRuX.App", "Windows", "BubbleWindow.xaml.cs"));
+        int start = code.IndexOf("private void PlayExpandTransition()", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        string next = code.Substring(start, Math.Min(350, code.Length - start));
+        Assert.Contains("if (!AreAnimationsEnabled())", next);
+        Assert.Contains("ExpandedView.Opacity = 1", next);
+    }
+
     private static int CountOccurrences(string haystack, string needle) =>
         haystack.Split(new[] { needle }, StringSplitOptions.None).Length - 1;
 

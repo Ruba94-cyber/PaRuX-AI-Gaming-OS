@@ -311,6 +311,15 @@ namespace PaRuX.Shell
         /// </summary>
         private void PlayExpandTransition()
         {
+            // Expanding the companion must also honour the OS reduced-motion setting,
+            // not only its thinking/working orbit.
+            if (!AreAnimationsEnabled())
+            {
+                ExpandedView.RenderTransform = null;
+                ExpandedView.Opacity = 1;
+                return;
+            }
+
             try
             {
                 var translate = new TranslateTransform { Y = 6 };
