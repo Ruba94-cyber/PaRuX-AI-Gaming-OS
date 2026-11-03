@@ -27,8 +27,8 @@ if (-not (Test-Path -LiteralPath $sourcePath)) { throw "Approved asset not found
 # Never permit output to be the asset directory or a path nested under it.
 $assetDirectory = [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'src/PaRuX.App/Assets'))
 $outputFull = [System.IO.Path]::GetFullPath($OutputDirectory)
-if ($outputFull.TrimEnd('\','/') -eq $assetDirectory.TrimEnd('\','/') -or
-    $outputFull.StartsWith($assetDirectory.TrimEnd('\','/') + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+if ($outputFull.TrimEnd([char]92, [char]47) -eq $assetDirectory.TrimEnd([char]92, [char]47) -or
+    $outputFull.StartsWith($assetDirectory.TrimEnd([char]92, [char]47) + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Refusing to write a branding preview under the shipped Assets directory.'
 }
 New-Item -ItemType Directory -Force -Path $outputFull | Out-Null
@@ -75,7 +75,9 @@ $preview = [System.Drawing.Bitmap]::new($source.Width, $source.Height, [System.D
 try {
     for ($y = 0; $y -lt $source.Height; $y++) {
         for ($x = 0; $x -lt $source.Width; $x++) {
-            $preview.SetPixel($x, $y, (Get-GreyPixel $source.GetPixel($x, $y)))
+            $pixel = $source.GetPixel($x, $y)
+            $converted = Get-GreyPixel -pixel $pixel
+            $preview.SetPixel($x, $y, $converted)
         }
     }
     $master = Join-Path $outputFull 'prx-orbit-graphene-candidate.png'
