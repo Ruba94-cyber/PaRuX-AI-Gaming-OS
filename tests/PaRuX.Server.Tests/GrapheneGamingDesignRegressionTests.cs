@@ -43,6 +43,8 @@ public sealed class GrapheneGamingDesignRegressionTests
         Assert.Contains("++_searchEditGeneration", home);
         Assert.Contains("SavePreferences();", home);
         Assert.Contains("_emptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed", home);
+        Assert.Contains("_emptyState.Visibility = Visibility.Collapsed;", home);
+        Assert.Contains("The game list is unavailable right now.", home);
         Assert.Contains("await ReloadAsync();", home);
         Assert.DoesNotContain("RemoveManualGameAsync", home);
     }

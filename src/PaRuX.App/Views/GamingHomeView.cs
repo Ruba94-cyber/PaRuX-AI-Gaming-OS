@@ -615,6 +615,10 @@ internal sealed class GamingHomeView : StackPanel
             if (generation != _generation || cancellation.IsCancellationRequested) return;
             if (!result.Succeeded || result.Value is null)
             {
+                // A previous successful zero-result view is not evidence of an
+                // empty library when the next query cannot reach Core.
+                _emptyState.Visibility = Visibility.Collapsed;
+                _clearFilters.Visibility = Visibility.Collapsed;
                 _status.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
                 return;
             }
@@ -635,7 +639,11 @@ internal sealed class GamingHomeView : StackPanel
         catch (Exception)
         {
             if (generation == _generation && !cancellation.IsCancellationRequested)
+            {
+                _emptyState.Visibility = Visibility.Collapsed;
+                _clearFilters.Visibility = Visibility.Collapsed;
                 _status.Text = T("Could not read your games.", "Impossibile leggere i tuoi giochi.");
+            }
         }
         finally
         {
