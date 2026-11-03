@@ -102,6 +102,10 @@ namespace PaRuX
 
             // Closing the window parks PaRuX in the tray; only the tray Exit really quits.
             AppWindow.Closing += OnAppWindowClosing;
+            // The native caption bar follows the app theme, not the Windows theme.
+            RootGrid.ActualThemeChanged += (_, _) => ApplyTitleBarTheme();
+            RootGrid.Loaded += (_, _) => ApplyTitleBarTheme();
+            ApplyTitleBarTheme();
             // A fullscreen game may leave the PaRuX window deactivated. Refresh
             // the Gaming return state only when the user/OS foregrounds PaRuX.
             // Never focus-steal or run an idle status poll during gameplay.
@@ -196,6 +200,29 @@ namespace PaRuX
         {
             var presenter = AppWindow.Presenter as OverlappedPresenter;
             if (presenter != null) presenter.Maximize();
+        }
+
+        private void ApplyTitleBarTheme()
+        {
+            try
+            {
+                var bar = AppWindow.TitleBar;
+                var bg = (RootGrid.Background as Microsoft.UI.Xaml.Media.SolidColorBrush)?.Color
+                    ?? Windows.UI.Color.FromArgb(255, 7, 9, 12);
+                bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
+                var fg = dark ? Windows.UI.Color.FromArgb(255, 230, 234, 238) : Windows.UI.Color.FromArgb(255, 26, 31, 38);
+                var hover = dark ? Windows.UI.Color.FromArgb(255, 32, 41, 52) : Windows.UI.Color.FromArgb(255, 226, 230, 235);
+                bar.BackgroundColor = bg; bar.ForegroundColor = fg;
+                bar.InactiveBackgroundColor = bg; bar.InactiveForegroundColor = Windows.UI.Color.FromArgb(255, 128, 138, 150);
+                bar.ButtonBackgroundColor = bg; bar.ButtonForegroundColor = fg;
+                bar.ButtonInactiveBackgroundColor = bg; bar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(255, 128, 138, 150);
+                bar.ButtonHoverBackgroundColor = hover; bar.ButtonHoverForegroundColor = fg;
+                bar.ButtonPressedBackgroundColor = hover; bar.ButtonPressedForegroundColor = fg;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("ApplyTitleBarTheme failed: " + ex.Message);
+            }
         }
 
         private void SetWindowIcon()

@@ -189,7 +189,8 @@ public sealed class GamingHomeUiTests
             search.Text = "this title cannot possibly match the fixture";
             UiWait.For(() => TryById(app, "GameHome_ClearFilters")?.Properties.IsEnabled.ValueOrDefault == true,
                 "clear filters is actionable on a zero-result query");
-            Assert.NotNull(ById(app, "GameHome_EmptyState"));
+            // The Border container exposes no UIA element; its title text is the observable empty state.
+            Assert.NotNull(ById(app, "GameHome_EmptyTitle"));
             Press(app, ById(app, "GameHome_ClearFilters"));
 
             UiWait.For(() => TryById(app, "GameTile_" + key) is not null,
