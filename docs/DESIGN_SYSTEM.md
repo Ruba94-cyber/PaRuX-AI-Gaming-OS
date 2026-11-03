@@ -40,6 +40,8 @@ WinUI semantic tokens in `src/PaRuX.App/Styles/Theme.xaml` are authoritative. Re
 
 e effective contrast and must be evaluated in the rendered app.
 
+Android launches in the graphite dark appearance by default, including its native splash/status bar; `PaRuXTheme(darkTheme = false)` still supplies a separate accessible light palette for a future explicit user selector. The OS wallpaper colour override is disabled by default to keep the PaRuX brand predictable. The Android theme switch itself is **not yet a user-facing setting**.
+
 ## Scale and components
 
 Target spacing scale in effective pixels: 4, 8, 12, 16, 24, 32, 48, 64. Use 8–16 for compact control groups, 16–24 for cards and 24–32 for workspace sections; adapt to available width and text expansion. Recommended radii: 4 for small controls, 8 for cards, 12 for dialogs. Prefer Windows system typography (Segoe UI / Segoe UI Variable where available); suggested type sizes are 12 caption, 14 body, 16 emphasized body, 20 section and 28 page title. Use system font scaling and allow wrapping.

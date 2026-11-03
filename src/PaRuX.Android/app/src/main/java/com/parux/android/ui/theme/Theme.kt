@@ -2,7 +2,6 @@ package com.parux.android.ui.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -66,7 +65,7 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun PaRuXTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     // Dynamic (Material You) color is available from Android 12, but PaRuX keeps its own
     // brand identity by default rather than re-skinning to the wallpaper - off unless asked.
     dynamicColor: Boolean = false,
