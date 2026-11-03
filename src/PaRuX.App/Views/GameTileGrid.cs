@@ -134,8 +134,9 @@ internal static class GameUi
 /// <summary>
 /// The tiles of the Gaming library: a wrapping cover grid, a compact list, or a horizontal shelf of large tiles
 /// (the Continue row). Tiles show a local cover image when the user chose one and a lettered fallback otherwise.
-/// A tile has two focus stops (open details, one-click Play) so a controller or keyboard crosses it quickly;
-/// in select mode the whole tile toggles the title's selection instead. Play never launches by itself: it only
+/// A tile has three purposeful focus stops (details, Play, Configure); their order remains predictable
+/// for keyboard and controller users. In multi-select mode only the title toggle stays focusable.
+/// Play never launches by itself: it only
 /// raises <see cref="PlayRequested"/>, and the host runs the existing launch-consent flow.
 /// </summary>
 internal sealed class GameTileGrid : StackPanel
@@ -157,6 +158,7 @@ internal sealed class GameTileGrid : StackPanel
     private readonly Presentation _presentation;
     private readonly string _openPrefix;
     private readonly string _playPrefix;
+    private readonly string _configurePrefix;
     private readonly Dictionary<string, TileParts> _tiles = new(StringComparer.Ordinal);
     private Panel _items = new StackPanel();
     private readonly Button _showMore = new();
@@ -177,6 +179,7 @@ internal sealed class GameTileGrid : StackPanel
         bool shelf = presentation == Presentation.Shelf;
         _openPrefix = shelf ? "GameContinue_" : "GameTile_";
         _playPrefix = shelf ? "GameContinuePlay_" : "GameTilePlay_";
+        _configurePrefix = shelf ? "GameContinueConfigure_" : "GameTileConfigure_";
         Spacing = 8;
         _showMore.HorizontalAlignment = HorizontalAlignment.Left;
         _showMore.Visibility = Visibility.Collapsed;
@@ -377,7 +380,8 @@ internal sealed class GameTileGrid : StackPanel
             Height = PlayHeight,
             MinWidth = 88,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsEnabled = GameUi.CanStart(chosen),
+            IsEnabled = !_selectMode && GameUi.CanStart(chosen),
+            Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible,
             UseSystemFocusVisuals = true
         };
         if (GameUi.AccentButtonStyle is { } accent) play.Style = accent;
@@ -390,6 +394,37 @@ internal sealed class GameTileGrid : StackPanel
             if (_tiles.TryGetValue(title.TitleKey, out TileParts? current)) PlayRequested?.Invoke(current.Title);
         };
         return play;
+    }
+
+    // Configure opens the EXISTING detail panel; no process is started and no settings
+    // are changed until the user explicitly chooses a control in that panel.
+    private Button NewConfigure(GameTitleDto title)
+    {
+        var configure = new Button
+        {
+            Content = new FontIcon { Glyph = "\uE713", FontSize = _console ? 20 : 16 },
+            Width = PlayHeight,
+            Height = PlayHeight,
+            MinWidth = PlayHeight,
+            CornerRadius = new CornerRadius(10),
+            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush"),
+            Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush"),
+            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush"),
+            BorderThickness = new Thickness(1),
+            IsEnabled = !_selectMode,
+            Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible,
+            UseSystemFocusVisuals = true
+        };
+        AutomationProperties.SetAutomationId(configure, _configurePrefix + title.TitleKey);
+        string label = GameUi.T("Configure ", "Configura ") + title.Name;
+        AutomationProperties.SetName(configure, label);
+        ToolTipService.SetToolTip(configure, label);
+        configure.Click += (_, _) =>
+        {
+            if (_tiles.TryGetValue(title.TitleKey, out TileParts? current))
+                OpenRequested?.Invoke(current.Title);
+        };
+        return configure;
     }
 
     private UIElement BuildCover(GameTitleDto title, double width, double height, out UIElement selectedBadge)
@@ -527,9 +562,17 @@ internal sealed class GameTileGrid : StackPanel
         main.Content = face;
         Button play = NewPlay(title);
 
+        var actions = new Grid { ColumnSpacing = 8 };
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        actions.Children.Add(play);
+        var configure = NewConfigure(title);
+        Grid.SetColumn(configure, 1);
+        actions.Children.Add(configure);
+
         var stack = new StackPanel { Spacing = 6 };
         stack.Children.Add(main);
-        stack.Children.Add(play);
+        stack.Children.Add(actions);
         var card = new Border
         {
             Width = CardWidth,
@@ -576,9 +619,13 @@ internal sealed class GameTileGrid : StackPanel
         var row = new Grid { ColumnSpacing = 8 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.Children.Add(main);
         Grid.SetColumn(play, 1);
         row.Children.Add(play);
+        var configure = NewConfigure(title);
+        Grid.SetColumn(configure, 2);
+        row.Children.Add(configure);
         var card = new Border
         {
             MinHeight = RowHeight,

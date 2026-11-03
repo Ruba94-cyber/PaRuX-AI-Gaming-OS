@@ -24,6 +24,11 @@ public sealed class GrapheneGamingDesignRegressionTests
         Assert.Contains("card.PointerEntered", code);
         Assert.Contains("card.PointerExited", code);
         Assert.Contains("PlayRequested?.Invoke", code);
+        Assert.Contains("GameTileConfigure_", code);
+        Assert.Contains("GameContinueConfigure_", code);
+        Assert.Contains("OpenRequested?.Invoke(current.Title)", code);
+        Assert.Contains("Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible", code);
+        Assert.Contains("IsEnabled = !_selectMode && GameUi.CanStart(chosen)", code);
         Assert.DoesNotContain("LinearGradientBrush", code);
         Assert.DoesNotContain("Task.Delay", code);
     }

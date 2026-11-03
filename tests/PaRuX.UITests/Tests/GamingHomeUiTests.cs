@@ -134,8 +134,11 @@ public sealed class GamingHomeUiTests
             cancelLaunch.Patterns.Invoke.Pattern.Invoke();
             Assert.Equal("fixture, not executable", File.ReadAllText(marker));
 
-            // Details: title, state toggles and the saved-entry launch details.
-            Press(app, ById(app, "GameTile_" + key));
+            // Configure must enter the existing detail panel WITHOUT requesting a game launch.
+            var configure = ById(app, "GameTileConfigure_" + key);
+            Assert.Contains(name, configure.Name, StringComparison.Ordinal);
+            Press(app, configure);
+            Assert.Equal("fixture, not executable", File.ReadAllText(marker));
             Assert.Equal(name, ById(app, "GameDetail_Title").Name);
             Assert.NotNull(ById(app, "GameTitle_Favorite_" + key));
             Assert.NotNull(ById(app, "GameDetail_Hidden"));
