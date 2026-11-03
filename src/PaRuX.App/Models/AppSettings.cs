@@ -5,7 +5,8 @@ namespace PaRuX.Models
 {
     public class AppSettings
     {
-        public string Theme { get; set; } = "System";
+        // New installations default to the approved dark graphite finish. Existing saved choices remain unchanged.
+        public string Theme { get; set; } = "Dark";
         public bool StartWithWindows { get; set; }
         public bool StudioModeEnabled { get; set; }
         /// <summary>Last top-level shell tab: "AI" (default, also used for any unknown value) or "Gaming".</summary>

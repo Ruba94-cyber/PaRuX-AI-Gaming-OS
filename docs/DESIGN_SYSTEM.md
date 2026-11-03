@@ -10,34 +10,35 @@ Existing raster/icon assets in `src/PaRuX.App/Assets/`: `parux.ico`, `prx-orbit-
 
 ## Identity direction
 
-Use the full display name **PaRuX AI & Gaming OS**, with **PaRuX** as the short name. Prefer a restrained geometric mark, neutral surfaces and a single cyan accent. Avoid purple, decorative gradients, heavy glow and literal gamepad/brain motifs. Maintain legibility and distinction at small sizes; do not imitate existing platform marks.
+Use the full display name **PaRuX AI & Gaming OS**, with **PaRuX** as the short name. Prefer a restrained geometric mark, near-black graphite surfaces and satin titanium emphasis with only a restrained champagne secondary accent. Avoid purple, decorative gradients, heavy glow and literal gamepad/brain motifs. Maintain legibility and distinction at small sizes; do not imitate existing platform marks.
 
 A reproducible starting construction for review, not an approved or produced logo: on a 64 × 64 square grid draw a single-color upright P using an outer path `M 14 8 H 37 C 49 8 54 15 54 25 C 54 35 49 42 37 42 H 26 V 56 H 14 Z`; subtract an inner opening `M 26 19 V 31 H 37 C 41 31 43 29 43 25 C 43 21 41 19 37 19 Z`. Inspect and adjust the silhouette, optical alignment and counters at 16 and 32 px before approval. This construction is a design proposal, not a trademark clearance or a claim that production vector/raster files exist.
 
 An unapproved alternative geometric study is available in `docs/branding/concept-01/`, with SVG variants and a raster preview. It has not replaced application assets.
 
-Deliverables still required: reviewed editable vector master; light, dark, monochrome, compact icon and full lockup variants; raster exports at actual Windows sizes; tray, splash, installer and README applications. Verify contrast, silhouette and recognizable rendering against both themes and high contrast before replacing existing assets.
+Deliverables still required: reviewed editable vector master; light, dark, monochrome, compact icon and full lockup variants; raster exports at actual Windows sizes; tray, splash, installer and README applications. Verify contrast, silhouette and recognizable rendering against ## Dark Graphene Luxury — owner direction, implemented in source (2026-11-03)
 
-## Semantic colors
+The shared AI/Gaming shell follows the owner's sketch: brand and navigation in a left sidebar, AI / Gaming mode selector across the top, a quiet AI conversation canvas, and a visual game library with explicit Play and configuration actions. Both modes share one app, settings, services and security model. The material aesthetic is created with matte layers, subtle strokes and clean typography. Avoid cyan, violet, neon, heavy shadow, decorative gradient and expensive GPU-driven animation.
 
-Target dark palette (hex sRGB):
+| Role | Dark sRGB | Light sRGB |
+| --- | --- | --- |
+| App background | `#07090C` | `#F5F6F8` |
+| Graphene header | `#0B0F14` | `#F5F6F8` |
+| Recessed sidebar | `#0A0D11` | `#F0F3F6` |
+| Card | `#0D1116` | `#FFFFFF` |
+| Subtle inset | `#131920` | `#F1F3F6` |
+| Raised tile | `#191F27` | `#F1F3F6` |
+| Selected navigation | `#202934` | `#E3E9EF` |
+| Primary text | `#F2F4F7` | `#19222B` |
+| Secondary text | `#A7B0BA` | `#495967` |
+| Primary titanium | `#B7C0C9` | `#344452` |
+| Hover titanium | `#D8DEE5` | `#273845` |
+| Stroke | `#2A313A` | `#D0D9E0` |
+| Champagne accent (rare) | `#B89B6A` | `#84693C` |
 
-| Role | Value |
-| --- | --- |
-| App background | `#0B0F14` |
-| Primary surface | `#121820` |
-| Secondary surface | `#1B242D` |
-| Elevated surface | `#25313C` |
-| Primary text | `#EDF2F5` |
-| Secondary text | `#A5B2BD` |
-| Primary accent | `#26B7C6` |
-| Alternative accent | `#79CBD4` |
-| Border | `#33404C` |
-| Success | `#45B88D` |
-| Warning | `#E2AD54` |
-| Error | `#E16F72` |
+WinUI semantic tokens in `src/PaRuX.App/Styles/Theme.xaml` are authoritative. Retain every existing key, light-mode support and OS-defined High Contrast resources. Avoid copying literal hex colors into individual views. The palettes specify foreground pairs with normal-text contrast targets of at least 4.5:1. Only rendered Windows/Android tests can establish final accessibility; Mica and antialiasing can affect perceived contrast.
 
-Use semantic resources rather than embedding hex colors in views. Accent indicates primary action, selection or meaningful state; status must also be conveyed by text or icon. Choose foreground and background together: the palette alone does not prove a combination accessible. Test all actual text/state combinations against WCAG 2.2 AA, including disabled, hover, focus and selected states. Use Windows system colors for high contrast and verify live theme switching. Preserve a usable light theme with independently measured contrast; do not derive it mechanically from the dark palette. Translucency and Mica can change effective contrast and must be evaluated in the rendered app.
+e effective contrast and must be evaluated in the rendered app.
 
 ## Scale and components
 

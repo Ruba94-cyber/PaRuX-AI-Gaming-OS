@@ -61,6 +61,32 @@ public sealed class ThemeResourceRegressionTests
         Assert.Equal("{ThemeResource PaRuXTextPrimaryBrush}", (string?)label.Attribute("Foreground"));
     }
 
+    [Fact]
+    public void Graphene_dark_palette_uses_neutral_surfaces_and_satin_titanium()
+    {
+        var dark = ReadTheme("Dark");
+        Assert.Equal("#07090C", (string?)dark["PaRuXSurfaceSolidBrush"].Attribute("Color"));
+        Assert.Equal("#0A0D11", (string?)dark["PaRuXGrapheneSidebarBrush"].Attribute("Color"));
+        Assert.Equal("#0D1116", (string?)dark["PaRuXSurfaceCardBrush"].Attribute("Color"));
+        Assert.Equal("#B7C0C9", (string?)dark["AccentButtonBackground"].Attribute("Color"));
+        Assert.Equal("#B89B6A", (string?)dark["PaRuXChampagneBrush"].Attribute("Color"));
+        var text = WcagColor.Parse((string?)dark["PaRuXTextSecondaryBrush"].Attribute("Color")!);
+        var background = WcagColor.Parse((string?)dark["PaRuXSurfaceCardBrush"].Attribute("Color")!);
+        Assert.True(WcagContrastCalculator.CalculateContrastRatio(text, background) >= 4.5);
+    }
+
+    [Fact]
+    public void Legacy_neon_colors_are_absent_from_shared_WinUI_theme()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current != null && !File.Exists(Path.Combine(current.FullName, "PaRuX.sln"))) current = current.Parent;
+        if (current is null) throw new DirectoryNotFoundException("PaRuX.sln not found.");
+        string xaml = File.ReadAllText(Path.Combine(current.FullName, "src", "PaRuX.App", "Styles", "Theme.xaml"));
+        Assert.DoesNotContain("#26B7C6", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("#79CBD4", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("#006C76", xaml, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static Dictionary<string, XElement> ReadTheme(string name)
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

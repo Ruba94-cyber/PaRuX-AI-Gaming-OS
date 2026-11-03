@@ -42,21 +42,21 @@
         <ResourceDictionary x:Key="Light">
 
             <!-- brand ramp -->
-            <Color x:Key="PaRuXBrandColor">#006C76</Color>
-            <Color x:Key="PaRuXBrandDeepColor">#005A63</Color>
-            <Color x:Key="PaRuXBrandLightColor">#16828D</Color>
+            <Color x:Key="PaRuXBrandColor">#344452</Color>
+            <Color x:Key="PaRuXBrandDeepColor">#273845</Color>
+            <Color x:Key="PaRuXBrandLightColor">#526474</Color>
             <Color x:Key="PaRuXSuccessColor">#0F7B3C</Color>
             <Color x:Key="PaRuXWarnColor">#B8860B</Color>
             <Color x:Key="PaRuXOffColor">#71808B</Color>
 
-            <SolidColorBrush x:Key="PaRuXBrandBrush" Color="#006C76" />
-            <SolidColorBrush x:Key="PaRuXBrandTextBrush" Color="#005A63" />
-            <SolidColorBrush x:Key="PaRuXBrandSubtleBrush" Color="#E0F2F3" />
-            <SolidColorBrush x:Key="PaRuXBrandBorderBrush" Color="#A7D3D6" />
+            <SolidColorBrush x:Key="PaRuXBrandBrush" Color="#344452" />
+            <SolidColorBrush x:Key="PaRuXBrandTextBrush" Color="#273845" />
+            <SolidColorBrush x:Key="PaRuXBrandSubtleBrush" Color="#E8EDF1" />
+            <SolidColorBrush x:Key="PaRuXBrandBorderBrush" Color="#B9C4CF" />
             <SolidColorBrush x:Key="PaRuXOnBrandBrush" Color="#FFFFFF" />
 
-            <SolidColorBrush x:Key="PaRuXSecondaryBrush" Color="#006C76" />
-            <SolidColorBrush x:Key="PaRuXSecondaryTextBrush" Color="#005A63" />
+            <SolidColorBrush x:Key="PaRuXSecondaryBrush" Color="#344452" />
+            <SolidColorBrush x:Key="PaRuXSecondaryTextBrush" Color="#273845" />
 
             <SolidColorBrush x:Key="PaRuXDangerTextBrush" Color="#B02A1D" />
             <SolidColorBrush x:Key="PaRuXDangerSubtleBrush" Color="#FDF0EE" />
@@ -70,38 +70,44 @@
                  main window's Mica backdrop stays visible behind the content area.
                  The recessed sidebar tone lives in the NavigationView*PaneBackground
                  overrides further down, so there is exactly one source for it. -->
-            <SolidColorBrush x:Key="PaRuXSurfaceSolidBrush" Color="#F6F8F9" />
-            <SolidColorBrush x:Key="PaRuXSurfaceAppBrush" Color="#B8FFFFFF" />
+            <!-- Shared luxury-graphene shell roles: matte, not neon. -->
+            <SolidColorBrush x:Key="PaRuXGrapheneHeaderBrush" Color="#F5F6F8" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSidebarBrush" Color="#F0F3F6" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSelectedBrush" Color="#E3E9EF" />
+            <SolidColorBrush x:Key="PaRuXChampagneBrush" Color="#84693C" />
+
+            <SolidColorBrush x:Key="PaRuXSurfaceSolidBrush" Color="#F5F6F8" />
+            <SolidColorBrush x:Key="PaRuXSurfaceAppBrush" Color="#FDFEFE" />
             <SolidColorBrush x:Key="PaRuXSurfaceCardBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="PaRuXSurfaceRaisedBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="PaRuXSurfaceCodeBrush" Color="#EDF2F3" />
-            <SolidColorBrush x:Key="PaRuXSurfaceSubtleBrush" Color="#F1F5F6" />
+            <SolidColorBrush x:Key="PaRuXSurfaceRaisedBrush" Color="#F1F3F6" />
+            <SolidColorBrush x:Key="PaRuXSurfaceCodeBrush" Color="#EDF0F3" />
+            <SolidColorBrush x:Key="PaRuXSurfaceSubtleBrush" Color="#F1F3F6" />
 
-            <SolidColorBrush x:Key="PaRuXStrokeBrush" Color="#D6E0E3" />
-            <SolidColorBrush x:Key="PaRuXStrokeStrongBrush" Color="#BDCDD1" />
-            <SolidColorBrush x:Key="PaRuXDividerBrush" Color="#E3EAEC" />
+            <SolidColorBrush x:Key="PaRuXStrokeBrush" Color="#D0D9E0" />
+            <SolidColorBrush x:Key="PaRuXStrokeStrongBrush" Color="#B5C0CA" />
+            <SolidColorBrush x:Key="PaRuXDividerBrush" Color="#DEE5EB" />
 
-            <SolidColorBrush x:Key="PaRuXTextPrimaryBrush" Color="#172126" />
-            <SolidColorBrush x:Key="PaRuXTextSecondaryBrush" Color="#485B63" />
-            <SolidColorBrush x:Key="PaRuXTextTertiaryBrush" Color="#596E77" />
+            <SolidColorBrush x:Key="PaRuXTextPrimaryBrush" Color="#19222B" />
+            <SolidColorBrush x:Key="PaRuXTextSecondaryBrush" Color="#495967" />
+            <SolidColorBrush x:Key="PaRuXTextTertiaryBrush" Color="#586873" />
 
-            <SolidColorBrush x:Key="PaRuXUserBubbleBrush" Color="#E0F2F3" />
-            <SolidColorBrush x:Key="PaRuXUserBubbleBorderBrush" Color="#B6DADC" />
-            <SolidColorBrush x:Key="PaRuXUserBubbleTextBrush" Color="#103A3E" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleBrush" Color="#E8EDF1" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleBorderBrush" Color="#C1CCD6" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleTextBrush" Color="#1B2D3D" />
 
-            <SolidColorBrush x:Key="PaRuXFocusBrush" Color="#006C76" />
+            <SolidColorBrush x:Key="PaRuXFocusBrush" Color="#344452" />
 
             <!-- WinUI theme-resource overrides: brand accent overrides -->
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#006C76" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E5006C76" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CC006C76" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#005A63" />
-            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#004B53" />
-            <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#006C76" />
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#344452" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E5344452" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CC344452" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#273845" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#1F2D39" />
+            <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#344452" />
 
-            <SolidColorBrush x:Key="AccentButtonBackground" Color="#006C76" />
-            <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#005A63" />
-            <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#004B53" />
+            <SolidColorBrush x:Key="AccentButtonBackground" Color="#344452" />
+            <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#273845" />
+            <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#1F2D39" />
             <SolidColorBrush x:Key="AccentButtonBackgroundDisabled" Color="#D4DFE1" />
             <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
             <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
@@ -113,16 +119,16 @@
             <SolidColorBrush x:Key="AccentButtonBorderBrushDisabled" Color="#00000000" />
 
             <SolidColorBrush x:Key="ToggleButtonBackground" Color="#00000000" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#14006C76" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#26006C76" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#14344552" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#26344552" />
             <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="#00000000" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#006C76" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#005A63" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#004B53" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#344452" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#273845" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#1F2D39" />
             <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="#B9CBCE" />
-            <SolidColorBrush x:Key="ToggleButtonForeground" Color="#485B63" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundPointerOver" Color="#172126" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundPressed" Color="#172126" />
+            <SolidColorBrush x:Key="ToggleButtonForeground" Color="#495967" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundPointerOver" Color="#19222B" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundPressed" Color="#19222B" />
             <SolidColorBrush x:Key="ToggleButtonForegroundDisabled" Color="#82949A" />
             <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#FFFFFF" />
             <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#FFFFFF" />
@@ -137,41 +143,41 @@
             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="#00000000" />
             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedDisabled" Color="#00000000" />
 
-            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#006C76" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#005A63" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#004B53" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#006C76" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#005A63" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#004B53" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#344452" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#273845" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#1F2D39" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#344452" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#273845" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#1F2D39" />
 
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="#00000000" />
             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="#00000000" />
-            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#A6E9F0F1" />
-            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#A6E9F0F1" />
-            <SolidColorBrush x:Key="NavigationViewCompactPaneBackground" Color="#A6E9F0F1" />
-            <SolidColorBrush x:Key="NavigationViewMinimalPaneBackground" Color="#A6E9F0F1" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#14006C76" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="#26006C76" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#E0F2F3" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#D2E9EB" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#C4E0E2" />
-            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#35494F" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#172126" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#172126" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#005A63" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#005A63" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#005A63" />
-            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#006C76" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#F0F3F6" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#F0F3F6" />
+            <SolidColorBrush x:Key="NavigationViewCompactPaneBackground" Color="#F0F3F6" />
+            <SolidColorBrush x:Key="NavigationViewMinimalPaneBackground" Color="#F0F3F6" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#14344552" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="#26344552" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#E8EDF1" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#E2E9EF" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#DAE2E9" />
+            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#394956" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#19222B" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#19222B" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#273845" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#273845" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#273845" />
+            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#344452" />
 
-            <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#006C76" />
-            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#006C76" />
-            <SolidColorBrush x:Key="HyperlinkForeground" Color="#005A63" />
-            <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#005A63" />
+            <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#344452" />
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#344452" />
+            <SolidColorBrush x:Key="HyperlinkForeground" Color="#273845" />
+            <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#273845" />
 
             <!-- Keyboard focus rectangle: brand accent instead of the WinUI default
                  white/black double outline, which reads as a stray bright-white
                  border on buttons and chat-message action icons. -->
-            <SolidColorBrush x:Key="SystemControlFocusVisualPrimaryBrush" Color="#006C76" />
+            <SolidColorBrush x:Key="SystemControlFocusVisualPrimaryBrush" Color="#344452" />
             <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#00000000" />
         </ResourceDictionary>
 
@@ -180,21 +186,21 @@
              ================================================================== -->
         <ResourceDictionary x:Key="Dark">
 
-            <Color x:Key="PaRuXBrandColor">#26B7C6</Color>
-            <Color x:Key="PaRuXBrandDeepColor">#26B7C6</Color>
-            <Color x:Key="PaRuXBrandLightColor">#79CBD4</Color>
+            <Color x:Key="PaRuXBrandColor">#B7C0C9</Color>
+            <Color x:Key="PaRuXBrandDeepColor">#8E99A6</Color>
+            <Color x:Key="PaRuXBrandLightColor">#D8DEE5</Color>
             <Color x:Key="PaRuXSuccessColor">#45B88D</Color>
             <Color x:Key="PaRuXWarnColor">#E2AD54</Color>
-            <Color x:Key="PaRuXOffColor">#98A8B4</Color>
+            <Color x:Key="PaRuXOffColor">#9FAAB6</Color>
 
-            <SolidColorBrush x:Key="PaRuXBrandBrush" Color="#26B7C6" />
-            <SolidColorBrush x:Key="PaRuXBrandTextBrush" Color="#79CBD4" />
-            <SolidColorBrush x:Key="PaRuXBrandSubtleBrush" Color="#173039" />
-            <SolidColorBrush x:Key="PaRuXBrandBorderBrush" Color="#35606A" />
-            <SolidColorBrush x:Key="PaRuXOnBrandBrush" Color="#0B0F14" />
+            <SolidColorBrush x:Key="PaRuXBrandBrush" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="PaRuXBrandTextBrush" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="PaRuXBrandSubtleBrush" Color="#1C242E" />
+            <SolidColorBrush x:Key="PaRuXBrandBorderBrush" Color="#4C5968" />
+            <SolidColorBrush x:Key="PaRuXOnBrandBrush" Color="#07090C" />
 
-            <SolidColorBrush x:Key="PaRuXSecondaryBrush" Color="#26B7C6" />
-            <SolidColorBrush x:Key="PaRuXSecondaryTextBrush" Color="#79CBD4" />
+            <SolidColorBrush x:Key="PaRuXSecondaryBrush" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="PaRuXSecondaryTextBrush" Color="#D8DEE5" />
 
             <SolidColorBrush x:Key="PaRuXDangerTextBrush" Color="#FF9A8F" />
             <SolidColorBrush x:Key="PaRuXDangerSubtleBrush" Color="#3A1F1C" />
@@ -204,42 +210,48 @@
             <SolidColorBrush x:Key="PaRuXCautionSubtleBrush" Color="#3A2E14" />
             <SolidColorBrush x:Key="PaRuXCautionBorderBrush" Color="#5A4720" />
 
-            <SolidColorBrush x:Key="PaRuXSurfaceSolidBrush" Color="#0B0F14" />
-            <SolidColorBrush x:Key="PaRuXSurfaceAppBrush" Color="#0B0F14" />
-            <SolidColorBrush x:Key="PaRuXSurfaceCardBrush" Color="#121820" />
-            <SolidColorBrush x:Key="PaRuXSurfaceRaisedBrush" Color="#25313C" />
-            <SolidColorBrush x:Key="PaRuXSurfaceCodeBrush" Color="#0B0F14" />
-            <SolidColorBrush x:Key="PaRuXSurfaceSubtleBrush" Color="#1B242D" />
+            <!-- Shared luxury-graphene shell roles: matte, not neon. -->
+            <SolidColorBrush x:Key="PaRuXGrapheneHeaderBrush" Color="#0B0F14" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSidebarBrush" Color="#0A0D11" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSelectedBrush" Color="#202934" />
+            <SolidColorBrush x:Key="PaRuXChampagneBrush" Color="#B89B6A" />
 
-            <SolidColorBrush x:Key="PaRuXStrokeBrush" Color="#33404C" />
-            <SolidColorBrush x:Key="PaRuXStrokeStrongBrush" Color="#4A5B68" />
-            <SolidColorBrush x:Key="PaRuXDividerBrush" Color="#33404C" />
+            <SolidColorBrush x:Key="PaRuXSurfaceSolidBrush" Color="#07090C" />
+            <SolidColorBrush x:Key="PaRuXSurfaceAppBrush" Color="#07090C" />
+            <SolidColorBrush x:Key="PaRuXSurfaceCardBrush" Color="#0D1116" />
+            <SolidColorBrush x:Key="PaRuXSurfaceRaisedBrush" Color="#191F27" />
+            <SolidColorBrush x:Key="PaRuXSurfaceCodeBrush" Color="#0B1015" />
+            <SolidColorBrush x:Key="PaRuXSurfaceSubtleBrush" Color="#131920" />
 
-            <SolidColorBrush x:Key="PaRuXTextPrimaryBrush" Color="#EDF2F5" />
-            <SolidColorBrush x:Key="PaRuXTextSecondaryBrush" Color="#A5B2BD" />
-            <SolidColorBrush x:Key="PaRuXTextTertiaryBrush" Color="#98A8B4" />
+            <SolidColorBrush x:Key="PaRuXStrokeBrush" Color="#2A313A" />
+            <SolidColorBrush x:Key="PaRuXStrokeStrongBrush" Color="#4F5B68" />
+            <SolidColorBrush x:Key="PaRuXDividerBrush" Color="#2A313A" />
 
-            <SolidColorBrush x:Key="PaRuXUserBubbleBrush" Color="#173039" />
-            <SolidColorBrush x:Key="PaRuXUserBubbleBorderBrush" Color="#35606A" />
-            <SolidColorBrush x:Key="PaRuXUserBubbleTextBrush" Color="#EDF2F5" />
+            <SolidColorBrush x:Key="PaRuXTextPrimaryBrush" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="PaRuXTextSecondaryBrush" Color="#A7B0BA" />
+            <SolidColorBrush x:Key="PaRuXTextTertiaryBrush" Color="#9FAAB6" />
 
-            <SolidColorBrush x:Key="PaRuXFocusBrush" Color="#79CBD4" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleBrush" Color="#19222C" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleBorderBrush" Color="#485564" />
+            <SolidColorBrush x:Key="PaRuXUserBubbleTextBrush" Color="#F2F4F7" />
 
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#26B7C6" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E526B7C6" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CC26B7C6" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#79CBD4" />
-            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#79CBD4" />
-            <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#79CBD4" />
+            <SolidColorBrush x:Key="PaRuXFocusBrush" Color="#D8DEE5" />
 
-            <SolidColorBrush x:Key="AccentButtonBackground" Color="#26B7C6" />
-            <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#79CBD4" />
-            <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#1A909B" />
-            <SolidColorBrush x:Key="AccentButtonBackgroundDisabled" Color="#2F2E3A" />
-            <SolidColorBrush x:Key="AccentButtonForeground" Color="#0B0F14" />
-            <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#0B0F14" />
-            <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#0B0F14" />
-            <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#6E6B7E" />
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E5B7C0C9" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CCB7C0C9" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#D8DEE5" />
+
+            <SolidColorBrush x:Key="AccentButtonBackground" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#8E99A6" />
+            <SolidColorBrush x:Key="AccentButtonBackgroundDisabled" Color="#252B33" />
+            <SolidColorBrush x:Key="AccentButtonForeground" Color="#07090C" />
+            <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#07090C" />
+            <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#07090C" />
+            <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#75808D" />
             <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="#00000000" />
             <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="#00000000" />
             <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="#00000000" />
@@ -249,18 +261,18 @@
             <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#1AFFFFFF" />
             <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#26FFFFFF" />
             <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="#00000000" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#26B7C6" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#79CBD4" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#1A909B" />
-            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="#3A3560" />
-            <SolidColorBrush x:Key="ToggleButtonForeground" Color="#A5B2BD" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundPointerOver" Color="#EDF2F5" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundPressed" Color="#EDF2F5" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundDisabled" Color="#6E6B7E" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#0B0F14" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#0B0F14" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="#0B0F14" />
-            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedDisabled" Color="#C9C4E6" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#8E99A6" />
+            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="#353D47" />
+            <SolidColorBrush x:Key="ToggleButtonForeground" Color="#A7B0BA" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundPointerOver" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundPressed" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundDisabled" Color="#75808D" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#07090C" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#07090C" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="#07090C" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedDisabled" Color="#D7DEE5" />
             <SolidColorBrush x:Key="ToggleButtonBorderBrush" Color="#00000000" />
             <SolidColorBrush x:Key="ToggleButtonBorderBrushPointerOver" Color="#00000000" />
             <SolidColorBrush x:Key="ToggleButtonBorderBrushPressed" Color="#00000000" />
@@ -270,41 +282,41 @@
             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="#00000000" />
             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedDisabled" Color="#00000000" />
 
-            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#26B7C6" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#79CBD4" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#1A909B" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#26B7C6" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#79CBD4" />
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#1A909B" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#8E99A6" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#8E99A6" />
 
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="#00000000" />
             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="#00000000" />
-            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#121820" />
-            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#121820" />
-            <SolidColorBrush x:Key="NavigationViewCompactPaneBackground" Color="#121820" />
-            <SolidColorBrush x:Key="NavigationViewMinimalPaneBackground" Color="#121820" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#0A0D11" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#0A0D11" />
+            <SolidColorBrush x:Key="NavigationViewCompactPaneBackground" Color="#0A0D11" />
+            <SolidColorBrush x:Key="NavigationViewMinimalPaneBackground" Color="#0A0D11" />
             <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="#24FFFFFF" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#173039" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#21434B" />
-            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#10272D" />
-            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#A5B2BD" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#EDF2F5" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#EDF2F5" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#79CBD4" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#79CBD4" />
-            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#79CBD4" />
-            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#26B7C6" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#202934" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#283340" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#1A232D" />
+            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#A7B0BA" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#F2F4F7" />
+            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#B7C0C9" />
 
-            <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#26B7C6" />
-            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#26B7C6" />
-            <SolidColorBrush x:Key="HyperlinkForeground" Color="#79CBD4" />
-            <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#79CBD4" />
+            <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#65717F" />
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#B7C0C9" />
+            <SolidColorBrush x:Key="HyperlinkForeground" Color="#D8DEE5" />
+            <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#D8DEE5" />
 
-            <!-- Keyboard focus rectangle: brand blue instead of the WinUI default
+            <!-- Keyboard focus rectangle: satin titanium instead of the WinUI default
                  white/black double outline, which reads as a stray bright-white
                  border on buttons and chat-message action icons. -->
-            <SolidColorBrush x:Key="SystemControlFocusVisualPrimaryBrush" Color="#79CBD4" />
+            <SolidColorBrush x:Key="SystemControlFocusVisualPrimaryBrush" Color="#D8DEE5" />
             <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#00000000" />
         </ResourceDictionary>
 
@@ -338,6 +350,12 @@
             <SolidColorBrush x:Key="PaRuXCautionTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="PaRuXCautionSubtleBrush" Color="{ThemeResource SystemColorButtonFaceColor}" />
             <SolidColorBrush x:Key="PaRuXCautionBorderBrush" Color="{ThemeResource SystemColorButtonTextColor}" />
+
+            <!-- Shared luxury-graphene shell roles: matte, not neon. -->
+            <SolidColorBrush x:Key="PaRuXGrapheneHeaderBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSidebarBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="PaRuXGrapheneSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="PaRuXChampagneBrush" Color="{ThemeResource SystemColorHotlightColor}" />
 
             <SolidColorBrush x:Key="PaRuXSurfaceSolidBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="PaRuXSurfaceAppBrush" Color="{ThemeResource SystemColorWindowColor}" />
