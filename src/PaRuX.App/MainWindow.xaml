@@ -15,7 +15,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid" SizeChanged="RootGrid_SizeChanged" KeyDown="RootGrid_ConsoleKeyDown">
+    <Grid x:Name="RootGrid" Background="{ThemeResource PaRuXSurfaceSolidBrush}" SizeChanged="RootGrid_SizeChanged" KeyDown="RootGrid_ConsoleKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -25,10 +25,16 @@
         <Border
             x:Name="ModeTabsHost"
             Grid.Row="0"
-            Padding="12,4,12,4"
+            Padding="16,8,16,8"
+            Background="{ThemeResource PaRuXGrapheneHeaderBrush}"
             BorderBrush="{ThemeResource PaRuXStrokeBrush}"
             BorderThickness="0,0,0,1">
-            <SelectorBar
+            <Border HorizontalAlignment="Center"
+                    Background="{ThemeResource PaRuXSurfaceSubtleBrush}"
+                    BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
+                    BorderThickness="1"
+                    Padding="8,2" CornerRadius="{StaticResource PaRuXRadiusLarge}">
+                <SelectorBar
                 x:Name="ModeTabs"
                 HorizontalAlignment="Left"
                 SelectionChanged="ModeTabs_SelectionChanged"
@@ -53,7 +59,8 @@
                     AutomationProperties.AutomationId="MainWindow_ModeTab_Gaming"
                     AutomationProperties.Name="Gaming mode"
                     ToolTipService.ToolTip="Gaming (Ctrl+2)" />
-            </SelectorBar>
+                </SelectorBar>
+            </Border>
         </Border>
 
         <tb:TaskbarIcon
@@ -79,12 +86,13 @@
 
         <NavigationView
             Grid.Row="1"
+            Background="{ThemeResource PaRuXGrapheneSidebarBrush}"
             x:Name="NavView"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             PaneDisplayMode="Left"
-            OpenPaneLength="288"
-            CompactPaneLength="52"
+            OpenPaneLength="280"
+            CompactPaneLength="56"
             IsPaneOpen="True"
             IsPaneToggleButtonVisible="True"
             Loaded="NavView_Loaded"
@@ -187,7 +195,7 @@
                         Click="NewChat_Click"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
-                        Height="36"
+                        Height="44"
                         Padding="12,0,12,0"
                         CornerRadius="{StaticResource PaRuXRadiusMedium}"
                         Background="{ThemeResource PaRuXBrandSubtleBrush}"
@@ -206,8 +214,8 @@
                         AutomationProperties.Name="New incognito chat"
                         Grid.Column="1"
                         Click="NewIncognitoChat_Click"
-                        Width="36"
-                        Height="36"
+                        Width="44"
+                        Height="44"
                         Padding="0"
                         CornerRadius="{StaticResource PaRuXRadiusMedium}"
                         Background="{ThemeResource PaRuXSurfaceSubtleBrush}"
@@ -230,7 +238,10 @@
                     HorizontalAlignment="Stretch"
                     Margin="12,8,12,12"
                     MinHeight="48"
-                    CornerRadius="{StaticResource PaRuXRadiusMedium}"
+                    Background="{ThemeResource PaRuXGrapheneSelectedBrush}"
+                    BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource PaRuXRadiusLarge}"
                     ToolTipService.ToolTip="Use the existing Games workspace in fullscreen. Press Escape or gamepad B to return." />
             </NavigationView.PaneFooter>
 
@@ -238,7 +249,7 @@
                 Background="{ThemeResource PaRuXSurfaceAppBrush}"
                 BorderBrush="{ThemeResource PaRuXStrokeBrush}"
                 BorderThickness="1,1,0,0"
-                CornerRadius="12,0,0,0">
+                CornerRadius="16,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />

@@ -17,7 +17,7 @@
         <SolidColorBrush x:Key="PaRuXDotOffBrush" Color="{ThemeResource PaRuXOffColor}" />
     </UserControl.Resources>
 
-    <Grid x:Name="SettingsLayoutGrid" SizeChanged="SettingsLayoutGrid_SizeChanged">
+    <Grid x:Name="SettingsLayoutGrid" Background="{ThemeResource PaRuXSurfaceAppBrush}" SizeChanged="SettingsLayoutGrid_SizeChanged">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="SettingsRailColumn" Width="192" />
             <ColumnDefinition Width="*" />
@@ -28,7 +28,10 @@
         </Grid.RowDefinitions>
 
         <!-- ==================== Category rail ==================== -->
-        <ScrollViewer x:Name="SettingsRailScroll" Grid.Column="0" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,20,4,20">
+        <ScrollViewer x:Name="SettingsRailScroll" Grid.Column="0" Grid.Row="1"
+                      Background="{ThemeResource PaRuXGrapheneSidebarBrush}"
+                      BorderBrush="{ThemeResource PaRuXStrokeBrush}" BorderThickness="0,0,1,0"
+                      VerticalScrollBarVisibility="Auto" Padding="12,20,8,20">
             <StackPanel x:Name="SettingsCategoryRail" Spacing="2" />
         </ScrollViewer>
 

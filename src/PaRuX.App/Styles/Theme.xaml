@@ -523,6 +523,23 @@
         <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
 
+    <!-- Consistent reusable matte panels for desktop, chat, settings and gaming. -->
+    <Style x:Key="PaRuXGraphenePanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource PaRuXSurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource PaRuXStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource PaRuXRadiusLarge}" />
+        <Setter Property="Padding" Value="{StaticResource PaRuXCardPadding}" />
+    </Style>
+
+    <Style x:Key="PaRuXGrapheneSelectedPanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource PaRuXGrapheneSelectedBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource PaRuXStrokeStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource PaRuXRadiusLarge}" />
+        <Setter Property="Padding" Value="{StaticResource PaRuXCardPadding}" />
+    </Style>
+
     <!-- Pills. Quiet = metadata (route badge). Accent = live/selected state. -->
     <Style x:Key="PaRuXQuietPillStyle" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource PaRuXSurfaceSubtleBrush}" />

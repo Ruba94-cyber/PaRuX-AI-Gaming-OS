@@ -16,7 +16,9 @@
 
         <!-- The small PaRuX mark that sits to the left of every reply. -->
         <Style x:Key="PaRuXAvatarStyle" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource PaRuXBrandBrush}" />
+            <Setter Property="Background" Value="{ThemeResource PaRuXGrapheneSelectedBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource PaRuXStrokeStrongBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Width" Value="26" />
             <Setter Property="Height" Value="26" />
             <Setter Property="CornerRadius" Value="13" />
@@ -28,7 +30,7 @@
             <Setter Property="FontFamily" Value="{StaticResource PaRuXDisplayFontFamily}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{ThemeResource PaRuXOnBrandBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource PaRuXTextPrimaryBrush}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -50,7 +52,7 @@
             <Setter Property="Foreground" Value="{ThemeResource PaRuXTextTertiaryBrush}" />
         </Style>
 
-        <!-- Streaming caret: a cyan bar that pulses while tokens land. -->
+        <!-- Streaming caret: a satin titanium bar that pulses while tokens land. -->
         <Style x:Key="PaRuXStreamCaretStyle" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource PaRuXSecondaryBrush}" />
             <Setter Property="Width" Value="7" />
