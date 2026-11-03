@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar notification icon: must be a flat white silhouette on transparent, per
-     Android guidelines (the system tints it itself). -->
+<!-- PX Orbit status-bar glyph. The Android system tints this monochrome mark.
+     Keep it legible at 24 dp; it is not the detailed full-colour launcher icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24"
     android:tint="#FFFFFFFF">
-    <!-- Micro-optimized PRX Core: one orbit and one connected routing/X core.
-         The status bar supplies color, so this stays a single flat silhouette. -->
+    <!-- Inclined orbital ellipse, deliberately a single fixed plane. -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="1.8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.15"
+        android:strokeAlpha="0.85"
         android:strokeLineCap="round"
-        android:pathData="M3.5,12 C4.4,6.4 10.2,4.1 15.4,6 C19,7.3 21,10.2 20.1,13.4" />
+        android:pathData="M19.89,6.27 C21.62,8.66 19.5,13.16 15.14,16.32 C10.78,19.49 5.85,20.12 4.11,17.73 C2.38,15.34 4.5,10.84 8.86,7.68 C13.22,4.51 18.15,3.88 19.89,6.27 Z" />
+    <!-- PaRuX P monogram, with a clean dark counter cut out by its silhouette. -->
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M7,8 H11 C13.5,8 15,9.3 15,11.2 C15,12.5 14.4,13.5 13.3,14.1 L16.8,18 H13.8 L11,14.8 H9.5 V18 H7 Z M9.5,10.3 V12.6 H11 C12,12.6 12.5,12.2 12.5,11.4 C12.5,10.7 12,10.3 11,10.3 Z M16,8 H18.8 L20.2,10.6 L21,9.2 V14.6 L20.2,13.2 L17.7,18 H15 L18.8,11.9 Z M19.5,5.1 A1.6,1.6 0,1 1,19.49,5.1 Z" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.69,7.22 L14.34,7.22 16.78,9.38 17.25,10.5 14.72,13.22 10.5,13.22 7.4,18.09 4.59,20.81 6.75,11.63 13.41,11.63 14.63,10.41 13.5,9.56 5.63,9.56 Z" />
+    <!-- Small but recognisable X: no gaming/AI pictogram. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M14.91,12.38 H17.16 L18.56,14.44 20.44,12.38 H22.31 L19.78,16.22 22.41,20.06 H20.16 L18.56,18 16.69,20.16 H14.25 L17.34,16.22 Z" />
 </vector>

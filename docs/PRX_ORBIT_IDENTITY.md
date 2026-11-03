@@ -21,3 +21,10 @@ The original lightweight bubble state machinery is retained: a **visible ellipti
 ## Release checklist
 
 Inspect real 16/20/24/32/48/64/128/256 px icons, exe/taskbar/tray/shortcut/installer, Android launcher crop, Windows high contrast and light/dark states, drag gestures, animation frame-rate, no GPU-heavy effects and actual gaming suspension on the target PC. **GitHub source integration is not a Windows runtime acceptance result.**
+
+
+## 2026-11-03 follow-up: orbit motion and Android notification
+
+The quick-chat companion is now used both in the collapsed bubble and its expanded header. Its highlighted dash travels **along the fixed -36° elliptical plane** with a `StrokeDashOffset` animation; the entire ellipse is not spun as a second competing orbital path. An original static orbit stays present in the logo, while the animated segment adds movement only while visible/busy. Reduced-motion keeps a static highlighted segment.
+
+Android notification vector is a monochrome PX plus ellipse (the OS owns tint); the launcher remains the detailed colored bitmap. The ICO generator reproduces matching 16, 20, 24, 32, 48, 64, 128, and 256 px frames for both app and tray. This is source coverage only: perform actual small-size and motion acceptance on Windows hardware.

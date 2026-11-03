@@ -846,7 +846,7 @@ namespace PaRuX.Shell
 
             CollapsedMarkContainer.Opacity = state == BubbleVisualState.Sleep ? 0.42 : 1.0;
             CollapsedStateRing.Opacity = 0;
-            CollapsedStateRingRotation.Angle = -25;
+            CollapsedStateRing.StrokeDashOffset = 0;
             CollapsedMarkScale.ScaleX = 1;
             CollapsedMarkScale.ScaleY = 1;
 
@@ -875,7 +875,15 @@ namespace PaRuX.Shell
             // The expanded/hidden window has its own status treatment. Do not spend compositor
             // work animating the collapsed mark while it cannot be seen. Honour
             // Windows reduced-motion preferences as well.
-            if (!_visible || _expanded || !AreAnimationsEnabled()) return;
+            if (!_visible || _expanded) return;
+            if (!AreAnimationsEnabled())
+            {
+                // Static illuminated segment for reduced-motion mode: no storyboard or
+                // hidden infinite animation, only the existing passive orbit artwork.
+                if (state == BubbleVisualState.Thinking || state == BubbleVisualState.Working)
+                    CollapsedStateRing.Opacity = 0.60;
+                return;
+            }
 
             var board = new Storyboard();
             if (state == BubbleVisualState.Thinking || state == BubbleVisualState.Working)
@@ -883,14 +891,16 @@ namespace PaRuX.Shell
                 CollapsedStateRing.Opacity = state == BubbleVisualState.Working ? 0.95 : 0.72;
                 var orbit = new DoubleAnimation
                 {
-                    From = -25,
-                    To = 335,
+                    // One dash pattern (6 + 25 units) per loop. Advancing the
+                    // dash offset keeps the ellipse on its fixed -36 degree orbit.
+                    From = 0,
+                    To = -31,
                     Duration = new Duration(TimeSpan.FromMilliseconds(
                         state == BubbleVisualState.Working ? 1450 : 2400)),
                     RepeatBehavior = RepeatBehavior.Forever
                 };
-                Storyboard.SetTarget(orbit, CollapsedStateRingRotation);
-                Storyboard.SetTargetProperty(orbit, "Angle");
+                Storyboard.SetTarget(orbit, CollapsedStateRing);
+                Storyboard.SetTargetProperty(orbit, "StrokeDashOffset");
                 board.Children.Add(orbit);
             }
             else

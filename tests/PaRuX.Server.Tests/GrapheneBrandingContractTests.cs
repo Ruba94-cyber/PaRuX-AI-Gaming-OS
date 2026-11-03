@@ -26,6 +26,9 @@ public sealed class GrapheneBrandingContractTests
         Assert.DoesNotContain("ms-appx:///Assets/prx-orbit-approved.png", theme);
         Assert.Contains("PxOrbitChatMarkTemplate", bubble);
         Assert.Contains("CollapsedStateRing", bubble);
+        Assert.Contains("StrokeDashOffset=\"0\"", bubble);
+        Assert.Contains("RotateTransform Angle=\"-36\"", bubble);
+        Assert.Equal(2, CountOccurrences(bubble, "ContentTemplate=\"{StaticResource PxOrbitChatMarkTemplate}\""));
         Assert.Contains("px-orbit-app.png", project);
         Assert.Contains("px-orbit-chat.png", project);
         Assert.DoesNotContain("<Content Include=\"Assets\\prx-orbit-approved.png\"", project);
@@ -43,7 +46,10 @@ public sealed class GrapheneBrandingContractTests
             Assert.Equal(0, bytes[1]);
             Assert.Equal(1, bytes[2]);
             Assert.Equal(0, bytes[3]);
-            Assert.True(bytes[4] >= 5);
+            Assert.Equal(8, bytes[4]);
+            foreach (int expected in new[] { 16, 20, 24, 32, 48, 64, 128, 256 })
+                Assert.Contains((byte)(expected == 256 ? 0 : expected),
+                    GetIconFrameSizes(bytes));
         }
     }
 
@@ -55,6 +61,8 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("px-orbit-app.png", script);
         Assert.Contains("px-orbit-chat.png", script);
         Assert.DoesNotContain("prx-orbit-approved.png", script);
+        Assert.Contains("px-orbit-preview.png", script);
+        Assert.Contains("$trayIconPath -Sizes @(16, 20, 24, 32, 48, 64, 128, 256)", script);
     }
 
     [Fact]
@@ -65,7 +73,39 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("AreAnimationsEnabled()", code);
         Assert.Contains("UISettings().AnimationsEnabled", code);
         Assert.Contains("BubbleVisualState.Working ? 1450 : 2400", code);
+        Assert.Contains("Storyboard.SetTargetProperty(orbit, \"StrokeDashOffset\")", code);
+        Assert.DoesNotContain("CollapsedStateRingRotation", code);
         Assert.DoesNotContain("r = 124; g = 58; b = 237", code);
         Assert.DoesNotContain("r = 37; g = 99; b = 235", code);
+    }
+    [Fact]
+    public void Android_notification_uses_monochrome_px_orbit_instead_of_old_prx()
+    {
+        var root = Root();
+        string xml = File.ReadAllText(Path.Combine(root, "src", "PaRuX.Android",
+            "app", "src", "main", "res", "drawable", "ic_notification.xml"));
+        Assert.Contains("PX Orbit", xml);
+        Assert.Contains("Inclined orbital ellipse", xml);
+        Assert.DoesNotContain("PRX Core", xml);
+        Assert.Equal(3, CountOccurrences(xml, "android:pathData="));
+        System.Xml.Linq.XDocument.Parse(xml);
+    }
+
+    private static int CountOccurrences(string haystack, string needle) =>
+        haystack.Split(new[] { needle }, StringSplitOptions.None).Length - 1;
+
+    private static byte[] GetIconFrameSizes(byte[] bytes)
+    {
+        var count = BitConverter.ToUInt16(bytes, 4);
+        var sizes = new byte[count];
+        for (int i = 0; i < count; i++)
+        {
+            int position = 6 + (i * 16);
+            sizes[i] = bytes[position];
+            var size = BitConverter.ToUInt32(bytes, position + 8);
+            var offset = BitConverter.ToUInt32(bytes, position + 12);
+            Assert.True(offset + size <= bytes.Length, "ICO frame exceeds the file length.");
+        }
+        return sizes;
     }
 }

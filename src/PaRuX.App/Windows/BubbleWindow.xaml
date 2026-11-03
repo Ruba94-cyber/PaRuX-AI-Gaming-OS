@@ -61,16 +61,18 @@
                                 IsHitTestVisible="False" />
                             <Ellipse
                                 x:Name="CollapsedStateRing"
-                                Width="35"
-                                Height="26"
+                                Width="25"
+                                Height="14"
                                 Stroke="{ThemeResource PaRuXSecondaryBrush}"
-                                StrokeThickness="1.75"
-                                StrokeDashArray="13,10"
+                                StrokeThickness="2"
+                                StrokeDashArray="6,25"
+                                StrokeDashOffset="0"
                                 StrokeDashCap="Round"
                                 Opacity="0"
+                                IsHitTestVisible="False"
                                 RenderTransformOrigin="0.5,0.5">
                                 <Ellipse.RenderTransform>
-                                    <RotateTransform x:Name="CollapsedStateRingRotation" Angle="-25" />
+                                    <RotateTransform Angle="-36" />
                                 </Ellipse.RenderTransform>
                             </Ellipse>
                         </Grid>
@@ -124,7 +126,7 @@
                             <ContentControl
                                 Width="20"
                                 Height="20"
-                                ContentTemplate="{StaticResource PrxOrbitMarkTemplate}"
+                                ContentTemplate="{StaticResource PxOrbitChatMarkTemplate}"
                                 IsHitTestVisible="False" />
                             <TextBlock
                                 Text="PaRuX"

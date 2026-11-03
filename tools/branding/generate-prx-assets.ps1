@@ -10,11 +10,11 @@ $approvedLogoPath = Join-Path $assetDirectory 'px-orbit-app.png'
 $chatLogoPath = Join-Path $assetDirectory 'px-orbit-chat.png'
 $iconPath = Join-Path $assetDirectory 'parux.ico'
 $trayIconPath = Join-Path $assetDirectory 'prx-orbit-tray.ico'
-$previewPath = Join-Path $assetDirectory 'prx-orbit-preview.png'
+$previewPath = Join-Path $assetDirectory 'px-orbit-preview.png'
 
 if (-not (Test-Path -LiteralPath $chatLogoPath)) { throw "PX Orbit quick-chat logo not found: $chatLogoPath" }
 if (-not (Test-Path -LiteralPath $approvedLogoPath)) {
-    throw "Approved PRX logo not found: $approvedLogoPath"
+    throw "Approved PX Orbit logo not found: $approvedLogoPath"
 }
 
 function New-PrxBitmap {
@@ -80,7 +80,7 @@ try {
     # application icon too; an opaque fill makes Windows show a heavy square behind the mark.
     Write-PrxIcon -Source $approvedLogo -Path $iconPath -Sizes @(16, 20, 24, 32, 48, 64, 128, 256)
     $chatLogo = [System.Drawing.Image]::FromFile($chatLogoPath)
-    try { Write-PrxIcon -Source $chatLogo -Path $trayIconPath -Sizes @(16, 20, 24, 32, 48) }
+    try { Write-PrxIcon -Source $chatLogo -Path $trayIconPath -Sizes @(16, 20, 24, 32, 48, 64, 128, 256) }
     finally { $chatLogo.Dispose() }
 
     $preview = New-PrxBitmap -Source $approvedLogo -Size 512
