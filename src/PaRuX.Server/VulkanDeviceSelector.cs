@@ -71,12 +71,15 @@ internal static partial class VulkanDeviceSelector
             lock (CacheLock) Cache.TryGetValue(exe, out devices);
             if (devices == null)
             {
-                devices = ParseDevices(await ListDevicesAsync(exe, ct).ConfigureAwait(false));
-                if (devices.Count > 0) lock (CacheLock) Cache[exe] = devices;
+                try { devices = ParseDevices(await ListDevicesAsync(exe, ct).ConfigureAwait(false)); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested) { devices = []; }
+                catch (Exception) when (!ct.IsCancellationRequested) { devices = []; }
+                // A runtime that cannot list its devices (stub, broken install) is remembered, so a launch never waits twice.
+                lock (CacheLock) Cache[exe] = devices;
             }
             return Choose(devices, inventory);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { return DefaultDevice; }
     }
 
@@ -95,7 +98,7 @@ internal static partial class VulkanDeviceSelector
         };
         process.Start();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        timeout.CancelAfter(TimeSpan.FromSeconds(4));
         try
         {
             Task<string> stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
