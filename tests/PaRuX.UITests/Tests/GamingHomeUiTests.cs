@@ -167,6 +167,44 @@ public sealed class GamingHomeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Empty_filter_state_clears_search_without_losing_saved_library_layout()
+    {
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(nameof(Empty_filter_state_clears_search_without_losing_saved_library_layout));
+        try
+        {
+            OpenGamingHome(app);
+            const string name = "Home Graphene Filter Fixture";
+            AddGame(app, name);
+            string key = KeyOf(name);
+            ById(app, "GameTile_" + key);
+
+            // Keep a non-default layout so the recovery path has something to preserve.
+            Press(app, ById(app, "GameHome_LayoutToggle"));
+            UiWait.For(() => File.Exists(app.SettingsPath) &&
+                File.ReadAllText(app.SettingsPath).Contains("\"GameLibraryLayout\": \"list\"", StringComparison.Ordinal),
+                "list view preference saved");
+
+            var search = ById(app, "GameTitles_Search_TextBox").AsTextBox();
+            search.Text = "this title cannot possibly match the fixture";
+            UiWait.For(() => TryById(app, "GameHome_ClearFilters")?.Properties.IsEnabled.ValueOrDefault == true,
+                "clear filters is actionable on a zero-result query");
+            Assert.NotNull(ById(app, "GameHome_EmptyState"));
+            Press(app, ById(app, "GameHome_ClearFilters"));
+
+            UiWait.For(() => TryById(app, "GameTile_" + key) is not null,
+                "game restored after clearing the filters");
+            Assert.Equal(string.Empty, ById(app, "GameTitles_Search_TextBox").AsTextBox().Text);
+            Assert.Contains("\"GameLibraryLayout\": \"list\"", File.ReadAllText(app.SettingsPath), StringComparison.Ordinal);
+            Assert.True(TryById(app, "GameHome_ClearFilters") is null ||
+                !TryById(app, "GameHome_ClearFilters")!.Properties.IsEnabled.ValueOrDefault ||
+                TryById(app, "GameHome_ClearFilters")!.Properties.IsOffscreen.ValueOrDefault,
+                "clear filters must no longer be actionable after recovery");
+        }
+        catch (Exception ex) { app.CaptureFailure(nameof(Empty_filter_state_clears_search_without_losing_saved_library_layout), ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Hidden_titles_leave_the_library_until_show_hidden_is_chosen()
     {
         WaitForCoreIdle();
