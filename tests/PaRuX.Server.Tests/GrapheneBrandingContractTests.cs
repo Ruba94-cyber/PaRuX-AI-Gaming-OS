@@ -147,6 +147,25 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("-PublishDirectory $publishDir", installerBuild);
     }
 
+    [Fact]
+    public void Browser_client_identity_matches_graphene_and_px_without_legacy_purple()
+    {
+        var root = Root();
+        string web = Path.Combine(root, "src", "PaRuX.Server", "WebClient");
+        foreach (var page in new[] { "index.html", "login.html" })
+        {
+            string html = File.ReadAllText(Path.Combine(web, page));
+            Assert.Contains("class=\"brandmark\"", html);
+            Assert.Contains("rotate(-36 24 24)", html);
+            Assert.Contains("#B89B6A", html);
+            Assert.Contains("--accent: #344452", html);
+            Assert.Contains("--accent: #B7C0C9", html);
+            Assert.Contains("--accent-ink: #07090C", html);
+            Assert.DoesNotContain("#4a3aff", html.ToLowerInvariant());
+            Assert.DoesNotContain("#9d92ff", html.ToLowerInvariant());
+        }
+    }
+
     private static int CountOccurrences(string haystack, string needle) =>
         haystack.Split(new[] { needle }, StringSplitOptions.None).Length - 1;
 

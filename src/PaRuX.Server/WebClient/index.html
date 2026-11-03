@@ -17,12 +17,12 @@
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #fbfbfd; --panel: #fff; --sunken: #f3f3f7; --ink: #16161a; --muted: #6b6b76;
-    --line: #e4e4ea; --accent: #4a3aff; --accent-ink: #fff; --warn: #b23c17; --ok: #1f7a4d;
+    --bg: #F5F6F8; --panel: #FFFFFF; --sunken: #E8EDF1; --ink: #19222B; --muted: #495967;
+    --line: #B9C4CF; --accent: #344452; --accent-ink: #FFFFFF; --warn: #9D482B; --ok: #0F7B3C;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #131317; --panel: #1b1b21; --sunken: #16161b; --ink: #ececf1; --muted: #9a9aa6;
-            --line: #2c2c35; --accent: #9d92ff; --accent-ink: #16161a; --warn: #ff9a6c; --ok: #5ad19b; }
+    :root { --bg: #07090C; --panel: #121820; --sunken: #0D1116; --ink: #F2F4F7; --muted: #A7B0BA;
+            --line: #33404C; --accent: #B7C0C9; --accent-ink: #07090C; --warn: #E2AD54; --ok: #45B88D; }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -32,7 +32,9 @@
   #shell { display: grid; grid-template-columns: 15rem 1fr; height: 100vh; }
   nav { background: var(--sunken); border-right: 1px solid var(--line); display: flex;
         flex-direction: column; min-height: 0; }
-  .brand { padding: .95rem 1rem .6rem; font-weight: 700; letter-spacing: .02em; }
+  .brand { display: flex; align-items: center; gap: .65rem; padding: .95rem 1rem .6rem;
+           font-weight: 700; letter-spacing: .02em; }
+  .brandmark { display: block; width: 2.1rem; height: 2.1rem; flex: none; }
   .model-choice { display: flex; align-items: center; gap: .35rem; font-size: .8rem; }
   .brand small { display: block; font-weight: 400; font-size: .72rem; color: var(--muted); }
   .tabs { display: flex; flex-direction: column; padding: .35rem .5rem; gap: 1px; }
@@ -106,7 +108,10 @@
   @media (max-width: 800px) {
     #shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     nav { flex-direction: row; align-items: center; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
-    .brand { display: none; } .tabs { flex-direction: row; } .navfoot { display: none; }
+    .brand { flex: none; padding: .4rem .6rem; font-size: .82rem; gap: .35rem; }
+    .brandmark { width: 1.5rem; height: 1.5rem; }
+    .brand small { display: none; }
+    .tabs { flex-direction: row; } .navfoot { display: none; }
     #chatpage.active { grid-template-columns: 1fr; } .convlist { display: none; }
   }
 </style>
@@ -114,7 +119,15 @@
 <body>
 <div id="shell">
   <nav>
-    <div class="brand">PaRuX<small id="brandsub">local AI</small></div>
+    <div class="brand">
+    <svg class="brandmark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <rect x="1.5" y="1.5" width="45" height="45" rx="10" fill="#111820" stroke="#68717A" stroke-width=".75"/>
+      <ellipse cx="24" cy="24" rx="19.5" ry="10.7" transform="rotate(-36 24 24)" fill="none" stroke="#B89B6A" stroke-width="1.2"/>
+      <path d="M29.8 24.75h4.5l2.8 4.1 3.75-4.1h3.75l-5.1 7.7 5.25 7.7h-4.5l-3.2-4.1-3.75 4.3h-4.9l6.2-7.9z" fill="#B89B6A"/>
+      <path d="M9.4 14.4h19.3l4.9 4.3.9 2.2-5.1 5.5H21l-6.2 9.8-5.6 5.4 4.3-18.4h13.3l2.4-2.4-2.2-1.6H11.3z" fill="#D3DAE0"/>
+    </svg>
+    <span>PaRuX<small id="brandsub">local workspace</small></span>
+  </div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" data-page="chat" aria-selected="true">Chat</button>
       <button class="tab" role="tab" data-page="models">Models</button>
