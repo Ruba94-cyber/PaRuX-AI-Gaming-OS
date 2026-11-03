@@ -122,7 +122,10 @@ public sealed class GamingHomeUiTests
             var tile = ById(app, "GameTile_" + key);
             Assert.Contains(name, tile.Name, StringComparison.Ordinal);
             var play = ById(app, "GameTilePlay_" + key);
-            Assert.True(play.BoundingRectangle.Height >= 44);
+            try { play.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView(); } catch (Exception) { /* best effort */ }
+            try { play.Focus(); } catch (Exception) { /* best effort */ }
+            UiWait.For(() => play.BoundingRectangle.Height > 0, "play button laid out");
+            Assert.True(play.BoundingRectangle.Height >= 44, "play height " + play.BoundingRectangle.Height);
 
             // One-click Play still goes through the existing launch consent; cancelling starts nothing.
             Press(app, play);

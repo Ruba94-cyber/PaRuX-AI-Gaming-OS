@@ -29,7 +29,9 @@ internal sealed class InstallProgressPage
     internal void EnableAdvancedMode()
     {
         var runtimeItem = _window.FindFirstDescendant(cf => cf.ByAutomationId("Navigation_Runtime_Item"));
-        if (runtimeItem != null && !runtimeItem.Properties.IsOffscreen.ValueOrDefault)
+        // The Runtime item is absent from the UIA tree in Simple mode; below the fold in a short window it is present but
+        // scrolled away, and OpenRuntimeManager scrolls it into view.
+        if (runtimeItem != null)
         {
             return;
         }
@@ -39,7 +41,7 @@ internal sealed class InstallProgressPage
         UiWait.For(() =>
         {
             var item = _window.FindFirstDescendant(cf => cf.ByAutomationId("Navigation_Runtime_Item"));
-            return item != null && !item.Properties.IsOffscreen.ValueOrDefault;
+            return item != null;
         }, "Advanced mode runtime navigation item enabled");
     }
 

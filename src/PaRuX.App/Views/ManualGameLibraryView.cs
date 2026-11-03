@@ -667,6 +667,7 @@ public sealed class ManualGameLibraryView : UserControl
             if (!result.Succeeded) { _status.Text = T("Could not add the entry. Check the name, local .exe path, arguments, working folder, or whether it is already listed.", "Impossibile aggiungere la voce. Controlla nome, percorso .exe locale, argomenti, cartella di lavoro o eventuali duplicati."); return; }
             _name.Text = ""; _path.Text = ""; _arguments.Text = ""; _workingDirectory.Text = "";
             await LoadAsync();
+            if (_universal is not null) await _universal.RefreshTitlesAfterGameAsync();
         }
         catch (Exception) { _status.Text = T("Could not add the game.", "Impossibile aggiungere il gioco."); }
         finally { SetBusy(false); }
@@ -1432,6 +1433,7 @@ public sealed class ManualGameLibraryView : UserControl
             var result = await GamingOrchestratorClient.Current.RemoveManualGameAsync(game.Id);
             if (!result.Succeeded) { _status.Text = T("Could not remove the entry.", "Impossibile rimuovere la voce."); return; }
             await LoadAsync();
+            if (_universal is not null) await _universal.RefreshTitlesAfterGameAsync();
         }
         catch (Exception) { _status.Text = T("Could not remove the entry.", "Impossibile rimuovere la voce."); }
         finally { SetBusy(false); }

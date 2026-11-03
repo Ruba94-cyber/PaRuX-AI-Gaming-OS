@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -419,13 +420,32 @@ internal sealed class UiTestApplication : IDisposable
         while (stack.Count > 0 && count++ < 5000)
         {
             var current = stack.Pop();
-            yield return $"{new string(' ', current.Depth * 2)}{current.Element.Properties.ControlType.ValueOrDefault}\tId={current.Element.Properties.AutomationId.ValueOrDefault}\tName={current.Element.Properties.Name.ValueOrDefault}\tClass={current.Element.Properties.ClassName.ValueOrDefault}";
-            var children = new List<AutomationElement>();
-            for (AutomationElement? child = walker.GetFirstChild(current.Element); child != null; child = walker.GetNextSibling(child))
-                children.Add(child);
-            for (int index = children.Count - 1; index >= 0; index--)
-                stack.Push((children[index], current.Depth + 1));
+            yield return DescribeElement(current.Element, current.Depth);
+            foreach (AutomationElement child in ReadChildren(walker, current.Element).AsEnumerable().Reverse())
+                stack.Push((child, current.Depth + 1));
         }
+    }
+
+    // A diagnostic dump must never fail a test: the app may rewrite its tree while it is read.
+    private static string DescribeElement(AutomationElement element, int depth)
+    {
+        try
+        {
+            return $"{new string(' ', depth * 2)}{element.Properties.ControlType.ValueOrDefault}	Id={element.Properties.AutomationId.ValueOrDefault}	Name={element.Properties.Name.ValueOrDefault}	Class={element.Properties.ClassName.ValueOrDefault}";
+        }
+        catch (Exception) { return new string(' ', depth * 2) + "(unreadable element)"; }
+    }
+
+    private static List<AutomationElement> ReadChildren(ITreeWalker walker, AutomationElement parent)
+    {
+        var children = new List<AutomationElement>();
+        try
+        {
+            for (AutomationElement? child = walker.GetFirstChild(parent); child != null; child = walker.GetNextSibling(child))
+                children.Add(child);
+        }
+        catch (Exception) { /* keep what was read */ }
+        return children;
     }
 
     private static void SeedConversationHistory(string databasePath, int count)
