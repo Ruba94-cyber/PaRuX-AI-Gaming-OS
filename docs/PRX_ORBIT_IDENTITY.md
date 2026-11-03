@@ -1,48 +1,23 @@
-# PRX Orbit identity
+# PaRuX PX Orbit identity — owner-approved 2026-11-03
 
-PRX Orbit is the visual identity for **RBG PaRuX AI Studio**. The approved mark
-is fixed artwork: the metallic `PRX` monogram, two open blue/violet arcs and four
-nodes must not be redrawn or geometrically reinterpreted.
+The legacy blue/violet PRX Orbit identity has been **superseded by explicit owner approval**. The adopted B+D hybrid is a titanium/silver **P+X monogram**, champagne X, and a genuine inclined elliptical orbit on near-black graphite. No game controller, AI chip, robot, literal gamepad or blue/violet glow should appear in the general icon.
 
-## Dark Graphene Luxury UI decision (2026-11-03)
+## Active sources
 
-The owner now prefers a **near-black graphite/titanium shell without cyan/violet highlights**. The active WinUI/Android semantic palette is defined in `docs/DESIGN_SYSTEM.md` and supersedes the old Core/Orbit blue/cyan/violet **colour recommendations** for app UI. The existing PRX Orbit fixed logo artwork remains unchanged in binaries as an asset-compatibility exception; it is **not yet graphene-monochrome**. This is an outstanding asset-production/approval step, not a completed logo refresh. The icons/tray/splash/installer/Android mipmaps need a coordinated, reviewed multi-resolution replacement before anyone claims that the entire app is visually free of the former bright artwork. Preserve the original geometry and do not silently recolour or remove the canonical artwork.
+- `docs/branding/px-orbit/app-mark.svg`: editable main P+X and orbit.
+- `docs/branding/px-orbit/chat-mark.svg`: editable companion speech mark, mini X and orbital ring.
+- `src/PaRuX.App/Assets/px-orbit-app.png`: shell/main UI artwork.
+- `src/PaRuX.App/Assets/px-orbit-chat.png`: floating bubble companion artwork.
+- `src/PaRuX.App/Assets/parux.ico`: multi-resolution executable icon.
+- `src/PaRuX.App/Assets/prx-orbit-tray.ico`: multi-resolution tray icon; legacy *filename only* retained for compatibility.
+- `src/PaRuX.Android/app/src/main/res/drawable-nodpi/prx_orbit_approved.png`: new main artwork with original Android resource name retained.
 
-## Non-destructive graphene candidate generator
+The legacy `prx-orbit-approved.png` remains only as a historical source and is not packaged or referenced by the active shell. Regenerate Windows icons only from the two `px-orbit-*.png` sources.
 
-On a Windows development machine, run:
+## Behaviour
 
-```powershell
-.\\tools\\branding\\preview-graphene-orbit.ps1
-```
+The original lightweight bubble state machinery is retained: a **visible elliptical orbit** with champagne/titanium motion for thinking (2.4 s) and working (1.45 s); static idle ring, brief success/error pulse and dimmed sleep. Skip motion with Windows reduced-motion settings, when the bubble is not visible or is expanded, and during gaming when the bubble is hidden. No persistent voice listening is introduced.
 
-This derives an **optional local candidate** from the existing approved transparent PNG: neutral metallic pixels and silhouette are retained, saturated blue/violet pixels are converted to a luminance-aware titanium shade, and the original alpha is preserved. Output goes exclusively to `artifacts/branding/graphene-preview` (master PNG, 16–256 px samples, dark/light composites); it does **not** update `parux.ico`, tray, installer, Android launcher or the approved source. Check actual 16/24/32 px legibility, edge aliasing and brand approval before deciding whether this recolouring is appropriate. If the PRX shape itself changes, obtain separate visual approval and build new assets intentionally.
+## Release checklist
 
-## System
-
-- **Primary app mark:** use the approved bitmap unchanged; cropping out the source
-  caption and proportional resizing are the only permitted transformations.
-- **Micro mark:** use the same approved artwork, reduced proportionally.
-- **Shell mark:** the shared WinUI `PrxOrbitMarkTemplate` loads the approved asset;
-  do not redraw one-off letter tiles in individual views.
-- **Motion:** slow orbit for thinking, quicker orbit for work, one brief pulse for
-  success/error, and a dimmed sleep treatment. Motion must remain lightweight.
-- **Tone:** dark-first, technical and premium. Avoid extra gradients, glows,
-  sparkle motifs, robot/brain imagery and high-frequency animation.
-
-## Legacy PRX Orbit bitmap palette (NOT the active app UI)
-
-- PRX Core `#0A0F14`
-- Orbit Blue `#2563EB`
-- Orbit Light `#3B82F6`
-- Routing Cyan `#22D3EE`
-- Node Violet `#7C3AED`
-- Success `#6CCB8F`; error `#FF9A8F` only for transient states
-
-## Source assets
-
-- `src/PaRuX.App/Assets/prx-orbit-approved.png` — canonical approved artwork.
-- `src/PaRuX.App/Assets/prx-orbit-tray.ico` — dedicated Windows tray package.
-- `tools/branding/generate-prx-assets.ps1` — reproducibly creates the multi-size
-  Windows `.ico` and PNG preview by resizing the canonical artwork only.
-- Android launcher artwork lives in `src/PaRuX.Android/app/src/main/res/drawable-nodpi`.
+Inspect real 16/20/24/32/48/64/128/256 px icons, exe/taskbar/tray/shortcut/installer, Android launcher crop, Windows high contrast and light/dark states, drag gestures, animation frame-rate, no GPU-heavy effects and actual gaming suspension on the target PC. **GitHub source integration is not a Windows runtime acceptance result.**

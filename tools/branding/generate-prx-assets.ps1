@@ -6,11 +6,13 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
 $assetDirectory = Join-Path $RepositoryRoot 'src\PaRuX.App\Assets'
-$approvedLogoPath = Join-Path $assetDirectory 'prx-orbit-approved.png'
+$approvedLogoPath = Join-Path $assetDirectory 'px-orbit-app.png'
+$chatLogoPath = Join-Path $assetDirectory 'px-orbit-chat.png'
 $iconPath = Join-Path $assetDirectory 'parux.ico'
 $trayIconPath = Join-Path $assetDirectory 'prx-orbit-tray.ico'
 $previewPath = Join-Path $assetDirectory 'prx-orbit-preview.png'
 
+if (-not (Test-Path -LiteralPath $chatLogoPath)) { throw "PX Orbit quick-chat logo not found: $chatLogoPath" }
 if (-not (Test-Path -LiteralPath $approvedLogoPath)) {
     throw "Approved PRX logo not found: $approvedLogoPath"
 }
@@ -77,7 +79,9 @@ try {
     # The approved artwork already contains a transparent canvas. Keep that alpha in the
     # application icon too; an opaque fill makes Windows show a heavy square behind the mark.
     Write-PrxIcon -Source $approvedLogo -Path $iconPath -Sizes @(16, 20, 24, 32, 48, 64, 128, 256)
-    Write-PrxIcon -Source $approvedLogo -Path $trayIconPath -Sizes @(16, 20, 24, 32, 48)
+    $chatLogo = [System.Drawing.Image]::FromFile($chatLogoPath)
+    try { Write-PrxIcon -Source $chatLogo -Path $trayIconPath -Sizes @(16, 20, 24, 32, 48) }
+    finally { $chatLogo.Dispose() }
 
     $preview = New-PrxBitmap -Source $approvedLogo -Size 512
     $preview.Save($previewPath, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -87,4 +91,4 @@ finally {
     $approvedLogo.Dispose()
 }
 
-Write-Output "Generated icons directly from the approved PRX logo."
+Write-Output "Generated PX Orbit application and assistant tray icons from the approved paired artworks."

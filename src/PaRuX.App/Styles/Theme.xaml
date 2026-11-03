@@ -384,9 +384,12 @@
 
     </ResourceDictionary.ThemeDictionaries>
 
-    <!-- The approved PRX artwork is the single source used throughout the shell. -->
+    <!-- Shared PX + orbital artwork: app mark and lightweight quick-chat companion. -->
     <DataTemplate x:Key="PrxOrbitMarkTemplate">
-        <Image Source="ms-appx:///Assets/prx-orbit-approved.png" Stretch="Uniform" />
+        <Image Source="ms-appx:///Assets/px-orbit-app.png" Stretch="Uniform" />
+    </DataTemplate>
+    <DataTemplate x:Key="PxOrbitChatMarkTemplate">
+        <Image Source="ms-appx:///Assets/px-orbit-chat.png" Stretch="Uniform" />
     </DataTemplate>
 
     <!-- ======================================================================

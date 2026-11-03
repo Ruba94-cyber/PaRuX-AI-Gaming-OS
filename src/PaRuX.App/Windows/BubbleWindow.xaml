@@ -57,15 +57,15 @@
                             <ContentControl
                                 Width="30"
                                 Height="30"
-                                ContentTemplate="{StaticResource PrxOrbitMarkTemplate}"
+                                ContentTemplate="{StaticResource PxOrbitChatMarkTemplate}"
                                 IsHitTestVisible="False" />
                             <Ellipse
                                 x:Name="CollapsedStateRing"
                                 Width="35"
-                                Height="22"
+                                Height="26"
                                 Stroke="{ThemeResource PaRuXSecondaryBrush}"
-                                StrokeThickness="1.5"
-                                StrokeDashArray="1,2"
+                                StrokeThickness="1.75"
+                                StrokeDashArray="13,10"
                                 StrokeDashCap="Round"
                                 Opacity="0"
                                 RenderTransformOrigin="0.5,0.5">

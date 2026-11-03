@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="PaRuX Quick Chat orbital mark">
+  <circle cx="128" cy="128" r="119" fill="#0D1319" stroke="#8E99A6" stroke-width="2"/>
+  <ellipse cx="128" cy="128" rx="104" ry="57" transform="rotate(-36 128 128)" fill="none" stroke="#B89B6A" stroke-width="4"/>
+  <rect x="44" y="66" width="168" height="112" rx="39" fill="#B7C0C9"/>
+  <path d="M62 153L61 195l38-36" fill="#B7C0C9"/>
+  <rect x="55" y="76" width="146" height="91" rx="29" fill="#0C1116"/>
+  <path d="M72 154L72 176l21-22" fill="#0C1116"/>
+  <g fill="#DAC29D"><circle cx="90" cy="117" r="7"/><circle cx="128" cy="117" r="7"/><circle cx="166" cy="117" r="7"/></g>
+  <g stroke="#D5AD75" stroke-width="14" stroke-linecap="square"><path d="M172 170L206 204 M206 170l-34 34"/></g>
+</svg>

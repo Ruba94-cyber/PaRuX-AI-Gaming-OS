@@ -850,13 +850,15 @@ namespace PaRuX.Shell
             CollapsedMarkScale.ScaleX = 1;
             CollapsedMarkScale.ScaleY = 1;
 
-            byte r = 59, g = 130, b = 246;
-            if (state == BubbleVisualState.Listening) { r = 34; g = 211; b = 238; }
-            else if (state == BubbleVisualState.Thinking) { r = 124; g = 58; b = 237; }
-            else if (state == BubbleVisualState.Working) { r = 37; g = 99; b = 235; }
-            if (state == BubbleVisualState.Success) { r = 108; g = 203; b = 143; }
-            else if (state == BubbleVisualState.Error) { r = 255; g = 154; b = 143; }
-            else if (state == BubbleVisualState.Sleep) { r = 75; g = 93; b = 120; }
+            // PX Orbit: champagne/titanium rather than the retired neon blue/violet/cyan.
+            // Green/red only indicate short-lived success/error states.
+            byte r = 184, g = 155, b = 106;
+            if (state == BubbleVisualState.Listening) { r = 215; g = 188; b = 146; }
+            else if (state == BubbleVisualState.Thinking) { r = 184; g = 155; b = 106; }
+            else if (state == BubbleVisualState.Working) { r = 215; g = 195; b = 165; }
+            else if (state == BubbleVisualState.Success) { r = 69; g = 184; b = 141; }
+            else if (state == BubbleVisualState.Error) { r = 225; g = 111; b = 114; }
+            else if (state == BubbleVisualState.Sleep) { r = 110; g = 120; b = 131; }
             CollapsedStateRing.Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(255, r, g, b));
 
             if (state == BubbleVisualState.Idle)
@@ -871,8 +873,9 @@ namespace PaRuX.Shell
             }
 
             // The expanded/hidden window has its own status treatment. Do not spend compositor
-            // work animating the collapsed mark while it cannot be seen.
-            if (!_visible || _expanded) return;
+            // work animating the collapsed mark while it cannot be seen. Honour
+            // Windows reduced-motion preferences as well.
+            if (!_visible || _expanded || !AreAnimationsEnabled()) return;
 
             var board = new Storyboard();
             if (state == BubbleVisualState.Thinking || state == BubbleVisualState.Working)
@@ -916,6 +919,12 @@ namespace PaRuX.Shell
 
             _visualStateStoryboard = board;
             board.Begin();
+        }
+
+        private static bool AreAnimationsEnabled()
+        {
+            try { return new Windows.UI.ViewManagement.UISettings().AnimationsEnabled; }
+            catch { return false; }
         }
 
         private static DoubleAnimation CreatePulseAnimation(double peak)
