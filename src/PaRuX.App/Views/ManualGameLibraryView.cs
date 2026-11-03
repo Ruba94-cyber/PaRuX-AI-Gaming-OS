@@ -25,7 +25,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly TextBox _workingDirectory = new();
     private readonly ComboBox _kind = new() { MinWidth = 220 };
     private readonly StackPanel _games = new() { Spacing = 8 };
-    private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 1500, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _heading = new();
     private bool _consolePresentation;
     private readonly StackPanel _discoveredGames = new() { Spacing = 8 };
@@ -391,7 +391,7 @@ public sealed class ManualGameLibraryView : UserControl
     public void ApplyConsoleMode(bool enabled)
     {
         _consolePresentation = enabled;
-        _root.MaxWidth = enabled ? 1400 : 900;
+        _root.MaxWidth = enabled ? 1800 : 1500;
         // Console Home is for playing and managing the session. Desktop-only
         // filesystem editing remains available unchanged in normal mode.
         Visibility editorVisibility = enabled ? Visibility.Collapsed : Visibility.Visible;

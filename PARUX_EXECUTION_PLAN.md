@@ -41,13 +41,15 @@ Gaming Home and title details now share a single pure `GameTitleLaunchPolicy` in
 
 **Owner design direction:** use the 2026-11-03 hand-drawn layout: PaRuX brand/left sidebar, one AI/Gaming selector across the top, expansive uncluttered AI Chat canvas, and visual Gaming card library. Replace cyan/violet/neon with matte near-black, graphite, brushed titanium and rare champagne. Keep a single application, existing AutomationIds, functional navigation, all existing games, launch consent, Gaming hard-off and resource policies. No heavy GPU effects. Retain Light and Windows High Contrast.
 
-**Source landed on main (five coherent commits, NO CI):**
+**Source landed on main (six coherent commits plus the local responsive refinement, NO CI):**
 - `1fcfc6a` — shared WinUI Light/Dark/HighContrast token migration, dark default for NEW Windows settings files only, design-system spec, static/contrast regressions.
 - `fbfcd8c` — Android Compose plus native resource colours, including removal of old violet/cyan theme values.
 - `8afced8` — top centered segmented selector, recessed navigation/console action, graphite chat avatar and Settings category rail, reusable matte panel styles, shell XAML regression.
 - `8d160a9` — Gaming tile/list padding/radius/typography, lightweight pointer-over outlines, selected backgrounds, source-only Gaming visual contract tests.
 - `b7e1535` — Android default graphite Compose/splash appearance, preserving explicit light-theme components.
 - `tools/test-graphene-design.ps1` — local-only source/contrast targeted xUnit gate; optional full Debug FlaUI suite. Not run in this connector environment.
+
+**Responsive Gaming canvas:** removed the legacy 900px desktop/1400px TV cap on the main library so 1080p/4K presentations can display more cards side-by-side; new caps are 1500px Desktop and 1800px Console/TV, while narrow windows still stretch within available width. This changes layout only, not Gaming session management or GPU workloads. Pending visual UI verification.
 
 **Evidence and limitations:** GitHub pushed and reread; existing named navigation/controls retained in source; Light/Dark resource keys and all PaRuX HighContrast keys were parity-checked in connector code; legacy neon hex removed from the active shared WinUI theme, Android Compose/material resource colours updated. New test code is authored but **NOT EXECUTED**. Neither a Windows .NET/WinUI build, xUnit, FlaUI nor an Android Gradle build was available from this remote environment. No RTX 5080/TV, controller navigation, DPI, motion-reduction or rendered contrast acceptance was performed. **Status PARTIAL, not DONE/RELEASE**.
 
