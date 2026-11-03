@@ -35,6 +35,13 @@ internal sealed class GameDetailPanel : UserControl
     private Button? _play;
     private bool _launching;
 
+    // Labels use concrete brushes because the panel is built in C#. Track only
+    // those references: switching themes must NEVER rebuild TextBox editors or
+    // discard a draft tag, collection, launch-argument edit or keyboard focus.
+    private readonly List<(TextBlock Text, bool Secondary)> _semanticLabels = new();
+    private Border? _fallbackCoverSurface;
+    private TextBlock? _fallbackCoverInitials;
+
     /// <summary>Raised after a successful local edit (favorite, hidden, tags, collections, cover, entry edit) so the list can refresh.</summary>
     internal event Action<GameTitleDto>? Changed;
     /// <summary>Raised after a manual entry was removed.</summary>
@@ -54,7 +61,7 @@ internal sealed class GameDetailPanel : UserControl
         AutomationProperties.SetAutomationId(this, "GameDetail_Panel");
         AutomationProperties.SetName(this, T("Game details", "Dettagli del gioco"));
         ApplyBrushes();
-        ActualThemeChanged += (_, _) => { ApplyBrushes(); if (_title is not null) _ = ShowAsync(_title); };
+        ActualThemeChanged += (_, _) => ApplyBrushes();
         KeyDown += (_, e) =>
         {
             // Desktop convenience only: in Console mode Escape/B keeps its shared "leave Console" meaning.
@@ -79,6 +86,13 @@ internal sealed class GameDetailPanel : UserControl
     {
         Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
         BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+        foreach (var (label, secondary) in _semanticLabels)
+            label.Foreground = GameUi.ThemeBrush(this,
+                secondary ? "PaRuXTextSecondaryBrush" : "PaRuXTextPrimaryBrush");
+        if (_fallbackCoverSurface is not null)
+            _fallbackCoverSurface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        if (_fallbackCoverInitials is not null)
+            _fallbackCoverInitials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
     }
 
     internal void Hide()
@@ -87,6 +101,9 @@ internal sealed class GameDetailPanel : UserControl
         _title = null;
         Visibility = Visibility.Collapsed;
         _body.Children.Clear();
+        _semanticLabels.Clear();
+        _fallbackCoverSurface = null;
+        _fallbackCoverInitials = null;
     }
 
     internal bool FocusPrimary() => _play?.Focus(FocusState.Programmatic) ?? false;
@@ -105,6 +122,7 @@ internal sealed class GameDetailPanel : UserControl
             Foreground = GameUi.ThemeBrush(this, secondary ? "PaRuXTextSecondaryBrush" : "PaRuXTextPrimaryBrush")
         };
         if (strong) block.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        _semanticLabels.Add((block, secondary));
         return block;
     }
 
@@ -116,6 +134,9 @@ internal sealed class GameDetailPanel : UserControl
         _chosen = GameUi.ChooseInstallation(title);
         Visibility = Visibility.Visible;
         _body.Children.Clear();
+        _semanticLabels.Clear();
+        _fallbackCoverSurface = null;
+        _fallbackCoverInitials = null;
         _body.Spacing = _console ? 14 : 10;
         string key = title.TitleKey;
 
@@ -375,12 +396,17 @@ internal sealed class GameDetailPanel : UserControl
             catch (Exception) { }
         }
         if (!image)
-            cover.Children.Add(new TextBlock
+        {
+            var initials = new TextBlock
             {
                 Text = GameUi.Initials(title.Name), FontSize = 30, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
-            });
+            };
+            _fallbackCoverSurface = surface;
+            _fallbackCoverInitials = initials;
+            cover.Children.Add(initials);
+        }
         return cover;
     }
 

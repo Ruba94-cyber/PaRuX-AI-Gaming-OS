@@ -47,6 +47,19 @@ public sealed class GrapheneGamingDesignRegressionTests
     }
 
     [Fact]
+    public void Detail_theme_switch_must_not_rebuild_or_discard_unsaved_tag_collection_edits()
+    {
+        string code = Source("src", "PaRuX.App", "Views", "GameDetailPanel.cs");
+        Assert.Contains("ActualThemeChanged += (_, _) => ApplyBrushes();", code);
+        Assert.DoesNotContain("ActualThemeChanged += (_, _) => { ApplyBrushes(); if (_title is not null) _ = ShowAsync(_title); };", code);
+        Assert.Contains("_semanticLabels.Add((block, secondary));", code);
+        Assert.Contains("foreach (var (label, secondary) in _semanticLabels)", code);
+        Assert.Contains("_fallbackCoverInitials.Foreground = GameUi.ThemeBrush", code);
+        Assert.Contains("GameTitle_Tags_", code);
+        Assert.Contains("GameTitle_Collections_", code);
+    }
+
+    [Fact]
     public void Empty_library_has_a_recoverable_graphene_state_without_mutating_game_entries()
     {
         string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");
