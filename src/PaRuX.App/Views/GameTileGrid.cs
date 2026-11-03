@@ -66,14 +66,13 @@ internal static class GameUi
         return words.Length == 0 ? "?" : new string(words).ToUpper(CultureInfo.CurrentCulture);
     }
 
-    /// <summary>The installation a one-click Play starts: the saved default, else the first installed, else the first.</summary>
+    // The same safe selection is shared by tile Play and the detail panel.
+    // It never rewrites the user's saved preferred installation.
     internal static GameInstallationDto? ChooseInstallation(GameTitleDto title) =>
-        title.Installations.FirstOrDefault(i => i.InstallationId == title.DefaultInstallationId)
-        ?? title.Installations.FirstOrDefault(i => i.InstallState == GameInstallStates.Installed)
-        ?? title.Installations.FirstOrDefault();
+        GameTitleLaunchPolicy.ChooseForQuickPlay(title);
 
     internal static bool CanStart(GameInstallationDto? installation) =>
-        installation is not null && installation.InstallState is not (GameInstallStates.Updating or GameInstallStates.Incomplete);
+        GameTitleLaunchPolicy.CanStart(installation);
 
     internal static string PlayLabel(GameInstallationDto? installation) =>
         installation?.Kind == ManualEntryKinds.Application ? T("Start", "Avvia") : T("Play", "Gioca");

@@ -52,6 +52,47 @@ public sealed record GameTitleDto(
     public DateTime? AddedUtc { get; init; }
 }
 
+/// <summary>
+/// Pure, side-effect-free choice for one-click Play in both the Desktop and Console home.
+/// A saved default is a preference, not a request to start an updating/incomplete copy:
+/// prefer an installed copy, then a known-unknown legacy copy. Never silently change
+/// the saved preference; the detail panel still offers every installation.
+/// </summary>
+public static class GameTitleLaunchPolicy
+{
+    /// <summary>
+    /// Unknown means the source cannot determine install state; it remains launchable
+    /// for older store clients, but unrecognized future states fail closed.
+    /// The actual launch is still validated and user-confirmed by the host.
+    /// </summary>
+    public static bool CanStart(GameInstallationDto? installation) =>
+        installation is not null &&
+        (string.Equals(installation.InstallState, GameInstallStates.Installed, StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(installation.InstallState, GameInstallStates.Unknown, StringComparison.OrdinalIgnoreCase));
+
+    public static GameInstallationDto? ChooseForQuickPlay(GameTitleDto? title)
+    {
+        IReadOnlyList<GameInstallationDto>? installations = title?.Installations;
+        if (installations is null || installations.Count == 0) return null;
+
+        GameInstallationDto? preferred = string.IsNullOrWhiteSpace(title!.DefaultInstallationId)
+            ? null : installations.FirstOrDefault(i =>
+                string.Equals(i.InstallationId, title.DefaultInstallationId, StringComparison.Ordinal));
+
+        static bool Installed(GameInstallationDto? item) =>
+            item is not null &&
+            string.Equals(item.InstallState, GameInstallStates.Installed, StringComparison.OrdinalIgnoreCase);
+
+        if (Installed(preferred)) return preferred;
+        GameInstallationDto? installed = installations.FirstOrDefault(Installed);
+        if (installed is not null) return installed;
+
+        if (CanStart(preferred)) return preferred;
+        GameInstallationDto? legacy = installations.FirstOrDefault(CanStart);
+        return legacy ?? preferred ?? installations[0];
+    }
+}
+
 /// <summary>Allowlisted sort orders of the title list; anything else is rejected.</summary>
 public static class GameTitleSorts
 {
