@@ -12,6 +12,8 @@ namespace PaRuX.Server.Orchestration.Gaming;
 /// </summary>
 public sealed class ManualGameSessionService : IDisposable
 {
+    private const int ErrorElevationRequired = 740;
+
     private static readonly TimeSpan MinimumMonitoredLifetime = TimeSpan.FromSeconds(5);
     private readonly ManualGameLibrary _library;
     private readonly SteamGameDiscoveryProvider _steam;
@@ -106,8 +108,39 @@ public sealed class ManualGameSessionService : IDisposable
                     UseShellExecute = false
                 };
                 process = new Process { StartInfo = info };
-                if (!process.Start())
-                    throw new InvalidOperationException("Windows did not start the requested executable.");
+                try
+                {
+                    if (!process.Start())
+                        throw new InvalidOperationException("Windows did not start the requested executable.");
+                }
+                catch (System.ComponentModel.Win32Exception elevation) when (elevation.NativeErrorCode == ErrorElevationRequired)
+                {
+                    // The executable's manifest demands administrator rights (typical for repacked and anti-cheat
+                    // titles). Windows' own UAC prompt is the consent step: it names the program and the user
+                    // can decline (error 1223 then rolls back to AI through the normal failure path below).
+                    process.Dispose();
+                    process = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = path,
+                            WorkingDirectory = info.WorkingDirectory,
+                            Arguments = info.Arguments,
+                            UseShellExecute = true,
+                            Verb = "runas"
+                        }
+                    };
+                    // The UAC prompt waits for the user; bound it so AI recovery is never held hostage by an unanswered prompt.
+                    Process elevated = process;
+                    bool elevatedStarted;
+                    try { elevatedStarted = await Task.Run(() => elevated.Start(), ct).WaitAsync(TimeSpan.FromSeconds(120), ct).ConfigureAwait(false); }
+                    catch (TimeoutException)
+                    {
+                        throw new InvalidOperationException("Windows is still waiting for administrator approval of this game.");
+                    }
+                    if (!elevatedStarted)
+                        throw new InvalidOperationException("Windows did not start the requested executable.");
+                }
                 started = true;
 
                 // Process identity is verified using the actual handle returned by Windows:
@@ -165,13 +198,14 @@ public sealed class ManualGameSessionService : IDisposable
                 if (process != null && !started) process.Dispose();
                 if (!started)
                 {
+                    _logger?.LogWarning("Manual game launch failed before the process started: {Type}: {Reason}", ex.GetType().Name, ex.Message);
                     using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                     bool recovered;
                     try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
                     catch { recovered = false; }
                     return new(false, false, recovered
-                        ? "The executable did not start. PaRuX returned to AI."
-                        : "The executable did not start and AI recovery needs attention.");
+                        ? "The executable did not start (" + ex.Message + "). PaRuX returned to AI."
+                        : "The executable did not start (" + ex.Message + ") and AI recovery needs attention.");
                 }
                 _logger?.LogWarning("A started manual game could not be automatically monitored.");
                 process?.Dispose();

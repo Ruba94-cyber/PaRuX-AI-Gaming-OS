@@ -60,10 +60,15 @@ public static class RuntimeLaunchOptimizer
             modelPath, workload, runtimeTag, hardwareKey);
         if (tuned != null)
         {
+            // A profile measured on an idle GPU must still fit the VRAM that is free now: with a game open
+            // (measured: 12.3 GB profile + a 4 GB game saturated 16 GB) the launch planner shrinks it.
+            LaunchPlanContext? tunedPlan = planLaunch
+                ? planContext ?? await BuildPlanContextAsync(modelPath, hasCuda, inventory, await ResolveLiveFreeDedicatedBytesAsync(inventory, ct).ConfigureAwait(false), runtimeTag, ct).ConfigureAwait(false)
+                : null;
             return Finalize(
                 modelPath,
                 RuntimePerformanceProfileCopy.Copy(tuned.Profile),
-                "measured", workload, backend, runtimeTag, hardwareKey);
+                "measured", workload, backend, runtimeTag, hardwareKey, tunedPlan);
         }
 
         long modelSize = 0;

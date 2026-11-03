@@ -601,6 +601,19 @@ namespace PaRuX.Views
         /// Must run on the UI thread. Cancellation propagates as OperationCanceledException.</summary>
         private async Task<string?> VerifyChatCoreAsync(CancellationToken token, Action<string> report)
         {
+            string? failure = await VerifyChatOnceAsync(token, report);
+            // Right after a model download or runtime install the first check can overlap the
+            // role auto-assignment (measured on a fresh install); one retry sees the settled state.
+            if (failure == ModelChangedDuringVerification)
+                failure = await VerifyChatOnceAsync(token, report);
+            return failure;
+        }
+
+        private const string ModelChangedDuringVerification =
+            "Your model or runtime changed during verification. Check the current setup and retry.";
+
+        private async Task<string?> VerifyChatOnceAsync(CancellationToken token, Action<string> report)
+        {
             await RefreshReadyCheckAsync();
             int revision = _stateMachine.ConfigurationRevision;
             ChatReadinessEvidence? initial = _stateMachine.LastEvidence;
@@ -656,7 +669,7 @@ namespace PaRuX.Views
             ChatReadinessEvidence? current = _stateMachine.LastEvidence;
             if (_stateMachine.ConfigurationRevision != revision
                 || current == null || !current.RuntimeHealthy || !current.ModelAvailable || !current.ProbeSucceeded)
-                return "Your model or runtime changed during verification. Check the current setup and retry.";
+                return ModelChangedDuringVerification;
 
             _stateMachine.RecordVerifiedChatAnswer();
             ApplyReadinessAssessment(_stateMachine.EvaluateReadiness(current));
