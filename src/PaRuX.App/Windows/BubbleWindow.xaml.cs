@@ -855,7 +855,7 @@ namespace PaRuX.Shell
 
             CollapsedMarkContainer.Opacity = state == BubbleVisualState.Sleep ? 0.42 : 1.0;
             CollapsedStateRing.Opacity = 0;
-            CollapsedStateRing.StrokeDashOffset = 0;
+            CollapsedStateRingRotation.Angle = -25;
             CollapsedMarkScale.ScaleX = 1;
             CollapsedMarkScale.ScaleY = 1;
 
@@ -887,8 +887,8 @@ namespace PaRuX.Shell
             if (!_visible || _expanded) return;
             if (!AreAnimationsEnabled())
             {
-                // Static illuminated segment for reduced-motion mode: no storyboard or
-                // hidden infinite animation, only the existing passive orbit artwork.
+                // Restore the original static status ring when Windows animations are off.
+                // No hidden infinite storyboard is started.
                 if (state == BubbleVisualState.Thinking || state == BubbleVisualState.Working)
                     CollapsedStateRing.Opacity = 0.60;
                 return;
@@ -900,16 +900,15 @@ namespace PaRuX.Shell
                 CollapsedStateRing.Opacity = state == BubbleVisualState.Working ? 0.95 : 0.72;
                 var orbit = new DoubleAnimation
                 {
-                    // One dash pattern (6 + 25 units) per loop. Advancing the
-                    // dash offset keeps the ellipse on its fixed -36 degree orbit.
-                    From = 0,
-                    To = -31,
+                    // Preserve the pre-branding Quick Chat ring rotation and geometry.
+                    From = -25,
+                    To = 335,
                     Duration = new Duration(TimeSpan.FromMilliseconds(
                         state == BubbleVisualState.Working ? 1450 : 2400)),
                     RepeatBehavior = RepeatBehavior.Forever
                 };
-                Storyboard.SetTarget(orbit, CollapsedStateRing);
-                Storyboard.SetTargetProperty(orbit, "StrokeDashOffset");
+                Storyboard.SetTarget(orbit, CollapsedStateRingRotation);
+                Storyboard.SetTargetProperty(orbit, "Angle");
                 board.Children.Add(orbit);
             }
             else

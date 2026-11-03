@@ -87,10 +87,14 @@ $code = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'src\PaRuX.App\Windo
 $project = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'src\PaRuX.App\PaRuX.App.csproj') -Raw
 $generator = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'tools\branding\generate-prx-assets.ps1') -Raw
 Assert-True ($theme.Contains('ms-appx:///Assets/px-orbit-app.png')) 'Shell mark is not PX Orbit.'
-Assert-True ($theme.Contains('ms-appx:///Assets/px-orbit-chat.png')) 'Quick-chat mark is not PX Orbit.'
+Assert-True ($theme.Contains('ms-appx:///Assets/px-orbit-chat.png')) 'The retained companion/tray artwork is missing.'
 Assert-True (-not $theme.Contains('ms-appx:///Assets/prx-orbit-approved.png')) 'Legacy shell artwork was reintroduced.'
-Assert-True (($bubble.Contains('StrokeDashOffset="0"')) -and
-    ($code.Contains('Storyboard.SetTargetProperty(orbit, "StrokeDashOffset")'))) 'The fixed-plane animated orbit is missing.'
+Assert-True (($bubble.Contains('ContentTemplate="{StaticResource PrxOrbitMarkTemplate}"')) -and
+    (-not $bubble.Contains('ContentTemplate="{StaticResource PxOrbitChatMarkTemplate}"')) -and
+    ($bubble.Contains('StrokeDashArray="1,2"')) -and
+    ($bubble.Contains('<RotateTransform x:Name="CollapsedStateRingRotation" Angle="-25" />')) -and
+    ($code.Contains('Storyboard.SetTarget(orbit, CollapsedStateRingRotation)')) -and
+    ($code.Contains('Storyboard.SetTargetProperty(orbit, "Angle")'))) 'The original Quick Chat pill/orbit style was changed.'
 Assert-True (($code.Contains('AreAnimationsEnabled()')) -and
     ($code.Contains('if (!_visible || _expanded) return;'))) 'Reduced-motion or hidden-window safety is missing.'
 foreach ($file in @('px-orbit-app.png','px-orbit-chat.png','parux.ico','prx-orbit-tray.ico')) {

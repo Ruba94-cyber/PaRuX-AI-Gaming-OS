@@ -24,11 +24,15 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("px-orbit-app.png", theme);
         Assert.Contains("px-orbit-chat.png", theme);
         Assert.DoesNotContain("ms-appx:///Assets/prx-orbit-approved.png", theme);
-        Assert.Contains("PxOrbitChatMarkTemplate", bubble);
+        // Quick Chat must retain the exact pre-branding pill and animated status ring.
+        // Only its inner artwork is replaced by the shared titanium/champagne PX mark.
         Assert.Contains("CollapsedStateRing", bubble);
-        Assert.Contains("StrokeDashOffset=\"0\"", bubble);
-        Assert.Contains("RotateTransform Angle=\"-36\"", bubble);
-        Assert.Equal(2, CountOccurrences(bubble, "ContentTemplate=\"{StaticResource PxOrbitChatMarkTemplate}\""));
+        Assert.Contains("Width=\"35\"", bubble);
+        Assert.Contains("Height=\"22\"", bubble);
+        Assert.Contains("StrokeDashArray=\"1,2\"", bubble);
+        Assert.Contains("RotateTransform x:Name=\"CollapsedStateRingRotation\" Angle=\"-25\"", bubble);
+        Assert.Equal(2, CountOccurrences(bubble, "ContentTemplate=\"{StaticResource PrxOrbitMarkTemplate}\""));
+        Assert.DoesNotContain("ContentTemplate=\"{StaticResource PxOrbitChatMarkTemplate}\"", bubble);
         Assert.Contains("px-orbit-app.png", project);
         Assert.Contains("px-orbit-chat.png", project);
         Assert.DoesNotContain("<Content Include=\"Assets\\prx-orbit-approved.png\"", project);
@@ -73,8 +77,9 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("AreAnimationsEnabled()", code);
         Assert.Contains("UISettings().AnimationsEnabled", code);
         Assert.Contains("BubbleVisualState.Working ? 1450 : 2400", code);
-        Assert.Contains("Storyboard.SetTargetProperty(orbit, \"StrokeDashOffset\")", code);
-        Assert.DoesNotContain("CollapsedStateRingRotation", code);
+        Assert.Contains("Storyboard.SetTargetProperty(orbit, \"Angle\")", code);
+        Assert.Contains("Storyboard.SetTarget(orbit, CollapsedStateRingRotation)", code);
+        Assert.DoesNotContain("Storyboard.SetTargetProperty(orbit, \"StrokeDashOffset\")", code);
         Assert.DoesNotContain("r = 124; g = 58; b = 237", code);
         Assert.DoesNotContain("r = 37; g = 99; b = 235", code);
     }

@@ -5,9 +5,9 @@ The legacy blue/violet PRX Orbit identity has been **superseded by explicit owne
 ## Active sources
 
 - `docs/branding/px-orbit/app-mark.svg`: editable main P+X and orbit.
-- `docs/branding/px-orbit/chat-mark.svg`: editable companion speech mark, mini X and orbital ring.
+- `docs/branding/px-orbit/chat-mark.svg`: historical companion speech concept; not the floating Quick Chat icon.
 - `src/PaRuX.App/Assets/px-orbit-app.png`: shell/main UI artwork.
-- `src/PaRuX.App/Assets/px-orbit-chat.png`: floating bubble companion artwork.
+- `src/PaRuX.App/Assets/px-orbit-chat.png`: retained companion asset used by the tray generator; not displayed inside Quick Chat.
 - `src/PaRuX.App/Assets/parux.ico`: multi-resolution executable icon.
 - `src/PaRuX.App/Assets/prx-orbit-tray.ico`: multi-resolution tray icon; legacy *filename only* retained for compatibility.
 - `src/PaRuX.Android/app/src/main/res/drawable-nodpi/prx_orbit_approved.png`: new main artwork with original Android resource name retained.
@@ -16,7 +16,7 @@ The legacy `prx-orbit-approved.png` remains only as a historical source and is n
 
 ## Behaviour
 
-The original lightweight bubble state machinery is retained: a **visible elliptical orbit** with champagne/titanium motion for thinking (2.4 s) and working (1.45 s); static idle ring, brief success/error pulse and dimmed sleep. Skip motion with Windows reduced-motion settings, when the bubble is not visible or is expanded, and during gaming when the bubble is hidden. No persistent voice listening is introduced.
+The floating Quick Chat retains its **pre-branding pill, spacing, hit targets, drag/expand behavior and original rotating elliptical status ring**. Only the inner 30px/20px monogram now uses the new PX Orbit app logo through `PrxOrbitMarkTemplate`; status colors use champagne/titanium, with semantic success/error colors. The original rotating ring uses 2.4 s for thinking and 1.45 s for working, with the original idle/sleep/pulse handling. Skip motion with Windows reduced-motion, when hidden or expanded, and during gaming when the bubble is hidden. No persistent voice listening is introduced.
 
 ## Release checklist
 
@@ -25,7 +25,7 @@ Inspect real 16/20/24/32/48/64/128/256 px icons, exe/taskbar/tray/shortcut/insta
 
 ## 2026-11-03 follow-up: orbit motion and Android notification
 
-The quick-chat companion is now used both in the collapsed bubble and its expanded header. Its highlighted dash travels **along the fixed -36° elliptical plane** with a `StrokeDashOffset` animation; the entire ellipse is not spun as a second competing orbital path. An original static orbit stays present in the logo, while the animated segment adds movement only while visible/busy. Reduced-motion keeps a static highlighted segment.
+Correction after owner feedback: the temporary speech-bubble companion icon and dash-offset orbit are **not** used in the floating Quick Chat. Both logo slots display the approved PX monogram while the old floating pill and the old -25° to 335° rotating status ellipse remain unchanged in layout and motion. Reduced-motion leaves the ring static.
 
 Android notification vector is a monochrome PX plus ellipse (the OS owns tint); the launcher remains the detailed colored bitmap. The ICO generator reproduces matching 16, 20, 24, 32, 48, 64, 128, and 256 px frames for both app and tray. This is source coverage only: perform actual small-size and motion acceptance on Windows hardware.
 
