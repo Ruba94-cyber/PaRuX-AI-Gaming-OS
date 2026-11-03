@@ -214,6 +214,11 @@ foreach ($required in $requiredPublishFiles) {
     }
 }
 
+# Brand asset integrity also applies to direct MSI builds and -SkipPublish. A stale
+# publish folder must never generate a correctly signed installer with old icons.
+& (Join-Path $repoRoot "tools\branding\verify-px-orbit-assets.ps1") -PublishDirectory $publishDir
+
+
 $publisherSigned = $false
 if ($signTool) {
     # Sign the binaries that cross user/security boundaries before WiX harvests them. In particular,

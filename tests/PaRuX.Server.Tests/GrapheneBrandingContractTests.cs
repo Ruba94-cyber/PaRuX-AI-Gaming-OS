@@ -142,6 +142,9 @@ public sealed class GrapheneBrandingContractTests
         Assert.Contains("Published Windows asset hash mismatch", script);
         Assert.Contains("verify-px-orbit-assets.ps1", gate);
         Assert.Contains("-PublishDirectory $appPublish", gate);
+        string installerBuild = File.ReadAllText(Path.Combine(root, "scripts", "build-msi.ps1"));
+        Assert.Contains("verify-px-orbit-assets.ps1", installerBuild);
+        Assert.Contains("-PublishDirectory $publishDir", installerBuild);
     }
 
     private static int CountOccurrences(string haystack, string needle) =>

@@ -37,3 +37,5 @@ Android adaptive icons use a centered 68dp foreground inside the 108dp canvas (2
 ## Local, offline source and publish gate
 
 Run `powershell -ExecutionPolicy Bypass -File tools\branding\verify-px-orbit-assets.ps1` to inspect existing PNG/ICO frames, XAML and Android artwork without modifying the checkout. The normal Windows `tools\validate-software-complete.ps1` gate now calls the same verifier **after** self-contained WinUI publish with `-PublishDirectory`; it compares every published icon's SHA-256 with the source and refuses mismatched/stale brand assets. This is a static/payload gate, not evidence that Windows, Android, animation, installer or accessibility look correct in a real display.
+
+The direct Windows MSI builder (`scripts\build-msi.ps1`) invokes the same read-only PX Orbit asset checker **even with `-SkipPublish`**, so stale old-brand publish folders cannot produce a new MSI unnoticed. It verifies exact source/publish icon hashes before WiX packaging; installation tests and Windows icon-cache refresh remain physical acceptance work.
