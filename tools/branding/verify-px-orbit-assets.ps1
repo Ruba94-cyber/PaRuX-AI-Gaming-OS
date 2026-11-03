@@ -78,8 +78,9 @@ Assert-Png -Bytes $app -Offset 0 -End $app.Length -ExpectedSize 256
 Assert-Png -Bytes $chat -Offset 0 -End $chat.Length -ExpectedSize 256
 Assert-Ico $appIco
 Assert-Ico $trayIco
-Assert-True ((Get-FileHash -LiteralPath $appPng -Algorithm SHA256).Hash -ne
-    (Get-FileHash -LiteralPath $chatPng -Algorithm SHA256).Hash) 'Main and chat icons must not be identical.'
+# Owner decision 2026-11-03: the Quick Chat bubble shows the approved app mark (same artwork, bubble styling unchanged).
+Assert-True ((Get-FileHash -LiteralPath $appPng -Algorithm SHA256).Hash -eq
+    (Get-FileHash -LiteralPath $chatPng -Algorithm SHA256).Hash) 'The chat bubble must use the approved app icon artwork.'
 
 $theme = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'src\PaRuX.App\Styles\Theme.xaml') -Raw
 $bubble = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'src\PaRuX.App\Windows\BubbleWindow.xaml') -Raw

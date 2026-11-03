@@ -1,11 +1,11 @@
 # PaRuX AI & Gaming OS
 
 <p align="center">
-  <img src="src/PaRuX.App/Assets/px-orbit-app.png" alt="PaRuX" width="160">
+  <img src="src/PaRuX.App/Assets/px-orbit-app.png" alt="PaRuX AI &amp; Gaming OS" width="200">
 </p>
 
-<p align="center"><strong>Your AI workspace, powered by your own PC.</strong></p>
-<p align="center">Local models, smart routing, chat, creative tools and agents — in one Windows application.</p>
+<p align="center"><strong>Your local AI workspace and gaming console home, powered by your own PC.</strong></p>
+<p align="center">Local models, smart routing, chat, creative tools and agents, plus a game library and Console / TV mode — in one Windows application.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-BETA-orange" alt="Beta">
