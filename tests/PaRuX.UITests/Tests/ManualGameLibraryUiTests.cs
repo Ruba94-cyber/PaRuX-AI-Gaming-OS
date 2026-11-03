@@ -43,6 +43,8 @@ public sealed class ManualGameLibraryUiTests
             string library = Path.Combine(app.DataRoot, "server", "manual-games.json");
             UiWait.For(() => File.Exists(library) && File.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry persisted");
             using var libraryDocument = JsonDocument.Parse(File.ReadAllText(library));
+            // Adding keeps the panel busy until the Gaming tile grid refreshed; a launch click before that is ignored by design.
+            UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after adding the entry");
             string gameId = libraryDocument.RootElement.GetProperty("Games")[0].GetProperty("Id").GetString()!;
             var launch = UiWait.ById(app.MainWindow, "GameLibrary_Launch_" + gameId, ControlType.Button);
             Assert.True(launch.Properties.IsEnabled.ValueOrDefault);
