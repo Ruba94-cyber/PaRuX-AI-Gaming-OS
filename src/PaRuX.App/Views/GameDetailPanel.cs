@@ -159,21 +159,76 @@ internal sealed class GameDetailPanel : UserControl
         _play.Click += async (_, _) => await LaunchAsync();
         _body.Children.Add(_play);
 
+        // A temporarily chosen alternate must never look like a silently saved new default.
+        GameInstallationDto? savedDefault = title.Installations.FirstOrDefault(i =>
+            string.Equals(i.InstallationId, title.DefaultInstallationId, StringComparison.Ordinal));
+        TextBlock? alternateNotice = null;
+        if (savedDefault is not null && _chosen is not null &&
+            savedDefault.InstallationId != _chosen.InstallationId && GameUi.CanStart(_chosen))
+        {
+            alternateNotice = Label(
+                T("Quick Play will use the available copy below. Your saved default is unchanged.",
+                  "Avvio rapido userà la copia disponibile qui sotto. La preferenza salvata non cambia."),
+                Small, secondary: true);
+            AutomationProperties.SetAutomationId(alternateNotice, "GameDetail_AlternateNotice");
+            _body.Children.Add(alternateNotice);
+        }
+
         if (title.Installations.Count > 1)
         {
             var choice = new ComboBox { MinWidth = 260, Header = T("Start with", "Avvia con"), FontSize = Body, MinHeight = Target, HorizontalAlignment = HorizontalAlignment.Stretch };
             foreach (GameInstallationDto installation in title.Installations)
-                choice.Items.Add(new ComboBoxItem { Content = GameUi.SourceLabel(installation), Tag = installation });
+            {
+                string label = GameUi.SourceLabel(installation);
+                if (!GameUi.CanStart(installation))
+                    label += " · " + GameUi.StateLabel(installation.InstallState);
+                choice.Items.Add(new ComboBoxItem { Content = label, Tag = installation });
+            }
             int index = _chosen is null ? 0 : title.Installations.ToList().IndexOf(_chosen);
             choice.SelectedIndex = Math.Max(0, index);
             AutomationProperties.SetAutomationId(choice, "GameTitle_Installation_" + key);
+            bool restoringSelection = false;
+            Button playButton = _play;
             choice.SelectionChanged += async (_, _) =>
             {
-                if ((choice.SelectedItem as ComboBoxItem)?.Tag is not GameInstallationDto picked || picked == _chosen) return;
-                _chosen = picked;
-                _play.Content = GameUi.PlayLabel(picked);
-                _play.IsEnabled = GameUi.CanStart(picked);
-                await GamingOrchestratorClient.Current.SetTitleDefaultInstallationAsync(key, picked.InstallationId);
+                if (restoringSelection || generation != _generation ||
+                    (choice.SelectedItem as ComboBoxItem)?.Tag is not GameInstallationDto picked ||
+                    picked == _chosen) return;
+
+                // Disable Play while the user preference is being saved. Failure
+                // restores the prior selection instead of advertising false success.
+                GameInstallationDto? previous = _chosen;
+                choice.IsEnabled = false;
+                playButton.IsEnabled = false;
+                try
+                {
+                    var result = await GamingOrchestratorClient.Current
+                        .SetTitleDefaultInstallationAsync(key, picked.InstallationId);
+                    if (generation != _generation) return;
+                    if (!result.Succeeded)
+                    {
+                        restoringSelection = true;
+                        try { choice.SelectedIndex = Math.Max(0, title.Installations.ToList().IndexOf(previous)); }
+                        finally { restoringSelection = false; }
+                        StatusMessage?.Invoke(T("Could not save the preferred installation.",
+                            "Impossibile salvare l'installazione preferita."));
+                        return;
+                    }
+
+                    _chosen = picked;
+                    playButton.Content = GameUi.PlayLabel(picked);
+                    AutomationProperties.SetName(playButton, GameUi.PlayLabel(picked) + " " + title.Name);
+                    if (alternateNotice is not null) alternateNotice.Visibility = Visibility.Collapsed;
+                    Apply((_title ?? title) with { DefaultInstallationId = picked.InstallationId });
+                }
+                finally
+                {
+                    if (generation == _generation)
+                    {
+                        choice.IsEnabled = true;
+                        playButton.IsEnabled = GameUi.CanStart(_chosen);
+                    }
+                }
             };
             _body.Children.Add(choice);
         }
