@@ -8,6 +8,16 @@ nodes must not be redrawn or geometrically reinterpreted.
 
 The owner now prefers a **near-black graphite/titanium shell without cyan/violet highlights**. The active WinUI/Android semantic palette is defined in `docs/DESIGN_SYSTEM.md` and supersedes the old Core/Orbit blue/cyan/violet **colour recommendations** for app UI. The existing PRX Orbit fixed logo artwork remains unchanged in binaries as an asset-compatibility exception; it is **not yet graphene-monochrome**. This is an outstanding asset-production/approval step, not a completed logo refresh. The icons/tray/splash/installer/Android mipmaps need a coordinated, reviewed multi-resolution replacement before anyone claims that the entire app is visually free of the former bright artwork. Preserve the original geometry and do not silently recolour or remove the canonical artwork.
 
+## Non-destructive graphene candidate generator
+
+On a Windows development machine, run:
+
+```powershell
+.\\tools\\branding\\preview-graphene-orbit.ps1
+```
+
+This derives an **optional local candidate** from the existing approved transparent PNG: neutral metallic pixels and silhouette are retained, saturated blue/violet pixels are converted to a luminance-aware titanium shade, and the original alpha is preserved. Output goes exclusively to `artifacts/branding/graphene-preview` (master PNG, 16–256 px samples, dark/light composites); it does **not** update `parux.ico`, tray, installer, Android launcher or the approved source. Check actual 16/24/32 px legibility, edge aliasing and brand approval before deciding whether this recolouring is appropriate. If the PRX shape itself changes, obtain separate visual approval and build new assets intentionally.
+
 ## System
 
 - **Primary app mark:** use the approved bitmap unchanged; cropping out the source
