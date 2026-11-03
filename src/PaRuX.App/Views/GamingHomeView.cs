@@ -52,6 +52,8 @@ internal sealed class GamingHomeView : StackPanel
     private readonly VariableSizedWrapGrid _bulkActions = new() { Orientation = Orientation.Horizontal };
 
     // content
+    private readonly TextBlock _titleHeading = new();
+    private readonly TextBlock _introDescription = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _continueHeading = new();
     private readonly GameTileGrid _shelf = new(GameTileGrid.Presentation.Shelf);
     private readonly TextBlock _libraryHeading = new();
@@ -372,19 +374,16 @@ internal sealed class GamingHomeView : StackPanel
 
     private void BuildContent()
     {
-        var title = new TextBlock { Text = T("Your games", "I tuoi giochi"), FontSize = 24,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush") };
-        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
-        AutomationProperties.SetAutomationId(title, "GameHome_Heading");
-        Children.Add(title);
-        Children.Add(new TextBlock
-        {
-            Text = T("One tile per game. A game found in a store, as a portable copy or through an emulator is shown once, with a choice of how to start it.",
-                     "Un riquadro per gioco. Un gioco trovato in uno store, come copia portable o tramite emulatore compare una sola volta, con la scelta di come avviarlo."),
-            Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush"),
-            TextWrapping = TextWrapping.Wrap
-        });
+        _titleHeading.Text = T("Your games", "I tuoi giochi");
+        _titleHeading.FontSize = 24;
+        _titleHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        AutomationProperties.SetHeadingLevel(_titleHeading, AutomationHeadingLevel.Level2);
+        AutomationProperties.SetAutomationId(_titleHeading, "GameHome_Heading");
+        Children.Add(_titleHeading);
+        _introDescription.Text = T(
+            "One tile per game. A game found in a store, as a portable copy or through an emulator is shown once, with a choice of how to start it.",
+            "Un riquadro per gioco. Un gioco trovato in uno store, come copia portable o tramite emulatore compare una sola volta, con la scelta di come avviarlo.");
+        Children.Add(_introDescription);
 
         _continueHeading.Text = T("Continue", "Continua");
         _continueHeading.FontSize = 18;
@@ -463,6 +462,10 @@ internal sealed class GamingHomeView : StackPanel
     {
         _bulkBar.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush");
         _bulkBar.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush");
+        // These are retained fields so a live Dark / Light / High Contrast switch
+        // repaints every label, not only headings built after the switch.
+        _titleHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+        _introDescription.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
         _continueHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _libraryHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _status.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");

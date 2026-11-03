@@ -41,6 +41,9 @@ public sealed class GrapheneGamingDesignRegressionTests
         Assert.Contains("GameHome_Continue_Shelf", home);
         Assert.Contains("GameHome_Grid", home);
         Assert.Contains("PaRuXTextSecondaryBrush", home);
+        Assert.Contains("_titleHeading.Foreground = GameUi.ThemeBrush(this, \"PaRuXTextPrimaryBrush\")", home);
+        Assert.Contains("_introDescription.Foreground = GameUi.ThemeBrush(this, \"PaRuXTextSecondaryBrush\")", home);
+        Assert.Contains("ActualThemeChanged += (_, _) => { ApplyBrushes(); }", home);
         string detail = Source("src", "PaRuX.App", "Views", "GameDetailPanel.cs");
         Assert.Contains("GameDetail_AlternateNotice", detail);
     }
