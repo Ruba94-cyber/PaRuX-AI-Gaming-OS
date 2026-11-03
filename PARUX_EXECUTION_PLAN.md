@@ -39,7 +39,7 @@ Gaming Home and title details now share a single pure `GameTitleLaunchPolicy` in
 
 ### 2026-11-03 continuation XXXIII - graphitic brand candidate pipeline (SOURCE IMPLEMENTED / NOT RUN)
 
-Added a Windows PowerShell generator producing **non-destructive** titanium-tone preview PNGs from the approved PRX Orbit bitmap at 16, 20, 24, 32, 48, 64, 128 and 256 px, plus dark/light composite previews. It retains original geometry, transparency and neutral pixels; saturated colours are mapped to titanium at image-dependent luminance. Guard forbids writing beneath shipped Assets. Added source contract tests and identity documentation. No icon/installer/Android production asset changed. The generator itself was NOT RUN here and aesthetic/brand approval is still required. Status PARTIAL.
+Added a Windows PowerShell generator producing **non-destructive** titanium-tone preview PNGs from the approved PRX Orbit bitmap at 16, 20, 24, 32, 48, 64, 128 and 256 px, plus dark/light composite previews. It retains original geometry, transparency and neutral pixels; saturated colours are mapped to titanium at image-dependent luminance. Guard forbids writing beneath shipped Assets. Added source contract tests and identity documentation. The local Graphene test gate now includes the branding contract checks and handles the FlaUI exit code explicitly; the UI test also covers Play/Configure unavailability in multi-select. No icon/installer/Android production asset changed. The generator itself was NOT RUN here and aesthetic/brand approval is still required. Status PARTIAL.
 
 ### 2026-11-03 continuation XXXII - Gaming Home live theme reconciliation (SOURCE IMPLEMENTED / NOT RUN)
 

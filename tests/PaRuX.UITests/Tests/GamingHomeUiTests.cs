@@ -227,6 +227,15 @@ public sealed class GamingHomeUiTests
 
             Press(app, ById(app, "GameHome_SelectMode"));
             ById(app, "GameHome_BulkBar");
+            // Select mode must never leave a Play/Configure action reachable as an
+            // enabled button: the whole tile is now strictly a selection toggle.
+            foreach (string id in new[] { "GameTilePlay_" + k1, "GameTileConfigure_" + k1 })
+            {
+                var action = TryById(app, id);
+                Assert.True(action is null || !action.Properties.IsEnabled.ValueOrDefault ||
+                            action.Properties.IsOffscreen.ValueOrDefault,
+                    id + " must not be actionable while selecting games");
+            }
             Press(app, ById(app, "GameTile_" + k1));
             Press(app, ById(app, "GameTile_" + k2));
             UiWait.For(() => ById(app, "GameHome_Bulk_Count").Name.Contains('2'), "two titles selected");
