@@ -76,6 +76,16 @@ public sealed class GrapheneGamingDesignRegressionTests
     }
 
     [Fact]
+    public void Gaming_detail_responsive_split_uses_actual_available_content_width()
+    {
+        string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");
+        Assert.Contains("_body.SizeChanged += (_, _) => ApplyBodyLayout();", home);
+        Assert.Contains("_body.ActualWidth > 0 ? _body.ActualWidth : ActualWidth", home);
+        Assert.Contains("width >= (_console ? 1480 : 1100)", home);
+        Assert.DoesNotContain("_body.ActualWidth >= 1100 || ActualWidth >= 1100", home);
+    }
+
+    [Fact]
     public void Gaming_library_preserves_explicit_launch_and_detail_flows()
     {
         string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");

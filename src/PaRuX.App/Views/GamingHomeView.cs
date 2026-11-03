@@ -99,6 +99,9 @@ internal sealed class GamingHomeView : StackPanel
         BuildContent();
         Loaded += async (_, _) => await ReloadAsync();
         SizeChanged += (_, _) => ApplyBodyLayout();
+        // The inner grid can change width independently as NavigationView's pane
+        // expands/collapses, without firing a size change on this StackPanel.
+        _body.SizeChanged += (_, _) => ApplyBodyLayout();
         ActualThemeChanged += (_, _) => { ApplyBrushes(); };
         ApplyBrushes();
     }
@@ -503,7 +506,10 @@ internal sealed class GamingHomeView : StackPanel
     /// <summary>Wide windows show the detail card beside the library; narrow ones put it above the tiles.</summary>
     private void ApplyBodyLayout()
     {
-        bool side = _body.ActualWidth >= 1100 || ActualWidth >= 1100;
+        // Measure the width the library actually receives after shell/sidebar
+        // layout, not the outer page width (which could cause a cramped split).
+        double width = _body.ActualWidth > 0 ? _body.ActualWidth : ActualWidth;
+        bool side = width >= (_console ? 1480 : 1100);
         _detail.Width = side ? (_console ? 480 : 380) : double.NaN;
         _detail.VerticalAlignment = VerticalAlignment.Top;
         if (side)
