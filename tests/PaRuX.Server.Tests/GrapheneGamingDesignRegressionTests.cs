@@ -34,6 +34,20 @@ public sealed class GrapheneGamingDesignRegressionTests
     }
 
     [Fact]
+    public void Empty_library_has_a_recoverable_graphene_state_without_mutating_game_entries()
+    {
+        string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");
+        Assert.Contains("GameHome_EmptyState", home);
+        Assert.Contains("GameHome_ClearFilters", home);
+        Assert.Contains("ClearFiltersAsync()", home);
+        Assert.Contains("++_searchEditGeneration", home);
+        Assert.Contains("SavePreferences();", home);
+        Assert.Contains("_emptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed", home);
+        Assert.Contains("await ReloadAsync();", home);
+        Assert.DoesNotContain("RemoveManualGameAsync", home);
+    }
+
+    [Fact]
     public void Gaming_library_preserves_explicit_launch_and_detail_flows()
     {
         string home = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");

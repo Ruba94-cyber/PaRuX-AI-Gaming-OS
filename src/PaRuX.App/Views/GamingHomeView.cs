@@ -43,6 +43,13 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
+    // Only shown after a successful query returning no titles. Failed queries keep
+    // their error status and never masquerade as an empty game library.
+    private readonly Border _emptyState = new() { Visibility = Visibility.Collapsed, CornerRadius = new CornerRadius(12),
+        BorderThickness = new Thickness(1), Padding = new Thickness(24) };
+    private readonly TextBlock _emptyTitle = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _emptyDescription = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly Button _clearFilters = new() { Visibility = Visibility.Collapsed, MinWidth = 160 };
 
     // bulk
     private readonly Border _bulkBar = new() { Visibility = Visibility.Collapsed, Padding = new Thickness(12), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1) };
@@ -407,6 +414,24 @@ internal sealed class GamingHomeView : StackPanel
         Children.Add(_libraryHeading);
         Children.Add(_toolbar);
         Children.Add(_status);
+        // An intentional empty state is more actionable than a blank card grid.
+        // The same panel is used for a new library and a filtered-out library.
+        var emptyLayout = new StackPanel { Spacing = 12 };
+        AutomationProperties.SetHeadingLevel(_emptyTitle, AutomationHeadingLevel.Level3);
+        AutomationProperties.SetAutomationId(_emptyTitle, "GameHome_EmptyTitle");
+        AutomationProperties.SetAutomationId(_emptyDescription, "GameHome_EmptyDescription");
+        emptyLayout.Children.Add(_emptyTitle);
+        emptyLayout.Children.Add(_emptyDescription);
+        _clearFilters.Content = T("Clear filters", "Cancella filtri");
+        _clearFilters.MinHeight = 44;
+        _clearFilters.HorizontalAlignment = HorizontalAlignment.Left;
+        AutomationProperties.SetAutomationId(_clearFilters, "GameHome_ClearFilters");
+        AutomationProperties.SetName(_clearFilters, T("Clear all game filters", "Cancella tutti i filtri dei giochi"));
+        _clearFilters.Click += async (_, _) => await ClearFiltersAsync();
+        emptyLayout.Children.Add(_clearFilters);
+        _emptyState.Child = emptyLayout;
+        AutomationProperties.SetAutomationId(_emptyState, "GameHome_EmptyState");
+        Children.Add(_emptyState);
         Children.Add(_bulkBar);
 
         _body.ColumnSpacing = 16;
@@ -469,6 +494,10 @@ internal sealed class GamingHomeView : StackPanel
         _continueHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _libraryHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _status.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
+        _emptyState.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
+        _emptyState.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+        _emptyTitle.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+        _emptyDescription.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
     }
 
     /// <summary>Wide windows show the detail card beside the library; narrow ones put it above the tiles.</summary>
@@ -500,6 +529,10 @@ internal sealed class GamingHomeView : StackPanel
         foreach (ComboBox box in new[] { _sort, _source, _platform, _installed, _tag }) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (ToggleButton toggle in new[] { _favoritesOnly, _showHidden, _layout, _selectMode }) { toggle.FontSize = size; toggle.MinHeight = enabled ? 56 : 44; }
         _status.FontSize = size;
+        _emptyTitle.FontSize = enabled ? 26 : 20;
+        _emptyDescription.FontSize = size;
+        _clearFilters.FontSize = size;
+        _clearFilters.MinHeight = enabled ? 56 : 44;
         _bulkCount.FontSize = size;
         _toolbar.ItemWidth = enabled ? 300 : 210;
         _toolbar.ItemHeight = enabled ? 100 : 72;
@@ -540,6 +573,34 @@ internal sealed class GamingHomeView : StackPanel
         !string.IsNullOrWhiteSpace(_search.Text) || !string.IsNullOrEmpty(TagOf(_source)) || !string.IsNullOrEmpty(TagOf(_platform))
         || !string.IsNullOrEmpty(TagOf(_installed)) || _favoritesOnly.IsChecked == true || !string.IsNullOrEmpty(TagOf(_tag))
         || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true;
+
+    /// <summary>
+    /// Recover from a zero-result filter combination without resetting the user's
+    /// preferred sort, library layout or existing saved games. TextChanged's
+    /// pending debounce is invalidated so an old search cannot overwrite recovery.
+    /// </summary>
+    private async Task ClearFiltersAsync()
+    {
+        if (!FiltersActive) return;
+        ++_searchEditGeneration;
+        _applying = true;
+        try
+        {
+            _search.Text = string.Empty;
+            SelectByTag(_source, "");
+            SelectByTag(_platform, "");
+            SelectByTag(_installed, "");
+            SelectByTag(_tag, "");
+            _collectionFilter.Text = string.Empty;
+            _favoritesOnly.IsChecked = false;
+            _showHidden.IsChecked = false;
+        }
+        finally { _applying = false; }
+        ++_searchEditGeneration;
+        SavePreferences();
+        await ReloadAsync();
+        _search.Focus(FocusState.Programmatic);
+    }
 
     internal async Task ReloadAsync(bool refresh = false)
     {
@@ -585,6 +646,18 @@ internal sealed class GamingHomeView : StackPanel
 
     private void RenderLibrary()
     {
+        bool empty = _titles.Count == 0;
+        bool filtered = FiltersActive;
+        _emptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        _clearFilters.Visibility = empty && filtered ? Visibility.Visible : Visibility.Collapsed;
+        _emptyTitle.Text = filtered
+            ? T("Nothing matches your filters", "Nessun risultato per questi filtri")
+            : T("Your library starts here", "La tua libreria comincia qui");
+        _emptyDescription.Text = filtered
+            ? T("Clear the filters to see your complete library. Your games and settings will not be changed.",
+                "Cancella i filtri per vedere tutta la libreria. Giochi e impostazioni non verranno modificati.")
+            : T("Add a local game below, discover your installed stores, or import your own emulator games in Advanced Game Management.",
+                "Aggiungi un gioco locale qui sotto, rileva quelli degli store installati oppure importa i tuoi giochi per emulatore in Gestione giochi avanzata.");
         _libraryHeading.Text = T("Library", "Libreria") + (_titles.Count > 0 ? $" · {_titles.Count}" : string.Empty);
         _status.Text = _titles.Count == 0
             ? FiltersActive
