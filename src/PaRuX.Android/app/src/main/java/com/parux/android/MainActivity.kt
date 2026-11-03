@@ -25,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -161,43 +163,43 @@ private fun PaRuXApp(container: AppContainer, openPcRequests: StateFlow<Long>) {
                     selected = tab == PaRuXTab.Chat,
                     onClick = { tab = PaRuXTab.Chat },
                     icon = { Icon(Icons.Default.Chat, contentDescription = null) },
-                    label = { Text(PaRuXTab.Chat.label) }
+                    label = { NavLabel(PaRuXTab.Chat.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.PC,
                     onClick = { tab = PaRuXTab.PC },
                     icon = { Icon(Icons.Default.Computer, contentDescription = null) },
-                    label = { Text(PaRuXTab.PC.label) }
+                    label = { NavLabel(PaRuXTab.PC.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.Goals,
                     onClick = { tab = PaRuXTab.Goals },
                     icon = { Icon(Icons.Default.Flag, contentDescription = null) },
-                    label = { Text(PaRuXTab.Goals.label) }
+                    label = { NavLabel(PaRuXTab.Goals.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.Media,
                     onClick = { tab = PaRuXTab.Media },
                     icon = { Icon(Icons.Default.PermMedia, contentDescription = null) },
-                    label = { Text(PaRuXTab.Media.label) }
+                    label = { NavLabel(PaRuXTab.Media.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.Jobs,
                     onClick = { tab = PaRuXTab.Jobs },
                     icon = { Icon(Icons.Default.Task, contentDescription = null) },
-                    label = { Text(PaRuXTab.Jobs.label) }
+                    label = { NavLabel(PaRuXTab.Jobs.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.Tools,
                     onClick = { tab = PaRuXTab.Tools },
                     icon = { Icon(Icons.Default.Build, contentDescription = null) },
-                    label = { Text(PaRuXTab.Tools.label) }
+                    label = { NavLabel(PaRuXTab.Tools.label) }
                 )
                 NavigationBarItem(
                     selected = tab == PaRuXTab.Settings,
                     onClick = { tab = PaRuXTab.Settings },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text(PaRuXTab.Settings.label) }
+                    label = { NavLabel(PaRuXTab.Settings.label) }
                 )
             }
         }
@@ -215,3 +217,8 @@ private fun PaRuXApp(container: AppContainer, openPcRequests: StateFlow<Long>) {
         }
     }
 }
+
+/** Seven tabs share one bar: a label must stay on a single line instead of wrapping ("Setting/s") on narrow phones. */
+@Composable
+private fun NavLabel(text: String) =
+    Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
