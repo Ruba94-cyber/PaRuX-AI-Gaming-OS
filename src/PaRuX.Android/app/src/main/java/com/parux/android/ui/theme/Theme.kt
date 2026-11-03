@@ -16,11 +16,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Same brand tokens as src/PaRuX.App/Styles/Theme.xaml, so Windows and Android read as one product.
-val PaRuXBrand = Color(0xFF6C5CE7)
-val PaRuXBrandLight = Color(0xFF8B7BFF)
-val PaRuXBrandDeep = Color(0xFF4C3FBF)
-val PaRuXSecondary = Color(0xFF0FA9C7)
+// Shared Dark Graphene Luxury palette — Windows and Android have one visual identity.
+val PaRuXBrand = Color(0xFF344452)
+val PaRuXBrandLight = Color(0xFFB7C0C9)
+val PaRuXBrandDeep = Color(0xFF273845)
+val PaRuXSecondary = Color(0xFF9FAAB6)
+val PaRuXChampagne = Color(0xFFB89B6A)
 val PaRuXDanger = Color(0xFFB02A1D)
 val PaRuXSuccess = Color(0xFF0F7B3C)
 val PaRuXWarn = Color(0xFFB8860B)
@@ -28,18 +29,38 @@ val PaRuXWarn = Color(0xFFB8860B)
 private val LightColors = lightColorScheme(
     primary = PaRuXBrand,
     onPrimary = Color.White,
-    secondary = PaRuXSecondary,
-    surface = Color(0xFFFBFAFD),
-    background = Color(0xFFFBFAFD),
+    primaryContainer = Color(0xFFE8EDF1),
+    onPrimaryContainer = Color(0xFF19222B),
+    secondary = Color(0xFF495967),
+    onSecondary = Color.White,
+    tertiary = Color(0xFF84693C),
+    onTertiary = Color.White,
+    background = Color(0xFFF5F6F8),
+    onBackground = Color(0xFF19222B),
+    surface = Color.White,
+    onSurface = Color(0xFF19222B),
+    surfaceVariant = Color(0xFFF0F3F6),
+    onSurfaceVariant = Color(0xFF495967),
+    outline = Color(0xFFB5C0CA),
     error = PaRuXDanger
 )
 
 private val DarkColors = darkColorScheme(
     primary = PaRuXBrandLight,
-    onPrimary = Color(0xFF241E52),
-    secondary = Color(0xFF22D3EE),
-    surface = Color(0xFF16151C),
-    background = Color(0xFF16151C),
+    onPrimary = Color(0xFF07090C),
+    primaryContainer = Color(0xFF202934),
+    onPrimaryContainer = Color(0xFFD8DEE5),
+    secondary = PaRuXSecondary,
+    onSecondary = Color(0xFF07090C),
+    tertiary = PaRuXChampagne,
+    onTertiary = Color(0xFF07090C),
+    background = Color(0xFF07090C),
+    onBackground = Color(0xFFF2F4F7),
+    surface = Color(0xFF0D1116),
+    onSurface = Color(0xFFF2F4F7),
+    surfaceVariant = Color(0xFF191F27),
+    onSurfaceVariant = Color(0xFFA7B0BA),
+    outline = Color(0xFF4F5B68),
     error = Color(0xFFFF9A8F)
 )
 
@@ -63,7 +84,7 @@ fun PaRuXTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
