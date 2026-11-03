@@ -151,6 +151,7 @@ internal sealed class GameTileGrid : StackPanel
         public required ButtonBase Main { get; init; }
         public required UIElement SelectedBadge { get; init; }
         public required Button Play { get; init; }
+        public bool Hovering { get; set; }
     }
 
     private readonly Presentation _presentation;
@@ -209,9 +210,9 @@ internal sealed class GameTileGrid : StackPanel
     private double PlayHeight => _console ? 56 : 44;
     private double NameHeight => NameSize * 2.7;
     private double SubHeight => SubSize * 1.7;
-    private double CardWidth => CoverWidth + 18;
-    private double CardHeight => 18 + CoverHeight + 12 + NameHeight + SubHeight + 6 + PlayHeight;
-    private double RowHeight => _console ? 88 : 64;
+    private double CardWidth => CoverWidth + 26;
+    private double CardHeight => 26 + CoverHeight + 12 + NameHeight + SubHeight + 6 + PlayHeight;
+    private double RowHeight => _console ? 108 : 88;
 
     internal void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey)
     {
@@ -320,7 +321,10 @@ internal sealed class GameTileGrid : StackPanel
         bool selected = _selected.Contains(key);
         bool opened = string.Equals(_openKey, key, StringComparison.Ordinal);
         parts.Card.BorderThickness = new Thickness(selected || opened ? 2 : 1);
-        parts.Card.BorderBrush = GameUi.ThemeBrush(this, selected || opened ? "PaRuXBrandBrush" : "PaRuXStrokeBrush");
+        parts.Card.BorderBrush = GameUi.ThemeBrush(this, selected || opened ? "PaRuXBrandBrush"
+            : parts.Hovering ? "PaRuXStrokeStrongBrush" : "PaRuXStrokeBrush");
+        parts.Card.Background = GameUi.ThemeBrush(this, selected || opened ? "PaRuXGrapheneSelectedBrush"
+            : parts.Hovering ? "PaRuXSurfaceSubtleBrush" : "PaRuXSurfaceCardBrush");
         parts.SelectedBadge.Visibility = selected && _selectMode ? Visibility.Visible : Visibility.Collapsed;
         if (parts.Main is ToggleButton toggle && toggle.IsChecked != selected) toggle.IsChecked = selected;
         AutomationProperties.SetName(parts.Main, ComposeName(parts.Title, selected));
@@ -503,6 +507,16 @@ internal sealed class GameTileGrid : StackPanel
         return block;
     }
 
+    // Hover only updates the hovered card, with no animation, polling or library refresh.
+    private TileParts MakeInteractiveParts(GameTitleDto title, Border card, ButtonBase main,
+        UIElement badge, Button play)
+    {
+        var parts = new TileParts { Title = title, Card = card, Main = main, SelectedBadge = badge, Play = play };
+        card.PointerEntered += (_, _) => { parts.Hovering = true; ApplyState(parts); };
+        card.PointerExited += (_, _) => { parts.Hovering = false; ApplyState(parts); };
+        return parts;
+    }
+
     private TileParts BuildTile(GameTitleDto title)
     {
         var face = new StackPanel { Spacing = 6, Width = CoverWidth };
@@ -520,20 +534,20 @@ internal sealed class GameTileGrid : StackPanel
         {
             Width = CardWidth,
             Height = CardHeight,
-            Padding = new Thickness(8),
+            Padding = new Thickness(12),
             Margin = new Thickness(0, 0, 12, 12),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(12),
             BorderThickness = new Thickness(1),
             Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
             BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
             Child = stack
         };
-        return new TileParts { Title = title, Card = card, Main = main, SelectedBadge = badge, Play = play };
+        return MakeInteractiveParts(title, card, main, badge, play);
     }
 
     private TileParts BuildRow(GameTitleDto title)
     {
-        double thumb = RowHeight - 16;
+        double thumb = RowHeight - 24;
         var face = new Grid { ColumnSpacing = 12 };
         face.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -552,7 +566,7 @@ internal sealed class GameTileGrid : StackPanel
         face.Children.Add(texts);
         ButtonBase main = NewMain(title);
         main.Content = face;
-        main.MinHeight = RowHeight - 16;
+        main.MinHeight = RowHeight - 24;
 
         Button play = NewPlay(title);
         play.Width = 140 * ScaleF;
@@ -568,13 +582,13 @@ internal sealed class GameTileGrid : StackPanel
         var card = new Border
         {
             MinHeight = RowHeight,
-            Padding = new Thickness(8),
-            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(12),
             BorderThickness = new Thickness(1),
             Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
             BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
             Child = row
         };
-        return new TileParts { Title = title, Card = card, Main = main, SelectedBadge = badge, Play = play };
+        return MakeInteractiveParts(title, card, main, badge, play);
     }
 }

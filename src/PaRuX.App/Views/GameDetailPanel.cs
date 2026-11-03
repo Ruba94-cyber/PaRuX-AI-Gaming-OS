@@ -47,7 +47,7 @@ internal sealed class GameDetailPanel : UserControl
         _launch = launch;
         _refreshLibrary = refreshLibrary;
         Padding = new Thickness(16);
-        CornerRadius = new CornerRadius(8);
+        CornerRadius = new CornerRadius(12);
         BorderThickness = new Thickness(1);
         Content = _body;
         Visibility = Visibility.Collapsed;

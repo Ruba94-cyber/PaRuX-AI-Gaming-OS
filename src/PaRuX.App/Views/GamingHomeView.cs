@@ -81,7 +81,7 @@ internal sealed class GamingHomeView : StackPanel
     {
         _launch = launch;
         _refreshLibrary = refreshLibrary;
-        Spacing = 12;
+        Spacing = 16;
         _detail = new GameDetailPanel(launch, refreshLibrary);
         AutomationProperties.SetAutomationId(this, "GameHome_Root");
         BuildToolbar();
@@ -372,7 +372,9 @@ internal sealed class GamingHomeView : StackPanel
 
     private void BuildContent()
     {
-        var title = new TextBlock { Text = T("Your games", "I tuoi giochi"), FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+        var title = new TextBlock { Text = T("Your games", "I tuoi giochi"), FontSize = 24,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush") };
         AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
         AutomationProperties.SetAutomationId(title, "GameHome_Heading");
         Children.Add(title);
@@ -380,6 +382,7 @@ internal sealed class GamingHomeView : StackPanel
         {
             Text = T("One tile per game. A game found in a store, as a portable copy or through an emulator is shown once, with a choice of how to start it.",
                      "Un riquadro per gioco. Un gioco trovato in uno store, come copia portable o tramite emulatore compare una sola volta, con la scelta di come avviarlo."),
+            Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush"),
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -459,7 +462,10 @@ internal sealed class GamingHomeView : StackPanel
     private void ApplyBrushes()
     {
         _bulkBar.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush");
-        _bulkBar.BorderBrush = GameUi.ThemeBrush(this, "PaRuXBrandBorderBrush");
+        _bulkBar.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush");
+        _continueHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+        _libraryHeading.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+        _status.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
     }
 
     /// <summary>Wide windows show the detail card beside the library; narrow ones put it above the tiles.</summary>
