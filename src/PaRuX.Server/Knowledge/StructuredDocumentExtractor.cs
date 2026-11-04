@@ -74,7 +74,8 @@ public static class StructuredDocumentExtractor
     private static readonly IDocumentExtractor[] Extractors =
     {
         new PdfExtractor(), new WordExtractor(), new PresentationExtractor(), new OpenXmlSpreadsheetExtractor(),
-        new LegacyWorkbookExtractor(), new TextFileExtractor()
+        new LegacyWorkbookExtractor(),
+        new DbcExtractor(), new ArxmlExtractor(), new OdxExtractor(), new CddExtractor(), new A2lExtractor(), new TextFileExtractor()
     };
 
     public static IReadOnlyList<IDocumentExtractor> Registered => Extractors;
