@@ -72,10 +72,10 @@ public interface IDocumentExtractor
 public static class StructuredDocumentExtractor
 {
     private static readonly IDocumentExtractor[] Extractors =
-    {
+    [
         new PdfExtractor(), new WordExtractor(), new PresentationExtractor(), new OpenXmlSpreadsheetExtractor(),
-        new LegacyWorkbookExtractor(), new TextFileExtractor()
-    };
+        new LegacyWorkbookExtractor(), .. GenericExtractors.All, new TextFileExtractor()
+    ];
 
     public static IReadOnlyList<IDocumentExtractor> Registered => Extractors;
 
