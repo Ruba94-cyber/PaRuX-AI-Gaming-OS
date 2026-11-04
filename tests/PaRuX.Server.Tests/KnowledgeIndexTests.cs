@@ -1,0 +1,217 @@
+using PaRuX.Server.Knowledge;
+using Xunit;
+
+namespace PaRuX.Server.Tests;
+
+/// <summary>Synthetic folders generated here; no real documents. Embeddings are not needed for any of these (no generative or
+/// embedding model is loaded), which is itself part of what is verified.</summary>
+public sealed class KnowledgeIndexTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "lks-idx-" + Guid.NewGuid().ToString("N"));
+    private readonly string _docs;
+    private readonly KnowledgeIndex _index;
+
+    public KnowledgeIndexTests()
+    {
+        _docs = Path.Combine(_root, "docs");
+        Directory.CreateDirectory(_docs);
+        _index = new KnowledgeIndex(Path.Combine(_root, "knowledge.db"));
+    }
+
+    public void Dispose() { _index.Dispose(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); try { Directory.Delete(_root, true); } catch { } }
+
+    private string W(string rel, string text)
+    {
+        string full = Path.Combine(_docs, rel);
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        File.WriteAllText(full, text);
+        return full;
+    }
+
+    private Task<IndexProgress> Index(IndexControl? control = null, CancellationToken ct = default) => _index.IndexFolderAsync("s1", _docs, null, control, ct);
+
+    [Fact]
+    public void Fts5_is_available_in_the_bundled_sqlite() => Assert.True(_index.HasFts5);
+
+    [Fact]
+    public async Task First_index_then_unchanged_files_are_not_touched()
+    {
+        W("a.txt", "Calibration of the mass flow controller");
+        W("b.md", "Other notes");
+
+        IndexProgress first = await Index();
+        IndexProgress second = await Index();
+
+        Assert.Equal(2, first.Indexed);
+        Assert.Equal(2, second.Unchanged);
+        Assert.Equal(0, second.Indexed);
+    }
+
+    [Fact]
+    public async Task Modified_file_is_reindexed_and_deleted_file_is_removed()
+    {
+        string a = W("a.txt", "alpha content");
+        W("b.txt", "beta content");
+        await Index();
+
+        await Task.Delay(30);
+        File.WriteAllText(a, "gamma replacement text");
+        File.Delete(Path.Combine(_docs, "b.txt"));
+        IndexProgress p = await Index();
+
+        Assert.Equal(1, p.Indexed);
+        Assert.Equal(1, p.Removed);
+        Assert.Empty(_index.Search("alpha", KnowledgeSearchMode.Lexical));
+        Assert.Empty(_index.Search("beta", KnowledgeSearchMode.Lexical));
+        Assert.Single(_index.Search("gamma", KnowledgeSearchMode.Lexical));
+    }
+
+    [Fact]
+    public async Task Rename_keeps_the_index_without_reextracting_and_duplicates_are_flagged()
+    {
+        string a = W("old.txt", "unique rename payload");
+        await Index();
+        File.Move(a, Path.Combine(_docs, "new.txt"));
+        IndexProgress renamed = await Index();
+        Assert.Equal(1, renamed.Renamed);
+        Assert.Equal(0, renamed.Indexed);
+        Assert.Equal("new.txt", _index.Search("rename payload", KnowledgeSearchMode.Lexical)[0].FileName);
+
+        W("copy.txt", "unique rename payload");
+        IndexProgress dup = await Index();
+        Assert.Equal(1, dup.Duplicates);
+    }
+
+    [Fact]
+    public async Task Exact_identifier_beats_fuzzy_words_and_partial_identifiers_are_found()
+    {
+        W("params.txt", "Parameter ABC_1234 sets the idle speed.\nParameter ABC_9999 sets the limit.");
+        W("prose.txt", "A calibration procedure for ABC systems with idle behaviour explained at length.");
+        await Index();
+
+        IReadOnlyList<KnowledgeHit> exact = _index.Search("Trova il parametro esatto ABC_1234");
+        Assert.NotEmpty(exact);
+        Assert.All(exact, h => Assert.Contains("ABC_1234", h.Text));
+        Assert.Equal("exact", exact[0].Match);
+
+        IReadOnlyList<KnowledgeHit> partial = _index.Search("ABC_12", KnowledgeSearchMode.Exact);
+        Assert.Contains(partial, h => h.Text.Contains("ABC_1234"));
+        Assert.DoesNotContain(partial, h => h.Text.Contains("ABC_9999") && !h.Text.Contains("ABC_1234"));
+    }
+
+    [Theory]
+    [InlineData("Where is parameter ABC_1234?", "ABC_1234")]
+    [InlineData("DTC P0420 meaning", "P0420")]
+    [InlineData("address 0x7E0 request", "0x7E0")]
+    [InlineData("find \"idle speed\" quickly", "idle speed")]
+    public void Router_extracts_identifiers_and_quoted_phrases(string query, string expected) =>
+        Assert.Contains(expected, KnowledgeIndex.ExactTerms(query));
+
+    [Fact]
+    public void Plain_questions_have_no_exact_terms() =>
+        Assert.Empty(KnowledgeIndex.ExactTerms("how do I calibrate the controller"));
+
+    [Fact]
+    public async Task Lexical_search_works_without_any_model_and_file_names_are_searchable()
+    {
+        W("procedure.txt", "The MFC calibration procedure for the Daily vehicle.");
+        File.WriteAllBytes(Path.Combine(_docs, "diagram-Wiring_X77.bin"), new byte[] { 0, 1, 2, 0, 3 });
+        await Index();
+
+        Assert.Equal("procedure.txt", _index.Search("calibration procedure vehicle")[0].FileName);
+        Assert.Contains(_index.Search("Wiring_X77"), h => h.FileName == "diagram-Wiring_X77.bin");
+    }
+
+    [Fact]
+    public async Task Positions_survive_into_citations()
+    {
+        W("long.txt", new string('x', 2000) + " NEEDLE_77 " + new string('y', 500));
+        await Index();
+
+        KnowledgeHit hit = _index.Search("NEEDLE_77")[0];
+
+        Assert.Contains("long.txt", hit.Citation);
+        Assert.True(hit.Position.CharOffset > 0);
+    }
+
+    [Fact]
+    public async Task Excluded_folders_lock_files_and_hidden_files_are_skipped()
+    {
+        W("keep.txt", "keep me");
+        W(".git/config.txt", "git internals");
+        W("node_modules/x.txt", "dependency");
+        W("~$lock.txt", "office lock");
+
+        IndexProgress p = await Index();
+
+        Assert.Equal(1, p.Indexed);
+        Assert.Empty(_index.Search("dependency", KnowledgeSearchMode.Lexical));
+    }
+
+    [Fact]
+    public async Task Corrupt_and_unreadable_files_are_listed_without_content()
+    {
+        File.WriteAllText(Path.Combine(_docs, "bad.docx"), "TOPSECRET-not-a-zip");
+        W("fine.txt", "fine");
+
+        IndexProgress p = await Index();
+
+        Assert.Equal(1, p.Failed);
+        IndexFileProblem problem = Assert.Single(_index.Problems("s1"), x => x.Kind == "failed");
+        Assert.Equal("bad.docx", problem.RelativePath);
+        Assert.DoesNotContain("TOPSECRET", problem.Reason);
+    }
+
+    [Fact]
+    public async Task Cancellation_stops_the_job_and_a_rerun_completes_it()
+    {
+        for (int i = 0; i < 20; i++) W($"f{i}.txt", "content " + i);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Index(null, cts.Token));
+
+        IndexProgress done = await Index();
+        Assert.Equal(20, done.Indexed);
+    }
+
+    [Fact]
+    public async Task Pause_blocks_progress_until_resume()
+    {
+        W("p.txt", "paused file");
+        var control = new IndexControl();
+        control.Pause();
+        Task<IndexProgress> job = Index(control);
+        await Task.Delay(300);
+        Assert.False(job.IsCompleted);
+        control.Resume();
+        Assert.Equal(1, (await job).Indexed);
+    }
+
+    [Fact]
+    public async Task Removing_a_source_deletes_only_the_index_never_the_documents()
+    {
+        string f = W("keep.txt", "stays on disk");
+        await Index();
+
+        _index.RemoveSource("s1");
+
+        Assert.True(File.Exists(f));
+        Assert.Equal((0, 0), _index.Stats("s1"));
+        Assert.Empty(_index.Search("stays", KnowledgeSearchMode.Lexical));
+    }
+
+    [Fact]
+    public async Task Existing_data_is_preserved_when_the_index_is_reopened()
+    {
+        W("persist.txt", "persistent knowledge");
+        await Index();
+        using var reopened = new KnowledgeIndex(Path.Combine(_root, "knowledge.db"));
+        Assert.Single(reopened.Search("persistent knowledge", KnowledgeSearchMode.Lexical));
+    }
+
+    [Fact]
+    public async Task Missing_folder_fails_clearly()
+    {
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => _index.IndexFolderAsync("s1", Path.Combine(_root, "nope")));
+    }
+}
