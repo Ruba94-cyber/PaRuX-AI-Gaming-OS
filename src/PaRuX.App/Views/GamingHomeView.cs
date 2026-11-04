@@ -660,6 +660,24 @@ internal sealed class GamingHomeView : StackPanel
         finally { _metadataRunning = false; }
     }
 
+    private int _reloadRetries;
+
+    /// <summary>The Core may still be starting when the Gaming tab is first opened: ask again a few times, with growing pauses,
+    /// instead of leaving "unavailable" on screen until the user presses Refresh.</summary>
+    private void ScheduleReloadRetry(int generation)
+    {
+        if (_reloadRetries >= 6) return;
+        int delayMs = 1500 * (1 << Math.Min(_reloadRetries++, 3));
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(delayMs);
+            DispatcherQueue?.TryEnqueue(() =>
+            {
+                if (generation == _generation) _ = ReloadAsync();
+            });
+        });
+    }
+
     internal async Task ReloadAsync(bool refresh = false)
     {
         int generation = ++_generation;
@@ -678,9 +696,11 @@ internal sealed class GamingHomeView : StackPanel
                 _emptyState.Visibility = Visibility.Collapsed;
                 _clearFilters.Visibility = Visibility.Collapsed;
                 _status.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
+                ScheduleReloadRetry(generation);
                 return;
             }
             _titles = result.Value;
+            _reloadRetries = 0;
             foreach (GameTitleDto title in _titles)
             {
                 foreach (string tag in title.Tags) _knownTags.Add(tag);

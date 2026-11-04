@@ -21,14 +21,16 @@ public sealed class QuickResumeService
     private readonly string _journalPath;
 
     private readonly WorkloadOrchestrator? _orchestrator;
+    private readonly ManualGameSessionService? _sessions;
 
-    public QuickResumeService(WorkloadOrchestrator orchestrator)
-        : this(PaRuXDataRoot.Combine("quick-resume", "paused.json"), orchestrator) { }
+    public QuickResumeService(WorkloadOrchestrator orchestrator, ManualGameSessionService sessions)
+        : this(PaRuXDataRoot.Combine("quick-resume", "paused.json"), orchestrator, sessions) { }
 
-    internal QuickResumeService(string journalPath, WorkloadOrchestrator? orchestrator = null)
+    internal QuickResumeService(string journalPath, WorkloadOrchestrator? orchestrator = null, ManualGameSessionService? sessions = null)
     {
         _journalPath = journalPath;
         _orchestrator = orchestrator;
+        _sessions = sessions;
     }
 
     /// <summary>ReturnedToAi: the paused process was the game PaRuX started, so AI was given back while it is paused
@@ -190,10 +192,11 @@ public sealed class QuickResumeService
             return new(true, "The application had already closed.");
         }
         bool aiSetAside = false;
-        if (entry.ReturnedToAi && _orchestrator is not null)
+        if (entry.ReturnedToAi && _sessions is not null)
         {
             // The game gets the GPU back before it runs again; the AI is set aside, like leaving it for a game on a console.
-            try { aiSetAside = await _orchestrator.EnterGamingSessionAsync(null, ct).ConfigureAwait(false); }
+            // The exact process is registered again, so closing the game later returns the AI automatically.
+            try { aiSetAside = await _sessions.ResumeOwnedSessionAsync(entry.ProcessId, entry.StartedUtc, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { aiSetAside = false; }
         }
         if (!await _provider.ResumeProcessAsync(entry.ProcessId, ct).ConfigureAwait(false))

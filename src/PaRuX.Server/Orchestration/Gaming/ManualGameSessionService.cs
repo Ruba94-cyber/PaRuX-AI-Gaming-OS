@@ -624,7 +624,7 @@ public sealed class ManualGameSessionService : IDisposable
         {
             // Play time counts the time PaRuX actually observed the owned process, whether it exited or the
             // user returned to AI first. Very short runs (bootstrap stubs) are not play time.
-            if (uptime.Elapsed >= MinimumMonitoredLifetime)
+            if (uptime.Elapsed >= MinimumMonitoredLifetime && titleKey.Length > 0)
             {
                 try { _titles?.AddSession(titleKey, startedUtc, uptime.Elapsed); }
                 catch (OverflowException) { }
@@ -638,6 +638,39 @@ public sealed class ManualGameSessionService : IDisposable
                 if (ReferenceEquals(_monitorStop, stop)) _monitorStop = null;
             }
             stop.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Quick Resume brought the AI back while an owned game was paused. When that game is resumed, Gaming is entered again and
+    /// the exact process is registered and observed like a fresh launch, so closing it later returns the AI automatically.
+    /// Returns false (nothing registered) when the process is gone or is no longer the one PaRuX paused.
+    /// </summary>
+    internal async Task<bool> ResumeOwnedSessionAsync(int processId, DateTime startedUtc, CancellationToken ct)
+    {
+        if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false)) return false;
+        Process process;
+        try { process = Process.GetProcessById(processId); }
+        catch (ArgumentException) { return false; }
+        try
+        {
+            string? path = ImagePathOf(process);
+            if (path is null || process.HasExited || !QuickResumePolicy.SameProcess(startedUtc, process.StartTime.ToUniversalTime())) { process.Dispose(); return false; }
+            long? version = _orchestrator.ActiveManualGameSessionVersion;
+            if (version is null) { process.Dispose(); return false; }
+            DateTime verifiedStartUtc = process.StartTime.ToUniversalTime();
+            _orchestrator.RegisterOwnedGameProcess(new WorkloadOrchestrator.OwnedGameProcess(process.Id, verifiedStartUtc, path, version.Value));
+            var stop = new CancellationTokenSource();
+            CancellationTokenSource? previous;
+            lock (_monitorGate) { previous = _monitorStop; _monitorStop = stop; }
+            try { previous?.Cancel(); } catch (ObjectDisposedException) { }
+            _ = ObserveOwnedExitAsync(process, version.Value, verifiedStartUtc, stop, string.Empty, DateTime.UtcNow);
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+            process.Dispose();
+            return false;
         }
     }
 
