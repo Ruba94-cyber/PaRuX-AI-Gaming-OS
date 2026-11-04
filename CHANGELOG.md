@@ -1,5 +1,9 @@
 # Changelog
 
+### 2026-11-04 — Gaming library: launcher play time, save restore, more stores, saved filters, hooks
+
+- **Play time for store-launched games** (verified process tree), **safe save restore** (dry run, pre-restore backup, SHA-256), **EA app / Battle.net / Ubisoft Connect / Xbox discovery + official-URI launch**, **saved filter presets**, **off-by-default launch hooks (API only)**. 83 new xUnit tests; **AUTO-TESTED only**: store layouts/URIs unverified on real installs, UI not run, no restore/hook UI, no background override or IGDB, Ludusavi skipped (licence unverified).
+
 ### 2026-11-04 — First-run pane fix, Model Hub Start board, chat model picker, setup profiles, portable ZIP script
 
 - **First launch:** the hidden navigation pane is no longer re-opened by the width policy, which painted it as a dark overlay slab over the welcome page. `SetNavPaneVisible()` closes the pane when hiding it; showing it re-applies the policy. FlaUI regression added. **VERIFIED ON WINDOWS** (reproduced on the installed 3.0.0, fixed in the build).
