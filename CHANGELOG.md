@@ -8,6 +8,9 @@
 - **Per-game profiles:** `GamePadProfileStore` (game id + device hash, SHA-256 only on disk) with fallback to the per-device mapping, applied automatically when PaRuX launches a manual game while forwarding is armed. Full mapping editing: all 11 Xbox buttons, digital triggers, axes, X/Y inversion, hat routed to D-pad / left / right stick. **AUTO-TESTED (selection, fallback, damaged file preserved).**
 - **Hot-plug:** `RawGameController` added/removed events (subscribed only while armed) neutralise and unplug the virtual pad on removal and only offer an explicit re-arm on return. **Logic AUTO-TESTED; the WinRT events are NEEDS PHYSICAL HW.**
 - XOutput equivalence is **not claimed** (BLOCKED until a physical end-to-end verification).
+### 2026-11-04 — Gaming library: launcher play time, save restore, more stores, saved filters, hooks
+
+- **Play time for store-launched games** (verified process tree), **safe save restore** (dry run, pre-restore backup, SHA-256), **EA app / Battle.net / Ubisoft Connect / Xbox discovery + official-URI launch**, **saved filter presets**, **off-by-default launch hooks (API only)**. 83 new xUnit tests; **AUTO-TESTED only**: store layouts/URIs unverified on real installs, UI not run, no restore/hook UI, no background override or IGDB, Ludusavi skipped (licence unverified).
 
 ### 2026-11-04 — First-run pane fix, Model Hub Start board, chat model picker, setup profiles, portable ZIP script
 

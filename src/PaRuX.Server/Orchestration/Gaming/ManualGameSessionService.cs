@@ -23,16 +23,22 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
+    private readonly ExtraStoreCatalog _extra;
+    private readonly GameLaunchHookService? _hooks;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
+    private CancellationTokenSource? _launcherTrackStop;
     private bool _disposed;
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
-        GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null)
+        GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
+        ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null)
     {
+        _hooks = hooks;
+        _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
         _windowPlacement = windowPlacement;
         _library = library;
@@ -86,6 +92,7 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false,
                     "The selected game TV is unavailable. Check the connected displays in Settings; no game was launched.");
 
+            await RunHookAsync(GameHookPhase.Pre, SessionTitleKey(game), ct).ConfigureAwait(false);
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
                 return new(false, false, "Gaming resources could not be prepared. No game was launched.");
@@ -223,6 +230,58 @@ public sealed class ManualGameSessionService : IDisposable
         finally { _launchGate.Release(); }
     }
 
+    /// <summary>
+    /// After a store handoff the launcher usually exits (or was already running), so there is no handle to wait on.
+    /// Observe the game's own verified process tree (see <see cref="LauncherPlayTimeTracker"/>) and credit play time;
+    /// observation only, never an action against a process, and cancelled by Return to AI / shutdown.
+    /// </summary>
+    private static string HookKey(DiscoveredGameDto game) => GameTitleCatalog.KeyFor(game.Name,
+        GameTitleCatalog.InstallationId(game.ProviderId.ToLowerInvariant(), game.ProviderGameId));
+
+    /// <summary>Off-by-default per-game helper (see <see cref="GameLaunchHookStore"/>). A hook outcome never blocks or fails a launch.</summary>
+    private async Task RunHookAsync(GameHookPhase phase, string titleKey, CancellationToken ct)
+    {
+        if (_hooks is null || titleKey.Length == 0) return;
+        try
+        {
+            GameHookRunResult result = await _hooks.RunAsync(phase, titleKey, ct).ConfigureAwait(false);
+            if (result.Ran || result.Reason is "failed" or "unsafe-path")
+                _logger?.LogInformation("Launch hook {Phase}: {Reason}", phase, result.Reason);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+    }
+
+    private void BeginLauncherPlayTimeTracking(DiscoveredGameDto game)
+    {
+        if (_titles is null || string.IsNullOrWhiteSpace(game.InstallDirectory)) return;
+        string key = GameTitleCatalog.KeyFor(game.Name,
+            GameTitleCatalog.InstallationId(game.ProviderId.ToLowerInvariant(), game.ProviderGameId));
+        var stop = new CancellationTokenSource();
+        CancellationTokenSource? previous;
+        lock (_monitorGate) { previous = _launcherTrackStop; _launcherTrackStop = stop; }
+        try { previous?.Cancel(); } catch (ObjectDisposedException) { }
+        DateTime requested = DateTime.UtcNow;
+        string install = game.InstallDirectory;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await LauncherPlayTimeTracker.TrackAndCreditAsync(_titles, key, install, requested,
+                    new LauncherPlayTimeTracker.WindowsProbe(), () => DateTime.UtcNow,
+                    (d, t) => Task.Delay(d, t), LauncherPlayTimeTracker.Options.Default, stop.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger?.LogInformation("Launcher play-time observation ended without a result: {Type}", ex.GetType().Name);
+            }
+            finally
+            {
+                lock (_monitorGate) { if (ReferenceEquals(_launcherTrackStop, stop)) _launcherTrackStop = null; }
+                stop.Dispose();
+            }
+        });
+    }
+
     /// <summary>Use the same fallback installation identity as the unified title catalog.
     /// Ordinary titles use their normalized names, but one-letter/symbol-only names
     /// would otherwise lose play time when launched through an emulator.</summary>
@@ -293,6 +352,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (string.IsNullOrWhiteSpace(steamExe) || !File.Exists(steamExe))
                 return new(false, false, "Steam is not installed in its expected location.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(installed.First(g => g.ProviderId == "steam" && g.ProviderGameId == appId)), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; Steam was not launched.");
 
@@ -310,6 +370,7 @@ public sealed class ManualGameSessionService : IDisposable
                 using var request = new Process { StartInfo = info };
                 if (!request.Start())
                     throw new InvalidOperationException("Steam did not accept the launch process request.");
+                BeginLauncherPlayTimeTracking(installed.First(g => g.ProviderId == "steam" && g.ProviderGameId == appId));
                 return new(true, false,
                     "Launch request sent to Steam. PaRuX cannot verify the final game process; Return to AI manually when finished.");
             }
@@ -363,6 +424,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (!EpicGameLaunchProtocol.IsWindowsProtocolRegistered())
                 return new(false, false, "The Epic Games Launcher protocol is not registered in Windows.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; Epic was not contacted.");
 
@@ -378,6 +440,7 @@ public sealed class ManualGameSessionService : IDisposable
                     UseShellExecute = true
                 };
                 using Process? dispatched = Process.Start(info);
+                BeginLauncherPlayTimeTracking(game);
                 // A URI activation may return null if an existing launcher accepts
                 // it; absence of an owned process is not proof of failure/success.
                 return new(true, false,
@@ -434,6 +497,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (string.IsNullOrWhiteSpace(galaxyExe) || !File.Exists(galaxyExe))
                 return new(false, false, "GOG GALAXY is not installed in a supported local location.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; GOG was not launched.");
 
@@ -453,6 +517,7 @@ public sealed class ManualGameSessionService : IDisposable
                 if (!request.Start())
                     throw new InvalidOperationException("GOG GALAXY did not accept the launch request.");
 
+                BeginLauncherPlayTimeTracking(game);
                 return new(true, false,
                     "Launch request sent to GOG GALAXY. Return to AI manually after playing.");
             }
@@ -468,6 +533,60 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, recovered
                     ? "GOG GALAXY did not accept the launch. PaRuX returned to AI."
                     : "GOG GALAXY did not accept the launch and AI recovery needs attention.");
+            }
+        }
+        finally { _launchGate.Release(); }
+    }
+
+    /// <summary>
+    /// Handoff to EA app, Battle.net, Ubisoft Connect or the Xbox app through the client's own registered URI protocol
+    /// for a freshly rediscovered installed game. No executable, command line, credential or account access; the
+    /// final game process is observed only by <see cref="LauncherPlayTimeTracker"/> (play time), never owned.
+    /// </summary>
+    public async Task<ManualGameLaunchResult> LaunchExtraStoreAsync(string providerId, string gameId, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IExtraStoreProvider? provider = _extra.Find(providerId);
+        if (provider is null || !GameStoreLaunchIdPolicy.SupportsOfficialLaunch(provider.Id, gameId))
+            return new(false, false, "This store or game ID cannot be launched through its official protocol.");
+
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_orchestrator.CurrentState != "AiReady")
+                return new(false, false, "Return to AI before starting another game.");
+            var installed = await GuardedStoreLaunchDiscoveryAsync(
+                provider.DiscoverAsync, () => _orchestrator.CurrentState == "AiReady", ct).ConfigureAwait(false);
+            if (installed is null)
+                return new(false, false, "Gaming began while games were being checked. No launch was requested.");
+            DiscoveredGameDto? game = installed.FirstOrDefault(g => string.Equals(g.ProviderGameId, gameId, StringComparison.Ordinal));
+            if (game is null)
+                return new(false, false, "The selected game is not installed locally.");
+            if (!provider.TryBuildLaunchUri(game, out string uri))
+                return new(false, false, "The game cannot be launched through its official protocol.");
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
+            if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
+                return new(false, false, "Gaming resources could not be prepared; the launcher was not contacted.");
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                using Process? dispatched = Process.Start(new ProcessStartInfo { FileName = uri, UseShellExecute = true });
+                BeginLauncherPlayTimeTracking(game);
+                return new(true, false,
+                    "Protocol launch requested through the store client. The final game was not verified; Return to AI manually.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.ComponentModel.Win32Exception or InvalidOperationException or
+                OperationCanceledException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                bool recovered;
+                try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
+                catch { recovered = false; }
+                return new(false, false, recovered
+                    ? "Windows did not dispatch the store protocol request. PaRuX returned to AI."
+                    : "Windows did not dispatch the store request and AI recovery needs attention.");
             }
         }
         finally { _launchGate.Release(); }
@@ -614,6 +733,8 @@ public sealed class ManualGameSessionService : IDisposable
                 sessionVersion, timeout.Token).ConfigureAwait(false);
             if (!restored)
                 _logger?.LogWarning("Manual game exit did not complete Gaming resource reconciliation.");
+            else
+                await RunHookAsync(GameHookPhase.Post, titleKey, CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { /* user exited, host stopped or bounded recovery */ }
         catch (Exception)
@@ -684,6 +805,9 @@ public sealed class ManualGameSessionService : IDisposable
             _monitorStop = null;
         }
         try { active?.Cancel(); } catch (ObjectDisposedException) { }
+        CancellationTokenSource? launcher;
+        lock (_monitorGate) { launcher = _launcherTrackStop; }
+        try { launcher?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     /// <summary>All explicit server Return-to-AI actions serialize against an in-progress

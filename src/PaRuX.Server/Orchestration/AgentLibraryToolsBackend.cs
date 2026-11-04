@@ -56,6 +56,8 @@ public sealed class AgentLibraryBackend : IAgentLibraryBackend
             GameInstallationSources.Steam => _sessions.LaunchSteamAsync(installation.SourceGameId, ct),
             GameInstallationSources.Epic => _sessions.LaunchEpicAsync(installation.SourceGameId, ct),
             GameInstallationSources.Gog => _sessions.LaunchGogAsync(installation.SourceGameId, ct),
+            GameInstallationSources.Ea or GameInstallationSources.BattleNet or GameInstallationSources.Ubisoft
+                or GameInstallationSources.Xbox => _sessions.LaunchExtraStoreAsync(installation.Source, installation.SourceGameId, ct),
             _ => _sessions.LaunchAsync(installation.SourceGameId, ct, null),
         };
 

@@ -237,6 +237,10 @@ namespace PaRuX.Services
             SendAsync<ManualGameLaunchResult>(HttpMethod.Post,
                 "/api/v1/gaming/library/discover/steam/" + Uri.EscapeDataString(appId) + "/launch", null, ct);
 
+        public Task<GamingCallResult<ManualGameLaunchResult>> RequestExtraStoreGameLaunchAsync(string providerId, string gameId, CancellationToken ct = default) =>
+            SendAsync<ManualGameLaunchResult>(HttpMethod.Post,
+                "/api/v1/gaming/library/discover/store/" + Uri.EscapeDataString(providerId) + "/" + Uri.EscapeDataString(gameId) + "/launch", null, ct);
+
         public Task<GamingCallResult<List<DiscoveredGameDto>>> DiscoverGogGamesAsync(CancellationToken ct = default) =>
             SendAsync<List<DiscoveredGameDto>>(HttpMethod.Get, "/api/v1/gaming/library/discover/gog", null, ct);
 

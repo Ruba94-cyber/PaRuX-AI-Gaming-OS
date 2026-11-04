@@ -7,6 +7,10 @@ public static class GameInstallationSources
     public const string Steam = "steam";
     public const string Epic = "epic";
     public const string Gog = "gog";
+    public const string Ea = "ea";
+    public const string BattleNet = "battlenet";
+    public const string Ubisoft = "ubisoft";
+    public const string Xbox = "xbox";
     public const string Emulator = "emulator";
 }
 

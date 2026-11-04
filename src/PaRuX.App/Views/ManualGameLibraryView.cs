@@ -462,6 +462,10 @@ public sealed class ManualGameLibraryView : UserControl
             case GameInstallationSources.Steam: await LaunchSteamAsync(discovered); break;
             case GameInstallationSources.Epic: await LaunchEpicAsync(discovered); break;
             case GameInstallationSources.Gog: await LaunchGogAsync(discovered); break;
+            case GameInstallationSources.Ea:
+            case GameInstallationSources.BattleNet:
+            case GameInstallationSources.Ubisoft:
+            case GameInstallationSources.Xbox: await LaunchExtraStoreAsync(discovered); break;
         }
     }
 
@@ -1268,6 +1272,40 @@ public sealed class ManualGameLibraryView : UserControl
         catch (Exception)
         {
             _discoveryStatus.Text = T("Could not request Epic launch.", "Impossibile richiedere l'avvio tramite Epic.");
+        }
+        finally { SetBusy(false); }
+    }
+
+    /// <summary>EA app, Battle.net, Ubisoft Connect and Xbox: confirmed handoff through the client's own URI protocol.</summary>
+    private async Task LaunchExtraStoreAsync(DiscoveredGameDto game)
+    {
+        if (_busy || !GameStoreLaunchIdPolicy.SupportsOfficialLaunch(game.ProviderId, game.ProviderGameId)) return;
+        SetBusy(true);
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Launch using the store client?", "Avviare tramite il client dello store?"),
+                Content = T(
+                    "PaRuX will prepare Gaming Mode and ask Windows to open the store client's own registered launch protocol for this installed game. PaRuX does not sign in, read credentials or verify ownership; it only observes the game to count play time. Return to AI manually when finished.",
+                    "PaRuX preparerà la modalità Gaming e chiederà a Windows di aprire il protocollo di avvio registrato dal client dello store per questo gioco installato. PaRuX non accede, non legge credenziali e non verifica la proprietà; osserva il gioco solo per contare il tempo di gioco. Torna manualmente all'AI al termine."),
+                PrimaryButtonText = T("Request launch", "Richiedi avvio"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            var result = await GamingOrchestratorClient.Current.RequestExtraStoreGameLaunchAsync(game.ProviderId, game.ProviderGameId);
+            await UpdateGamingStatusAsync();
+            _discoveryStatus.Text = result.Succeeded && result.Value is { Launched: true }
+                ? T("Launch request sent through the store client. Return to AI manually after playing.",
+                    "Richiesta di avvio inviata tramite il client dello store. Torna manualmente all'AI dopo aver giocato.")
+                : T("Launch was not accepted. Check the installed client, its Windows protocol registration and Gaming state.",
+                    "Avvio non accettato. Controlla il client installato, la registrazione del protocollo Windows e lo stato Gaming.");
+        }
+        catch (Exception)
+        {
+            _discoveryStatus.Text = T("Could not request the launch.", "Impossibile richiedere l'avvio.");
         }
         finally { SetBusy(false); }
     }

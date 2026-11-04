@@ -34,7 +34,7 @@ public static class GameTitleEndpoints
             string? sort, string? platform, bool? installed, string? hidden,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
             ManualGameLibrary library, GameTitleStore store, GameTitleReadCache cache,
-            LocalRuntimeService runtime, CancellationToken ct) =>
+            LocalRuntimeService runtime, ExtraStoreCatalog extraStores, CancellationToken ct) =>
         {
             // Reject unknown sort/hidden values instead of silently ignoring a typo.
             if (!GameTitleSorts.IsValid(sort) || GameTitleCatalog.HiddenModes.Parse(hidden) is null ||
@@ -64,7 +64,8 @@ public static class GameTitleEndpoints
                 CancellationToken scanToken = hardOff.Token;
                 var discovered = new List<DiscoveredGameDto>();
                 foreach (var provider in new Func<Task<IReadOnlyList<DiscoveredGameDto>>>[]
-                         { () => steam.DiscoverAsync(scanToken), () => epic.DiscoverAsync(scanToken), () => gog.DiscoverAsync(scanToken) })
+                         { () => steam.DiscoverAsync(scanToken), () => epic.DiscoverAsync(scanToken), () => gog.DiscoverAsync(scanToken),
+                           () => extraStores.DiscoverAllAsync(scanToken) })
                 {
                     if (runtime.GamingMode) return FromCache();
                     scanToken.ThrowIfCancellationRequested();
