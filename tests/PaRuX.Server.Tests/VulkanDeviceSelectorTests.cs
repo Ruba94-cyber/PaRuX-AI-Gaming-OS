@@ -59,3 +59,16 @@ public sealed class VulkanDeviceSelectorTests
         Assert.Equal("Vulkan0", VulkanDeviceSelector.Choose(devices, Inventory(("NVIDIA GeForce RTX 5080", 16L << 30))));
     }
 }
+
+public sealed class AgentContextWindowTests
+{
+    [Theory]
+    [InlineData("coding", 8192, true)]
+    [InlineData("long-context", 8192, true)]
+    [InlineData("coding", 16384, false)]
+    [InlineData("coding", 65536, false)]
+    [InlineData("chat", 8192, false)]
+    [InlineData("coding", 0, false)] // unknown window: never force a restart
+    public void A_resident_server_with_a_small_window_is_not_reused_for_coding(string workload, int perSlot, bool tooSmall) =>
+        Assert.Equal(tooSmall, PaRuX.Server.LocalAiProcessManager.WindowTooSmallForWorkload(workload, perSlot));
+}

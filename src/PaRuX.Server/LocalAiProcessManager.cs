@@ -1762,7 +1762,8 @@ public sealed class LocalAiProcessManager
             // in StartTextAsync for the live-reproduced evidence.
             if (CanReuseActiveTextModelForRequest(freshExact, hasAdapters,
                     PathsEqual(GetActiveTextModelPath(), modelPath))
-                && await IsTextHealthyAsync(ct).ConfigureAwait(false))
+                && await IsTextHealthyAsync(ct).ConfigureAwait(false)
+                && !WindowTooSmallForWorkload(workload, await ReadResidentPerSlotContextAsync(ct).ConfigureAwait(false)))
                 return new RuntimeResult(true, "Already running the requested model (" + label + ").");
 
             if (freshExact)
@@ -1915,6 +1916,27 @@ public sealed class LocalAiProcessManager
 
     internal static bool CanReuseHotPoolForRequest(bool freshExact, bool hasGpu, bool hasAdapters) =>
         !freshExact && hasGpu && !hasAdapters;
+
+    /// <summary>Smallest per-request window a coding or long-context turn needs. A coding agent's own system prompt and tool
+    /// list are about 13k tokens (measured with opencode on the local server: 13,098 tokens against an 8,192 window).</summary>
+    internal const int MinimumAgentPerSlotContext = 16384;
+
+    internal static bool WindowTooSmallForWorkload(string workload, int perSlotContext) =>
+        workload is "coding" or "long-context" && perSlotContext > 0 && perSlotContext < MinimumAgentPerSlotContext;
+
+    /// <summary>The window one request can use on the resident server (llama-server reports it per slot), or 0 when unknown.</summary>
+    private async Task<int> ReadResidentPerSlotContextAsync(CancellationToken ct)
+    {
+        try
+        {
+            using HttpResponseMessage response = await Http.GetAsync(TextEndpoint + "/props", ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return 0;
+            using JsonDocument doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            return doc.RootElement.TryGetProperty("default_generation_settings", out JsonElement settings)
+                && settings.TryGetProperty("n_ctx", out JsonElement n) && n.TryGetInt32(out int value) ? value : 0;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) { return 0; }
+    }
 
     internal static bool CanReuseActiveTextModelForRequest(bool freshExact, bool hasAdapters, bool exactPathMatches) =>
         !freshExact && !hasAdapters && exactPathMatches;
