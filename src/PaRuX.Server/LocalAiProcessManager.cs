@@ -1647,6 +1647,9 @@ public sealed class LocalAiProcessManager
     public async Task<RuntimeResult> RestoreTextProfileAsync(CancellationToken ct)
     {
         if (!await HasHeavyGpuAsync(ct).ConfigureAwait(false)) return new RuntimeResult(true, "No capable GPU; nothing to restore.");
+        // A text model that is already serving (for example a coding role model loaded after the media burst) must not be replaced
+        // by the default profile: that killed a 30B coding model in the middle of its first request (HTTP 502 for the agent).
+        if (await IsTextHealthyAsync(ct).ConfigureAwait(false)) return new RuntimeResult(true, "A text model is already running; nothing to restore.");
         var restoreWatch = Stopwatch.StartNew();
         RuntimeResult restored = await StartTextAsync(ct).ConfigureAwait(false);
         MediaSwapTimings.Record("text-restore", restoreWatch.Elapsed, restored.Success ? "ready" : "failed");
