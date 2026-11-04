@@ -87,6 +87,22 @@ public static class GamingEndpoints
             return result.Launched ? Results.Ok(result) : Results.Conflict(result);
         }).RequireDesktopOwner();
 
+        // EA app / Battle.net / Ubisoft Connect / Xbox: read-only local discovery and official-URI handoff.
+        app.MapGet("/api/v1/gaming/library/discover/store/{provider}", (
+            string provider, ExtraStoreCatalog catalog, LocalRuntimeService runtime, CancellationToken ct) =>
+        {
+            IExtraStoreProvider? found = catalog.Find(provider);
+            if (found is null) return Task.FromResult<IResult>(Results.NotFound());
+            return GuardedDiscoveryAsync(found.DiscoverAsync, () => runtime.GamingMode, ct, found.Id + " store");
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/library/discover/store/{provider}/{id}/launch", async (
+            string provider, string id, ManualGameSessionService sessions, CancellationToken ct) =>
+        {
+            ManualGameLaunchResult result = await sessions.LaunchExtraStoreAsync(provider, id, ct);
+            return result.Launched ? Results.Ok(result) : Results.Conflict(result);
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/library", (ManualGameLibrary library) =>
         {
             try { return Results.Ok(library.List()) as IResult; }

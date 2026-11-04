@@ -23,6 +23,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
+    private readonly ExtraStoreCatalog _extra;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
@@ -32,8 +33,10 @@ public sealed class ManualGameSessionService : IDisposable
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
-        GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null)
+        GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
+        ExtraStoreCatalog? extraStores = null)
     {
+        _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
         _windowPlacement = windowPlacement;
         _library = library;
@@ -508,6 +511,59 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, recovered
                     ? "GOG GALAXY did not accept the launch. PaRuX returned to AI."
                     : "GOG GALAXY did not accept the launch and AI recovery needs attention.");
+            }
+        }
+        finally { _launchGate.Release(); }
+    }
+
+    /// <summary>
+    /// Handoff to EA app, Battle.net, Ubisoft Connect or the Xbox app through the client's own registered URI protocol
+    /// for a freshly rediscovered installed game. No executable, command line, credential or account access; the
+    /// final game process is observed only by <see cref="LauncherPlayTimeTracker"/> (play time), never owned.
+    /// </summary>
+    public async Task<ManualGameLaunchResult> LaunchExtraStoreAsync(string providerId, string gameId, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IExtraStoreProvider? provider = _extra.Find(providerId);
+        if (provider is null || !GameStoreLaunchIdPolicy.SupportsOfficialLaunch(provider.Id, gameId))
+            return new(false, false, "This store or game ID cannot be launched through its official protocol.");
+
+        await _launchGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_orchestrator.CurrentState != "AiReady")
+                return new(false, false, "Return to AI before starting another game.");
+            var installed = await GuardedStoreLaunchDiscoveryAsync(
+                provider.DiscoverAsync, () => _orchestrator.CurrentState == "AiReady", ct).ConfigureAwait(false);
+            if (installed is null)
+                return new(false, false, "Gaming began while games were being checked. No launch was requested.");
+            DiscoveredGameDto? game = installed.FirstOrDefault(g => string.Equals(g.ProviderGameId, gameId, StringComparison.Ordinal));
+            if (game is null)
+                return new(false, false, "The selected game is not installed locally.");
+            if (!provider.TryBuildLaunchUri(game, out string uri))
+                return new(false, false, "The game cannot be launched through its official protocol.");
+            if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
+                return new(false, false, "Gaming resources could not be prepared; the launcher was not contacted.");
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                using Process? dispatched = Process.Start(new ProcessStartInfo { FileName = uri, UseShellExecute = true });
+                BeginLauncherPlayTimeTracking(game);
+                return new(true, false,
+                    "Protocol launch requested through the store client. The final game was not verified; Return to AI manually.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                System.ComponentModel.Win32Exception or InvalidOperationException or
+                OperationCanceledException or ArgumentException or NotSupportedException or
+                System.Security.SecurityException)
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                bool recovered;
+                try { recovered = await _orchestrator.ExitGamingSessionAsync(rollback.Token).ConfigureAwait(false); }
+                catch { recovered = false; }
+                return new(false, false, recovered
+                    ? "Windows did not dispatch the store protocol request. PaRuX returned to AI."
+                    : "Windows did not dispatch the store request and AI recovery needs attention.");
             }
         }
         finally { _launchGate.Release(); }

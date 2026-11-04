@@ -13,7 +13,8 @@ public static class GameTitleCatalog
     private static readonly string[] SourcePriority =
     {
         GameInstallationSources.Manual, GameInstallationSources.Steam, GameInstallationSources.Epic,
-        GameInstallationSources.Gog, GameInstallationSources.Emulator,
+        GameInstallationSources.Gog, GameInstallationSources.Ea, GameInstallationSources.BattleNet,
+        GameInstallationSources.Ubisoft, GameInstallationSources.Xbox, GameInstallationSources.Emulator,
     };
 
     public const string PcPlatform = "PC";
