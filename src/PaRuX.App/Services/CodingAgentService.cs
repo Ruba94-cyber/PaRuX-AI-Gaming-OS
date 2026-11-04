@@ -1489,8 +1489,7 @@ namespace PaRuX.Services
             sb.Append(log.Count == 0 ? "(none yet)" : string.Join("\n---\n", recent));
             if (verificationRequired && !verificationSatisfied)
                 sb.Append("\n\nCompletion gate: testable code changed and no successful discovered verification command has been observed since that change.");
-            sb.Append("\n\nLarge tool/file evidence is never intentionally discarded: observations may contain an artifactId. Use read_artifact/search_artifact/list_artifacts instead of repeating expensive commands or guessing from a truncated preview.");
-            sb.Append("\n\nUse repository and execution evidence before guessing. What is the next single JSON action?");
+            sb.Append(CodingAgentPromptBuilder.EvidenceClosing(recent));
             return sb.ToString();
         }
 

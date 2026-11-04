@@ -91,6 +91,38 @@ namespace PaRuX.Services
             return schema;
         }
 
+        /// <summary>
+        /// Closing instruction of every coding turn. The whole evidence log is replayed inside ONE user
+        /// message, so the model has to be told that it is the result of actions already executed.
+        /// Measured against Qwen3-Coder-30B-A3B: an unconditional "Large tool/file evidence ... Use
+        /// read_artifact ... instead of repeating ... guessing from a truncated preview" paragraph made the
+        /// model re-read the file it had just read (8/8 samples, never an edit), which the repeat guard then
+        /// steered and halted. The artifact paragraph is therefore emitted only when the replayed evidence
+        /// really names an artifact or was truncated, and the closing says explicitly not to repeat shown actions.
+        /// </summary>
+        public static string EvidenceClosing(System.Collections.Generic.IEnumerable<string> replayedEvidence)
+        {
+            bool artifactEvidence = false;
+            foreach (string item in replayedEvidence ?? System.Array.Empty<string>())
+            {
+                if (item != null
+                    && (item.Contains("artifactId", StringComparison.Ordinal)
+                        || item.Contains("[Middle omitted", StringComparison.Ordinal)))
+                {
+                    artifactEvidence = true;
+                    break;
+                }
+            }
+
+            string artifactNote = artifactEvidence
+                ? "\n\nSome evidence above is a truncated preview that names an artifactId: page the rest with read_artifact/search_artifact/list_artifacts instead of re-running a costly command."
+                : string.Empty;
+            return artifactNote
+                + "\n\nEverything above is the result of actions you already executed. Never repeat an action whose result is shown unless the workspace changed since; "
+                + "decide the next action from that evidence (once a defect is located, fix it with replace_range or write_file, then run the verification command). "
+                + "What is the next single JSON action?";
+        }
+
         public static string BuildSystemPrompt(
             string root,
             bool canDelegate,
