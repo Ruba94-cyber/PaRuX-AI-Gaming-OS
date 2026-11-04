@@ -49,7 +49,21 @@ internal sealed class MainWindowPage
     internal void EnableAdvanced() => Click("MainWindow_StudioMode_Toggle", ControlType.Button);
     internal void OpenSettings() => Click("Navigation_Settings_Item", ControlType.ListItem);
     internal void OpenProjects() => Click("Navigation_Projects_Item", ControlType.ListItem);
-    internal void OpenModelHub() => Click("Navigation_ModelHub_Item", ControlType.ListItem);
+    /// <summary>Opens the Model Hub on its "Chat models" tab. The hub itself opens on its Start board; the catalogue
+    /// tests work on the text-model sections, so the helper selects that tab the way a person would.</summary>
+    internal void OpenModelHub()
+    {
+        Click("Navigation_ModelHub_Item", ControlType.ListItem);
+        SelectModelHubTab("ModelHub_Tab_Text");
+    }
+
+    internal void SelectModelHubTab(string tabId)
+    {
+        AutomationElement? tab = null;
+        UiWait.For(() => (tab = _window.FindFirstDescendant(cf => cf.ByAutomationId(tabId))) != null, "Model Hub tab " + tabId);
+        if (tab!.Patterns.SelectionItem.PatternOrDefault != null) tab.Patterns.SelectionItem.Pattern.Select();
+        else tab.Click();
+    }
     internal void OpenTools() => Click("Navigation_Tools_Item", ControlType.ListItem);
     internal void OpenSettingsCategory(string categoryId) => Click(categoryId, ControlType.Button);
 

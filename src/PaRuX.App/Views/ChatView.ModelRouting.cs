@@ -144,6 +144,7 @@ namespace PaRuX.Views
                     models = new List<ManagedModelInfo>();
                 }
 
+                _chatModelCatalog = models;
                 ModelSelector.Items.Clear();
                 AddModelChoice("Auto · Balanced", "parux-auto:balanced");
                 AddModelChoice("Auto · Max intelligence", "parux-auto:max_intelligence");
@@ -219,6 +220,12 @@ namespace PaRuX.Views
                 string canonical = NormalizeSavedModelSelection(persisted.Selector);
                 SettingsStore.Current.Data.ChatModelSelection = canonical;
                 SettingsStore.Current.Save();
+                RefreshSimpleModeAnsweringModel();
+                ShowTransientStatus(canonical.StartsWith("parux-manual:", StringComparison.OrdinalIgnoreCase)
+                    ? (ChatItalian ? "Modello fissato: " : "Model locked: ") + ModelHubRowPresentation.CompactManualLabel(
+                        _chatModelCatalog.FirstOrDefault(m => string.Equals("parux-manual:" + m.FileName, canonical, StringComparison.OrdinalIgnoreCase))?.Alias,
+                        canonical.Substring("parux-manual:".Length))
+                    : (ChatItalian ? "Modello: Auto. PaRuX sceglie per te." : "Model: Auto. PaRuX picks for you."));
             }
             catch (Exception ex)
             {

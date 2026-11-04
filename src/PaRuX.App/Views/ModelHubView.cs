@@ -223,6 +223,8 @@ namespace PaRuX.Views
         public async void OnShownSearching(string repoId, string? quantizationHint = null)
         {
             if (string.IsNullOrWhiteSpace(repoId)) return;
+            // The results of a specific search live on "Chat models"; landing on the Start board would hide them.
+            ShowHubTab(ModelHubTab.Text);
 
 #if DEBUG
             if (string.Equals(Environment.GetEnvironmentVariable("PARUX_UI_TESTS"), "1", StringComparison.Ordinal)
@@ -265,7 +267,9 @@ namespace PaRuX.Views
             outer.Children.Add(new TextBlock { Text = "Model Hub", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             outer.Children.Add(new TextBlock
             {
-                Text = "Find a model that fits your PC. Explore details only when you need them.",
+                Text = StartItalian
+                    ? "Tutto ciò che PaRuX può fare sul tuo PC, cosa serve e dove trovare i modelli."
+                    : "Everything PaRuX can do on your PC, what it needs, and where to get models.",
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -880,6 +884,9 @@ namespace PaRuX.Views
                 _maintenanceUnavailable = maintenanceTask.Result == null;
                 RenderSuggestions();
                 RenderRecommended(recommendedTask.Result);
+                _startRecommended = recommendedTask.Result;
+                _startMediaStatuses = mediaTask.Result;
+                _startHubLoaded = true;
                 RenderDownloads(downloadsTask.Result);
                 RenderInstalled(installedTask.Result);
                 RenderIncompleteSplitSets(incompleteSetsTask.Result);
@@ -898,6 +905,7 @@ namespace PaRuX.Views
                     _status.Text += " · Candidate evaluation history unavailable; local state was preserved.";
                 UpdateDownloadPolling(downloadsTask.Result);
                 UpdateCandidateEvaluationPolling();
+                _ = RefreshStartAsync();
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)

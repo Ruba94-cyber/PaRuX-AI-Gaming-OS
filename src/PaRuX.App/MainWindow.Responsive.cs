@@ -34,6 +34,31 @@ namespace PaRuX
             UpdateContentStudioModeControlsVisibility(NavView.IsPaneOpen);
         }
 
+        /// <summary>
+        /// Shows or hides the whole navigation pane. Hiding also closes it: XAML starts the pane
+        /// open, and a pane that is open while <see cref="NavigationView.IsPaneVisible"/> is false
+        /// is left painted as a dark 280 px slab over the page (first launch: it covered the left
+        /// of the Welcome/setup screen and never went away). Showing it again re-applies the
+        /// width-based policy so an expanded window gets its pane back, a narrow one a rail.
+        /// </summary>
+        internal void SetNavPaneVisible(bool visible)
+        {
+            if (NavView == null) return;
+            _isProgrammaticPaneChange = true;
+            try
+            {
+                if (!visible && NavView.IsPaneOpen) NavView.IsPaneOpen = false;
+                if (NavView.IsPaneVisible != visible) NavView.IsPaneVisible = visible;
+            }
+            finally
+            {
+                _isProgrammaticPaneChange = false;
+            }
+
+            UpdateContentStudioModeControlsVisibility(NavView.IsPaneOpen);
+            if (visible && RootGrid != null) ApplyWindowResponsiveness(RootGrid.ActualWidth, RootGrid.ActualHeight);
+        }
+
         private void UpdateContentStudioModeControlsVisibility(bool isPaneOpen)
         {
             Visibility visibility = isPaneOpen ? Visibility.Collapsed : Visibility.Visible;
@@ -43,6 +68,21 @@ namespace PaRuX
         internal void ApplyWindowResponsiveness(double width, double height)
         {
             if (width <= 0 || height <= 0 || NavView == null) return;
+
+            // While the pane is hidden (first-run welcome screen) it must stay closed. Re-opening it
+            // here made WinUI paint the 288 px pane as an overlay slab over the welcome page on the
+            // very first SizeChanged; SetNavPaneVisible(true) re-runs this policy when it returns.
+            if (!NavView.IsPaneVisible)
+            {
+                if (NavView.IsPaneOpen)
+                {
+                    _isProgrammaticPaneChange = true;
+                    try { NavView.IsPaneOpen = false; }
+                    finally { _isProgrammaticPaneChange = false; }
+                }
+                UpdateContentStudioModeControlsVisibility(isPaneOpen: false);
+                return;
+            }
 
             var profile = WindowResponsivenessPolicy.Evaluate(width, height, NavView.IsPaneOpen);
             NavigationViewPaneDisplayMode displayMode = profile.RecommendedPaneDisplayMode switch

@@ -183,7 +183,9 @@ internal sealed class GamingHomeView : StackPanel
 
     private void BuildToolbar()
     {
-        _search.Header = T("Search your games", "Cerca nei tuoi giochi");
+        // Headers above every filter doubled the toolbar's height and repeated what the selected entry already says
+        // ("All sources", "All platforms"): the controls now carry their meaning in the entry itself, like Playnite's filter bar.
+        _search.PlaceholderText = T("Search your games", "Cerca nei tuoi giochi");
         Track(_search, "GameTitles_Search_TextBox", T("Search your games", "Cerca nei tuoi giochi"));
         // Debounce typing (including the TV keyboard); an older request cannot overwrite newer results.
         _search.TextChanged += async (_, _) =>
@@ -203,15 +205,13 @@ internal sealed class GamingHomeView : StackPanel
             }
         };
 
-        _sort.Header = T("Sort by", "Ordina per");
-        _sort.Items.Add(Choice(T("Name", "Nome"), GameTitleSorts.Name));
-        _sort.Items.Add(Choice(T("Recently played", "Giocati di recente"), GameTitleSorts.LastPlayed));
-        _sort.Items.Add(Choice(T("Play time", "Tempo di gioco"), GameTitleSorts.PlayTime));
-        _sort.Items.Add(Choice(T("Recently added", "Aggiunti di recente"), GameTitleSorts.RecentlyAdded));
+        _sort.Items.Add(Choice(T("Sort: Name", "Ordina: Nome"), GameTitleSorts.Name));
+        _sort.Items.Add(Choice(T("Sort: Recently played", "Ordina: Giocati di recente"), GameTitleSorts.LastPlayed));
+        _sort.Items.Add(Choice(T("Sort: Play time", "Ordina: Tempo di gioco"), GameTitleSorts.PlayTime));
+        _sort.Items.Add(Choice(T("Sort: Recently added", "Ordina: Aggiunti di recente"), GameTitleSorts.RecentlyAdded));
         _sort.SelectedIndex = 0;
         Track(_sort, "GameHome_Sort", T("Sort games by", "Ordina i giochi per"));
 
-        _source.Header = T("Source", "Origine");
         _source.Items.Add(Choice(T("All sources", "Tutte le origini"), ""));
         _source.Items.Add(Choice("Steam", GameInstallationSources.Steam));
         _source.Items.Add(Choice("Epic Games", GameInstallationSources.Epic));
@@ -221,17 +221,14 @@ internal sealed class GamingHomeView : StackPanel
         _source.SelectedIndex = 0;
         Track(_source, "GameHome_SourceFilter", T("Filter by source", "Filtra per origine"));
 
-        _platform.Header = T("Platform", "Piattaforma");
         Track(_platform, "GameHome_PlatformFilter", T("Filter by platform", "Filtra per piattaforma"));
 
-        _installed.Header = T("Install state", "Stato installazione");
-        _installed.Items.Add(Choice(T("All", "Tutti"), ""));
+        _installed.Items.Add(Choice(T("Installed or not", "Installati e non"), ""));
         _installed.Items.Add(Choice(T("Installed", "Installati"), "installed"));
         _installed.Items.Add(Choice(T("Not installed", "Non installati"), "notinstalled"));
         _installed.SelectedIndex = 0;
         Track(_installed, "GameHome_InstalledFilter", T("Filter by install state", "Filtra per stato di installazione"));
 
-        _tag.Header = T("Tag", "Tag");
         Track(_tag, "GameHome_TagFilter", T("Filter by tag", "Filtra per tag"));
         RebuildFilterChoices("", "");
 
@@ -243,7 +240,7 @@ internal sealed class GamingHomeView : StackPanel
                 await ReloadAsync();
             };
 
-        _collectionFilter.Header = T("Collection (exact name)", "Collezione (nome esatto)");
+        _collectionFilter.PlaceholderText = T("Collection (exact name)", "Collezione (nome esatto)");
         Track(_collectionFilter, "GameTitles_Collection_Filter", T("Filter by collection, exact name", "Filtra per collezione, nome esatto"));
         var collectionsKeyboard = ConsoleKeyboardFlyout.Create(_collectionFilter, T("Done", "Fine"), T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
         _collectionFilter.KeyDown += (_, e) =>
@@ -405,8 +402,8 @@ internal sealed class GamingHomeView : StackPanel
         AutomationProperties.SetAutomationId(_titleHeading, "GameHome_Heading");
         Children.Add(_titleHeading);
         _introDescription.Text = T(
-            "One tile per game. A game found in a store, as a portable copy or through an emulator is shown once, with a choice of how to start it.",
-            "Un riquadro per gioco. Un gioco trovato in uno store, come copia portable o tramite emulatore compare una sola volta, con la scelta di come avviarlo.");
+            "Every game once, however you start it: Steam, Epic, GOG, a local copy or an emulator.",
+            "Ogni gioco una sola volta, comunque lo avvii: Steam, Epic, GOG, copia locale o emulatore.");
         Children.Add(_introDescription);
 
         _continueHeading.Text = T("Continue", "Continua");

@@ -5,22 +5,39 @@ using PaRuX.Contracts;
 
 namespace PaRuX.Services;
 
-public enum ModelHubTab { Text, Media, Downloads }
+public enum ModelHubTab { Start, Text, Media, Downloads }
 
-/// <summary>Tab ids, labels and automation ids of the Model Hub selector bar. Pure.</summary>
+/// <summary>Tab ids, labels and automation ids of the Model Hub selector bar. Pure.
+/// "Start" is the home of the hub: one tile per capability (chat, images, video, voice, music, 3D) showing what is ready
+/// and what is still missing. The other tabs are the detailed catalogues behind it.</summary>
 public static class ModelHubTabs
 {
-    public static IReadOnlyList<ModelHubTab> All { get; } = new[] { ModelHubTab.Text, ModelHubTab.Media, ModelHubTab.Downloads };
+    public static IReadOnlyList<ModelHubTab> All { get; } =
+        new[] { ModelHubTab.Start, ModelHubTab.Text, ModelHubTab.Media, ModelHubTab.Downloads };
 
     public static string Label(ModelHubTab tab) => tab switch
     {
-        ModelHubTab.Media => "Media",
+        ModelHubTab.Start => "Start",
+        ModelHubTab.Media => "Image, video & audio",
         ModelHubTab.Downloads => "Downloads",
-        _ => "Text models"
+        _ => "Chat models"
     };
+
+    public static string Label(ModelHubTab tab, bool italian)
+    {
+        if (!italian) return Label(tab);
+        return tab switch
+        {
+            ModelHubTab.Start => "Start",
+            ModelHubTab.Media => "Immagini, video e audio",
+            ModelHubTab.Downloads => "Download",
+            _ => "Modelli di chat"
+        };
+    }
 
     public static string AutomationId(ModelHubTab tab) => tab switch
     {
+        ModelHubTab.Start => "ModelHub_Tab_Start",
         ModelHubTab.Media => "ModelHub_Tab_Media",
         ModelHubTab.Downloads => "ModelHub_Tab_Downloads",
         _ => "ModelHub_Tab_Text"
@@ -28,9 +45,11 @@ public static class ModelHubTabs
 
     public static ModelHubTab Parse(string? tag) => tag switch
     {
+        "Start" => ModelHubTab.Start,
         "Media" => ModelHubTab.Media,
         "Downloads" => ModelHubTab.Downloads,
-        _ => ModelHubTab.Text
+        "Text" => ModelHubTab.Text,
+        _ => ModelHubTab.Start
     };
 }
 

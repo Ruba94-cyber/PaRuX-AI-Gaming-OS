@@ -155,6 +155,8 @@ namespace PaRuX
                 {
                     ShowStudioWorkspace(StudioWorkspace.ModelHub);
                     ModelHubPage.OnShown();
+                    // The hub itself opens on its Start board; the fixture tests drive the text-model sections that live on Chat models.
+                    ModelHubPage.ShowChatModelsTab();
                 }
                 else
 #endif
@@ -749,7 +751,7 @@ namespace PaRuX
         public void ShowChat()
         {
             SyncModeTabToWorkspace(gaming: false);
-            NavView.IsPaneVisible = true;
+            SetNavPaneVisible(true);
             if (NavView.SelectedItem is NavigationViewItem selectedItem
                 && selectedItem.Tag is string selectedTag
                 && selectedTag.StartsWith("__", StringComparison.Ordinal)
@@ -774,7 +776,7 @@ namespace PaRuX
 
         public void ShowSettings()
         {
-            NavView.IsPaneVisible = true;
+            SetNavPaneVisible(true);
             SelectWorkspaceNavigationItem(SettingsNavItem);
             // Workspace pages are siblings in the shell Grid, not a Frame. Hide the previous
             // workspace before the Settings entrance animation starts; otherwise both visual
@@ -797,7 +799,7 @@ namespace PaRuX
         {
             if (OnboardingReturnBanner != null) OnboardingReturnBanner.IsOpen = false;
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
-            NavView.IsPaneVisible = false;
+            SetNavPaneVisible(false);
             ChatPage.Visibility = Visibility.Collapsed;
             SettingsPage.Visibility = Visibility.Collapsed;
             HideAllWorkspacePages();
@@ -811,7 +813,7 @@ namespace PaRuX
             _onboardingHandoffActive = false;
             if (OnboardingReturnBanner != null) OnboardingReturnBanner.IsOpen = false;
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
-            NavView.IsPaneVisible = true;
+            SetNavPaneVisible(true);
             ShowChat();
             // Queued rather than called inline: the tour points at sidebar controls, and they need
             // to be laid out on screen before a TeachingTip can position itself against them.

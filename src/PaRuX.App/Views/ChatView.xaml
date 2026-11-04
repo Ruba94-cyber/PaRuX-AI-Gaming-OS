@@ -689,26 +689,47 @@
                     Spacing="6"
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
-                    <Border
-                        x:Name="SimpleModeAnsweringModelBadge"
-                        Style="{StaticResource PaRuXQuietPillStyle}"
-                        VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon
-                                Glyph="&#xE99A;"
-                                FontSize="11"
-                                Foreground="{ThemeResource PaRuXSecondaryTextBrush}"
-                                VerticalAlignment="Center" />
-                            <TextBlock
-                                x:Name="SimpleModeAnsweringModelLabel"
-                                AutomationProperties.AutomationId="Chat_SimpleMode_AnsweringModel_Label"
-                                AutomationProperties.Name="Answering model"
-                                Text="Model: Auto"
-                                FontSize="{StaticResource PaRuXFontSizeMicro}"
-                                Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Border>
+                    <!-- The badge is also the model picker: click it to choose Auto or one of the installed models,
+                         or to go and get more. In Simple mode this is the only place the model can be chosen. -->
+                    <Button
+                        x:Name="SimpleModeModelPickerButton"
+                        AutomationProperties.AutomationId="Chat_SimpleMode_ModelPicker_Button"
+                        AutomationProperties.Name="Choose the chat model"
+                        AutomationProperties.HelpText="Choose Auto or an installed model, or get more models."
+                        Padding="0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        VerticalAlignment="Center"
+                        ToolTipService.ToolTip="Choose the chat model">
+                        <Border
+                            x:Name="SimpleModeAnsweringModelBadge"
+                            Style="{StaticResource PaRuXQuietPillStyle}"
+                            VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    Glyph="&#xE99A;"
+                                    FontSize="11"
+                                    Foreground="{ThemeResource PaRuXSecondaryTextBrush}"
+                                    VerticalAlignment="Center" />
+                                <TextBlock
+                                    x:Name="SimpleModeAnsweringModelLabel"
+                                    AutomationProperties.AutomationId="Chat_SimpleMode_AnsweringModel_Label"
+                                    AutomationProperties.Name="Answering model"
+                                    Text="Model: Auto"
+                                    FontSize="{StaticResource PaRuXFontSizeMicro}"
+                                    Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
+                                    VerticalAlignment="Center" />
+                                <FontIcon
+                                    Glyph="&#xE70D;"
+                                    FontSize="9"
+                                    Foreground="{ThemeResource PaRuXSecondaryTextBrush}"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <Button.Flyout>
+                            <MenuFlyout x:Name="SimpleModeModelMenu" Placement="TopEdgeAlignedLeft" Opening="SimpleModeModelMenu_Opening" />
+                        </Button.Flyout>
+                    </Button>
                     <Button
                         x:Name="SimpleModeRouteReasonButton"
                         AutomationProperties.AutomationId="Chat_SimpleMode_RouteReason_Button"

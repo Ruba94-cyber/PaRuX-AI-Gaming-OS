@@ -69,6 +69,13 @@ namespace PaRuX
             }
         }
 
+        /// <summary>Opens the Model Hub (on its Start tab) from anywhere, e.g. the chat model picker's "Get more models".</summary>
+        public void ShowModelHub()
+        {
+            ShowStudioWorkspace(StudioWorkspace.ModelHub);
+            ModelHubPage.OnShown();
+        }
+
         private void StudioModeToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_applyingNavigationMode || _synchronizingStudioModeToggles) return;
@@ -248,7 +255,7 @@ namespace PaRuX
             }
 
             SyncModeTabToWorkspace(gaming: workspace == StudioWorkspace.Games);
-            NavView.IsPaneVisible = true;
+            SetNavPaneVisible(true);
             ChatPage.Visibility = Visibility.Collapsed;
             SettingsPage.Visibility = Visibility.Collapsed;
             OnboardingPage.Visibility = Visibility.Collapsed;

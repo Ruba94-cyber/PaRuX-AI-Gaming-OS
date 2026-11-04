@@ -36,6 +36,23 @@ public sealed class AutoSetupCoverageTests
             Assert.True(start.Properties.IsEnabled.ValueOrDefault);
         });
 
+    /// <summary>Regression: on a normal first launch the (hidden) navigation pane was re-opened by the width policy and
+    /// painted as a dark 288 px slab over the left of the welcome page, clipping its text.</summary>
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Onboarding"), Trait("Category", "FlaUI")]
+    public void Onboarding_does_not_leave_the_side_pane_open_over_the_welcome_page() => Run(
+        nameof(Onboarding_does_not_leave_the_side_pane_open_over_the_welcome_page), app =>
+        {
+            AutomationElement card = UiWait.ById(app.MainWindow, "Onboarding_AutoSetup_Start_Button", ControlType.Button);
+            // Give the window time to receive its first size change, which is when the pane used to re-open.
+            System.Threading.Thread.Sleep(2500);
+
+            AutomationElement? pane = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PaneRoot"));
+            Assert.True(pane == null || pane.Properties.IsOffscreen.ValueOrDefault || pane.BoundingRectangle.Width < 4,
+                "the navigation pane must not be painted over the welcome page");
+            Assert.True(card.BoundingRectangle.Left > 0 && !card.Properties.IsOffscreen.ValueOrDefault,
+                "the primary setup action is on screen");
+        });
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "Onboarding"), Trait("Category", "FlaUI")]
     public void Onboarding_idle_state_hides_cancel_retry_skip_and_progress_but_keeps_the_manual_path() => Run(
         nameof(Onboarding_idle_state_hides_cancel_retry_skip_and_progress_but_keeps_the_manual_path), app =>

@@ -18,7 +18,7 @@ namespace PaRuX.Views
         private readonly Dictionary<ModelHubTab, UIElement> _tabPanels = new();
         private readonly Dictionary<ModelHubTab, SelectorBarItem> _tabItems = new();
         private SelectorBar? _tabBar;
-        private ModelHubTab _activeTab = ModelHubTab.Text;
+        private ModelHubTab _activeTab = ModelHubTab.Start;
 
         private readonly StackPanel _engines = new StackPanel { Spacing = 10 };
         private readonly Dictionary<string, MediaEngineHubCard> _engineCards = new(StringComparer.Ordinal);
@@ -40,7 +40,7 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_tabBar, "ModelHub_Tabs");
             foreach (ModelHubTab tab in ModelHubTabs.All)
             {
-                var item = new SelectorBarItem { Text = ModelHubTabs.Label(tab) };
+                var item = new SelectorBarItem { Text = ModelHubTabs.Label(tab, StartItalian) };
                 AutomationProperties.SetAutomationId(item, ModelHubTabs.AutomationId(tab));
                 _tabBar.Items.Add(item);
                 _tabItems[tab] = item;
@@ -53,6 +53,8 @@ namespace PaRuX.Views
             var downloadsPanel = new StackPanel { Spacing = 18 };
             downloadsPanel.Children.Add(_downloadsSection!);
 
+            UIElement startPanel = BuildStartPanel();
+            _tabPanels[ModelHubTab.Start] = startPanel;
             _tabPanels[ModelHubTab.Text] = textPanel;
             _tabPanels[ModelHubTab.Media] = mediaPanel;
             _tabPanels[ModelHubTab.Downloads] = downloadsPanel;
@@ -60,17 +62,21 @@ namespace PaRuX.Views
             outer.Children.Add(_tabBar);
             outer.Children.Add(_busy);
             outer.Children.Add(_status);
+            outer.Children.Add(startPanel);
             outer.Children.Add(textPanel);
             outer.Children.Add(mediaPanel);
             outer.Children.Add(downloadsPanel);
 
-            _tabBar.SelectedItem = _tabItems[ModelHubTab.Text];
+            // The technical one-line tally ("3 managed GGUF models · 354 candidates…") is for the catalogue tabs; the Start
+            // board says the same thing in plain words, so it is hidden there. Messages from actions still show.
+            _status.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => ApplyStatusVisibility());
+            _tabBar.SelectedItem = _tabItems[ModelHubTab.Start];
             _tabBar.SelectionChanged += (_, _) =>
             {
                 ModelHubTab selected = _tabItems.FirstOrDefault(p => ReferenceEquals(p.Value, _tabBar.SelectedItem)).Key;
                 SelectHubTab(selected);
             };
-            SelectHubTab(ModelHubTab.Text);
+            SelectHubTab(ModelHubTab.Start);
 
             foreach (MediaEngineDefinition engine in MediaEngineHubPresenter.Engines)
                 _engines.Children.Add(BuildEngineCardShell(engine));
@@ -84,6 +90,15 @@ namespace PaRuX.Views
                 pair.Value.Visibility = pair.Key == tab ? Visibility.Visible : Visibility.Collapsed;
             if (tab == ModelHubTab.Media) StartEnginePolling();
             else _enginePoll?.Stop();
+            if (tab == ModelHubTab.Start) _ = RefreshStartAsync();
+            else _startPoll?.Stop();
+            ApplyStatusVisibility();
+        }
+
+        private void ApplyStatusVisibility()
+        {
+            bool tally = _status.Text.Contains("GGUF model(s)", StringComparison.Ordinal);
+            _status.Visibility = _activeTab == ModelHubTab.Start && tally ? Visibility.Collapsed : Visibility.Visible;
         }
 
         // ---- Engines -------------------------------------------------------------------------------------------------

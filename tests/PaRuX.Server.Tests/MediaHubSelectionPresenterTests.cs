@@ -7,13 +7,14 @@ namespace PaRuX.Server.Tests;
 public sealed class MediaHubSelectionPresenterTests
 {
     [Fact]
-    public void Tabs_have_stable_automation_ids_and_default_to_text()
+    public void Tabs_have_stable_automation_ids_and_default_to_start()
     {
-        Assert.Equal(new[] { "ModelHub_Tab_Text", "ModelHub_Tab_Media", "ModelHub_Tab_Downloads" },
+        Assert.Equal(new[] { "ModelHub_Tab_Start", "ModelHub_Tab_Text", "ModelHub_Tab_Media", "ModelHub_Tab_Downloads" },
             ModelHubTabs.All.Select(ModelHubTabs.AutomationId));
-        Assert.Equal(new[] { "Text models", "Media", "Downloads" }, ModelHubTabs.All.Select(ModelHubTabs.Label));
-        Assert.Equal(ModelHubTab.Text, ModelHubTabs.Parse(null));
-        Assert.Equal(ModelHubTab.Text, ModelHubTabs.Parse("nonsense"));
+        Assert.Equal(new[] { "Start", "Chat models", "Image, video & audio", "Downloads" }, ModelHubTabs.All.Select(ModelHubTabs.Label));
+        Assert.Equal(ModelHubTab.Start, ModelHubTabs.Parse(null));
+        Assert.Equal(ModelHubTab.Start, ModelHubTabs.Parse("nonsense"));
+        Assert.Equal(ModelHubTab.Text, ModelHubTabs.Parse("Text"));
         Assert.Equal(ModelHubTab.Media, ModelHubTabs.Parse("Media"));
         Assert.Equal(ModelHubTab.Downloads, ModelHubTabs.Parse("Downloads"));
     }

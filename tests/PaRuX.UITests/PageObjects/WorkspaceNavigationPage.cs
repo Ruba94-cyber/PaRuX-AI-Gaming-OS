@@ -355,6 +355,16 @@ internal sealed class WorkspaceNavigationPage
         _window.SetForeground();
         AutomationElement item = UiWait.ById(_window, automationId, ControlType.ListItem);
         ActivateNavItem(item);
+        // The Model Hub opens on its Start board; these tests drive the text-model catalogue on the "Chat models" tab.
+        if (automationId == ModelHubDescriptor.Id) SelectModelHubChatModelsTab();
+    }
+
+    private void SelectModelHubChatModelsTab()
+    {
+        AutomationElement? tab = null;
+        UiWait.For(() => (tab = _window.FindFirstDescendant(cf => cf.ByAutomationId("ModelHub_Tab_Text"))) != null, "Model Hub Chat models tab");
+        if (tab!.Patterns.SelectionItem.PatternOrDefault != null) tab.Patterns.SelectionItem.Pattern.Select();
+        else tab.Click();
     }
 
     internal void NavigateToChat()

@@ -125,6 +125,7 @@ public sealed class ResponsiveLayoutCoverageTests
         try
         {
             NavigateToWorkspace(app, "Navigation_ModelHub_Item");
+            new PaRuX.UITests.PageObjects.MainWindowPage(app.MainWindow).SelectModelHubTab("ModelHub_Tab_Text");
 
             foreach (var (width, height, label) in TargetSizes)
             {
