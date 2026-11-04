@@ -96,4 +96,27 @@ public class CodingAgentEvidenceClosingTests
         Assert.Equal(2, recent.Count);
         Assert.Equal(string.Empty, memory);
     }
+
+    [Fact]
+    public void Repository_context_does_not_receive_observations_that_are_replayed_verbatim()
+    {
+        var log = new List<string> { "run_command exit 1", "read_file calc.py\ndef average(): ..." };
+        Assert.Null(CodingAgentPromptBuilder.ObservationsBeyondVerbatimTail(log, 12));
+
+        var many = new List<string>();
+        for (int i = 0; i < 15; i++) many.Add("obs" + i);
+        var older = CodingAgentPromptBuilder.ObservationsBeyondVerbatimTail(many, 12)!;
+        Assert.Equal(new[] { "obs0", "obs1", "obs2" }, older);
+    }
+
+    [Fact]
+    public void Service_never_passes_the_whole_log_as_prior_observations()
+    {
+        string? root = AppContext.BaseDirectory;
+        while (root != null && !File.Exists(Path.Combine(root, "src", "PaRuX.App", "Services", "CodingAgentService.cs")))
+            root = Path.GetDirectoryName(root);
+        string source = File.ReadAllText(Path.Combine(root!, "src", "PaRuX.App", "Services", "CodingAgentService.cs"));
+        Assert.DoesNotContain("priorObservations: log", source);
+        Assert.Contains("ObservationsBeyondVerbatimTail(log, MaxLogEntriesInPrompt)", source);
+    }
 }

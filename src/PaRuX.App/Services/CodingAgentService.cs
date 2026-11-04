@@ -389,7 +389,7 @@ namespace PaRuX.Services
                             + "Runtime Manager, or lower the coding reasoning effort; answers may come back empty.");
                     }
                     string compiledContext = await CodingContextCompiler
-                        .CompileAsync(root, task, ct, maxChars: repositoryCharacters, priorObservations: log)
+                        .CompileAsync(root, task, ct, maxChars: repositoryCharacters, priorObservations: CodingAgentPromptBuilder.ObservationsBeyondVerbatimTail(log, MaxLogEntriesInPrompt))
                         .ConfigureAwait(false);
                     string restoreHint = BuildRestoreHint(root, grantedCapabilities);
                     // Half the working-memory budget goes to durable task memory, half to the
@@ -474,7 +474,7 @@ namespace PaRuX.Services
                             contextBudget.ContextTokens, contextBudget.MaxCharacters,
                             task.Length, fixedPromptCharacters, recentEvidenceCharacters, generationReserve);
                         compiledContext = await CodingContextCompiler.CompileAsync(
-                            root, task, ct, maxChars: repositoryCharacters, priorObservations: log)
+                            root, task, ct, maxChars: repositoryCharacters, priorObservations: CodingAgentPromptBuilder.ObservationsBeyondVerbatimTail(log, MaxLogEntriesInPrompt))
                             .ConfigureAwait(false);
                         durableMemoryCharacters = recentEvidenceCharacters / 2;
                         durableMemory = await CodingTaskMemoryClient.Current
@@ -530,7 +530,7 @@ namespace PaRuX.Services
                             {
                                 compiledContext = await CodingContextCompiler.CompileAsync(
                                     root, task, ct, maxChars: reduced.RepositoryCharacters,
-                                    priorObservations: log).ConfigureAwait(false);
+                                    priorObservations: CodingAgentPromptBuilder.ObservationsBeyondVerbatimTail(log, MaxLogEntriesInPrompt)).ConfigureAwait(false);
                                 repositoryCharacters = reduced.RepositoryCharacters;
                             }
 

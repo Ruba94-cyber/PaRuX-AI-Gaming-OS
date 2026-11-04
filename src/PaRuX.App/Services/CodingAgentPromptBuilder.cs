@@ -138,6 +138,22 @@ namespace PaRuX.Services
         /// what is OLDER than the tail; when every observation still fits verbatim (possibly after giving the
         /// ledger's budget back to the tail) it only duplicates them, relabelled as "Active constraints".
         /// </summary>
+        /// <summary>
+        /// Observations offered to the repository-context compiler as "Prior agent observations". The newest
+        /// <paramref name="verbatimTail"/> entries are replayed verbatim in "Recent execution evidence", so
+        /// offering them again inside the repository context only duplicates them in a flattened, cut form.
+        /// Replaying the exact failing request (Qwen3-Coder-30B-A3B, 12 samples each) with that duplicate block
+        /// gave read_file calc.py 12/12; with only the block removed it gave replace_range 12/12.
+        /// </summary>
+        public static System.Collections.Generic.IReadOnlyList<string>? ObservationsBeyondVerbatimTail(
+            System.Collections.Generic.IReadOnlyList<string> log, int verbatimTail)
+        {
+            if (log == null || log.Count <= System.Math.Max(0, verbatimTail)) return null;
+            var older = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < log.Count - verbatimTail; i++) older.Add(log[i]);
+            return older;
+        }
+
         public static (System.Collections.Generic.IReadOnlyList<string> Recent, string DurableMemory) SelectEvidence(
             System.Collections.Generic.IReadOnlyList<string> log,
             int maxEntries,
