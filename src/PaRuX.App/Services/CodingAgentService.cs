@@ -618,7 +618,8 @@ namespace PaRuX.Services
                                 buffer.Append(fragment);
                             },
                             ct,
-                            modelSelection: "parux-role:coding").ConfigureAwait(false);
+                            modelSelection: "parux-role:coding",
+                            traceLabel: "step-" + step).ConfigureAwait(false);
                     }
                     catch (LocalAiException ex) when (
                         CodingAgentPromptBudgetPolicy.IsProviderContextOverflow(ex.Message))
@@ -676,7 +677,8 @@ namespace PaRuX.Services
                             structured = await StructuredChatClient.Current.StreamAsync(
                                 retryHistory, systemPrompt, "parux_coding_action", actionSchema,
                                 fragment => buffer.Append(fragment), ct,
-                                modelSelection: "parux-role:coding").ConfigureAwait(false);
+                                modelSelection: "parux-role:coding",
+                                traceLabel: "step-" + step + "-retry").ConfigureAwait(false);
                         }
                         catch (LocalAiException retryException) when (
                             CodingAgentPromptBudgetPolicy.IsProviderContextOverflow(retryException.Message))
@@ -764,6 +766,13 @@ namespace PaRuX.Services
                                 && protocolFailures == 1
                                 && rawResponse.Length == 0;
                         }
+                        // Say WHY the reply was unusable when the transport knows it: a reply cut off by the token
+                        // limit (reasoning ate the budget) or one that only carried reasoning_content is not the
+                        // model "choosing" an invalid action, and the model needs to be told to answer shorter.
+                        if (string.Equals(structured.FinishReason, "length", StringComparison.OrdinalIgnoreCase))
+                            validationError += " The reply was cut off at the output token limit (finish_reason=length); answer with the JSON action only, with no reasoning text, and keep file content short.";
+                        else if (structured.ReasoningOnly)
+                            validationError += " The reply carried only reasoning and no action JSON in the message content; put the JSON action in the message content.";
                         log.Add("Protocol correction required: " + validationError
                             + " Raw response: " + (rawResponse.Length == 0 ? "(empty)" : rawResponse)
                             + " " + correction);

@@ -13,7 +13,9 @@ namespace PaRuX.Services
 {
     public sealed record StructuredChatOutcome(
         bool? StructuredOutputApplied,
-        string? FallbackReason);
+        string? FallbackReason,
+        string? FinishReason = null,
+        bool ReasoningOnly = false);
 
     /// <summary>
     /// Small authenticated Chat client for internal desktop agents that need one schema-constrained
@@ -38,7 +40,8 @@ namespace PaRuX.Services
             string jsonSchema,
             Action<string>? onDelta,
             CancellationToken ct,
-            string? modelSelection = null)
+            string? modelSelection = null,
+            string? traceLabel = null)
         {
             if (string.IsNullOrWhiteSpace(schemaName)) throw new ArgumentException("Schema name is required.", nameof(schemaName));
             if (string.IsNullOrWhiteSpace(jsonSchema)) throw new ArgumentException("JSON Schema is required.", nameof(jsonSchema));
@@ -121,18 +124,26 @@ namespace PaRuX.Services
             };
             request.Headers.Add("X-PaRuX-Token", server.Token);
 
+            CodingModelCallTrace? trace = CodingModelCallTrace.TryCreate(traceLabel, new[] { server.Token });
+            trace?.WriteRequest(endpointPath, requestBody);
+            try
+            {
             using HttpResponseMessage response = await Http
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            trace?.SetStatus((int)response.StatusCode);
             if (!response.IsSuccessStatusCode)
             {
                 string body = string.Empty;
                 try { body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); } catch { }
+                trace?.SetError(body);
                 throw new LocalAiException(
                     "PaRuX Core rejected the structured request (HTTP " + (int)response.StatusCode + "). " + Trim(body, 500));
             }
 
             bool? applied = null;
             string? fallbackReason = null;
+            string? finishReason = null;
+            bool sawContent = false, sawReasoning = false;
             using Stream stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             using var reader = new StreamReader(stream, Encoding.UTF8);
             TimeSpan idleTimeout = TimeSpan.FromMinutes(3);
@@ -155,6 +166,7 @@ namespace PaRuX.Services
 
                 string data = line.Substring(5).Trim();
                 if (data.Length == 0) continue;
+                trace?.ObserveSseData(data);
                 if (data == "[DONE]") break;
 
                 if (TryReadStructuredEvent(data, out bool eventApplied, out string? eventFallback))
@@ -168,15 +180,26 @@ namespace PaRuX.Services
                     throw new LocalAiException("Structured local-model generation failed: " + error);
 
                 string? fragment = TryExtractContent(data);
-                if (!string.IsNullOrEmpty(fragment)) onDelta?.Invoke(fragment);
+                if (!string.IsNullOrEmpty(fragment)) { sawContent = true; onDelta?.Invoke(fragment); }
+                else if (!sawReasoning && HasReasoningDelta(data)) sawReasoning = true;
                 // Some local OpenAI-compatible streams have already delivered the terminal
                 // finish_reason but keep the HTTP/SSE connection open and never send [DONE].
                 // Treat the protocol's own terminal choice as completion so desktop agents do
                 // not remain marked running while every llama-server slot is actually idle.
-                if (StructuredChatStreamPolicy.TryReadFinishReason(data, out _)) break;
+                if (StructuredChatStreamPolicy.TryReadFinishReason(data, out string? finish)) { finishReason = finish; break; }
             }
 
-            return new StructuredChatOutcome(directRole ? true : applied, fallbackReason);
+            return new StructuredChatOutcome(directRole ? true : applied, fallbackReason, finishReason, sawReasoning && !sawContent);
+            }
+            catch (Exception ex)
+            {
+                trace?.SetError(ex.GetType().Name + ": " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                trace?.Complete();
+            }
         }
 
         private static string CurrentModelSelection()
@@ -235,6 +258,21 @@ namespace PaRuX.Services
             {
                 return false;
             }
+        }
+
+        private static bool HasReasoningDelta(string data)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(data);
+                return doc.RootElement.TryGetProperty("choices", out JsonElement choices)
+                    && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("delta", out JsonElement delta)
+                    && delta.TryGetProperty("reasoning_content", out JsonElement reasoning)
+                    && reasoning.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrEmpty(reasoning.GetString());
+            }
+            catch (JsonException) { return false; }
         }
 
         private static string? TryExtractContent(string data)

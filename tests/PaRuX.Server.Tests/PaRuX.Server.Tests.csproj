@@ -118,6 +118,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\ModelQuantSizeResolver.cs" Link="CodingAgent\ModelQuantSizeResolver.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingContextRemedyPolicy.cs" Link="CodingAgent\CodingContextRemedyPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentPromptBuilder.cs" Link="CodingAgent\CodingAgentPromptBuilder.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CodingModelCallTrace.cs" Link="CodingAgent\CodingModelCallTrace.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentMcpToolPolicy.cs" Link="CodingAgent\CodingAgentMcpToolPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentActionJsonRepair.cs" Link="CodingAgent\CodingAgentActionJsonRepair.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentActionJson.cs" Link="CodingAgent\CodingAgentActionJson.cs" />
