@@ -82,6 +82,18 @@ public sealed class VulkanDeviceSelectorTests
 public sealed class AgentContextWindowTests
 {
     [Theory]
+    [InlineData(65536, 8, 4, 65536)]  // a pinned 8 slots on 64k would leave 8k windows: 4 slots of 16k instead
+    [InlineData(65536, 2, 2, 65536)]
+    [InlineData(32768, 4, 2, 32768)]
+    [InlineData(8192, 4, 4, 32768)]   // below 16k the old floor logic stays (4 x 8192)
+    public void A_pinned_slot_count_never_cuts_a_large_context_into_windows_under_16k(int context, int slots, int expectedSlots, int expectedTotal)
+    {
+        var (total, resolved) = PaRuX.Server.RuntimeLaunchOptimizer.ResolveContextAndSlots(context, slots, false);
+        Assert.Equal(expectedSlots, resolved);
+        Assert.Equal(expectedTotal, total);
+    }
+
+    [Theory]
     [InlineData("coding", 8192, true)]
     [InlineData("long-context", 8192, true)]
     [InlineData("coding", 16384, false)]

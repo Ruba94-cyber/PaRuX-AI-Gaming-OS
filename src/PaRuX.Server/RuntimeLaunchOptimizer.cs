@@ -320,6 +320,9 @@ public static class RuntimeLaunchOptimizer
     /// </summary>
     internal const int MinimumUsablePerSlotContext = 8192;
 
+    /// <summary>Window each request should get when the total context allows it (see ResolveContextAndSlots).</summary>
+    internal const int PreferredPerSlotContext = 16384;
+
     /// <summary>
     /// How many slots llama.cpp picks for itself when ParallelSlots is left at 0 (auto). Measured
     /// on the iGPU reference machine: it chose 4. The number matters because --ctx-size is the
@@ -370,6 +373,10 @@ public static class RuntimeLaunchOptimizer
         // stored profile asking for 999 slots launched --parallel 8 against a --ctx-size sized for
         // 999 - the two disagreed by two orders of magnitude.
         int maxSlots = Math.Clamp(EffectiveSlots(parallelSlots), 1, MaximumParallelSlots);
+        // An agent's own prompt and tool list are about 13k tokens, so a total that could give every slot 16k is shared by fewer
+        // slots rather than cut into 8k windows (measured: opencode's 13,013-token request failed against 65536 / 8 slots).
+        if (parallelSlots > 0 && !contextIsPerRequest && contextSize >= PreferredPerSlotContext)
+            maxSlots = Math.Min(maxSlots, Math.Max(1, contextSize / PreferredPerSlotContext));
         long envelope = Math.Max((long)MinimumUsablePerSlotContext * maxSlots, Math.Max(0, contextSize));
 
         // An adaptive context is a resource envelope - a total llama.cpp may divide as it likes.
