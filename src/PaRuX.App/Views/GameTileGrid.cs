@@ -82,6 +82,10 @@ internal static class GameUi
         GameInstallationSources.Steam => "Steam",
         GameInstallationSources.Epic => "Epic Games",
         GameInstallationSources.Gog => "GOG",
+        GameInstallationSources.Ea => "EA app",
+        GameInstallationSources.BattleNet => "Battle.net",
+        GameInstallationSources.Ubisoft => "Ubisoft Connect",
+        GameInstallationSources.Xbox => "Xbox",
         GameInstallationSources.Emulator => string.IsNullOrWhiteSpace(i.EmulatorName)
             ? T("Emulator", "Emulatore")
             : T("Emulator · ", "Emulatore · ") + i.EmulatorName,

@@ -26,6 +26,8 @@ namespace PaRuX.Models
         public bool GameLibraryFavoritesOnly { get; set; }
         public string GameLibraryTag { get; set; } = string.Empty;
         public bool GameLibraryShowHidden { get; set; }
+        /// <summary>Additive: up to 12 named saved Gaming library filters (see <see cref="GameFilterPresets"/>). Older files load as empty.</summary>
+        public List<GameFilterPreset> GameLibraryPresets { get; set; } = new();
         public bool OnboardingCompleted { get; set; }
         /// <summary>What this PC is used for: "both" (also the value for every existing installation and when empty), "ai" or
         /// "gaming". Decides which services start and which workspaces show; changing it never deletes data. See

@@ -39,6 +39,9 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ToggleButton _favoritesOnly = new() { Content = "★" };
     private readonly ToggleButton _showHidden = new();
     private readonly ToggleButton _layout = new();
+    private readonly ComboBox _presets = new();
+    private readonly Button _presetSave = new();
+    private readonly Button _presetDelete = new();
     private readonly ToggleButton _metadata = new();
     private bool _metadataRunning;
     private readonly Button _steamGridDb = new();
@@ -112,7 +115,8 @@ internal sealed class GamingHomeView : StackPanel
     // ------------------------------------------------------------------ preferences
 
     private static readonly string[] SortKeys = { GameTitleSorts.Name, GameTitleSorts.LastPlayed, GameTitleSorts.PlayTime, GameTitleSorts.RecentlyAdded };
-    private static readonly string[] SourceKeys = { "", GameInstallationSources.Steam, GameInstallationSources.Epic, GameInstallationSources.Gog, GameInstallationSources.Manual, GameInstallationSources.Emulator };
+    private static readonly string[] SourceKeys = { "", GameInstallationSources.Steam, GameInstallationSources.Epic, GameInstallationSources.Gog, GameInstallationSources.Manual, GameInstallationSources.Emulator,
+        GameInstallationSources.Ea, GameInstallationSources.BattleNet, GameInstallationSources.Ubisoft, GameInstallationSources.Xbox };
 
     private void LoadPreferences()
     {
@@ -216,6 +220,10 @@ internal sealed class GamingHomeView : StackPanel
         _source.Items.Add(Choice("Steam", GameInstallationSources.Steam));
         _source.Items.Add(Choice("Epic Games", GameInstallationSources.Epic));
         _source.Items.Add(Choice("GOG", GameInstallationSources.Gog));
+        _source.Items.Add(Choice("EA app", GameInstallationSources.Ea));
+        _source.Items.Add(Choice("Battle.net", GameInstallationSources.BattleNet));
+        _source.Items.Add(Choice("Ubisoft Connect", GameInstallationSources.Ubisoft));
+        _source.Items.Add(Choice("Xbox", GameInstallationSources.Xbox));
         _source.Items.Add(Choice(T("Local on this PC", "Locale su questo PC"), GameInstallationSources.Manual));
         _source.Items.Add(Choice(T("Emulator", "Emulatore"), GameInstallationSources.Emulator));
         _source.SelectedIndex = 0;
@@ -271,6 +279,25 @@ internal sealed class GamingHomeView : StackPanel
             SwapGrid(_layout.IsChecked == true ? GameTileGrid.Presentation.List : GameTileGrid.Presentation.Grid);
         };
 
+        // Named saved filters (search + sort + filters), kept in the desktop settings.
+        Track(_presets, "GameHome_Presets", T("Saved filters", "Filtri salvati"));
+        _presetSave.Content = T("Save filter...", "Salva filtro...");
+        Track(_presetSave, "GameHome_PresetSave", T("Save the current search and filters under a name", "Salva ricerca e filtri correnti con un nome"));
+        _presetSave.Click += async (_, _) => await SavePresetAsync();
+        _presetDelete.Content = T("Delete filter", "Elimina filtro");
+        Track(_presetDelete, "GameHome_PresetDelete", T("Delete the selected saved filter", "Elimina il filtro salvato selezionato"));
+        _presetDelete.Click += (_, _) => DeleteSelectedPreset();
+        _presets.SelectionChanged += async (_, _) =>
+        {
+            if (_applying) return;
+            string name = TagOf(_presets) ?? "";
+            _presetDelete.IsEnabled = name.Length > 0;
+            GameFilterPreset? preset = SettingsStore.Current.Data.GameLibraryPresets?
+                .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));
+            if (preset is not null) await ApplyPresetAsync(preset);
+        };
+        RebuildPresetChoices(null);
+
         _selectMode.Content = T("Select several", "Selezione multipla");
         Track(_selectMode, "GameHome_SelectMode", T("Select several games", "Seleziona più giochi"));
         _selectMode.Click += (_, _) =>
@@ -299,11 +326,118 @@ internal sealed class GamingHomeView : StackPanel
 
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
-                   _favoritesOnly, _showHidden, _layout, _metadata, _steamGridDb, _selectMode, _refresh })
+                   _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
+                   _metadata, _steamGridDb, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+    }
+
+    private void RebuildPresetChoices(string? select)
+    {
+        bool previous = _applying;
+        _applying = true;
+        try
+        {
+            _presets.Items.Clear();
+            _presets.Items.Add(Choice(T("Saved filters", "Filtri salvati"), ""));
+            foreach (GameFilterPreset p in GameFilterPresets.Sanitize(SettingsStore.Current.Data.GameLibraryPresets))
+                _presets.Items.Add(Choice(p.Name, p.Name));
+            SelectByTag(_presets, select ?? "");
+            _presetDelete.IsEnabled = !string.IsNullOrEmpty(TagOf(_presets));
+        }
+        finally { _applying = previous; }
+    }
+
+    private GameFilterPreset CurrentPreset(string name) => new()
+    {
+        Name = name,
+        Text = _search.Text,
+        Sort = TagOf(_sort) ?? "",
+        Source = TagOf(_source) ?? "",
+        Platform = TagOf(_platform) ?? "",
+        Installed = TagOf(_installed) ?? "",
+        FavoritesOnly = _favoritesOnly.IsChecked == true,
+        Tag = TagOf(_tag) ?? "",
+        Collection = _collectionFilter.Text,
+        ShowHidden = _showHidden.IsChecked == true,
+    };
+
+    private async Task SavePresetAsync()
+    {
+        var name = new TextBox { MaxLength = GameFilterPresets.MaxNameLength, PlaceholderText = T("Name of this filter", "Nome di questo filtro") };
+        AutomationProperties.SetAutomationId(name, "GameHome_PresetName");
+        AutomationProperties.SetName(name, T("Name of the saved filter", "Nome del filtro salvato"));
+        var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        AutomationProperties.SetAutomationId(error, "GameHome_PresetError");
+        AutomationProperties.SetLiveSetting(error, AutomationLiveSetting.Assertive);
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = T("Saves the search, sort and filters now shown. Saving under an existing name replaces it. Up to 12 filters.",
+                "Salva ricerca, ordinamento e filtri attualmente mostrati. Salvare con un nome esistente lo sostituisce. Fino a 12 filtri.")
+        });
+        panel.Children.Add(name);
+        panel.Children.Add(error);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("Save filter", "Salva filtro"),
+            Content = panel,
+            PrimaryButtonText = T("Save", "Salva"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Primary
+        };
+        List<GameFilterPreset>? updated = null;
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            updated = GameFilterPresets.Upsert(SettingsStore.Current.Data.GameLibraryPresets, CurrentPreset(name.Text));
+            if (updated is null)
+            {
+                args.Cancel = true;
+                error.Text = T("Enter a name (up to 40 characters). If you already have 12 filters, delete one or reuse a name.",
+                    "Inserisci un nome (massimo 40 caratteri). Se hai già 12 filtri, eliminane uno o riusa un nome.");
+                error.Visibility = Visibility.Visible;
+            }
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || updated is null) return;
+        SettingsStore.Current.Data.GameLibraryPresets = updated;
+        SettingsStore.Current.Save();
+        RebuildPresetChoices(GameFilterPresets.Normalize(CurrentPreset(name.Text))?.Name);
+    }
+
+    private void DeleteSelectedPreset()
+    {
+        string selected = TagOf(_presets) ?? "";
+        if (selected.Length == 0) return;
+        SettingsStore.Current.Data.GameLibraryPresets = GameFilterPresets.Remove(SettingsStore.Current.Data.GameLibraryPresets, selected);
+        SettingsStore.Current.Save();
+        RebuildPresetChoices(null);
+    }
+
+    private async Task ApplyPresetAsync(GameFilterPreset preset)
+    {
+        ++_searchEditGeneration;
+        _applying = true;
+        try
+        {
+            _search.Text = preset.Text;
+            SelectByTag(_sort, SortKeys.Contains(preset.Sort) ? preset.Sort : GameTitleSorts.Name);
+            SelectByTag(_source, SourceKeys.Contains(preset.Source) ? preset.Source : "");
+            if (!string.IsNullOrWhiteSpace(preset.Platform)) _knownPlatforms.Add(preset.Platform);
+            if (!string.IsNullOrWhiteSpace(preset.Tag)) _knownTags.Add(preset.Tag);
+            RebuildFilterChoices(preset.Platform, preset.Tag);
+            SelectByTag(_installed, preset.Installed);
+            _collectionFilter.Text = preset.Collection;
+            _favoritesOnly.IsChecked = preset.FavoritesOnly;
+            _showHidden.IsChecked = preset.ShowHidden;
+        }
+        finally { _applying = false; }
+        ++_searchEditGeneration;
+        SavePreferences();
+        await ReloadAsync();
     }
 
     private void UpdateLayoutLabel()
