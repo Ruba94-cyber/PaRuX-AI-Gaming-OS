@@ -29,7 +29,7 @@ public sealed class WorkspaceNavigationLayoutContractTests
         Assert.Equal("WorkspaceSectionHeader", (string?)workspaceHeader.Attribute(x + "Name"));
         string[] requiredNames =
         {
-            "ChatNavItem", "CreateNavItem", "ProjectsNavItem", "GameLibraryNavItem", "ModelHubNavItem", "ModelRoutingNavItem",
+            "ChatNavItem", "CreateNavItem", "ProjectsNavItem", "GameLibraryNavItem", "DocumentSearchNavItem", "ModelHubNavItem", "ModelRoutingNavItem",
             "LifecycleNavItem", "WorkflowNavItem", "ToolsNavItem", "ObservabilityNavItem",
             "UpdatesNavItem", "RuntimeNavItem", "SettingsNavItem", "HelpNavItem"
         };

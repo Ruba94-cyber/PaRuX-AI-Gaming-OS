@@ -13,7 +13,8 @@ namespace PaRuX.Services
         string DisplayName,
         bool IsAdvancedOnly,
         bool IsHome = false,
-        bool IsGamingOnly = false);
+        bool IsGamingOnly = false,
+        bool IsCorporateOnly = false);
 
     /// <summary>
     /// Pure policy defining the canonical ordered list of workspace entries,
@@ -30,6 +31,9 @@ namespace PaRuX.Services
         // active: the AI tab hides it and the Gaming tab hides every AI workspace.
         public const string GameLibraryAutomationId = "Navigation_GameLibrary_Item";
         public const string GamesWorkspaceTag = "__games__";
+        // Corporate Lite edition only (PARUX_CORPORATE): hidden everywhere else.
+        public const string DocumentSearchAutomationId = "Navigation_DocumentSearch_Item";
+        public const string DocumentSearchWorkspaceTag = "__documents__";
         public const string ModelHubAutomationId = "Navigation_ModelHub_Item";
         public const string ModelRoutingAutomationId = "Navigation_ModelRouting_Item";
         public const string LifecycleAutomationId = "Navigation_Lifecycle_Item";
@@ -47,6 +51,7 @@ namespace PaRuX.Services
             new(CreateAutomationId, ChatHomeNavigationPolicy.CreateWorkspaceTag, "Create", IsAdvancedOnly: false),
             new(ProjectsAutomationId, ChatHomeNavigationPolicy.ProjectsWorkspaceTag, "Projects", IsAdvancedOnly: false),
             new(GameLibraryAutomationId, GamesWorkspaceTag, "Games", IsAdvancedOnly: false, IsGamingOnly: true),
+            new(DocumentSearchAutomationId, DocumentSearchWorkspaceTag, "Document search", IsAdvancedOnly: false, IsCorporateOnly: true),
             new(ModelHubAutomationId, ChatHomeNavigationPolicy.ModelHubWorkspaceTag, "Model Hub", IsAdvancedOnly: false),
             new(ModelRoutingAutomationId, ChatHomeNavigationPolicy.ModelRoutingWorkspaceTag, "Model Intelligence", IsAdvancedOnly: true),
             new(LifecycleAutomationId, ChatHomeNavigationPolicy.LifecycleWorkspaceTag, "Lifecycle Lab", IsAdvancedOnly: true),
@@ -77,10 +82,11 @@ namespace PaRuX.Services
         /// </summary>
         public static IReadOnlyList<WorkspaceNavigationEntry> GetEntries(bool isAdvancedMode, bool isGamingMode = false)
         {
+            bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
             return AllEntries
-                .Where(e => isGamingMode
+                .Where(e => (corporate || !e.IsCorporateOnly) && (isGamingMode
                     ? e.IsGamingOnly || IsSharedAcrossModes(e)
-                    : !e.IsGamingOnly && (isAdvancedMode || !e.IsAdvancedOnly))
+                    : !e.IsGamingOnly && (isAdvancedMode || !e.IsAdvancedOnly)))
                 .ToList()
                 .AsReadOnly();
         }
