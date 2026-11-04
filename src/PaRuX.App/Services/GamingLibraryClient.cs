@@ -105,7 +105,7 @@ namespace PaRuX.Services
 
     /// <summary>
     /// Optional local cover images. The user picks an image file; only a validated copy (png, jpg or webp, size capped,
-    /// checked by file signature, never fetched from the network) is stored under the PaRuX data folder with a name
+    /// checked by file signature; the file is either chosen by the user or, only after the opt-in "Covers & info", downloaded from the Steam or Wikipedia CDN by GameMetadataService) is stored under the PaRuX data folder with a name
     /// derived from the content hash. A small index maps title keys to those names. The original file is never modified.
     /// </summary>
     public static class GameCoverStore

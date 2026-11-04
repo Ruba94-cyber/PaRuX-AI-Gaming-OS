@@ -39,6 +39,8 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ToggleButton _favoritesOnly = new() { Content = "★" };
     private readonly ToggleButton _showHidden = new();
     private readonly ToggleButton _layout = new();
+    private readonly ToggleButton _metadata = new();
+    private bool _metadataRunning;
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
@@ -282,13 +284,18 @@ internal sealed class GamingHomeView : StackPanel
             UpdateBulkBar();
         };
 
+        _metadata.Content = T("Covers & info", "Copertine e info");
+        Track(_metadata, "GameHome_Metadata_Toggle", T("Look up covers and descriptions online", "Cerca copertine e descrizioni online"));
+        _metadata.IsChecked = SettingsStore.Current.Data.GameMetadataEnabled;
+        _metadata.Click += async (_, _) => await OnMetadataToggledAsync();
+
         _refresh.Content = T("Refresh", "Aggiorna");
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
 
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
-                   _favoritesOnly, _showHidden, _layout, _selectMode, _refresh })
+                   _favoritesOnly, _showHidden, _layout, _metadata, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -608,6 +615,50 @@ internal sealed class GamingHomeView : StackPanel
         _search.Focus(FocusState.Programmatic);
     }
 
+    /// <summary>Turning the option on needs an explicit consent (game names leave the PC); turning it off is immediate.</summary>
+    private async Task OnMetadataToggledAsync()
+    {
+        AppSettings data = SettingsStore.Current.Data;
+        if (_metadata.IsChecked == true)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Look up covers and info online?", "Cercare copertine e info online?"),
+                Content = T(GameMetadataService.ConsentText,
+                    "Copertine e info cercano i tuoi giochi per nome sullo store pubblico di Steam e su Wikipedia. I nomi dei giochi vengono inviati a questi servizi; non vengono inviati account, chiavi, tempo di gioco né percorsi dei file. Non viene contattato nulla mentre l'opzione è spenta o mentre un gioco è in esecuzione. Una copertina scelta da te non viene mai sostituita."),
+                PrimaryButtonText = T("Turn on", "Attiva"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) { _metadata.IsChecked = false; return; }
+            data.GameMetadataEnabled = true;
+            SettingsStore.Current.Save();
+            await RunMetadataAsync();
+        }
+        else
+        {
+            data.GameMetadataEnabled = false;
+            SettingsStore.Current.Save();
+        }
+    }
+
+    private async Task RunMetadataAsync()
+    {
+        if (_metadataRunning || _titles.Count == 0) return;
+        _metadataRunning = true;
+        try
+        {
+            var snapshot = _titles.ToList();
+            int found = await GameMetadataService.FetchMissingAsync(snapshot,
+                async token => (await GamingOrchestratorClient.Current.GetStatusAsync(token))?.IsGamingActive == true,
+                CancellationToken.None);
+            if (found > 0) await ReloadAsync();
+        }
+        catch (Exception) { /* offline or cancelled: covers simply stay as they are */ }
+        finally { _metadataRunning = false; }
+    }
+
     internal async Task ReloadAsync(bool refresh = false)
     {
         int generation = ++_generation;
@@ -639,6 +690,7 @@ internal sealed class GamingHomeView : StackPanel
             _selected.IntersectWith(_titles.Select(t => t.TitleKey));
             if (_openKey is not null && _detail.Current is null) _openKey = null;
             RenderLibrary();
+            if (SettingsStore.Current.Data.GameMetadataEnabled && !_metadataRunning) _ = RunMetadataAsync();
             await LoadContinueAsync(cancellation.Token, generation);
         }
         catch (OperationCanceledException) { /* Superseded by a newer search or filter. */ }

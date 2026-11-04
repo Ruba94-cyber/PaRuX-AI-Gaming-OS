@@ -126,6 +126,33 @@ internal sealed class GameDetailPanel : UserControl
         return block;
     }
 
+    /// <summary>Description, genres and developer from the optional online lookup (Steam store or Wikipedia), if it ran.</summary>
+    private void AddCatalogueInfo(GameTitleDto title)
+    {
+        GameInfoDto? info = GameMetadataService.TryGetInfo(title.TitleKey);
+        if (info is null) return;
+        var facts = new List<string>();
+        if (info.Genres.Count > 0) facts.Add(string.Join(", ", info.Genres));
+        if (!string.IsNullOrWhiteSpace(info.Developer)) facts.Add(info.Developer);
+        if (!string.IsNullOrWhiteSpace(info.Released)) facts.Add(info.Released);
+        if (facts.Count > 0)
+        {
+            TextBlock line = Label(string.Join("  ·  ", facts), Small, secondary: true);
+            AutomationProperties.SetAutomationId(line, "GameDetail_Info_Facts");
+            _body.Children.Add(line);
+        }
+        if (!string.IsNullOrWhiteSpace(info.Description))
+        {
+            TextBlock description = Label(info.Description, Body);
+            AutomationProperties.SetAutomationId(description, "GameDetail_Info_Description");
+            _body.Children.Add(description);
+        }
+        string source = info.Source == GameMetadataParsing.SourceSteam ? "Steam" : "Wikipedia";
+        TextBlock credit = Label(T("Source: ", "Fonte: ") + source, Small, secondary: true);
+        AutomationProperties.SetAutomationId(credit, "GameDetail_Info_Source");
+        _body.Children.Add(credit);
+    }
+
     /// <summary>Shows (or re-shows) a title. Safe to call again; a newer call supersedes the pending entry lookup.</summary>
     internal async Task ShowAsync(GameTitleDto title)
     {
@@ -164,6 +191,7 @@ internal sealed class GameDetailPanel : UserControl
         Grid.SetColumn(close, 2);
         header.Children.Add(close);
         _body.Children.Add(header);
+        AddCatalogueInfo(title);
 
         // play + start-with
         _play = new Button
