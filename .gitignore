@@ -69,3 +69,6 @@ TestResults/
 # Unsloth writes its compiled-kernel cache next to whatever CWD a training/benchmark run used.
 unsloth_compiled_cache/
 bench-results/
+
+# Maintainer-private company-term deny-list for tools/check-public-safety.ps1 (never commit)
+tools/public-safety-denylist.local.txt

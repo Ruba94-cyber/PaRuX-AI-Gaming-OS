@@ -1,5 +1,17 @@
 # Changelog
 
+### 2026-11-04 — First-run pane fix, Model Hub Start board, chat model picker, setup profiles, portable ZIP script
+
+- **First launch:** the hidden navigation pane is no longer re-opened by the width policy, which painted it as a dark overlay slab over the welcome page. `SetNavPaneVisible()` closes the pane when hiding it; showing it re-applies the policy. FlaUI regression added. **VERIFIED ON WINDOWS** (reproduced on the installed 3.0.0, fixed in the build).
+- **Model Hub → Start board (default tab):** one tile per capability (chat, images, image editing, video, voice, music, 3D) with engine step + model step, plain status and exactly one next action (engine install behind a size/licence confirmation, consent-gated model download, activation, or browse). Tiles refresh independently (the 3D engine check takes ~14 s). Tabs renamed Start / Chat models / Image, video & audio / Downloads (IT localized). Pure presenter with xUnit coverage. **VERIFIED ON WINDOWS** (real app: 5/7 ready); fresh-PC "engine missing" tiles are **UNIT-TESTED ONLY**.
+- **Chat model picker (Simple mode):** the "Model: Auto" badge opens a menu (Auto, installed models with sizes = manual lock, "Get more models…"). Uses the existing selector/Core persistence. **VERIFIED ON WINDOWS.**
+- **Games library:** compact toolbar (no duplicate filter headers), shorter intro. The Playnite/Hydra-style hero and side filters are **NOT DONE**.
+- **Setup profiles (AI only / Gaming only / Both):** additive `SetupProfileId` setting (empty = Both, so existing installs are unchanged), pure `SetupProfilePolicy` (xUnit-tested), and the app start-up now starts only the services the profile needs. **SOURCE IMPLEMENTED / PARTIAL:** the onboarding choice and the Settings switch are not built yet, so the profile can only be set in the settings file for now.
+- **Portable ZIP:** `scripts/build-portable.ps1` (same product, no models/indexes/tokens; personal-profile launcher + `PARUX_DATA_ROOT` launcher; ZIP verification; optional smoke start). **SOURCE IMPLEMENTED / NOT RUN.**
+- **Public-repo guard:** `tools/check-public-safety.ps1` (document/binary types outside `Synthetic/`, keys, tokens, personal paths, local-only deny-list); self-test 9/9. **AUTO-TESTED.**
+- **Release 3.0.0:** the signed Android APK + provenance were attached to the GitHub release (apksigner-verified, hash matches). Physical-phone pairing is **NEEDS PHYSICAL HW**.
+- Plan sections XLVI–XLVIII added (UX slice, Local Knowledge & Search, universal setup/portable/Gaming/performance scope).
+
 ### 2026-11-01 — Shared official-store identifier admission (source only)
 
 - Replaced three repeated Steam/GOG/Epic ID-validation rules with a first-party Contracts policy shared by the Core and Games/Console UI. Unsupported identifiers remain discoverable but no longer create unusable or unsafe launch buttons.
