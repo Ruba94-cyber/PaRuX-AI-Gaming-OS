@@ -72,11 +72,13 @@ public interface IDocumentExtractor
 public static class StructuredDocumentExtractor
 {
     private static readonly IDocumentExtractor[] Extractors =
-    {
+    [
         new PdfExtractor(), new WordExtractor(), new PresentationExtractor(), new OpenXmlSpreadsheetExtractor(),
         new LegacyWorkbookExtractor(),
-        new DbcExtractor(), new ArxmlExtractor(), new OdxExtractor(), new CddExtractor(), new A2lExtractor(), new TextFileExtractor()
-    };
+        // Specific structured formats first, then the generic ones, then sniffed text.
+        new DbcExtractor(), new ArxmlExtractor(), new OdxExtractor(), new CddExtractor(), new A2lExtractor(),
+        .. GenericExtractors.All, new TextFileExtractor()
+    ];
 
     public static IReadOnlyList<IDocumentExtractor> Registered => Extractors;
 
