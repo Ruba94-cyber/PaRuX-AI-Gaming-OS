@@ -133,9 +133,17 @@ public sealed class ManualGameSessionService : IDisposable
                     // The UAC prompt waits for the user; bound it so AI recovery is never held hostage by an unanswered prompt.
                     Process elevated = process;
                     bool elevatedStarted;
-                    try { elevatedStarted = await Task.Run(() => elevated.Start(), ct).WaitAsync(TimeSpan.FromSeconds(120), ct).ConfigureAwait(false); }
+                    Task<bool> startTask = Task.Run(() => elevated.Start());
+                    try { elevatedStarted = await startTask.WaitAsync(TimeSpan.FromSeconds(120), ct).ConfigureAwait(false); }
                     catch (TimeoutException)
                     {
+                        // Windows keeps the UAC prompt open. If the user approves it later, the game starts into an AI session:
+                        // set the AI aside again so the state matches what is really running.
+                        _ = startTask.ContinueWith(async t =>
+                        {
+                            if (t.IsCompletedSuccessfully && t.Result)
+                                try { await _orchestrator.EnterGamingSessionAsync(null, CancellationToken.None).ConfigureAwait(false); } catch { }
+                        }, TaskScheduler.Default);
                         throw new InvalidOperationException("Windows is still waiting for administrator approval of this game.");
                     }
                     if (!elevatedStarted)
@@ -499,15 +507,27 @@ public sealed class ManualGameSessionService : IDisposable
         try
         {
             string path = Path.GetFullPath(game.ExecutablePath);
-            using Process? started = Process.Start(new ProcessStartInfo
+            string workingDirectory = string.IsNullOrEmpty(game.WorkingDirectory) ? Path.GetDirectoryName(path)! : game.WorkingDirectory;
+            Process? started;
+            try
             {
-                FileName = path,
-                WorkingDirectory = string.IsNullOrEmpty(game.WorkingDirectory) ? Path.GetDirectoryName(path)! : game.WorkingDirectory,
-                Arguments = game.Arguments ?? string.Empty,
-                UseShellExecute = false
-            });
+                started = Process.Start(new ProcessStartInfo
+                {
+                    FileName = path, WorkingDirectory = workingDirectory, Arguments = game.Arguments ?? string.Empty, UseShellExecute = false
+                });
+            }
+            catch (System.ComponentModel.Win32Exception elevation) when (elevation.NativeErrorCode == ErrorElevationRequired)
+            {
+                // Same rule as for games: Windows' UAC prompt is the consent step for a program that demands administrator rights.
+                started = Process.Start(new ProcessStartInfo
+                {
+                    FileName = path, WorkingDirectory = workingDirectory, Arguments = game.Arguments ?? string.Empty,
+                    UseShellExecute = true, Verb = "runas"
+                });
+            }
+            using Process? owned = started;
             // The handle is released without touching the process: PaRuX does not own or monitor applications.
-            return started is null
+            return owned is null
                 ? new(false, false, "Windows did not start the application.")
                 : new ManualGameLaunchResult(true, false, "Application started. PaRuX does not monitor it or change AI state.")
                     { StartState = GameStartStates.ProcessStarted };
@@ -519,13 +539,37 @@ public sealed class ManualGameSessionService : IDisposable
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+    private static extern bool QueryFullProcessImageName(IntPtr process, int flags, System.Text.StringBuilder name, ref int size);
+
+    /// <summary>Executable path of a process. MainModule needs VM-read rights that Windows refuses for an elevated game; the
+    /// limited-query right below is allowed across integrity levels, so elevated games can be verified and monitored too.</summary>
+    internal static string? ImagePathOf(Process process)
+    {
+        IntPtr handle = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, process.Id);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            var name = new System.Text.StringBuilder(1024);
+            int size = name.Capacity;
+            return QueryFullProcessImageName(handle, 0, name, ref size) ? name.ToString(0, size) : null;
+        }
+        finally { CloseHandle(handle); }
+    }
+
     internal static bool VerifyOwnedProcess(Process process, string expectedPath)
     {
         try
         {
             return process.Id > 0 && process.StartTime != default &&
                 !process.HasExited &&
-                string.Equals(Path.GetFullPath(process.MainModule?.FileName ?? string.Empty),
+                string.Equals(Path.GetFullPath(ImagePathOf(process) ?? string.Empty),
                     Path.GetFullPath(expectedPath), StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }

@@ -1,4 +1,4 @@
-using PaRuX.Contracts;
+﻿using PaRuX.Contracts;
 using Xunit;
 
 namespace PaRuX.Server.Tests;
@@ -78,6 +78,8 @@ public sealed class GameMetadataParsingTests
     [InlineData("http://upload.wikimedia.org/a.png", false)]
     [InlineData("https://evil.example.com/a.png", false)]
     [InlineData("https://user:pw@upload.wikimedia.org/a.png", false)]
+    [InlineData("https://attacker.akamaihd.net/a.png", false)]
+    [InlineData("https://steamcdn-a.akamaihd.net/steam/apps/1/header.jpg", true)]
     [InlineData("file:///C:/secret.png", false)]
     public void Image_urls_are_limited_to_the_catalogue_cdns(string url, bool allowed) =>
         Assert.Equal(allowed, GameMetadataParsing.IsAllowedImageUrl(url));

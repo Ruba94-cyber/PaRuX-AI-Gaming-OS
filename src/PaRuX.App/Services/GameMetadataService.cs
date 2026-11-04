@@ -36,6 +36,8 @@ namespace PaRuX.Services
             return client;
         }
 
+        private static readonly object FileGate = new();
+
         private static string InfoFolder => Path.Combine(AppPaths.PaRuXRoot, "game-info");
 
         private static string InfoPath(string titleKey) =>
@@ -47,9 +49,12 @@ namespace PaRuX.Services
             try
             {
                 string path = InfoPath(titleKey);
-                if (!File.Exists(path)) return null;
-                GameInfoDto? info = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
-                return info is { Name.Length: > 0 } ? info : null;
+                lock (FileGate)
+                {
+                    if (!File.Exists(path)) return null;
+                    GameInfoDto? info = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
+                    return info is { Name.Length: > 0 } ? info : null;
+                }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
         }
@@ -59,11 +64,15 @@ namespace PaRuX.Services
             try
             {
                 string path = InfoPath(titleKey);
-                if (!File.Exists(path)) return true;
-                GameInfoDto? stored = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
-                if (stored is { Name.Length: > 0 })
-                    return stored.CoverUrl is not null && GameCoverStore.TryGetPath(titleKey) is null; // finish a missing cover
-                return DateTime.UtcNow - File.GetLastWriteTimeUtc(path) > RetryUnknownAfter;
+                GameInfoDto? stored;
+                lock (FileGate)
+                {
+                    if (!File.Exists(path)) return true;
+                    stored = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
+                    if (stored is not { Name.Length: > 0 })
+                        return DateTime.UtcNow - File.GetLastWriteTimeUtc(path) > RetryUnknownAfter;
+                }
+                return stored.CoverUrl is not null && GameCoverStore.TryGetPath(titleKey) is null; // finish a missing cover
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return true; }
         }
@@ -80,8 +89,10 @@ namespace PaRuX.Services
                 if (++asked > MaxTitlesPerRun) break;
                 try
                 {
-                    GameInfoDto? info = await LookUpAsync(title, ct).ConfigureAwait(false);
-                    Save(title.TitleKey, info);
+                    GameInfoDto? known = TryGetInfo(title.TitleKey);
+                    // Already described: only the cover is missing, so retry that download without asking the catalogues again.
+                    GameInfoDto? info = known ?? await LookUpAsync(title, ct).ConfigureAwait(false);
+                    if (known is null) Save(title.TitleKey, info);
                     if (info is null) continue;
                     found++;
                     if (info.CoverUrl is not null && GameCoverStore.TryGetPath(title.TitleKey) is null)
@@ -123,13 +134,15 @@ namespace PaRuX.Services
 
             // The extra words help for some titles and break the search for others, so both forms are tried.
             var seen = new HashSet<string>(StringComparer.Ordinal);
+            int summaries = 0;
             foreach (string term in Variants(name, name + " video game"))
             {
                 string pages = await GetStringAsync(
                     "https://en.wikipedia.org/w/rest.php/v1/search/title?limit=5&q=" + Uri.EscapeDataString(term), ct).ConfigureAwait(false);
                 foreach (string key in GameMetadataParsing.ParseWikipediaSearch(pages))
                 {
-                    if (!seen.Add(key) || seen.Count > 4) continue;
+                    if (!seen.Add(key)) continue;
+                    if (++summaries > 4) return null;
                     string summary = await GetStringAsync(
                         "https://en.wikipedia.org/api/rest_v1/page/summary/" + Uri.EscapeDataString(key), ct).ConfigureAwait(false);
                     GameInfoDto? wiki = GameMetadataParsing.ParseWikipediaSummary(title.TitleKey, name, summary);
@@ -186,8 +199,11 @@ namespace PaRuX.Services
             GameInfoDto value = info ?? new GameInfoDto(titleKey, string.Empty, string.Empty, Array.Empty<string>(), string.Empty, string.Empty, "none", string.Empty, null);
             string path = InfoPath(titleKey);
             string tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(value, JsonOptions));
-            File.Move(tmp, path, overwrite: true);
+            lock (FileGate)
+            {
+                File.WriteAllText(tmp, JsonSerializer.Serialize(value, JsonOptions));
+                File.Move(tmp, path, overwrite: true);
+            }
         }
     }
 }

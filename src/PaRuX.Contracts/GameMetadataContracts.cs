@@ -165,7 +165,7 @@ public static partial class GameMetadataParsing
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo)) return false;
         string host = uri.Host.ToLowerInvariant();
         return host == "upload.wikimedia.org" || host.EndsWith(".steamstatic.com", StringComparison.Ordinal)
-            || host.EndsWith(".akamaihd.net", StringComparison.Ordinal) || host == "steamcdn-a.akamaihd.net";
+            || host == "steamcdn-a.akamaihd.net";
     }
 
     private static bool TryParse(string? json, out JsonDocument? document)

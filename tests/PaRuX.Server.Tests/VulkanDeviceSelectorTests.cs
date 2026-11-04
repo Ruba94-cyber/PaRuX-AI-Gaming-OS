@@ -1,4 +1,4 @@
-using PaRuX.Contracts;
+﻿using PaRuX.Contracts;
 using PaRuX.Server;
 using Xunit;
 
@@ -50,6 +50,25 @@ public sealed class VulkanDeviceSelectorTests
         Assert.Equal("Vulkan0", VulkanDeviceSelector.Choose(devices, inventory));
         Assert.Equal("Vulkan0", VulkanDeviceSelector.Choose([], inventory));
         Assert.Equal("Vulkan0", VulkanDeviceSelector.Choose(devices, null));
+    }
+
+[Fact]
+    public void Trademark_marks_do_not_stop_a_discrete_amd_gpu_from_matching()
+    {
+        var devices = VulkanDeviceSelector.ParseDevices(
+            "  Vulkan0: AMD Radeon 780M Graphics (19359 MiB, 18391 MiB free)\r\n" +
+            "  Vulkan1: AMD Radeon RX 7900 XTX (24560 MiB, 24000 MiB free)\r\n");
+        var inventory = Inventory(("AMD Radeon(TM) 780M Graphics", 512L << 20), ("AMD Radeon(TM) RX 7900 XTX", 24L << 30));
+        Assert.Equal("Vulkan1", VulkanDeviceSelector.Choose(devices, inventory));
+    }
+
+    [Fact]
+    public void When_no_name_matches_the_device_with_the_same_memory_is_chosen()
+    {
+        var devices = VulkanDeviceSelector.ParseDevices(
+            "  Vulkan0: Foo iGPU (19359 MiB, 18391 MiB free)\r\n" +
+            "  Vulkan1: Bar discrete (16193 MiB, 15424 MiB free)\r\n");
+        Assert.Equal("Vulkan1", VulkanDeviceSelector.Choose(devices, Inventory(("Unrelated Name", 16L << 30))));
     }
 
     [Fact]

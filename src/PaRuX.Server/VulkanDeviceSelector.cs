@@ -50,14 +50,32 @@ internal static partial class VulkanDeviceSelector
         {
             if (NamesMatch(device.Name, best.Name)) return "Vulkan" + device.Index.ToString(CultureInfo.InvariantCulture);
         }
-        return DefaultDevice;
+        // No name matched: the device whose memory is closest to the adapter's dedicated memory (within 15%) is the same card.
+        long wantedMib = best.DedicatedVideoMemoryBytes / (1024 * 1024);
+        VulkanDevice? close = devices
+            .Where(d => d.TotalMib > 0 && Math.Abs(d.TotalMib - wantedMib) <= wantedMib * 0.15)
+            .OrderBy(d => Math.Abs(d.TotalMib - wantedMib)).Cast<VulkanDevice?>().FirstOrDefault();
+        return close is { } match ? "Vulkan" + match.Index.ToString(CultureInfo.InvariantCulture) : DefaultDevice;
     }
 
-    private static bool NamesMatch(string vulkanName, string adapterName) =>
-        vulkanName.Contains(adapterName, StringComparison.OrdinalIgnoreCase) ||
-        adapterName.Contains(vulkanName, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Windows names carry trademark marks the Vulkan driver omits ("Radeon(TM) RX 7900" vs "Radeon RX 7900"), so both are
+    /// compared as plain letters and digits.</summary>
+    internal static string Plain(string name)
+    {
+        var sb = new System.Text.StringBuilder(name.Length);
+        foreach (char c in name.Replace("(TM)", "").Replace("(R)", "").Replace("\u2122", "").Replace("\u00ae", ""))
+            if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+        return sb.ToString();
+    }
 
-    private static readonly Dictionary<string, List<VulkanDevice>> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private static bool NamesMatch(string vulkanName, string adapterName)
+    {
+        string a = Plain(vulkanName), b = Plain(adapterName);
+        return a.Length > 0 && b.Length > 0 && (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal));
+    }
+
+    // A successful listing is kept for the life of the process; an empty one (timeout, antivirus scan) only for two minutes.
+    private static readonly Dictionary<string, (List<VulkanDevice> Devices, DateTime ExpiresUtc)> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object CacheLock = new();
 
     /// <summary>Resolves the device for the installed Vulkan runtime; never throws and never blocks longer than a few seconds.</summary>
@@ -67,15 +85,15 @@ internal static partial class VulkanDeviceSelector
         {
             string exe = Path.Combine(LocalAiPaths.RuntimeVulkanPath, LocalAiPaths.LlamaServerExecutable);
             if (!File.Exists(exe)) return DefaultDevice;
-            List<VulkanDevice>? devices;
-            lock (CacheLock) Cache.TryGetValue(exe, out devices);
+            List<VulkanDevice>? devices = null;
+            lock (CacheLock)
+                if (Cache.TryGetValue(exe, out var cached) && cached.ExpiresUtc > DateTime.UtcNow) devices = cached.Devices;
             if (devices == null)
             {
                 try { devices = ParseDevices(await ListDevicesAsync(exe, ct).ConfigureAwait(false)); }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested) { devices = []; }
                 catch (Exception) when (!ct.IsCancellationRequested) { devices = []; }
-                // A runtime that cannot list its devices (stub, broken install) is remembered, so a launch never waits twice.
-                lock (CacheLock) Cache[exe] = devices;
+                lock (CacheLock) Cache[exe] = (devices, devices.Count > 0 ? DateTime.MaxValue : DateTime.UtcNow.AddMinutes(2));
             }
             return Choose(devices, inventory);
         }

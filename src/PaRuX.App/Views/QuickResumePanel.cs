@@ -26,6 +26,7 @@ internal sealed class QuickResumePanel : StackPanel
     private readonly Button _refresh = new() { MinHeight = 44 };
     private readonly Button _resumeAll = new() { MinHeight = 44, Visibility = Visibility.Collapsed };
     private bool _busy;
+    private bool _acting;
 
     public QuickResumePanel()
     {
@@ -119,17 +120,30 @@ internal sealed class QuickResumePanel : StackPanel
 
     private async Task ActAsync(QuickResumeAppDto app)
     {
-        if (_busy) return;
-        var result = await GamingLibraryClient.Current.QuickResumeActionAsync(
-            app.Suspended ? "resume" : "suspend", new QuickResumeActionRequest(app.ProcessId, app.StartedUtc));
-        _status.Text = result.Value?.Message ?? result.Error ?? T("The action failed.", "Azione non riuscita.");
-        await RefreshAsync();
+        if (_busy || _acting) return;
+        _acting = true; // a double click must not send two pauses: each one would need its own resume
+        try
+        {
+            var result = await GamingLibraryClient.Current.QuickResumeActionAsync(
+                app.Suspended ? "resume" : "suspend", new QuickResumeActionRequest(app.ProcessId, app.StartedUtc));
+            string message = result.Value?.Message ?? result.Error ?? T("The action failed.", "Azione non riuscita.");
+            await RefreshAsync();
+            _status.Text = message; // after the refresh, so the reason a pause failed stays visible
+        }
+        finally { _acting = false; }
     }
 
     private async Task ResumeAllAsync()
     {
-        var result = await GamingLibraryClient.Current.ResumeAllPausedAsync();
-        _status.Text = result.Value?.Message ?? result.Error ?? T("The action failed.", "Azione non riuscita.");
-        await RefreshAsync();
+        if (_busy || _acting) return;
+        _acting = true;
+        try
+        {
+            var result = await GamingLibraryClient.Current.ResumeAllPausedAsync();
+            string message = result.Value?.Message ?? result.Error ?? T("The action failed.", "Azione non riuscita.");
+            await RefreshAsync();
+            _status.Text = message;
+        }
+        finally { _acting = false; }
     }
 }

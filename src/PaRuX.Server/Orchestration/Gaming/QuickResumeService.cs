@@ -16,6 +16,8 @@ public sealed class QuickResumeService
 {
     private readonly WindowsNativeSuspendProvider _provider = new();
     private readonly object _gate = new();
+    // Pause and resume run one at a time: NtSuspendProcess counts, so two overlapping pauses would need two resumes.
+    private readonly SemaphoreSlim _actions = new(1, 1);
     private readonly string _journalPath;
 
     private readonly WorkloadOrchestrator? _orchestrator;
@@ -107,6 +109,7 @@ public sealed class QuickResumeService
         }
         catch (ArgumentException) { return false; }
         catch (InvalidOperationException) { return false; }
+        catch (System.ComponentModel.Win32Exception) { return false; } // the id now belongs to a process we may not inspect
     }
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
@@ -125,6 +128,13 @@ public sealed class QuickResumeService
     }
 
     public async Task<QuickResumeActionResult> SuspendAsync(QuickResumeActionRequest request, CancellationToken ct)
+    {
+        await _actions.WaitAsync(ct).ConfigureAwait(false);
+        try { return await SuspendCoreAsync(request, ct).ConfigureAwait(false); }
+        finally { _actions.Release(); }
+    }
+
+    private async Task<QuickResumeActionResult> SuspendCoreAsync(QuickResumeActionRequest request, CancellationToken ct)
     {
         Process process;
         try { process = Process.GetProcessById(request.ProcessId); }
@@ -162,6 +172,13 @@ public sealed class QuickResumeService
     }
 
     public async Task<QuickResumeActionResult> ResumeAsync(QuickResumeActionRequest request, CancellationToken ct)
+    {
+        await _actions.WaitAsync(ct).ConfigureAwait(false);
+        try { return await ResumeCoreAsync(request, ct).ConfigureAwait(false); }
+        finally { _actions.Release(); }
+    }
+
+    private async Task<QuickResumeActionResult> ResumeCoreAsync(QuickResumeActionRequest request, CancellationToken ct)
     {
         Entry? entry;
         lock (_gate) entry = ReadJournal().FirstOrDefault(e => e.ProcessId == request.ProcessId);
