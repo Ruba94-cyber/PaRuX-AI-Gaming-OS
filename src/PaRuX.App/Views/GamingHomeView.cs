@@ -548,7 +548,7 @@ internal sealed class GamingHomeView : StackPanel
         foreach (TextBox box in _boxes) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (Button button in _buttons) { button.FontSize = size; button.MinHeight = enabled ? 56 : 44; }
         foreach (ComboBox box in new[] { _sort, _source, _platform, _installed, _tag }) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
-        foreach (ToggleButton toggle in new[] { _favoritesOnly, _showHidden, _layout, _selectMode }) { toggle.FontSize = size; toggle.MinHeight = enabled ? 56 : 44; }
+        foreach (ToggleButton toggle in new[] { _favoritesOnly, _showHidden, _layout, _metadata, _selectMode }) { toggle.FontSize = size; toggle.MinHeight = enabled ? 56 : 44; }
         _status.FontSize = size;
         _emptyTitle.FontSize = enabled ? 26 : 20;
         _emptyDescription.FontSize = size;

@@ -67,7 +67,7 @@ public sealed class QuickResumeAndMetadataUiTests
     {
         var heading = ById(app, "QuickResume_Heading");
         ScrollTo(heading);
-        UiWait.For(() => !string.IsNullOrWhiteSpace(ById(app, "QuickResume_Status_Text").Name),
+        UiWait.For(() => !string.IsNullOrWhiteSpace(ById(app, "QuickResume_Status_Text").Properties.Name.ValueOrDefault),
             "Quick Resume status text");
         return heading;
     }
