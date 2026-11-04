@@ -11,6 +11,7 @@
 - **Public-repo guard:** `tools/check-public-safety.ps1` (document/binary types outside `Synthetic/`, keys, tokens, personal paths, local-only deny-list); self-test 9/9. **AUTO-TESTED.**
 - **Release 3.0.0:** the signed Android APK + provenance were attached to the GitHub release (apksigner-verified, hash matches). Physical-phone pairing is **NEEDS PHYSICAL HW**.
 - Plan sections XLVI–XLVIII added (UX slice, Local Knowledge & Search, universal setup/portable/Gaming/performance scope).
+- **Quick Resume crash recovery + process group:** Core start-up (and graceful shutdown) resumes anything PaRuX itself left paused when the process id and start time still match; outcome is exposed in the Quick Resume list (`Recovery`). Pausing a game also pauses its verified child processes (Toolhelp walk) and resuming restores them, children first. Journal is written before the pause. **AUTO-TESTED** with fakes and real throw-away processes; real multi-process games and elevated children are **NOT RUN**.
 
 ### 2026-11-01 — Shared official-store identifier admission (source only)
 

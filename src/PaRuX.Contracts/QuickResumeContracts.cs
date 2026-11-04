@@ -8,9 +8,20 @@ public sealed record QuickResumeAppDto(
     DateTime StartedUtc,
     bool Suspended,
     bool CanSuspend,
-    string? Reason);
+    string? Reason,
+    int PausedChildCount = 0);
 
-public sealed record QuickResumeStatusDto(IReadOnlyList<QuickResumeAppDto> Apps);
+/// <summary>What the last automatic recovery (Core start-up or graceful shutdown) did with one journalled paused process.
+/// Outcome: resumed | already-closed | failed.</summary>
+public sealed record QuickResumeRecoveryDto(
+    int ProcessId,
+    string ProcessName,
+    string Outcome,
+    string Message,
+    DateTime AtUtc,
+    string Trigger);
+
+public sealed record QuickResumeStatusDto(IReadOnlyList<QuickResumeAppDto> Apps, IReadOnlyList<QuickResumeRecoveryDto>? Recovery = null);
 
 /// <summary>Identity of the process to act on: the id alone is not enough because Windows reuses process ids.</summary>
 public sealed record QuickResumeActionRequest(int ProcessId, DateTime StartedUtc);
