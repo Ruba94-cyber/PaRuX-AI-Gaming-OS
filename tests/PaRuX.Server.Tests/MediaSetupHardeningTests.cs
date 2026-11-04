@@ -129,3 +129,17 @@ public sealed class MediaSetupHardeningTests : IDisposable
         Assert.Contains("Another media setup (image)", card.Detail);
     }
 }
+
+public sealed class MediaSetupAssistantRevisionRegressionTests
+{
+    [Fact]
+    public void The_assistant_download_passes_the_pinned_revision_the_download_service_requires()
+    {
+        System.IO.DirectoryInfo? d = new(System.AppContext.BaseDirectory);
+        while (d is not null && !System.IO.File.Exists(System.IO.Path.Combine(d.FullName, "PaRuX.sln"))) d = d.Parent;
+        string source = System.IO.File.ReadAllText(System.IO.Path.Combine(d!.FullName, "src", "PaRuX.Server", "MediaSetupService.cs"));
+        int plan = source.IndexOf("PlanModelDownloadAsync(step.RepoId!", System.StringComparison.Ordinal);
+        int start = source.IndexOf("expectedRevision: plan.Revision", System.StringComparison.Ordinal);
+        Assert.True(plan >= 0 && start > plan, "Media setup must read the plan and pass its revision to StartModelDownloadPlanAsync.");
+    }
+}

@@ -18,11 +18,20 @@ public sealed class QuickResumeService
     private readonly object _gate = new();
     private readonly string _journalPath;
 
-    public QuickResumeService() : this(PaRuXDataRoot.Combine("quick-resume", "paused.json")) { }
+    private readonly WorkloadOrchestrator? _orchestrator;
 
-    internal QuickResumeService(string journalPath) => _journalPath = journalPath;
+    public QuickResumeService(WorkloadOrchestrator orchestrator)
+        : this(PaRuXDataRoot.Combine("quick-resume", "paused.json"), orchestrator) { }
 
-    private sealed record Entry(int ProcessId, DateTime StartedUtc, string ProcessName);
+    internal QuickResumeService(string journalPath, WorkloadOrchestrator? orchestrator = null)
+    {
+        _journalPath = journalPath;
+        _orchestrator = orchestrator;
+    }
+
+    /// <summary>ReturnedToAi: the paused process was the game PaRuX started, so AI was given back while it is paused
+    /// and is set aside again when the game resumes (the Xbox-style quick switch between a game and the AI).</summary>
+    private sealed record Entry(int ProcessId, DateTime StartedUtc, string ProcessName, bool ReturnedToAi = false);
 
     private List<Entry> ReadJournal()
     {
@@ -133,13 +142,22 @@ public sealed class QuickResumeService
             }
             if (!await _provider.SuspendProcessAsync(process.Id, ct).ConfigureAwait(false))
                 return new(false, "Windows refused to pause this application (it may run with administrator rights).");
+            bool returnedToAi = false;
+            if (_orchestrator is not null && _orchestrator.IsOwnedGame(process.Id, started) && _orchestrator.GetStatus().IsGamingActive)
+            {
+                // The paused game no longer needs the GPU: give the AI back while it waits, without closing it.
+                try { returnedToAi = await _orchestrator.ExitGamingSessionAsync(ct).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is not OperationCanceledException) { returnedToAi = false; }
+            }
             lock (_gate)
             {
                 List<Entry> journal = ReadJournal();
-                journal.Add(new Entry(process.Id, started, process.ProcessName));
+                journal.Add(new Entry(process.Id, started, process.ProcessName, returnedToAi));
                 WriteJournal(journal);
             }
-            return new(true, process.ProcessName + " is paused. Resume it from Quick Resume.");
+            return new(true, process.ProcessName + (returnedToAi
+                ? " is paused and the AI is available again. Resume it from Quick Resume."
+                : " is paused. Resume it from Quick Resume."));
         }
     }
 
@@ -154,10 +172,17 @@ public sealed class QuickResumeService
             Forget(entry.ProcessId);
             return new(true, "The application had already closed.");
         }
+        bool aiSetAside = false;
+        if (entry.ReturnedToAi && _orchestrator is not null)
+        {
+            // The game gets the GPU back before it runs again; the AI is set aside, like leaving it for a game on a console.
+            try { aiSetAside = await _orchestrator.EnterGamingSessionAsync(null, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { aiSetAside = false; }
+        }
         if (!await _provider.ResumeProcessAsync(entry.ProcessId, ct).ConfigureAwait(false))
             return new(false, "Windows refused to resume this application.");
         Forget(entry.ProcessId);
-        return new(true, entry.ProcessName + " is running again.");
+        return new(true, entry.ProcessName + (aiSetAside ? " is running again; the AI was set aside for it." : " is running again."));
     }
 
     public async Task<QuickResumeActionResult> ResumeAllAsync(CancellationToken ct)

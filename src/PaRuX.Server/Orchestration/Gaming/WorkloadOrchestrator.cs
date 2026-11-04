@@ -988,6 +988,12 @@ public sealed class WorkloadOrchestrator : BackgroundService
         lock (_stateGate) _ownedGame = owned;
     }
 
+    /// <summary>True when this exact process (id AND start time) is the game PaRuX started for the current session.</summary>
+    internal bool IsOwnedGame(int pid, DateTime startUtc)
+    {
+        lock (_stateGate) return _ownedGame is { } owned && owned.Pid == pid && Math.Abs((startUtc.ToUniversalTime() - owned.StartUtc).TotalSeconds) <= 2;
+    }
+
     internal void ClearOwnedGameProcess()
     {
         lock (_stateGate) _ownedGame = null;

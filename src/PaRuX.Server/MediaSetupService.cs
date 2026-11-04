@@ -321,8 +321,11 @@ public sealed class MediaSetupService
 
     private async Task DownloadAssistantAsync(MediaSetupStep step, CancellationToken ct)
     {
+        // The assistant is PaRuX's own pinned, permissively licensed (Apache-2.0) choice; the download service still
+        // requires the exact commit it will fetch, so the plan is read first and its revision is the one passed on.
+        ModelDownloadPlan plan = await _downloads.PlanModelDownloadAsync(step.RepoId!, "Q4_K_M", ct);
         IReadOnlyList<ModelDownloadStatus> jobs = await _downloads.StartModelDownloadPlanAsync(
-            step.RepoId!, "Q4_K_M", null, ct);
+            step.RepoId!, "Q4_K_M", null, ct, expectedRevision: plan.Revision);
         await WaitForDownloadsAsync(step, jobs.Select(j => j.Id).ToList(), ct);
     }
 
