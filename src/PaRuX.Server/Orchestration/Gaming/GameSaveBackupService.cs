@@ -10,8 +10,9 @@ namespace PaRuX.Server.Orchestration.Gaming;
 /// per-file SHA-256 manifest. Never restores, deletes, discovers or executes game data.
 /// Source, stored archive and verification are disabled when Gaming is active.
 /// </summary>
-public sealed class GameSaveBackupService
+public sealed partial class GameSaveBackupService
 {
+    internal const string NoFilesMessage = "The selected save folder contains no files.";
     private const int MaxFiles = 512;
     private const int MaxDepth = 8;
     private const long MaxBytes = 512L * 1024 * 1024;
@@ -88,7 +89,7 @@ public sealed class GameSaveBackupService
                 files.Add((entry, relative, size));
             }
         }
-        if (files.Count == 0) throw new InvalidDataException("The selected save folder contains no files.");
+        if (files.Count == 0) throw new InvalidDataException(NoFilesMessage);
         files.Sort((a, b) => StringComparer.Ordinal.Compare(a.Relative, b.Relative));
         return files;
     }
