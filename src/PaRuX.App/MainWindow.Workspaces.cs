@@ -54,6 +54,7 @@ namespace PaRuX
             UpdateContentStudioModeControlsVisibility(NavView.IsPaneOpen);
             ApplyNavigationMode(navigateHomeIfHidden: false);
             RestoreModeTabFromSettings();
+            ApplySetupProfile();
 
             if (!_mediaEditSourceBridgeSubscribed)
             {

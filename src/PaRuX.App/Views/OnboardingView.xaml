@@ -23,6 +23,25 @@
                         Margin="44,4,0,0" />
                 </StackPanel>
 
+                <!-- What this PC is for. It decides which services start and what is shown; it can be changed later in
+                     Settings and deleting nothing. Logic: OnboardingView.SetupProfile.cs. -->
+                <StackPanel x:Name="SetupProfileSection" Spacing="{StaticResource PaRuXSpaceS}">
+                    <TextBlock x:Name="SetupProfileHeader" Style="{StaticResource PaRuXSectionHeaderTextStyle}" Margin="4,0,0,0" />
+                    <RadioButtons x:Name="SetupProfileChoice" MaxColumns="3"
+                                  AutomationProperties.AutomationId="Onboarding_SetupProfile_Choice"
+                                  SelectionChanged="SetupProfileChoice_SelectionChanged">
+                        <RadioButton x:Name="SetupProfileBothOption" Tag="both" AutomationProperties.AutomationId="Onboarding_SetupProfile_Both" />
+                        <RadioButton x:Name="SetupProfileAiOption" Tag="ai" AutomationProperties.AutomationId="Onboarding_SetupProfile_Ai" />
+                        <RadioButton x:Name="SetupProfileGamingOption" Tag="gaming" AutomationProperties.AutomationId="Onboarding_SetupProfile_Gaming" />
+                    </RadioButtons>
+                    <TextBlock x:Name="SetupProfileDescription" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="Onboarding_SetupProfile_Description"
+                               Style="{StaticResource PaRuXCaptionTextStyle}" />
+                    <Button x:Name="GamingOnlyStartButton" Visibility="Collapsed"
+                            AutomationProperties.AutomationId="Onboarding_GamingOnly_Start_Button"
+                            Style="{StaticResource AccentButtonStyle}" Click="GamingOnlyStart_Click" />
+                </StackPanel>
+
                 <!-- One primary action: detect, keep the runtime, pick a fitting model, download it
                      (after licence review), assign roles and prove chat works. Every step is also
                      available manually below. -->

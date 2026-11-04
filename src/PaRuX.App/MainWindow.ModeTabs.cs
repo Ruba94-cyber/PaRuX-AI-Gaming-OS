@@ -70,7 +70,11 @@ public sealed partial class MainWindow
     {
         if (_modeTabInitialized) return;
         _modeTabInitialized = true;
-        bool wantsGaming = string.Equals(SettingsStore.Current.Data.LastModeTab, ModeKeyGaming, StringComparison.Ordinal);
+        SetupProfilePlan setup = CurrentSetupPlan;
+        // AI only / Gaming only have no tab to remember: the profile decides where the app starts.
+        bool wantsGaming = setup.ShowModeTabs
+            ? string.Equals(SettingsStore.Current.Data.LastModeTab, ModeKeyGaming, StringComparison.Ordinal)
+            : setup.StartInGamingTab;
         // Only restore over the plain startup Chat page; first-run onboarding and test/deep-link
         // initial pages keep priority.
         if (wantsGaming && SettingsStore.Current.Data.OnboardingCompleted
@@ -80,10 +84,32 @@ public sealed partial class MainWindow
         }
     }
 
+    private static SetupProfilePlan CurrentSetupPlan =>
+        SetupProfilePolicy.Plan(SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId));
+
+    /// <summary>
+    /// Applies the setup profile (AI only / Gaming only / Both) to the shell: with a single-purpose profile the AI/Gaming
+    /// switch is hidden and the app stays in that workspace. Nothing is deleted or uninstalled, and the choice can be changed
+    /// again in Settings. Safe to call repeatedly.
+    /// </summary>
+    internal void ApplySetupProfile()
+    {
+        SetupProfilePlan setup = CurrentSetupPlan;
+        ModeTabsHost.Visibility = setup.ShowModeTabs ? Visibility.Visible : Visibility.Collapsed;
+        if (setup.ShowModeTabs) return;
+
+        string forced = setup.StartInGamingTab ? ModeKeyGaming : ModeKeyAi;
+        bool settledShell = SettingsStore.Current.Data.OnboardingCompleted && OnboardingPage.Visibility != Visibility.Visible;
+        if (!string.Equals(_modeTab, forced, StringComparison.Ordinal)) SelectModeTab(forced, navigate: settledShell);
+        else ApplyModeTabVisibility();
+    }
+
     /// <summary>Selects a tab; optionally opens its default page (AI = Chat, Gaming = Games library).</summary>
     private void SelectModeTab(string tab, bool navigate)
     {
         tab = string.Equals(tab, ModeKeyGaming, StringComparison.Ordinal) ? ModeKeyGaming : ModeKeyAi;
+        SetupProfilePlan setup = CurrentSetupPlan;
+        if (!setup.ShowModeTabs) tab = setup.StartInGamingTab ? ModeKeyGaming : ModeKeyAi;   // Ctrl+1/Ctrl+2 cannot leave the profile
         SetModeTabState(tab);
         if (!navigate) return;
 

@@ -115,6 +115,31 @@
                                           Toggled="StartupSwitch_Toggled" />
                         </Grid>
 
+                        <Border Style="{StaticResource PaRuXDividerStyle}" Margin="0,12,0,12" />
+
+                        <!-- What this PC is used for. Strings are set in SettingsView.SetupProfile.cs (IT/EN). Changing it
+                             never deletes anything; it only changes what starts and which workspaces are shown. Placed after the
+                             existing rows so their positions do not move. -->
+                        <Grid Style="{StaticResource PaRuXSettingsRowStyle}" ColumnSpacing="{StaticResource PaRuXSpaceL}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock x:Name="SetupProfileTitle" Text="What PaRuX is for" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
+                                <TextBlock x:Name="SetupProfileHint" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
+                            </StackPanel>
+                            <ComboBox x:Name="SetupProfileCombo" AutomationProperties.AutomationId="Settings_SetupProfile_ComboBox"
+                                      AutomationProperties.Name="What PaRuX is for" AutomationProperties.AccessibilityView="Control"
+                                      Grid.Column="1" VerticalAlignment="Center" MinWidth="160"
+                                      CornerRadius="{StaticResource PaRuXRadiusSmall}"
+                                      SelectionChanged="SetupProfileCombo_SelectionChanged">
+                                <ComboBoxItem Tag="both" />
+                                <ComboBoxItem Tag="ai" />
+                                <ComboBoxItem Tag="gaming" />
+                            </ComboBox>
+                        </Grid>
+
                     </StackPanel>
                 </Border>
             </StackPanel>

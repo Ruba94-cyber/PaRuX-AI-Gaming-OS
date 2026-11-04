@@ -2139,6 +2139,7 @@ namespace PaRuX.Views
                 AppSettings s = SettingsStore.Current.Data;
 
                 SelectByTag(ThemeCombo, s.Theme);
+                LoadSetupProfile();
                 SelectByTag(BubbleCombo, s.BubbleMode);
                 SelectByTag(ProfileCombo, s.DefaultProfile);
 

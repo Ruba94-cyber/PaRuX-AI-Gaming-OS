@@ -815,11 +815,14 @@ namespace PaRuX
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
             SetNavPaneVisible(true);
             ShowChat();
+            // Gaming only lands on the game library instead of Chat; both profiles keep every workspace available.
+            ApplySetupProfile();
             // Queued rather than called inline: the tour points at sidebar controls, and they need
             // to be laid out on screen before a TeachingTip can position itself against them.
             GuidedTourDecision decision = GuidedTourTriggerPolicy.EvaluateGetStarted(
                 SettingsStore.Current.Data.GuidedTourCompleted);
-            if (decision.ShouldStart)
+            // The tour is about the AI workspaces; it is not shown to a Gaming-only setup.
+            if (decision.ShouldStart && CurrentSetupPlan.ShowAiWorkspaces)
             {
                 _dispatcher.TryEnqueue(MaybeStartGuidedTour);
             }

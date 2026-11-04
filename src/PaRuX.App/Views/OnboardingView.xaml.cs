@@ -44,16 +44,13 @@ namespace PaRuX.Views
             InitializeComponent();
             _dispatcher = DispatcherQueue.GetForCurrentThread();
             RenderBundledOverview(BundledRuntimeOverviewPresenter.BuildOverview(null, null));
+            InitializeSetupProfileChoice();
             Loaded += (s, e) =>
             {
                 _modelDownloadViewLoaded = true;
                 _modelDownloadPoll ??= CreateModelDownloadPoll();
-                _ = RefreshModelDownloadsAsync();
-                _ = RefreshLocalAiRootAsync();
-                _ = RefreshComponentsAsync();
-                _ = RefreshFirstModelAdviceAsync();
-                _ = RefreshReadyCheckAsync();
-                _ = InitializeAutoSetupAsync();
+                // Gaming only needs no language model, runtime or chat check, so none of the AI detection runs.
+                if (SetupProfilePolicy.Plan(StoredSetupProfile).RequireLanguageModel) StartAiRefreshes();
             };
             Unloaded += (s, e) =>
             {
@@ -63,6 +60,16 @@ namespace PaRuX.Views
                 _verifyLocalChatCts?.Cancel();
                 _autoSetupCts?.Cancel();
             };
+        }
+
+        private void StartAiRefreshes()
+        {
+            _ = RefreshModelDownloadsAsync();
+            _ = RefreshLocalAiRootAsync();
+            _ = RefreshComponentsAsync();
+            _ = RefreshFirstModelAdviceAsync();
+            _ = RefreshReadyCheckAsync();
+            _ = InitializeAutoSetupAsync();
         }
 
         private DispatcherTimer CreateModelDownloadPoll()

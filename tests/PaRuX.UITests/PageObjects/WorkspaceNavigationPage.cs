@@ -361,8 +361,27 @@ internal sealed class WorkspaceNavigationPage
 
     private void SelectModelHubChatModelsTab()
     {
+        bool SearchVisible()
+        {
+            AutomationElement? search = _window.FindFirstDescendant(cf => cf.ByAutomationId("ModelHub_Search_TextBox"));
+            return search != null && !search.Properties.IsOffscreen.ValueOrDefault;
+        }
+        // Already on Chat models (the hub remembers its tab): nothing to select, and the tab bar may not be realized yet.
+        if (SearchVisible()) return;
         AutomationElement? tab = null;
-        UiWait.For(() => (tab = _window.FindFirstDescendant(cf => cf.ByAutomationId("ModelHub_Tab_Text"))) != null, "Model Hub Chat models tab");
+        try
+        {
+            UiWait.For(() => SearchVisible() || (tab = _window.FindFirstDescendant(cf => cf.ByAutomationId("ModelHub_Tab_Text"))) != null,
+                "Model Hub Chat models tab");
+        }
+        catch (TimeoutException)
+        {
+            // In a narrow or scrolled window the tab bar may not realise its items; if the Chat models page is already
+            // there (its search box exists, just scrolled out of view) that is the state we wanted.
+            if (_window.FindFirstDescendant(cf => cf.ByAutomationId("ModelHub_Search_TextBox")) != null) return;
+            throw;
+        }
+        if (SearchVisible()) return;
         if (tab!.Patterns.SelectionItem.PatternOrDefault != null) tab.Patterns.SelectionItem.Pattern.Select();
         else tab.Click();
     }
