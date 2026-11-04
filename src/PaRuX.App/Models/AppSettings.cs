@@ -27,6 +27,10 @@ namespace PaRuX.Models
         public string GameLibraryTag { get; set; } = string.Empty;
         public bool GameLibraryShowHidden { get; set; }
         public bool OnboardingCompleted { get; set; }
+        /// <summary>What this PC is used for: "both" (also the value for every existing installation and when empty), "ai" or
+        /// "gaming". Decides which services start and which workspaces show; changing it never deletes data. See
+        /// <c>SetupProfilePolicy</c>.</summary>
+        public string SetupProfileId { get; set; } = string.Empty;
         /// <summary>Model Hub suggestion lane the user last picked: "standard" or "uncensored". Empty means not chosen (Standard is shown).</summary>
         public string ModelHubSuggestionLane { get; set; } = string.Empty;
         public bool GuidedTourCompleted { get; set; }

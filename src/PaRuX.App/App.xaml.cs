@@ -77,13 +77,18 @@ namespace PaRuX
             {
                 AppPaths.EnsureCreated();
                 SettingsStore.Current.Load();
-                LocalAiController.Current.StartWatching();
-                GamingManager.Current.Start();
-                AgentCodingWorkerService.Current.Start();
-                AgentBinaryAnalysisWorkerService.Current.Start();
-                UiVerificationWorkerService.Current.Start();
-                ComputerUseWorkerService.Current.Start();
-                Log.Write("PaRuX starting.");
+                // The setup profile (AI only / Gaming only / Both; Both for every existing install) decides what starts.
+                SetupProfilePlan setup = SetupProfilePolicy.Plan(SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId));
+                if (setup.StartLocalAi) LocalAiController.Current.StartWatching();
+                if (setup.StartGaming) GamingManager.Current.Start();
+                if (setup.StartAgentWorkers)
+                {
+                    AgentCodingWorkerService.Current.Start();
+                    AgentBinaryAnalysisWorkerService.Current.Start();
+                    UiVerificationWorkerService.Current.Start();
+                    ComputerUseWorkerService.Current.Start();
+                }
+                Log.Write("PaRuX starting (setup profile: " + SetupProfilePolicy.ToStorage(SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId)) + ").");
 
                 MainWin = new MainWindow();
                 MainWin.Activate();
@@ -96,7 +101,7 @@ namespace PaRuX
                 // Start loading the selected text model as soon as the shell is usable. This is
                 // deliberately fire-and-forget: OFF and Gaming modes are respected by Core, while
                 // startup remains responsive and the first chat no longer pays avoidable idle time.
-                _ = WarmLocalAiAsync();
+                if (setup.StartLocalAi) _ = WarmLocalAiAsync();
             }
             catch (Exception ex)
             {
