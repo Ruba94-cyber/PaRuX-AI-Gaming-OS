@@ -184,6 +184,8 @@ public sealed partial class MainWindow
         UpdatesNavItem.Visibility = advancedVisible;
         RuntimeNavItem.Visibility = advancedVisible;
         GameLibraryNavItem.Visibility = ai ? Visibility.Collapsed : Visibility.Visible;
+        // Document search belongs to the Corporate Lite edition only; the standard app keeps its navigation unchanged.
+        DocumentSearchNavItem.Visibility = PaRuX.Contracts.CorporateMode.IsActive ? aiVisible : Visibility.Collapsed;
         // Settings and Help stay visible in both tabs.
         SettingsNavItem.Visibility = Visibility.Visible;
         HelpNavItem.Visibility = Visibility.Visible;

@@ -42,7 +42,13 @@ namespace PaRuX.Services
             typeof(AppUpdateClient).Assembly.GetName().Version?.ToString() ?? "0.0.0");
 
         public Task<AppReleaseStatus> CheckLatestAsync(CancellationToken ct)
-            => CheckLatestAsync(ApiHttp, LatestReleaseApi, ReadGitHubUpdateToken(), CurrentVersion, ct);
+            => PaRuX.Contracts.CorporateMode.IsActive
+                ? Task.FromResult(new AppReleaseStatus
+                {
+                    CurrentVersion = CurrentVersion, CheckSucceeded = false, DiscoveryState = "disabled-corporate-offline",
+                    Message = "Updates are disabled in PaRuX Corporate Lite (offline edition). Install a new package from your IT source."
+                })
+                : CheckLatestAsync(ApiHttp, LatestReleaseApi, ReadGitHubUpdateToken(), CurrentVersion, ct);
 
         /// <summary>Test seam: same discovery logic against an injected client/endpoint.</summary>
         internal async Task<AppReleaseStatus> CheckLatestAsync(

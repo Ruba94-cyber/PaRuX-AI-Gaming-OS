@@ -29,7 +29,11 @@ public static class SetupProfilePolicy
     public const string GamingOnlyId = "gaming";
 
     /// <summary>Empty, missing or unknown values mean Both: an existing installation keeps everything it has.</summary>
-    public static SetupProfile Parse(string? stored) => (stored ?? string.Empty).Trim().ToLowerInvariant() switch
+    public static SetupProfile Parse(string? stored) =>
+        PaRuX.Contracts.CorporateMode.IsActive ? SetupProfile.AiOnly     // Corporate Lite is AI/documents only
+        : ParseStored(stored);
+
+    private static SetupProfile ParseStored(string? stored) => (stored ?? string.Empty).Trim().ToLowerInvariant() switch
     {
         AiOnlyId => SetupProfile.AiOnly,
         GamingOnlyId => SetupProfile.GamingOnly,

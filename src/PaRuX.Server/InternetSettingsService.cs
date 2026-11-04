@@ -51,6 +51,7 @@ public sealed class InternetSettingsService
 
     private bool IsEnabledLocked()
     {
+        if (PaRuX.Contracts.CorporateMode.IsActive) return false;   // Corporate Lite is offline by construction
         if (_cache.HasValue) return _cache.Value;
 
         bool enabled = false;

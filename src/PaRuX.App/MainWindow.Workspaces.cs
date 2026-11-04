@@ -33,7 +33,8 @@ namespace PaRuX
             Observability,
             Updates,
             Runtime,
-            Games
+            Games,
+            DocumentSearch
         }
 
         private void NavView_Loaded(object sender, RoutedEventArgs e)
@@ -140,6 +141,7 @@ namespace PaRuX
             CreatePage.Visibility = Visibility.Collapsed;
             ProjectsPage.Visibility = Visibility.Collapsed;
             ModelHubPage.Visibility = Visibility.Collapsed;
+            DocumentSearchPage.Visibility = Visibility.Collapsed;
             ModelRoutingPage.Visibility = Visibility.Collapsed;
             LifecycleLabPage.Visibility = Visibility.Collapsed;
             WorkflowPage.Visibility = Visibility.Collapsed;
@@ -199,6 +201,10 @@ namespace PaRuX
                 case "__create__":
                     ShowStudioWorkspace(StudioWorkspace.Create);
                     CreatePage.OnShown();
+                    return true;
+                case "__documents__":
+                    ShowStudioWorkspace(StudioWorkspace.DocumentSearch);
+                    DocumentSearchPage.OnShown();
                     return true;
                 case "__projects__":
                     ShowStudioWorkspace(StudioWorkspace.Projects);
@@ -276,6 +282,7 @@ namespace PaRuX
                 case StudioWorkspace.Updates: UpdateManagerPage.Visibility = Visibility.Visible; break;
                 case StudioWorkspace.Runtime: RuntimeManagerPage.Visibility = Visibility.Visible; break;
                 case StudioWorkspace.Games: GameLibraryPage.Visibility = Visibility.Visible; break;
+                case StudioWorkspace.DocumentSearch: DocumentSearchPage.Visibility = Visibility.Visible; break;
             }
         }
 
@@ -287,7 +294,7 @@ namespace PaRuX
 
         private NavigationViewItem[] WorkspaceNavigationItems() => new[]
         {
-            ChatNavItem, CreateNavItem, ProjectsNavItem, GameLibraryNavItem, ModelHubNavItem, ModelRoutingNavItem,
+            ChatNavItem, CreateNavItem, ProjectsNavItem, GameLibraryNavItem, DocumentSearchNavItem, ModelHubNavItem, ModelRoutingNavItem,
             LifecycleNavItem, WorkflowNavItem, ToolsNavItem, ObservabilityNavItem,
             UpdatesNavItem, RuntimeNavItem, SettingsNavItem, HelpNavItem
         };
@@ -296,6 +303,7 @@ namespace PaRuX
         {
             StudioWorkspace.Chat => ChatNavItem,
             StudioWorkspace.Games => GameLibraryNavItem,
+            StudioWorkspace.DocumentSearch => DocumentSearchNavItem,
             StudioWorkspace.Create => CreateNavItem,
             StudioWorkspace.Projects => ProjectsNavItem,
             StudioWorkspace.ModelHub => ModelHubNavItem,

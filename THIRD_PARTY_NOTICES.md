@@ -16,6 +16,7 @@ The GitHub MSI includes the self-contained WinUI desktop application, self-conta
 | Microsoft.Data.Sqlite | MIT | Desktop/Server | Durable local stores |
 | DocumentFormat.OpenXml | MIT | Desktop/Server | Office document generation/inspection |
 | ExcelDataReader | MIT | Desktop/Server | Spreadsheet import |
+| PdfPig | Apache-2.0 | Server | PDF text extraction with page numbers (LKS-1) |
 | QRCoder | MIT | Desktop | Pairing QR generation |
 | System.Drawing.Common | MIT | Desktop | Windows image/QR support |
 | ModelContextProtocol | Apache-2.0 | Server | Outbound MCP client capabilities |

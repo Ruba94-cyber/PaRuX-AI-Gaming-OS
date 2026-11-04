@@ -189,6 +189,11 @@ public sealed class ContextEngineService
         if (ragTask != null)
         {
             List<RagChunkMatch> ragMatches = await ragTask.ConfigureAwait(false);
+            // The positioned knowledge index answers first (exact codes, page/sheet/slide citations); the classic store is the fallback.
+            IReadOnlyList<PaRuX.Server.Knowledge.KnowledgeHit>? known = PaRuX.Server.Knowledge.KnowledgeContextProvider.TrySearch(request.Query, 4);
+            if (known != null)
+                groups.Add(known.Select(h => new ContextCandidate("rag", "rag:" + h.FilePath + "#" + h.ChunkId, h.Citation, h.Text, h.Citation)).ToList());
+            else
             groups.Add(ragMatches
                 .Select(m => new ContextCandidate(
                     "rag", "rag:" + m.FilePath, Path.GetFileName(m.FilePath), m.Content, Path.GetFileName(m.FilePath)))

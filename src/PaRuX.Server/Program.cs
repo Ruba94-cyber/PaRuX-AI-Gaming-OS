@@ -96,6 +96,7 @@ builder.Services.AddSingleton<RerankerService>();
 builder.Services.AddSingleton<MemoryStore>();
 builder.Services.AddSingleton<RagStore>(sp =>
     new RagStore(sp.GetRequiredService<EmbeddingService>(), sp.GetRequiredService<RerankerService>()));
+builder.Services.AddSingleton<PaRuX.Server.Knowledge.KnowledgeJobService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<WebSearchService>();
 builder.Services.AddSingleton<InternetSettingsService>();
@@ -319,6 +320,25 @@ builder.Services.AddSingleton(sp => IdleCalibrationComposition.Create(sp));
 StartupTrace.Mark("services-registered");
 StartupTrace.WrapHostedServices(builder.Services);
 WebApplication app = builder.Build();
+
+// Corporate Lite Offline: the same Core, but anything that downloads, installs, generates heavy media or touches Gaming is refused.
+if (PaRuX.Contracts.CorporateMode.IsActive)
+{
+    string[] blockedPrefixes = { "/api/v1/models/download", "/api/v1/runtime/install", "/api/v1/media/", "/api/v1/gaming/" };
+    app.Use(async (context, next) =>
+    {
+        string path = context.Request.Path.Value ?? string.Empty;
+        bool write = !HttpMethods.IsGet(context.Request.Method);
+        bool gaming = path.StartsWith("/api/v1/gaming/", StringComparison.OrdinalIgnoreCase);
+        if (blockedPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) && (write || gaming))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = "Disabled in PaRuX Corporate Lite (offline edition)." });
+            return;
+        }
+        await next();
+    });
+}
 StartupTrace.Mark("built");
 
 // Before anything can ask for a model or a picture: put the runtime config files back if the
@@ -962,6 +982,7 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
     if (source == null) return Results.NotFound(new { error = "RAG source not found" });
     try
     {
+        app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>().Start(id);
         (int documents, int chunks) = await rag.IndexSourceAsync(id, source.FolderPath, null, ct);
         return Results.Ok(new { documentCount = documents, chunkCount = chunks });
     }
@@ -971,9 +992,13 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
     }
 });
 
+PaRuX.Server.Knowledge.KnowledgeEndpoints.MapKnowledgeEndpoints(app);
+PaRuX.Server.Knowledge.KnowledgeContextProvider.Current = app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>();
+
 app.MapDelete("/api/v1/rag/sources/{id}", (string id, RagStore rag) =>
 {
     rag.RemoveSource(id);
+    app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>().Remove(id);
     return Results.NoContent();
 });
 

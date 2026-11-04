@@ -113,6 +113,9 @@
                 <NavigationViewItem x:Name="GameLibraryNavItem" AutomationProperties.AutomationId="Navigation_GameLibrary_Item" Content="Games" Tag="__games__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7FC;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="DocumentSearchNavItem" AutomationProperties.AutomationId="Navigation_DocumentSearch_Item" Content="Document search" Tag="__documents__" Visibility="Collapsed" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="ModelHubNavItem" AutomationProperties.AutomationId="Navigation_ModelHub_Item" Content="Model Hub" Tag="__modelhub__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -289,6 +292,7 @@
                         <views:CreateWorkspaceView x:Name="CreatePage" Visibility="Collapsed" />
                         <views:ProjectsWorkspaceView x:Name="ProjectsPage" Visibility="Collapsed" />
                         <views:ModelHubView x:Name="ModelHubPage" Visibility="Collapsed" />
+                        <views:DocumentSearchView x:Name="DocumentSearchPage" Visibility="Collapsed" />
                         <views:ModelRoutingPanel x:Name="ModelRoutingPage" Visibility="Collapsed" />
                         <views:LifecycleLabView x:Name="LifecycleLabPage" Visibility="Collapsed" />
                         <views:WorkflowWorkspaceView x:Name="WorkflowPage" Visibility="Collapsed" />
