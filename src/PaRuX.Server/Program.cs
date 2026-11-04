@@ -967,6 +967,11 @@ app.MapPost("/api/v1/rag/sources", (RagAddSourceRequest request, RagStore rag) =
 {
     if (string.IsNullOrWhiteSpace(request.FolderPath) || !Directory.Exists(request.FolderPath))
         return Results.BadRequest(new { error = "folderPath must be a folder that exists on this PC." });
+    PaRuX.Server.Knowledge.SensitiveFinding sensitive = PaRuX.Server.Knowledge.SensitivePathPolicy.EvaluateFolder(request.FolderPath);
+    if (sensitive.Verdict == PaRuX.Server.Knowledge.SensitiveVerdict.Blocked)
+        return Results.Json(new { error = sensitive.Reason, code = "sensitive_blocked" }, statusCode: StatusCodes.Status403Forbidden);
+    if (sensitive.Verdict == PaRuX.Server.Knowledge.SensitiveVerdict.NeedsConsent && !request.ConsentSensitive)
+        return Results.Json(new { error = sensitive.Reason, code = "consent_required" }, statusCode: StatusCodes.Status409Conflict);
     return Results.Ok(rag.AddSource(request.FolderPath));
 }).RequireDesktopOwner();
 

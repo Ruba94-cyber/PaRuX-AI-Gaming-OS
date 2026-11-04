@@ -52,7 +52,10 @@ public sealed record ExtractionLimits(
     int MaxSpreadsheetRows = 500_000,
     long MaxStructuredFileBytes = 1024L * 1024 * 1024,
     int SegmentCharacters = 8_000,
-    int SpreadsheetRowsPerSegment = 40)
+    int SpreadsheetRowsPerSegment = 40,
+    IOcrEngine? Ocr = null,
+    string? OcrLanguage = null,
+    int MaxOcrPagesPerPdf = 60)
 {
     public static ExtractionLimits Default { get; } = new();
 }
@@ -77,6 +80,7 @@ public static class StructuredDocumentExtractor
         new LegacyWorkbookExtractor(),
         // Specific structured formats first, then the generic ones, then sniffed text.
         new DbcExtractor(), new ArxmlExtractor(), new OdxExtractor(), new CddExtractor(), new A2lExtractor(),
+        new ImageOcrExtractor(),
         .. GenericExtractors.All, new TextFileExtractor()
     ];
 
@@ -148,6 +152,7 @@ internal sealed class PdfExtractor : IDocumentExtractor
         long total = 0, offset = 0;
         bool truncated = false;
         int emptyPages = 0, pages = 0;
+        var emptyPageNumbers = new List<int>();
         using PdfDocument document = PdfDocument.Open(path);
         foreach (var page in document.GetPages())
         {
@@ -157,7 +162,7 @@ internal sealed class PdfExtractor : IDocumentExtractor
             try { text = ContentOrderTextExtractor.GetText(page); }
             catch (Exception ex) when (ex is not OperationCanceledException) { text = page.Text; }
             text = text.Trim();
-            if (text.Length == 0) { emptyPages++; continue; }
+            if (text.Length == 0) { emptyPages++; emptyPageNumbers.Add(page.Number); continue; }
             if (total + text.Length > limits.MaxCharacters) { text = text[..(int)Math.Max(0, limits.MaxCharacters - total)]; truncated = true; }
             segments.Add(new DocumentSegment(text, new DocumentPosition(Page: page.Number, CharOffset: offset)));
             total += text.Length; offset += text.Length + 1;
@@ -166,6 +171,35 @@ internal sealed class PdfExtractor : IDocumentExtractor
         string? note = emptyPages > 0 && emptyPages == pages
             ? "No text layer (scanned PDF); OCR is not enabled, so only the file name is searchable."
             : emptyPages > 0 ? emptyPages + " of " + pages + " pages have no text layer." : null;
+        if (emptyPages > 0 && limits.Ocr is { } ocr)
+        {
+            OcrAvailability availability = ocr.CheckAvailability();
+            if (!availability.Available)
+                note = (emptyPages == pages ? "Scanned PDF (no text layer)" : emptyPages + " of " + pages + " pages have no text layer")
+                    + "; OCR is unavailable (" + (availability.Reason ?? "unknown reason") + "), so those pages are not searchable.";
+            else
+            {
+                List<int> toRead = emptyPageNumbers.Take(Math.Max(0, limits.MaxOcrPagesPerPdf)).ToList();
+                IReadOnlyList<OcrPageResult> recognised = ocr.RecognizePdfPages(path, toRead, limits.OcrLanguage, ct);
+                int ok = 0, blank = 0, failedPages = 0;
+                foreach (OcrPageResult r in recognised)
+                {
+                    string t = r.Text.Trim();
+                    if (!r.Ok) { failedPages++; continue; }
+                    if (t.Length == 0) { blank++; continue; }
+                    if (total + t.Length > limits.MaxCharacters) { truncated = true; break; }
+                    segments.Add(new DocumentSegment(t, new DocumentPosition(Page: r.Page, Heading: "OCR", CharOffset: offset)));
+                    total += t.Length; offset += t.Length + 1; ok++;
+                }
+                segments.Sort((a, b) => (a.Position.Page ?? 0).CompareTo(b.Position.Page ?? 0));
+                int skippedByCap = emptyPageNumbers.Count - toRead.Count;
+                note = "OCR read " + ok + " of " + emptyPages + " pages without a text layer"
+                    + (blank > 0 ? "; " + blank + " had no recognisable text" : string.Empty)
+                    + (failedPages > 0 ? "; " + failedPages + " could not be recognised" : string.Empty)
+                    + (skippedByCap > 0 ? "; " + skippedByCap + " were beyond the OCR page limit" : string.Empty) + ".";
+                if (ok == 0) note = (emptyPages == pages ? "Scanned PDF: " : string.Empty) + note + " Only the file name is searchable.";
+            }
+        }
         DocumentTier tier = segments.Count == 0 ? DocumentTier.MetadataOnly : DocumentTier.Structured;
         return new ExtractedDocument(path, tier, segments, truncated, note, Name);
     }

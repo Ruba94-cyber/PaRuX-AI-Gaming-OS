@@ -87,13 +87,14 @@ public sealed class ContextEngineService
 
     internal async Task<ChatContextResult> BuildForChatAsync(
         string query, SkillManifest? skill, string? conversationId, bool? includeConversationHistory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, ChatDocumentScope? documents = null)
     {
+        bool documentMode = documents is { Enabled: true };
         query = ValidateQuery(query, rejectOversized: false);
-        bool includeMemory = !PolicyIsOff(skill?.MemoryPolicy);
-        bool includeRag = !PolicyIsOff(skill?.RagPolicy);
-        bool webRequired = PolicyIsRequired(skill?.InternetPolicy);
-        bool includeWeb = ShouldIncludeWeb(query, skill?.InternetPolicy);
+        bool includeMemory = !PolicyIsOff(skill?.MemoryPolicy) && !documentMode;
+        bool includeRag = documentMode || !PolicyIsOff(skill?.RagPolicy);
+        bool webRequired = !documentMode && PolicyIsRequired(skill?.InternetPolicy);
+        bool includeWeb = !documentMode && ShouldIncludeWeb(query, skill?.InternetPolicy);
         bool hasConversationScope = !string.IsNullOrWhiteSpace(conversationId);
         bool includeConversation = (includeConversationHistory ?? true) && hasConversationScope;
 
@@ -103,8 +104,9 @@ public sealed class ContextEngineService
             MaxCharacters = DefaultMaxCharacters,
             IncludeMemory = includeMemory,
             IncludeRag = includeRag,
-            IncludeGraph = true,
-            IncludeArtifacts = true,
+            DocumentScope = documentMode ? documents : null,
+            IncludeGraph = !documentMode,
+            IncludeArtifacts = !documentMode,
             IncludeConversationHistory = includeConversation,
             // Keep the scope id even when raw history is disabled: the Virtual Context V2 ledger
             // is explicit durable state and is intentionally independent from transcript loading.
@@ -158,7 +160,8 @@ public sealed class ContextEngineService
                 .ToList(), cancellationToken)
             : null;
 
-        Task<List<RagChunkMatch>>? ragTask = request.IncludeRag
+        bool documentMode = request.DocumentScope is { Enabled: true };
+        Task<List<RagChunkMatch>>? ragTask = request.IncludeRag && !documentMode
             ? _rag.RetrieveAsync(request.Query, 4, cancellationToken)
             : null;
 
@@ -186,6 +189,13 @@ public sealed class ContextEngineService
         if (memoryTask != null) groups.Add(await memoryTask.ConfigureAwait(false));
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (documentMode && request.IncludeRag)
+        {
+            // Scoped document chat: only the chosen sources, position-bearing citations, nothing else mixed in.
+            IReadOnlyList<PaRuX.Server.Knowledge.KnowledgeHit> scoped =
+                PaRuX.Server.Knowledge.DocumentChatPlanner.Search(request.Query, 6, request.DocumentScope!.SourceIds);
+            groups.Add(scoped.Select(h => new ContextCandidate("rag", "rag:" + h.FilePath + "#" + h.ChunkId, h.Citation, h.Text, h.Citation)).ToList());
+        }
         if (ragTask != null)
         {
             List<RagChunkMatch> ragMatches = await ragTask.ConfigureAwait(false);

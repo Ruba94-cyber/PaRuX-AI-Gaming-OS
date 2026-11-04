@@ -93,6 +93,20 @@ public sealed class ChatProxyService
         ModalityChatResult modality = await ModalityChatGate.TryHandleAsync(request, _modality, downstream, cancellationToken);
         if (modality.Handled) return;
 
+        // Document chat: deterministic lookup / explicit "not enough information" are answered here without a model; otherwise
+        // the normal pipeline runs with the passages and a grounding instruction.
+        bool documentMode = request.Documents is { Enabled: true };
+        if (documentMode)
+        {
+            string documentQuestion = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? string.Empty;
+            PaRuX.Server.Knowledge.DocumentChatPlan documentPlan = PaRuX.Server.Knowledge.DocumentChatPlanner.Plan(documentQuestion, request.Documents!.SourceIds);
+            if (documentPlan.Kind != PaRuX.Server.Knowledge.DocumentChatKind.NeedsModel)
+            {
+                await PaRuX.Server.Knowledge.DocumentChatResponder.WriteAsync(downstream, request.Stream, documentPlan, cancellationToken);
+                return;
+            }
+        }
+
         bool hasVisualInput = ContainsVisualInput(request);
         string? forcedRouteIneligibility = GetForcedRouteIneligibility(
             request.ForcedModelRoute, _runtime.UsesExternalProvider, hasVisualInput);
@@ -241,8 +255,9 @@ public sealed class ChatProxyService
         {
             ChatContextResult context = await _context.BuildForChatAsync(
                 lastUser?.Content ?? string.Empty, routed.Skill, request.ConversationId,
-                request.IncludeConversationHistory, cancellationToken);
+                request.IncludeConversationHistory, cancellationToken, request.Documents);
             ApplyContextPack(request, context.Pack);
+            if (documentMode) PaRuX.Server.Knowledge.DocumentChatPlanner.ApplyGrounding(request);
             sources = DisplaySources(context.Pack);
             mcpTools = context.ToolSchemas;
         }
