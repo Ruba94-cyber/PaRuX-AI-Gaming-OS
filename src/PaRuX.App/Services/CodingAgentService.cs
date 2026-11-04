@@ -1473,6 +1473,15 @@ namespace PaRuX.Services
                 sb.Append("Current implementation plan (durable; update it when evidence changes the approach):\n")
                     .Append(plan).Append("\n\n");
 
+            // The ledger exists for what is OLDER than the verbatim tail. When the whole log still fits in the
+            // verbatim window, replaying it again as "Active constraints" only duplicates every tool result and
+            // labels failing output and file contents as constraints. Measured on Qwen3-Coder-30B-A3B with the
+            // saved failing runs: with the duplicate ledger 7/10 samples re-read the file instead of editing,
+            // without it 10/10 edited. The budget it would have used goes back to the verbatim evidence.
+            (IReadOnlyList<string> recent, string effectiveMemory) = CodingAgentPromptBuilder.SelectEvidence(
+                log, MaxLogEntriesInPrompt, recentEvidenceCharacters, durableMemory);
+            durableMemory = effectiveMemory;
+
             if (!string.IsNullOrWhiteSpace(durableMemory))
                 sb.Append("Durable task memory (Virtual Context - facts you already established in earlier steps; do not re-derive them by repeating tool calls):\n")
                     .Append(durableMemory).Append("\n\n");
@@ -1480,8 +1489,6 @@ namespace PaRuX.Services
             if (!string.IsNullOrWhiteSpace(recoveryDigest))
                 sb.Append(recoveryDigest).Append("\n\n");
 
-            IReadOnlyList<string> recent = CodingAgentObservationPolicy.Recent(
-                log, MaxLogEntriesInPrompt, Math.Max(0, recentEvidenceCharacters));
             int omitted = log.Count - recent.Count;
             if (omitted > 0)
                 sb.Append('(').Append(omitted).Append(" earlier observation(s) are retained in the durable checkpoint; only the newest are expanded here.)\n\n");
@@ -1489,7 +1496,7 @@ namespace PaRuX.Services
             sb.Append(log.Count == 0 ? "(none yet)" : string.Join("\n---\n", recent));
             if (verificationRequired && !verificationSatisfied)
                 sb.Append("\n\nCompletion gate: testable code changed and no successful discovered verification command has been observed since that change.");
-            sb.Append(CodingAgentPromptBuilder.EvidenceClosing(recent));
+            sb.Append(CodingAgentPromptBuilder.EvidenceClosing(recent, verificationRequired && verificationSatisfied));
             return sb.ToString();
         }
 
@@ -1738,8 +1745,9 @@ namespace PaRuX.Services
                     // A command newly invented in a modified manifest after
                     // dispatch cannot authorize its own fake green check.
                     bool discoveredVerifierBeforeRun = IsVerificationCommand(root, action.Command);
+                    bool manifestlessRunner = CodingVerificationCommandPolicy.IsExactMatch("python -m unittest", action.Command);
                     string? verifierManifestBeforeRun = discoveredVerifierBeforeRun
-                        ? await CodingVerificationManifestPolicy.CaptureAsync(root, ct).ConfigureAwait(false)
+                        ? await CodingVerificationManifestPolicy.CaptureAsync(root, ct, manifestlessRunner).ConfigureAwait(false)
                         : null;
                     IReadOnlyList<string> programCandidatesBefore = CodingVerificationDiscovery.WorkingDirectoryProgramCandidates(root, action.Command);
                     // The scripts an npm run executes are fixed when it starts; a script could restore
@@ -1765,7 +1773,7 @@ namespace PaRuX.Services
                     if (verification)
                     {
                         string? manifestAfter = await CodingVerificationManifestPolicy
-                            .CaptureAsync(root, ct).ConfigureAwait(false);
+                            .CaptureAsync(root, ct, manifestlessRunner).ConfigureAwait(false);
                         verification = verifierManifestBeforeRun != null
                             && string.Equals(verifierManifestBeforeRun, manifestAfter, StringComparison.Ordinal);
                     }

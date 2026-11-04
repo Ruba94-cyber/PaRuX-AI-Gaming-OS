@@ -70,6 +70,24 @@ public sealed class CodingVerificationManifestPolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task Manifestless_runner_gets_a_receipt_only_when_explicitly_allowed_and_still_rejects_new_manifests()
+    {
+        // Plain `python -m unittest` repositories have no verifier configuration file at all.
+        string root = Repo(Path.Combine(_directory, "plain"), "calc.py", "def average(v): return 0");
+        Assert.Null(await CodingVerificationManifestPolicy.CaptureAsync(root, CancellationToken.None));
+        string? receipt = await CodingVerificationManifestPolicy.CaptureAsync(root, CancellationToken.None, allowNoManifests: true);
+        Assert.NotNull(receipt);
+
+        // Editing code (the agent's fix) does not change the receipt.
+        File.WriteAllText(Path.Combine(root, "calc.py"), "def average(v): return 1");
+        Assert.Equal(receipt, await CodingVerificationManifestPolicy.CaptureAsync(root, CancellationToken.None, allowNoManifests: true));
+
+        // A runner config that appears untracked cannot authorize itself.
+        File.WriteAllText(Path.Combine(root, "pytest.ini"), "[pytest]");
+        Assert.Null(await CodingVerificationManifestPolicy.CaptureAsync(root, CancellationToken.None, allowNoManifests: true));
+    }
+
+    [Fact]
     public async Task Untracked_verifier_manifest_cannot_authorize_a_new_fake_check()
     {
         string root = Repo(Path.Combine(_directory, "only"), "README.md", "baseline");

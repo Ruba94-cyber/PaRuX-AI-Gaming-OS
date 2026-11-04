@@ -50,6 +50,16 @@ namespace PaRuX.Services
         /// An absent receipt is an explicit non-verification, never success.
         /// </summary>
         public static async Task<string?> CaptureAsync(string workspaceRoot, CancellationToken ct)
+            => await CaptureAsync(workspaceRoot, ct, allowNoManifests: false).ConfigureAwait(false);
+
+        /// <summary>
+        /// <paramref name="allowNoManifests"/> is for runners that have no configuration file at all
+        /// (standard-library <c>python -m unittest</c> discovery). There is nothing to pin, but the
+        /// repository must still be a Git worktree with a HEAD, and any verifier manifest that appears
+        /// untracked or modified still yields no receipt, so a new fake runner cannot authorize itself.
+        /// Without this a plain unittest repository could never satisfy its own discovered gate.
+        /// </summary>
+        public static async Task<string?> CaptureAsync(string workspaceRoot, CancellationToken ct, bool allowNoManifests)
         {
             if (string.IsNullOrWhiteSpace(workspaceRoot) || !Directory.Exists(workspaceRoot))
                 return null;
@@ -75,7 +85,7 @@ namespace PaRuX.Services
                     string[] files = Directory.GetFiles(root, "*", SearchOption.TopDirectoryOnly)
                         .Where(path => IsVerifierManifest(Path.GetFileName(path)))
                         .ToArray();
-                    if (files.Length is < 1 or > MaximumManifestsPerRoot) return null;
+                    if (files.Length > MaximumManifestsPerRoot || (files.Length < 1 && !allowNoManifests)) return null;
                     if (files.Any(path =>
                         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0))
                         return null;
@@ -93,6 +103,8 @@ namespace PaRuX.Services
                     // The actual tree must be *fully* tracked. A new
                     // package.json or Makefile cannot become an arbitrary
                     // verifier merely by existing in the agent worktree.
+                    if (paths.Length > 0)
+                    {
                     string[] trackedArgs = new[] { "ls-files", "-z", "--" }
                         .Concat(paths).ToArray();
                     (int trackedExit, string tracked) = await CodingAgentTools.RunGitAsync(
@@ -110,6 +122,7 @@ namespace PaRuX.Services
                     (int diffExit, _) = await CodingAgentTools.RunGitAsync(
                         root, ct, includeStderr: false, diffArgs).ConfigureAwait(false);
                     if (diffExit != 0) return null;
+                    }
 
                     evidence.Add(alias + "\n" + head.ToLowerInvariant()
                         + "\n" + string.Join("\n", paths));

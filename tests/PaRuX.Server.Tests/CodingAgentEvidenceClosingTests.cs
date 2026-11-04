@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using PaRuX.Services;
 using Xunit;
@@ -49,7 +50,50 @@ public class CodingAgentEvidenceClosingTests
             root = Path.GetDirectoryName(root);
         Assert.NotNull(root);
         string source = File.ReadAllText(Path.Combine(root!, "src", "PaRuX.App", "Services", "CodingAgentService.cs"));
-        Assert.Contains("CodingAgentPromptBuilder.EvidenceClosing(recent)", source);
+        Assert.Contains("CodingAgentPromptBuilder.EvidenceClosing(recent, verificationRequired && verificationSatisfied)", source);
         Assert.DoesNotContain("Large tool/file evidence is never intentionally discarded", source);
+    }
+
+    [Fact]
+    public void Passed_verification_makes_done_the_obvious_next_action_without_replacing_the_gate()
+    {
+        string closing = CodingAgentPromptBuilder.EvidenceClosing(new[] { "run_command \"python -m unittest\" (exit 0)\nOK" }, verificationPassedAfterChange: true);
+        Assert.Contains("\"action\":\"done\"", closing);
+        Assert.Contains("Do not run the same verification command again", closing);
+        Assert.EndsWith("What is the next single JSON action?", closing);
+
+        string without = CodingAgentPromptBuilder.EvidenceClosing(new[] { "x" }, verificationPassedAfterChange: false);
+        Assert.DoesNotContain("\"action\":\"done\"", without);
+    }
+
+    [Fact]
+    public void Ledger_that_only_duplicates_the_verbatim_evidence_is_dropped()
+    {
+        var log = new[] { "run_command exit 1\nFAIL", "read_file calc.py\ndef average(values): ..." };
+        string ledger = "[VIRTUAL_CONTEXT_V2_LEDGER]\nActive constraints\n- run_command exit 1\n[/VIRTUAL_CONTEXT_V2_LEDGER]";
+        var (recent, memory) = CodingAgentPromptBuilder.SelectEvidence(log, 12, 4000, ledger);
+        Assert.Equal(2, recent.Count);
+        Assert.Equal(string.Empty, memory);
+    }
+
+    [Fact]
+    public void Ledger_is_kept_when_older_observations_no_longer_fit_verbatim()
+    {
+        var log = new List<string>();
+        for (int i = 0; i < 20; i++) log.Add("observation " + i + " " + new string('x', 400));
+        string ledger = "[VIRTUAL_CONTEXT_V2_LEDGER]\nolder facts\n[/VIRTUAL_CONTEXT_V2_LEDGER]";
+        var (recent, memory) = CodingAgentPromptBuilder.SelectEvidence(log, 12, 2000, ledger);
+        Assert.True(recent.Count < log.Count);
+        Assert.Equal(ledger, memory);
+    }
+
+    [Fact]
+    public void Ledger_budget_returns_to_the_tail_when_that_lets_everything_fit()
+    {
+        var log = new[] { new string('a', 600), new string('b', 600) };
+        string ledger = new string('m', 700);
+        var (recent, memory) = CodingAgentPromptBuilder.SelectEvidence(log, 12, 1000, ledger);
+        Assert.Equal(2, recent.Count);
+        Assert.Equal(string.Empty, memory);
     }
 }

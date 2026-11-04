@@ -100,7 +100,9 @@ namespace PaRuX.Services
         /// steered and halted. The artifact paragraph is therefore emitted only when the replayed evidence
         /// really names an artifact or was truncated, and the closing says explicitly not to repeat shown actions.
         /// </summary>
-        public static string EvidenceClosing(System.Collections.Generic.IEnumerable<string> replayedEvidence)
+        public static string EvidenceClosing(
+            System.Collections.Generic.IEnumerable<string> replayedEvidence,
+            bool verificationPassedAfterChange = false)
         {
             bool artifactEvidence = false;
             foreach (string item in replayedEvidence ?? System.Array.Empty<string>())
@@ -117,10 +119,38 @@ namespace PaRuX.Services
             string artifactNote = artifactEvidence
                 ? "\n\nSome evidence above is a truncated preview that names an artifactId: page the rest with read_artifact/search_artifact/list_artifacts instead of re-running a costly command."
                 : string.Empty;
-            return artifactNote
+            // A discovered verification command has passed since the last code change (the gate itself is
+            // evaluated by the service, not by this text). Repeating that command cannot produce new
+            // evidence, so make the explicit finish the obvious next action.
+            string finishNote = verificationPassedAfterChange
+                ? "\n\nVerification gate satisfied: the required verification command already passed after your last code change. "
+                    + "If the task goal is met, the next action is {\"action\":\"done\",\"summary\":\"<what you changed and the observed verification result>\"}. "
+                    + "Do not run the same verification command again unless you change code first."
+                : string.Empty;
+            return artifactNote + finishNote
                 + "\n\nEverything above is the result of actions you already executed. Never repeat an action whose result is shown unless the workspace changed since; "
                 + "decide the next action from that evidence (once a defect is located, fix it with replace_range or write_file, then run the verification command). "
                 + "What is the next single JSON action?";
+        }
+
+        /// <summary>
+        /// Chooses the verbatim evidence tail and whether the durable-memory ledger is shown. The ledger holds
+        /// what is OLDER than the tail; when every observation still fits verbatim (possibly after giving the
+        /// ledger's budget back to the tail) it only duplicates them, relabelled as "Active constraints".
+        /// </summary>
+        public static (System.Collections.Generic.IReadOnlyList<string> Recent, string DurableMemory) SelectEvidence(
+            System.Collections.Generic.IReadOnlyList<string> log,
+            int maxEntries,
+            int recentEvidenceCharacters,
+            string durableMemory)
+        {
+            durableMemory ??= string.Empty;
+            int budget = System.Math.Max(0, recentEvidenceCharacters);
+            var recent = CodingAgentObservationPolicy.Recent(log, maxEntries, budget);
+            if (string.IsNullOrWhiteSpace(durableMemory) || log.Count == 0) return (recent, durableMemory);
+            if (recent.Count == log.Count) return (recent, string.Empty);
+            var widened = CodingAgentObservationPolicy.Recent(log, maxEntries, budget + durableMemory.Length);
+            return widened.Count == log.Count ? (widened, string.Empty) : (recent, durableMemory);
         }
 
         public static string BuildSystemPrompt(
