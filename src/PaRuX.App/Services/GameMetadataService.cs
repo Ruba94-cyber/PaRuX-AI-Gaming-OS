@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -28,6 +29,28 @@ namespace PaRuX.Services
             "Covers and info look your games up by name on the public Steam store and on Wikipedia. The game names are sent " +
             "to those services; no account, key, play time or file path is sent. Nothing is contacted while this is off or " +
             "while a game is running. A cover you chose yourself is never replaced.";
+
+        // SteamGridDB carries the user's key, so it gets its own client that never follows a redirect (the key must not travel on).
+        private static readonly HttpClient SgdbHttp = CreateSgdbClient();
+        private const string SgdbApi = "https://www.steamgriddb.com/api/v2";
+        private static string? _notice;
+
+        private static HttpClient CreateSgdbClient()
+        {
+            var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(15) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PaRuX/2.0 (local game library; https://github.com/Ruba94-cyber)");
+            return client;
+        }
+
+        /// <summary>A one-time, user-readable message about the optional SteamGridDB source (e.g. a rejected key); cleared when read.</summary>
+        public static string? TakeNotice() => Interlocked.Exchange(ref _notice, null);
+
+        private sealed class SgdbSession
+        {
+            public SgdbSession(string key) => Key = key;
+            public string Key { get; }
+            public bool Disabled { get; set; }
+        }
 
         private static HttpClient CreateClient()
         {
@@ -81,6 +104,8 @@ namespace PaRuX.Services
         public static async Task<int> FetchMissingAsync(IReadOnlyList<GameTitleDto> titles, Func<CancellationToken, Task<bool>> gamingActive, CancellationToken ct)
         {
             int found = 0, asked = 0;
+            string? sgdbKey = SteamGridDbKeyStore.TryGet();
+            SgdbSession? sgdb = sgdbKey is null ? null : new SgdbSession(sgdbKey);
             foreach (GameTitleDto title in titles)
             {
                 ct.ThrowIfCancellationRequested();
@@ -91,12 +116,21 @@ namespace PaRuX.Services
                 {
                     GameInfoDto? known = TryGetInfo(title.TitleKey);
                     // Already described: only the cover is missing, so retry that download without asking the catalogues again.
-                    GameInfoDto? info = known ?? await LookUpAsync(title, ct).ConfigureAwait(false);
+                    string? fallbackCover = null;
+                    GameInfoDto? info = known;
+                    if (known is null) (info, fallbackCover) = await LookUpAsync(title, sgdb, ct).ConfigureAwait(false);
                     if (known is null) Save(title.TitleKey, info);
                     if (info is null) continue;
                     found++;
-                    if (info.CoverUrl is not null && GameCoverStore.TryGetPath(title.TitleKey) is null)
-                        await DownloadCoverAsync(title.TitleKey, info.CoverUrl, ct).ConfigureAwait(false);
+                    if (info.CoverUrl is not null && GameCoverStore.TryGetPath(title.TitleKey) is null
+                        && !await DownloadCoverAsync(title.TitleKey, info.CoverUrl, ct).ConfigureAwait(false)
+                        && fallbackCover is not null)
+                    {
+                        // The SteamGridDB image could not be fetched: use the Steam/Wikipedia cover instead and remember that.
+                        info = info with { CoverUrl = fallbackCover };
+                        Save(title.TitleKey, info);
+                        await DownloadCoverAsync(title.TitleKey, fallbackCover, ct).ConfigureAwait(false);
+                    }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
@@ -109,7 +143,61 @@ namespace PaRuX.Services
             return found;
         }
 
-        private static async Task<GameInfoDto?> LookUpAsync(GameTitleDto title, CancellationToken ct)
+        /// <summary>
+        /// Description and genres always come from Steam/Wikipedia. When a SteamGridDB key is set, its portrait grid is tried
+        /// for the cover first; the catalogue cover is returned as the fallback for when that image cannot be downloaded.
+        /// </summary>
+        private static async Task<(GameInfoDto? Info, string? FallbackCover)> LookUpAsync(GameTitleDto title, SgdbSession? sgdb, CancellationToken ct)
+        {
+            (string Url, long GameId, string Name)? grid = sgdb is { Disabled: false }
+                ? await LookUpSteamGridDbAsync(CleanName(title.Name), sgdb, ct).ConfigureAwait(false) : null;
+            GameInfoDto? info = await LookUpCatalogueAsync(title, ct).ConfigureAwait(false);
+            if (grid is not { } g) return (info, null);
+            if (info is null)
+                return (new GameInfoDto(title.TitleKey, g.Name.Length > 120 ? g.Name[..120] : g.Name, string.Empty, Array.Empty<string>(), string.Empty, string.Empty,
+                    GameMetadataParsing.SourceSteamGridDb, "https://www.steamgriddb.com/game/" + g.GameId, g.Url), null);
+            return (info with { CoverUrl = g.Url }, info.CoverUrl);
+        }
+
+        private static async Task<(string Url, long GameId, string Name)?> LookUpSteamGridDbAsync(string name, SgdbSession sgdb, CancellationToken ct)
+        {
+            try
+            {
+                string? search = await GetSteamGridDbAsync(sgdb, "/search/autocomplete/" + Uri.EscapeDataString(name), ct).ConfigureAwait(false);
+                if (search is null) return null;
+                List<(long Id, string Name)> games = GameMetadataParsing.ParseSteamGridDbSearch(search);
+                if (GameMetadataParsing.PickSteamGridDbGame(name, games) is not long id) return null;
+                string? grids = await GetSteamGridDbAsync(sgdb,
+                    "/grids/game/" + id + "?dimensions=600x900&types=static&mimes=image%2Fpng,image%2Fjpeg&nsfw=false&humor=false", ct).ConfigureAwait(false);
+                if (grids is null || GameMetadataParsing.PickSteamGridDbGrid(grids) is not string url) return null;
+                return (url, id, games.First(g => g.Id == id).Name);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+            {
+                return null; // SteamGridDB hiccup: the other sources still run
+            }
+        }
+
+        /// <summary>One authenticated SteamGridDB GET. Null on any failure; a rejected key switches the source off for the run.</summary>
+        private static async Task<string?> GetSteamGridDbAsync(SgdbSession sgdb, string path, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, SgdbApi + path);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sgdb.Key);
+            using HttpResponseMessage response = await SgdbHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            int status = (int)response.StatusCode;
+            if (status is 401 or 403)
+            {
+                sgdb.Disabled = true;
+                Interlocked.Exchange(ref _notice, "SteamGridDB rejected the API key, so covers come from Steam and Wikipedia only. Check or replace the key with \"SteamGridDB key...\".");
+                return null;
+            }
+            if (status == 429) { sgdb.Disabled = true; return null; }
+            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength is > 2_000_000) return null;
+            return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+
+        private static async Task<GameInfoDto?> LookUpCatalogueAsync(GameTitleDto title, CancellationToken ct)
         {
             string name = CleanName(title.Name);
             bool pc = false;
@@ -173,22 +261,23 @@ namespace PaRuX.Services
             return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
 
-        private static async Task DownloadCoverAsync(string titleKey, string url, CancellationToken ct)
+        /// <summary>The image downloads carry no key (the CDNs are public). True when the cover was stored.</summary>
+        private static async Task<bool> DownloadCoverAsync(string titleKey, string url, CancellationToken ct)
         {
-            if (!GameMetadataParsing.IsAllowedImageUrl(url)) return;
+            if (!GameMetadataParsing.IsAllowedImageUrl(url)) return false;
             using HttpResponseMessage response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return;
-            if (response.Content.Headers.ContentLength is long length && length > GameCoverStore.MaxBytes) return;
+            if (!response.IsSuccessStatusCode) return false;
+            if (response.Content.Headers.ContentLength is long length && length > GameCoverStore.MaxBytes) return false;
             // A redirect must stay on an allowed host as well.
-            if (response.RequestMessage?.RequestUri is Uri finalUri && !GameMetadataParsing.IsAllowedImageUrl(finalUri.AbsoluteUri)) return;
+            if (response.RequestMessage?.RequestUri is Uri finalUri && !GameMetadataParsing.IsAllowedImageUrl(finalUri.AbsoluteUri)) return false;
             byte[] bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             string? extension = GameCoverStore.DetectExtension(bytes);
-            if (bytes.Length == 0 || bytes.Length > GameCoverStore.MaxBytes || extension is null) return;
+            if (bytes.Length == 0 || bytes.Length > GameCoverStore.MaxBytes || extension is null) return false;
             string temp = Path.Combine(Path.GetTempPath(), "parux-cover-" + Guid.NewGuid().ToString("N") + extension);
             try
             {
                 await File.WriteAllBytesAsync(temp, bytes, ct).ConfigureAwait(false);
-                GameCoverStore.Set(titleKey, temp);
+                return GameCoverStore.Set(titleKey, temp) == GameCoverResult.Saved;
             }
             finally { try { File.Delete(temp); } catch (IOException) { } }
         }

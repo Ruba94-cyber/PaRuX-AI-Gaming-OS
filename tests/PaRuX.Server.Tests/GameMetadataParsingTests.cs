@@ -83,4 +83,66 @@ public sealed class GameMetadataParsingTests
     [InlineData("file:///C:/secret.png", false)]
     public void Image_urls_are_limited_to_the_catalogue_cdns(string url, bool allowed) =>
         Assert.Equal(allowed, GameMetadataParsing.IsAllowedImageUrl(url));
+
+    [Fact]
+    public void SteamGridDb_search_gives_the_close_match_in_ranked_order()
+    {
+        const string json = """
+        {"success":true,"data":[
+          {"id":5254383,"name":"Ghost of Tsushima: Director's Cut","types":["steam"],"verified":true},
+          {"id":5254384,"name":"Ghost of Tsushima","types":["steam"],"verified":true},
+          {"id":99,"name":"Something Else","types":["epic"],"verified":false}]}
+        """;
+        List<(long Id, string Name)> found = GameMetadataParsing.ParseSteamGridDbSearch(json);
+        Assert.Equal(3, found.Count);
+        Assert.Equal(5254383, GameMetadataParsing.PickSteamGridDbGame("Ghost of Tsushima DC", found));
+        Assert.Null(GameMetadataParsing.PickSteamGridDbGame("Hades II", found));
+        Assert.Empty(GameMetadataParsing.ParseSteamGridDbSearch("""{"success":false,"errors":["Unauthorized"]}"""));
+        Assert.Empty(GameMetadataParsing.ParseSteamGridDbSearch("not json"));
+        Assert.Empty(GameMetadataParsing.ParseSteamGridDbSearch(null));
+    }
+
+    [Fact]
+    public void SteamGridDb_grids_prefer_exact_portrait_then_score_and_skip_unsafe_or_animated()
+    {
+        const string json = """
+        {"success":true,"page":0,"total":9,"limit":50,"data":[
+          {"id":1,"score":90,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"mime":"image/png","url":"https://cdn2.steamgriddb.com/grid/wide.png"},
+          {"id":2,"score":80,"style":"alternate","width":600,"height":900,"nsfw":true,"humor":false,"mime":"image/png","url":"https://cdn2.steamgriddb.com/grid/nsfw.png"},
+          {"id":3,"score":70,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":true,"mime":"image/png","url":"https://cdn2.steamgriddb.com/grid/humor.png"},
+          {"id":4,"score":60,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"epilepsy":true,"mime":"image/webp","url":"https://cdn2.steamgriddb.com/grid/anim.webp"},
+          {"id":5,"score":50,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"mime":"image/gif","url":"https://cdn2.steamgriddb.com/grid/anim.gif"},
+          {"id":6,"score":40,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"mime":"image/png","url":"https://evil.example.com/grid/x.png"},
+          {"id":7,"score":30,"style":"alternate","width":342,"height":482,"nsfw":false,"humor":false,"mime":"image/jpeg","url":"https://cdn.steamgriddb.com/grid/small-high.jpg"},
+          {"id":8,"score":5,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"mime":"image/png","url":"https://cdn2.steamgriddb.com/grid/exact-low.png"},
+          {"id":9,"score":12,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"mime":"image/jpeg","url":"https://cdn2.steamgriddb.com/grid/exact-best.jpg"}]}
+        """;
+        Assert.Equal("https://cdn2.steamgriddb.com/grid/exact-best.jpg", GameMetadataParsing.PickSteamGridDbGrid(json));
+        // Without an exact 600x900 grid, the best-scored other portrait grid wins.
+        string noExact = json.Replace("\"width\":600,\"height\":900", "\"width\":512,\"height\":768");
+        Assert.Equal("https://cdn.steamgriddb.com/grid/small-high.jpg", GameMetadataParsing.PickSteamGridDbGrid(noExact));
+    }
+
+    [Fact]
+    public void SteamGridDb_grids_return_null_when_nothing_is_usable()
+    {
+        Assert.Null(GameMetadataParsing.PickSteamGridDbGrid("""{"success":true,"data":[]}"""));
+        Assert.Null(GameMetadataParsing.PickSteamGridDbGrid("""{"success":false,"errors":["Forbidden"]}"""));
+        Assert.Null(GameMetadataParsing.PickSteamGridDbGrid("<html>"));
+        Assert.Null(GameMetadataParsing.PickSteamGridDbGrid(
+            """{"success":true,"data":[{"width":600,"height":900,"mime":"image/png","url":"http://cdn2.steamgriddb.com/a.png"}]}"""));
+    }
+
+    [Theory]
+    [InlineData("https://cdn2.steamgriddb.com/grid/a.png", true)]
+    [InlineData("https://cdn.steamgriddb.com/grid/a.png", true)]
+    [InlineData("http://cdn2.steamgriddb.com/grid/a.png", false)]
+    [InlineData("https://www.steamgriddb.com/grid/a.png", false)]
+    [InlineData("https://cdn2.steamgriddb.com.evil.example/a.png", false)]
+    [InlineData("https://user:pw@cdn2.steamgriddb.com/a.png", false)]
+    public void SteamGridDb_images_come_only_from_its_two_cdn_hosts(string url, bool allowed)
+    {
+        Assert.Equal(allowed, GameMetadataParsing.IsSteamGridDbImageUrl(url));
+        Assert.Equal(allowed, GameMetadataParsing.IsAllowedImageUrl(url));
+    }
 }

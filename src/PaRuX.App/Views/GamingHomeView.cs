@@ -41,6 +41,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ToggleButton _layout = new();
     private readonly ToggleButton _metadata = new();
     private bool _metadataRunning;
+    private readonly Button _steamGridDb = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
@@ -289,13 +290,19 @@ internal sealed class GamingHomeView : StackPanel
         _metadata.IsChecked = SettingsStore.Current.Data.GameMetadataEnabled;
         _metadata.Click += async (_, _) => await OnMetadataToggledAsync();
 
+        _steamGridDb.Content = T("SteamGridDB key...", "Chiave SteamGridDB...");
+        Track(_steamGridDb, "GameHome_SteamGridDb_Button",
+            T("Set the optional SteamGridDB API key for better covers", "Imposta la chiave API SteamGridDB facoltativa per copertine migliori"));
+        _steamGridDb.IsEnabled = _metadata.IsChecked == true;
+        _steamGridDb.Click += async (_, _) => await OnSteamGridDbKeyAsync();
+
         _refresh.Content = T("Refresh", "Aggiorna");
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
 
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
-                   _favoritesOnly, _showHidden, _layout, _metadata, _selectMode, _refresh })
+                   _favoritesOnly, _showHidden, _layout, _metadata, _steamGridDb, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -635,12 +642,89 @@ internal sealed class GamingHomeView : StackPanel
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) { _metadata.IsChecked = false; return; }
             data.GameMetadataEnabled = true;
             SettingsStore.Current.Save();
+            _steamGridDb.IsEnabled = true;
             await RunMetadataAsync();
         }
         else
         {
             data.GameMetadataEnabled = false;
             SettingsStore.Current.Save();
+            _steamGridDb.IsEnabled = false;
+        }
+    }
+
+    /// <summary>
+    /// Optional SteamGridDB API key. The dialog says exactly what is sent; the key is stored with DPAPI (never in settings.json)
+    /// and is never shown again, so the field is always empty and "Save" replaces a stored key.
+    /// </summary>
+    private async Task OnSteamGridDbKeyAsync()
+    {
+        if (!SettingsStore.Current.Data.GameMetadataEnabled) return;
+        bool hasKey = SteamGridDbKeyStore.HasKey;
+        var box = new PasswordBox
+        {
+            PlaceholderText = hasKey ? T("A key is saved. Paste a new one to replace it.", "Una chiave è salvata. Incollane una nuova per sostituirla.")
+                                     : T("Paste your SteamGridDB API key", "Incolla la tua chiave API SteamGridDB")
+        };
+        AutomationProperties.SetAutomationId(box, "GameHome_SteamGridDb_PasswordBox");
+        AutomationProperties.SetName(box, T("SteamGridDB API key", "Chiave API SteamGridDB"));
+        var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        AutomationProperties.SetAutomationId(error, "GameHome_SteamGridDb_Error");
+        AutomationProperties.SetLiveSetting(error, AutomationLiveSetting.Assertive);
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = T(
+                "SteamGridDB gives better portrait covers for games that Steam and Wikipedia cover poorly. It needs your own free API key (steamgriddb.com, Preferences, API). The key is optional. " +
+                "When set, the game names and your key are sent to steamgriddb.com to find a cover; nothing else is sent. Nothing is contacted while Covers & info is off or while a game is running. " +
+                "The key is stored encrypted for your Windows account only, never in the settings file, and is not shown again.",
+                "SteamGridDB offre copertine verticali migliori per i giochi che Steam e Wikipedia coprono male. Serve la tua chiave API gratuita (steamgriddb.com, Preferences, API). La chiave è facoltativa. " +
+                "Se impostata, i nomi dei giochi e la chiave vengono inviati a steamgriddb.com per trovare una copertina; non viene inviato altro. Non viene contattato nulla mentre Copertine e info è spento o mentre un gioco è in esecuzione. " +
+                "La chiave è salvata cifrata solo per il tuo account Windows, mai nel file delle impostazioni, e non viene più mostrata.")
+        });
+        panel.Children.Add(box);
+        panel.Children.Add(error);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("SteamGridDB key", "Chiave SteamGridDB"),
+            Content = panel,
+            PrimaryButtonText = T("Save", "Salva"),
+            SecondaryButtonText = T("Remove", "Rimuovi"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Primary,
+            IsSecondaryButtonEnabled = hasKey
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            if (SteamGridDbKeyStore.Clean(box.Password) is null)
+            {
+                args.Cancel = true;
+                error.Text = T("That does not look like an API key. Paste the key exactly as SteamGridDB shows it.",
+                    "Non sembra una chiave API. Incolla la chiave esattamente come la mostra SteamGridDB.");
+                error.Visibility = Visibility.Visible;
+            }
+            else if (!SteamGridDbKeyStore.Save(box.Password))
+            {
+                args.Cancel = true;
+                error.Text = T("The key could not be saved securely.", "Impossibile salvare la chiave in modo sicuro.");
+                error.Visibility = Visibility.Visible;
+            }
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        box.Password = string.Empty;
+        if (result == ContentDialogResult.Primary)
+        {
+            _status.Text = T("SteamGridDB key saved. Covers are looked up there first from the next refresh.",
+                "Chiave SteamGridDB salvata. Le copertine verranno cercate prima lì dal prossimo aggiornamento.");
+            _ = RunMetadataAsync();
+        }
+        else if (result == ContentDialogResult.Secondary)
+        {
+            _status.Text = SteamGridDbKeyStore.Remove()
+                ? T("SteamGridDB key removed.", "Chiave SteamGridDB rimossa.")
+                : T("The SteamGridDB key could not be removed.", "Impossibile rimuovere la chiave SteamGridDB.");
         }
     }
 
@@ -655,6 +739,8 @@ internal sealed class GamingHomeView : StackPanel
                 async token => (await GamingOrchestratorClient.Current.GetStatusAsync(token))?.IsGamingActive == true,
                 CancellationToken.None);
             if (found > 0) await ReloadAsync();
+            if (GameMetadataService.TakeNotice() is string notice)
+                _status.Text = T(notice, "SteamGridDB ha rifiutato la chiave API: le copertine arrivano solo da Steam e Wikipedia. Controlla o sostituisci la chiave con \"Chiave SteamGridDB...\".");
         }
         catch (Exception) { /* offline or cancelled: covers simply stay as they are */ }
         finally { _metadataRunning = false; }

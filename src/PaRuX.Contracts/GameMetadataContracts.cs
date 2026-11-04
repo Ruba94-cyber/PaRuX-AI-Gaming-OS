@@ -25,6 +25,7 @@ public static partial class GameMetadataParsing
 {
     public const string SourceSteam = "steam";
     public const string SourceWikipedia = "wikipedia";
+    public const string SourceSteamGridDb = "steamgriddb";
 
     [GeneratedRegex(@"\[[^\]]*\]|\([^)]*\)", RegexOptions.CultureInvariant)]
     private static partial Regex Bracketed();
@@ -165,8 +166,85 @@ public static partial class GameMetadataParsing
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo)) return false;
         string host = uri.Host.ToLowerInvariant();
         return host == "upload.wikimedia.org" || host.EndsWith(".steamstatic.com", StringComparison.Ordinal)
-            || host == "steamcdn-a.akamaihd.net";
+            || host == "steamcdn-a.akamaihd.net" || IsSteamGridDbImageUrl(url);
     }
+
+    /// <summary>SteamGridDB serves its images only from these two https hosts.</summary>
+    public static bool IsSteamGridDbImageUrl(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo)) return false;
+        string host = uri.Host.ToLowerInvariant();
+        return host == "cdn2.steamgriddb.com" || host == "cdn.steamgriddb.com";
+    }
+
+    /// <summary>SteamGridDB autocomplete reply (<c>{"success":true,"data":[{"id":..,"name":..}]}</c>): game id and name of every result.</summary>
+    public static List<(long Id, string Name)> ParseSteamGridDbSearch(string? json)
+    {
+        var result = new List<(long, string)>();
+        if (!TryParse(json, out JsonDocument? document)) return result;
+        using (document)
+        {
+            JsonElement root = document!.RootElement;
+            if (root.TryGetProperty("success", out JsonElement ok) && ok.ValueKind == JsonValueKind.False) return result;
+            if (!root.TryGetProperty("data", out JsonElement data) || data.ValueKind != JsonValueKind.Array) return result;
+            foreach (JsonElement item in data.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object || !item.TryGetProperty("id", out JsonElement id) || !id.TryGetInt64(out long value)) continue;
+                string name = Text(item, "name");
+                if (name.Length > 0) result.Add((value, name));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The first (best ranked) autocomplete result that is close enough to <paramref name="wanted"/>, or null.</summary>
+    public static long? PickSteamGridDbGame(string wanted, IReadOnlyList<(long Id, string Name)> candidates)
+    {
+        foreach ((long id, string name) in candidates)
+            if (Similarity(wanted, name) >= 0.8) return id;
+        return null;
+    }
+
+    /// <summary>
+    /// SteamGridDB grids reply: the best portrait, static, safe-for-work grid on an allowed CDN host. A 600x900 grid is preferred,
+    /// then the higher community score. Animated (gif/webm/apng), NSFW, humor and epilepsy-flagged grids and any other host are skipped.
+    /// </summary>
+    public static string? PickSteamGridDbGrid(string? json)
+    {
+        if (!TryParse(json, out JsonDocument? document)) return null;
+        using (document)
+        {
+            JsonElement root = document!.RootElement;
+            if (root.TryGetProperty("success", out JsonElement ok) && ok.ValueKind == JsonValueKind.False) return null;
+            if (!root.TryGetProperty("data", out JsonElement data) || data.ValueKind != JsonValueKind.Array) return null;
+            string? best = null;
+            (bool Exact, long Score) bestRank = (false, long.MinValue);
+            foreach (JsonElement grid in data.EnumerateArray())
+            {
+                if (grid.ValueKind != JsonValueKind.Object) continue;
+                if (Flag(grid, "nsfw") || Flag(grid, "humor") || Flag(grid, "epilepsy")) continue;
+                string mime = Text(grid, "mime");
+                if (!mime.Equals("image/png", StringComparison.OrdinalIgnoreCase) && !mime.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase)
+                    && !mime.Equals("image/webp", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!grid.TryGetProperty("width", out JsonElement w) || !w.TryGetInt32(out int width)
+                    || !grid.TryGetProperty("height", out JsonElement h) || !h.TryGetInt32(out int height)
+                    || width <= 0 || height <= width) continue; // portrait only
+                string url = Text(grid, "url");
+                if (!IsSteamGridDbImageUrl(url)) continue;
+                long score = grid.TryGetProperty("score", out JsonElement sc) && sc.TryGetInt64(out long s) ? s : 0;
+                (bool, long) rank = (width == 600 && height == 900, score);
+                if (best is null || rank.Item1 && !bestRank.Exact || rank.Item1 == bestRank.Exact && rank.Item2 > bestRank.Score)
+                {
+                    best = url;
+                    bestRank = rank;
+                }
+            }
+            return best;
+        }
+    }
+
+    private static bool Flag(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.True;
 
     private static bool TryParse(string? json, out JsonDocument? document)
     {
