@@ -42,7 +42,8 @@ New-Item -ItemType Directory -Force $outRoot, $assets | Out-Null
 # --- 1. The application (reuse the portable build; it already excludes models, indexes and tokens) --------------------------
 $portableStage = Join-Path $repoRoot "artifacts\portable\stage\PaRuX"
 if (-not $SkipPublish) {
-    & (Join-Path $PSScriptRoot "build-portable.ps1") @(if ($Version) { "-Version", $Version })
+    $pv = @{}; if ($Version) { $pv["Version"] = $Version }
+    & (Join-Path $PSScriptRoot "build-portable.ps1") @pv
     if ($LASTEXITCODE -ne 0) { throw "Portable build failed." }
 }
 if (-not (Test-Path (Join-Path $portableStage "PaRuX.exe"))) { throw "Portable stage not found. Run without -SkipPublish." }
@@ -65,9 +66,10 @@ function Get-File($url, $dest) {
 }
 if ($Fetch) {
     # llama.cpp (MIT) CPU build from the official releases.
-    $rel = Invoke-RestMethod "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" -Headers @{ "User-Agent" = "PaRuX-build" }
+    $rels = Invoke-RestMethod "https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=20" -Headers @{ "User-Agent" = "PaRuX-build" }
+    $rel = $rels | Where-Object { @($_.assets | Where-Object { $_.name -match '^llama-.*-bin-win-cpu-x64\.zip$' }).Count -gt 0 } | Select-Object -First 1
+    if (-not $rel) { throw "No official win-cpu-x64 llama.cpp asset found in recent releases." }
     $asset = $rel.assets | Where-Object { $_.name -match '^llama-.*-bin-win-cpu-x64\.zip$' } | Select-Object -First 1
-    if (-not $asset) { throw "No official win-cpu-x64 llama.cpp asset found in the latest release." }
     $RuntimeTag = $rel.tag_name
     $zip = Join-Path $assets $asset.name
     Get-File $asset.browser_download_url $zip
