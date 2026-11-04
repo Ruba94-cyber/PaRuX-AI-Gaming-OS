@@ -273,6 +273,8 @@ builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
 builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
 builder.Services.AddSingleton<GogGameDiscoveryProvider>();
 builder.Services.AddSingleton<ExtraStoreCatalog>();
+builder.Services.AddSingleton<GameLaunchHookStore>();
+builder.Services.AddSingleton<GameLaunchHookService>();
 builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<OwnedGameWindowPlacementService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();

@@ -24,6 +24,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
     private readonly ExtraStoreCatalog _extra;
+    private readonly GameLaunchHookService? _hooks;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
@@ -34,8 +35,9 @@ public sealed class ManualGameSessionService : IDisposable
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
         GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
-        ExtraStoreCatalog? extraStores = null)
+        ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null)
     {
+        _hooks = hooks;
         _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
         _windowPlacement = windowPlacement;
@@ -90,6 +92,7 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false,
                     "The selected game TV is unavailable. Check the connected displays in Settings; no game was launched.");
 
+            await RunHookAsync(GameHookPhase.Pre, SessionTitleKey(game), ct).ConfigureAwait(false);
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
                 return new(false, false, "Gaming resources could not be prepared. No game was launched.");
@@ -232,6 +235,22 @@ public sealed class ManualGameSessionService : IDisposable
     /// Observe the game's own verified process tree (see <see cref="LauncherPlayTimeTracker"/>) and credit play time;
     /// observation only, never an action against a process, and cancelled by Return to AI / shutdown.
     /// </summary>
+    private static string HookKey(DiscoveredGameDto game) => GameTitleCatalog.KeyFor(game.Name,
+        GameTitleCatalog.InstallationId(game.ProviderId.ToLowerInvariant(), game.ProviderGameId));
+
+    /// <summary>Off-by-default per-game helper (see <see cref="GameLaunchHookStore"/>). A hook outcome never blocks or fails a launch.</summary>
+    private async Task RunHookAsync(GameHookPhase phase, string titleKey, CancellationToken ct)
+    {
+        if (_hooks is null || titleKey.Length == 0) return;
+        try
+        {
+            GameHookRunResult result = await _hooks.RunAsync(phase, titleKey, ct).ConfigureAwait(false);
+            if (result.Ran || result.Reason is "failed" or "unsafe-path")
+                _logger?.LogInformation("Launch hook {Phase}: {Reason}", phase, result.Reason);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+    }
+
     private void BeginLauncherPlayTimeTracking(DiscoveredGameDto game)
     {
         if (_titles is null || string.IsNullOrWhiteSpace(game.InstallDirectory)) return;
@@ -333,6 +352,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (string.IsNullOrWhiteSpace(steamExe) || !File.Exists(steamExe))
                 return new(false, false, "Steam is not installed in its expected location.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(installed.First(g => g.ProviderId == "steam" && g.ProviderGameId == appId)), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; Steam was not launched.");
 
@@ -404,6 +424,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (!EpicGameLaunchProtocol.IsWindowsProtocolRegistered())
                 return new(false, false, "The Epic Games Launcher protocol is not registered in Windows.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; Epic was not contacted.");
 
@@ -476,6 +497,7 @@ public sealed class ManualGameSessionService : IDisposable
             if (string.IsNullOrWhiteSpace(galaxyExe) || !File.Exists(galaxyExe))
                 return new(false, false, "GOG GALAXY is not installed in a supported local location.");
 
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; GOG was not launched.");
 
@@ -542,6 +564,7 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, "The selected game is not installed locally.");
             if (!provider.TryBuildLaunchUri(game, out string uri))
                 return new(false, false, "The game cannot be launched through its official protocol.");
+            await RunHookAsync(GameHookPhase.Pre, HookKey(game), ct).ConfigureAwait(false);
             if (!await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false))
                 return new(false, false, "Gaming resources could not be prepared; the launcher was not contacted.");
             try
@@ -710,6 +733,8 @@ public sealed class ManualGameSessionService : IDisposable
                 sessionVersion, timeout.Token).ConfigureAwait(false);
             if (!restored)
                 _logger?.LogWarning("Manual game exit did not complete Gaming resource reconciliation.");
+            else
+                await RunHookAsync(GameHookPhase.Post, titleKey, CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { /* user exited, host stopped or bounded recovery */ }
         catch (Exception)

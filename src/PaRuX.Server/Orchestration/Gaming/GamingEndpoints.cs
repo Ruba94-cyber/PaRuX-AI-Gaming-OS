@@ -87,6 +87,21 @@ public static class GamingEndpoints
             return result.Launched ? Results.Ok(result) : Results.Conflict(result);
         }).RequireDesktopOwner();
 
+        // Off-by-default per-game pre/post-launch helper programs (see GameLaunchHookStore).
+        app.MapGet("/api/v1/gaming/hooks", (GameLaunchHookStore hooks) => Results.Ok(hooks.Snapshot())).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/hooks/enabled", (bool enabled, GameLaunchHookStore hooks) =>
+            hooks.SetEnabled(enabled) ? Results.NoContent() : Results.Problem("The hook switch could not be saved."))
+            .RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/titles/{key}/hooks", (
+            string key, GameHooksDto request, GameLaunchHookStore hooks, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode) return Results.Conflict(new { error = "Hooks cannot be changed during Gaming." });
+            string? error = hooks.Set(key, request);
+            return error is null ? Results.NoContent() : Results.BadRequest(new { error });
+        }).RequireDesktopOwner();
+
         // EA app / Battle.net / Ubisoft Connect / Xbox: read-only local discovery and official-URI handoff.
         app.MapGet("/api/v1/gaming/library/discover/store/{provider}", (
             string provider, ExtraStoreCatalog catalog, LocalRuntimeService runtime, CancellationToken ct) =>
