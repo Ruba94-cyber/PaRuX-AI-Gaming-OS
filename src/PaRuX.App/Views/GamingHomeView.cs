@@ -464,6 +464,7 @@ internal sealed class GamingHomeView : StackPanel
         _body.Children.Add(_detail);
         ApplyBodyLayout();
         Children.Add(_body);
+        Children.Add(new QuickResumePanel());
         SetConsolePresentation(false);
     }
 

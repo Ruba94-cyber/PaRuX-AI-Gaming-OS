@@ -79,6 +79,16 @@ namespace PaRuX.Services
         public Task<GamingCallResult<ManualGameDto>> UpdateManualGameAsync(string id, UpdateManualGameRequest request, CancellationToken ct = default) =>
             SendAsync<ManualGameDto>(HttpMethod.Put, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), request, ct);
 
+        /// <summary>Open application windows that Quick Resume can pause, plus what is paused now.</summary>
+        public Task<GamingCallResult<QuickResumeStatusDto>> GetQuickResumeAsync(CancellationToken ct = default) =>
+            SendAsync<QuickResumeStatusDto>(HttpMethod.Get, "/api/v1/gaming/quick-resume", null, ct);
+
+        public Task<GamingCallResult<QuickResumeActionResult>> QuickResumeActionAsync(string action, QuickResumeActionRequest request, CancellationToken ct = default) =>
+            SendAsync<QuickResumeActionResult>(HttpMethod.Post, "/api/v1/gaming/quick-resume/" + action, request, ct);
+
+        public Task<GamingCallResult<QuickResumeActionResult>> ResumeAllPausedAsync(CancellationToken ct = default) =>
+            SendAsync<QuickResumeActionResult>(HttpMethod.Post, "/api/v1/gaming/quick-resume/resume-all", null, ct);
+
         private static async Task<GamingCallResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct)
         {
             try

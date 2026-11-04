@@ -267,6 +267,7 @@ builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<ManualGameLibrary>();
+builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.QuickResumeService>();
 builder.Services.AddSingleton<ManualGameSessionService>();
 builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
 builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
@@ -3816,6 +3817,7 @@ app.MapGameTitleEndpoints();
 PaRuX.Server.Orchestration.AgentLibraryEndpoints.MapAgentLibraryEndpoints(app);
 app.MapGameSaveBackupEndpoints();
 app.MapEmulatorEndpoints();
+PaRuX.Server.Orchestration.Gaming.QuickResumeEndpoints.MapQuickResumeEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Discover.GameDiscoverEndpoints.MapGameDiscoverEndpoints(app);
 if (!app.Environment.IsEnvironment("Testing"))
