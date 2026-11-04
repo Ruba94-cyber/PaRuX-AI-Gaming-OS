@@ -26,6 +26,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
+    private CancellationTokenSource? _launcherTrackStop;
     private bool _disposed;
 
     public ManualGameSessionService(ManualGameLibrary library, WorkloadOrchestrator orchestrator,
@@ -223,6 +224,42 @@ public sealed class ManualGameSessionService : IDisposable
         finally { _launchGate.Release(); }
     }
 
+    /// <summary>
+    /// After a store handoff the launcher usually exits (or was already running), so there is no handle to wait on.
+    /// Observe the game's own verified process tree (see <see cref="LauncherPlayTimeTracker"/>) and credit play time;
+    /// observation only, never an action against a process, and cancelled by Return to AI / shutdown.
+    /// </summary>
+    private void BeginLauncherPlayTimeTracking(DiscoveredGameDto game)
+    {
+        if (_titles is null || string.IsNullOrWhiteSpace(game.InstallDirectory)) return;
+        string key = GameTitleCatalog.KeyFor(game.Name,
+            GameTitleCatalog.InstallationId(game.ProviderId.ToLowerInvariant(), game.ProviderGameId));
+        var stop = new CancellationTokenSource();
+        CancellationTokenSource? previous;
+        lock (_monitorGate) { previous = _launcherTrackStop; _launcherTrackStop = stop; }
+        try { previous?.Cancel(); } catch (ObjectDisposedException) { }
+        DateTime requested = DateTime.UtcNow;
+        string install = game.InstallDirectory;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await LauncherPlayTimeTracker.TrackAndCreditAsync(_titles, key, install, requested,
+                    new LauncherPlayTimeTracker.WindowsProbe(), () => DateTime.UtcNow,
+                    (d, t) => Task.Delay(d, t), LauncherPlayTimeTracker.Options.Default, stop.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger?.LogInformation("Launcher play-time observation ended without a result: {Type}", ex.GetType().Name);
+            }
+            finally
+            {
+                lock (_monitorGate) { if (ReferenceEquals(_launcherTrackStop, stop)) _launcherTrackStop = null; }
+                stop.Dispose();
+            }
+        });
+    }
+
     /// <summary>Use the same fallback installation identity as the unified title catalog.
     /// Ordinary titles use their normalized names, but one-letter/symbol-only names
     /// would otherwise lose play time when launched through an emulator.</summary>
@@ -310,6 +347,7 @@ public sealed class ManualGameSessionService : IDisposable
                 using var request = new Process { StartInfo = info };
                 if (!request.Start())
                     throw new InvalidOperationException("Steam did not accept the launch process request.");
+                BeginLauncherPlayTimeTracking(installed.First(g => g.ProviderId == "steam" && g.ProviderGameId == appId));
                 return new(true, false,
                     "Launch request sent to Steam. PaRuX cannot verify the final game process; Return to AI manually when finished.");
             }
@@ -378,6 +416,7 @@ public sealed class ManualGameSessionService : IDisposable
                     UseShellExecute = true
                 };
                 using Process? dispatched = Process.Start(info);
+                BeginLauncherPlayTimeTracking(game);
                 // A URI activation may return null if an existing launcher accepts
                 // it; absence of an owned process is not proof of failure/success.
                 return new(true, false,
@@ -453,6 +492,7 @@ public sealed class ManualGameSessionService : IDisposable
                 if (!request.Start())
                     throw new InvalidOperationException("GOG GALAXY did not accept the launch request.");
 
+                BeginLauncherPlayTimeTracking(game);
                 return new(true, false,
                     "Launch request sent to GOG GALAXY. Return to AI manually after playing.");
             }
@@ -684,6 +724,9 @@ public sealed class ManualGameSessionService : IDisposable
             _monitorStop = null;
         }
         try { active?.Cancel(); } catch (ObjectDisposedException) { }
+        CancellationTokenSource? launcher;
+        lock (_monitorGate) { launcher = _launcherTrackStop; }
+        try { launcher?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     /// <summary>All explicit server Return-to-AI actions serialize against an in-progress
