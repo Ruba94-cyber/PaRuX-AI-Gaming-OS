@@ -643,6 +643,10 @@ namespace PaRuX.Services
                 && SafeEnumerate(Path.Combine(root, "tests"), "test_*.py", SearchOption.AllDirectories).Any();
             if (hasPyProject || hasPytestConfig || hasPythonTests)
                 AddUnique(commands, "test", "python -m pytest", "Python/pytest project markers were found in the workspace.");
+            else if (SafeEnumerate(root, "test*.py", SearchOption.TopDirectoryOnly).Any()
+                || SafeEnumerate(root, "*_test.py", SearchOption.TopDirectoryOnly).Any())
+                // A plain repository with test files next to the code and no pytest configuration: the standard library runner.
+                AddUnique(commands, "test", "python -m unittest", "Python test files were found at the workspace root; unittest is part of the standard library.");
 
             string pyproject = Path.Combine(root, "pyproject.toml");
             if (File.Exists(pyproject))

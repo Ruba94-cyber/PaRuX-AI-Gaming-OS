@@ -160,6 +160,10 @@ namespace PaRuX.Services
         private static readonly Regex PytestCount = new(
             @"(\d+) (passed|failed|errors?|xfailed|xpassed|skipped)\b", RegexOptions.CultureInvariant);
 
+        // unittest closes with "Ran 3 tests in 0.002s" and then "OK", "OK (skipped=1)" or "FAILED (failures=1)".
+        private static readonly Regex UnittestRan = new(@"^Ran (?<n>\d+) tests? in \d+(?:\.\d+)?s\s*$", RegexOptions.CultureInvariant);
+        private static readonly Regex UnittestSkipped = new(@"skipped=(?<n>\d+)", RegexOptions.CultureInvariant);
+
         // Jest prints "Tests:       1 failed, 2 passed, 3 total"; Vitest prints "Tests  1 failed | 2 passed (3)".
         private static readonly Regex JestTests = new(@"^\s*Tests:\s+(?<body>.+)$", RegexOptions.CultureInvariant);
         private static readonly Regex VitestTests = new(
@@ -221,6 +225,22 @@ namespace PaRuX.Services
                             if (count.Groups[2].Value == "skipped") skipped += value;
                             else executed += value;
                         }
+                    }
+                }
+
+                Match unittest = UnittestRan.Match(line.TrimEnd('\r'));
+                if (unittest.Success && int.TryParse(unittest.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int ran))
+                {
+                    parsed = true;
+                    executed += ran;
+                }
+                else if (parsed && line.StartsWith("OK (", StringComparison.Ordinal) || line.StartsWith("FAILED (", StringComparison.Ordinal))
+                {
+                    Match sk = UnittestSkipped.Match(line);
+                    if (sk.Success && int.TryParse(sk.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int skippedUnit))
+                    {
+                        skipped += skippedUnit;
+                        executed = Math.Max(0, executed - skippedUnit); // unittest counts skipped tests inside "Ran N"
                     }
                 }
 

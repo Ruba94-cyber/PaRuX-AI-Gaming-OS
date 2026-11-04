@@ -1,4 +1,4 @@
-using PaRuX.Services;
+﻿using PaRuX.Services;
 using Xunit;
 
 namespace PaRuX.Server.Tests;
@@ -105,6 +105,18 @@ public sealed class CodingVerificationDiscoveryTests : IDisposable
         Assert.Contains(commands, c => c.Command == "go build ./...");
         Assert.Contains(commands, c => c.Command == "go test ./...");
         Assert.Contains(commands, c => c.Command == "go vet ./...");
+    }
+
+    [Fact]
+    public void A_plain_python_repository_with_root_test_files_uses_the_standard_library_runner()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "calc.py"), "def add(a, b):\n    return a + b\n");
+        File.WriteAllText(Path.Combine(_tempDir, "test_calc.py"), "import unittest\n");
+
+        IReadOnlyList<CodingVerificationDiscovery.VerificationCommand> commands = CodingVerificationDiscovery.Discover(_tempDir);
+
+        Assert.Contains(commands, c => c.Command == "python -m unittest");
+        Assert.DoesNotContain(commands, c => c.Command == "python -m pytest");
     }
 
     [Fact]

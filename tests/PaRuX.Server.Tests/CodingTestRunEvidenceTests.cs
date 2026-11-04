@@ -1,4 +1,4 @@
-using PaRuX.Services;
+﻿using PaRuX.Services;
 using Xunit;
 
 namespace PaRuX.Server.Tests;
@@ -12,6 +12,25 @@ public sealed class CodingTestRunEvidenceTests
 {
     private static CodingVerificationCommandPolicy.TestRunEvidence Parse(string? output) =>
         CodingVerificationCommandPolicy.ParseTestRunSummary(output);
+
+    [Theory]
+    [InlineData("..\n----------------------------------------------------------------------\nRan 2 tests in 0.002s\n\nOK\n", 2, 0)]
+    [InlineData("s.\n----------------------------------------------------------------------\nRan 3 tests in 0.010s\n\nOK (skipped=1)\n", 2, 1)]
+    public void Unittest_summaries_count_executed_and_skipped_tests(string output, int executed, int skipped)
+    {
+        CodingVerificationCommandPolicy.TestRunEvidence evidence = Parse(output);
+        Assert.True(evidence.Parsed);
+        Assert.Equal(executed, evidence.Executed);
+        Assert.Equal(skipped, evidence.Skipped);
+    }
+
+    [Fact]
+    public void Unittest_that_ran_zero_tests_is_not_evidence()
+    {
+        CodingVerificationCommandPolicy.TestRunEvidence evidence = Parse("----------------------------------------------------------------------\nRan 0 tests in 0.000s\n\nNO TESTS RAN\n");
+        Assert.True(evidence.Parsed);
+        Assert.Equal(0, evidence.Executed);
+    }
 
     [Fact]
     public void Vstest_summaries_count_executed_tests_in_the_english_and_italian_consoles()
