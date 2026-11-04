@@ -123,3 +123,9 @@ PaRuX never installs drivers. These are programs the user may install; PaRuX onl
 |---|---|---|
 | ViGEmBus (driver) and ViGEmClient (client library) | BSD-3-Clause (driver contract header) / MIT (client) | `ViGEmBusClient.cs` is an original C# implementation of the published IOCTL contract; request layouts and control codes were adapted from the upstream `BusShared.h`, `Common.h` and `ViGEmClient.cpp`. Copyright (c) Nefarius Software Solutions e.U. / Benjamin Hoglinger-Stelzer. Both projects are archived upstream. SOURCE IMPLEMENTED, NOT RUN. |
 | HidHide | MIT | Only its command-line tool is executed (`HidHideCLI.exe`, installed by the user); no code copied. NOT RUN against a real installation. |
+
+## PdfPig (document text extraction)
+
+| Component | License | How PaRuX uses it |
+|---|---|---|
+| PdfPig 0.1.16 (NuGet id `PdfPig`, github.com/UglyToad/PdfPig) | Apache-2.0 | Read-only PDF text extraction with page numbers in `PaRuX.Server/Knowledge/StructuredDocumentExtractor.cs`; no code copied. The look-alike NuGet id `UglyToad.PdfPig` is NOT used. |

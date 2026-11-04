@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.30" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
     <!-- Windows DPAPI for the opt-in remote-provider API key. That credential can bill the user's
          account, so it is encrypted for the current user rather than written beside the config in
          clear text; this project targets net8.0 (not net8.0-windows), where ProtectedData is not
