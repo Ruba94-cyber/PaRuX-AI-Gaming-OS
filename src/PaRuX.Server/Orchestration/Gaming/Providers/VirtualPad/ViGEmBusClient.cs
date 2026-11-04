@@ -82,6 +82,21 @@ public sealed class ViGEmBusClient : IVirtualControllerBackend
         return buffer;
     }
 
+    /// <summary>Read-only presence check (opens and closes the bus handle; plugs nothing in). Never throws for an absent driver.</summary>
+    public static (bool Present, string? Message) ProbeDriver()
+    {
+        if (!OperatingSystem.IsWindows()) return (false, "Virtual controllers need Windows.");
+        try
+        {
+            SafeFileHandle? bus = OpenBus(out string? error);
+            if (bus is null) return (false, error);
+            bus.Dispose();
+            return (true, null);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or Win32Exception or IOException)
+        { return (false, "The virtual controller driver could not be checked."); }
+    }
+
     public IVirtualXboxPad? TryCreatePad(out string? error)
     {
         error = null;

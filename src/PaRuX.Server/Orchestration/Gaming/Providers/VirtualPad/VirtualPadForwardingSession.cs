@@ -81,17 +81,7 @@ public sealed class VirtualPadForwardingSession : IAsyncDisposable
                 return new(false, "Virtual controller backend is unavailable.");
             }
             // Do not let UI edits mutate an active game's mapping.
-            var chosen = new PadMapping
-            {
-                Buttons = new Dictionary<int, ushort>(mapping.Buttons),
-                LeftXAxis = mapping.LeftXAxis, LeftYAxis = mapping.LeftYAxis,
-                RightXAxis = mapping.RightXAxis, RightYAxis = mapping.RightYAxis,
-                InvertLeftY = mapping.InvertLeftY, InvertRightY = mapping.InvertRightY,
-                LeftTriggerAxis = mapping.LeftTriggerAxis, RightTriggerAxis = mapping.RightTriggerAxis,
-                LeftTriggerButton = mapping.LeftTriggerButton, RightTriggerButton = mapping.RightTriggerButton,
-                TriggerAxisIsSigned = mapping.TriggerAxisIsSigned,
-                StickDeadzone = mapping.StickDeadzone, HatIsDpad = mapping.HatIsDpad
-            };
+            var chosen = mapping.Clone();
             _cancel = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _message = "Owner-enabled forwarding.";
             _worker = Task.Run(() => ForwardAsync(pad, chosen, first, interval, _cancel.Token));
