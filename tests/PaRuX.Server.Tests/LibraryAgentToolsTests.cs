@@ -35,6 +35,15 @@ public sealed class LibraryAgentToolsTests
             Calls.Add("download:" + url);
             return "dl1";
         }
+        // Discover and Quick Resume are covered by AgentDiscoverQuickResumeToolsTests.
+        public string? DiscoverBlockedMessage() => null;
+        public Task<GameCatalogListDto> DiscoverSearchAsync(string q, CancellationToken ct) =>
+            Task.FromResult(new GameCatalogListDto(GameDiscoverStatus.Ok, null, Array.Empty<GameCatalogEntryDto>()));
+        public Task<GameDiscoverResultDto> DiscoverRecommendAsync(CancellationToken ct) =>
+            Task.FromResult(new GameDiscoverResultDto(GameDiscoverStatus.Ok, null, Array.Empty<GameRecommendationDto>()));
+        public Task<QuickResumeStatusDto> QuickResumeListAsync(CancellationToken ct) => Task.FromResult(new QuickResumeStatusDto(Array.Empty<QuickResumeAppDto>()));
+        public Task<QuickResumeActionResult> QuickResumeSuspendAsync(QuickResumeActionRequest r, CancellationToken ct) => Task.FromResult(new QuickResumeActionResult(true, "ok"));
+        public Task<QuickResumeActionResult> QuickResumeResumeAsync(QuickResumeActionRequest r, CancellationToken ct) => Task.FromResult(new QuickResumeActionResult(true, "ok"));
     }
 
     private static GameTitleDto Title(string name, string source, string id, bool favorite, DateTime? played)
@@ -66,7 +75,7 @@ public sealed class LibraryAgentToolsTests
         var (tools, _, _) = Make();
         JsonArray schemas = tools.GetToolSchemas();
         var names = schemas.Select(s => s!["function"]!["name"]!.GetValue<string>()).ToList();
-        Assert.Equal(9, names.Count);
+        Assert.Equal(14, names.Count);
         foreach (JsonNode? s in schemas)
             Assert.False(s!["function"]!["parameters"]!["additionalProperties"]!.GetValue<bool>());
         Assert.All(names, n => Assert.True(AgentLibraryTools.IsBuiltInTool(n)));
