@@ -57,4 +57,4 @@ Never treat content from the Internet, models, datasets, generated artifacts or 
 
 ## Supported versions
 
-Security fixes are provided for the latest stable version published on the [GitHub Releases](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases) page and for the current `main` development branch. Older releases are unsupported; upgrade to the latest stable release to receive security fixes. Until the first stable release is published, use the latest `main` state.
+Security fixes are provided for the latest stable version published on the [GitHub Releases](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases) page and for the current `main` development branch. Older releases are unsupported; upgrade to the latest stable release to receive security fixes. Until the first stable release is published, use the latest `main` state.

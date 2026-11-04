@@ -80,12 +80,12 @@ public sealed class SignedAppUpdateChannelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("http://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi")]
+    [InlineData("http://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi")]
     [InlineData("https://127.0.0.1/PaRuX-1.5.0-win-x64.msi")]
     [InlineData("https://github.com/other/repo/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi")]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi?redirect=evil")]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v9.9.9/PaRuX-1.5.0-win-x64.msi")]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX%2D1.5.0-win-x64.msi")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi?redirect=evil")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v9.9.9/PaRuX-1.5.0-win-x64.msi")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX%2D1.5.0-win-x64.msi")]
     public void Signed_manifest_cannot_redirect_package_download_outside_exact_release_channel(string url)
     {
         using RSA rsa = RSA.Create(2048);
@@ -100,9 +100,9 @@ public sealed class SignedAppUpdateChannelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-win-x64.zip")]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/Other-1.5.0-win-x64.msi")]
-    [InlineData("https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-1.4.9-win-x64.msi")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-win-x64.zip")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/Other-1.5.0-win-x64.msi")]
+    [InlineData("https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-1.4.9-win-x64.msi")]
     public void Signed_manifest_requires_exact_versioned_msi_asset_name(string url)
     {
         using RSA rsa = RSA.Create(2048);
@@ -221,11 +221,11 @@ public sealed class SignedAppUpdateChannelTests : IDisposable
             Version = "1.5.0",
             Architecture = "win-x64",
             SourceCommit = SourceCommit,
-            PackageUrl = "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi",
+            PackageUrl = "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi",
             PackageSha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
             PackageSizeBytes = bytes.LongLength,
             IssuedUtc = DateTime.UtcNow,
-            ReleaseNotesUrl = "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/tag/v1.5.0"
+            ReleaseNotesUrl = "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/tag/v1.5.0"
         };
     }
 
@@ -235,11 +235,11 @@ public sealed class SignedAppUpdateChannelTests : IDisposable
         Version = "1.5.0",
         Architecture = "win-x64",
         SourceCommit = SourceCommit,
-        PackageUrl = "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi",
+        PackageUrl = "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v1.5.0/PaRuX-1.5.0-win-x64.msi",
         PackageSha256 = new string('a', 64),
         PackageSizeBytes = 123456,
         IssuedUtc = DateTime.UtcNow,
-        ReleaseNotesUrl = "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/tag/v1.5.0"
+        ReleaseNotesUrl = "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/tag/v1.5.0"
     };
 
     private static string Sign(SignedAppUpdateManifest manifest, RSA rsa)

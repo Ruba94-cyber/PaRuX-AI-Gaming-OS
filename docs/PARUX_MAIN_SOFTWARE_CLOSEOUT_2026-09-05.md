@@ -45,7 +45,7 @@ The 2026-09-08 `main` source was assessed as containing the software-side work t
 - Android uses dedicated sanitized `/api/v2/mobile/*` projections and cannot self-grant workstation capabilities or acquire direct Windows filesystem/shell/input authority.
 - Android source/API parity, JVM tests, lint and APK assembly are software validation. Emulator/instrumented coverage may run on the Windows development PC; a physical Android phone is optional exploratory QA and is **not a release blocker**.
 - The old `RunManagedImageRaceAsync` integration concern was assessed as closed: the production endpoint calls the managed two-engine path and the release gate checks that wiring.
-- The old predecessor-brand update-channel repository reference is superseded by the current `Ruba94-cyber/RBG-PaRuX-AI-Studio` release repository. Legacy-name occurrences that remain are migration/compatibility or archived historical evidence, not active product identity.
+- The old predecessor-brand update-channel repository reference is superseded by the current `Ruba94-cyber/PaRuX-AI-Gaming-OS` release repository. Legacy-name occurrences that remain are migration/compatibility or archived historical evidence, not active product identity.
 - GitHub Actions were and remain disabled by project policy; authoritative build/test/release evidence is produced locally.
 
 The sentence “no source feature is intentionally left in an intermediate implementation state” belonged to this dated assessment. The 2026-09-10 review supersedes that conclusion with specific BIC gaps; those gaps must be closed rather than reclassified as environment limitations.

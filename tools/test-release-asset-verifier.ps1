@@ -125,7 +125,7 @@ function New-Fixture {
     [IO.File]::WriteAllText($gradlePath, "android { defaultConfig { versionCode = 7`n versionName = `"$version`" } }", [Text.UTF8Encoding]::new($false))
     $windowsProvenance = [ordered]@{
         schemaVersion = 1
-        repository = 'Ruba94-cyber/RBG-PaRuX-AI-Studio'
+        repository = 'Ruba94-cyber/PaRuX-AI-Gaming-OS'
         version = $version
         sourceCommit = $sourceCommit
         signingVerification = 'rsa-sha256-self-verified'
@@ -143,7 +143,7 @@ function New-Fixture {
     [IO.File]::WriteAllBytes($apkPath, [byte[]](9, 8, 7, 6, 5, 4))
     $androidProvenance = [ordered]@{
         schemaVersion = 1
-        repository = 'Ruba94-cyber/RBG-PaRuX-AI-Studio'
+        repository = 'Ruba94-cyber/PaRuX-AI-Gaming-OS'
         version = $version
         sourceCommit = $sourceCommit
         signingVerification = 'apksigner-verified'

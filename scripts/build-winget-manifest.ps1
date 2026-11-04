@@ -33,7 +33,7 @@ if (-not (Test-Path -LiteralPath $MsiPath -PathType Leaf)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($InstallerUrl)) {
-    $InstallerUrl = "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/download/v$Version/PaRuX-$Version-win-x64.msi"
+    $InstallerUrl = "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/download/v$Version/PaRuX-$Version-win-x64.msi"
 }
 # The URL has to be the published one, not a local path: winget downloads it on every install.
 if ($InstallerUrl -notmatch '^https://') {

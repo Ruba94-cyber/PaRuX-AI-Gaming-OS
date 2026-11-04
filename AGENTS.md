@@ -1,7 +1,7 @@
 # AGENTS.md — PaRuX Agentic Development Protocol
 
 ## Scope and isolation
-This protocol applies only to `Ruba94-cyber/RBG-PaRuX-AI-Studio` (PaRuX). Keep repository, code, dependencies, tests, prompts, state, logs, artifacts and automation strictly project-local. Never couple PaRuX to DITM or another repository through shared folders, submodules, internal packages, state or test helpers unless the user explicitly requests it.
+This protocol applies only to `Ruba94-cyber/PaRuX-AI-Gaming-OS` (PaRuX). Keep repository, code, dependencies, tests, prompts, state, logs, artifacts and automation strictly project-local. Never couple PaRuX to DITM or another repository through shared folders, submodules, internal packages, state or test helpers unless the user explicitly requests it.
 
 For substantial work, also read `CLAUDE.md` and the relevant current sections of `PARUX_EXECUTION_PLAN.md`. Current code/tests/runtime evidence outrank stale documentation.
 

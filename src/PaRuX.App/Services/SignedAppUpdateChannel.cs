@@ -55,7 +55,7 @@ namespace PaRuX.Services
         /// it at a repository the maintainers do not control would make any release published there
         /// an accepted update.
         /// </summary>
-        public const string Repository = "Ruba94-cyber/RBG-PaRuX-AI-Studio";
+        public const string Repository = "Ruba94-cyber/PaRuX-AI-Gaming-OS";
         public const int CurrentManifestSchemaVersion = 2;
         public const long MaximumPackageBytes = 2L * 1024 * 1024 * 1024;
         public const int MaximumEnvelopeBytes = 128 * 1024;

@@ -13,7 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-blue" alt="FSL-1.1-MIT license"></a>
 </p>
 
-> **BETA — Active development (2.0.0).** PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/issues).
+> **BETA — Active development (2.0.0).** PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues).
 
 ## What is PaRuX?
 
@@ -35,7 +35,7 @@ Available features depend on your installed models, runtimes and hardware. **Not
 
 ## Getting started
 
-1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
+1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
 2. If you want to try the source version, follow the [Windows build and setup documentation](docs/RELEASING.md). The project currently requires a Windows development environment for source builds.
 3. Launch PaRuX, review the suggested local setup, and choose which model or runtime to install. **Downloads require your confirmation.**
 4. Start with Chat, or explore Model Hub, Create and the other workspaces as your hardware allows.
@@ -69,7 +69,7 @@ Available features depend on your installed models, runtimes and hardware. **Not
 - [Changelog](CHANGELOG.md) · [Roadmap](PARUX_EXECUTION_PLAN.md) · [Local AI setup](docs/AI_LOCAL_SETUP.md)
 - [First-party dependency strategy](docs/DEPENDENCY_STRATEGY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Code provenance](OPEN_SOURCE_PROVENANCE.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Android companion](docs/PARUX_ANDROID_README.md) · [Universal AI gateway](docs/UNIVERSAL_GATEWAY.md)
-- [Report a bug or suggest an improvement](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/issues) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+- [Report a bug or suggest an improvement](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## License
 

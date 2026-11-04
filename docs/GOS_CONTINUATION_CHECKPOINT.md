@@ -149,7 +149,7 @@ Unsloth-style GGUF export + CPU quantization (`convert_hf_to_gguf.py` is vendore
 
 ## HANDOFF to the next PC (written at commit after `2dcf890`)
 
-Start: `git clone --branch main https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio.git`, then `git pull --ff-only origin main`. `PARUX_EXECUTION_PLAN.md` is the single source of truth; this file is the log.
+Start: `git clone --branch main https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS.git`, then `git pull --ff-only origin main`. `PARUX_EXECUTION_PLAN.md` is the single source of truth; this file is the log.
 
 Verify before changing anything (Windows 11, .NET SDK 10 installed side by side with 8; WinUI needs the Windows App SDK restore):
 ```

@@ -32,7 +32,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string]$Tag,
-    [string]$Repository = "Ruba94-cyber/RBG-PaRuX-AI-Studio",
+    [string]$Repository = "Ruba94-cyber/PaRuX-AI-Gaming-OS",
     [switch]$LocalOnly
 )
 

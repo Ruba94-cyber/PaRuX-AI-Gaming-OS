@@ -107,7 +107,7 @@ function Get-CanonicalHash([string]$path) {
 
 $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
 if ([int]$provenance.schemaVersion -ne 1) { throw "Unsupported Windows release provenance schema." }
-if ([string]$provenance.repository -cne "Ruba94-cyber/RBG-PaRuX-AI-Studio") { throw "Windows provenance repository mismatch." }
+if ([string]$provenance.repository -cne "Ruba94-cyber/PaRuX-AI-Gaming-OS") { throw "Windows provenance repository mismatch." }
 if ([string]$provenance.version -cne $Version) { throw "Windows provenance version mismatch." }
 if ([string]$provenance.sourceCommit -cne $SourceCommit) { throw "Windows provenance source commit mismatch." }
 if ([string]$provenance.signingVerification -cne "rsa-sha256-self-verified") { throw "Windows provenance does not record signer self-verification." }
@@ -357,7 +357,7 @@ if ($RequireAndroid) {
 
     $android = Get-Content -LiteralPath $androidProvenancePath -Raw | ConvertFrom-Json
     if ([int]$android.schemaVersion -ne 1) { throw "Unsupported Android provenance schema." }
-    if ([string]$android.repository -cne "Ruba94-cyber/RBG-PaRuX-AI-Studio") { throw "Android provenance repository mismatch." }
+    if ([string]$android.repository -cne "Ruba94-cyber/PaRuX-AI-Gaming-OS") { throw "Android provenance repository mismatch." }
     if ([string]$android.version -cne $Version) { throw "Android provenance version mismatch." }
     if ([string]$android.sourceCommit -cne $SourceCommit) { throw "Android provenance source commit mismatch." }
     if ([string]$android.signingVerification -cne "apksigner-verified") { throw "Android provenance does not record apksigner verification." }

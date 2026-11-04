@@ -30,7 +30,7 @@ namespace PaRuX.Services
     {
         internal const string GitHubUpdateTokenEnvironmentVariable = "PARUX_GITHUB_UPDATE_TOKEN";
         private const string LatestReleaseApi =
-            "https://api.github.com/repos/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/latest";
+            "https://api.github.com/repos/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/latest";
 
         public static AppUpdateClient Current { get; } = new AppUpdateClient();
         private static readonly HttpClient ApiHttp = CreateApiClient();

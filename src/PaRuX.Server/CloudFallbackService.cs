@@ -269,7 +269,7 @@ public sealed class CloudFallbackService
     private static void Authorize(HttpRequestMessage request, string key)
     {
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
-        request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio");
+        request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS");
         request.Headers.TryAddWithoutValidation("X-Title", "RBG PaRuX AI Studio");
     }
 

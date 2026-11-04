@@ -6,11 +6,11 @@ PackageVersion: __VERSION__
 PackageLocale: en-US
 Publisher: RBG
 PublisherUrl: https://github.com/Ruba94-cyber
-PublisherSupportUrl: https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/issues
+PublisherSupportUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues
 PackageName: RBG PaRuX AI Studio
-PackageUrl: https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio
+PackageUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS
 License: FSL-1.1-MIT
-LicenseUrl: https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/blob/main/LICENSE
+LicenseUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/blob/main/LICENSE
 Copyright: Copyright (c) RBG
 ShortDescription: Local-first AI operating environment for Windows, with a paired Android companion.
 Description: |-
@@ -34,6 +34,6 @@ Tags:
   - offline
   - privacy
   - chat
-ReleaseNotesUrl: https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Studio/releases/tag/v__VERSION__
+ReleaseNotesUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases/tag/v__VERSION__
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

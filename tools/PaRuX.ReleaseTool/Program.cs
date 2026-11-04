@@ -7,7 +7,7 @@ namespace PaRuX.ReleaseTool;
 
 internal static class Program
 {
-    private const string Repository = "Ruba94-cyber/RBG-PaRuX-AI-Studio";
+    private const string Repository = "Ruba94-cyber/PaRuX-AI-Gaming-OS";
     private const string PasswordVariable = "PARUX_RELEASE_KEY_PASSWORD";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
