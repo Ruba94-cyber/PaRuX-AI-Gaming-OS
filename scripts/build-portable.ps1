@@ -121,9 +121,25 @@ Set-Content -LiteralPath (Join-Path $stageDir "README-portable.txt") -Value $rea
 
 New-Item -ItemType Directory -Path $portableRoot -Force | Out-Null
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Write-Host "Creating $zipName ..."
-[System.IO.Compression.ZipFile]::CreateFromDirectory($stageDir, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $true)
+# Entries are written one by one with '/' separators under one top-level "PaRuX/" folder. ZipFile.CreateFromDirectory on
+# Windows PowerShell 5 stores '\' in entry names, which is not valid ZIP and breaks 7-Zip and non-Windows unzip tools.
+$zipStream = [System.IO.File]::Open($zipPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+try {
+    $archive = New-Object System.IO.Compression.ZipArchive($zipStream, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $stageFull = (Resolve-Path -LiteralPath $stageDir).Path.TrimEnd('\')
+        foreach ($file in (Get-ChildItem -LiteralPath $stageFull -Recurse -File)) {
+            $relative = $file.FullName.Substring($stageFull.Length + 1).Replace('\', '/')
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file.FullName, "PaRuX/$relative", [System.IO.Compression.CompressionLevel]::Optimal)
+        }
+    }
+    finally { $archive.Dispose() }
+}
+finally { $zipStream.Dispose() }
 $sha = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -LiteralPath $shaPath -Value "$sha  $zipName" -Encoding ASCII
 $sizeMb = [math]::Round((Get-Item -LiteralPath $zipPath).Length / 1MB, 1)
@@ -133,10 +149,14 @@ Write-Host "ZIP: $zipPath ($sizeMb MB)`nSHA-256: $sha"
 Write-Host "Verifying the ZIP..."
 $required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.Server/PaRuX.Server.dll", "Cli/parux.exe",
     "LICENSE.txt", "README-portable.txt", "PaRuX (portable data).cmd")
-$forbiddenPattern = '(?i)\.(gguf|safetensors|onnx|ckpt|pt|pth|bin\.gz)$|(^|/)rag\.db$|(^|/)bootstrap\.json$|(^|/)(models|LocalAI|PaRuXData)/'
+$forbiddenPattern = '(?i)\.(gguf|safetensors|onnx|ckpt|pt|pth|bin\.gz)$|(^|/)rag\.db$|(^|/)bootstrap\.json$|^(models|LocalAI|PaRuXData)/'
 $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
-    $names = @($zip.Entries | ForEach-Object { $_.FullName })
+    # The ZIP has one top-level "PaRuX/" folder so extracting never scatters files into the current directory.
+    $prefix = "PaRuX/"
+    $backslashed = @($zip.Entries | Where-Object { $_.FullName.Contains('\') })
+    if ($backslashed.Count -gt 0) { throw "Portable ZIP has $($backslashed.Count) entries with '\' separators (invalid ZIP): $($backslashed[0].FullName)" }
+    $names = @($zip.Entries | ForEach-Object { if ($_.FullName.StartsWith($prefix)) { $_.FullName.Substring($prefix.Length) } else { $_.FullName } })
     foreach ($file in $required) { if ($names -notcontains $file) { throw "Portable ZIP is missing required file: $file" } }
     $bad = @($names | Where-Object { $_ -match $forbiddenPattern -and $_ -notmatch '(?i)(^|/)(Microsoft\.|System\.|onnxruntime|DirectML)' })
     if ($bad.Count -gt 0) { throw "Portable ZIP contains payload that must not ship (models/indexes/tokens): $($bad | Select-Object -First 5 | Out-String)" }
@@ -152,7 +172,7 @@ if ($Smoke) {
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extract)
     $env:PARUX_DATA_ROOT = $data
     $env:PARUX_LOCALAI_STATE_DIR = $data
-    $proc = Start-Process -FilePath (Join-Path $extract "PaRuX.exe") -PassThru
+    $proc = Start-Process -FilePath (Join-Path $extract "PaRuX\PaRuX.exe") -PassThru
     try {
         $deadline = (Get-Date).AddSeconds($SmokeTimeoutSeconds)
         $bootstrap = Join-Path $data "server\bootstrap.json"
