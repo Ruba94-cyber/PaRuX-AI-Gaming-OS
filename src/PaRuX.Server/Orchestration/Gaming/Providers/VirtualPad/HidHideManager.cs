@@ -10,6 +10,9 @@ public sealed record HidHideState(bool CloakOn, IReadOnlyList<string> Registered
 
 public sealed record HidHideResult(bool Success, string Message);
 
+/// <summary>Outcome of a verified isolation: <see cref="InstancePath"/> is set only when the binding was proven.</summary>
+public sealed record HidHideIsolationResult(bool Success, string Message, string? InstancePath, bool BindingProven);
+
 /// <summary>
 /// Optional integration with HidHide (https://github.com/nefarius/HidHide, MIT), the driver that hides a physical
 /// controller from games so that only its virtual replacement is seen (no double input). PaRuX uses the vendor's own
@@ -61,6 +64,43 @@ public sealed class HidHideManager
         return new HidHideState(
             cloak.Output.Contains("--cloak-on", StringComparison.Ordinal),
             QuotedValues(apps.Output), QuotedValues(devices.Output));
+    }
+
+    /// <summary>Present HID gaming devices according to HidHide (<c>--dev-gaming</c>); null when unavailable or unparseable.</summary>
+    public async Task<IReadOnlyList<HidGamingDevice>?> ListGamingDevicesAsync(CancellationToken ct)
+    {
+        string? cli = _locateCli();
+        if (cli is null) return null;
+        var result = await _run(new(cli, new[] { "--dev-gaming" }), ct).ConfigureAwait(false);
+        return result.ExitCode != 0 ? null : HidGamingDeviceListParser.Parse(result.Output);
+    }
+
+    /// <summary>True only if HidHide currently reports the cloak on AND this device instance hidden.</summary>
+    public async Task<bool> IsIsolatedAsync(string deviceInstancePath, CancellationToken ct)
+    {
+        if (!DevicePathPattern.IsMatch(deviceInstancePath ?? string.Empty)) return false;
+        HidHideState? state = await GetStateAsync(ct).ConfigureAwait(false);
+        return state is { CloakOn: true } && state.HiddenDevices.Contains(deviceInstancePath!, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Double-input prevention entry point. Requires explicit consent, then PROVES that the Windows controller
+    /// (vendor/product identity, exactly one such controller connected) maps to exactly one HID instance path before
+    /// calling <see cref="HideAsync"/>. If the binding cannot be proven nothing is hidden and the reason is returned.
+    /// </summary>
+    public async Task<HidHideIsolationResult> HideVerifiedAsync(ushort vendorId, ushort productId,
+        int sameIdentityControllers, bool consent, string paruxExecutable, CancellationToken ct)
+    {
+        if (!consent) return new(false, "Hiding the physical controller needs your explicit consent.", null, false);
+        if (_locateCli() is null)
+            return new(false, "HidHide is not installed. It is optional; PaRuX never installs drivers on its own.", null, false);
+        IReadOnlyList<HidGamingDevice>? devices = await ListGamingDevicesAsync(ct).ConfigureAwait(false);
+        if (devices is null) return new(false, "HidHide did not return a readable device list; nothing was hidden.", null, false);
+        PadBindingResult binding = PadBindingVerifier.Verify(vendorId, productId, sameIdentityControllers, devices);
+        if (!binding.Proven || binding.InstancePath is null)
+            return new(false, binding.Reason + " Nothing was hidden.", null, false);
+        HidHideResult hidden = await HideAsync(new[] { binding.InstancePath }, paruxExecutable, ct).ConfigureAwait(false);
+        return new(hidden.Success, hidden.Message, hidden.Success ? binding.InstancePath : null, true);
     }
 
     /// <summary>Hides the chosen physical controllers from games and lets PaRuX itself still read them.</summary>

@@ -228,6 +228,51 @@ public static class GamingEndpoints
             { return Results.Conflict(new { error = "Recovery failed; inspect HidHide manually before trying a virtual controller." }); }
         }).RequireDesktopOwner();
 
+        // Double-input prevention: hides ONE pad after the Core itself proves that the Windows controller (vendor/product,
+        // exactly one connected) maps to exactly one HID instance. Explicit consent is mandatory; fail closed otherwise.
+        app.MapPost("/api/v1/gaming/hidhide/isolate", async (
+            PaRuX.Contracts.VirtualPadIsolateRequest request,
+            PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager hidHide,
+            CancellationToken ct) =>
+        {
+            if (request is null || !request.Consent)
+                return Results.BadRequest(new PaRuX.Contracts.VirtualPadIsolateResult(
+                    false, "Hiding the physical controller needs your explicit consent.", null, false)) as IResult;
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(30));
+            try
+            {
+                var outcome = await hidHide.HideVerifiedAsync(request.VendorId, request.ProductId,
+                    request.SameIdentityControllers, request.Consent, request.AppExecutable ?? string.Empty, deadline.Token);
+                var dto = new PaRuX.Contracts.VirtualPadIsolateResult(
+                    outcome.Success, outcome.Message, outcome.InstancePath, outcome.BindingProven);
+                return outcome.Success ? Results.Ok(dto) : Results.Conflict(dto);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            { return Results.StatusCode(499); }
+            catch (OperationCanceledException)
+            {
+                return Results.Conflict(new PaRuX.Contracts.VirtualPadIsolateResult(
+                    false, "HidHide timed out; PaRuX undid its changes or kept a recovery journal.", null, false));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                return Results.Conflict(new PaRuX.Contracts.VirtualPadIsolateResult(
+                    false, "HidHide could not be used; check recovery before retrying.", null, false));
+            }
+        }).RequireDesktopOwner();
+
+        // Live isolation check used as the forwarding safety gate (cloak on and the pad hidden).
+        app.MapGet("/api/v1/gaming/hidhide/isolation", async (
+            string path, PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad.HidHideManager hidHide, CancellationToken ct) =>
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+            try { return Results.Ok(new PaRuX.Contracts.VirtualPadIsolationState(await hidHide.IsIsolatedAsync(path, deadline.Token))); }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or InvalidOperationException)
+            { return Results.Ok(new PaRuX.Contracts.VirtualPadIsolationState(false)); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v1/gaming/virtual-controller", () =>
             Results.Ok(VirtualControllerProbe.Probe())).RequireDesktopOwner();
 

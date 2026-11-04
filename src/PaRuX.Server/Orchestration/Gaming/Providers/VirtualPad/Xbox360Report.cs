@@ -16,6 +16,9 @@ public readonly record struct Xbox360Report(
 /// <summary>Raw state of a non-XInput gamepad as a generic HID reader reports it: indexed buttons, axes and one hat switch.</summary>
 public sealed record RawGamepadState(IReadOnlyList<bool> Buttons, IReadOnlyList<double> Axes, int HatDirection);
 
+/// <summary>Where the physical hat switch is routed on the virtual Xbox pad.</summary>
+public enum PadHatTarget { Dpad = 0, LeftStick = 1, RightStick = 2 }
+
 /// <summary>
 /// How the numbered controls of one physical pad map onto an Xbox 360 pad. Axis values are expected in -1..1
 /// (sticks) or 0..1 (analog triggers); a hat is -1 (centred) or 0..7 clockwise from up (0=up, 2=right...).
@@ -39,7 +42,23 @@ public sealed class PadMapping
     /// <summary>Axis range of the trigger source: true = -1..1 (rest at -1), false = 0..1.</summary>
     public bool TriggerAxisIsSigned { get; set; }
     public double StickDeadzone { get; set; } = 0.1;
+    /// <summary>Hat routing is enabled (historic name; the destination is <see cref="HatTarget"/>).</summary>
     public bool HatIsDpad { get; set; } = true;
+    public PadHatTarget HatTarget { get; set; } = PadHatTarget.Dpad;
+    public bool InvertLeftX { get; set; }
+    public bool InvertRightX { get; set; }
+
+    public PadMapping Clone() => new()
+    {
+        Buttons = Buttons is null ? new() : new Dictionary<int, ushort>(Buttons),
+        LeftXAxis = LeftXAxis, LeftYAxis = LeftYAxis, RightXAxis = RightXAxis, RightYAxis = RightYAxis,
+        InvertLeftX = InvertLeftX, InvertRightX = InvertRightX,
+        InvertLeftY = InvertLeftY, InvertRightY = InvertRightY,
+        LeftTriggerAxis = LeftTriggerAxis, RightTriggerAxis = RightTriggerAxis,
+        LeftTriggerButton = LeftTriggerButton, RightTriggerButton = RightTriggerButton,
+        TriggerAxisIsSigned = TriggerAxisIsSigned, StickDeadzone = StickDeadzone,
+        HatIsDpad = HatIsDpad, HatTarget = HatTarget
+    };
 
     public string? Validate()
     {
@@ -52,6 +71,7 @@ public sealed class PadMapping
             if (axis is < 0 or >= Max) return "An axis index is out of range.";
         foreach (int? button in new[] { LeftTriggerButton, RightTriggerButton })
             if (button is < 0 or >= Max) return "A trigger button index is out of range.";
+        if (!Enum.IsDefined(HatTarget)) return "The hat destination is not valid.";
         if (!double.IsFinite(StickDeadzone) || StickDeadzone is < 0 or > 0.6)
             return "The stick deadzone must be a finite number between 0 and 0.6.";
         return null;
@@ -66,12 +86,18 @@ public static class GenericPadMapper
         ushort buttons = 0;
         foreach (var (index, bit) in mapping.Buttons)
             if (index >= 0 && index < state.Buttons.Count && state.Buttons[index]) buttons |= bit;
-        if (mapping.HatIsDpad) buttons |= HatToDpad(state.HatDirection);
+        if (mapping.HatIsDpad && mapping.HatTarget == PadHatTarget.Dpad) buttons |= HatToDpad(state.HatDirection);
 
-        short lx = Stick(state, mapping.LeftXAxis, false, mapping.StickDeadzone);
+        short lx = Stick(state, mapping.LeftXAxis, mapping.InvertLeftX, mapping.StickDeadzone);
         short ly = Stick(state, mapping.LeftYAxis, mapping.InvertLeftY, mapping.StickDeadzone);
-        short rx = Stick(state, mapping.RightXAxis, false, mapping.StickDeadzone);
+        short rx = Stick(state, mapping.RightXAxis, mapping.InvertRightX, mapping.StickDeadzone);
         short ry = Stick(state, mapping.RightYAxis, mapping.InvertRightY, mapping.StickDeadzone);
+        if (mapping.HatIsDpad && mapping.HatTarget != PadHatTarget.Dpad && HatToStick(state.HatDirection) is { } hat)
+        {
+            // A pressed hat overrides the stick it is routed to; centred leaves the analogue value alone.
+            if (mapping.HatTarget == PadHatTarget.LeftStick) { lx = hat.X; ly = hat.Y; }
+            else { rx = hat.X; ry = hat.Y; }
+        }
         byte lt = Trigger(state, mapping.LeftTriggerAxis, mapping.LeftTriggerButton, mapping.TriggerAxisIsSigned);
         byte rt = Trigger(state, mapping.RightTriggerAxis, mapping.RightTriggerButton, mapping.TriggerAxisIsSigned);
         return new Xbox360Report(buttons, lt, rt, lx, ly, rx, ry);
@@ -89,6 +115,16 @@ public static class GenericPadMapper
         7 => (ushort)(Xbox360Report.DpadUp | Xbox360Report.DpadLeft),
         _ => 0,
     };
+
+    /// <summary>Hat direction as full-deflection stick values (X right positive, Y up positive); null when centred.</summary>
+    public static (short X, short Y)? HatToStick(int hat)
+    {
+        ushort d = HatToDpad(hat);
+        if (d == 0) return null;
+        short x = (short)((d & Xbox360Report.DpadRight) != 0 ? 32767 : (d & Xbox360Report.DpadLeft) != 0 ? -32767 : 0);
+        short y = (short)((d & Xbox360Report.DpadUp) != 0 ? 32767 : (d & Xbox360Report.DpadDown) != 0 ? -32767 : 0);
+        return (x, y);
+    }
 
     private static double Axis(RawGamepadState state, int? index) =>
         index is { } i && i >= 0 && i < state.Axes.Count && double.IsFinite(state.Axes[i])
