@@ -1,5 +1,14 @@
 # Changelog
 
+### 2026-11-04 — Virtual controller: guided activation, verified HidHide binding, per-game profiles, hot-plug
+
+- **Activation service (`VirtualPadForwardingService`):** owner-started only (never automatic), refuses when the ViGEmBus driver is absent (explains and links to the official project; never installs), when the owner has not consented to hide the pad, when the isolation gate fails or goes stale, or when no mapping exists. Bounded start retries (3) for transient driver conditions only; explicit Stop sends a neutral report and unplugs the virtual pad; a stop timeout never creates a second pad. **AUTO-TESTED with fakes (29 xUnit).**
+- **Fail-closed HID binding:** `PadBindingVerifier` + `HidHideManager.HideVerifiedAsync` hide a pad only after proving that exactly one connected controller with that vendor/product maps to exactly one HID instance listed by HidHide `--dev-gaming`; ambiguity, unreadable output or a missing device means nothing is hidden and the reason is shown. New owner-only Core endpoints `POST /api/v1/gaming/hidhide/isolate` (consent required) and `GET /api/v1/gaming/hidhide/isolation`. Journal recovery unchanged. **AUTO-TESTED; the `--dev-gaming` output format comes from HidHide documentation and is NEEDS PHYSICAL HW to confirm.**
+- **Guided panel:** Games > devices now has steps find pad, check driver (explain and link only), check HidHide, consent to hide, start / stop / re-arm, test input (maps a live sample and shows the virtual report). IT/EN strings and AutomationIds; existing visuals untouched. **Implemented, builds; NOT RUN (no UI/FlaUI tests run, no real pad).**
+- **Per-game profiles:** `GamePadProfileStore` (game id + device hash, SHA-256 only on disk) with fallback to the per-device mapping, applied automatically when PaRuX launches a manual game while forwarding is armed. Full mapping editing: all 11 Xbox buttons, digital triggers, axes, X/Y inversion, hat routed to D-pad / left / right stick. **AUTO-TESTED (selection, fallback, damaged file preserved).**
+- **Hot-plug:** `RawGameController` added/removed events (subscribed only while armed) neutralise and unplug the virtual pad on removal and only offer an explicit re-arm on return. **Logic AUTO-TESTED; the WinRT events are NEEDS PHYSICAL HW.**
+- XOutput equivalence is **not claimed** (BLOCKED until a physical end-to-end verification).
+
 ### 2026-11-04 — First-run pane fix, Model Hub Start board, chat model picker, setup profiles, portable ZIP script
 
 - **First launch:** the hidden navigation pane is no longer re-opened by the width policy, which painted it as a dark overlay slab over the welcome page. `SetNavPaneVisible()` closes the pane when hiding it; showing it re-applies the policy. FlaUI regression added. **VERIFIED ON WINDOWS** (reproduced on the installed 3.0.0, fixed in the build).

@@ -16,7 +16,8 @@ namespace PaRuX.Views;
 /// <summary>
 /// Display-mode change and controller-profile panel of the Games workspace. Every action is explicit:
 /// a display change is temporary until confirmed (the Core reverts it by itself), calibration samples
-/// the resting sticks once, and nothing here polls. The only timer exists while a change is pending.
+/// the resting sticks once, and nothing here polls. Timers exist only while a display change is pending
+/// or while the owner-started virtual-controller forwarding is running.
 /// </summary>
 internal sealed class GamingDevicesPanel : StackPanel
 {
@@ -57,6 +58,42 @@ internal sealed class GamingDevicesPanel : StackPanel
     private readonly CheckBox _rawInvertY = new() { IsChecked = true };
     private readonly CheckBox _rawDpad = new() { IsChecked = true };
 
+    // Full mapping (beyond A/B): every Xbox button, digital triggers, X inversion and where the hat goes.
+    private readonly NumberBox _rawX = RawIndex(-1);
+    private readonly NumberBox _rawY = RawIndex(-1);
+    private readonly NumberBox _rawLb = RawIndex(-1);
+    private readonly NumberBox _rawRb = RawIndex(-1);
+    private readonly NumberBox _rawBack = RawIndex(-1);
+    private readonly NumberBox _rawStart = RawIndex(-1);
+    private readonly NumberBox _rawL3 = RawIndex(-1);
+    private readonly NumberBox _rawR3 = RawIndex(-1);
+    private readonly NumberBox _rawGuide = RawIndex(-1);
+    private readonly NumberBox _rawLtButton = RawIndex(-1);
+    private readonly NumberBox _rawRtButton = RawIndex(-1);
+    private readonly CheckBox _rawInvertX = new() { IsChecked = false };
+    private readonly ComboBox _rawHatTarget = new();
+    private readonly ComboBox _gameChoice = new() { MinWidth = 260 };
+
+    // Guided virtual-controller activation.
+    private readonly CheckBox _hideConsent = new();
+    private readonly TextBlock _guidedStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stepDevice = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stepDriver = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stepIsolation = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stepTest = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly HyperlinkButton _driverLink = new() { Visibility = Visibility.Collapsed };
+    private readonly HyperlinkButton _hidHideLink = new() { Visibility = Visibility.Collapsed };
+    private Button? _startForwarding, _stopForwarding, _rearmForwarding;
+    private readonly DispatcherTimer _guidedTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+
+    private (NumberBox Box, ushort Bit)[] ButtonBoxes => new[]
+    {
+        (_rawA, Xbox360Report.A), (_rawB, Xbox360Report.B), (_rawX, Xbox360Report.X), (_rawY, Xbox360Report.Y),
+        (_rawLb, Xbox360Report.LeftShoulder), (_rawRb, Xbox360Report.RightShoulder),
+        (_rawBack, Xbox360Report.Back), (_rawStart, Xbox360Report.Start),
+        (_rawL3, Xbox360Report.LeftThumb), (_rawR3, Xbox360Report.RightThumb), (_rawGuide, Xbox360Report.Guide)
+    };
+
     private static NumberBox RawIndex(int value) => new()
     {
         Minimum = -1, Maximum = 63, Value = value, SmallChange = 1,
@@ -71,8 +108,21 @@ internal sealed class GamingDevicesPanel : StackPanel
         BuildDisplaySection();
         BuildControllerSection();
         _countdown.Tick += async (_, _) => await OnCountdownAsync();
-        Unloaded += (_, _) => _countdown.Stop();
+        _guidedTimer.Tick += (_, _) => RefreshGuided();
+        Loaded += (_, _) =>
+        {
+            VirtualPadActivationController.Current.Changed += OnPadStateChanged;
+            RefreshGuided();
+        };
+        Unloaded += (_, _) =>
+        {
+            _countdown.Stop();
+            _guidedTimer.Stop();
+            VirtualPadActivationController.Current.Changed -= OnPadStateChanged;
+        };
     }
+
+    private void OnPadStateChanged() => DispatcherQueue?.TryEnqueue(RefreshGuided);
 
     private static Button MakeButton(string text, string id, Func<Task> action)
     {
@@ -347,6 +397,8 @@ internal sealed class GamingDevicesPanel : StackPanel
         mappingActions.Children.Add(loadMapping);
         mappingActions.Children.Add(saveMapping);
         Children.Add(mappingActions);
+        Children.Add(BuildFullMappingExpander());
+        Children.Add(BuildGameProfileRow());
 
         Children.Add(new TextBlock
         {
@@ -372,6 +424,9 @@ internal sealed class GamingDevicesPanel : StackPanel
         AutomationProperties.SetAutomationId(_rawB, "GameDevices_RawMapping_B_Index");
         AutomationProperties.SetAutomationId(_rawLx, "GameDevices_RawMapping_LeftX_Index");
         AutomationProperties.SetAutomationId(_rawDeadzone, "GameDevices_RawMapping_Deadzone");
+        AutomationProperties.SetAutomationId(_rawDpad, "GameDevices_RawMapping_HatEnabled_CheckBox");
+        AutomationProperties.SetAutomationId(_rawInvertY, "GameDevices_RawMapping_InvertY_CheckBox");
+        BuildGuidedSection();
         ApplyToUi(GamingControllerProfile.Default);
     }
 
@@ -463,9 +518,168 @@ internal sealed class GamingDevicesPanel : StackPanel
         }
     }
 
+    private UIElement BuildFullMappingExpander()
+    {
+        _rawX.Header = "X"; _rawY.Header = "Y";
+        _rawLb.Header = "LB"; _rawRb.Header = "RB";
+        _rawBack.Header = "Back"; _rawStart.Header = "Start";
+        _rawL3.Header = "L3"; _rawR3.Header = "R3"; _rawGuide.Header = "Guide";
+        _rawLtButton.Header = T("LT as button", "LT come pulsante");
+        _rawRtButton.Header = T("RT as button", "RT come pulsante");
+        _rawInvertX.Content = T("Invert horizontal axes", "Inverti assi orizzontali");
+        _rawHatTarget.Header = T("Hat switch goes to", "La croce direzionale va a");
+        _rawHatTarget.Items.Add(new ComboBoxItem { Content = T("D-pad", "Croce direzionale"), Tag = PadHatTarget.Dpad });
+        _rawHatTarget.Items.Add(new ComboBoxItem { Content = T("Left stick", "Levetta sinistra"), Tag = PadHatTarget.LeftStick });
+        _rawHatTarget.Items.Add(new ComboBoxItem { Content = T("Right stick", "Levetta destra"), Tag = PadHatTarget.RightStick });
+        _rawHatTarget.SelectedIndex = 0;
+        AutomationProperties.SetAutomationId(_rawX, "GameDevices_RawMapping_X_Index");
+        AutomationProperties.SetAutomationId(_rawY, "GameDevices_RawMapping_Y_Index");
+        AutomationProperties.SetAutomationId(_rawLb, "GameDevices_RawMapping_LB_Index");
+        AutomationProperties.SetAutomationId(_rawRb, "GameDevices_RawMapping_RB_Index");
+        AutomationProperties.SetAutomationId(_rawBack, "GameDevices_RawMapping_Back_Index");
+        AutomationProperties.SetAutomationId(_rawStart, "GameDevices_RawMapping_Start_Index");
+        AutomationProperties.SetAutomationId(_rawL3, "GameDevices_RawMapping_L3_Index");
+        AutomationProperties.SetAutomationId(_rawR3, "GameDevices_RawMapping_R3_Index");
+        AutomationProperties.SetAutomationId(_rawGuide, "GameDevices_RawMapping_Guide_Index");
+        AutomationProperties.SetAutomationId(_rawLtButton, "GameDevices_RawMapping_LtButton_Index");
+        AutomationProperties.SetAutomationId(_rawRtButton, "GameDevices_RawMapping_RtButton_Index");
+        AutomationProperties.SetAutomationId(_rawInvertX, "GameDevices_RawMapping_InvertX_CheckBox");
+        AutomationProperties.SetAutomationId(_rawHatTarget, "GameDevices_RawMapping_HatTarget_ComboBox");
+
+        var rowA = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (NumberBox n in new[] { _rawX, _rawY, _rawLb, _rawRb }) rowA.Children.Add(n);
+        var rowB = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (NumberBox n in new[] { _rawBack, _rawStart, _rawL3, _rawR3, _rawGuide }) rowB.Children.Add(n);
+        var rowC = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        rowC.Children.Add(_rawLtButton);
+        rowC.Children.Add(_rawRtButton);
+        rowC.Children.Add(_rawHatTarget);
+        rowC.Children.Add(_rawInvertX);
+        var body = new StackPanel { Spacing = 8 };
+        body.Children.Add(new TextBlock
+        {
+            Text = T("Physical button numbers from \"Read once\". -1 leaves a control unmapped. Two Xbox buttons cannot share one physical button.",
+                     "Numeri dei pulsanti fisici da \"Leggi una volta\". -1 lascia il controllo non mappato. Due pulsanti Xbox non possono usare lo stesso pulsante fisico."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        body.Children.Add(rowA);
+        body.Children.Add(rowB);
+        body.Children.Add(rowC);
+        var expander = new Expander
+        {
+            Header = T("All buttons, triggers and hat (advanced)", "Tutti i pulsanti, grilletti e croce (avanzato)"),
+            Content = body,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        AutomationProperties.SetAutomationId(expander, "GameDevices_RawMapping_Full_Expander");
+        return expander;
+    }
+
+    private UIElement BuildGameProfileRow()
+    {
+        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = T("Per-game profile — used automatically when PaRuX starts that game; other games use this controller's mapping above.",
+                     "Profilo per gioco — usato automaticamente quando PaRuX avvia quel gioco; gli altri giochi usano la mappatura del controller qui sopra."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        _gameChoice.Header = T("Game", "Gioco");
+        AutomationProperties.SetAutomationId(_gameChoice, "GameDevices_GameProfile_Game_ComboBox");
+        var load = MakeButton(T("List games", "Elenca giochi"), "GameDevices_GameProfile_ListGames_Button", LoadGameChoicesAsync);
+        var loadProfile = MakeButton(T("Load game profile", "Carica profilo gioco"), "GameDevices_GameProfile_Load_Button", LoadGameProfileAsync);
+        var saveProfile = MakeButton(T("Save as game profile", "Salva come profilo gioco"), "GameDevices_GameProfile_Save_Button", SaveGameProfileAsync);
+        var deleteProfile = MakeButton(T("Delete game profile", "Elimina profilo gioco"), "GameDevices_GameProfile_Delete_Button", DeleteGameProfileAsync);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        row.Children.Add(load);
+        row.Children.Add(_gameChoice);
+        row.Children.Add(loadProfile);
+        row.Children.Add(saveProfile);
+        row.Children.Add(deleteProfile);
+        panel.Children.Add(row);
+        return panel;
+    }
+
+    private async Task LoadGameChoicesAsync()
+    {
+        try
+        {
+            var games = await GamingOrchestratorClient.Current.ListManualGamesAsync();
+            _gameChoice.Items.Clear();
+            _gameChoice.Items.Add(new ComboBoxItem { Content = T("(none — controller mapping)", "(nessuno — mappatura del controller)"), Tag = null });
+            if (games.Succeeded && games.Value is { } list)
+                foreach (var game in list)
+                    _gameChoice.Items.Add(new ComboBoxItem { Content = game.Name, Tag = game.Id });
+            _gameChoice.SelectedIndex = 0;
+            _rawDeviceStatus.Text = T("Games listed. Pick one to load or save its profile.",
+                "Giochi elencati. Sceglierne uno per caricare o salvare il suo profilo.");
+        }
+        catch (Exception)
+        {
+            _rawDeviceStatus.Text = T("Could not list games.", "Impossibile elencare i giochi.");
+        }
+    }
+
+    private string? SelectedGameId => (_gameChoice.SelectedItem as ComboBoxItem)?.Tag as string;
+    private string? SelectedDeviceId => (_rawDevices.SelectedItem as ComboBoxItem)?.Tag as string;
+
+    private Task LoadGameProfileAsync()
+    {
+        if (SelectedDeviceId is not { } device || SelectedGameId is not { } game)
+        {
+            _rawDeviceStatus.Text = T("Select a controller and a game first.", "Seleziona prima un controller e un gioco.");
+            return Task.CompletedTask;
+        }
+        PadMapping? loaded = VirtualPadActivationController.Current.Profiles.Load(game, device, out string? error);
+        if (error is not null)
+            _rawDeviceStatus.Text = T("The game profile could not be loaded; its file was preserved.",
+                "Impossibile caricare il profilo del gioco; il file è stato preservato.");
+        else if (loaded is null)
+            _rawDeviceStatus.Text = T("No profile for this game yet; it uses the controller mapping.",
+                "Nessun profilo per questo gioco; usa la mappatura del controller.");
+        else
+        {
+            ApplyRawMapping(loaded);
+            _rawDeviceStatus.Text = T("Game profile loaded. No virtual controller was started.",
+                "Profilo del gioco caricato. Nessun controller virtuale è stato avviato.");
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task SaveGameProfileAsync()
+    {
+        if (SelectedDeviceId is not { } device || SelectedGameId is not { } game)
+        {
+            _rawDeviceStatus.Text = T("Select a controller and a game first.", "Seleziona prima un controller e un gioco.");
+            return Task.CompletedTask;
+        }
+        PadMapping? mapping = BuildRawMapping(out string? problem);
+        if (mapping is null) { _rawDeviceStatus.Text = problem; return Task.CompletedTask; }
+        bool saved = VirtualPadActivationController.Current.Profiles.Save(game, device, mapping, out _);
+        _rawDeviceStatus.Text = saved
+            ? T("Game profile saved locally. It applies when PaRuX starts that game with forwarding armed.",
+                "Profilo del gioco salvato in locale. Si applica quando PaRuX avvia quel gioco con l'inoltro attivo.")
+            : T("Invalid mapping or the saved file is damaged; nothing was overwritten.",
+                "Mappatura non valida o file danneggiato; nessun dato è stato sovrascritto.");
+        return Task.CompletedTask;
+    }
+
+    private Task DeleteGameProfileAsync()
+    {
+        if (SelectedDeviceId is not { } device || SelectedGameId is not { } game)
+        {
+            _rawDeviceStatus.Text = T("Select a controller and a game first.", "Seleziona prima un controller e un gioco.");
+            return Task.CompletedTask;
+        }
+        _rawDeviceStatus.Text = VirtualPadActivationController.Current.Profiles.Delete(game, device)
+            ? T("Game profile removed; the game uses the controller mapping.", "Profilo del gioco rimosso; il gioco usa la mappatura del controller.")
+            : T("The game profile could not be removed.", "Impossibile rimuovere il profilo del gioco.");
+        return Task.CompletedTask;
+    }
+
     private Task LoadRawMappingAsync()
     {
-        if ((_rawDevices.SelectedItem as ComboBoxItem)?.Tag is not string id)
+        if (SelectedDeviceId is not { } id)
         {
             _rawDeviceStatus.Text = T("Select a physical controller first.", "Seleziona prima un controller fisico.");
             return Task.CompletedTask;
@@ -483,50 +697,82 @@ internal sealed class GamingDevicesPanel : StackPanel
                 "Nessuna mappatura salvata per questo controller.");
             return Task.CompletedTask;
         }
-        _rawA.Value = loaded.Buttons.FirstOrDefault(x => x.Value == Xbox360Report.A).Value == Xbox360Report.A
-            ? loaded.Buttons.First(x => x.Value == Xbox360Report.A).Key : -1;
-        _rawB.Value = loaded.Buttons.FirstOrDefault(x => x.Value == Xbox360Report.B).Value == Xbox360Report.B
-            ? loaded.Buttons.First(x => x.Value == Xbox360Report.B).Key : -1;
+        ApplyRawMapping(loaded);
+        _rawDeviceStatus.Text = T("Mapping loaded. No virtual controller was started.",
+            "Mappatura caricata. Nessun controller virtuale è stato avviato.");
+        return Task.CompletedTask;
+    }
+
+    private void ApplyRawMapping(PadMapping loaded)
+    {
+        foreach (var (box, bit) in ButtonBoxes)
+        {
+            var hit = loaded.Buttons.Where(x => x.Value == bit).Select(x => (int?)x.Key).FirstOrDefault();
+            box.Value = hit ?? -1;
+        }
         _rawLx.Value = loaded.LeftXAxis ?? -1;
         _rawLy.Value = loaded.LeftYAxis ?? -1;
         _rawRx.Value = loaded.RightXAxis ?? -1;
         _rawRy.Value = loaded.RightYAxis ?? -1;
         _rawLt.Value = loaded.LeftTriggerAxis ?? -1;
         _rawRt.Value = loaded.RightTriggerAxis ?? -1;
+        _rawLtButton.Value = loaded.LeftTriggerButton ?? -1;
+        _rawRtButton.Value = loaded.RightTriggerButton ?? -1;
         _rawDeadzone.Value = loaded.StickDeadzone;
         _rawInvertY.IsChecked = loaded.InvertLeftY && loaded.InvertRightY;
+        _rawInvertX.IsChecked = loaded.InvertLeftX && loaded.InvertRightX;
         _rawDpad.IsChecked = loaded.HatIsDpad;
-        _rawDeviceStatus.Text = T("Mapping loaded. No virtual controller was started.",
-            "Mappatura caricata. Nessun controller virtuale è stato avviato.");
-        return Task.CompletedTask;
+        int target = Math.Clamp((int)loaded.HatTarget, 0, _rawHatTarget.Items.Count - 1);
+        _rawHatTarget.SelectedIndex = target;
     }
 
-    private Task SaveRawMappingAsync()
+    /// <summary>Reads every mapping control. Returns null with a user-readable reason when the entries conflict.</summary>
+    private PadMapping? BuildRawMapping(out string? problem)
     {
-        if ((_rawDevices.SelectedItem as ComboBoxItem)?.Tag is not string id)
-        {
-            _rawDeviceStatus.Text = T("Select a physical controller first.", "Seleziona prima un controller fisico.");
-            return Task.CompletedTask;
-        }
-        int? buttonA = SelectedIndex(_rawA), buttonB = SelectedIndex(_rawB);
-        if (buttonA is not null && buttonA == buttonB)
-        {
-            _rawDeviceStatus.Text = T("A and B cannot use the same physical button.", "A e B non possono usare lo stesso pulsante.");
-            return Task.CompletedTask;
-        }
+        problem = null;
         var mapping = new PadMapping
         {
             LeftXAxis = SelectedIndex(_rawLx), LeftYAxis = SelectedIndex(_rawLy),
             RightXAxis = SelectedIndex(_rawRx), RightYAxis = SelectedIndex(_rawRy),
             LeftTriggerAxis = SelectedIndex(_rawLt), RightTriggerAxis = SelectedIndex(_rawRt),
+            LeftTriggerButton = SelectedIndex(_rawLtButton), RightTriggerButton = SelectedIndex(_rawRtButton),
             TriggerAxisIsSigned = true, // Windows RawGameController axes were transformed from 0..1 to -1..1.
             InvertLeftY = _rawInvertY.IsChecked == true,
             InvertRightY = _rawInvertY.IsChecked == true,
+            InvertLeftX = _rawInvertX.IsChecked == true,
+            InvertRightX = _rawInvertX.IsChecked == true,
             HatIsDpad = _rawDpad.IsChecked == true,
+            HatTarget = (_rawHatTarget.SelectedItem as ComboBoxItem)?.Tag is PadHatTarget t ? t : PadHatTarget.Dpad,
             StickDeadzone = double.IsNaN(_rawDeadzone.Value) ? double.NaN : _rawDeadzone.Value
         };
-        if (buttonA is { } a) mapping.Buttons[a] = Xbox360Report.A;
-        if (buttonB is { } b) mapping.Buttons[b] = Xbox360Report.B;
+        var used = new HashSet<int>();
+        foreach (var (box, bit) in ButtonBoxes)
+        {
+            if (SelectedIndex(box) is not { } index) continue;
+            if (!used.Add(index))
+            {
+                problem = T("Two Xbox buttons cannot use the same physical button.", "Due pulsanti Xbox non possono usare lo stesso pulsante fisico.");
+                return null;
+            }
+            mapping.Buttons[index] = bit;
+        }
+        if (mapping.Validate() is not null)
+        {
+            problem = T("Invalid mapping values.", "Valori di mappatura non validi.");
+            return null;
+        }
+        return mapping;
+    }
+
+    private Task SaveRawMappingAsync()
+    {
+        if (SelectedDeviceId is not { } id)
+        {
+            _rawDeviceStatus.Text = T("Select a physical controller first.", "Seleziona prima un controller fisico.");
+            return Task.CompletedTask;
+        }
+        PadMapping? mapping = BuildRawMapping(out string? problem);
+        if (mapping is null) { _rawDeviceStatus.Text = problem; return Task.CompletedTask; }
         bool saved = new RawPadMappingStore().Save(id, mapping, out _);
         _rawDeviceStatus.Text = saved
             ? T("Mapping saved locally. Virtual forwarding is still off.", "Mappatura salvata in locale. L'inoltro virtuale resta disattivato.")
@@ -534,6 +780,190 @@ internal sealed class GamingDevicesPanel : StackPanel
                 "Mappatura non valida o file danneggiato; nessun dato è stato sovrascritto.");
         return Task.CompletedTask;
     }
+
+    // ------------------------------------------------------------------------- guided virtual-controller activation
+
+    private void BuildGuidedSection()
+    {
+        Children.Add(new TextBlock
+        {
+            Text = T("Guided virtual controller (optional)", "Controller virtuale guidato (opzionale)"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 12, 0, 0)
+        });
+        Children.Add(new TextBlock
+        {
+            Text = T("For pads Windows games do not understand. Every step is yours to take: PaRuX never installs a driver, never hides a controller without your consent, and never starts by itself. Experimental: not yet verified with a physical pad.",
+                     "Per controller che i giochi Windows non riconoscono. Ogni passo è tuo: PaRuX non installa mai un driver, non nasconde un controller senza il tuo consenso e non parte da solo. Sperimentale: non ancora verificato con un controller fisico."),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        // 1. Detect the pad (uses the controller list above).
+        var detect = MakeButton(T("1. Find controllers", "1. Trova controller"), "GameDevices_Guided_Detect_Button", async () =>
+        {
+            await DetectRawAsync();
+            _stepDevice.Text = SelectedDeviceId is null
+                ? T("No compatible controller found. Connect it and try again.", "Nessun controller compatibile. Collegalo e riprova.")
+                : T("Controller selected in the list above. Choose a different one there if needed.", "Controller selezionato nell'elenco qui sopra. Sceglierne un altro lì se serve.");
+        });
+        AddGuidedRow(detect, _stepDevice, "GameDevices_Guided_Step1_Text");
+
+        // 2. Virtual driver: detect only; if absent, explain and link, never install.
+        var driver = MakeButton(T("2. Check virtual driver", "2. Verifica driver virtuale"), "GameDevices_Guided_Driver_Button", () =>
+        {
+            var (present, message) = VirtualPadActivationController.ProbeDriver();
+            _driverLink.Visibility = present ? Visibility.Collapsed : Visibility.Visible;
+            _stepDriver.Text = present
+                ? T("The virtual controller driver (ViGEmBus) is installed.", "Il driver del controller virtuale (ViGEmBus) è installato.")
+                : T("The virtual controller driver (ViGEmBus) was not found. It is a separate, optional driver from its official project. PaRuX will not install it: if you want it, download and install it yourself, then check again.",
+                    "Il driver del controller virtuale (ViGEmBus) non è stato trovato. È un driver separato e opzionale del suo progetto ufficiale. PaRuX non lo installa: se lo vuoi, scaricalo e installalo tu, poi ricontrolla.");
+            return Task.CompletedTask;
+        });
+        _driverLink.Content = T("Official ViGEmBus project page", "Pagina ufficiale del progetto ViGEmBus");
+        _driverLink.NavigateUri = new Uri("https://github.com/nefarius/ViGEmBus");
+        AutomationProperties.SetAutomationId(_driverLink, "GameDevices_Guided_DriverLink");
+        AddGuidedRow(driver, _stepDriver, "GameDevices_Guided_Step2_Text");
+        Children.Add(_driverLink);
+
+        // 3. Optional HidHide isolation with explicit consent.
+        var hidHide = MakeButton(T("3. Check HidHide", "3. Verifica HidHide"), "GameDevices_Guided_HidHide_Button", CheckHidHideForGuidedAsync);
+        _hidHideLink.Content = T("Official HidHide project page", "Pagina ufficiale del progetto HidHide");
+        _hidHideLink.NavigateUri = new Uri("https://github.com/nefarius/HidHide");
+        AutomationProperties.SetAutomationId(_hidHideLink, "GameDevices_Guided_HidHideLink");
+        AddGuidedRow(hidHide, _stepIsolation, "GameDevices_Guided_Step3_Text");
+        Children.Add(_hidHideLink);
+        _hideConsent.Content = T("I agree that PaRuX hides this physical controller from games with HidHide (recorded, and undone with \"Restore PaRuX changes\" below). Without this, forwarding does not start, because every input would be doubled.",
+                                 "Acconsento che PaRuX nasconda questo controller fisico ai giochi con HidHide (registrato e annullabile con \"Ripristina modifiche PaRuX\" qui sotto). Senza questo l'inoltro non parte, perché ogni input sarebbe doppio.");
+        AutomationProperties.SetAutomationId(_hideConsent, "GameDevices_Guided_HideConsent_CheckBox");
+        Children.Add(_hideConsent);
+
+        // 4. Start / stop / re-arm.
+        _startForwarding = MakeButton(T("4. Start forwarding", "4. Avvia inoltro"), "GameDevices_Guided_Start_Button", StartForwardingAsync);
+        _stopForwarding = MakeButton(T("Stop forwarding", "Ferma inoltro"), "GameDevices_Guided_Stop_Button", StopForwardingAsync);
+        _rearmForwarding = MakeButton(T("Re-arm after reconnect", "Riarma dopo la riconnessione"), "GameDevices_Guided_Rearm_Button", RearmForwardingAsync);
+        _stopForwarding.IsEnabled = false;
+        _rearmForwarding.Visibility = Visibility.Collapsed;
+        var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        controls.Children.Add(_startForwarding);
+        controls.Children.Add(_stopForwarding);
+        controls.Children.Add(_rearmForwarding);
+        Children.Add(controls);
+
+        // 5. Test input.
+        var test = MakeButton(T("5. Test input", "5. Prova input"), "GameDevices_Guided_Test_Button", TestInputAsync);
+        AddGuidedRow(test, _stepTest, "GameDevices_Guided_Step5_Text");
+
+        AutomationProperties.SetAutomationId(_guidedStatus, "GameDevices_Guided_Status_Text");
+        AutomationProperties.SetLiveSetting(_guidedStatus, AutomationLiveSetting.Polite);
+        _guidedStatus.Text = T("Not active.", "Non attivo.");
+        Children.Add(_guidedStatus);
+    }
+
+    private void AddGuidedRow(Button button, TextBlock text, string textId)
+    {
+        AutomationProperties.SetAutomationId(text, textId);
+        AutomationProperties.SetLiveSetting(text, AutomationLiveSetting.Polite);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        row.Children.Add(button);
+        Children.Add(row);
+        Children.Add(text);
+    }
+
+    private async Task CheckHidHideForGuidedAsync()
+    {
+        try
+        {
+            var status = await GamingOrchestratorClient.Current.GetHidHideStatusAsync();
+            if (!status.Succeeded || status.Value is not { } value)
+            {
+                _stepIsolation.Text = T("Could not check HidHide.", "Impossibile controllare HidHide.");
+                return;
+            }
+            _hidHideLink.Visibility = value.Available ? Visibility.Collapsed : Visibility.Visible;
+            _stepIsolation.Text = value.RecoveryRequired
+                ? T("A previous PaRuX hiding has not been restored yet. Use \"Restore PaRuX changes\" below first.",
+                    "Un precedente nascondimento di PaRuX non è stato ancora ripristinato. Usa prima \"Ripristina modifiche PaRuX\" qui sotto.")
+                : value.Available
+                    ? T("HidHide is installed. PaRuX will only hide this controller after proving which device it is, and only with your consent.",
+                        "HidHide è installato. PaRuX nasconderà questo controller solo dopo aver dimostrato quale dispositivo è, e solo con il tuo consenso.")
+                    : T("HidHide is not installed. It is a separate, optional driver from its official project; PaRuX will not install it. Without it, forwarding cannot start safely.",
+                        "HidHide non è installato. È un driver separato e opzionale del suo progetto ufficiale; PaRuX non lo installa. Senza di esso l'inoltro non può partire in sicurezza.");
+        }
+        catch (Exception)
+        {
+            _stepIsolation.Text = T("Could not check HidHide.", "Impossibile controllare HidHide.");
+        }
+    }
+
+    private RawGamepadDeviceInfo? SelectedDeviceInfo()
+    {
+        if (SelectedDeviceId is not { } id) return null;
+        return WindowsRawGamepadSource.ListDevices().FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.Ordinal));
+    }
+
+    private async Task StartForwardingAsync()
+    {
+        if (SelectedDeviceInfo() is not { } device)
+        {
+            _guidedStatus.Text = T("Choose an available controller first (step 1).", "Scegli prima un controller disponibile (passo 1).");
+            return;
+        }
+        _guidedStatus.Text = T("Starting…", "Avvio…");
+        var status = await VirtualPadActivationController.Current.StartAsync(device, _hideConsent.IsChecked == true, SelectedGameId);
+        ShowGuided(status);
+    }
+
+    private async Task StopForwardingAsync() => ShowGuided(await VirtualPadActivationController.Current.StopAsync());
+
+    private async Task RearmForwardingAsync() => ShowGuided(await VirtualPadActivationController.Current.RearmAsync());
+
+    private Task TestInputAsync()
+    {
+        if (SelectedDeviceId is not { } id || WindowsRawGamepadSource.TryOpen(id) is not { } source ||
+            !source.TryRead(out var sample) || sample is null)
+        {
+            _stepTest.Text = T("The selected controller is not available.", "Il controller selezionato non è disponibile.");
+            return Task.CompletedTask;
+        }
+        var resolved = VirtualPadActivationController.Current.Profiles.Resolve(id, SelectedGameId);
+        if (resolved.Mapping is null)
+        {
+            _stepTest.Text = T("Save a mapping for this controller first.", "Salva prima una mappatura per questo controller.");
+            return Task.CompletedTask;
+        }
+        var report = GenericPadMapper.Map(sample, resolved.Mapping);
+        string phase = VirtualPadActivationController.Current.Service.Status.Phase == VirtualPadPhase.Running
+            ? T("Forwarding is active: this is what the virtual pad sends.", "L'inoltro è attivo: questo è ciò che invia il pad virtuale.")
+            : T("Forwarding is off: preview only, nothing is sent.", "L'inoltro è spento: solo anteprima, nulla viene inviato.");
+        _stepTest.Text = $"{phase} Buttons 0x{report.Buttons:X4}, LT {report.LeftTrigger}, RT {report.RightTrigger}, " +
+                         $"L({report.LeftX},{report.LeftY}) R({report.RightX},{report.RightY}). " +
+                         T("Hold a button, then press Test input again.", "Tieni premuto un pulsante, poi premi di nuovo Prova input.");
+        return Task.CompletedTask;
+    }
+
+    private void ShowGuided(VirtualPadServiceStatus status)
+    {
+        string phase = status.Phase switch
+        {
+            VirtualPadPhase.Running => T("Active", "Attivo"),
+            VirtualPadPhase.Starting => T("Starting", "Avvio"),
+            VirtualPadPhase.PausedRemoved => T("Paused (controller removed)", "In pausa (controller rimosso)"),
+            VirtualPadPhase.Failed => T("Stopped", "Fermo"),
+            _ => T("Off", "Spento")
+        };
+        _guidedStatus.Text = $"{phase}: {status.Message}";
+        if (_startForwarding is not null)
+            _startForwarding.IsEnabled = status.Phase is not (VirtualPadPhase.Running or VirtualPadPhase.Starting);
+        if (_stopForwarding is not null)
+            _stopForwarding.IsEnabled = status.Phase is VirtualPadPhase.Running or VirtualPadPhase.Starting or VirtualPadPhase.PausedRemoved;
+        if (_rearmForwarding is not null)
+            _rearmForwarding.Visibility = status.CanRearm ? Visibility.Visible : Visibility.Collapsed;
+        // The only periodic work: notice a worker that ended by itself (unplugged pad, lost isolation).
+        if (status.Phase is VirtualPadPhase.Running or VirtualPadPhase.Starting) _guidedTimer.Start();
+        else _guidedTimer.Stop();
+    }
+
+    private void RefreshGuided() => ShowGuided(VirtualPadActivationController.Current.Service.Status);
 
     private void ApplyToUi(GamingControllerProfile p)
     {

@@ -145,6 +145,15 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> RecoverHidHideAsync(CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/hidhide/recover", null, ct);
 
+        public Task<GamingCallResult<VirtualPadIsolateResult>> IsolateVirtualPadAsync(
+            VirtualPadIsolateRequest request, CancellationToken ct = default) =>
+            SendAsync<VirtualPadIsolateResult>(HttpMethod.Post, "/api/v1/gaming/hidhide/isolate", request, ct);
+
+        public Task<GamingCallResult<VirtualPadIsolationState>> GetVirtualPadIsolationAsync(
+            string instancePath, CancellationToken ct = default) =>
+            SendAsync<VirtualPadIsolationState>(HttpMethod.Get,
+                "/api/v1/gaming/hidhide/isolation?path=" + Uri.EscapeDataString(instancePath), null, ct);
+
         public Task<GamingCallResult<List<GamingControllerStateDto>>> GetControllersAsync(CancellationToken ct = default) =>
             SendAsync<List<GamingControllerStateDto>>(HttpMethod.Get, "/api/v1/gaming/controllers", null, ct);
 

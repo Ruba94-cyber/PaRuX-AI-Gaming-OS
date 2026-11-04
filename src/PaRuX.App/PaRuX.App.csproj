@@ -64,6 +64,8 @@
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\ViGEmBusClient.cs" Link="Gaming\ViGEmBusClient.cs" />
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\VirtualPadForwardingSession.cs" Link="Gaming\VirtualPadForwardingSession.cs" />
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\RawPadMappingStore.cs" Link="Gaming\RawPadMappingStore.cs" />
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\GamePadProfileStore.cs" Link="Gaming\GamePadProfileStore.cs" />
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\VirtualPadForwardingService.cs" Link="Gaming\VirtualPadForwardingService.cs" />
   </ItemGroup>
 
   <ItemGroup>

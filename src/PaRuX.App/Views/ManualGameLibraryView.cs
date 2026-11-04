@@ -1387,6 +1387,8 @@ public sealed class ManualGameLibraryView : UserControl
                 return;
             }
             await UpdateGamingStatusAsync();
+            // Switches an owner-armed virtual pad to this game's profile; never starts forwarding by itself.
+            _ = VirtualPadActivationController.Current.NotifyGameStartedAsync(game.Id);
             if (isApplication)
             {
                 _status.Text = T("Application started. PaRuX does not monitor it and AI state is unchanged.",
