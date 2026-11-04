@@ -71,6 +71,14 @@ namespace PaRuX.Views
             root.Children.Add(row);
             AutomationProperties.SetAutomationId(_status, "DocSearch_Status_Text");
             root.Children.Add(_status);
+            var chatHint = new TextBlock
+            {
+                Text = T("To ask questions about these documents with cited answers, use Chat and switch on the Documents button next to the message box.",
+                    "Per fare domande su questi documenti con risposte citate, usa la Chat e attiva il pulsante Documenti accanto alla casella del messaggio."),
+                TextWrapping = TextWrapping.Wrap, Opacity = 0.7, FontSize = 12
+            };
+            AutomationProperties.SetAutomationId(chatHint, "DocSearch_ChatHint_Text");
+            root.Children.Add(chatHint);
             root.Children.Add(_results);
 
             Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -145,7 +153,25 @@ namespace PaRuX.Views
                 WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
                 var folder = await picker.PickSingleFolderAsync();
                 if (folder == null) return;
-                RagSourceDto source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None);
+                RagSourceDto source;
+                try { source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None); }
+                catch (SensitiveFolderException blocked) when (blocked.Code == "sensitive_blocked")
+                {
+                    _status.Text = T("This folder is not indexed: ", "Questa cartella non viene indicizzata: ") + blocked.Message;
+                    return;
+                }
+                catch (SensitiveFolderException consent) when (consent.Code == "consent_required")
+                {
+                    var dialog = new ContentDialog
+                    {
+                        XamlRoot = XamlRoot, Title = T("Index this broad location?", "Indicizzare questa posizione ampia?"),
+                        Content = new TextBlock { Text = consent.Message + "\n\n" + folder.Path, TextWrapping = TextWrapping.Wrap },
+                        PrimaryButtonText = T("Index it", "Indicizza"), CloseButtonText = T("Cancel", "Annulla"), DefaultButton = ContentDialogButton.Close
+                    };
+                    AutomationProperties.SetAutomationId(dialog, "DocSearch_Consent_Dialog");
+                    if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                    source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None, consentSensitive: true);
+                }
                 await KnowledgeClient.Current.StartAsync(source.Id, CancellationToken.None);
                 await RefreshFoldersAsync(true);
             }
@@ -171,10 +197,16 @@ namespace PaRuX.Views
                     item.Children.Add(new TextBlock { Text = hit.Citation, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
                     string snippet = hit.Text.Length > 320 ? hit.Text[..320] + "…" : hit.Text;
                     item.Children.Add(new TextBlock { Text = snippet, TextWrapping = TextWrapping.Wrap, Opacity = 0.85, FontSize = 13 });
-                    var open = new Button { Content = T("Open file", "Apri file"), HorizontalAlignment = HorizontalAlignment.Left };
-                    AutomationProperties.SetName(open, T("Open ", "Apri ") + hit.FileName);
-                    string path = hit.FilePath;
-                    open.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception ex) { _status.Text = ex.Message; } };
+                    string where = DocumentOpenPlanner.Describe(hit.Page, hit.Sheet, hit.CellRange, hit.Slide, hit.Heading);
+                    var open = new Button
+                    {
+                        Content = where.Length == 0 ? T("Open file", "Apri file") : T("Open at ", "Apri a ") + where,
+                        HorizontalAlignment = HorizontalAlignment.Left
+                    };
+                    AutomationProperties.SetName(open, T("Open ", "Apri ") + hit.FileName + (where.Length == 0 ? string.Empty : " " + where));
+                    AutomationProperties.SetAutomationId(open, "DocSearch_Open_Button");
+                    KnowledgeHitView captured = hit;
+                    open.Click += async (_, _) => _status.Text = await DocumentOpener.OpenAsync(captured.FilePath, captured.Page, captured.Sheet, captured.CellRange, captured.Slide, captured.Heading);
                     item.Children.Add(open);
                     _results.Children.Add(new Border { Padding = new Thickness(12), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Child = item });
                 }

@@ -64,8 +64,8 @@ public static class SensitivePathPolicy
         try { full = Norm(Path.GetFullPath(folder)); } catch (Exception) { return new(SensitiveVerdict.Blocked, "The path is not valid."); }
 
         string root = Norm(dataRoot ?? PaRuXDataRoot.Path);
-        if (IsSameOrInside(full, root) || IsSameOrInside(root, full))
-            return new(SensitiveVerdict.Blocked, "This folder contains or is PaRuX's own data (settings, keys and the search index).");
+        if (IsSameOrInside(full, root))
+            return new(SensitiveVerdict.Blocked, "This is PaRuX's own data folder (settings, keys and the search index).");   // a parent is fine: the walk skips this folder
 
         foreach (string special in new[] { Environment.GetFolderPath(Environment.SpecialFolder.Windows), Environment.GetFolderPath(Environment.SpecialFolder.System),
                      Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) })

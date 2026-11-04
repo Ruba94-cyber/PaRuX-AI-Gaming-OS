@@ -376,7 +376,16 @@ public sealed class KnowledgeLksTests : IDisposable
         string data = Path.Combine(_root, "PaRuX");
         Assert.Equal(SensitiveVerdict.Blocked, SensitivePathPolicy.EvaluateFolder(Path.Combine(data, "knowledge"), data).Verdict);
         Assert.Equal(SensitiveVerdict.Blocked, SensitivePathPolicy.EvaluateFolder(data, data).Verdict);
-        Assert.Equal(SensitiveVerdict.Blocked, SensitivePathPolicy.EvaluateFolder(_root, data).Verdict);
+        Assert.NotEqual(SensitiveVerdict.Blocked, SensitivePathPolicy.EvaluateFolder(_root, data).Verdict);   // a parent is allowed ...
+    }
+
+    [Fact]
+    public async Task A_parent_folder_is_fine_but_the_walk_never_enters_PaRuX_own_data_folder()
+    {
+        W("public.txt", "ordinary text");
+        W("PaRuXData/knowledge.txt", "internal index text must never be indexed");
+        IndexProgress p = await NewIndex(new KnowledgeIndexOptions { ProtectedFolders = new[] { Path.Combine(_docs, "PaRuXData") } }).IndexFolderAsync("s", _docs);
+        Assert.Equal(1, p.Indexed);
     }
 
     [Fact]

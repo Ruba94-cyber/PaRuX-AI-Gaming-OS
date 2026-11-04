@@ -37,6 +37,8 @@ public sealed class KnowledgeIndexOptions
     public ExtractionLimits Limits { get; init; } = ExtractionLimits.Default;
     /// <summary>Resource plan (profile): duty-cycle throttle, worker priority, memory budget. Null = unthrottled (tests, Performance).</summary>
     public KnowledgeResourcePlan? Plan { get; init; }
+    /// <summary>Folders never entered while walking (PaRuX's own data root by default), even when a parent folder is indexed.</summary>
+    public string[] ProtectedFolders { get; init; } = { PaRuX.Contracts.PaRuXDataRoot.Path };
 }
 
 /// <summary>Pause/resume handle for a running index job.</summary>
@@ -245,6 +247,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             if ((attributes & FileAttributes.Directory) != 0)
             {
                 if (_options.ExcludedFolderNames.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
+                if (_options.ProtectedFolders.Any(f => string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(f)), Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry)), StringComparison.OrdinalIgnoreCase)))
+                { policySkips.Add((Rel(root, entry), "Skipped: PaRuX's own data folder.")); continue; }
                 SensitiveFinding sensitiveDir = SensitivePathPolicy.EvaluateEntry(Rel(root, entry), true);
                 if (sensitiveDir.Verdict == SensitiveVerdict.Blocked) { policySkips.Add((Rel(root, entry), sensitiveDir.Reason ?? "Skipped by policy.")); continue; }
                 Walk(root, entry, files, failedDirs, policySkips, ct);
