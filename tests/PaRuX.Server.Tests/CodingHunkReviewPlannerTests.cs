@@ -53,6 +53,18 @@ public sealed class CodingHunkReviewPlannerTests
     }
 
     [Fact]
+    public void Git_header_must_match_both_metadata_paths_and_disallow_rename_preview()
+    {
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/folder name b/folder name\n" +
+            "--- a/folder name\n+++ b/folder name\n@@ -1 +1 @@\n-old\n+new\n"));
+    }
+
+    [Fact]
     public void All_hunks_must_be_reviewed_once_and_pending_cannot_apply()
     {
         var hunks = CodingHunkReviewPlanner.Parse(Diff);
