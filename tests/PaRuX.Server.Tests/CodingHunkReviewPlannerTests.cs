@@ -105,6 +105,32 @@ public sealed class CodingHunkReviewPlannerTests
     }
 
     [Fact]
+    public void Unexpected_git_metadata_does_not_disappear_from_a_review()
+    {
+        const string valid = "diff --git a/example.txt b/example.txt\n" +
+            "index 1234567..7654321 100644\n" +
+            "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Single(CodingHunkReviewPlanner.Parse(valid));
+
+        const string unsupportedModeChange = "diff --git a/example.txt b/example.txt\n" +
+            "old mode 100644\nnew mode 100755\n" +
+            "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(unsupportedModeChange));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(valid + "unexpected trailing patch metadata\n"));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(valid + "index 1111111..2222222 100644\n"));
+    }
+
+    [Fact]
+    public void Repeated_file_headers_cannot_rebind_an_existing_hunk()
+    {
+        const string duplicateHeader = "diff --git a/x b/x\n" +
+            "--- a/x\n+++ b/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(duplicateHeader));
+    }
+
+    [Fact]
     public void All_hunks_must_be_reviewed_once_and_pending_cannot_apply()
     {
         var hunks = CodingHunkReviewPlanner.Parse(Diff);
