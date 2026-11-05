@@ -46,6 +46,26 @@ internal static class ModelArenaEndpoints
             catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        // Explicit two-model, one-prompt Chat comparison. This reuses the existing Arena
+        // executor, including installed-model admission, sequential runs, cancellation and Gaming hard-off.
+        // Desktop owner authorization is identical to the standard Arena start action.
+        app.MapPost("/api/v1/models/arena/quick-compare", (ArenaStartRequest request, ModelArenaService arena) =>
+        {
+            if (request is null || request.ModelFileNames is not { Count: 2 }
+                || request.TaskIds is { Count: > 0 })
+                return Results.BadRequest(new { error = "Choose exactly two installed models and one custom prompt." });
+            try
+            {
+                ArenaStartRequest strict = QuickChatComparisonPolicy.Create(
+                    request.ModelFileNames[0], request.ModelFileNames[1],
+                    request.CustomPrompt, request.MaxTokens);
+                ArenaRunDto run = arena.Start(strict);
+                return Results.Accepted("/api/v1/models/arena/runs/" + run.Id, run);
+            }
+            catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/models/arena/runs/{id}/cancel", (string id, ModelArenaService arena) =>
             arena.Cancel(id) ? Results.Accepted() : Results.NotFound(new { error = "Active comparison run not found" })).RequireDesktopOwner();
 
