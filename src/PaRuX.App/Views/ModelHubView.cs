@@ -4086,6 +4086,13 @@ namespace PaRuX.Views
                     repo.RepoId, _firstModelHandoffRepoId, StringComparison.OrdinalIgnoreCase);
                 int preferred = ModelHubSplitSetPresentation.PreferredBalancedQuantChoiceIndex(
                     choices, fromFirstModelSetup ? _firstModelHandoffQuantHint : null);
+                // Automatic, hardware-aware file choice (never below the quality floor); a setup hint or a manual pick wins.
+                ModelHubQuantAdvice.Advice quantAdvice = ModelHubQuantAdvice.Build(
+                    choices, _hardware, PaRuX.Intelligence.QuantTask.Technical,
+                    System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it");
+                if (!fromFirstModelSetup && quantAdvice.PreferredIndex is int advised
+                    && advised >= 0 && advised < choices.Count && choices[advised].CanDownload)
+                    preferred = advised;
                 bool canReviewDefault = preferred >= 0 && preferred < choices.Count && choices[preferred].CanDownload;
 
                 var card = new StackPanel { Spacing = 7 };
@@ -4111,6 +4118,15 @@ namespace PaRuX.Views
                                 : " · size not published"),
                         FontSize = 12, Opacity = 0.82, TextWrapping = TextWrapping.Wrap
                     });
+                    if (!fromFirstModelSetup && preferred == quantAdvice.PreferredIndex)
+                    {
+                        var why = new TextBlock
+                        {
+                            Text = quantAdvice.Text, FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap
+                        };
+                        AutomationProperties.SetAutomationId(why, "ModelHub_QuantAdvice_Text");
+                        card.Children.Add(why);
+                    }
                 }
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 var review = new Button

@@ -151,6 +151,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\ModelHubRowPresentation.cs" Link="ModelHub\ModelHubRowPresentation.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ManagedSplitSetNotes.cs" Link="ModelHub\ManagedSplitSetNotes.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ModelHubSplitSetPresentation.cs" Link="ModelHub\ModelHubSplitSetPresentation.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\ModelHubQuantAdvice.cs" Link="ModelHub\ModelHubQuantAdvice.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ModelLicenseConsentPolicy.cs" Link="ModelHub\ModelLicenseConsentPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ModelHubSimpleModePresenter.cs" Link="ModelHub\ModelHubSimpleModePresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaHubPresenter.cs" Link="ModelHub\MediaHubPresenter.cs" />
