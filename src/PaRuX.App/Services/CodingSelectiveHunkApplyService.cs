@@ -128,7 +128,7 @@ namespace PaRuX.Services
 
                 // Git-style blob digest binds the durable snapshot to exactly
                 // the preimage bytes that were displayed and approved.
-                string expectedGitBlob = GitBlobSha1(sourceBytes);
+                string expectedGitBlob = GitBlobSha256(sourceBytes);
                 var baseline = new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
                     [relativePath] = expectedGitBlob
@@ -211,10 +211,10 @@ namespace PaRuX.Services
             return false;
         }
 
-        private static string GitBlobSha1(byte[] bytes)
+        private static string GitBlobSha256(byte[] bytes)
         {
             byte[] header = Encoding.ASCII.GetBytes("blob " + bytes.Length + "\0");
-            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             sha.AppendData(header);
             sha.AppendData(bytes);
             return Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant();
