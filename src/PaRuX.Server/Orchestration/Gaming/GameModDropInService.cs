@@ -187,6 +187,11 @@ public sealed class GameModDropInService
             EnsureReceiptRoot();
             if (Directory.EnumerateFiles(_receiptRoot, "parux-mod-*.json").Take(MaxReceipts + 1).Count() >= MaxReceipts)
                 throw new InvalidOperationException("Too many active PaRuX mod installations.");
+            if (ReadReceipts().Any(existing =>
+                string.Equals(existing.ModFolder, folder, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.BundleSha256, request.BundleSha256, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(existing.InstalledFile)))
+                throw new InvalidOperationException("This ZIP is already recorded in that mod folder. Remove it before reinstalling.");
             string id = Guid.NewGuid().ToString("N");
             string target = Path.Combine(folder, "parux-mod-" + id + ".zip");
             string receiptPath = ReceiptPath(id);
@@ -279,12 +284,20 @@ public sealed class GameModDropInService
             if (receipt is null || !ValidId(receipt.Id) ||
                 !string.Equals(ReceiptPath(receipt.Id), file, StringComparison.OrdinalIgnoreCase) ||
                 !ValidSha(receipt.InstalledSha256) || !ValidSha(receipt.BundleSha256) ||
-                receipt.ModFolder is null || receipt.InstalledFile is null ||
-                !Path.IsPathFullyQualified(receipt.InstalledFile) ||
-                !string.Equals(receipt.InstalledFile,
+                receipt.ModFolder is not { Length: > 2 and <= 1024 } ||
+                receipt.InstalledFile is not { Length: > 2 and <= 1200 } ||
+                !Path.IsPathFullyQualified(receipt.ModFolder) ||
+                !Path.IsPathFullyQualified(receipt.InstalledFile))
+                continue;
+            try
+            {
+                if (!string.Equals(receipt.InstalledFile,
                     Path.Combine(receipt.ModFolder, "parux-mod-" + receipt.Id + ".zip"),
                     StringComparison.OrdinalIgnoreCase))
-                continue;
+                    continue;
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            { continue; }
             yield return receipt;
         }
     }
@@ -306,6 +319,14 @@ public sealed class GameModDropInService
         {
             Receipt? receipt = ReadReceipts().SingleOrDefault(x => x.Id == request.ReceiptId);
             if (receipt is null) return false;
+            // An interrupted install may have persisted its receipt before
+            // the copy, and the user may later have removed the entire folder.
+            // In that case clear ONLY our receipt, never create a directory.
+            if (!Directory.Exists(receipt.ModFolder) && !File.Exists(receipt.InstalledFile))
+            {
+                File.Delete(ReceiptPath(receipt.Id));
+                return true;
+            }
             string folder = ValidateModFolder(receipt.ModFolder);
             string path = Path.Combine(folder, "parux-mod-" + receipt.Id + ".zip");
             if (!string.Equals(path, receipt.InstalledFile, StringComparison.OrdinalIgnoreCase))
