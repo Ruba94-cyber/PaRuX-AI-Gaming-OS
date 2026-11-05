@@ -284,6 +284,37 @@ public sealed class GameModDropInServiceTests : IDisposable
     }
 
     [Fact]
+    public void Dangling_installed_zip_link_keeps_the_receipt_and_requires_manual_review()
+    {
+        var bundle = WriteBundle();
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        File.Delete(installed.InstalledFile);
+        // Windows without Developer Mode may refuse symlink creation.
+        try
+        {
+            File.CreateSymbolicLink(installed.InstalledFile,
+                Path.Combine(_root, "absent-user-owned-zip.zip"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or PlatformNotSupportedException)
+        {
+            return;
+        }
+        try
+        {
+            Assert.False(File.Exists(installed.InstalledFile));
+            Assert.Throws<InvalidDataException>(() =>
+                Service().Remove(new(installed.Id, Consent: true, OfflineGameClosedConfirmed: true)));
+            Assert.Single(Service().List());
+            Assert.NotNull(new FileInfo(installed.InstalledFile).LinkTarget);
+        }
+        finally
+        {
+            File.Delete(installed.InstalledFile); // link only, never the foreign target
+        }
+    }
+
+    [Fact]
     public void Game_closed_and_loader_support_are_separate_mandatory_approvals()
     {
         var bundle = WriteBundle();
