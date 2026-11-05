@@ -48,6 +48,7 @@ public sealed class QuickChatComparisonPolicyTests
     [Theory]
     [InlineData("model.gguf", "MODEL.gguf", "question")]
     [InlineData("../model.gguf", "second.gguf", "question")]
+    [InlineData("first\n.gguf", "second.gguf", "question")]
     [InlineData("Auto", "second.gguf", "question")]
     [InlineData("first.gguf", "second.gguf", "")]
     public void Fails_closed_for_duplicate_names_paths_auto_and_empty_prompt(
@@ -175,6 +176,43 @@ public sealed class QuickChatComparisonPolicyTests
         Assert.Equal("Failed", result.Right.StatusText);
         Assert.Equal(string.Empty, result.Right.AnswerText);
         Assert.Null(result.UserPreferredModel);
+    }
+
+    [Fact]
+    public void Comparison_presenter_localizes_status_without_changing_model_output()
+    {
+        var run = new PaRuX.Contracts.ArenaRunDto
+        {
+            Status = "completed",
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            Prompts = new()
+            {
+                new PaRuX.Contracts.ArenaPromptResultDto
+                {
+                    TaskId = "custom",
+                    Prompt = "Synthetic question",
+                    Results = new()
+                    {
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "first.gguf", Status = "completed", Output = "Answer one"
+                        },
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "second.gguf", Status = "failed", Error = "Synthetic error"
+                        }
+                    }
+                }
+            }
+        };
+        var italian = QuickChatComparisonPresenter.ToDto(run, italian: true);
+        var english = QuickChatComparisonPresenter.ToDto(run, italian: false);
+        Assert.Equal("Risposta ricevuta", italian.Left.StatusText);
+        Assert.Equal("Answered", english.Left.StatusText);
+        Assert.Equal("Answer one", italian.Left.AnswerText);
+        Assert.Equal(italian.Left.AnswerText, english.Left.AnswerText);
+        Assert.Equal("Errore", italian.Right.StatusText);
+        Assert.Equal("Failed", english.Right.StatusText);
     }
 
     [Fact]
