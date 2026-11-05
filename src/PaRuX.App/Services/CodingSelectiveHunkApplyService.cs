@@ -193,10 +193,10 @@ namespace PaRuX.Services
         private static string GitBlobSha1(byte[] bytes)
         {
             byte[] header = Encoding.ASCII.GetBytes("blob " + bytes.Length + "\0");
-            using var sha = SHA1.Create();
-            sha.TransformBlock(header, 0, header.Length, null, 0);
-            sha.TransformFinalBlock(bytes, 0, bytes.Length);
-            return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+            sha.AppendData(header);
+            sha.AppendData(bytes);
+            return Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant();
         }
     }
 }
