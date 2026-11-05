@@ -99,6 +99,41 @@ public sealed class SteamStoreCatalogProvider : IGameCatalogProvider
         return CatalogResult<GameCatalogEntryDto>.Ok(entry);
     }
 
+    /// <summary>
+    /// One explicitly requested Steam storefront price. Shares the existing rate-limit,
+    /// cookie-free HTTPS client, host allow-list, timeout and Game Discover opt-in gate.
+    /// The country is the requested Steam storefront (cc), NOT proof of the account's region.
+    /// No caching, scheduler, alert, storefront login or purchase is performed here.
+    /// The storefront JSON endpoint is undocumented and may stop returning prices.
+    /// </summary>
+    public async Task<CatalogResult<PublicStorePriceSample>> QuotePriceAsync(
+        string appId, string requestedCountryCode, CancellationToken ct)
+    {
+        if (!IsValidAppId(appId))
+            return CatalogResult<PublicStorePriceSample>.Fail(GameDiscoverStatus.Failed, "Invalid Steam app id.");
+        if (string.IsNullOrWhiteSpace(requestedCountryCode) || requestedCountryCode.Length != 2
+            || requestedCountryCode.Any(c => !char.IsAsciiLetter(c)))
+            return CatalogResult<PublicStorePriceSample>.Fail(GameDiscoverStatus.Failed, "Invalid storefront country.");
+        string? blocked = _gate.Check();
+        if (blocked is not null) return CatalogResult<PublicStorePriceSample>.Fail(blocked);
+
+        string country = requestedCountryCode.ToLowerInvariant();
+        var uri = new Uri($"https://{SteamStoreOptions.StoreHost}/api/appdetails?appids={appId}&cc={country}&filters=price_overview");
+        CatalogResult<string> result = await FetchAsync(uri, ct).ConfigureAwait(false);
+        if (!result.IsOk)
+            return CatalogResult<PublicStorePriceSample>.Fail(result.Status, result.Message);
+
+        // If Gaming or consent changed during the network request, discard its result.
+        blocked = _gate.Check();
+        if (blocked is not null) return CatalogResult<PublicStorePriceSample>.Fail(blocked);
+        PublicStorePriceSample? sample = PublicStorePriceWatchPolicy.ParseSteamAppDetails(
+            appId, result.Value, optIn: true, _clock(), requestedCountryCode: country);
+        return sample is null
+            ? CatalogResult<PublicStorePriceSample>.Fail(GameDiscoverStatus.Failed,
+                "The Steam storefront did not return a valid price for the requested country.")
+            : CatalogResult<PublicStorePriceSample>.Ok(sample);
+    }
+
     public async Task<CatalogResult<IReadOnlyList<GameCatalogEntryDto>>> FeaturedAsync(CancellationToken ct)
     {
         string? blocked = _gate.Check();
