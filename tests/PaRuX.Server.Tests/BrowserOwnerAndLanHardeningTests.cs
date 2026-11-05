@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using PaRuX.Contracts;
 using PaRuX.Server;
+using PaRuX.Server.Orchestration.Gaming.Discover;
 using Xunit;
 
 namespace PaRuX.Server.Tests;
@@ -296,6 +297,27 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
         HttpResponseMessage response = await DesktopClient().PostAsync("/api/v1/training/jobs/no-such-job/cancel", null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public void Game_discover_runtime_and_rate_limiter_are_shared_across_http_scopes()
+    {
+        using var first = _factory.Services.CreateScope();
+        using var second = _factory.Services.CreateScope();
+        var runtime1 = GameDiscoverRuntime.For(first.ServiceProvider);
+        var runtime2 = GameDiscoverRuntime.For(second.ServiceProvider);
+        Assert.Same(runtime1, runtime2);
+        Assert.Same(runtime1.Steam, runtime2.Steam);
+    }
+
+    [Fact]
+    public async Task Desktop_price_quote_requires_explicit_one_shot_confirmation_without_network()
+    {
+        using HttpClient client = DesktopClient();
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/gaming/wishlist/9999999/quote",
+            new LocalWishlistQuoteRequest(Consent: false));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
