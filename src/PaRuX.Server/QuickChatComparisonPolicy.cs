@@ -92,7 +92,7 @@ public static class MediaHardwarePresetPolicy
                 "Insufficient free GPU-memory headroom for a suggested preview. Core must verify actual fit.");
         if (mode == "image")
             return freeVramBytes >= 12 * GiB
-                ? new(mode, 1024, 1024, 1, false, true, "Suggested starting size; actual model fit is checked by Core.")
+                ? new(mode, 1024, 1024, 1, true, true, "Suggested starting size only; confirm before Core checks actual model fit.")
                 : new(mode, 512, 512, 1, true, true, "Conservative starting size. Confirm the model fits before running.");
         return freeVramBytes >= 16 * GiB
             ? new(mode, 768, 432, 49, true, true, "Short video starting point, not a performance guarantee.")
