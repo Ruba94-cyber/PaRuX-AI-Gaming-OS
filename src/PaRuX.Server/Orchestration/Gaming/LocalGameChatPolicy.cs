@@ -27,9 +27,13 @@ public static class LocalGameChatPolicy
         if (title.Length == 0 || title.Length > 160 || title.Any(char.IsControl)
             || prompt.Length == 0 || prompt.Length > 3000)
             throw new InvalidDataException("Choose a game and enter a valid question.");
-        var sources = (approvedSourceIds ?? Array.Empty<string>())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x.Trim())
+        // Source identifiers come from the already-indexed, user-consented source picker.
+        // Never interpret an empty scope as "all documents", and cap malformed/oversized scopes.
+        if (approvedSourceIds is null || approvedSourceIds.Count > 64
+            || approvedSourceIds.Any(x => string.IsNullOrWhiteSpace(x)
+                || x.Length > 200 || x.Any(char.IsControl)))
+            return new(false, string.Empty, null, "Choose up to 64 valid indexed sources explicitly.");
+        var sources = approvedSourceIds.Select(x => x.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToList();
         if (sources.Count == 0)
