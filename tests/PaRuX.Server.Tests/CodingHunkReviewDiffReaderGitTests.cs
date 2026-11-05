@@ -97,7 +97,12 @@ public sealed class CodingHunkReviewDiffReaderGitTests : IDisposable
         finally
         {
             if (Directory.Exists(_root))
+            {
+                // Git object files are read-only on Windows; clear before delete.
+                foreach (var file in Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories))
+                    File.SetAttributes(file, FileAttributes.Normal);
                 Directory.Delete(_root, recursive: true);
+            }
         }
     }
 }

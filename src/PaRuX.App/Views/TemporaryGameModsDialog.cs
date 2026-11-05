@@ -200,11 +200,11 @@ internal static class TemporaryGameModsDialog
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         AutomationProperties.SetAutomationId(selector, "QuickResume_Mods_PendingSelect");
-        foreach (GameModPreviewDto proposal in listed.Value)
+        foreach (GameModPreviewDto candidate in listed.Value)
             selector.Items.Add(new ComboBoxItem
             {
-                Content = proposal.GameName + " · " + proposal.RelativePath,
-                Tag = proposal
+                Content = candidate.GameName + " · " + candidate.RelativePath,
+                Tag = candidate
             });
         selector.SelectedIndex = 0;
         var choose = new ContentDialog
