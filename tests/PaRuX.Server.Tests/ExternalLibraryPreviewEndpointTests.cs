@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using PaRuX.Server;
+using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming;
 using Xunit;
 
@@ -34,8 +35,8 @@ public sealed class ExternalLibraryPreviewEndpointTests : IClassFixture<ApiSecur
             "/api/v1/gaming/library/import-preview",
             new { Provider = "lutris", Json = json });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var games = await response.Content.ReadFromJsonAsync<List<ExternalLibraryGame>>();
-        ExternalLibraryGame game = Assert.Single(games!);
+        var games = await response.Content.ReadFromJsonAsync<List<ExternalLibraryGamePreviewDto>>();
+        ExternalLibraryGamePreviewDto game = Assert.Single(games!);
         Assert.Equal("lutris", game.Provider);
         Assert.Equal("example-1", game.ExternalId);
         Assert.Equal("Synthetic Puzzle", game.Title);
