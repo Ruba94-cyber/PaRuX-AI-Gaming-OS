@@ -58,9 +58,12 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
         // No outbound network connections until this worker has the explicit queued
         // job and its validated, selected local destination.
         int requestedRate = EffectiveSpeedLimit(context);
-        var settings = new EngineSettings
+        // MonoTorrent 3.0.2 exposes immutable EngineSettings. Always configure
+        // it through EngineSettingsBuilder.ToSettings(), never object-init the
+        // read-only EngineSettings properties (a source-only compile failure).
+        var settings = new EngineSettingsBuilder
         {
-            MaximumDownloadSpeed = requestedRate,
+            MaximumDownloadRate = requestedRate,
             CacheDirectory = _cacheDirectory,
             AllowPortForwarding = false,
             AllowLocalPeerDiscovery = false,
@@ -69,8 +72,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             AutoSaveLoadMagnetLinkMetadata = false,
             MaximumOpenFiles = 8,
             MaximumHalfOpenConnections = 4,
-            MaximumUploadSpeed = 64 * 1024
-        };
+            MaximumUploadRate = 64 * 1024
+        }.ToSettings();
         ClientEngine? engine = null;
         TorrentManager? manager = null;
         bool finished = false;
@@ -99,8 +102,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                 byte[] bytes;
                 try
                 {
-                    bytes = await engine.DownloadMetadataAsync(MagnetLink.Parse(magnet.Normalized),
-                        metadataDeadline.Token).ConfigureAwait(false);
+                    bytes = (await engine.DownloadMetadataAsync(MagnetLink.Parse(magnet.Normalized),
+                        metadataDeadline.Token).ConfigureAwait(false)).ToArray();
                 }
                 catch (OperationCanceledException) when (!stop.IsCancellationRequested)
                 {
@@ -130,10 +133,10 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                 {
                     // Apply the same user-selected limit to the actual peer traffic,
                     // not only to the final copy into PaRuX's managed part file.
-                    await engine.UpdateSettingsAsync(engine.Settings with
+                    await engine.UpdateSettingsAsync(new EngineSettingsBuilder(engine.Settings)
                     {
-                        MaximumDownloadSpeed = newRate
-                    }).ConfigureAwait(false);
+                        MaximumDownloadRate = newRate
+                    }.ToSettings()).ConfigureAwait(false);
                     requestedRate = newRate;
                 }
                 if (_gamingActive() || context.GamingActive())
