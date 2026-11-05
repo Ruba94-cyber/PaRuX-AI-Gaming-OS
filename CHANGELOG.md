@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-05 — Torrent hardening + AI temporary game mods (source WIP)
+
+- Fixed the embedded MonoTorrent/Core dependency-injection and C# accessibility wiring; its GUID-named staging cleanup now bounds recursive traversal and refuses filesystem links. Added synthetic tests; actual peer downloads and Windows build NOT RUN.
+- Added an AI-proposed temporary config workflow for paused, PaRuX-managed OFFLINE portable games: UTF-8 .ini/.cfg/.json/.txt, small bounded files, exact Quick Resume PID/start/executable matching, original SHA-256, 5-minute preview, separate human-approved apply, on-disk rollback receipt and explicit restore.
+- The local agent has only a consent-gated game_mod_propose tool, not file-write authority. Quick Resume adds AI Mod, Review AI mods, Restore AI mods. Original config text is only returned to the desktop owner and is not exposed to the model by this tool.
+- Source-only xUnit, API auth and FlaUI assertions were added, NOT RUN. Temporary mods do NOT yet auto-revert on game exit and often require game restart; online multiplayer, anti-cheat bypass, binary/process memory modification, arbitrary installer execution and multifile torrent publishing are not implemented.
+
 ### 2026-11-05 — GOS-07/GOS-13 verified portable ZIP auto-deployment (SOURCE WIP)
 
 - User can explicitly opt in **before** an HTTPS/magnet/.torrent download to auto-deploy one **portable ZIP** when finished. PaRuX requires an independently obtained SHA-256, the eventual .zip file name, an explicit relative non-installer .exe and a game title; no archive-provided scripts, MSI, setup, downloads, executables or games run automatically. Opt-in is OFF by default.
