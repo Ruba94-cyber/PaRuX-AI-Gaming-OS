@@ -1,3 +1,7 @@
+## 2026-11-05 — Local game guide question control-character admission (SOURCE WIP)
+
+- A user-supplied local guide question may be multiline, but NUL and other non-text control characters now fail closed at the owner HTTP boundary before index reads and in the reusable L8 policy. Synthetic HTTP and policy regression cases added. No local model, game, or network side effects. Compilation and Windows tests still pending.
+
 ## 2026-11-05 — Local guide hard-off before metadata reads, no draft-navigation surprise (SOURCE WIP)
 
 - Games Home now refuses folder-list reads while Gaming is active, and explains when only the first 64 enabled guide folders are visible. Chat refuses occupied/unsent composer before navigation; exact nonempty-source state is unit-tested via a source-linked class (two new xUnit cases). The focused GOS Windows filter includes these tests. No build or test was executed in the remote session.

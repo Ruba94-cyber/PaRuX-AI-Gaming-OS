@@ -140,7 +140,8 @@ public static class GamingEndpoints
                 || request.ManualGameId.Length > 100)
                 return Results.BadRequest(new { error = "Explicit consent, a saved game and 1 to 64 selected sources are required." }) as IResult;
             if (string.IsNullOrWhiteSpace(request.Question) ||
-                request.Question.Trim().Length > 3000)
+                request.Question.Trim().Length > 3000 ||
+                 request.Question.Any(ch => char.IsControl(ch) && ch is not '\r' and not '\n' and not '\t'))
                 return Results.BadRequest(new { error = "Enter a valid game question." });
             if (runtime.GamingMode || orchestrator.GetStatus() is not
                 { IsGamingActive: false, State: "AiReady" })

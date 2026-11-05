@@ -1,3 +1,4 @@
+- **2026-11-05 L8 follow-up:** Game-guide question admission now rejects NUL/non-text controls without rejecting normal multiline questions. Synthetic endpoint/policy regressions authored; Windows build/xUnit pending. All 10 non-main branches have been tree-audited against main; no source-only missing path remains (legacy `.ai/telemetry` intentionally excluded). Divergence after squash merge is not a license to overwrite current main.
 # RBG PaRuX AI Studio — Canonical Executive Master Plan
 
 ### 2026-11-03 continuation XLI - approved icon sheet applied; release gate green

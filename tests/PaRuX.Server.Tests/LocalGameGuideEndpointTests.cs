@@ -45,6 +45,17 @@ public sealed class LocalGameGuideEndpointTests : IClassFixture<ApiSecurityTests
     }
 
     [Fact]
+    public async Task Control_characters_are_rejected_before_index_or_game_metadata_reads()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-PaRuX-Token",
+            _factory.Services.GetRequiredService<ServerState>().Token);
+        using var response = await client.PostAsJsonAsync("/api/v1/gaming/assistant/prepare",
+            new LocalGameGuideRequest("synthetic", "Where is the key?\0", new[] { "guide" }, true));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public void Host_source_policy_rejects_a_claimed_index_id_not_in_the_current_authorized_set()
     {
         var denied = LocalGameChatPolicy.Build("Synthetic Adventure", "Where is the key?",

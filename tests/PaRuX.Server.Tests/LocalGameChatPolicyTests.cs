@@ -47,6 +47,26 @@ public sealed class LocalGameChatPolicyTests
         Assert.Equal(new[] { "guide-1" }, approvedSubset.Documents!.SourceIds);
     }
 
+    [Theory]
+    [InlineData("Show the map\\0and secrets")]
+    [InlineData("Where is the key?\\u0001")]
+    public void Game_guide_rejects_non_text_control_characters(string escaped)
+    {
+        string question = escaped.Replace("\\0", "\0").Replace("\\u0001", "\u0001");
+        Assert.Throws<System.IO.InvalidDataException>(() => LocalGameChatPolicy.Build(
+            "Synthetic Quest", question, true, new[] { "guide" }, new[] { "guide" }));
+    }
+
+    [Fact]
+    public void Game_guide_preserves_multiline_questions_without_widening_scope()
+    {
+        var result = LocalGameChatPolicy.Build("Synthetic Quest",
+            "Where is the map?\nAnd the key?", true, new[] { "guide" }, new[] { "guide", "other" });
+        Assert.True(result.Ready);
+        Assert.Contains("And the key?", result.QuestionForChat);
+        Assert.Equal(new[] { "guide" }, result.Documents!.SourceIds);
+    }
+
     [Fact]
     public void Game_priority_wins_without_explicit_user_action()
     {

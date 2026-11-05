@@ -26,7 +26,8 @@ public static class LocalGameChatPolicy
         string title = gameTitle?.Trim() ?? string.Empty;
         string prompt = question?.Trim() ?? string.Empty;
         if (title.Length == 0 || title.Length > 160 || title.Any(char.IsControl)
-            || prompt.Length == 0 || prompt.Length > 3000)
+            || prompt.Length == 0 || prompt.Length > 3000
+            || prompt.Any(ch => char.IsControl(ch) && ch is not '\r' and not '\n' and not '\t'))
             throw new InvalidDataException("Choose a game and enter a valid question.");
         // Source identifiers come from the already-indexed, user-consented source picker.
         // Never interpret an empty scope as "all documents", and cap malformed/oversized scopes.
