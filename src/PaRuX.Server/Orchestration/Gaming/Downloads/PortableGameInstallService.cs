@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using PaRuX.Contracts;
+using PaRuX.Server;
 using PaRuX.Server.Orchestration.Gaming;
 
 namespace PaRuX.Server.Orchestration.Gaming.Downloads;
@@ -104,7 +105,10 @@ public sealed class PortableGameInstallService
             throw new InvalidDataException("Package changed during pre-install verification.");
 
         string normalized = relativeExecutable.Replace('\\', '/');
-        ValidateZipContents(downloadedArchive, normalized);
+        long expandedBytes = ValidateZipContents(downloadedArchive, normalized);
+        string volume = Path.GetPathRoot(_root)!;
+        if (new DriveInfo(volume).AvailableFreeSpace < expandedBytes + 256L * 1024 * 1024)
+            throw new InvalidDataException("Not enough local free space for verified ZIP extraction.");
 
         string id = Guid.NewGuid().ToString("N");
         string partial = Path.Combine(_root, ".parux-portable-" + id + ".partial");
@@ -176,7 +180,7 @@ public sealed class PortableGameInstallService
         }
     }
 
-    private static void ValidateZipContents(string archive, string requiredExecutable)
+    private static long ValidateZipContents(string archive, string requiredExecutable)
     {
         using var zip = ZipFile.OpenRead(archive);
         if (zip.Entries.Count is < 1 or > MaxEntries)
@@ -203,6 +207,7 @@ public sealed class PortableGameInstallService
                 found = true;
         }
         if (!found) throw new InvalidDataException("The selected portable game executable is not in the ZIP.");
+        return total;
     }
 
     private static bool RegularExecutable(string path)
