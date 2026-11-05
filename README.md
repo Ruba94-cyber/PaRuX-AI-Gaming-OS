@@ -56,6 +56,24 @@ Available features depend on your installed models, runtimes and hardware. **Not
 
 **PARTIAL — active software gaps; PHYSICAL_PC_ACCEPTANCE_REQUIRED.** The canonical status and the open work (the BIC-01 to BIC-17 backlog) live in [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md). Earlier "software complete" markers in the documentation are dated historical evidence, not the status of the current code. The Release build and the test classes touched in the latest fixes pass; the full xUnit suite and the FlaUI UI tests were NOT RUN for this statement.
 
+## Validation matrix (5 November 2026)
+
+Status refers to a **specific test or delivery**, not to the entire product. Remote source proposals below have not been merged, compiled or executed.
+
+| Capability / evidence | What is established | What remains |
+|---|---|---|
+| Latest published release | **3.0.0** (previous signed Windows release) | **3.1.0 not published**; release signing/assets only on the owner's Windows PC |
+| Server tests on existing main | **Auto-tested on Windows**: 12,410 passed, 9 skipped (handoff dated 5 Nov 2026) | New PR tests are **Authored-not-run**, must not inherit prior evidence |
+| FlaUI desktop | **Verified on Windows**: Smoke 34/34. Prior full suite 270/283; 11 failures rerun passed after the bundled Core was refreshed | Run the **complete** Regression suite again by itself against the final source |
+| Coding diff and safe permissions (L2) | Existing runtime, sandbox and project instructions on main; **Authored-not-compiled** PR #1 adds pure per-hunk decisions | Transactional integration, build/xUnit, UI/approval validation |
+| Model comparison / personas (L3) | Existing Model Arena + PersonaService on main; **Authored-not-compiled** PR #2 adds same-question request policy and media hints | Chat integration, build/xUnit and actual media resource fit |
+| Local game knowledge and GPU guard (L8) | Existing document-Chat and Gaming hard-off; **Authored-not-compiled** PR #3 adds opt-in planner | Chat wiring; **Needs physical HW** for GPU/resource arbitration proof |
+| Auto-suspend and controllers (L6/L7) | Quick Resume and virtual-pad/HidHide source exist; **Authored-not-compiled** PR #4 adds planners/previews | **Needs physical HW**, especially anti-cheat handling, device measurements, controller profiles and recovery; **no XOutput equivalence claim** |
+| External library, prices and compliance (L4/L5/L9) | Existing Steam/Epic/GOG discovery and SBOM/license scripts; **Authored-not-compiled** PR #5 adds limited pure parsers/audits | Vendor-format compatibility, opt-in live API, notices audit, IT/EN coverage; scripts **not run** |
+| Corporate Lite | AI-only offline profile exists | 8 GB support and 4B answer quality on target hardware **not established** |
+
+Draft proposals: [L2 PR #1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1), [L3 PR #2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2), [L8 PR #3](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/3), [L6/L7 PR #4](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/4), [L4/L5/L9 PR #5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5). See [HANDOFF.md](HANDOFF.md) for the independent Windows gate and [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md) for status lines. All proposed source is local-first; no new model/driver downloads or game piracy support.
+
 ## Beta limitations
 
 - Development and acceptance testing are ongoing; **this is not production-ready software**.
