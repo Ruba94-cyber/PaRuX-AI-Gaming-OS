@@ -15,7 +15,8 @@ public enum DocumentChatKind
     NotEnoughInformation
 }
 
-public sealed record DocumentChatPlan(DocumentChatKind Kind, string Text, IReadOnlyList<string> Citations, IReadOnlyList<KnowledgeHit> Hits);
+/// <param name="RewrittenQuestion">Set by a document skill run with --explain: the user turn the model receives instead (deterministic findings plus the task).</param>
+public sealed record DocumentChatPlan(DocumentChatKind Kind, string Text, IReadOnlyList<string> Citations, IReadOnlyList<KnowledgeHit> Hits, string? RewrittenQuestion = null);
 
 /// <summary>
 /// "Smart Search" inside the classic Chat: deterministic lookup first, retrieval second, a language model only when the

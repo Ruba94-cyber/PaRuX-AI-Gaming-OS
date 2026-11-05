@@ -233,13 +233,32 @@ WHERE embedding IS NOT NULL
         lock (Gate)
         {
             using SqliteConnection connection = Open();
-            using SqliteTransaction tx = connection.BeginTransaction();
-            Exec(connection, tx, "DELETE FROM rag_chunks WHERE document_id IN (SELECT id FROM rag_documents WHERE source_id = $s);", sourceId);
-            Exec(connection, tx, "DELETE FROM rag_documents WHERE source_id = $s;", sourceId);
-            Exec(connection, tx, "DELETE FROM rag_sources WHERE id = $s;", sourceId);
-            tx.Commit();
+            using (SqliteCommand pragma = connection.CreateCommand()) { pragma.CommandText = "PRAGMA secure_delete=ON;"; pragma.ExecuteNonQuery(); }   // freed pages are zeroed
+            using (SqliteTransaction tx = connection.BeginTransaction())
+            {
+                Exec(connection, tx, "DELETE FROM rag_chunks WHERE document_id IN (SELECT id FROM rag_documents WHERE source_id = $s);", sourceId);
+                Exec(connection, tx, "DELETE FROM rag_documents WHERE source_id = $s;", sourceId);
+                Exec(connection, tx, "DELETE FROM rag_sources WHERE id = $s;", sourceId);
+                tx.Commit();
+            }
+            try
+            {
+                foreach (string sql in new[] { "PRAGMA wal_checkpoint(TRUNCATE);", "VACUUM;" })
+                {
+                    using SqliteCommand scrub = connection.CreateCommand();
+                    scrub.CommandText = sql;
+                    scrub.ExecuteNonQuery();
+                }
+            }
+            catch (SqliteException) { /* another connection holds the file; the rows are already gone, scrubbing happens on the next removal */ }
         }
         InvalidateVectorAcceleration();
+    }
+
+    /// <summary>Removes every folder source and all of its documents/chunks/vectors (secure delete + vacuum).</summary>
+    public void RemoveAllSources()
+    {
+        foreach (RagSourceDto source in ListSources().ToList()) RemoveSource(source.Id);
     }
 
     private static void Exec(SqliteConnection connection, SqliteTransaction tx, string sql, string sourceId)

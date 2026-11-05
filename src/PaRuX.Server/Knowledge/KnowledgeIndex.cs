@@ -22,6 +22,17 @@ public sealed record IndexProgress(
 /// <summary>A file that could not be indexed. Holds a relative path and a reason, never document content.</summary>
 public sealed record IndexFileProblem(string RelativePath, string Kind, string Reason);
 
+/// <summary>One indexed file (identity for the chat skills).</summary>
+public sealed record IndexedFile(long Id, string SourceId, string Path, string Name, string Hash, long MtimeTicks, long Size)
+{
+    public string ShortHash => Hash.Length >= 8 ? Hash[..8].ToLowerInvariant() : Hash.ToLowerInvariant();
+}
+
+public sealed record IndexedPassage(string Text, DocumentPosition Position);
+
+/// <summary>What a secure deletion removed and whether the database file(s) were scrubbed/removed.</summary>
+public sealed record SecureDeletionResult(int FilesRemoved, int ChunksRemoved, bool Vacuumed, bool FilesRemovedOnDisk);
+
 public sealed class KnowledgeIndexOptions
 {
     public string[] ExcludedFolderNames { get; init; } =
@@ -512,13 +523,21 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
         }
     }
 
-    /// <summary>Deletes everything indexed for a source (the documents themselves are never touched).</summary>
-    public void RemoveSource(string sourceId)
+    /// <summary>
+    /// Deletes everything indexed for a source (the documents themselves are never touched) and scrubs what SQLite would otherwise
+    /// leave behind: rows, word/trigram index entries and vectors are removed with secure_delete on (freed pages are zeroed),
+    /// the FTS segments are rebuilt without the removed text, the WAL is folded in and truncated, and the file is vacuumed.
+    /// </summary>
+    public SecureDeletionResult RemoveSource(string sourceId)
     {
         EnsureSchema();
+        int files, chunks;
         lock (_gate)
         {
             using SqliteConnection c = Open();
+            Exec(c, "PRAGMA secure_delete=ON;");
+            files = Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM kn_files WHERE source_id=$s;", ("$s", sourceId)));
+            chunks = Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM kn_chunks WHERE file_id IN (SELECT id FROM kn_files WHERE source_id=$s);", ("$s", sourceId)));
             var ids = new List<long>();
             using (SqliteCommand cmd = c.CreateCommand())
             {
@@ -529,7 +548,185 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
             }
             foreach (long id in ids) DeleteFile(c, id);
             Exec(c, "DELETE FROM kn_problems WHERE source_id=$s;", ("$s", sourceId));
+            Scrub(c);
         }
+        return new SecureDeletionResult(files, chunks, true, true);
+    }
+
+    /// <summary>Rebuilds the FTS segments from the remaining rows (drops the removed text from them), folds the WAL in and vacuums.</summary>
+    private void Scrub(SqliteConnection c)
+    {
+        if (_hasFts5)
+        {
+            Exec(c, "INSERT INTO kn_fts(kn_fts) VALUES('rebuild');");
+            Exec(c, "INSERT INTO kn_tri(kn_tri) VALUES('rebuild');");
+        }
+        Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
+        Exec(c, "VACUUM;");
+        Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
+    }
+
+    /// <summary>
+    /// "Delete everything": every indexed row, word/trigram entry and vector is removed, the tables are dropped, the database is
+    /// vacuumed, then the database file and its -wal/-shm/-journal sidecars are overwritten with zeros and deleted. The index
+    /// is recreated empty on next use. Documents are never touched.
+    /// </summary>
+    public SecureDeletionResult DeleteEverything()
+    {
+        EnsureSchema();
+        int files, chunks;
+        bool sidecarsGone = true;
+        lock (_gate)
+        {
+            using (SqliteConnection c = Open())
+            {
+                Exec(c, "PRAGMA secure_delete=ON;");
+                files = Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM kn_files;"));
+                chunks = Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM kn_chunks;"));
+                if (_hasFts5)
+                {
+                    Exec(c, "INSERT INTO kn_fts(kn_fts) VALUES('delete-all');");
+                    Exec(c, "INSERT INTO kn_tri(kn_tri) VALUES('delete-all');");
+                    Exec(c, "DROP TABLE IF EXISTS kn_fts;");
+                    Exec(c, "DROP TABLE IF EXISTS kn_tri;");
+                }
+                Exec(c, "DELETE FROM kn_chunks;");
+                Exec(c, "DELETE FROM kn_files;");
+                Exec(c, "DELETE FROM kn_problems;");
+                Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
+                Exec(c, "VACUUM;");
+                Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
+            }
+            SqliteConnection.ClearAllPools();
+            foreach (string suffix in new[] { string.Empty, "-wal", "-shm", "-journal" })
+                if (!OverwriteAndDelete(_dbPath + suffix)) sidecarsGone = false;
+            _ready = false;   // next use recreates an empty schema
+        }
+        return new SecureDeletionResult(files, chunks, true, sidecarsGone);
+    }
+
+    /// <summary>Zero-fills a file in place, then deletes it. Best effort on SSDs (wear levelling is outside software control); returns false when the file is still there.</summary>
+    internal static bool OverwriteAndDelete(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return true;
+            File.SetAttributes(path, FileAttributes.Normal);
+            long length = new FileInfo(path).Length;
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                var zeros = new byte[81920];
+                for (long done = 0; done < length;)
+                {
+                    int n = (int)Math.Min(zeros.Length, length - done);
+                    stream.Write(zeros, 0, n);
+                    done += n;
+                }
+                stream.Flush(true);
+            }
+            File.Delete(path);
+            return !File.Exists(path);
+        }
+        catch (Exception) { try { File.Delete(path); } catch (Exception) { } return !File.Exists(path); }
+    }
+
+    // ------------------------------------------------------------------------------------------------------ document access (skills)
+
+    /// <summary>
+    /// Indexed files whose name equals / contains the text, or whose content hash starts with it (6+ hex characters).
+    /// Newest first. Used by the chat skills to find two versions of a document by name or hash.
+    /// </summary>
+    public IReadOnlyList<IndexedFile> FindFiles(string nameOrHash, IReadOnlyCollection<string>? sourceIds, int limit = 25)
+    {
+        EnsureSchema();
+        string needle = (nameOrHash ?? string.Empty).Trim().Trim('"', '\\');
+        var list = new List<IndexedFile>();
+        if (needle.Length == 0) return list;
+        bool hex = needle.Length >= 6 && needle.All(Uri.IsHexDigit);
+        lock (_gate)
+        {
+            using SqliteConnection c = Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = @"SELECT id,source_id,path,name,hash,mtime_ticks,size FROM kn_files
+WHERE (name=$n COLLATE NOCASE OR name LIKE $like ESCAPE '\' OR ($hex=1 AND hash LIKE $h)) ORDER BY mtime_ticks DESC, id DESC LIMIT 500;";
+            cmd.Parameters.AddWithValue("$n", needle);
+            cmd.Parameters.AddWithValue("$like", "%" + needle.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
+            cmd.Parameters.AddWithValue("$hex", hex ? 1 : 0);
+            cmd.Parameters.AddWithValue("$h", needle.ToUpperInvariant() + "%");
+            using SqliteDataReader r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                if (sourceIds != null && !sourceIds.Contains(r.GetString(1))) continue;
+                list.Add(new IndexedFile(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5), r.GetInt64(6)));
+            }
+        }
+        // An exact name beats a partial one.
+        var exact = list.Where(f => f.Name.Equals(needle, StringComparison.OrdinalIgnoreCase) || (hex && f.Hash.StartsWith(needle, StringComparison.OrdinalIgnoreCase))).ToList();
+        return (exact.Count > 0 ? exact : list).Take(limit).ToList();
+    }
+
+    /// <summary>The text of one indexed file as passages (overlapping chunks are merged back, the synthetic file-name chunk is left out).</summary>
+    public IReadOnlyList<IndexedPassage> GetPassages(long fileId)
+    {
+        EnsureSchema();
+        var result = new List<IndexedPassage>();
+        lock (_gate)
+        {
+            using SqliteConnection c = Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT text,heading,page,sheet,cell_range,slide,char_offset FROM kn_chunks WHERE file_id=$f ORDER BY ord;";
+            cmd.Parameters.AddWithValue("$f", fileId);
+            using SqliteDataReader r = cmd.ExecuteReader();
+            DocumentPosition? groupPos = null;
+            var merged = new StringBuilder();
+            long groupStart = 0;
+            void Flush() { if (groupPos != null && merged.Length > 0) result.Add(new IndexedPassage(merged.ToString(), groupPos)); groupPos = null; merged.Clear(); }
+            while (r.Read())
+            {
+                string text = r.GetString(0);
+                var pos = new DocumentPosition(r.IsDBNull(2) ? null : r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4),
+                    r.IsDBNull(5) ? null : r.GetInt32(5), r.IsDBNull(1) ? null : r.GetString(1), r.GetInt64(6));
+                if (pos.Heading == "file name" && text.StartsWith("File: ", StringComparison.Ordinal)) continue;
+                bool continues = groupPos != null && SamePlace(groupPos, pos) && pos.CharOffset >= groupStart && pos.CharOffset <= groupStart + merged.Length;
+                if (!continues)
+                {
+                    Flush();
+                    groupPos = pos; groupStart = pos.CharOffset; merged.Append(text);
+                    continue;
+                }
+                int skip = (int)Math.Min(text.Length, groupStart + merged.Length - pos.CharOffset);
+                merged.Append(text, skip, text.Length - skip);
+            }
+            Flush();
+        }
+        return result;
+    }
+
+    private static bool SamePlace(DocumentPosition a, DocumentPosition b) =>
+        a.Page == b.Page && a.Sheet == b.Sheet && a.CellRange == b.CellRange && a.Slide == b.Slide && a.Heading == b.Heading;
+
+    /// <summary>Up to <paramref name="max"/> chunks of the chosen sources, in file order, as hits with a "scan" match label. Bounded; for whole-corpus checks.</summary>
+    public IReadOnlyList<KnowledgeHit> ScanChunks(IReadOnlyCollection<string>? sourceIds, int max)
+    {
+        EnsureSchema();
+        var hits = new List<KnowledgeHit>();
+        lock (_gate)
+        {
+            using SqliteConnection c = Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = @"SELECT k.id,k.text,k.heading,k.page,k.sheet,k.cell_range,k.slide,k.char_offset,f.path,f.name,f.source_id
+FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL ORDER BY f.id,k.ord;";
+            using SqliteDataReader r = cmd.ExecuteReader();
+            while (r.Read() && hits.Count < max)
+            {
+                if (sourceIds != null && !sourceIds.Contains(r.GetString(10))) continue;
+                if (r.IsDBNull(2) ? false : r.GetString(2) == "file name") continue;
+                var pos = new DocumentPosition(r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
+                    r.IsDBNull(6) ? null : r.GetInt32(6), r.IsDBNull(2) ? null : r.GetString(2), r.GetInt64(7));
+                hits.Add(new KnowledgeHit(r.GetInt64(0), r.GetString(8), r.GetString(9), r.GetString(1), pos, 1.0, "scan"));
+            }
+        }
+        return hits;
     }
 
     // ------------------------------------------------------------------------------------------------------ search

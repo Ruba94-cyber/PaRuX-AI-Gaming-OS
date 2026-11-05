@@ -107,6 +107,13 @@ namespace PaRuX.Services
         public Task SaveSettingsAsync(bool? ocrEnabled, string? profile, bool? strictOffline, CancellationToken ct) =>
             SendAsync(HttpMethod.Put, "/api/v1/knowledge/settings", ct, new { ocrEnabled, profile, strictOffline });
 
+        /// <summary>Secure "delete everything": folders, index rows, FTS/trigram/vector entries and database files. Documents are never touched.</summary>
+        public async Task<(int Files, int Chunks, bool DatabaseFilesRemoved)> DeleteEverythingAsync(CancellationToken ct)
+        {
+            JsonElement e = await SendAsync(HttpMethod.Post, "/api/v1/knowledge/delete-everything", ct).ConfigureAwait(false);
+            return (Int(e, "files"), Int(e, "chunks"), Bool(e, "databaseFilesRemoved"));
+        }
+
         private static bool Bool(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.True;
         private static string? NullableStr(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         private static int? NullableInt(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;

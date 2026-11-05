@@ -128,11 +128,33 @@ public sealed class KnowledgeJobService
     public bool Resume(string id) { if (!_jobs.TryGetValue(id, out var j)) return false; j.Control.Resume(); return true; }
     public bool Cancel(string id) { if (!_jobs.TryGetValue(id, out var j)) return false; j.Cts.Cancel(); return true; }
 
-    public void Remove(string sourceId)
+    /// <summary>Stops the folder's job (waiting briefly so it cannot write after the delete), then securely removes its index data.</summary>
+    public SecureDeletionResult Remove(string sourceId)
+    {
+        StopAndWait(sourceId);
+        SecureDeletionResult result = Index.RemoveSource(sourceId);
+        _status.TryRemove(sourceId, out _);
+        return result;
+    }
+
+    /// <summary>"Delete everything": every folder's job is stopped, every source is removed from the folder list and the index
+    /// database (rows, FTS, trigram, vectors, WAL/SHM) is zeroed and deleted, as is the classic RAG store's data.</summary>
+    public SecureDeletionResult DeleteEverything()
+    {
+        foreach (string id in _jobs.Keys.ToList()) StopAndWait(id);
+        SecureDeletionResult result = Index.DeleteEverything();
+        _sources.RemoveAllSources();
+        _status.Clear();
+        return result;
+    }
+
+    private void StopAndWait(string sourceId)
     {
         Cancel(sourceId);
-        Index.RemoveSource(sourceId);
-        _status.TryRemove(sourceId, out _);
+        if (_jobs.TryRemove(sourceId, out var job))
+        {
+            try { job.Task.Wait(TimeSpan.FromSeconds(10)); } catch (Exception) { /* cancelled or failed: either way it has stopped */ }
+        }
     }
 }
 
@@ -208,5 +230,11 @@ public static class KnowledgeEndpoints
             return Results.Ok(new { job = svc.Status(id), files, chunks, problems = svc.Index.Problems(id) });
         });
         app.MapDelete("/api/v1/knowledge/sources/{id}", (string id, KnowledgeJobService svc) => { svc.Remove(id); return Results.NoContent(); }).RequireDesktopOwner();
+        // Secure "delete everything": index database, FTS/trigram/vector entries, WAL/SHM and the folder list. Documents are never touched.
+        app.MapPost("/api/v1/knowledge/delete-everything", (KnowledgeJobService svc) =>
+        {
+            SecureDeletionResult r = svc.DeleteEverything();
+            return Results.Ok(new { files = r.FilesRemoved, chunks = r.ChunksRemoved, vacuumed = r.Vacuumed, databaseFilesRemoved = r.FilesRemovedOnDisk });
+        }).RequireDesktopOwner();
     }
 }
