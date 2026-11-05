@@ -84,5 +84,6 @@ public static class LocalWishlistPolicy
         && id.All(c => c >= '0' && c <= '9');
 
     private static bool ValidCurrency(string? code) =>
-        code is { Length: 3 } && code.All(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
+        code is { Length: 3 }
+        && code.All(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
 }
