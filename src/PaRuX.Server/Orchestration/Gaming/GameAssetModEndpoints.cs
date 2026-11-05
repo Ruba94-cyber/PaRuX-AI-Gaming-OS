@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,34 @@ public static class GameAssetModEndpoints
 {
     public static void MapGameAssetModEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/v1/gaming/mods/drop-in", (GameModDropInService service) =>
+        {
+            try { return Results.Ok(service.List()) as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("PaRuX mod installation receipts cannot be read safely."); }
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/mods/drop-in/install", (
+            GameModDropInInstallRequest request, GameModDropInService service) =>
+        {
+            try { return Results.Ok(service.Install(request)) as IResult; }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                InvalidDataException or JsonException or System.Security.SecurityException)
+            { return Results.Problem("Could not safely place the mod ZIP. An interrupted receipt may require cleanup."); }
+        }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(16_384));
+
+        app.MapPost("/api/v1/gaming/mods/drop-in/remove", (
+            GameModDropInRemoveRequest request, GameModDropInService service) =>
+        {
+            try { return service.Remove(request) ? Results.NoContent() : Results.NotFound() as IResult; }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("PaRuX refused to remove the mod; an unsafe or modified file was retained."); }
+        }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(8_192));
+
         app.MapGet("/api/v1/gaming/mods/adapters",
             () => Results.Ok(GameAssetModService.Adapters()) as IResult)
             .RequireDesktopOwner();
