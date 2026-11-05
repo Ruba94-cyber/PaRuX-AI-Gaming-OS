@@ -139,6 +139,83 @@ public sealed class GameDiscoverProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task OneShotPriceQuoteUsesOnlySteamHostAppIdAndRequestedCountry()
+    {
+        _handler.Respond = _ => FakeSteamHandler.Json(DiscoverFixtures.AppDetailsRoguelike);
+        var (provider, _) = Make(true);
+        var price = await provider.QuotePriceAsync("1001", "IT", default);
+
+        Assert.True(price.IsOk);
+        Assert.Equal("EUR", price.Value!.Currency);
+        Assert.Equal(1499, price.Value.PriceMinor);
+        Assert.Equal("IT", price.Value.StoreCountryCode);
+        Assert.Equal(_now, price.Value.ObservedAtUtc);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("https", request.RequestUri!.Scheme);
+        Assert.Equal("store.steampowered.com", request.RequestUri.Host);
+        Assert.Contains("appids=1001", request.RequestUri.Query);
+        Assert.Contains("cc=it", request.RequestUri.Query);
+        Assert.Contains("filters=price_overview", request.RequestUri.Query);
+        Assert.Null(request.Headers.Authorization);
+        Assert.False(request.Headers.Contains("Cookie"));
+        Assert.Null(request.Content);
+    }
+
+    [Theory]
+    [InlineData("1001", "i&t")]
+    [InlineData("1001", "../")]
+    [InlineData("1001", "IT&evil=1")]
+    [InlineData("1001", "")]
+    [InlineData("1001", "1T")]
+    [InlineData("../1001", "IT")]
+    [InlineData("1001&other=5", "IT")]
+    [InlineData("001", "IT")]
+    public async Task OneShotPriceQuoteRejectsMalformedIdentifiersWithoutNetwork(string id, string country)
+    {
+        var (provider, _) = Make(true);
+        Assert.False((await provider.QuotePriceAsync(id, country, default)).IsOk);
+        Assert.Empty(_handler.Requests);
+    }
+
+    [Fact]
+    public async Task OneShotPriceQuoteRefusesWhenDiscoverIsOffOrGamingStarts()
+    {
+        var (provider, settings) = Make(false);
+        Assert.Equal(GameDiscoverStatus.Disabled,
+            (await provider.QuotePriceAsync("1001", "IT", default)).Status);
+        Assert.Empty(_handler.Requests);
+
+        Assert.True(settings.SetEnabled(true));
+        _gaming = true;
+        Assert.Equal(GameDiscoverStatus.GamingActive,
+            (await provider.QuotePriceAsync("1001", "IT", default)).Status);
+        Assert.Empty(_handler.Requests);
+    }
+
+    [Fact]
+    public async Task OneShotQuoteDiscardsPriceIfGamingStartsWhileWaitingForRateLimiter()
+    {
+        _handler.Respond = _ => FakeSteamHandler.Json(DiscoverFixtures.AppDetailsRoguelike);
+        var (provider, _) = Make(true, onDelay: () => _gaming = true);
+        Assert.True((await provider.DetailAsync("1001", default)).IsOk);
+        var price = await provider.QuotePriceAsync("1001", "IT", default);
+        Assert.Equal(GameDiscoverStatus.GamingActive, price.Status);
+        Assert.Single(_handler.Requests);
+    }
+
+    [Fact]
+    public async Task OneShotQuoteDoesNotInventPricesFromInvalidOrMissingJson()
+    {
+        _handler.Respond = _ => FakeSteamHandler.Json(DiscoverFixtures.AppDetailsMissing);
+        var (provider, _) = Make(true);
+        Assert.False((await provider.QuotePriceAsync("1001", "IT", default)).IsOk);
+        _handler.Respond = _ => FakeSteamHandler.Json("{not-json");
+        Assert.False((await provider.QuotePriceAsync("1001", "IT", default)).IsOk);
+        Assert.Equal(2, _handler.Requests.Count);
+    }
+
+    [Fact]
     public async Task FreeToPlayAndUntrustedImageHostFallsBackToSteamCdn()
     {
         _handler.Respond = _ => FakeSteamHandler.Json(DiscoverFixtures.AppDetailsFree);
