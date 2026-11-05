@@ -70,16 +70,29 @@ namespace PaRuX.Services
                 while (i + 1 < lines.Length)
                 {
                     string next = lines[i + 1];
-                    if (next.StartsWith("@@ ", StringComparison.Ordinal)
-                        || next.StartsWith("diff --git ", StringComparison.Ordinal)
-                        || next.StartsWith("--- ", StringComparison.Ordinal)
-                        || next.StartsWith("+++ ", StringComparison.Ordinal)) break;
-                    if (next.Length == 0) break; // final newline from Split
+                    // A deleted line can start "--- " and an added line can start "+++ ".
+                    // Treat them as body until the declared counts are satisfied.
+                    if (oldLines == oldCount && newLines == newCount)
+                    {
+                        if (next.StartsWith("\\ No newline at end of file", StringComparison.Ordinal))
+                        {
+                            body.Add(next);
+                            i++;
+                            continue;
+                        }
+                        if (next.Length == 0 || next.StartsWith("@@ ", StringComparison.Ordinal)
+                            || next.StartsWith("diff --git ", StringComparison.Ordinal)
+                            || next.StartsWith("--- ", StringComparison.Ordinal)
+                            || next.StartsWith("+++ ", StringComparison.Ordinal)) break;
+                        throw new FormatException("Unexpected diff content after hunk line counts.");
+                    }
+                    if (next.Length == 0) throw new FormatException("Incomplete diff hunk.");
                     if (next[0] == ' ') { oldLines++; newLines++; }
                     else if (next[0] == '-') oldLines++;
                     else if (next[0] == '+') newLines++;
-                    else if (next.StartsWith("\\ No newline at end of file", StringComparison.Ordinal)) { }
                     else throw new FormatException("Unsupported diff body.");
+                    if (oldLines > oldCount || newLines > newCount)
+                        throw new FormatException("Diff body exceeds its declared line counts.");
                     body.Add(next);
                     i++;
                 }
