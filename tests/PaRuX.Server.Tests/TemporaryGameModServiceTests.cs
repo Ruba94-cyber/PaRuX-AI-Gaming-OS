@@ -200,7 +200,7 @@ public sealed class TemporaryGameModServiceTests : IDisposable
     {
         var service = Service();
         var applied = service.Apply(new(service.Preview(Proposed()).PreviewId, true));
-        Assert.Throws<InvalidOperationException>(() => service.Preview(Proposed()));
+        Assert.Throws<InvalidOperationException>(() => service.Preview(Proposed() with { ProposedText = "[video]\nbrightness=3\n" }));
         Assert.True(service.Restore(new(applied.Id, true)));
     }
 

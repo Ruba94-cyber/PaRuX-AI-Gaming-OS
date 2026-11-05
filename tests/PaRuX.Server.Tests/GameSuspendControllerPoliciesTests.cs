@@ -66,8 +66,8 @@ public sealed class GameSuspendControllerPoliciesTests
     [InlineData(true, null, null, 3, true)]
     [InlineData(false, 10, null, 4, false)]
     [InlineData(false, 10, null, 5, true)]
-    [InlineData(false, 60, 90, 9, false)]
-    [InlineData(false, 60, 90, 10, true)]
+    [InlineData(false, 60, 90.0, 9, false)]
+    [InlineData(false, 60, 90.0, 10, true)]
     public void Stable_suspend_proposal_requires_trigger_specific_continuous_duration(
         bool focusLost, int? charge, double? temperature, int observedSeconds, bool expected)
     {
