@@ -4016,3 +4016,6 @@ Gaps found against Locally Uncensored, Codex, Unsloth, Playnite, Hydra Launcher,
 - **L8 Unique AI x Gaming value (MISSING).** Local game assistant in Chat (ask about the game you are playing using local docs/wikis the user indexed), auto tagging/genre cleanup, guide/manual search through Local Knowledge, optional hands-free voice while a game runs, resource arbiter (AI never steals GPU from a running game unless asked; already partly in LocalAi/Gaming arbitration - verify).
 - **L9 Product hygiene (PARTIAL).** SBOM + THIRD_PARTY_NOTICES automation, reproducible portable/MSI builds, update rollback drill, accessibility pass (Narrator/keyboard/controller), IT/EN string audit, crash-safe logs without personal data, public docs/README with honest 'verified vs needs hardware' table.
 Order: finish verification of existing items first (green full xUnit, UI Smoke, real-app checks), then L2 -> L3 -> L8 -> L6/L7 (hardware) -> L4 -> L1 -> L5 -> L9.
+
+## HANDOFF (2026-11-05)
+See `HANDOFF.md` at the repo root for the exact state, decisions, remaining work and the 3.1.0 release runbook (release NOT yet cut; latest published is 3.0.0). Next order: re-run the full UI suite alone -> real-app checks of Setup transitions / Role profiles / Docs skills -> release 3.1.0 -> section L.
