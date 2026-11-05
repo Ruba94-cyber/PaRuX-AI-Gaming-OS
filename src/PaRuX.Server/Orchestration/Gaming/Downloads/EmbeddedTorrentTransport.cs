@@ -56,8 +56,10 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
 
         // No outbound network connections until this worker has the explicit queued
         // job and its validated, selected local destination.
+        int requestedRate = EffectiveSpeedLimit(context);
         var settings = new EngineSettings
         {
+            MaximumDownloadSpeed = requestedRate,
             CacheDirectory = _cacheDirectory,
             AllowPortForwarding = false,
             AllowLocalPeerDiscovery = false,
@@ -122,6 +124,17 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
             while (!manager.Complete)
             {
                 stop.Token.ThrowIfCancellationRequested();
+                int newRate = EffectiveSpeedLimit(context);
+                if (newRate != requestedRate)
+                {
+                    // Apply the same user-selected limit to the actual peer traffic,
+                    // not only to the final copy into PaRuX's managed part file.
+                    await engine.UpdateSettingsAsync(engine.Settings with
+                    {
+                        MaximumDownloadSpeed = newRate
+                    }).ConfigureAwait(false);
+                    requestedRate = newRate;
+                }
                 if (_gamingActive() || context.GamingActive())
                     throw new OperationCanceledException(stop.Token);
                 if (manager.State == TorrentState.Error)
@@ -138,6 +151,12 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
                 throw new OperationCanceledException(stop.Token);
             await CopyVerifiedFileAsync(context, staging, metadata, stop.Token).ConfigureAwait(false);
             finished = true;
+        }
+        catch (Exception ex) when (ex is not GameDownloadException and not OperationCanceledException)
+        {
+            // Third-party engine failures are not allowed to escape into an
+            // unobserved fire-and-forget Task.Run in the existing download queue.
+            throw new GameDownloadException("The embedded torrent engine could not complete this transfer.");
         }
         finally
         {
@@ -156,6 +175,12 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
                 CleanOwnedStaging(job);
             job.ExternalId = null;
         }
+    }
+
+    private static int EffectiveSpeedLimit(GameDownloadTransferContext context)
+    {
+        long requested = Math.Max(0, context.NetworkBytesPerSecond?.Invoke() ?? 0);
+        return requested == 0 ? 0 : (int)Math.Min(requested, int.MaxValue);
     }
 
     /// <summary>A cancellation removes only PaRuX's own stage; never an installed game or user .torrent.</summary>
