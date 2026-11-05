@@ -97,6 +97,9 @@ public sealed class GamingHomeUiTests
             Find(() => app.MainWindow.FindFirstDescendant(cf =>
                 cf.ByAutomationId("CloseButton")), "close local asset editor without generation")
                 .Patterns.Invoke.Pattern.Invoke();
+            UiWait.For(() => app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("GameAssetStudio_Prompt")) is null,
+                "cross-game asset editor closed");
 
             // Read-only inventory can open and close when no ZIPs were
             // installed; no loader, model or filesystem installation is run.
