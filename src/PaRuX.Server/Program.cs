@@ -274,6 +274,7 @@ builder.Services.AddSingleton<LocalWishlistStore>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.QuickResumeService>();
 builder.Services.AddSingleton<TemporaryGameModService>();
 builder.Services.AddSingleton<GameSkinStudioService>();
+builder.Services.AddSingleton<GameAssetModService>();
 builder.Services.AddSingleton<ManualGameSessionService>();
 builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
 builder.Services.AddSingleton<EpicGameDiscoveryProvider>();
@@ -3860,6 +3861,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 app.MapGamingEndpoints();
 app.MapTemporaryGameModEndpoints();
 app.MapGameSkinStudioEndpoints();
+app.MapGameAssetModEndpoints();
 app.MapLocalWishlistEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
