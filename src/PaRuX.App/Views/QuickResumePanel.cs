@@ -28,6 +28,7 @@ internal sealed class QuickResumePanel : StackPanel
     private readonly Button _resumeAll = new() { MinHeight = 44, Visibility = Visibility.Collapsed };
     private readonly Button _modRestore = new() { MinHeight = 44 };
     private readonly Button _modProposals = new() { MinHeight = 44 };
+    private readonly Button _skinStudio = new() { MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Left };
     private bool _busy;
     private bool _acting;
 
@@ -54,6 +55,9 @@ internal sealed class QuickResumePanel : StackPanel
         _modProposals.Content = T("Review AI mods", "Rivedi mod IA");
         AutomationProperties.SetAutomationId(_modProposals, "QuickResume_Mods_ReviewButton");
         _modProposals.Click += async (_, _) => await TemporaryGameModsDialog.ShowPendingAiProposalsAsync(XamlRoot);
+        _skinStudio.Content = T("AI Character / Skin Studio", "Studio IA personaggi / skin");
+        AutomationProperties.SetAutomationId(_skinStudio, "QuickResume_Mods_SkinStudioButton");
+        _skinStudio.Click += async (_, _) => await MinecraftSkinStudioDialog.ShowAsync(XamlRoot);
         AutomationProperties.SetAutomationId(_status, "QuickResume_Status_Text");
         AutomationProperties.SetAutomationId(_list, "QuickResume_List");
         AutomationProperties.SetAutomationId(_recovery, "QuickResume_Recovery_List");
@@ -66,6 +70,8 @@ internal sealed class QuickResumePanel : StackPanel
         Children.Add(_heading);
         Children.Add(_description);
         Children.Add(buttons);
+        // Separate row so the existing Quick Resume controls still fit a 13-inch window.
+        Children.Add(_skinStudio);
         Children.Add(_status);
         Children.Add(_recovery);
         Children.Add(_list);
