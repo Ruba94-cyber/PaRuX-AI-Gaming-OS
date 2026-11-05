@@ -280,10 +280,15 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             if (e is null) return false;
             if (GameDownloadStates.IsTerminal(e.State))
             {
-                if (e.PostInstallState == GamePostInstallStates.Installing)
+                // Publication may have completed just before the post-install
+                // worker starts. Cancel the worker EVEN when the install is
+                // still Pending so "Remove history" cannot cause an invisible
+                // later extract/registration from an already-removed job.
+                if (e.AutoInstallPortable && e.PostInstallState is
+                    (GamePostInstallStates.Pending or GamePostInstallStates.Installing))
                 {
                     e.PostInstallState = GamePostInstallStates.Interrupted;
-                    e.PostInstallMessage = "Portable installation cancelled by the owner.";
+                    e.PostInstallMessage = "Portable installation cancelled by the owner; the archive was retained.";
                     e.InstallerRun?.Cancel();
                     e.Run?.Cancel();
                 }
@@ -459,9 +464,11 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         CancellationTokenSource linked;
         lock (_gate)
         {
-            if (e.InstallerRun is not null ||
+            if (!_entries.Contains(e) || ct.IsCancellationRequested ||
+                e.PostInstallState == GamePostInstallStates.Interrupted ||
+                e.InstallerRun is not null ||
                 e.PostInstallState is GamePostInstallStates.Installing or GamePostInstallStates.Installed)
-                throw new InvalidOperationException("Portable installation is already active or completed.");
+                throw new OperationCanceledException("Portable installation is no longer authorized for this job.");
             if (e.State != GameDownloadStates.Completed ||
                 !e.IntegrityChecked || e.ExpectedSha256 is null ||
                 !string.Equals(e.ExpectedSha256, e.VerifiedSha256, StringComparison.OrdinalIgnoreCase) ||
