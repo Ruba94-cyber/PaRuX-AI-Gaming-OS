@@ -92,7 +92,7 @@ After successful software gates: manually verify setup transitions, role profile
 
 ### Compile/runtime risks to inspect
 
-- L2: per-hunk parser handles a strict unified-diff subset; new in-memory preview checks old lines and emits a SHA-256 preimage fingerprint but does not re-read the actual file, handle BOM/encodings or apply a patch. Verify linked App source compiles in both App and xUnit projects, and do not map `bypass` to unsandboxed execution.
+- L2: per-hunk parser requires matched `--- a/...` and `+++ b/...` identities and bounded hunk counts; quoted/renamed/binary/no-newline diffs may be unsupported. New in-memory preview checks old lines and emits a SHA-256 preimage fingerprint but does not re-read the actual file, handle BOM/encodings or apply a patch. Verify linked App source compiles in both App and xUnit projects, and do not map `bypass` to unsandboxed execution.
 - L3: the comparison model and PersonaService already exist; prompt length is now capped to Core Arena 4,000 characters; the new policy/presenter has no chat UI/action; estimated media presets must not replace actual resource admission.
 - L8: `ChatDocumentScope.SourceIds` empty means all eligible sources, so the new planner rejects empty, invalid or over-64 source scopes; Core Gaming hard-off still owns enforcement.
 - L6/L7: anti-cheat list is deliberately incomplete; unknown classification, protected process names and user exclusion entries now block the pure suspend proposal; normalized controller curves and restore steps are previews, not drivers.
