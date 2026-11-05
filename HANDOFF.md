@@ -1,3 +1,7 @@
+## 2026-11-05 — Corrected GOS FlaUI Debug test build gate (SOURCE WIP)
+
+- `tools/test-gos-checkpoint.ps1 -RunUi` retains its Release build verification, then builds a matching Debug Server+App pair, stages Debug Core beside Debug App and runs FlaUI Debug. Prior source ran Release FlaUI while fixtures require DEBUG; this could give false negatives. No actual Windows runner used here; revalidate the script on an isolated developer desktop.
+
 ## 2026-11-05 — Defense-in-depth imported title launch gate and Windows regression selection (SOURCE WIP)
 
 - Third-party metadata providers cannot become launchable even if a stale/misleading payload marks one installed or unknown. Synthetic policies test all three providers. The local GOS focused xUnit filter now covers the external import store and HTTP routes, with Gaming Home already in optional FlaUI. Windows execution pending.
