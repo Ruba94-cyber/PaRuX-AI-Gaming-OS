@@ -22,6 +22,13 @@ public static class TemporaryGameModEndpoints
             { return Results.Problem("Temporary mod recovery data is unavailable."); }
         }).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/mods/temporary/previews", (TemporaryGameModService mods) =>
+        {
+            try { return Results.Ok(mods.ListPreviews()) as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Pending game mod proposals cannot be read."); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/mods/temporary/preview", (
             GameModProposalRequest request, TemporaryGameModService mods) =>
         {
