@@ -9,6 +9,12 @@ public sealed record GameModProposalRequest(
     string ManualGameId, int ProcessId, DateTime StartedUtc,
     string RelativePath, string ProposedText, bool OfflineSinglePlayerConfirmed);
 
+/// <summary>AI-safe one-setting patch proposal; original config stays in the owner-only review UI.</summary>
+public sealed record GameModSettingPatchRequest(
+    string ManualGameId, int ProcessId, DateTime StartedUtc,
+    string RelativePath, string Section, string Key, string Value,
+    bool OfflineSinglePlayerConfirmed);
+
 public sealed record GameModPreviewDto(
     string PreviewId, string GameName, string RelativePath,
     string CurrentSha256, string OriginalText, string ProposedText,

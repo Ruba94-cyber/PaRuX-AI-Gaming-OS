@@ -39,6 +39,16 @@ public static class TemporaryGameModEndpoints
             { return Results.Problem("Temporary game config could not be safely inspected."); }
         }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(150_000));
 
+        app.MapPost("/api/v1/gaming/mods/temporary/patch-preview", (
+            GameModSettingPatchRequest request, TemporaryGameModService mods) =>
+        {
+            try { return Results.Ok(mods.PreviewSettingPatch(request)) as IResult; }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Temporary game setting could not be safely inspected."); }
+        }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(16384));
+
         app.MapPost("/api/v1/gaming/mods/temporary/apply", (
             GameModApplyRequest request, TemporaryGameModService mods) =>
         {

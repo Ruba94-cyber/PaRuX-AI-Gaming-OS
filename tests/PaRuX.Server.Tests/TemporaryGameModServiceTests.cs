@@ -103,6 +103,52 @@ public sealed class TemporaryGameModServiceTests : IDisposable
     }
 
     [Fact]
+    public void Safe_key_patch_preserves_all_unrelated_ini_text_and_is_preview_only()
+    {
+        var service = Service();
+        string original = "[video]\r\nbrightness=1\r\ncontrast=2\r\n";
+        File.WriteAllText(Config, original);
+        var request = new GameModSettingPatchRequest(_entryId, 999999, _started,
+            "config/settings.ini", "video", "brightness", "3", true);
+        GameModPreviewDto preview = service.PreviewSettingPatch(request);
+        Assert.Equal(original, File.ReadAllText(Config));
+        Assert.Equal("[video]\r\nbrightness=3\r\ncontrast=2\r\n", preview.ProposedText);
+        Assert.Throws<ArgumentException>(() => service.Apply(new(preview.PreviewId, false)));
+        var applied = service.Apply(new(preview.PreviewId, true));
+        Assert.Equal(preview.ProposedText, File.ReadAllText(Config));
+        _alive = false;
+        Assert.Equal(1, Service().RestoreExited());
+        Assert.Equal(original, File.ReadAllText(Config));
+    }
+
+    [Fact]
+    public void Safe_key_patch_refuses_duplicate_missing_and_multiline_values()
+    {
+        var service = Service();
+        File.WriteAllText(Config, "[video]\nbrightness=1\nbrightness=2\n");
+        var request = new GameModSettingPatchRequest(_entryId, 999999, _started,
+            "config/settings.ini", "video", "brightness", "3", true);
+        Assert.Throws<ArgumentException>(() => service.PreviewSettingPatch(request));
+        Assert.Throws<ArgumentException>(() => service.PreviewSettingPatch(request with { Key = "../path" }));
+        Assert.Throws<ArgumentException>(() => service.PreviewSettingPatch(request with { Value = "1\nother=2" }));
+        Assert.Throws<ArgumentException>(() => service.PreviewSettingPatch(request with { Key = "missing" }));
+        Assert.Empty(service.ListPreviews());
+        Assert.Equal("[video]\nbrightness=1\nbrightness=2\n", File.ReadAllText(Config));
+    }
+
+    [Fact]
+    public void Safe_key_patch_denies_online_or_unpaused_games()
+    {
+        var service = Service();
+        var request = new GameModSettingPatchRequest(_entryId, 999999, _started,
+            "config/settings.ini", "video", "brightness", "3", false);
+        Assert.Throws<ArgumentException>(() => service.PreviewSettingPatch(request));
+        _paused = false;
+        Assert.Throws<InvalidOperationException>(() =>
+            service.PreviewSettingPatch(request with { OfflineSinglePlayerConfirmed = true }));
+    }
+
+    [Fact]
     public void No_offline_confirmation_or_no_paused_game_never_grants_a_preview()
     {
         var service = Service();

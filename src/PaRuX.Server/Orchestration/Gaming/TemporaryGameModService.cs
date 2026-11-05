@@ -166,18 +166,53 @@ public sealed class TemporaryGameModService
     public GameModPreviewDto Preview(GameModProposalRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        return PreviewCore(request.ManualGameId, request.ProcessId, request.StartedUtc,
+            request.RelativePath, request.ProposedText, request.OfflineSinglePlayerConfirmed);
+    }
+
+    /// <summary>Build one setting change locally; never expose the current file to a model.</summary>
+    public GameModPreviewDto PreviewSettingPatch(GameModSettingPatchRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        string ext = Path.GetExtension(request.RelativePath ?? "");
+        if (!ext.Equals(".ini", StringComparison.OrdinalIgnoreCase)
+            && !ext.Equals(".cfg", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Only INI/CFG files support a single-key preview.");
         if (!request.OfflineSinglePlayerConfirmed)
-            throw new ArgumentException("Confirm that this portable game is offline, single-player and yours to modify.");
+            throw new ArgumentException("Confirm that this game is offline and single-player.");
         string target = ResolveTarget(request.ManualGameId, request.RelativePath, out ManualGameDto game);
         RequirePause(game, request.ProcessId, request.StartedUtc);
-        ValidateText(request.RelativePath, request.ProposedText);
+        byte[] originalBytes = File.ReadAllBytes(target);
+        string original;
+        try { original = new UTF8Encoding(false, true).GetString(originalBytes); }
+        catch (DecoderFallbackException) { throw new InvalidDataException("Only UTF-8 game configuration is supported."); }
+        ValidateText(request.RelativePath, original);
+        string patch = GameIniSettingPatch.Apply(original, request.Section, request.Key, request.Value);
+        // PreviewCore repeats identity/hash checks against a fresh file read; a changed
+        // original can never be silently published from the first snapshot.
+        return PreviewCore(request.ManualGameId, request.ProcessId, request.StartedUtc,
+            request.RelativePath, patch, request.OfflineSinglePlayerConfirmed,
+            expectedOriginalSha: Digest(originalBytes));
+    }
+
+    private GameModPreviewDto PreviewCore(string gameId, int processId, DateTime startedUtc,
+        string relativePath, string proposedText, bool offlineConfirmed,
+        string? expectedOriginalSha = null)
+    {
+        if (!offlineConfirmed)
+            throw new ArgumentException("Confirm that this portable game is offline, single-player and yours to modify.");
+        string target = ResolveTarget(gameId, relativePath, out ManualGameDto game);
+        RequirePause(game, processId, startedUtc);
+        ValidateText(relativePath, proposedText);
         byte[] oldBytes = File.ReadAllBytes(target);
         string original;
         try { original = new UTF8Encoding(false, true).GetString(oldBytes); }
         catch (DecoderFallbackException) { throw new InvalidDataException("Only UTF-8 text files can be modified."); }
-        ValidateText(request.RelativePath, original);
+        ValidateText(relativePath, original);
         string sha = Digest(oldBytes);
-        string newSha = Digest(request.ProposedText);
+        if (expectedOriginalSha is not null && sha != expectedOriginalSha)
+            throw new InvalidOperationException("The game config changed during patch preparation.");
+        string newSha = Digest(proposedText);
         if (sha == newSha) throw new ArgumentException("The proposal does not change this configuration.");
         lock (_gate)
         {
@@ -188,11 +223,11 @@ public sealed class TemporaryGameModService
             foreach (string old in _proposals.Where(x => x.Value.ExpiresUtc <= now).Select(x => x.Key).ToArray())
                 _proposals.Remove(old);
             if (_proposals.Count >= 12) throw new InvalidOperationException("Too many unreviewed mod previews.");
-            var proposal = new Proposal(Guid.NewGuid().ToString("N"), game.Id, request.ProcessId,
-                request.StartedUtc, game.Name, target, request.RelativePath, sha,
-                request.ProposedText, newSha, now + PreviewLifetime);
+            var proposal = new Proposal(Guid.NewGuid().ToString("N"), game.Id, processId,
+                startedUtc, game.Name, target, relativePath, sha,
+                proposedText, newSha, now + PreviewLifetime);
             _proposals.Add(proposal.Id, proposal);
-            return new GameModPreviewDto(proposal.Id, game.Name, request.RelativePath,
+            return new GameModPreviewDto(proposal.Id, game.Name, relativePath,
                 sha, original, proposal.ProposedText, proposal.ExpiresUtc,
                 "Review the full before/after text. Some games only read configs at startup: a paused game may not reload it. "
                 + "No executable or memory is touched. You can restore while the game is paused or closed.");

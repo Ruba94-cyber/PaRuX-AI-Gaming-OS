@@ -216,6 +216,7 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     [InlineData("GET", "/api/v1/gaming/mods/temporary", null)]
     [InlineData("GET", "/api/v1/gaming/mods/temporary/previews", null)]
     [InlineData("POST", "/api/v1/gaming/mods/temporary/preview", "{}")]
+    [InlineData("POST", "/api/v1/gaming/mods/temporary/patch-preview", "{}")]
     [InlineData("POST", "/api/v1/gaming/mods/temporary/apply", "{}")]
     [InlineData("POST", "/api/v1/gaming/mods/temporary/restore", "{}")]
     [InlineData("POST", "/api/v1/gaming/wishlist", "{}")]
