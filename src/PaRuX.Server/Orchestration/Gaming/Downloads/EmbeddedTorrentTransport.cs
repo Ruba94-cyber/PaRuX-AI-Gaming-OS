@@ -269,7 +269,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             throw new GameDownloadException("Torrent staging must not be a linked directory.");
     }
 
-    private static void CleanOwnedStaging(GameDownloadJob job)
+    internal static void CleanOwnedStaging(GameDownloadJob job)
     {
         string path = StagingPath(job);
         try
