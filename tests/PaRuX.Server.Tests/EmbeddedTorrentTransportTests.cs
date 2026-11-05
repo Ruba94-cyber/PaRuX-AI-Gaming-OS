@@ -86,6 +86,65 @@ public sealed class EmbeddedTorrentTransportTests
     }
 
     [Fact]
+    public void Cancelled_owned_nested_torrent_stage_is_removed_without_touching_sibling_user_files()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "parux-stage-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var job = new GameDownloadJob
+            {
+                Id = Guid.NewGuid().ToString("N"), FileName = "fixture.zip",
+                Directory = folder, Kind = GameDownloadKinds.TorrentFile,
+                Source = "torrent-file/synthetic"
+            };
+            string stage = EmbeddedTorrentTransport.StagingPath(job);
+            Directory.CreateDirectory(Path.Combine(stage, "data", "levels"));
+            File.WriteAllText(Path.Combine(stage, "data", "levels", "level.txt"), "test fixture");
+            string other = Path.Combine(folder, "my-own-save.txt");
+            File.WriteAllText(other, "preserve");
+            EmbeddedTorrentTransport.CleanOwnedStaging(job);
+            Assert.False(Directory.Exists(stage));
+            Assert.Equal("preserve", File.ReadAllText(other));
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    [Fact]
+    public void Unsafe_link_in_owned_torrent_stage_prevents_recursive_cleanup()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "parux-link-stage-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        string? link = null;
+        try
+        {
+            var job = new GameDownloadJob
+            {
+                Id = Guid.NewGuid().ToString("N"), FileName = "fixture.zip",
+                Directory = folder, Kind = GameDownloadKinds.TorrentFile,
+                Source = "torrent-file/synthetic"
+            };
+            string stage = EmbeddedTorrentTransport.StagingPath(job);
+            Directory.CreateDirectory(stage);
+            string outside = Path.Combine(folder, "outside.txt");
+            File.WriteAllText(outside, "unchanged");
+            link = Path.Combine(stage, "suspicious-link.txt");
+            try { File.CreateSymbolicLink(link, outside); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            { return; } // Windows developer mode may forbid symlinks.
+            EmbeddedTorrentTransport.CleanOwnedStaging(job);
+            Assert.True(Directory.Exists(stage));
+            Assert.Equal("unchanged", File.ReadAllText(outside));
+        }
+        finally
+        {
+            if (link is not null)
+                try { File.Delete(link); } catch (Exception) { }
+            try { Directory.Delete(folder, recursive: true); } catch (Exception) { }
+        }
+    }
+
+    [Fact]
     public void The_integrated_transport_is_opt_in_per_job_and_never_starts_during_gaming()
     {
         string folder = Path.Combine(Path.GetTempPath(), "parux-native-torrent-" + Guid.NewGuid().ToString("N"));
