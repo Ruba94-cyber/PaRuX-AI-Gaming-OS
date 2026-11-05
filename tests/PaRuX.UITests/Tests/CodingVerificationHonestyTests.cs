@@ -12,6 +12,29 @@ namespace PaRuX.UITests.Tests;
 [Collection(UiTestCollection.Name)]
 public sealed class CodingVerificationHonestyTests
 {
+    [Fact, Trait("Category", "Regression"), Trait("Category", "CodingAgent"), Trait("Category", "FlaUI")]
+    public void Hunk_review_control_is_not_exposed_for_unverified_task()
+    {
+        const string name = nameof(Hunk_review_control_is_not_exposed_for_unverified_task);
+        string? prior = Environment.GetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION");
+        try
+        {
+            Environment.SetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION", "unverified");
+            using var app = new UiTestApplication(name, enableCompletedCodingTaskCardFixture: true);
+            try
+            {
+                UiWait.ById(app.MainWindow, "parux-coding-review-unverified", ControlType.Button);
+                Assert.Null(app.MainWindow.FindFirstDescendant(
+                    cf => cf.ByAutomationId("Chat_CodingTask_ReviewHunks_Button")));
+            }
+            catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION", prior);
+        }
+    }
+
     [Theory, Trait("Category", "Regression"), Trait("Category", "CodingAgent"), Trait("Category", "FlaUI")]
     [InlineData("pass", "Completed and verified")]
     [InlineData("unverified", "Completed, not verified")]
