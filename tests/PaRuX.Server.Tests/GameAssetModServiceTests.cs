@@ -111,8 +111,11 @@ public sealed class GameAssetModServiceTests
                 x.FullName == "assets/characters/hero_cloak.png"));
             Assert.Single(archive.Entries.Where(x => x.FullName == ".parux/manifest.json"));
             using (var entry = texture.Open())
-            using (var image = Image.FromStream(entry))
+            using (var decoded = new MemoryStream())
             {
+                entry.CopyTo(decoded);
+                decoded.Position = 0;
+                using var image = Image.FromStream(decoded);
                 Assert.Equal(64, image.Width);
                 Assert.Equal(32, image.Height);
             }
