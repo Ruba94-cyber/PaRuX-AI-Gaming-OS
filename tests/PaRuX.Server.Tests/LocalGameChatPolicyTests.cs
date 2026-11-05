@@ -59,6 +59,19 @@ public sealed class LocalGameChatPolicyTests
     }
 
     [Fact]
+    public void Unknown_game_telemetry_never_becomes_permission_to_use_gpu()
+    {
+        Assert.Equal(GameGpuAdmission.BlockedByGaming,
+            GameGpuAdmissionPolicy.Evaluate((bool?)null, false, false).Status);
+        Assert.Equal(GameGpuAdmission.BlockedByGaming,
+            GameGpuAdmissionPolicy.Evaluate(false, (bool?)null, true).Status);
+        Assert.Equal(GameGpuAdmission.BlockedByGaming,
+            GameGpuAdmissionPolicy.Evaluate((bool?)null, (bool?)null, true).Status);
+        Assert.Equal(GameGpuAdmission.Allowed,
+            GameGpuAdmissionPolicy.Evaluate(false, false, false).Status);
+    }
+
+    [Fact]
     public void Even_explicit_override_does_not_auto_start_ai_while_game_runs()
     {
         var decision = GameGpuAdmissionPolicy.Evaluate(false, true, true);
