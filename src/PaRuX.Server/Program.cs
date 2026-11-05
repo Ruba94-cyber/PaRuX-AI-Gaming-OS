@@ -290,7 +290,11 @@ builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Providers.Virtua
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.ExternalTorrentClientTransport>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.EmbeddedTorrentTransport>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.PortableGameInstallService>();
-builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>();
+builder.Services.AddSingleton(sp => new PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager(
+    sp.GetRequiredService<LocalRuntimeService>(),
+    sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.ExternalTorrentClientTransport>(),
+    sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.EmbeddedTorrentTransport>(),
+    sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.PortableGameInstallService>()));
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.IGamingResumable>(sp => sp.GetRequiredService<PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadManager>());
 builder.Services.AddSingleton<GgufQuantizeJobs>();
 builder.Services.AddSingleton<GameInstallerInspectionService>();
