@@ -7,7 +7,8 @@ namespace PaRuX.Contracts;
 /// </summary>
 public sealed record GameModDropInInstallRequest(
     string BundlePath, string BundleSha256, string TargetModFolder,
-    bool CompatibleZipLoaderConfirmed, bool OfflineGameClosedConfirmed);
+    bool CompatibleZipLoaderConfirmed, bool OfflineGameClosedConfirmed,
+    string GameExecutablePath);
 
 /// <summary>Explicit owner-only removal; it refuses changed files.</summary>
 public sealed record GameModDropInRemoveRequest(
@@ -16,4 +17,4 @@ public sealed record GameModDropInRemoveRequest(
 public sealed record GameModDropInReceiptDto(
     string Id, string GameName, string ModFolder, string InstalledFile,
     string BundleSha256, string InstalledSha256, DateTime CreatedUtc,
-    string State, string Advisory);
+    string State, string Advisory, string GameExecutablePath = "");
