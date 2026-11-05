@@ -99,11 +99,20 @@ public sealed class ChatProxyService
         if (documentMode)
         {
             string documentQuestion = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? string.Empty;
-            PaRuX.Server.Knowledge.DocumentChatPlan documentPlan = PaRuX.Server.Knowledge.DocumentChatPlanner.Plan(documentQuestion, request.Documents!.SourceIds);
+            // Slash commands (/diff, /contradictions) are document skills; they never reach the model unless --explain is given.
+            PaRuX.Server.Knowledge.DocumentSkillInvocation? skill = PaRuX.Server.Knowledge.DocumentSkills.TryParse(documentQuestion);
+            PaRuX.Server.Knowledge.DocumentChatPlan documentPlan = skill != null
+                ? PaRuX.Server.Knowledge.DocumentSkills.Run(skill, request.Documents!.SourceIds)
+                : PaRuX.Server.Knowledge.DocumentChatPlanner.Plan(documentQuestion, request.Documents!.SourceIds);
             if (documentPlan.Kind != PaRuX.Server.Knowledge.DocumentChatKind.NeedsModel)
             {
                 await PaRuX.Server.Knowledge.DocumentChatResponder.WriteAsync(downstream, request.Stream, documentPlan, cancellationToken);
                 return;
+            }
+            if (documentPlan.RewrittenQuestion != null)
+            {
+                ChatCompletionMessage? skillUser = request.Messages.LastOrDefault(m => m.Role == "user");
+                if (skillUser != null) skillUser.Content = documentPlan.RewrittenQuestion;
             }
         }
 

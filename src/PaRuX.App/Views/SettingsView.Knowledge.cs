@@ -198,8 +198,37 @@ namespace PaRuX.Views
                     catch (Exception ex) { offlineNote.Text = ex.Message; }
                 };
 
+                var wipe = new Button { Content = KT("Delete everything (secure)", "Elimina tutto (sicuro)") };
+                AutomationProperties.SetAutomationId(wipe, "Settings_Rag_DeleteEverything_Button");
+                var wipeNote = new TextBlock { TextWrapping = TextWrapping.Wrap };
+                ApplyCaptionStyle(wipeNote);
+                AutomationProperties.SetAutomationId(wipeNote, "Settings_Rag_DeleteEverything_Note");
+                wipeNote.Text = KT("Removes every indexed folder and wipes the search index (text, word and partial-match entries, vectors, database files). Your documents are not touched.",
+                    "Rimuove ogni cartella indicizzata e cancella l'indice di ricerca (testo, voci per parole e corrispondenze parziali, vettori, file del database). I tuoi documenti non vengono toccati.");
+                wipe.Click += async (a, b) =>
+                {
+                    var dialog = new ContentDialog
+                    {
+                        XamlRoot = XamlRoot, Title = KT("Delete the whole document index?", "Eliminare tutto l'indice dei documenti?"),
+                        Content = new TextBlock { Text = wipeNote.Text, TextWrapping = TextWrapping.Wrap },
+                        PrimaryButtonText = KT("Delete everything", "Elimina tutto"), CloseButtonText = KT("Cancel", "Annulla"), DefaultButton = ContentDialogButton.Close
+                    };
+                    AutomationProperties.SetAutomationId(dialog, "Settings_Rag_DeleteEverything_Dialog");
+                    if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                    try
+                    {
+                        wipe.IsEnabled = false;
+                        (int files, int chunks, bool onDisk) = await KnowledgeClient.Current.DeleteEverythingAsync(CancellationToken.None);
+                        wipeNote.Text = KT("Deleted ", "Eliminati ") + files + KT(" files / ", " file / ") + chunks + KT(" passages from the index. ", " passaggi dall'indice. ")
+                            + (onDisk ? KT("Database files were zeroed and removed.", "I file del database sono stati azzerati e rimossi.") : KT("Some database files could not be removed (in use).", "Alcuni file del database non sono stati rimossi (in uso)."));
+                        await RefreshRagSourcesAsync();
+                    }
+                    catch (Exception ex) { wipeNote.Text = KT("Could not delete: ", "Eliminazione non riuscita: ") + ex.Message; }
+                    finally { wipe.IsEnabled = true; }
+                };
+
                 KnowledgeSettingsPanel.Children.Clear();
-                foreach (UIElement e in new UIElement[] { ocr, ocrNote, profile, profileNote, offline, offlineNote }) KnowledgeSettingsPanel.Children.Add(e);
+                foreach (UIElement e in new UIElement[] { ocr, ocrNote, profile, profileNote, offline, offlineNote, wipe, wipeNote }) KnowledgeSettingsPanel.Children.Add(e);
             }
             catch (Exception ex)
             {

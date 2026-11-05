@@ -196,6 +196,13 @@ public sealed record PinnedModelManifest(string Repository, string Revision, IRe
 {
     public string UrlFor(PinnedFile file) => "https://huggingface.co/" + Repository + "/resolve/" + Revision + "/" + file.RemotePath;
 
+    /// <summary>Xenova/ms-marco-MiniLM-L-6-v2 (cross-encoder reranker ONNX export) at a fixed commit; digests read from the Hugging Face file listing (LFS SHA-256 for the model, git blob SHA-1 for vocab.txt).</summary>
+    public static PinnedModelManifest RerankerMsMarcoMiniLm { get; } = new("Xenova/ms-marco-MiniLM-L-6-v2", "a09144355adeed5f58c8ed011d209bf8ee5a1fec", new[]
+    {
+        new PinnedFile("onnx/model.onnx", "model.onnx", 90992115, Sha256: "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"),
+        new PinnedFile("vocab.txt", "vocab.txt", 231508, GitBlobSha1: "fb140275c155a9c7c5a3b3e0e77a9e839594a938")
+    });
+
     /// <summary>sentence-transformers/all-MiniLM-L6-v2 at a fixed commit; digests read from the Hugging Face file listing (LFS SHA-256, git blob SHA-1 for small files).</summary>
     public static PinnedModelManifest MiniLmL6V2 { get; } = new("sentence-transformers/all-MiniLM-L6-v2", "1110a243fdf4706b3f48f1d95db1a4f5529b4d41", new[]
     {

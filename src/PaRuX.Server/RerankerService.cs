@@ -44,19 +44,9 @@ namespace PaRuX.Server;
 /// </summary>
 public sealed class RerankerService : IDisposable
 {
-    private const string RepoId = "Xenova/ms-marco-MiniLM-L-6-v2";
-
-    private static readonly (string Remote, string Local)[] RequiredFiles =
-    {
-        ("onnx/model.onnx", "model.onnx"),
-        ("vocab.txt", "vocab.txt"),
-    };
-
     // Per-side (query, document) truncation - matches EmbeddingService's own truncate-not-fail
     // policy for inputs longer than the model's real max sequence length.
     private const int MaxTokensPerSequence = 256;
-
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(15) };
 
     private readonly string _runtimeRoot;
     private readonly object _loadGate = new();
@@ -98,17 +88,12 @@ public sealed class RerankerService : IDisposable
     /// Explicitly requested, never automatic - same policy as EmbeddingService.</summary>
     public async Task<string> InstallEngineAsync(IProgress<string>? progress, CancellationToken ct)
     {
-        PaRuX.Server.Knowledge.OfflinePolicy.ThrowIfBlocked("the reranker model download");   // strict offline / Corporate
         Directory.CreateDirectory(_runtimeRoot);
         try
         {
-            foreach ((string remote, string local) in RequiredFiles)
-            {
-                ct.ThrowIfCancellationRequested();
-                progress?.Report("Downloading " + local + "...");
-                await DownloadFileAsync("https://huggingface.co/" + RepoId + "/resolve/main/" + remote,
-                    Path.Combine(_runtimeRoot, local), ct);
-            }
+            // Strict offline / Corporate refuses before any request; every file is checked against its pinned digest at a
+            // fixed revision and discarded (fail closed) on mismatch before it can be loaded.
+            await Downloader.DownloadAsync(PaRuX.Server.Knowledge.PinnedModelManifest.RerankerMsMarcoMiniLm, _runtimeRoot, progress, ct);
 
             lock (_loadGate) { _session?.Dispose(); _session = null; _tokenizer = null; _outputName = null; _loadAttempted = false; }
             if (!TryEnsureLoaded()) throw new InvalidOperationException("Downloaded files did not load as a valid reranker engine.");
@@ -123,44 +108,8 @@ public sealed class RerankerService : IDisposable
         }
     }
 
-    // HttpClient.Timeout does not reliably bound a streamed body read taken with
-    // HttpCompletionOption.ResponseHeadersRead - observed live, a real download stalled partway
-    // through (connection went silent, no error, no more bytes) and the copy hung indefinitely,
-    // outliving even the caller's own request cancellation. Each individual read below is bounded
-    // instead, so a stalled connection surfaces as a clear, recoverable timeout.
-    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
-
-    private static async Task DownloadFileAsync(string url, string destination, CancellationToken ct)
-    {
-        string partial = destination + ".partial";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        using HttpResponseMessage response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        await using (Stream source = await response.Content.ReadAsStreamAsync(ct))
-        await using (FileStream target = new(partial, FileMode.Create, FileAccess.Write))
-        {
-            var buffer = new byte[81920];
-            while (true)
-            {
-                using CancellationTokenSource readGuard = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                readGuard.CancelAfter(StallTimeout);
-                int read;
-                try
-                {
-                    read = await source.ReadAsync(buffer, readGuard.Token);
-                }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                {
-                    throw new TimeoutException(
-                        $"Download stalled: no data received for {StallTimeout.TotalSeconds:0}s from {url}.");
-                }
-                if (read == 0) break;
-                await target.WriteAsync(buffer.AsMemory(0, read), ct);
-            }
-        }
-        if (File.Exists(destination)) File.Delete(destination);
-        File.Move(partial, destination);
-    }
+    /// <summary>Replaceable in tests (fake HTTP handler / isolated settings).</summary>
+    internal PaRuX.Server.Knowledge.PinnedModelDownloader Downloader { get; set; } = new();
 
     /// <summary>Relevance score for one (query, document) pair - higher is more relevant. Null if
     /// the engine isn't installed/loadable, either input is empty, or inference otherwise fails.
