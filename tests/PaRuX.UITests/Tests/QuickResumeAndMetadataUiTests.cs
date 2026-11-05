@@ -167,6 +167,12 @@ public sealed class QuickResumeAndMetadataUiTests
                 "the Quick Resume panel sits below the library toolbar");
 
             var refresh = ById(app, "QuickResume_Refresh_Button");
+            var reviewMods = ById(app, "QuickResume_Mods_ReviewButton");
+            var restoreMods = ById(app, "QuickResume_Mods_RestoreButton");
+            Assert.False(string.IsNullOrWhiteSpace(reviewMods.Name), "review AI mods has a name");
+            Assert.False(string.IsNullOrWhiteSpace(restoreMods.Name), "restore mod backups has a name");
+            Assert.True(reviewMods.Properties.IsEnabled.ValueOrDefault);
+            Assert.True(restoreMods.Properties.IsEnabled.ValueOrDefault);
             Assert.False(string.IsNullOrWhiteSpace(refresh.Name), "refresh has an accessible name");
             ScrollTo(refresh);
             UiWait.For(() => refresh.BoundingRectangle.Height >= 44, "refresh is at least 44px tall");
