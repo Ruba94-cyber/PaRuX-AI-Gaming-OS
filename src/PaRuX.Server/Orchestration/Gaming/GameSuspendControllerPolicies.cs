@@ -155,9 +155,49 @@ public static class ControllerRemapPresenter
     }
 }
 
+public enum ControllerUndoStepKind
+{
+    StopOwnedForwarding,
+    RestoreOwnedHidHideEntries,
+    ClearOwnedGameMapping,
+    RefreshDeviceStatus
+}
+
+public sealed record ControllerUndoAction(ControllerUndoStepKind Kind, string Description);
+
+public sealed record ControllerUndoPlan(bool Allowed, IReadOnlyList<ControllerUndoAction> Actions, string Reason);
+
 /// <summary>Only PaRuX-owned changes may be reversed; user-managed drivers stay installed.</summary>
 public static class ControllerUndoEverythingPlanner
 {
+    /// <summary>
+    /// Pure, explicit-consent plan. The runtime must revalidate ownership immediately
+    /// before each step, report partial failures and preserve unowned HidHide entries.
+    /// No OS actions, driver installation or uninstall are performed here.
+    /// </summary>
+    public static ControllerUndoPlan BuildPlan(bool explicitConsent,
+        bool paRuXForwardingActive, bool hasPaRuXHidHideJournal,
+        bool hasPaRuXGameOverride)
+    {
+        if (!explicitConsent)
+            return new(false, Array.Empty<ControllerUndoAction>(),
+                "Confirm the rollback before touching PaRuX-managed controller settings.");
+
+        var actions = new List<ControllerUndoAction>();
+        if (paRuXForwardingActive)
+            actions.Add(new(ControllerUndoStepKind.StopOwnedForwarding,
+                "Stop only PaRuX-owned controller forwarding."));
+        if (hasPaRuXHidHideJournal)
+            actions.Add(new(ControllerUndoStepKind.RestoreOwnedHidHideEntries,
+                "Restore only PaRuX-owned HidHide journal entries."));
+        if (hasPaRuXGameOverride)
+            actions.Add(new(ControllerUndoStepKind.ClearOwnedGameMapping,
+                "Clear only the current PaRuX-managed per-game mapping override."));
+        actions.Add(new(ControllerUndoStepKind.RefreshDeviceStatus,
+            "Refresh device state and report partial recovery if any step failed."));
+        return new(true, actions, "Preview only; actual rollback requires hardware and owner checks.");
+    }
+
     public static IReadOnlyList<string> Steps(bool explicitConsent) =>
         !explicitConsent ? Array.Empty<string>() : new[]
         {
