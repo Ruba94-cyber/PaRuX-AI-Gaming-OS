@@ -57,6 +57,18 @@ public sealed class ExternalLibraryPreviewEndpointTests : IClassFixture<ApiSecur
     }
 
     [Fact]
+    public async Task Large_inner_export_is_refused_before_json_document_parsing()
+    {
+        using var client = DesktopClient();
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/gaming/library/import-preview",
+            new { Provider = "lutris", Json = new string('x', 512001) });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.DoesNotContain(new string('x', 128),
+            await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Unsupported_provider_is_bad_request_without_external_access()
     {
         using var client = DesktopClient();
