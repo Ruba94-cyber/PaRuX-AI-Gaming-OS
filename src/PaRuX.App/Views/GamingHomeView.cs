@@ -500,6 +500,14 @@ internal sealed class GamingHomeView : StackPanel
         _localGuide.IsEnabled = false;
         try
         {
+            // Do not even read document folder metadata while a game owns
+            // the host. The server repeats the hard-off and AI-ready checks.
+            if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
+            {
+                _status.Text = T("Leave Gaming before preparing local guide Chat.",
+                    "Esci da Gaming prima di preparare la guida locale.");
+                return;
+            }
             GamingCallResult<List<ManualGameDto>> gamesResult =
                 await GamingLibraryClient.Current.GetManualGamesForModsAsync();
             if (!gamesResult.Succeeded || gamesResult.Value is null)
@@ -566,6 +574,13 @@ internal sealed class GamingHomeView : StackPanel
                 Content = chosenSources, MaxHeight = 190,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             });
+            if (sources.Count > 64)
+                panel.Children.Add(new TextBlock
+                {
+                    Text = T("Showing the first 64 folders. Narrow the indexed sources in Document Search to access others.",
+                        "Sono mostrate le prime 64 cartelle. Riduci le fonti in Ricerca documenti per accedere alle altre."),
+                    TextWrapping = TextWrapping.Wrap
+                });
             if (games.Count == 0 || sources.Count == 0)
                 panel.Children.Add(new TextBlock
                 {

@@ -127,8 +127,9 @@ namespace PaRuX
                     sources.Any(id => string.IsNullOrWhiteSpace(id) ||
                         id.Length > 200 || id.Any(char.IsControl)))
                     return false;
-                // The existing Chat may contain an unsent draft or be busy.
-                // Navigate only on the person's explicit handoff, never auto-send.
+                // Refuse a busy Chat or unsent draft *before* navigation,
+                // so a failed handoff leaves the Games view and its notice.
+                if (!ChatPage.CanAcceptGameGuideDraft()) return false;
                 ShowChat();
                 if (!ChatPage.TryPrefillGameGuideDraft(question)) return false;
                 if (!ChatDocumentScopeState.TryUseExplicitSources(sources)) return false;

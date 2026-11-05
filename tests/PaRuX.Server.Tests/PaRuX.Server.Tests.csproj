@@ -28,6 +28,9 @@
     <None Include="Fixtures\ltx-video-2b-v0.9.5-header.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\PaRuX.App\Services\ChatDocumentScopeState.cs" Link="Linked\ChatDocumentScopeState.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\PaRuX.Server\PaRuX.Server.csproj" />
     <ProjectReference Include="..\..\src\PaRuX.Intelligence\PaRuX.Intelligence.csproj" />
     <ProjectReference Include="..\PaRuX.RuntimeStub\PaRuX.RuntimeStub.csproj" ReferenceOutputAssembly="false" />

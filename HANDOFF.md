@@ -1,3 +1,7 @@
+## 2026-11-05 — Local guide hard-off before metadata reads, no draft-navigation surprise (SOURCE WIP)
+
+- Games Home now refuses folder-list reads while Gaming is active, and explains when only the first 64 enabled guide folders are visible. Chat refuses occupied/unsent composer before navigation; exact nonempty-source state is unit-tested via a source-linked class (two new xUnit cases). The focused GOS Windows filter includes these tests. No build or test was executed in the remote session.
+
 ## 2026-11-05 — Local guide full UI handoff review and focused Windows gates (SOURCE WIP)
 
 - Guide API validates consent/question first, avoids index reads on invalid input, and distinguishes invalid scope from unavailable local metadata; Chat composer now permits ordinary multiline question text while still rejecting NUL and preserving existing drafts. Navigation happens on user choice; Documents toggle visual reflects exact selected sources. Added synthetic FlaUI open/cancel smoke; GOS focused xUnit filter now includes LocalGameChatPolicyTests and LocalGameGuideEndpointTests. NOT RUN on Windows.

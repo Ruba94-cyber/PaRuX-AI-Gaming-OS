@@ -2589,12 +2589,15 @@ namespace PaRuX.Views
         /// must still inspect/edit and press Send; never overwrite a draft or
         /// silently start inference.
         /// </summary>
+        public bool CanAcceptGameGuideDraft() =>
+            string.IsNullOrWhiteSpace(InputBox.Text) &&
+            !ChatSession.Current.IsBusy && !_isSwitchingProfile;
+
         public bool TryPrefillGameGuideDraft(string? preparedQuestion)
         {
             if (string.IsNullOrWhiteSpace(preparedQuestion) ||
                 preparedQuestion.Length > 3400 || preparedQuestion.Contains('\0') ||
-                !string.IsNullOrWhiteSpace(InputBox.Text) ||
-                ChatSession.Current.IsBusy || _isSwitchingProfile)
+                !CanAcceptGameGuideDraft())
                 return false;
             InputBox.Text = preparedQuestion;
             UpdateRouteLabel();
