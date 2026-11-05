@@ -34,9 +34,27 @@ public static class GameDownloadKinds
 /// torrentfile (<paramref name="Url"/> is a local .torrent path chosen by the user). The two torrent kinds need the optional
 /// integrated single-file PaRuX transport by default, or the optional external client explicitly configured by the owner.
 /// </summary>
+/// <summary>
+/// Explicit pre-consent: when enabled, a verified ZIP containing a user-named
+/// portable game executable is unpacked into a PaRuX-owned installation directory,
+/// then registered in the local library. No executable, script, setup or MSI is run.
+/// A separately obtained SHA-256 is mandatory. The option defaults OFF.
+/// </summary>
 public sealed record GameDownloadRequest(
     string Url, string DestinationDirectory, string? FileName = null, string? ExpectedSha256 = null, int Priority = 0,
-    string Kind = GameDownloadKinds.Http);
+    string Kind = GameDownloadKinds.Http, bool AutoInstallPortable = false,
+    string? PortableExecutableRelativePath = null, string? PortableGameTitle = null);
+
+public static class GamePostInstallStates
+{
+    public const string None = "none";
+    public const string Pending = "pending";
+    public const string Installing = "installing";
+    public const string Installed = "installed";
+    public const string Interrupted = "interrupted";
+    public const string Failed = "failed";
+}
+
 
 /// <summary>
 /// Product capability: embedded in PaRuX; nothing is listening, polling or uploading
@@ -56,6 +74,11 @@ public sealed record GameTorrentClientStatusDto(bool Enabled, int? Port);
 /// <param name="VerifiedSha256">The SHA-256 of the finished file (computed locally); matches the expected value when one was given.</param>
 public sealed record GameDownloadDto(
     string Id, string FileName, string Source, string State, string? Reason, long BytesDone, long? TotalBytes,
-    int Priority, bool IntegrityChecked, string? VerifiedSha256, DateTime CreatedUtc, DateTime? FinishedUtc);
+    int Priority, bool IntegrityChecked, string? VerifiedSha256, DateTime CreatedUtc, DateTime? FinishedUtc)
+{
+    // A completed download can still have a separate, non-destructive install error.
+    public string PostInstallState { get; init; } = GamePostInstallStates.None;
+    public string? PostInstallMessage { get; init; }
+}
 
 public sealed record GameDownloadLimitRequest(long BytesPerSecond);
