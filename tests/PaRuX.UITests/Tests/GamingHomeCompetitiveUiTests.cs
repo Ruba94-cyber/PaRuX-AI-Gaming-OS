@@ -110,6 +110,35 @@ public sealed class GamingHomeCompetitiveUiTests
     private static string? FocusedId(UiTestApplication app) => app.Automation.FocusedElement()?.Properties.AutomationId.ValueOrDefault;
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Offline_wishlist_dialog_is_accessible_and_writes_nothing_without_an_owner_action()
+    {
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(nameof(Offline_wishlist_dialog_is_accessible_and_writes_nothing_without_an_owner_action));
+        try
+        {
+            OpenGamingHome(app);
+            string wishlistPath = Path.Combine(app.DataRoot, "server", "game-wishlist.json");
+            Assert.False(File.Exists(wishlistPath), "no wishlist metadata created before consent");
+
+            PressWhenEnabled(app, "GameHome_Wishlist_Button");
+            ById(app, "GameHome_Wishlist_Select");
+            string displayed = TextOf(app, "GameHome_Wishlist_Status");
+            Assert.False(string.IsNullOrWhiteSpace(displayed), "empty-list state has accessible status");
+
+            Assert.False(File.Exists(wishlistPath), "opening a read-only dialog cannot persist or enable price watching");
+            CancelDialog(app);
+            UiWait.For(() => ById(app, "GameHome_Wishlist_Button").Properties.IsEnabled.ValueOrDefault,
+                "wishlist button re-enabled after closing the dialog");
+            Assert.False(File.Exists(wishlistPath));
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(nameof(Offline_wishlist_dialog_is_accessible_and_writes_nothing_without_an_owner_action), ex);
+            throw;
+        }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Hero_and_filter_rail_follow_play_history_and_filter_the_library()
     {
         WaitForCoreIdle();
