@@ -69,6 +69,32 @@ public static class GameAutoSuspendPolicy
             return new(true, GameSuspendTrigger.HighTemperature, "Temperature reached the selected threshold.");
         return new(false, GameSuspendTrigger.None, "No enabled suspend condition has been met.");
     }
+    /// <summary>
+    /// Fail-closed debounce over a caller-measured consecutive interval of the SAME condition.
+    /// Any focus regain or sensor recovery resets the caller's duration. The policy has no
+    /// timers, sensors, process handles or authority to suspend by itself.
+    /// </summary>
+    public static GameAutoSuspendDecision EvaluateStable(
+        GameAutoSuspendRule? rule, bool processIdentityVerified, AntiCheatAssessment antiCheat,
+        bool focusLost, int? batteryPercent, double? temperatureCelsius,
+        string? processName, TimeSpan continuouslyObserved,
+        IReadOnlyCollection<string>? userExcludedProcesses = null)
+    {
+        GameAutoSuspendDecision proposed = Evaluate(rule, processIdentityVerified, antiCheat,
+            focusLost, batteryPercent, temperatureCelsius, processName, userExcludedProcesses);
+        if (!proposed.Eligible) return proposed;
+        TimeSpan required = proposed.Trigger switch
+        {
+            GameSuspendTrigger.FocusLost => TimeSpan.FromSeconds(3),
+            GameSuspendTrigger.LowBattery => TimeSpan.FromSeconds(5),
+            GameSuspendTrigger.HighTemperature => TimeSpan.FromSeconds(10),
+            _ => TimeSpan.MaxValue
+        };
+        if (continuouslyObserved < required || continuouslyObserved < TimeSpan.Zero)
+            return new(false, GameSuspendTrigger.None,
+                "Condition not stable long enough to propose automatic suspension.");
+        return proposed;
+    }
 }
 
 public enum ControllerCurve { Linear, Precision, Aggressive }
