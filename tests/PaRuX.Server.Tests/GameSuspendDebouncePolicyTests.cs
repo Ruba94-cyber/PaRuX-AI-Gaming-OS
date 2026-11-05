@@ -67,6 +67,23 @@ public sealed class GameSuspendDebouncePolicyTests
     }
 
     [Fact]
+    public void Changing_a_per_game_threshold_restarts_the_observation_window()
+    {
+        GameSuspendDebounceResult first = Sample(null, 0);
+        GameSuspendDebounceResult second = Sample(first.NextState, 2);
+        GameAutoSuspendRule edited = Rule with { BatteryBelowPercent = 35 };
+
+        GameSuspendDebounceResult changed = GameSuspendDebouncePolicy.Observe(
+            second.NextState, edited, "synthetic-pid-start-1", true,
+            AntiCheatAssessment.VerifiedAbsent, true, null, null,
+            "synthetic-game.exe", TimeSpan.FromSeconds(3));
+
+        Assert.False(changed.Decision.Eligible);
+        Assert.Equal(TimeSpan.Zero, changed.ContinuouslyObserved);
+        Assert.Equal(35, changed.NextState!.RuleSnapshot.BatteryBelowPercent);
+    }
+
+    [Fact]
     public void Only_a_new_stable_condition_can_follow_a_recovered_condition()
     {
         var initial = Sample(null, 0);
