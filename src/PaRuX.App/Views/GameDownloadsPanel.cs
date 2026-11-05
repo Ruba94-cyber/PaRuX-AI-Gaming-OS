@@ -30,6 +30,10 @@ internal sealed class GameDownloadsPanel : StackPanel
     private readonly TextBox _destination = new() { MaxLength = 1024 };
     private readonly TextBox _fileName = new() { MaxLength = 160 };
     private readonly TextBox _sha256 = new() { MaxLength = 64 };
+    private readonly CheckBox _autoPortable = new();
+    private readonly TextBox _portableExe = new() { MaxLength = 240 };
+    private readonly TextBox _portableTitle = new() { MaxLength = 200 };
+    private readonly StackPanel _portableOptions = new() { Spacing = 8, Visibility = Visibility.Collapsed };
     private readonly ComboBox _priority = new() { MinWidth = 180 };
     private readonly TextBox _speed = new() { Text = "0", MaxLength = 8, MinWidth = 160 };
     private readonly Button _applySpeed = new();
@@ -129,6 +133,28 @@ internal sealed class GameDownloadsPanel : StackPanel
         AutomationProperties.SetAutomationId(_sha256, "GameDownloads_SHA256");
         Children.Add(_sha256);
 
+        // Owner authorizes at enqueue time; never infer an auto-install request
+        // from archive content, the source site, or its torrent metadata.
+        _autoPortable.Content = T("After download: unpack verified portable ZIP and add game to library (do not launch)",
+            "Dopo il download: estrai ZIP portatile verificato e aggiungi il gioco alla libreria (non avviare)");
+        AutomationProperties.SetAutomationId(_autoPortable, "GameDownloads_AutoPortable");
+        _autoPortable.Checked += (_, _) => _portableOptions.Visibility = Visibility.Visible;
+        _autoPortable.Unchecked += (_, _) => _portableOptions.Visibility = Visibility.Collapsed;
+        Children.Add(_autoPortable);
+        _portableTitle.Header = T("Game title for your library", "Titolo del gioco per la libreria");
+        _portableExe.Header = T("Executable inside ZIP (relative path, e.g. bin/Game.exe)",
+            "Eseguibile nello ZIP (percorso relativo, es. bin/Game.exe)");
+        AutomationProperties.SetAutomationId(_portableTitle, "GameDownloads_PortableTitle");
+        AutomationProperties.SetAutomationId(_portableExe, "GameDownloads_PortableExe");
+        _portableOptions.Children.Add(_portableTitle);
+        _portableOptions.Children.Add(_portableExe);
+        _portableOptions.Children.Add(new TextBlock {
+            TextWrapping = TextWrapping.Wrap,
+            Text = T("Requires an independently obtained SHA-256 and ZIP output filename. Only extracts and registers a portable game. Setup.exe/MSI/scripts will never run automatically.",
+                     "Richiede uno SHA-256 ottenuto indipendentemente e nome del file ZIP. Estrae e registra solo un gioco portatile. Setup.exe/MSI/script non vengono mai avviati automaticamente.")
+        });
+        Children.Add(_portableOptions);
+
         _priority.Header = T("Queue priority", "Priorità in coda");
         _priority.Items.Add(new ComboBoxItem { Content = T("Low", "Bassa"), Tag = -5 });
         _priority.Items.Add(new ComboBoxItem { Content = T("Normal", "Normale"), Tag = 0 });
@@ -222,11 +248,24 @@ internal sealed class GameDownloadsPanel : StackPanel
                  && (source.Scheme == Uri.UriSchemeHttps ||
                      (source.Scheme == Uri.UriSchemeHttp && source.IsLoopback))
         };
-        if (!validSource || string.IsNullOrWhiteSpace(destination) ||
+        bool autoPortable = _autoPortable.IsChecked == true;
+        string requestedName = (_fileName.Text ?? "").Trim();
+        string portableExecutable = (_portableExe.Text ?? "").Trim();
+        string portableTitle = (_portableTitle.Text ?? "").Trim();
+        bool invalidPortable = autoPortable &&
+            (checksum.Length != 64 ||
+             requestedName.Length == 0 ||
+             !string.Equals(Path.GetExtension(requestedName), ".zip", StringComparison.OrdinalIgnoreCase) ||
+             portableTitle.Length == 0 ||
+             portableExecutable.Length == 0 || portableExecutable.Length > 240 ||
+             Path.IsPathRooted(portableExecutable) ||
+             portableExecutable.Contains("..", StringComparison.Ordinal) ||
+             !string.Equals(Path.GetExtension(portableExecutable), ".exe", StringComparison.OrdinalIgnoreCase));
+        if (!validSource || string.IsNullOrWhiteSpace(destination) || invalidPortable ||
             (checksum.Length != 0 && (checksum.Length != 64 || !checksum.All(Uri.IsHexDigit))))
         {
-            _status.Text = T("Check the HTTPS address, magnet or local .torrent file, destination and optional 64-character SHA-256.",
-                             "Controlla indirizzo HTTPS, magnet o file .torrent locale, destinazione e SHA-256 facoltativo di 64 caratteri.");
+            _status.Text = T("Check address, destination and SHA-256. Auto-install additionally requires a ZIP filename, independent SHA-256, game title and relative .exe path.",
+                "Controlla indirizzo, destinazione e SHA-256. Per l'installazione automatica servono inoltre nome ZIP, SHA-256 indipendente, titolo e percorso .exe relativo.");
             return;
         }
 
@@ -234,13 +273,18 @@ internal sealed class GameDownloadsPanel : StackPanel
         {
             XamlRoot = XamlRoot,
             Title = T("Confirm download", "Conferma download"),
-            Content = kind == GameDownloadKinds.Http
-                ? T("Download from ", "Scaricare da ") + source!.Host + "?" +
-                    T(" The file is not verified as safe or licensed and will not be executed.",
-                      " Il file non è certificato come sicuro o autorizzato e non verrà eseguito.")
+            Content = (kind == GameDownloadKinds.Http
+                ? T("Download from ", "Scaricare da ") + source!.Host + "? " +
+                    T("The file is not automatically certified safe or licensed.",
+                      "Il file non è automaticamente certificato sicuro o autorizzato.")
                 : T(
-                    "Start a BitTorrent transfer for the source you chose? Peers and trackers can see your IP address and exchange pieces while the download runs. PaRuX stops seeding at completion and never installs the content. Download only material you have permission to share.",
-                    "Avviare il trasferimento BitTorrent scelto? Peer e tracker possono vedere il tuo indirizzo IP e scambiare parti durante il download. PaRuX interrompe il seeding al termine e non installa il contenuto. Scarica solo materiale che puoi condividere legalmente."),
+                    "Start the selected BitTorrent transfer? Peers and trackers can see your IP address and exchange pieces while the download runs. Download only content you are entitled to share.",
+                    "Avviare il trasferimento BitTorrent? Peer e tracker possono vedere il tuo indirizzo IP e scambiare parti durante il download. Scarica solo contenuti di cui hai i diritti."))
+                + (autoPortable
+                    ? T(" AFTER completion, PaRuX will check the independently supplied SHA-256, unpack the ZIP into its own managed game folder and register the specified executable. No setup, command or game will launch automatically. Continue?",
+                        " DOPO il completamento, PaRuX verificherà lo SHA-256 indipendente, estrarrà lo ZIP nella cartella giochi gestita e registrerà l'eseguibile indicato. Non partiranno setup, comandi o giochi automaticamente. Continuare?")
+                    : T(" Nothing will be unpacked or executed automatically.",
+                        " Nulla verrà estratto o eseguito automaticamente.")),
             PrimaryButtonText = T("Start", "Avvia"),
             CloseButtonText = T("Cancel", "Annulla"),
             DefaultButton = ContentDialogButton.Close
@@ -255,12 +299,19 @@ internal sealed class GameDownloadsPanel : StackPanel
                 string.IsNullOrWhiteSpace(_fileName.Text) ? null : _fileName.Text.Trim(),
                 checksum.Length == 0 ? null : checksum,
                 (_priority.SelectedItem as ComboBoxItem)?.Tag is int selectedPriority ? selectedPriority : 0,
-                kind);
+                kind, autoPortable, autoPortable ? portableExecutable : null,
+                autoPortable ? portableTitle : null);
             var result = await GamingOrchestratorClient.Current.EnqueueGameDownloadAsync(request);
             _status.Text = result.Succeeded
                 ? T("Download queued. Refresh to see its progress.", "Download in coda. Aggiorna per vedere l'avanzamento.")
                 : T("Download refused. Check the address, folder, available space or Gaming status.",
                     "Download rifiutato. Verifica indirizzo, cartella, spazio disponibile o stato Gaming.");
+            if (result.Succeeded && autoPortable)
+            {
+                _autoPortable.IsChecked = false;
+                _portableExe.Text = string.Empty;
+                _portableTitle.Text = string.Empty;
+            }
             if (result.Succeeded && kind != GameDownloadKinds.Http)
                 _url.Text = string.Empty; // do not keep magnet tracker addresses in the editable UI
         }
@@ -337,7 +388,8 @@ internal sealed class GameDownloadsPanel : StackPanel
                                  $"{jobs.Count} trasferimenti. L'avanzamento si aggiorna durante il download.");
             // Pause all UI polling as soon as work finishes or Gaming begins.
             if (Visibility == Visibility.Visible && !GamingManager.Current.IsActive &&
-                jobs.Any(x => x.State is GameDownloadStates.Running or GameDownloadStates.Queued))
+                jobs.Any(x => x.State is GameDownloadStates.Running or GameDownloadStates.Queued ||
+                              x.PostInstallState == GamePostInstallStates.Installing))
                 _activeRefresh.Start();
             else
                 _activeRefresh.Stop();
@@ -382,6 +434,20 @@ internal sealed class GameDownloadsPanel : StackPanel
         }
         if (!string.IsNullOrEmpty(job.Reason))
             card.Children.Add(new TextBlock { Text = job.Reason, TextWrapping = TextWrapping.Wrap });
+        if (job.PostInstallState != GamePostInstallStates.None)
+        {
+            string stage = job.PostInstallState switch
+            {
+                GamePostInstallStates.Pending => T("Portable install waiting for verified download", "Installazione portatile in attesa del download verificato"),
+                GamePostInstallStates.Installing => T("Extracting and adding to library…", "Estrazione e aggiunta alla libreria…"),
+                GamePostInstallStates.Installed => T("Portable game added to library (not launched)", "Gioco portatile aggiunto alla libreria (non avviato)"),
+                GamePostInstallStates.Interrupted => T("Portable installation interrupted; archive kept", "Installazione portatile interrotta; archivio conservato"),
+                _ => T("Portable installation refused; archive kept", "Installazione portatile rifiutata; archivio conservato")
+            };
+            var installStatus = new TextBlock { Text = stage, TextWrapping = TextWrapping.Wrap };
+            AutomationProperties.SetAutomationId(installStatus, "GameDownloads_PostInstall_" + job.Id);
+            card.Children.Add(installStatus);
+        }
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         if (job.State == GameDownloadStates.Completed)
@@ -412,7 +478,10 @@ internal sealed class GameDownloadsPanel : StackPanel
                 {
                     XamlRoot = XamlRoot,
                     Title = T("Confirm removal", "Conferma rimozione"),
-                    Content = GameDownloadStates.IsTerminal(job.State)
+                    Content = job.PostInstallState == GamePostInstallStates.Installing
+                        ? T("Stop the portable installation and remove this history entry? The downloaded ZIP is kept; incomplete managed extraction is rolled back.",
+                            "Interrompere l'installazione portatile e rimuovere questa voce? Lo ZIP scaricato rimane; l'estrazione incompleta viene annullata.")
+                        : GameDownloadStates.IsTerminal(job.State)
                         ? T("Remove this transfer from the history? Downloaded files are not deleted.",
                             "Rimuovere il trasferimento dalla cronologia? I file scaricati non saranno eliminati.")
                         : T("Cancel this transfer and remove its incomplete file?",
