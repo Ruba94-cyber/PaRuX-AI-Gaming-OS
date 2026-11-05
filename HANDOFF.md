@@ -1,3 +1,7 @@
+## 2026-11-05 — Legacy native process test capture recovered (SOURCE WIP)
+
+- Restored stdout/stderr separate native process collection and exit code preservation for .NET xUnit and Node browser gates, and Windows native/PowerShell failure sentinels via `-SelfTestNativeProcessCapture`. Old test runner from the feature branch was adapted to main's newer filters; other optional gates remain as before. Not yet run on Windows PowerShell/pwsh.
+
 ## 2026-11-05 — Recovered legacy Computer Use fail-closed checks (MAIN SOURCE WIP)
 
 - Compared all ten surviving non-main branches to main, including old PR branch trees. All six PRs are merged and all source paths exist on main; the sole legacy-only path is an internal `.ai/telemetry` log, intentionally NOT imported. Selectively recovered from the historical foundation branch three still-applicable security checks: reject malformed UIA windows anywhere in the observation, reject null cross-window final readbacks, and re-check the live selected-app lease and allowlist during single-window final proof. Added synthetic xUnit refusal scenarios. No blanket merge/overwrite of newer code.
