@@ -37,6 +37,8 @@ internal sealed class GameDownloadsPanel : StackPanel
     private readonly Button _enqueue = new();
     private readonly Button _refresh = new();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _torrentStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly DispatcherTimer _activeRefresh = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly StackPanel _jobs = new() { Spacing = 8 };
     private bool _busy;
 
@@ -158,9 +160,24 @@ internal sealed class GameDownloadsPanel : StackPanel
         AutomationProperties.SetAutomationId(_status, "GameDownloads_Status");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         _status.Text = T("No download starts without your confirmation.", "Nessun download parte senza una tua conferma.");
+        AutomationProperties.SetAutomationId(_torrentStatus, "GameDownloads_TorrentEngine_Status");
+        _torrentStatus.Text = T("BitTorrent engine: checking…", "Motore BitTorrent: verifica…");
+        Children.Add(_torrentStatus);
         Children.Add(_status);
         Children.Add(_jobs);
-        Loaded += async (_, _) => await RefreshAsync();
+        _activeRefresh.Tick += async (_, _) =>
+        {
+            // The timer is UI-only, in effect solely while active transfers are
+            // visible. Never poll the Core or compete with an active game.
+            if (!_busy && Visibility == Visibility.Visible && !GamingManager.Current.IsActive)
+                await RefreshAsync();
+        };
+        Loaded += async (_, _) =>
+        {
+            await RefreshTorrentStatusAsync();
+            await RefreshAsync();
+        };
+        Unloaded += (_, _) => _activeRefresh.Stop();
     }
 
     private string SelectedKind =>
@@ -255,6 +272,21 @@ internal sealed class GameDownloadsPanel : StackPanel
         await RefreshAsync();
     }
 
+    private async Task RefreshTorrentStatusAsync()
+    {
+        GamingCallResult<GameTorrentEngineStatusDto> result =
+            await GamingOrchestratorClient.Current.GetGameTorrentEngineAsync();
+        _torrentStatus.Text = result.Succeeded && result.Value is { } value
+            ? (value.EmbeddedAvailable
+                ? (value.NewJobTransport == "external"
+                    ? T("BitTorrent: optional external client selected. Single-file downloads only.",
+                        "BitTorrent: client esterno facoltativo selezionato. Solo torrent a file singolo.")
+                    : T("BitTorrent: integrated PaRuX engine. No external app needed. Single-file downloads only.",
+                        "BitTorrent: motore PaRuX integrato. Nessuna app esterna necessaria. Solo torrent a file singolo."))
+                : T("BitTorrent is disabled in Corporate Lite.", "BitTorrent disattivato in Corporate Lite."))
+            : T("BitTorrent engine status is unavailable.", "Stato del motore BitTorrent non disponibile.");
+    }
+
     private async Task ApplySpeedAsync()
     {
         if (_busy || Visibility != Visibility.Visible) return;
@@ -301,8 +333,14 @@ internal sealed class GameDownloadsPanel : StackPanel
             if (jobs.Count == 0)
                 _status.Text = T("No transfers yet.", "Nessun trasferimento.");
             else
-                _status.Text = T($"{jobs.Count} transfers. Refresh to update progress.",
-                                 $"{jobs.Count} trasferimenti. Aggiorna per vedere l'avanzamento.");
+                _status.Text = T($"{jobs.Count} transfers. Progress refreshes while downloads run.",
+                                 $"{jobs.Count} trasferimenti. L'avanzamento si aggiorna durante il download.");
+            // Pause all UI polling as soon as work finishes or Gaming begins.
+            if (Visibility == Visibility.Visible && !GamingManager.Current.IsActive &&
+                jobs.Any(x => x.State is GameDownloadStates.Running or GameDownloadStates.Queued))
+                _activeRefresh.Start();
+            else
+                _activeRefresh.Stop();
         }
         catch (Exception)
         {
@@ -330,6 +368,18 @@ internal sealed class GameDownloadsPanel : StackPanel
                 (job.IntegrityChecked ? T(" · SHA-256 verified", " · SHA-256 verificato") : ""),
             TextWrapping = TextWrapping.Wrap
         });
+        if (job.TotalBytes is > 0)
+        {
+            var meter = new ProgressBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Value = Math.Clamp(job.BytesDone * 100.0 / job.TotalBytes.Value, 0, 100),
+                Height = 7
+            };
+            AutomationProperties.SetAutomationId(meter, "GameDownloads_Progress_" + job.Id);
+            card.Children.Add(meter);
+        }
         if (!string.IsNullOrEmpty(job.Reason))
             card.Children.Add(new TextBlock { Text = job.Reason, TextWrapping = TextWrapping.Wrap });
 
