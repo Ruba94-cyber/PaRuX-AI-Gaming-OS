@@ -37,12 +37,16 @@ public sealed class KnowledgeJobService
 
     public KnowledgeIndex Index { get; }
 
-    public KnowledgeJobService(RagStore sources, KnowledgeIndex? index = null)
+    public KnowledgeJobService(RagStore sources, KnowledgeIndex? index = null, IRetrievalEmbeddingProvider? embedder = null)
     {
         _sources = sources;
-        Index = index ?? new KnowledgeIndex(PaRuXDataRoot.Combine("knowledge", "knowledge.db"),
-            new KnowledgeIndexOptions { ThrottleMilliseconds = 5 });
+        Index = index ?? CreateIndex(PaRuXDataRoot.Combine("knowledge", "knowledge.db"), embedder);
     }
+
+    /// <summary>The default index. The embedder is what makes Semantic/Hybrid search work: without it the index is lexical-only
+    /// (found in the Corporate Lite measurement run: 0 semantic hits for 50 queries).</summary>
+    public static KnowledgeIndex CreateIndex(string dbPath, IRetrievalEmbeddingProvider? embedder) =>
+        new(dbPath, new KnowledgeIndexOptions { ThrottleMilliseconds = 5 }, embedder);
 
     public bool HasData
     {

@@ -214,4 +214,36 @@ public sealed class KnowledgeIndexTests : IDisposable
     {
         await Assert.ThrowsAsync<DirectoryNotFoundException>(() => _index.IndexFolderAsync("s1", Path.Combine(_root, "nope")));
     }
+
+    /// <summary>Tiny deterministic embedder: one dimension per concept word.</summary>
+    private sealed class ConceptEmbedder : IRetrievalEmbeddingProvider
+    {
+        private static readonly string[] Concepts = { "pallet", "badge", "laptop", "invoice" };
+        public RetrievalEmbeddingIdentity Identity { get; } = new("test", "concepts", "1", 4, "none");
+        public bool IsAvailable => true;
+        public float RelevanceThreshold => 0.5f;
+        public float[]? TryEmbed(string text)
+        {
+            var v = Concepts.Select(c => text.Contains(c, StringComparison.OrdinalIgnoreCase) ? 1f : 0f).ToArray();
+            float n = MathF.Sqrt(v.Sum(x => x * x));
+            return n == 0 ? v : v.Select(x => x / n).ToArray();
+        }
+        public IReadOnlyList<float[]?> TryEmbedBatch(IReadOnlyList<string> texts) => texts.Select(TryEmbed).ToList();
+    }
+
+    [Fact]
+    public async Task Default_index_factory_wires_the_embedder_so_semantic_search_finds_chunks()
+    {
+        // Regression: KnowledgeJobService built its index without an embedder, so Semantic search silently returned nothing.
+        W("a.txt", "Stock on each pallet is rotated every two weeks.");
+        W("b.txt", "Weather was pleasant during the picnic.");
+        using KnowledgeIndex wired = KnowledgeJobService.CreateIndex(Path.Combine(_root, "wired.db"), new ConceptEmbedder());
+        await wired.IndexFolderAsync("s1", _docs, null, null, default);
+        IReadOnlyList<KnowledgeHit> hits = wired.Search("where are pallets kept", KnowledgeSearchMode.Semantic, 5, null);
+        Assert.Contains(hits, h => h.FileName == "a.txt");
+        Assert.DoesNotContain(hits, h => h.FileName == "b.txt");
+        using KnowledgeIndex plain = KnowledgeJobService.CreateIndex(Path.Combine(_root, "plain.db"), null);
+        await plain.IndexFolderAsync("s1", _docs, null, null, default);
+        Assert.Empty(plain.Search("where are pallets kept", KnowledgeSearchMode.Semantic, 5, null));
+    }
 }

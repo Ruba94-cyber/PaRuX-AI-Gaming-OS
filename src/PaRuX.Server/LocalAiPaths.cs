@@ -138,6 +138,33 @@ public static class LocalAiPaths
     public static readonly string[] KnownRuntimeBackends = { "text-cuda", "text-vulkan" };
 
     public static string RuntimeRoot => Path.Combine(Root, "runtime");
+
+    /// <summary>
+    /// Corporate Lite ships a CPU-only llama.cpp in "llama.cpp-{tag}-cpu". Returns the newest such folder that holds llama-server, or
+    /// null. Nothing else in the Core resolves CPU builds: the CUDA/Vulkan resolvers only know their own folder names.
+    /// </summary>
+    public static string? FindBundledCpuRuntime(string? runtimeRoot = null)
+    {
+        string root = runtimeRoot ?? RuntimeRoot;
+        if (!Directory.Exists(root)) return null;
+        return Directory.EnumerateDirectories(root, "llama.cpp-*-cpu")
+            .Where(d => File.Exists(Path.Combine(d, LlamaServerExecutable)))
+            .OrderByDescending(d => LlamaServerCapabilities.ParseBuildNumber(Path.GetFileName(d)) ?? -1)
+            .ThenByDescending(d => d, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    /// <summary>The model the Corporate Lite package carries: the (single) text GGUF in the models folder, never a projector.</summary>
+    public static string? FindBundledCorporateModel(string? modelsDirectory = null)
+    {
+        string dir = modelsDirectory ?? ModelDownloadService.ModelsDirectory;
+        if (!Directory.Exists(dir)) return null;
+        return Directory.EnumerateFiles(dir, "*.gguf", SearchOption.TopDirectoryOnly)
+            .Where(f => !Path.GetFileName(f).Contains("mmproj", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
     public static string RuntimeCudaPath
     {
         get
