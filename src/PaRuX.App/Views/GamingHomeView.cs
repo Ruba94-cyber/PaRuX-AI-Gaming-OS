@@ -48,6 +48,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _steamGridDb = new();
     private readonly Button _igdb = new();
     private readonly Button _externalPreview = new();
+    private readonly Button _externalSaved = new();
     private readonly Button _wishlist = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
@@ -132,7 +133,8 @@ internal sealed class GamingHomeView : StackPanel
 
     private static readonly string[] SortKeys = { GameTitleSorts.Name, GameTitleSorts.LastPlayed, GameTitleSorts.PlayTime, GameTitleSorts.RecentlyAdded };
     private static readonly string[] SourceKeys = { "", GameInstallationSources.Steam, GameInstallationSources.Epic, GameInstallationSources.Gog, GameInstallationSources.Manual, GameInstallationSources.Emulator,
-        GameInstallationSources.Ea, GameInstallationSources.BattleNet, GameInstallationSources.Ubisoft, GameInstallationSources.Xbox };
+        GameInstallationSources.Ea, GameInstallationSources.BattleNet, GameInstallationSources.Ubisoft, GameInstallationSources.Xbox,
+        GameInstallationSources.Playnite, GameInstallationSources.Heroic, GameInstallationSources.Lutris };
 
     private void LoadPreferences()
     {
@@ -242,6 +244,9 @@ internal sealed class GamingHomeView : StackPanel
         _source.Items.Add(Choice("Xbox", GameInstallationSources.Xbox));
         _source.Items.Add(Choice(T("Local on this PC", "Locale su questo PC"), GameInstallationSources.Manual));
         _source.Items.Add(Choice(T("Emulator", "Emulatore"), GameInstallationSources.Emulator));
+        _source.Items.Add(Choice("Playnite", GameInstallationSources.Playnite));
+        _source.Items.Add(Choice("Heroic", GameInstallationSources.Heroic));
+        _source.Items.Add(Choice("Lutris", GameInstallationSources.Lutris));
         _source.SelectedIndex = 0;
         Track(_source, "GameHome_SourceFilter", T("Filter by source", "Filtra per origine"));
 
@@ -342,11 +347,17 @@ internal sealed class GamingHomeView : StackPanel
         _igdb.IsEnabled = _metadata.IsChecked == true;
         _igdb.Click += async (_, _) => await OnIgdbKeyAsync();
 
-        _externalPreview.Content = T("Preview external library", "Anteprima libreria esterna");
+        _externalPreview.Content = T("Import library titles", "Importa titoli libreria");
         Track(_externalPreview, "GameHome_ExternalLibraryPreview_Button",
-            T("Preview Playnite, Heroic or Lutris JSON without importing",
-              "Anteprima JSON Playnite, Heroic o Lutris senza importare"));
+            T("Preview Playnite, Heroic or Lutris JSON before saving title-only metadata",
+              "Anteprima JSON Playnite, Heroic o Lutris prima di salvare solo i titoli"));
         _externalPreview.Click += async (_, _) => await ShowExternalLibraryPreviewAsync();
+
+        _externalSaved.Content = T("Imported titles", "Titoli importati");
+        Track(_externalSaved, "GameHome_ExternalLibrarySaved_Button",
+            T("Review or remove saved third-party library titles",
+              "Controlla o rimuovi i titoli salvati di librerie esterne"));
+        _externalSaved.Click += async (_, _) => await ShowSavedExternalLibraryAsync();
 
         _wishlist.Content = T("Wishlist", "Lista desideri");
         Track(_wishlist, "GameHome_Wishlist_Button",
@@ -366,7 +377,7 @@ internal sealed class GamingHomeView : StackPanel
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
                    _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _igdb, _externalPreview, _wishlist, _selectMode, _refresh })
+                   _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _wishlist, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -400,8 +411,8 @@ internal sealed class GamingHomeView : StackPanel
         panel.Children.Add(new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
-            Text = T("Preview only: no games, launch paths or settings will be imported.",
-                "Solo anteprima: non verranno importati giochi, percorsi di avvio o impostazioni.")
+            Text = T("Preview first, then optionally save titles and source IDs only. No launch paths or account data are imported.",
+                "Prima l'anteprima, poi puoi salvare solo titoli e identificativi. Nessun percorso di avvio o dato account viene importato.")
         });
         panel.Children.Add(provider);
         panel.Children.Add(json);
@@ -441,16 +452,97 @@ internal sealed class GamingHomeView : StackPanel
             var resultDialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = T("Preview results (not imported)", "Risultati anteprima (non importati)"),
+                Title = T("Preview results · title-only", "Risultati anteprima · solo titoli"),
                 Content = output,
-                CloseButtonText = T("Close", "Chiudi")
+                PrimaryButtonText = response.Succeeded && response.Value?.Count > 0
+                    ? T("Save titles only", "Salva solo i titoli") : string.Empty,
+                CloseButtonText = T("Close without saving", "Chiudi senza salvare"),
+                DefaultButton = ContentDialogButton.Close
             };
-            await resultDialog.ShowAsync();
+            if (await resultDialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                GamingCallResult<ExternalLibraryImportResultDto> imported =
+                    await GamingLibraryClient.Current.ImportExternalLibraryAsync(source, json.Text, consent: true);
+                if (imported.Succeeded && imported.Value is { } outcome)
+                {
+                    _status.Text = T($"Imported {outcome.Added} titles ({outcome.AlreadyPresent} already saved). Nothing was launched.",
+                        $"Importati {outcome.Added} titoli ({outcome.AlreadyPresent} già salvati). Nessun gioco è stato avviato.");
+                    await ReloadAsync(refresh: true);
+                }
+                else
+                    _status.Text = T("Import failed; nothing was added.",
+                        "Importazione non riuscita; non è stato aggiunto nulla.");
+            }
         }
         finally
         {
             _externalPreview.IsEnabled = true;
         }
+    }
+
+    /// <summary>Metadata-only review and individual deletion, never game file deletion.</summary>
+    private async Task ShowSavedExternalLibraryAsync()
+    {
+        _externalSaved.IsEnabled = false;
+        try
+        {
+            GamingCallResult<List<ExternalLibraryGamePreviewDto>> response =
+                await GamingLibraryClient.Current.GetImportedLibraryAsync();
+            if (!response.Succeeded || response.Value is null)
+            {
+                _status.Text = T("Saved external titles could not be loaded.",
+                    "Impossibile leggere i titoli esterni salvati.");
+                return;
+            }
+            var list = new ListView { MaxHeight = 360, SelectionMode = ListViewSelectionMode.Single };
+            AutomationProperties.SetAutomationId(list, "GameHome_ExternalLibrarySaved_List");
+            foreach (ExternalLibraryGamePreviewDto game in response.Value
+                .OrderBy(g => g.Title, StringComparer.CurrentCultureIgnoreCase))
+                list.Items.Add(new ListViewItem
+                {
+                    Content = game.Title + " [" + game.Provider + ": " + game.ExternalId + "]",
+                    Tag = game
+                });
+            var content = new StackPanel { Spacing = 8 };
+            content.Children.Add(new TextBlock
+            {
+                Text = T("Saved titles only, not installed games. Select an item to forget its metadata. Game files are never deleted.",
+                    "Solo titoli salvati, non giochi installati. Seleziona una voce per eliminarne i metadati. Nessun file del gioco sarà cancellato."),
+                TextWrapping = TextWrapping.Wrap
+            });
+            content.Children.Add(list);
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Imported game titles", "Titoli giochi importati"),
+                Content = content,
+                PrimaryButtonText = response.Value.Count > 0
+                    ? T("Remove selected", "Rimuovi selezionato") : string.Empty,
+                CloseButtonText = T("Close", "Chiudi"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary ||
+                list.SelectedItem is not ListViewItem { Tag: ExternalLibraryGamePreviewDto selected })
+                return;
+            var confirm = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Remove imported title?", "Rimuovere il titolo importato?"),
+                Content = T("Only the saved title and ID will be removed. No original game or launcher is changed.",
+                    "Verranno rimossi solo titolo e identificativo salvati. Giochi e launcher originali non saranno modificati."),
+                PrimaryButtonText = T("Remove metadata", "Rimuovi metadati"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            GamingCallResult<object> result =
+                await GamingLibraryClient.Current.RemoveImportedLibraryGameAsync(selected.Provider, selected.ExternalId);
+            _status.Text = result.Succeeded
+                ? T("Imported metadata removed; game files unchanged.", "Metadati rimossi; file dei giochi invariati.")
+                : T("Could not remove imported title.", "Impossibile rimuovere il titolo importato.");
+            if (result.Succeeded) await ReloadAsync(refresh: true);
+        }
+        finally { _externalSaved.IsEnabled = true; }
     }
 
     private void RebuildPresetChoices(string? select)

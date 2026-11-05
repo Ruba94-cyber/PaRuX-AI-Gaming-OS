@@ -1,3 +1,7 @@
+## 2026-11-05 — External library IT/EN owner import and metadata manager (MAIN SOURCE WIP)
+
+- Gaming Home now offers a second explicit Save titles only action AFTER preview; saved entries are individually removable with separate confirmation. Source filters and labels distinguish uninstalled metadata-only titles. Typed owner client methods added. Windows UI compilation/FlaUI/13-inch/controller testing pending.
+
 ## 2026-11-05 — External library title-only opt-in import (MAIN SOURCE WIP)
 
 - Added `ExternalGameLibraryStore` and explicit desktop-owner import/list/remove API for Playnite/Heroic/Lutris JSON. Import saves only validated provider, title and external ID (never export launch paths, arguments or credentials); duplicate IDs do not silently replace names. 1000 saved entries maximum, bounded versioned file, cross-process lease, safe non-link storage, atomic replace; Gaming Mode disallows import/removal. Preview stays read-only.

@@ -86,6 +86,9 @@ internal static class GameUi
         GameInstallationSources.BattleNet => "Battle.net",
         GameInstallationSources.Ubisoft => "Ubisoft Connect",
         GameInstallationSources.Xbox => "Xbox",
+        GameInstallationSources.Playnite => "Playnite",
+        GameInstallationSources.Heroic => "Heroic",
+        GameInstallationSources.Lutris => "Lutris",
         GameInstallationSources.Emulator => string.IsNullOrWhiteSpace(i.EmulatorName)
             ? T("Emulator", "Emulatore")
             : T("Emulator · ", "Emulatore · ") + i.EmulatorName,
@@ -97,6 +100,7 @@ internal static class GameUi
         GameInstallStates.Installed => T("Installed", "Installato"),
         GameInstallStates.Updating => T("Updating", "In aggiornamento"),
         GameInstallStates.Incomplete => T("Incomplete", "Incompleto"),
+        GameInstallStates.MetadataOnly => T("Imported title only · not installed", "Solo titolo importato · non installato"),
         _ => T("State unknown", "Stato sconosciuto"),
     };
 

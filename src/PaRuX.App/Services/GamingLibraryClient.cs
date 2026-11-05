@@ -99,6 +99,23 @@ namespace PaRuX.Services
                 "/api/v1/gaming/library/import-preview",
                 new ExternalLibraryPreviewRequest(provider, json), ct);
 
+        /// <summary>Persist only title/provider/external ID after independent owner confirmation.</summary>
+        public Task<GamingCallResult<ExternalLibraryImportResultDto>> ImportExternalLibraryAsync(
+            string provider, string json, bool consent, CancellationToken ct = default) =>
+            SendAsync<ExternalLibraryImportResultDto>(HttpMethod.Post, "/api/v1/gaming/library/import",
+                new ExternalLibraryImportRequest(provider, json, consent), ct);
+
+        public Task<GamingCallResult<List<ExternalLibraryGamePreviewDto>>> GetImportedLibraryAsync(
+            CancellationToken ct = default) =>
+            SendAsync<List<ExternalLibraryGamePreviewDto>>(HttpMethod.Get,
+                "/api/v1/gaming/library/imported", null, ct);
+
+        public Task<GamingCallResult<object>> RemoveImportedLibraryGameAsync(
+            string provider, string externalId, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Delete,
+                "/api/v1/gaming/library/imported/" + Uri.EscapeDataString(provider) +
+                "/" + Uri.EscapeDataString(externalId), null, ct);
+
         /// <summary>Read locally saved wishlist metadata. Never calls a game store.</summary>
         public Task<GamingCallResult<List<LocalWishlistItemDto>>> GetWishlistAsync(CancellationToken ct = default) =>
             SendAsync<List<LocalWishlistItemDto>>(HttpMethod.Get, "/api/v1/gaming/wishlist", null, ct);
