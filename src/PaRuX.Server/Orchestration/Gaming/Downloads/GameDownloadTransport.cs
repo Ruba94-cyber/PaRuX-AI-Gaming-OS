@@ -37,6 +37,8 @@ internal sealed class GameDownloadJob
     public CancellationTokenSource? Run;
     public bool UserPause;
     /// <summary>Handle of the job inside an external client (torrent info-hash). Session-local.</summary>
+    /// <summary>The transfer backend chosen when queued; changing external-client settings does not switch an active job.</summary>
+    public IGameDownloadTransport? ChosenTransport { get; init; }
     public volatile string? ExternalId;
     /// <summary>Torrent info-hash (hex), known from the validated magnet or .torrent file.</summary>
     public string? InfoHash { get; init; }
