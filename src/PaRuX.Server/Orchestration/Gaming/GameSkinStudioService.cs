@@ -85,6 +85,61 @@ public sealed class GameSkinStudioService
         finally { _generationLease.Release(); }
     }
 
+    /// <summary>
+    /// UV-preserving edit of an existing skin: local AI generates a material
+    /// reference; only the selected existing Minecraft faces are recoloured.
+    /// Original shape, UV coordinates, alpha and all other parts are retained.
+    /// The caller sees a preview and must separately approve any PNG export.
+    /// </summary>
+    public async Task<GameSkinDraftDto> RestyleDraftAsync(GameSkinRestyleRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateRequest(new GameSkinDraftRequest(request.Prompt, request.ArmStyle));
+        MinecraftSkinUvRestyler.ValidateSelection(request.Part, request.ArmStyle);
+        if (string.IsNullOrWhiteSpace(request.OriginalPngBase64) ||
+            request.OriginalPngBase64.Length > MinecraftSkinUvRestyler.MaximumSkinBytes * 2)
+            throw new ArgumentException("The original skin PNG is missing or too large.");
+        byte[] basePng;
+        try { basePng = Convert.FromBase64String(request.OriginalPngBase64); }
+        catch (FormatException ex) { throw new ArgumentException("The original skin is not valid base64 PNG.", ex); }
+        MinecraftSkinUvRestyler.ValidateSkinPng(basePng);
+        if (_gamingActive()) throw new InvalidOperationException("Exit Gaming Mode before AI image generation.");
+        if (!await _generationLease.WaitAsync(0, ct).ConfigureAwait(false))
+            throw new InvalidOperationException("A skin generation is already in progress.");
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            if (_gamingActive()) throw new InvalidOperationException("Gaming Mode is active.");
+            string prompt = "Create a TILEABLE, flat, full-frame pixel-art MATERIAL/TEXTURE sample for recolouring " +
+                "the " + request.Part + " of an existing Minecraft Java player skin. " +
+                "No character figure, scenery, white background, words, logos or perspective. " +
+                "Fill the entire square canvas with material colours and pixel textures. " +
+                "User request: " + request.Prompt.Trim();
+            byte[] reference = await _generate(prompt, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            if (_gamingActive())
+                throw new OperationCanceledException("Gaming started; generated material was not applied.", ct);
+            byte[] restyled = MinecraftSkinUvRestyler.Recolour(basePng, reference,
+                request.Part, request.ArmStyle);
+            lock (_gate)
+            {
+                PruneExpired();
+                if (_drafts.Count >= MaxPendingDrafts)
+                    throw new InvalidOperationException("Review or export an existing draft before creating more.");
+                var draft = new Draft(Guid.NewGuid().ToString("N"), request.ArmStyle,
+                    restyled, DateTime.UtcNow.Add(DraftLifetime));
+                _drafts.Add(draft.Id, draft);
+                return ToDto(draft) with
+                {
+                    Advisory = "Recoloured only existing Minecraft UV surfaces for " + request.Part +
+                        "; original shape/transparency and other parts are preserved. " +
+                        "Generated material may require visual refinement. Review and export manually; no game files changed."
+                };
+            }
+        }
+        finally { _generationLease.Release(); }
+    }
+
     public GameSkinExportDto Export(GameSkinExportRequest request)
     {
         if (request is null || !request.Consent)
