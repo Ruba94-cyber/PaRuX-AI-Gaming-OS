@@ -27,6 +27,7 @@ public sealed class GamingDownloadsAndDevicesUiTests
             OpenGames(app);
             var sourceKind = UiWait.ById(app.MainWindow, "GameDownloads_Kind", ControlType.ComboBox);
             var torrentStatus = UiWait.ById(app.MainWindow, "GameDownloads_TorrentEngine_Status", ControlType.Text);
+            var portableInstall = UiWait.ById(app.MainWindow, "GameDownloads_AutoPortable", ControlType.CheckBox);
             var url = UiWait.ById(app.MainWindow, "GameDownloads_Url", ControlType.Edit);
             var destination = UiWait.ById(app.MainWindow, "GameDownloads_Destination", ControlType.Edit);
             var browse = UiWait.ById(app.MainWindow, "GameDownloads_Browse", ControlType.Button);
@@ -39,12 +40,17 @@ public sealed class GamingDownloadsAndDevicesUiTests
             var refresh = UiWait.ById(app.MainWindow, "GameDownloads_Refresh", ControlType.Button);
             var status = UiWait.ById(app.MainWindow, "GameDownloads_Status", ControlType.Text);
 
-            foreach (AutomationElement control in new[] { sourceKind, url, destination, browse, fileName, sha, priority, speed, applySpeed, start, refresh })
+            foreach (AutomationElement control in new[] { sourceKind, portableInstall, url, destination, browse, fileName, sha, priority, speed, applySpeed, start, refresh })
                 Assert.False(string.IsNullOrWhiteSpace(control.Name));
             Assert.False(string.IsNullOrWhiteSpace(status.Name));
             Assert.False(string.IsNullOrWhiteSpace(torrentStatus.Name));
             // The .torrent picker must remain collapsed in the default HTTPS mode.
             Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameDownloads_TorrentBrowse")));
+            // Auto-deployment must never be selected by default. Its executable
+            // and game-title controls are deliberately collapsed until the owner
+            // opts in, so no post-download code path runs after an ordinary download.
+            Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameDownloads_PortableExe")));
+            Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameDownloads_PortableTitle")));
 
             // The initial read must finish first, otherwise it could overwrite the validation message below.
             UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault, "the downloads panel finished its initial read");
