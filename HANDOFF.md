@@ -25,6 +25,28 @@ Truth order: code > tests > live evidence > PARUX_EXECUTION_PLAN.md. Repo is PUB
 - Agent branches (worktree-agent-*) are all merged into main; WIP of stopped agents was committed on their branches.
 
 ## 2026-11-05 continuation on main: manual Steam prices (WIP)
+## 2026-11-05 continuation on main: native torrent transfers (GOS-13, SOURCE WIP)
+
+Owner asked for Hydra-like in-app torrent management without qBittorrent as a mandatory external program. Existing HTTPS queue plus an optional qBittorrent WebUI adapter were preserved. **Source implemented on `main`, NOT BUILT/TESTED on Windows:** `src/PaRuX.Server/Orchestration/Gaming/Downloads/EmbeddedTorrentTransport.cs` uses MIT `MonoTorrent 3.0.2` packaged in Core, limited to explicitly user-selected v1 single-file magnets/`.torrent`; per-job transport assignment and new DI registration; no implicit torrent catalogue or repack sources. Existing queue pause/cancel, Gaming hard-off, rehash before publish and optional external qBittorrent remain. UI Games Downloads now supports source kind + local .torrent picker, consent warning about peers seeing IP, accessible progress indicators and visible-activity-only refresh; client/status owner-only endpoint. Corporate Lite denies Gaming endpoints. `THIRD_PARTY_NOTICES.md`, README and canonical plan are updated.
+
+**The most important blockers before release:** NuGet restore and actual MonoTorrent v3.0.2 compile/API check, offline synthetic metadata xUnit, complete single-file torrent transfer with local legal fixture swarm, abort/interrupt/resume without staging deletion, no port leak/seeding after completion, active Gaming suspension, speed cap, disk-full/corrupt/linked-file scenarios, mono torrent v1/hybrid handling, owner-only API, FlaUI IT/EN at 13-inch and controller. `GameDownloadTorrentTests` still tests the optional external client with a fake qBittorrent; `EmbeddedTorrentTransportTests` is source-authored but unrun. Multifile atomic folder publication and crash/restart persistence of user-provided sources remain **MISSING**.
+
+Run on the development Windows PC (one FlaUI suite at a time; no GitHub Actions):
+
+```powershell
+git switch main
+git pull --ff-only
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
+dotnet restore src/PaRuX.App/PaRuX.App.csproj -p:Platform=x64
+dotnet build src/PaRuX.App -p:Platform=x64
+dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~EmbeddedTorrentTransportTests|FullyQualifiedName~GameDownloadTorrentTests|FullyQualifiedName~GameDownloadManagerTests|FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate-license-inventory.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Regression
+```
+
+Do not cut/sign/tag release 3.1.0 until the full Windows acceptance procedure passes. No source here was run in the cloud. No claim of parity with all Hydra torrent features, torrent v2/hybrid or multi-file game repacks.
+
+
 
 - **Implemented in source on main, no build/tests run in this cloud session:** explicit manual POST `/api/v1/gaming/wishlist/{productId}/quote` requires desktop-owner authorization and `Consent=true`, the existing separately enabled Game Discover consent, a saved valid numeric Steam ID/country, and Gaming inactive. Only requests `https://store.steampowered.com/api/appdetails` with fixed parameters. Store `cc` is **requested**, not a verified Steam-account region; results only shown as an indicative quote, never automatically notified or persisted.
 - Reuses `SteamStoreCatalogProvider` with bounded HTTPS-only no-redirect/no-cookie/timeout policy and shared per-host rate limiter; `GameDiscoverRuntime` now keys its `ConditionalWeakTable` by `IHostApplicationLifetime` so request DI scopes do not reset the limiter. Rechecks Game Discover/Gaming and the current wishlist record after fetching. App has a one-click bilingual quote button and an accessible status area. No polling, Steam account login, purchases or free-price assumptions.
