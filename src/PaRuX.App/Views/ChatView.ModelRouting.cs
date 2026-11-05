@@ -107,6 +107,192 @@ namespace PaRuX.Views
             await dialog.ShowAsync();
         }
 
+        private bool _quickModelCompareBusy;
+
+        /// <summary>
+        /// Explicit Advanced Chat action; model selection, comparison and cancellation all
+        /// use the local Arena. Nothing changes the Chat router, active model or persona.
+        /// Results are refreshed only by a user click, never by background polling.
+        /// </summary>
+        private async void QuickModelCompareButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_quickModelCompareBusy) return;
+            _quickModelCompareBusy = true;
+            QuickModelCompareButton.IsEnabled = false;
+            string L(string en, string it) => ChatItalian ? it : en;
+            try
+            {
+                var models = _chatModelCatalog
+                    .Where(m => !string.IsNullOrWhiteSpace(m.FileName))
+                    .GroupBy(m => m.FileName, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First()).ToList();
+                if (models.Count < 2)
+                {
+                    ShowTransientStatus(L("Install two local models before comparing them.",
+                        "Installa due modelli locali prima di confrontarli."));
+                    return;
+                }
+
+                ComboBox ModelPicker(string id)
+                {
+                    var picker = new ComboBox
+                    {
+                        Header = L("Installed model", "Modello installato"),
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        MinWidth = 220
+                    };
+                    foreach (ManagedModelInfo model in models)
+                    {
+                        string title = string.IsNullOrWhiteSpace(model.Alias)
+                            ? model.FileName : model.Alias + " (" + model.FileName + ")";
+                        picker.Items.Add(new ComboBoxItem { Content = title, Tag = model.FileName });
+                    }
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(picker, id);
+                    return picker;
+                }
+
+                var first = ModelPicker("Chat_QuickCompare_FirstModel");
+                var second = ModelPicker("Chat_QuickCompare_SecondModel");
+                first.SelectedIndex = 0;
+                second.SelectedIndex = 1;
+                var prompt = new TextBox
+                {
+                    Header = L("Same question for both models", "Stessa domanda per entrambi i modelli"),
+                    PlaceholderText = L("Type a question to compare", "Scrivi una domanda da confrontare"),
+                    AcceptsReturn = true,
+                    TextWrapping = TextWrapping.Wrap,
+                    MinHeight = 100,
+                    MaxHeight = 200,
+                    MaxLength = 4000
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    prompt, "Chat_QuickCompare_Prompt");
+
+                var controls = new StackPanel { Spacing = 10, MaxWidth = 650 };
+                controls.Children.Add(new TextBlock
+                {
+                    Text = L("Runs two installed local models sequentially through Core. Your normal Chat model stays unchanged.",
+                        "Esegue due modelli locali in sequenza tramite il Core. Il modello della Chat rimane invariato."),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                controls.Children.Add(first);
+                controls.Children.Add(second);
+                controls.Children.Add(prompt);
+
+                var choose = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = L("Compare two local models", "Confronta due modelli locali"),
+                    Content = new ScrollViewer { Content = controls, MaxHeight = 450 },
+                    PrimaryButtonText = L("Start comparison", "Avvia confronto"),
+                    CloseButtonText = L("Cancel", "Annulla"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+                if (await choose.ShowAsync() != ContentDialogResult.Primary) return;
+
+                string one = (first.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+                string two = (second.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+                if (string.IsNullOrWhiteSpace(prompt.Text)
+                    || string.Equals(one, two, StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowTransientStatus(L("Choose two different models and enter a question.",
+                        "Scegli due modelli diversi e inserisci una domanda."));
+                    return;
+                }
+
+                ArenaRunDto run = await ModelArenaClient.Current.StartQuickCompareAsync(
+                    one, two, prompt.Text, 256, CancellationToken.None);
+                await ShowQuickModelCompareResultsAsync(run.Id);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Quick model comparison action failed: " + ex.GetType().Name);
+                ShowTransientStatus(L("Local model comparison is unavailable. Check Core, installed models and Gaming Mode.",
+                    "Confronto locale non disponibile. Controlla Core, modelli installati e modalità Gaming."));
+            }
+            finally
+            {
+                _quickModelCompareBusy = false;
+                QuickModelCompareButton.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Explicit user refresh. Never invents answers, quality rankings or GPU evidence.
+        /// Closing leaves the Core run intact; Cancel sends the existing Arena cancel action.
+        /// </summary>
+        private async Task ShowQuickModelCompareResultsAsync(string runId)
+        {
+            string L(string en, string it) => ChatItalian ? it : en;
+            for (int refreshCount = 0; refreshCount < 30; refreshCount++)
+            {
+                ArenaQuickCompareViewDto view =
+                    await ModelArenaClient.Current.GetQuickCompareAsync(runId, ChatItalian, CancellationToken.None);
+
+                var left = new TextBox
+                {
+                    Header = view.Left.ModelFileName + " — " + view.Left.StatusText,
+                    Text = view.Left.AnswerAvailable ? view.Left.AnswerText :
+                        L("No completed answer yet.", "Nessuna risposta completata."),
+                    IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+                    MinHeight = 150, MaxHeight = 320
+                };
+                var right = new TextBox
+                {
+                    Header = view.Right.ModelFileName + " — " + view.Right.StatusText,
+                    Text = view.Right.AnswerAvailable ? view.Right.AnswerText :
+                        L("No completed answer yet.", "Nessuna risposta completata."),
+                    IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+                    MinHeight = 150, MaxHeight = 320
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    left, "Chat_QuickCompare_LeftAnswer");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    right, "Chat_QuickCompare_RightAnswer");
+
+                var columns = new Grid { ColumnSpacing = 10, MinWidth = 560 };
+                columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                Grid.SetColumn(right, 1);
+                columns.Children.Add(left);
+                columns.Children.Add(right);
+
+                var layout = new StackPanel { Spacing = 12 };
+                layout.Children.Add(new TextBlock
+                {
+                    Text = view.StatusText,
+                    TextWrapping = TextWrapping.Wrap,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                });
+                layout.Children.Add(columns);
+                var result = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = L("Local model comparison", "Confronto modelli locali"),
+                    Content = new ScrollViewer
+                    {
+                        Content = layout,
+                        MaxHeight = 440,
+                        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+                    },
+                    PrimaryButtonText = L("Refresh answers", "Aggiorna risposte"),
+                    SecondaryButtonText = L("Cancel run", "Annulla esecuzione"),
+                    CloseButtonText = L("Close (run continues)", "Chiudi (l'esecuzione continua)"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+                result.Resources["ContentDialogMaxWidth"] = 760d;
+                ContentDialogResult action = await result.ShowAsync();
+                if (action == ContentDialogResult.Secondary)
+                {
+                    await ModelArenaClient.Current.CancelAsync(runId, CancellationToken.None);
+                    return;
+                }
+                if (action != ContentDialogResult.Primary) return;
+            }
+            ShowTransientStatus(L("Refresh limit reached. Reopen comparison from the Arena history.",
+                "Limite aggiornamenti raggiunto. Riapri il confronto dalla cronologia Arena."));
+        }
+
         private static string PrettyAutoProfile(string profile) => profile switch
         {
             AutoIntelligenceProfile.MaxIntelligence => "Max intelligence",
