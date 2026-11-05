@@ -13,8 +13,9 @@ using PaRuX.Services;
 namespace PaRuX.Views;
 
 /// <summary>
-/// Compact, explicit, offline Steam wishlist editor. This is not a price-monitoring
-/// service: it never fetches prices, schedules polling or generates notifications.
+/// Compact, local-first Steam wishlist editor. This is not a monitoring
+/// service: only the explicit one-shot quote button can fetch a price. It never
+/// schedules polling or generates notifications.
 /// Uses the desktop-owner control plane and respects the Gaming hard-off in Core.
 /// </summary>
 internal static class GamingWishlistDialog
@@ -91,8 +92,8 @@ internal static class GamingWishlistDialog
             var panel = new StackPanel { Spacing = 12, MaxWidth = 490 };
             panel.Children.Add(new TextBlock
             {
-                Text = T("Only a private list and optional price threshold. No price checks, alerts, purchases or store login run automatically.",
-                    "Solo una lista privata e una soglia prezzo facoltativa. Non vengono avviati controlli prezzi, avvisi, acquisti o accessi allo store."),
+                Text = T("Your list stays on this PC. Only the Check price button contacts the Steam storefront, after Game Discover has been enabled. Nothing checks prices, sends alerts or makes purchases automatically.",
+                    "La lista resta su questo PC. Solo il pulsante Controlla prezzo contatta lo store Steam, dopo aver abilitato Game Discover. Nessun controllo automatico, avviso o acquisto."),
                 TextWrapping = TextWrapping.Wrap
             });
             panel.Children.Add(selection);
@@ -148,7 +149,7 @@ internal static class GamingWishlistDialog
             var dialog = new ContentDialog
             {
                 XamlRoot = root,
-                Title = T("Steam wishlist · offline", "Lista desideri Steam · offline"),
+                Title = T("Steam wishlist · local-first", "Lista desideri Steam · locale"),
                 Content = panel,
                 PrimaryButtonText = T("Add game", "Aggiungi gioco"),
                 SecondaryButtonText = T("Change watch setting", "Cambia controllo prezzi"),
