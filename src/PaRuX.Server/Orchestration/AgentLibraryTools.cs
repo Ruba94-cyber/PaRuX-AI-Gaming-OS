@@ -887,7 +887,7 @@ public sealed class AgentLibraryTools
             case "proposed_text":
                 if (v.ValueKind != JsonValueKind.String ||
                     v.GetString() is not { } proposalText ||
-                    proposalText.Length > 2048 || proposalText.Contains('\\0'))
+                    proposalText.Length > 2048 || proposalText.Contains('\0'))
                 {
                     error = "The game mod proposal must be up to 2048 characters of plain text.";
                     return false;
