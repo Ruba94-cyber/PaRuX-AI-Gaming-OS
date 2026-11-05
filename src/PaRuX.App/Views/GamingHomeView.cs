@@ -48,6 +48,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _steamGridDb = new();
     private readonly Button _igdb = new();
     private readonly Button _externalPreview = new();
+    private readonly Button _wishlist = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
@@ -345,6 +346,17 @@ internal sealed class GamingHomeView : StackPanel
               "Anteprima JSON Playnite, Heroic o Lutris senza importare"));
         _externalPreview.Click += async (_, _) => await ShowExternalLibraryPreviewAsync();
 
+        _wishlist.Content = T("Wishlist", "Lista desideri");
+        Track(_wishlist, "GameHome_Wishlist_Button",
+            T("Manage your offline Steam wishlist and explicit price thresholds",
+              "Gestisci la lista desideri Steam locale e le soglie prezzo esplicite"));
+        _wishlist.Click += async (_, _) =>
+        {
+            _wishlist.IsEnabled = false;
+            try { await GamingWishlistDialog.ShowAsync(XamlRoot); }
+            finally { _wishlist.IsEnabled = true; }
+        };
+
         _refresh.Content = T("Refresh", "Aggiorna");
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
@@ -352,7 +364,7 @@ internal sealed class GamingHomeView : StackPanel
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
                    _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _igdb, _externalPreview, _selectMode, _refresh })
+                   _metadata, _steamGridDb, _igdb, _externalPreview, _wishlist, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
