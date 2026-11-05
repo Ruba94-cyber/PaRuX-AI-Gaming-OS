@@ -42,6 +42,7 @@ internal sealed class GameDownloadJob
     public string? PublishedPath;
     public DateTime? FinishedUtc;
     public CancellationTokenSource? Run;
+    public CancellationTokenSource? InstallerRun; // separate from transfer, including explicit retries
     public bool UserPause;
     /// <summary>Handle of the job inside an external client (torrent info-hash). Session-local.</summary>
     /// <summary>The transfer backend chosen when queued; changing external-client settings does not switch an active job.</summary>
