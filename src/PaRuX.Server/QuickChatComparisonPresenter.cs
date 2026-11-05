@@ -15,6 +15,18 @@ public sealed record QuickChatComparisonPresentation(
 
 public static class QuickChatComparisonPresenter
 {
+    /// <summary>Shared wire projection; no inferred timing, quality ranking or missing answer.</summary>
+    public static ArenaQuickCompareViewDto ToDto(ArenaRunDto? run, bool italian)
+    {
+        QuickChatComparisonPresentation p = Build(run, italian);
+        return new ArenaQuickCompareViewDto(p.Ready, p.Prompt, p.StatusText,
+            new ArenaQuickCompareColumnDto(p.Left.ModelFileName, p.Left.StatusText,
+                p.Left.AnswerText, p.Left.AnswerAvailable),
+            new ArenaQuickCompareColumnDto(p.Right.ModelFileName, p.Right.StatusText,
+                p.Right.AnswerText, p.Right.AnswerAvailable),
+            p.UserPreferredModel);
+    }
+
     public static QuickChatComparisonPresentation Build(ArenaRunDto? run, bool italian)
     {
         static QuickChatComparisonColumn Empty() => new(string.Empty, string.Empty, string.Empty, false);
