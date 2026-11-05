@@ -99,7 +99,8 @@ namespace PaRuX.Services
             }
             catch (OperationCanceledException) { return Refuse("Selective apply cancelled before staging."); }
             catch (Exception ex) when (ex is FormatException or ArgumentException or
-                IOException or UnauthorizedAccessException or DecoderFallbackException)
+                IOException or UnauthorizedAccessException or DecoderFallbackException
+                or System.Security.SecurityException)
             { return Refuse("The reviewed patch or source encoding is invalid: " + ex.Message); }
 
             // A private source folder feeds the existing durable rollback engine;
@@ -115,6 +116,8 @@ namespace PaRuX.Services
                 if (!ShadowApplyPathPolicy.IsSafe(stageRoot, root, relativePath))
                     return Refuse("Staging path became unsafe.");
                 byte[] candidateBytes = StrictUtf8.GetBytes(preview.CandidateText!);
+                if (candidateBytes.Length > MaximumFileBytes)
+                    return Refuse("Approved result exceeds the safe on-disk text limit.");
                 if (!string.Equals(Convert.ToHexString(SHA256.HashData(candidateBytes)),
                     approvedCandidateSha256, StringComparison.OrdinalIgnoreCase))
                     return Refuse("Staged bytes differ from the approved result.");
