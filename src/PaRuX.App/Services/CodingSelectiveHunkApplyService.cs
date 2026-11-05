@@ -23,6 +23,63 @@ namespace PaRuX.Services
         private const int MaximumFileBytes = 4_000_000;
         private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
+        /// <summary>
+        /// Read-only preview for the owner UI. The returned SHA-256 preimage
+        /// and postimage are the exact values later required by Apply. This
+        /// method never grants permission to change files or contacts Core.
+        /// </summary>
+        public static CodingHunkPreviewResult PreparePreview(
+            string targetRoot, string relativePath, string reviewedUnifiedDiff,
+            IReadOnlyList<CodingReviewChoice> decisions)
+        {
+            CodingHunkPreviewResult Refuse(string why) => new(false, null, string.Empty, null, why);
+            if (string.IsNullOrWhiteSpace(targetRoot) || string.IsNullOrWhiteSpace(relativePath)
+                || string.IsNullOrWhiteSpace(reviewedUnifiedDiff)
+                || reviewedUnifiedDiff.Length > 2_000_000 || decisions is null)
+                return Refuse("No valid, scoped reviewed diff and choices were provided.");
+            try
+            {
+                string root = Path.GetFullPath(targetRoot);
+                if ((OperatingSystem.IsWindows() && root.StartsWith(@"\\", StringComparison.Ordinal))
+                    || !Directory.Exists(root) || HasLinkedAncestor(root)
+                    || relativePath.Replace('\\', '/').Split('/').Any(part =>
+                        string.Equals(part, ".git", StringComparison.OrdinalIgnoreCase))
+                    || !ShadowApplyPathPolicy.IsSafe(root, root, relativePath))
+                    return Refuse("Refused unsafe workspace path.");
+                string target = Path.Combine(root, relativePath);
+                FileInfo info = new(target);
+                if (!info.Exists || info.LinkTarget is not null
+                    || (info.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0
+                    || info.Length > MaximumFileBytes)
+                    return Refuse("This file is not a supported, existing regular UTF-8 file.");
+                byte[] source = ReadBoundedBytes(target);
+                if (HasUtf8Bom(source)) return Refuse("BOM-encoded files require full-file review.");
+                string text = StrictUtf8.GetString(source);
+                if (text.Contains('\0')) return Refuse("Binary-like source is unsupported.");
+                IReadOnlyList<CodingReviewHunk> hunks =
+                    CodingHunkReviewPlanner.Parse(reviewedUnifiedDiff);
+                if (hunks.Count == 0 || hunks.Any(h => !string.Equals(
+                        h.RelativePath, relativePath, StringComparison.Ordinal)))
+                    return Refuse("Expected only hunks belonging to the chosen file.");
+                CodingHunkPreviewResult preview =
+                    CodingSelectiveHunkPreview.Create(relativePath, text, hunks, decisions);
+                if (!preview.Ready || preview.CandidateText is null ||
+                    StrictUtf8.GetByteCount(preview.CandidateText) > MaximumFileBytes)
+                    return Refuse(preview.Ready ? "Approved preview exceeds the file size limit." : preview.Explanation);
+                if (!string.Equals(preview.PreimageSha256,
+                    Convert.ToHexString(SHA256.HashData(source)), StringComparison.OrdinalIgnoreCase))
+                    return Refuse("Preimage bytes no longer match the text preview.");
+                return preview;
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidDataException
+                or FormatException or IOException or UnauthorizedAccessException
+                or NotSupportedException or DecoderFallbackException
+                or System.Security.SecurityException)
+            {
+                return Refuse("The selected file or patch cannot be safely previewed: " + ex.Message);
+            }
+        }
+
         public static CodingSelectiveHunkApplyResult Apply(
             string targetRoot, string relativePath, string reviewedUnifiedDiff,
             IReadOnlyList<CodingReviewChoice> decisions, string approvedPreimageSha256,
