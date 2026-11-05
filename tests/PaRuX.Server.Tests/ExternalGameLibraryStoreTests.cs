@@ -81,6 +81,19 @@ public sealed class ExternalGameLibraryStoreTests : IDisposable
         Assert.Equal("lutris", title.Installations[0].Source);
     }
 
+    [Theory]
+    [InlineData(GameInstallationSources.Playnite)]
+    [InlineData(GameInstallationSources.Heroic)]
+    [InlineData(GameInstallationSources.Lutris)]
+    public void External_metadata_source_cannot_be_launched_even_if_marked_installed_by_stale_payload(string source)
+    {
+        var candidate = new GameInstallationDto(source + ":synthetic", source,
+            "synthetic", ManualEntryKinds.Game, "Synthetic")
+        { InstallState = GameInstallStates.Installed };
+        Assert.False(GameTitleLaunchPolicy.CanStart(candidate));
+        Assert.False(GameTitleLaunchPolicy.CanStart(candidate with { InstallState = GameInstallStates.Unknown }));
+    }
+
     [Fact]
     public void Corrupt_persisted_entries_fail_closed_instead_of_dropping_them_silently()
     {

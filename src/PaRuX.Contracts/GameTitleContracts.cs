@@ -74,6 +74,10 @@ public static class GameTitleLaunchPolicy
     /// </summary>
     public static bool CanStart(GameInstallationDto? installation) =>
         installation is not null &&
+        // Third-party JSON imports never grant launch authority, even if
+        // legacy/forged payloads say the install state is unknown or installed.
+        installation.Source is not (GameInstallationSources.Playnite or
+            GameInstallationSources.Heroic or GameInstallationSources.Lutris) &&
         (string.Equals(installation.InstallState, GameInstallStates.Installed, StringComparison.OrdinalIgnoreCase) ||
          string.Equals(installation.InstallState, GameInstallStates.Unknown, StringComparison.OrdinalIgnoreCase));
 

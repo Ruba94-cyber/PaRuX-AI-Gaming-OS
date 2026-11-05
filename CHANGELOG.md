@@ -1,3 +1,9 @@
+### 2026-11-05 — Metadata-only library imports from Playnite, Heroic and Lutris (SOURCE WIP)
+
+- Users can preview explicit JSON exports and separately opt to retain provider/title/external ID only, up to 1000 entries. Stored records use safe bounded atomic writes, a cross-process lock and individual owner-approved removal; the original vendor files and launcher commands are never touched or retained.
+- Saved titles appear in the unified Games catalogue with a non-launchable metadata-only state, IT/EN labels and provider filters. An additional launch-policy guard blocks these providers even if stale input claims an installed state. New Core HTTP and synthetic store/FlaUI tests are authored but not executed.
+- **Windows restore/build/FlaUI, real vendor-export compatibility and hardware acceptance remain unverified.** No v3.1.0 release.
+
 ### 2026-11-05 — Bind mod ZIP install/remove to verified game EXE (SOURCE WIP)
 
 - Opt-in ZIP mod install now requires the actual local game executable in addition to the owner confirmation, and conservatively checks its Windows process identity before installing, again before publish, and again before SHA-checked removal. A paused/suspended process is still running and blocks. Invalid/linked/system executables and inaccessible same-name processes fail closed.

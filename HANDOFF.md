@@ -1,3 +1,7 @@
+## 2026-11-05 — Defense-in-depth imported title launch gate and Windows regression selection (SOURCE WIP)
+
+- Third-party metadata providers cannot become launchable even if a stale/misleading payload marks one installed or unknown. Synthetic policies test all three providers. The local GOS focused xUnit filter now covers the external import store and HTTP routes, with Gaming Home already in optional FlaUI. Windows execution pending.
+
 ## 2026-11-05 — External library IT/EN owner import and metadata manager (MAIN SOURCE WIP)
 
 - Gaming Home now offers a second explicit Save titles only action AFTER preview; saved entries are individually removable with separate confirmation. Source filters and labels distinguish uninstalled metadata-only titles. Typed owner client methods added. Windows UI compilation/FlaUI/13-inch/controller testing pending.
