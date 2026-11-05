@@ -36,6 +36,10 @@ public interface IAgentLibraryBackend
     /// <summary>The service re-checks process id, start time and QuickResumePolicy before acting.</summary>
     Task<QuickResumeActionResult> QuickResumeSuspendAsync(QuickResumeActionRequest request, CancellationToken ct);
     Task<QuickResumeActionResult> QuickResumeResumeAsync(QuickResumeActionRequest request, CancellationToken ct);
+    // Optional until all game-agent providers support temporary mod preview.
+    // The model never receives an apply/restore tool: those remain owner-only UI actions.
+    Task<GameModPreviewDto> ProposeTemporaryModAsync(GameModProposalRequest request, CancellationToken ct) =>
+        Task.FromException<GameModPreviewDto>(new InvalidOperationException("Temporary mod preview unavailable."));
 }
 
 /// <summary>One pending or decided confirmation. The summary is the text the user sees.</summary>
@@ -179,6 +183,7 @@ public sealed class AgentLibraryTools
     public const string QuickResumeListTool = "quick_resume_list";
     public const string QuickResumePauseTool = "quick_resume_pause";
     public const string QuickResumeResumeTool = "quick_resume_resume";
+    public const string GameModProposeTool = "game_mod_propose";
 
     public const int MaxArgumentCharacters = 4096;
     public const int MaxQueryCharacters = 120;
@@ -194,7 +199,8 @@ public sealed class AgentLibraryTools
         { SearchTool, RecentTool, GetTool, DiscoverSearchTool, DiscoverRecommendTool, QuickResumeListTool };
     private static readonly string[] Reversible = { SetFavoriteTool, SetTagsTool, SetCollectionTool };
     private static readonly string[] AlwaysConfirm =
-        { LaunchTool, RemoveEntryTool, EnqueueDownloadTool, QuickResumePauseTool, QuickResumeResumeTool };
+        { LaunchTool, RemoveEntryTool, EnqueueDownloadTool, QuickResumePauseTool, QuickResumeResumeTool,
+          GameModProposeTool };
 
     private static readonly Regex AbsolutePath = new(
         @"(?:[A-Za-z]:[\\/][^\s""'<>|*?]*)|(?:\\\\[^\s""'<>|]+)|(?:/(?:Users|home|mnt|var|etc|opt)/[^\s""'<>|]*)",
@@ -327,6 +333,19 @@ public sealed class AgentLibraryTools
                 ["started_utc"] = Str("Start time exactly as shown by quick_resume_list.", 40),
                 ["confirmation_id"] = Confirmation()
             }, "process_id", "started_utc");
+        Add(GameModProposeTool,
+            "Propose a UTF-8 plain-text config change for a user-owned OFFLINE single-player game installed portably by PaRuX. PaRuX must have the exact game process PAUSED through Quick Resume. ALWAYS requires a separate user confirmation just to prepare the preview; this does NOT modify any game file. User separately reviews and applies the proposal in PaRuX. No cheat injection, DRM, multiplayer or script execution.",
+            new JsonObject
+            {
+                ["manual_game_id"] = Str("Registered manual game id returned by library_get, not a filesystem path.", 64),
+                ["process_id"] = Pid(),
+                ["started_utc"] = Str("Exact paused game start time from quick_resume_list.", 40),
+                ["relative_path"] = Str("Existing plain-text game config path relative to its managed game folder.", 240),
+                ["proposed_text"] = Str("Entire replacement UTF-8 config (up to 2048 characters).", 2048),
+                ["offline_confirmed"] = new JsonObject { ["type"] = "boolean", ["description"] =
+                    "Owner confirms this is their offline single-player game, not an online or anti-cheat protected title." },
+                ["confirmation_id"] = Confirmation()
+            }, "manual_game_id", "process_id", "started_utc", "relative_path", "proposed_text", "offline_confirmed");
         return schemas;
     }
 
@@ -415,6 +434,8 @@ public sealed class AgentLibraryTools
                 case QuickResumeListTool: outcome = "success"; pending = QuickResumeListAsync(args, ct); return string.Empty;
                 case QuickResumePauseTool:
                 case QuickResumeResumeTool: return QuickResume(args, tool, out outcome, out subject, out pending);
+                case GameModProposeTool:
+                    return ProposeGameMod(args, out outcome, out subject, out pending);
             }
 
             if (tool == EnqueueDownloadTool) return Enqueue(args, tool, out outcome, out subject, out pending);
@@ -582,6 +603,72 @@ public sealed class AgentLibraryTools
         return sb.ToString().TrimEnd();
     }
 
+    private string ProposeGameMod(Args a, out string outcome, out string? subject, out Task<string>? pending)
+    {
+        pending = null;
+        subject = null;
+        string gameId = Text(a, "manual_game_id") ?? "";
+        string relative = Text(a, "relative_path") ?? "";
+        if (!TemporaryGameModService.SafeRelativeConfig(relative) || gameId.Length is < 1 or > 64)
+        {
+            outcome = "refused";
+            return Failed + "a registered PaRuX-managed game and safe relative .ini/.cfg/.json/.txt path are required.";
+        }
+        string proposed = a.Values["proposed_text"].GetString() ?? "";
+        if (!Bool(a, "offline_confirmed"))
+        {
+            outcome = "refused";
+            return Failed + "the owner must confirm offline single-player use.";
+        }
+        if (!DateTime.TryParse(Text(a, "started_utc"), System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                out DateTime started))
+        {
+            outcome = "invalid-arguments";
+            return Failed + "Invalid paused process start time.";
+        }
+        int pid = Int(a, "process_id") ?? 0;
+        QuickResumeAppDto? paused = _backend.QuickResumeListAsync(CancellationToken.None).GetAwaiter().GetResult()
+            .Apps.FirstOrDefault(x => x.ProcessId == pid && x.Suspended &&
+                QuickResumePolicy.SameProcess(x.StartedUtc, started));
+        if (paused is null || GameAutoSuspendPolicy.IsExcludedProcess(paused.ProcessName))
+        {
+            outcome = "refused";
+            return Failed + "The same offline game must currently be paused by PaRuX.";
+        }
+        subject = Clean(paused.ProcessName, 60);
+        string binding = AgentLibraryConsentStore.Bind(GameModProposeTool, gameId,
+            pid.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StartedText(paused.StartedUtc), relative,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(proposed))));
+        string? gate = Gate(a, GameModProposeTool, binding,
+            "Allow AI to prepare a reversible text-only mod preview for paused game "
+            + subject + " (file " + Redact(relative) + ")? No file will change until you approve the preview separately.",
+            out outcome);
+        if (gate is not null) return gate;
+        pending = RunGameModPreviewAsync(new GameModProposalRequest(gameId, pid, paused.StartedUtc,
+            relative, proposed, OfflineSinglePlayerConfirmed: true));
+        outcome = "success";
+        return string.Empty;
+    }
+
+    private async Task<string> RunGameModPreviewAsync(GameModProposalRequest request)
+    {
+        try
+        {
+            GameModPreviewDto preview = await _backend.ProposeTemporaryModAsync(
+                request, CancellationToken.None).ConfigureAwait(false);
+            // Do not send potentially sensitive ORIGINAL config contents to the model.
+            return "Prepared temporary mod preview " + preview.PreviewId + " for "
+                + Clean(preview.GameName, 80) + " / " + Redact(preview.RelativePath)
+                + ". The owner must review the full original/replacement diff in the PaRuX Game Mods UI "
+                + "and explicitly approve applying it. NOTHING has been changed yet.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException
+            or InvalidDataException or IOException or UnauthorizedAccessException)
+        { return Failed + "mod preview was refused by the paused-process and safe-file policy."; }
+    }
+
     private string QuickResume(Args a, string tool, out string outcome, out string? subject, out Task<string>? pending)
     {
         pending = null; subject = null;
@@ -738,6 +825,8 @@ public sealed class AgentLibraryTools
         [QuickResumeListTool] = (Array.Empty<string>(), new[] { "limit" }),
         [QuickResumePauseTool] = (new[] { "process_id", "started_utc" }, new[] { "confirmation_id" }),
         [QuickResumeResumeTool] = (new[] { "process_id", "started_utc" }, new[] { "confirmation_id" }),
+        [GameModProposeTool] = (new[] { "manual_game_id", "process_id", "started_utc",
+            "relative_path", "proposed_text", "offline_confirmed" }, new[] { "confirmation_id" }),
     };
 
     private static readonly Dictionary<string, int> TextLimits = new(StringComparer.Ordinal)
@@ -745,7 +834,8 @@ public sealed class AgentLibraryTools
         ["query"] = MaxQueryCharacters, ["source"] = 16, ["tag"] = GameTitleStore.MaxTagLength,
         ["collection"] = GameTitleStore.MaxCollectionLength, ["title"] = MaxTitleCharacters,
         ["url"] = MaxUrlCharacters, ["file_name"] = 120, ["sha256"] = 64, ["confirmation_id"] = 32,
-        ["started_utc"] = 40,
+        ["started_utc"] = 40, ["manual_game_id"] = 64, ["relative_path"] = 240,
+        ["proposed_text"] = 2048,
     };
 
     private static bool TryParse(string tool, string json, out Args args, out string error)
@@ -791,8 +881,18 @@ public sealed class AgentLibraryTools
         error = string.Empty;
         switch (name)
         {
+            case "offline_confirmed":
             case "favorite":
                 if (v.ValueKind is JsonValueKind.True or JsonValueKind.False) return true;
+            case "proposed_text":
+                if (v.ValueKind != JsonValueKind.String ||
+                    v.GetString() is not { } proposalText ||
+                    proposalText.Length > 2048 || proposalText.Contains('\\0'))
+                {
+                    error = "The game mod proposal must be up to 2048 characters of plain text.";
+                    return false;
+                }
+                return true;
                 error = "\"favorite\" must be true or false."; return false;
             case "limit":
                 if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int n) && n is >= 1 and <= MaxResults) return true;
