@@ -279,8 +279,10 @@ public sealed class TemporaryGameModService
             using Process process = Process.GetProcessById(pid);
             return !process.HasExited && QuickResumePolicy.SameProcess(process.StartTime.ToUniversalTime(), started);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException
-            or System.ComponentModel.Win32Exception) { return false; }
+        catch (ArgumentException) { return false; } // OS confirms that PID no longer exists.
+        catch (Exception ex) when (ex is InvalidOperationException
+            or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+        { return true; } // Cannot inspect the process: fail CLOSED, require paused identity.
     }
 
     private static GameTemporaryModDto ToDto(Journal x) => new(
@@ -327,7 +329,8 @@ public sealed class TemporaryGameModService
             Journal? entry;
             try { entry = JsonSerializer.Deserialize<Journal>(File.ReadAllText(path)); }
             catch (JsonException ex) { throw new InvalidDataException("Temporary mod backup is corrupted; no game file was touched.", ex); }
-            if (entry is null || entry.Id.Length != 32 || !entry.Id.All(Uri.IsHexDigit)
+            if (entry is null || entry.Id is not { Length: 32 } ||
+                !entry.Id.All(Uri.IsHexDigit)
                 || Path.GetFileName(path) != "mod-" + entry.Id + ".json")
                 throw new InvalidDataException("Temporary mod journal identity is invalid.");
             list.Add(entry);
