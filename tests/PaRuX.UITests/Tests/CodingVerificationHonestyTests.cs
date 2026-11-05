@@ -13,6 +13,32 @@ namespace PaRuX.UITests.Tests;
 public sealed class CodingVerificationHonestyTests
 {
     [Fact, Trait("Category", "Regression"), Trait("Category", "CodingAgent"), Trait("Category", "FlaUI")]
+    public void Verified_task_has_a_named_hunk_review_entry_point()
+    {
+        const string name = nameof(Verified_task_has_a_named_hunk_review_entry_point);
+        string? prior = Environment.GetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION");
+        try
+        {
+            Environment.SetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION", "pass");
+            using var app = new UiTestApplication(name, enableCompletedCodingTaskCardFixture: true);
+            try
+            {
+                var action = UiWait.ById(app.MainWindow,
+                    "Chat_CodingTask_ReviewHunks_Button", ControlType.Button);
+                Assert.NotNull(action);
+                // The synthetic fixture has no real reviewed files. Presence
+                // does not authorize or initiate a host Git/file mutation.
+                Assert.False(action.Properties.IsEnabled.ValueOrDefault);
+            }
+            catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PARUX_UI_TEST_CODING_VERIFICATION", prior);
+        }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "CodingAgent"), Trait("Category", "FlaUI")]
     public void Hunk_review_control_is_not_exposed_for_unverified_task()
     {
         const string name = nameof(Hunk_review_control_is_not_exposed_for_unverified_task);
