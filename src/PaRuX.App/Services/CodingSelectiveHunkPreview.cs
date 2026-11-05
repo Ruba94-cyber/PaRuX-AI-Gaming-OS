@@ -99,7 +99,7 @@ namespace PaRuX.Services
         }
 
         public static bool PreimageMatches(string? expectedSha256, string? actualText) =>
-            !string.IsNullOrEmpty(actualText) && expectedSha256 is { Length: 64 }
+            actualText is not null && expectedSha256 is { Length: 64 }
             && string.Equals(expectedSha256, Hash(actualText), StringComparison.OrdinalIgnoreCase);
 
         private static string Hash(string text) =>
