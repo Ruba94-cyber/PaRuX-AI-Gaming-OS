@@ -83,6 +83,8 @@ public sealed class LocalWishlistPolicyTests
             Entry() with { StoreCountryCode = "ITA" }).Error);
         Assert.Null(LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(),
             Entry() with { StoreCountryCode = "it" }).Error);
+        Assert.NotNull(LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(),
+            Entry() with { PriceTargetMinor = null, PriceWatchOptIn = true }).Error);
     }
 
     [Fact]
