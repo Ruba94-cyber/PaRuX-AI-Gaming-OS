@@ -1,3 +1,8 @@
+## 2026-11-05 — Pinned MonoTorrent 3.0.2 source-level API correction (MAIN SOURCE WIP)
+
+- Audited published upstream `release-v3.0.2` `ClientEngine`/`EngineSettings`/`EngineSettingsBuilder`. Found three compile-time API mismatches in `EmbeddedTorrentTransport`: direct read-only `EngineSettings` initialiser, nonexistent `MaximumDownloadSpeed/MaximumUploadSpeed` properties and record `with` syntax, plus `DownloadMetadataAsync` returning `ReadOnlyMemory<byte>` rather than `byte[]`. Corrected to `EngineSettingsBuilder.ToSettings()`, `MaximumDownloadRate/MaximumUploadRate`, builder-based `UpdateSettingsAsync` and explicit `.ToArray()` for metadata. Also inspected pinned `Torrent.Load(ReadOnlySpan<byte>)`, `ClientEngine.AddAsync(Torrent,...)`, `TorrentManager.StopAsync(TimeSpan)`. Do not assume this is compiled or peer-tested; run the Windows gate before declaring operational.
+- Re-run focused tests `EmbeddedTorrentTransportTests|EmbeddedMultifileTorrentTests|NativeTorrentRecoveryStoreTests|GameDownloadManagerTests` and a lawful synthetic peer fixture with magnet metadata, stage resume, no seeding post-publish and Gaming cancellation. No GitHub Actions/release.
+
 ## 2026-11-05 — UV-preserving local AI skin edits (MAIN SOURCE WIP)
 
 - Added `MinecraftSkinUvRestyler.cs` with official Java 64×64 Classic/Slim UV box positions, targeted `head/torso/arms/legs/full` face mapping including overlays, and original RGBA preservation outside the selection. Locally generated material imagery supplies a colour/texture reference. Existing skin bytes stay untouched; the result is a temporary reviewed draft and owner-approved **new PNG export**, not an in-place game/account change. Input is restricted to PNG with safe IHDR bounds before native decoder.
