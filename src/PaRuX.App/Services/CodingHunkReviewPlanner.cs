@@ -29,6 +29,7 @@ namespace PaRuX.Services
         private static readonly Regex Header = new(
             @"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        private const int MaximumReviewHunks = 500;
 
         public static IReadOnlyList<CodingReviewHunk> Parse(string? unifiedDiff)
         {
@@ -80,8 +81,21 @@ namespace PaRuX.Services
                         ? candidate : string.Empty;
                     continue;
                 }
+                if (line.StartsWith("Binary files ", StringComparison.Ordinal)
+                    || line.StartsWith("GIT binary patch", StringComparison.Ordinal)
+                    || line.StartsWith("new file mode ", StringComparison.Ordinal)
+                    || line.StartsWith("deleted file mode ", StringComparison.Ordinal)
+                    || line.StartsWith("rename from ", StringComparison.Ordinal)
+                    || line.StartsWith("rename to ", StringComparison.Ordinal)
+                    || line.StartsWith("copy from ", StringComparison.Ordinal)
+                    || line.StartsWith("copy to ", StringComparison.Ordinal)
+                    || line.StartsWith("similarity index ", StringComparison.Ordinal)
+                    || line.StartsWith("dissimilarity index ", StringComparison.Ordinal))
+                    throw new FormatException("Binary, new/deleted, renamed or copied files require full-file review.");
                 if (!line.StartsWith("@@ ", StringComparison.Ordinal)) continue;
 
+                if (result.Count >= MaximumReviewHunks)
+                    throw new FormatException("Too many hunks for one interactive review.");
                 Match match = Header.Match(line);
                 if (!match.Success || path.Length == 0)
                     throw new FormatException("Unsupported or unscoped diff hunk.");
