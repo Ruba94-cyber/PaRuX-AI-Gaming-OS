@@ -40,6 +40,8 @@ namespace PaRuX.Services
         public static GamingLibraryClient Current { get; } = new GamingLibraryClient();
 
         private static readonly HttpClient HttpClient = PaRuXServerController.CreateControlPlaneClient(TimeSpan.FromSeconds(30));
+        // Media generation is synchronous and may take longer than a normal control-plane request.
+        private static readonly HttpClient SkinGenerationHttpClient = PaRuXServerController.CreateControlPlaneClient(TimeSpan.FromMinutes(10));
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
         private GamingLibraryClient() { }
@@ -136,6 +138,17 @@ namespace PaRuX.Services
         public Task<GamingCallResult<List<ManualGameDto>>> GetManualGamesForModsAsync(CancellationToken ct = default) =>
             SendAsync<List<ManualGameDto>>(HttpMethod.Get, "/api/v1/gaming/library", null, ct);
 
+        /// <summary>Use PaRuX local image inference to generate a Minecraft Java 64x64 skin draft.</summary>
+        public Task<GamingCallResult<GameSkinDraftDto>> GenerateMinecraftSkinAsync(
+            GameSkinDraftRequest request, CancellationToken ct = default) =>
+            SendAsync<GameSkinDraftDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/skin-studio/generate", request, ct);
+
+        public Task<GamingCallResult<GameSkinExportDto>> ExportMinecraftSkinAsync(
+            string draftId, bool consent, CancellationToken ct = default) =>
+            SendAsync<GameSkinExportDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/skin-studio/export", new GameSkinExportRequest(draftId, consent), ct);
+
         public Task<GamingCallResult<List<GameTemporaryModDto>>> GetTemporaryGameModsAsync(CancellationToken ct = default) =>
             SendAsync<List<GameTemporaryModDto>>(HttpMethod.Get, "/api/v1/gaming/mods/temporary", null, ct);
 
@@ -179,7 +192,7 @@ namespace PaRuX.Services
                 using var request = new HttpRequestMessage(method, bootstrap.Endpoint.TrimEnd('/') + path);
                 request.Headers.Add("X-PaRuX-Token", bootstrap.Token);
                 if (body != null) request.Content = JsonContent.Create(body, options: JsonOptions);
-                using HttpResponseMessage response = await HttpClient.SendAsync(request, ct).ConfigureAwait(false);
+                using HttpResponseMessage response = await (path == "/api/v1/gaming/mods/skin-studio/generate" ? SkinGenerationHttpClient : HttpClient).SendAsync(request, ct).ConfigureAwait(false);
                 return await GamingResponseReader.ReadAsync<T>(response, JsonOptions, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
