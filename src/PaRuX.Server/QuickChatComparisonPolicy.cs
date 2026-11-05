@@ -18,8 +18,8 @@ public static class QuickChatComparisonPolicy
         string second = ValidateModelName(secondModel);
         if (string.Equals(first, second, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Choose two different installed models.");
-        if (string.IsNullOrWhiteSpace(samePrompt) || samePrompt.Length > 12_000)
-            throw new InvalidDataException("Write one prompt of up to 12,000 characters.");
+        if (string.IsNullOrWhiteSpace(samePrompt) || samePrompt.Trim().Length > ModelArenaService.MaxPromptChars)
+            throw new InvalidDataException("Write one prompt of up to " + ModelArenaService.MaxPromptChars + " characters.");
         if (maxTokens < 64 || maxTokens > 1024)
             throw new InvalidDataException("The token limit must be between 64 and 1024.");
         return new ArenaStartRequest
