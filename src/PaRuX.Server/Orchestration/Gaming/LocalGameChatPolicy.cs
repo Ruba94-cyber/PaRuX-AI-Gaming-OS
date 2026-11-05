@@ -63,9 +63,21 @@ public sealed record GameGpuAdmissionDecision(GameGpuAdmission Status, string Ex
 public static class GameGpuAdmissionPolicy
 {
     public static GameGpuAdmissionDecision Evaluate(bool gamingModeActive, bool gameProcessRunning,
+        bool userExplicitlyAskedToReleaseGameResources) =>
+        Evaluate((bool?)gamingModeActive, (bool?)gameProcessRunning,
+            userExplicitlyAskedToReleaseGameResources);
+
+    /// <summary>
+    /// Treat missing gaming/process telemetry as unknown, not as "no game".
+    /// The existing Core admission is still authoritative even when Allowed.
+    /// </summary>
+    public static GameGpuAdmissionDecision Evaluate(bool? gamingModeActive, bool? gameProcessRunning,
         bool userExplicitlyAskedToReleaseGameResources)
     {
-        if (!gamingModeActive && !gameProcessRunning)
+        if (!gamingModeActive.HasValue || !gameProcessRunning.HasValue)
+            return new(GameGpuAdmission.BlockedByGaming,
+                "Game activity is unknown. Do not allocate AI GPU resources until Core re-checks.");
+        if (!gamingModeActive.Value && !gameProcessRunning.Value)
             return new(GameGpuAdmission.Allowed, "No game activity reported; Core still checks resources.");
         if (!userExplicitlyAskedToReleaseGameResources)
             return new(GameGpuAdmission.BlockedByGaming,
