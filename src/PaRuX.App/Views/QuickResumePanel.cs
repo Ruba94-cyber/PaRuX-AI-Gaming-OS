@@ -27,6 +27,7 @@ internal sealed class QuickResumePanel : StackPanel
     private readonly Button _refresh = new() { MinHeight = 44 };
     private readonly Button _resumeAll = new() { MinHeight = 44, Visibility = Visibility.Collapsed };
     private readonly Button _modRestore = new() { MinHeight = 44 };
+    private readonly Button _modProposals = new() { MinHeight = 44 };
     private bool _busy;
     private bool _acting;
 
@@ -50,6 +51,9 @@ internal sealed class QuickResumePanel : StackPanel
         _modRestore.Content = T("Restore AI mods", "Ripristina mod IA");
         AutomationProperties.SetAutomationId(_modRestore, "QuickResume_Mods_RestoreButton");
         _modRestore.Click += async (_, _) => await TemporaryGameModsDialog.ShowRestoreListAsync(XamlRoot);
+        _modProposals.Content = T("Review AI mods", "Rivedi mod IA");
+        AutomationProperties.SetAutomationId(_modProposals, "QuickResume_Mods_ReviewButton");
+        _modProposals.Click += async (_, _) => await TemporaryGameModsDialog.ShowPendingAiProposalsAsync(XamlRoot);
         AutomationProperties.SetAutomationId(_status, "QuickResume_Status_Text");
         AutomationProperties.SetAutomationId(_list, "QuickResume_List");
         AutomationProperties.SetAutomationId(_recovery, "QuickResume_Recovery_List");
@@ -57,6 +61,7 @@ internal sealed class QuickResumePanel : StackPanel
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         buttons.Children.Add(_refresh);
         buttons.Children.Add(_resumeAll);
+        buttons.Children.Add(_modProposals);
         buttons.Children.Add(_modRestore);
         Children.Add(_heading);
         Children.Add(_description);
