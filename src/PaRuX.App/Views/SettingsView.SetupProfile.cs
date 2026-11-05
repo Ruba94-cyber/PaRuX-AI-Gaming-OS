@@ -29,7 +29,13 @@ namespace PaRuX.Views
             RoleProfileHost.Content ??= new RoleProfilePanel(startAdvanced: SettingsStore.Current.Data.StudioModeEnabled);
         }
 
-        private void UpdateSetupProfileHint(SetupProfile profile) =>
+        private void UpdateSetupProfileHint(SetupProfile profile)
+        {
+            RoleProfileHost.Visibility = SetupProfilePolicy.Plan(profile).ShowAiWorkspaces ? Visibility.Visible : Visibility.Collapsed;
+            UpdateSetupProfileHintText(profile);
+        }
+
+        private void UpdateSetupProfileHintText(SetupProfile profile) =>
             SetupProfileHint.Text = SetupProfilePolicy.Description(profile, SetupProfileItalian)
                 + " " + SetupProfilePolicy.SwitchNote(SetupProfileItalian)
                 + (SetupProfileItalian
