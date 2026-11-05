@@ -141,6 +141,43 @@ public sealed class QuickChatComparisonPolicyTests
     }
 
     [Fact]
+    public void Shared_Chat_projection_contains_two_columns_and_no_invented_ranking()
+    {
+        var run = new PaRuX.Contracts.ArenaRunDto
+        {
+            Status = "completed",
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            Prompts = new()
+            {
+                new PaRuX.Contracts.ArenaPromptResultDto
+                {
+                    TaskId = "custom",
+                    Prompt = "Synthetic prompt",
+                    Results = new()
+                    {
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "first.gguf", Status = "completed", Output = "Answer A"
+                        },
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "second.gguf", Status = "failed", Error = "Synthetic failure"
+                        }
+                    }
+                }
+            }
+        };
+        PaRuX.Contracts.ArenaQuickCompareViewDto result =
+            QuickChatComparisonPresenter.ToDto(run, italian: false);
+        Assert.True(result.Ready);
+        Assert.Equal("Synthetic prompt", result.Prompt);
+        Assert.Equal("Answer A", result.Left.AnswerText);
+        Assert.Equal("Failed", result.Right.StatusText);
+        Assert.Equal(string.Empty, result.Right.AnswerText);
+        Assert.Null(result.UserPreferredModel);
+    }
+
+    [Fact]
     public void Side_by_side_presenter_does_not_invent_winner_or_missing_answers()
     {
         var run = new PaRuX.Contracts.ArenaRunDto
