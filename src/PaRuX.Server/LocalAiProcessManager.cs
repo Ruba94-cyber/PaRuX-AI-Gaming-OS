@@ -1181,6 +1181,8 @@ public sealed class LocalAiProcessManager
         try
         {
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
+            // Corporate Lite has no GPU tiers, no media and no downloads: one bundled model on the bundled CPU runtime.
+            if (PaRuX.Contracts.CorporateMode.IsActive) return await StartCorporateCpuTextAsync(ct, modelPathOverride).ConfigureAwait(false);
             if (!await StopMediaAwaitingVramReleaseAsync(ct).ConfigureAwait(false)) return new RuntimeResult(false, "The media runtime did not stop, so local text was not started.");
             // One inventory decides the tier and the backend: nvidia-smi for an NVIDIA device, DXGI for every other adapter. The launch reads
             // that same decision, so the tier, the build and the status line cannot disagree about the GPU.
@@ -1415,6 +1417,43 @@ public sealed class LocalAiProcessManager
             return new RuntimeResult(false, failure + " The previous text runtime (" + previous.ProfileLabel + ") was restored.");
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>Seconds of idleness after which the Corporate Lite model is unloaded from RAM (llama-server reloads it on the next request).</summary>
+    internal const int CorporateIdleUnloadSeconds = 300;
+
+    /// <summary>The argument list of the Corporate Lite launch. Pure, so it is unit-tested without starting a process.</summary>
+    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores) =>
+    [
+        "--model", model, "--alias", "local-coder", "--host", "127.0.0.1", "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        "--jinja", "--reasoning", "off",
+        "--ctx-size", "4096", "--parallel", "1",
+        // Leave cores to Teams/Outlook/Excel: half the logical cores, at least 2 and at most 8.
+        "--threads", Math.Clamp(logicalCores / 2, 2, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        "--sleep-idle-seconds", CorporateIdleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        "--no-webui"
+    ];
+
+    private async Task<RuntimeResult> StartCorporateCpuTextAsync(CancellationToken ct, string? modelPathOverride)
+    {
+        string? runtime = LocalAiPaths.FindBundledCpuRuntime();
+        if (runtime == null) return new RuntimeResult(false, "The bundled CPU runtime (llama.cpp-*-cpu) was not found in " + LocalAiPaths.RuntimeRoot + ".");
+        string? model = modelPathOverride ?? LocalAiPaths.FindBundledCorporateModel();
+        if (model == null || !File.Exists(model)) return new RuntimeResult(false, "The bundled model was not found in " + ModelDownloadService.ModelsDirectory + ".");
+        string profile = Path.GetFileNameWithoutExtension(model) + " CPU (Corporate Lite)";
+        if ((ReadTrimmed(LocalAiPaths.ActiveProfileFile) == profile || PathsEqual(GetActiveTextModelPath(), model))
+            && await IsTextHealthyAsync(ct).ConfigureAwait(false))
+            return new RuntimeResult(true, "Already running: " + profile);
+        if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
+            return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
+        string? portRefusal = ChooseTextPortForLaunch();
+        if (portRefusal != null) return new RuntimeResult(false, portRefusal);
+        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount);
+        string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
+        RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
+            () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
+        if (result.Success) _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null);
+        return result;
     }
 
     public Task<RuntimeResult> StartMediaAssistantAsync(CancellationToken ct) => StartMediaAssistantAsync(ct, null);

@@ -22,6 +22,7 @@ using PaRuX.Intelligence;
 
 StartupTrace.Mark("main-entered");
 PaRuX.Server.BundledBaselineRuntimeBootstrap.Initialize();
+PaRuX.Contracts.CorporateNetworkGuard.ApplyIfCorporate();   // Corporate Lite: fail closed on any stray outbound HTTP
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 PaRuX.Server.Gateway.GatewaySettings gatewaySettings = PaRuX.Server.Gateway.GatewaySettings.Load(ServerState.StateDirectory);
 LocalApiServerService.VendorModelDefault = gatewaySettings.VendorModelDefault;
@@ -96,6 +97,7 @@ builder.Services.AddSingleton<RerankerService>();
 builder.Services.AddSingleton<MemoryStore>();
 builder.Services.AddSingleton<RagStore>(sp =>
     new RagStore(sp.GetRequiredService<EmbeddingService>(), sp.GetRequiredService<RerankerService>()));
+builder.Services.AddSingleton<IRetrievalEmbeddingProvider>(sp => new LegacyMiniLmEmbeddingProvider(sp.GetRequiredService<EmbeddingService>()));
 builder.Services.AddSingleton<PaRuX.Server.Knowledge.KnowledgeJobService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<WebSearchService>();
