@@ -24,6 +24,21 @@ Truth order: code > tests > live evidence > PARUX_EXECUTION_PLAN.md. Repo is PUB
 - Python bench scripts on Windows need absolute Windows paths.
 - Agent branches (worktree-agent-*) are all merged into main; WIP of stopped agents was committed on their branches.
 
+## 2026-11-05 continuation on main: L5 local Steam wishlist (WIP)
+
+New source commits on `main`: local wishlist metadata store with cross-process lease and atomic replace, no implicit opt-in; protected GET/POST/PUT/DELETE endpoints, explicit consent gate, App contract/client, compact IT/EN Gaming Home dialog and synthetic tests. No store account connection, price fetch, polling, notifications, payment or automatic game install. New files: `src/PaRuX.Server/Orchestration/Gaming/LocalWishlistStore.cs`, `src/PaRuX.Contracts/LocalWishlistContracts.cs`, `src/PaRuX.App/Views/GamingWishlistDialog.cs`, `tests/PaRuX.Server.Tests/LocalWishlistStoreTests.cs`; updated Program, GamingLibraryClient, GamingHomeView, LocalWishlistPolicy and BrowserOwnerAndLanHardeningTests. All newly authored source/tests remain **NOT COMPILED / NOT RUN in this cloud session**. The old Windows baseline cannot validate them.
+
+Windows follow-up after pulling `main`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
+dotnet build src/PaRuX.App -p:Platform=x64
+dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~LocalWishlistStoreTests|FullyQualifiedName~LocalWishlistPolicyTests|FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
+# Then run the full xUnit suite and FlaUI Smoke/Regression individually as documented below.
+```
+
+Physical UI checks: Home's `GameHome_Wishlist_Button` in IT and EN; add/duplicate/error/format handling; saved state after restart; explicit watch consent toggles with no network; delete and corrupt-store recovery messaging; 13-inch display and controller navigation. This does NOT establish live Steam price monitoring or 3.1.0 release acceptance.
+
 ## Cloud source-only handoff — 2026-11-05 (PRs #1–#5 merged, not Windows-validated)
 
 The five feature PRs below were **squash-merged into `main` on 2026-11-05**, with unverified code clearly labeled WIP. Every newly authored test remains **Authored-not-run**, and new C#/PowerShell source remains **Authored-not-compiled / not executed** in this remote session. The 12,410-pass Windows baseline predates these merges and does not validate this merged state.
