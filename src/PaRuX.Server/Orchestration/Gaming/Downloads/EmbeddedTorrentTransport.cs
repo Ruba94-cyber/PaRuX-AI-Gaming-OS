@@ -258,15 +258,46 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
         }
     }
 
-    private static void EnsureOwnedStaging(GameDownloadJob job, string staging)
+    internal static void EnsureOwnedStaging(GameDownloadJob job, string staging)
     {
         GameDownloadManager.EnsureSafeDownloadPaths(job);
         string expected = Path.GetFullPath(StagingPath(job));
-        if (!string.Equals(Path.GetFullPath(staging), expected, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(Path.GetFullPath(staging), expected, StringComparison.OrdinalIgnoreCase) ||
+            job.Id.Length != 32 || !job.Id.All(Uri.IsHexDigit))
             throw new GameDownloadException("The torrent staging path is not owned by PaRuX.");
-        Directory.CreateDirectory(staging);
-        if (!ManualGameLibrary.IsSafeDirectory(staging))
-            throw new GameDownloadException("Torrent staging must not be a linked directory.");
+        if (File.Exists(staging))
+            throw new GameDownloadException("A regular file occupies the torrent staging directory.");
+        if (!Directory.Exists(staging)) Directory.CreateDirectory(staging);
+        ValidateOwnedStageTree(staging);
+    }
+
+    /// <summary>
+    /// A previous paused attempt may have created nested files. Validate all of
+    /// them BEFORE MonoTorrent can reuse the path, and before recursive cleanup.
+    /// No reparse points, linked entries or unbounded directory trees are trusted.
+    /// </summary>
+    private static void ValidateOwnedStageTree(string stage)
+    {
+        var pending = new Stack<string>();
+        pending.Push(stage);
+        int examined = 0;
+        while (pending.Count > 0)
+        {
+            string dir = pending.Pop();
+            if (++examined > 10000 || !ManualGameLibrary.IsSafeDirectory(dir))
+                throw new GameDownloadException("The torrent stage is linked, invalid or too large.");
+            foreach (string entry in Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.TopDirectoryOnly))
+            {
+                if (++examined > 10000)
+                    throw new GameDownloadException("The torrent staging tree is too large.");
+                FileAttributes attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                    new FileInfo(entry).LinkTarget is not null)
+                    throw new GameDownloadException("The torrent stage contains a linked file or folder.");
+                if ((attributes & FileAttributes.Directory) != 0)
+                    pending.Push(entry);
+            }
+        }
     }
 
     internal static void CleanOwnedStaging(GameDownloadJob job)
@@ -274,35 +305,13 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
         string path = StagingPath(job);
         try
         {
-            if (!Directory.Exists(path) || !ManualGameLibrary.IsSafeDirectory(path)) return;
-            // Validate the complete bounded stage BEFORE recursive deletion:
-            // many legal torrent layouts contain nested paths. Never follow
-            // symlinks/junctions or delete foreign directories outside the
-            // exact GUID-named PaRuX stage.
-            if (job.Id.Length != 32 || !job.Id.All(Uri.IsHexDigit)) return;
-            var pending = new Stack<string>();
-            pending.Push(path);
-            int examined = 0;
-            while (pending.Count > 0)
-            {
-                string dir = pending.Pop();
-                if (++examined > 10000 || !ManualGameLibrary.IsSafeDirectory(dir)) return;
-                foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly))
-                {
-                    if (++examined > 10000 || (File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
-                        return;
-                }
-                foreach (string sub in Directory.EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly))
-                {
-                    if (++examined > 10000 ||
-                        (File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0) return;
-                    pending.Push(sub);
-                }
-            }
+            if (job.Id.Length != 32 || !job.Id.All(Uri.IsHexDigit) ||
+                !Directory.Exists(path)) return;
+            ValidateOwnedStageTree(path);
             Directory.Delete(path, recursive: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        { /* leave partials for manual recovery rather than following an untrusted path */ }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or GameDownloadException)
+        { /* never remove a suspicious stage or follow a link */ }
     }
 
     public void Dispose()

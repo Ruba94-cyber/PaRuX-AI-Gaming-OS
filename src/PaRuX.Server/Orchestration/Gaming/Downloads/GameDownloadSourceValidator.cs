@@ -69,6 +69,27 @@ internal static class GameDownloadSourceValidator
 
     public static GameTorrentFile ValidateTorrentFile(string? path)
     {
+        (string full, byte[] bytes) = ReadTorrentFile(path);
+        (string name, string hash, long length) = ParseTorrent(bytes);
+        return new GameTorrentFile(full, name, hash, length);
+    }
+
+    /// <summary>
+    /// Read and hash the SAME bounded file snapshot. Never validate one .torrent
+    /// and later re-open an attacker-replaced or newly enlarged file for peer use.
+    /// A share lease prevents replacement/writes while the bytes are being read.
+    /// </summary>
+    public static byte[] ReadValidatedTorrentBytes(string fullPath, string expectedInfoHash)
+    {
+        (_, byte[] bytes) = ReadTorrentFile(fullPath);
+        (_, string actualHash, _) = ParseTorrent(bytes);
+        if (!string.Equals(actualHash, expectedInfoHash, StringComparison.Ordinal))
+            throw new GameDownloadException("The .torrent file changed since it was selected.");
+        return bytes;
+    }
+
+    private static (string FullPath, byte[] Bytes) ReadTorrentFile(string? path)
+    {
         const string bad = "Choose a valid .torrent file on a local drive.";
         if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 || path.Any(char.IsControl) ||
             !Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal))
@@ -76,33 +97,24 @@ internal static class GameDownloadSourceValidator
         string full = Path.GetFullPath(path.Trim());
         if (!string.Equals(Path.GetExtension(full), ".torrent", StringComparison.OrdinalIgnoreCase))
             throw new GameDownloadException(bad);
-        byte[] data;
         try
         {
             var info = new FileInfo(full);
             if (!info.Exists || info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0)
                 throw new GameDownloadException(bad);
-            if (info.Length == 0 || info.Length > MaxTorrentFileBytes)
-                throw new GameDownloadException("The .torrent file is empty or larger than 4 MB.");
             using var fs = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
-            data = new byte[(int)info.Length];
-            fs.ReadExactly(data);
+            if (fs.Length == 0 || fs.Length > MaxTorrentFileBytes)
+                throw new GameDownloadException("The .torrent file is empty or larger than 4 MB.");
+            byte[] bytes = new byte[(int)fs.Length];
+            fs.ReadExactly(bytes);
+            if (fs.ReadByte() != -1)
+                throw new GameDownloadException("The .torrent file changed during its validation.");
+            return (full, bytes);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new GameDownloadException("The .torrent file could not be read.");
         }
-        (string name, string hash, long length) = ParseTorrent(data);
-        return new GameTorrentFile(full, name, hash, length);
-    }
-
-    /// <summary>Re-reads the file at transfer time and returns its bytes only if it is still a sane torrent with the same hash.</summary>
-    public static byte[] ReadValidatedTorrentBytes(string fullPath, string expectedInfoHash)
-    {
-        GameTorrentFile again = ValidateTorrentFile(fullPath);
-        if (!string.Equals(again.InfoHashHex, expectedInfoHash, StringComparison.Ordinal))
-            throw new GameDownloadException("The .torrent file changed since it was selected.");
-        return File.ReadAllBytes(again.FullPath);
     }
 
     // ---------------------------------------------------------------- bencode
@@ -126,6 +138,7 @@ internal static class GameDownloadSourceValidator
         string? name = null;
         long length = 0;
         bool hasLengthOrFiles = false, piecesOk = false;
+        var seenInfoKeys = new HashSet<string>(StringComparer.Ordinal);
         try
         {
             if (c.Pos >= data.Length || data[c.Pos] != (byte)'d') throw new GameDownloadException(bad);
@@ -137,6 +150,7 @@ internal static class GameDownloadSourceValidator
                 string key = Encoding.Latin1.GetString(ReadString(c));
                 if (key == "info")
                 {
+                    if (infoStart >= 0) throw new GameDownloadException(bad); // ambiguous duplicate info dictionary
                     infoStart = c.Pos;
                     if (c.Pos >= data.Length || data[c.Pos] != (byte)'d') throw new GameDownloadException(bad);
                     c.Pos++;
@@ -145,6 +159,8 @@ internal static class GameDownloadSourceValidator
                         if (c.Pos >= data.Length) throw new GameDownloadException(bad);
                         if (data[c.Pos] == (byte)'e') { c.Pos++; break; }
                         string ik = Encoding.Latin1.GetString(ReadString(c));
+                        if (ik is "name" or "length" or "files" or "pieces" && !seenInfoKeys.Add(ik))
+                            throw new GameDownloadException(bad); // critical duplicate fields must not be interpreted differently
                         switch (ik)
                         {
                             case "name": name = Encoding.UTF8.GetString(ReadString(c)); break;

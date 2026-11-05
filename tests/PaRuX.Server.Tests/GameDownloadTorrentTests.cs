@@ -274,6 +274,33 @@ public sealed class GameDownloadTorrentTests : IDisposable
     }
 
     [Fact]
+    public void Torrent_transfer_rechecks_the_bytes_not_only_the_selected_filename()
+    {
+        string path = WriteTorrent(TorrentBytes("safe.bin", 5000), "changing.torrent");
+        GameTorrentFile initial = GameDownloadSourceValidator.ValidateTorrentFile(path);
+        Assert.Equal(File.ReadAllBytes(path),
+            GameDownloadSourceValidator.ReadValidatedTorrentBytes(path, initial.InfoHashHex));
+        File.WriteAllBytes(path, TorrentBytes("other.bin", 5000));
+        Assert.Throws<GameDownloadException>(() =>
+            GameDownloadSourceValidator.ReadValidatedTorrentBytes(path, initial.InfoHashHex));
+    }
+
+    [Fact]
+    public void Ambiguous_duplicate_info_dictionary_is_rejected()
+    {
+        byte[] original = TorrentBytes("safe.bin", 5000);
+        // The top-level bencode dictionary contains two "info" keys; never
+        // hash one dictionary and allow the torrent engine to choose another.
+        byte[] duplicate = Encoding.Latin1.GetBytes("d4:info")
+            .Concat(original.Skip("d8:announce20:http://t.example/ann4:info".Length).SkipLast(1))
+            .Concat(Encoding.Latin1.GetBytes("4:info"))
+            .Concat(original.Skip("d8:announce20:http://t.example/ann4:info".Length).SkipLast(1))
+            .Concat(Encoding.Latin1.GetBytes("e")).ToArray();
+        Assert.Throws<GameDownloadException>(() =>
+            GameDownloadSourceValidator.ParseTorrent(duplicate));
+    }
+
+    [Fact]
     public void Kind_defaults_to_http_and_unknown_kinds_are_refused()
     {
         Assert.Equal(GameDownloadKinds.Http, new GameDownloadRequest("https://x.example/a", _dir).Kind);
