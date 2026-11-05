@@ -29,6 +29,26 @@ namespace PaRuX.Services
             lock (Gate) Selected.RemoveWhere(id => !existingIds.Contains(id));
         }
 
+        /// <summary>
+        /// Sets EXACTLY a server-verified nonempty guide scope for an explicitly
+        /// requested Chat draft. Never use the Chat default empty=all semantics.
+        /// Preserves an existing selection if validation fails.
+        /// </summary>
+        public static bool TryUseExplicitSources(IReadOnlyCollection<string>? ids)
+        {
+            if (ids == null || ids.Count is < 1 or > 64 ||
+                ids.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 200 ||
+                    id.Any(char.IsControl)))
+                return false;
+            lock (Gate)
+            {
+                Selected.Clear();
+                foreach (string id in ids) Selected.Add(id);
+                Enabled = true;
+            }
+            return true;
+        }
+
         public static ChatDocumentScope? ToRequest()
         {
             lock (Gate)

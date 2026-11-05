@@ -1,3 +1,8 @@
+## 2026-11-05 — L8 local guide consent UI and existing Chat draft handoff (SOURCE WIP)
+
+- Gaming Home adds an IT/EN local guide dialog: choose a saved manual game, enter a question, explicitly check source folders (none never means all), then Core re-verifies enabled and indexed IDs. A successful result is forwarded through UniversalLibraryPanel -> ManualGameLibraryView -> MainWindow to the **existing** Chat composer, not a new agent. Existing nonempty draft/busy Chat is preserved and the handoff fails; selected document IDs are atomically set only on accepted draft. Sending the question requires the user's next explicit click. No AI wakes during Gaming.
+- Source-only wiring; WinUI build/FlaUI, real RAG index, race behavior, source-list scalability and GPU regression remain unverified. Game identification currently uses manual-library entry, not OS-attested live process.
+
 ## 2026-11-05 — L8 owner-only local game document Chat preparation (SOURCE WIP)
 
 - `POST /api/v1/gaming/assistant/prepare` now binds the selected manual-library game ID to a real owner-registered game, explicit question and 1–64 currently enabled AND nonempty indexed source IDs. It rejects an empty scope (never fallback to every enabled folder), stale/unindexed IDs, Gaming/transition state, and unapproved clients. Returns only a bounded typed question and existing Chat document scope for a separate user-initiated Chat turn; no game binaries, AI inference, GPU allocation or network access. Synthetic policy/HTTP admission tests authored, NOT RUN.

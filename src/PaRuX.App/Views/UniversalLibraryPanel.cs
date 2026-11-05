@@ -32,6 +32,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     // titles: the Gaming home (Continue shelf, tile grid, detail panel) lives in GamingHomeView
     private readonly GamingHomeView _home;
+    public event Func<string, IReadOnlyList<string>, bool>? GameGuideChatRequested;
 
     // advanced
     private readonly TextBox _folder = new();
@@ -59,6 +60,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _refreshLibrary = refreshLibrary;
         Spacing = 12;
         _home = new GamingHomeView(launch, refreshLibrary);
+        _home.GameGuideChatRequested += (question, sources) =>
+            GameGuideChatRequested?.Invoke(question, sources) == true;
         Children.Add(_home);
         BuildAdvanced();
     }

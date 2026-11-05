@@ -117,6 +117,24 @@ namespace PaRuX
             App.Hotkey.Pressed += OnHotkeyPressed;
             App.Hotkey.Register(SettingsStore.Current.Data.Hotkey);
 
+            // Game guides reuse the existing Chat composer and its exact
+            // selected-source document scope. No parallel chat implementation,
+            // no implicit send, and no AI launch while Gaming owns resources.
+            GameLibraryPage.GameGuideChatRequested += (question, sources) =>
+            {
+                if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive() ||
+                    sources is null || sources.Count is < 1 or > 64 ||
+                    sources.Any(id => string.IsNullOrWhiteSpace(id) ||
+                        id.Length > 200 || id.Any(char.IsControl)))
+                    return false;
+                // Refuse to replace unsent chat work. The Gaming Home keeps
+                // its error/status visible if this handoff is not accepted.
+                if (!ChatPage.TryPrefillGameGuideDraft(question)) return false;
+                if (!ChatDocumentScopeState.TryUseExplicitSources(sources)) return false;
+                ShowChat();
+                return true;
+            };
+
             ChatSession.Current.ConversationChanged += OnConversationChanged;
             ChatSession.Current.MessageAdded += _ => OnConversationTouched();
             ChatSession.Current.OpenInMainRequested += OnOpenInMainRequested;

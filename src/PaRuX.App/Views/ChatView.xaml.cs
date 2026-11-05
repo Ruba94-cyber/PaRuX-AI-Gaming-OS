@@ -2584,6 +2584,25 @@ namespace PaRuX.Views
             }
         }
 
+        /// <summary>
+        /// Explicit Gaming guide handoff to the EXISTING Chat composer. A user
+        /// must still inspect/edit and press Send; never overwrite a draft or
+        /// silently start inference.
+        /// </summary>
+        public bool TryPrefillGameGuideDraft(string? preparedQuestion)
+        {
+            if (string.IsNullOrWhiteSpace(preparedQuestion) ||
+                preparedQuestion.Length > 3400 || preparedQuestion.Any(char.IsControl) ||
+                !string.IsNullOrWhiteSpace(InputBox.Text) ||
+                ChatSession.Current.IsBusy || _isSwitchingProfile)
+                return false;
+            InputBox.Text = preparedQuestion;
+            UpdateRouteLabel();
+            InputBox.Focus(FocusState.Programmatic);
+            InputBox.SelectionStart = InputBox.Text.Length;
+            return true;
+        }
+
         /// <summary>Empty-state starter: prefills the composer, never sends.</summary>
         private void Suggestion_Click(object sender, RoutedEventArgs e)
         {

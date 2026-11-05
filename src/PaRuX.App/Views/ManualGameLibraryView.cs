@@ -64,6 +64,8 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _browse = new();
     private bool _busy;
     private readonly TextBox _filter = new();
+    /// <summary>On-demand, manually confirmed, no auto-send Game-to-Chat handoff.</summary>
+    public event Func<string, IReadOnlyList<string>, bool>? GameGuideChatRequested;
     private UniversalLibraryPanel? _universal;
     private readonly GameDownloadsPanel _downloads = new();
     private readonly ComboBox _storeFilter = new() { MinWidth = 180 };
@@ -104,6 +106,8 @@ public sealed class ManualGameLibraryView : UserControl
 
         // The Gaming home (Continue shelf, tile library, detail panel) opens first; it also hosts the opt-in advanced section.
         _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
+        _universal.GameGuideChatRequested += (question, sources) =>
+            GameGuideChatRequested?.Invoke(question, sources) == true;
         root.Children.Add(_universal);
 
         // Real resource/session status lives on the same Games home in both TV and

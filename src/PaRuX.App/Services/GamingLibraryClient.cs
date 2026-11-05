@@ -116,6 +116,15 @@ namespace PaRuX.Services
                 "/api/v1/gaming/library/imported/" + Uri.EscapeDataString(provider) +
                 "/" + Uri.EscapeDataString(externalId), null, ct);
 
+        /// <summary>
+        /// Owner-only scope preparation: the Core verifies both registered game identity
+        /// and enabled indexed local document IDs. This never submits a Chat turn.
+        /// </summary>
+        public Task<GamingCallResult<LocalGameGuidePreparationDto>> PrepareLocalGameGuideAsync(
+            LocalGameGuideRequest request, CancellationToken ct = default) =>
+            SendAsync<LocalGameGuidePreparationDto>(HttpMethod.Post,
+                "/api/v1/gaming/assistant/prepare", request, ct);
+
         /// <summary>Read locally saved wishlist metadata. Never calls a game store.</summary>
         public Task<GamingCallResult<List<LocalWishlistItemDto>>> GetWishlistAsync(CancellationToken ct = default) =>
             SendAsync<List<LocalWishlistItemDto>>(HttpMethod.Get, "/api/v1/gaming/wishlist", null, ct);

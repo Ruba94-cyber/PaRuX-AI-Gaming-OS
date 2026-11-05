@@ -27,6 +27,8 @@ internal sealed class GamingHomeView : StackPanel
 
     private readonly Func<GameInstallationDto, Task> _launch;
     private readonly Func<Task> _refreshLibrary;
+    /// <summary>Returns true only if the existing Chat accepted the read-only draft.</summary>
+    public event Func<string, IReadOnlyList<string>, bool>? GameGuideChatRequested;
 
     // toolbar
     private readonly TextBox _search = new() { MaxLength = 100 };
@@ -49,6 +51,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _igdb = new();
     private readonly Button _externalPreview = new();
     private readonly Button _externalSaved = new();
+    private readonly Button _localGuide = new();
     private readonly Button _wishlist = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
@@ -359,6 +362,12 @@ internal sealed class GamingHomeView : StackPanel
               "Controlla o rimuovi i titoli salvati di librerie esterne"));
         _externalSaved.Click += async (_, _) => await ShowSavedExternalLibraryAsync();
 
+        _localGuide.Content = T("Local game guide", "Guida giochi locale");
+        Track(_localGuide, "GameHome_LocalGuide_Button",
+            T("Ask about a local game using selected indexed documents",
+              "Chiedi di un gioco locale usando documenti indicizzati selezionati"));
+        _localGuide.Click += async (_, _) => await ShowLocalGameGuideAsync();
+
         _wishlist.Content = T("Wishlist", "Lista desideri");
         Track(_wishlist, "GameHome_Wishlist_Button",
             T("Manage your offline Steam wishlist and explicit price thresholds",
@@ -377,7 +386,7 @@ internal sealed class GamingHomeView : StackPanel
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
                    _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _wishlist, _selectMode, _refresh })
+                   _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -481,6 +490,131 @@ internal sealed class GamingHomeView : StackPanel
     }
 
     /// <summary>Metadata-only review and individual deletion, never game file deletion.</summary>
+    /// <summary>
+    /// Game docs are selected explicitly from the existing user-authorised RAG
+    /// folders. We ask Core to verify them a second time and only prefill the
+    /// existing Chat composer; no background model inference or auto-send.
+    /// </summary>
+    private async Task ShowLocalGameGuideAsync()
+    {
+        _localGuide.IsEnabled = false;
+        try
+        {
+            GamingCallResult<List<ManualGameDto>> gamesResult =
+                await GamingLibraryClient.Current.GetManualGamesForModsAsync();
+            if (!gamesResult.Succeeded || gamesResult.Value is null)
+            {
+                _status.Text = T("Could not read saved local games.", "Impossibile leggere i giochi locali.");
+                return;
+            }
+            List<ManualGameDto> games = gamesResult.Value
+                .Where(g => g.Kind == ManualEntryKinds.Game).OrderBy(g => g.Name).ToList();
+            List<RagSourceDto> sources;
+            try
+            {
+                sources = (await RagClient.Current.ListSourcesAsync(CancellationToken.None))
+                    .Where(s => s.Enabled).OrderBy(s => s.FolderPath).ToList();
+            }
+            catch (Exception)
+            {
+                _status.Text = T("Could not read local document folders. Check the RAG index.",
+                    "Impossibile leggere le cartelle locali. Controlla l'indice RAG.");
+                return;
+            }
+
+            var gamePicker = new ComboBox { Header = T("Saved local game", "Gioco locale salvato"), MinWidth = 260 };
+            AutomationProperties.SetAutomationId(gamePicker, "GameHome_LocalGuide_Game");
+            foreach (ManualGameDto game in games)
+                gamePicker.Items.Add(new ComboBoxItem { Content = game.Name, Tag = game });
+            if (gamePicker.Items.Count > 0) gamePicker.SelectedIndex = 0;
+
+            var question = new TextBox
+            {
+                Header = T("Question for the local guide", "Domanda per la guida locale"),
+                MaxLength = 3000, MinHeight = 70, AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap
+            };
+            AutomationProperties.SetAutomationId(question, "GameHome_LocalGuide_Question");
+            var chosenSources = new StackPanel { Spacing = 4 };
+            AutomationProperties.SetAutomationId(chosenSources, "GameHome_LocalGuide_Sources");
+            foreach (RagSourceDto source in sources.Take(64))
+            {
+                string name = System.IO.Path.GetFileName(source.FolderPath.TrimEnd('\\', '/'));
+                var box = new CheckBox
+                {
+                    Content = string.IsNullOrWhiteSpace(name) ? source.Id : name,
+                    Tag = source.Id, IsChecked = false
+                };
+                AutomationProperties.SetAutomationId(box, "GameHome_LocalGuide_Source_" + chosenSources.Children.Count);
+                chosenSources.Children.Add(box);
+            }
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = T("Choose the game and specific folders. The question will be prepared for Chat but NOT sent automatically. Gaming must already be closed.",
+                    "Seleziona gioco e cartelle precise. La domanda sarà preparata in Chat ma NON inviata automaticamente. Gaming deve essere già chiuso."),
+                TextWrapping = TextWrapping.Wrap
+            });
+            panel.Children.Add(gamePicker);
+            panel.Children.Add(question);
+            panel.Children.Add(new TextBlock
+            {
+                Text = T("Indexed folders (select at least one)", "Cartelle indicizzate (selezionane almeno una)")
+            });
+            panel.Children.Add(new ScrollViewer
+            {
+                Content = chosenSources, MaxHeight = 190,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            });
+            if (games.Count == 0 || sources.Count == 0)
+                panel.Children.Add(new TextBlock
+                {
+                    Text = T("Add a local game and index a guide folder before using this feature.",
+                        "Aggiungi un gioco locale e indicizza una cartella di guide prima di usare questa funzione."),
+                    TextWrapping = TextWrapping.Wrap
+                });
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot, Title = T("Local game guide", "Guida giochi locale"),
+                Content = panel,
+                PrimaryButtonText = games.Count > 0 && sources.Count > 0
+                    ? T("Prepare in Chat", "Prepara in Chat") : string.Empty,
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (gamePicker.SelectedItem is not ComboBoxItem { Tag: ManualGameDto selectedGame })
+                return;
+            string[] chosen = chosenSources.Children.OfType<CheckBox>()
+                .Where(box => box.IsChecked == true).Select(box => box.Tag as string ?? "")
+                .Where(s => s.Length > 0).ToArray();
+            if (chosen.Length == 0 || string.IsNullOrWhiteSpace(question.Text))
+            {
+                _status.Text = T("Enter a question and select at least one guide folder.",
+                    "Inserisci una domanda e seleziona almeno una cartella di guide.");
+                return;
+            }
+            GamingCallResult<LocalGameGuidePreparationDto> result =
+                await GamingLibraryClient.Current.PrepareLocalGameGuideAsync(
+                    new LocalGameGuideRequest(selectedGame.Id, question.Text, chosen, true));
+            if (!result.Succeeded || result.Value is not { } prepared ||
+                !prepared.Documents.Enabled || prepared.Documents.SourceIds.Count == 0)
+            {
+                _status.Text = T("Guide preparation was blocked: verify the index and leave Gaming first.",
+                    "Preparazione guida bloccata: verifica l'indice e termina prima Gaming.");
+                return;
+            }
+            bool accepted = GameGuideChatRequested?.Invoke(
+                prepared.QuestionForChat, prepared.Documents.SourceIds) == true;
+            _status.Text = accepted
+                ? T("Guide question prepared in Chat. Review it and press Send.",
+                    "Domanda preparata in Chat. Controllala e premi Invia.")
+                : T("Chat has an unsent draft, is busy, or is not available. No question was sent.",
+                    "Chat contiene una bozza, è occupata o non disponibile. Nessuna domanda è stata inviata.");
+        }
+        finally { _localGuide.IsEnabled = true; }
+    }
+
     private async Task ShowSavedExternalLibraryAsync()
     {
         _externalSaved.IsEnabled = false;
