@@ -412,6 +412,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         {
             Job = e, GamingActive = _gamingActive, FreeBytes = _freeBytes, MaxFileBytes = _maxFileBytes,
             Throttle = _limiter.WaitAsync,
+            NetworkBytesPerSecond = () => _limiter.CurrentLimit,
             Report = (done, total) => { lock (_gate) { e.BytesDone = done; if (total is not null) e.TotalBytes = total; } },
             UserCancelled = () => { lock (_gate) return e.State == GameDownloadStates.Cancelled || _disposed; },
         };
@@ -690,6 +691,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         private DateTime _next = DateTime.UtcNow;
 
         public void SetLimit(long bytesPerSecond) { lock (_gate) { _bytesPerSecond = bytesPerSecond; _next = DateTime.UtcNow; } }
+    public long CurrentLimit { get { lock (_gate) return _bytesPerSecond; } }
 
         public async Task WaitAsync(int bytes, CancellationToken ct)
         {
