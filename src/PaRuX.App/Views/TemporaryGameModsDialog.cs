@@ -178,6 +178,24 @@ internal static class TemporaryGameModsDialog
                     "Il gioco è stato ripreso, il file cambiato o l'anteprima scaduta. Nessuna scrittura autorizzata."));
     }
 
+    public static async Task ShowRestoreListAsync(XamlRoot root)
+    {
+        var listed = await Client.GetTemporaryGameModsAsync();
+        if (!listed.Succeeded || listed.Value is null)
+        {
+            await MessageAsync(root, T("Mod recovery unavailable", "Recupero mod non disponibile"),
+                listed.Error ?? T("Could not read saved mod backups.", "Impossibile leggere i backup delle mod."));
+            return;
+        }
+        if (listed.Value.Count == 0)
+        {
+            await MessageAsync(root, T("No temporary mods", "Nessuna mod temporanea"),
+                T("There are no active changes to restore.", "Non ci sono modifiche attive da ripristinare."));
+            return;
+        }
+        await RestoreAsync(root, listed.Value);
+    }
+
     private static async Task RestoreAsync(XamlRoot root, System.Collections.Generic.IReadOnlyList<GameTemporaryModDto> mods)
     {
         var select = new ComboBox
