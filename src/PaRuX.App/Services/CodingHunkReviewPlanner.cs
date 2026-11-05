@@ -73,16 +73,20 @@ namespace PaRuX.Services
                 if (line.StartsWith("--- a/", StringComparison.Ordinal))
                 {
                     string candidate = line.Substring(6);
-                    oldPath = insideDiff && string.Equals(candidate, expectedPath, StringComparison.Ordinal)
-                        ? candidate : string.Empty;
+                    if (!insideDiff || !string.Equals(candidate, expectedPath, StringComparison.Ordinal)
+                        || path.Length > 0)
+                        throw new FormatException("Unexpected or mismatched original Git file header.");
+                    oldPath = candidate;
                     continue;
                 }
                 if (line.StartsWith("+++ b/", StringComparison.Ordinal))
                 {
                     string candidate = line.Substring(6);
-                    path = insideDiff && string.Equals(candidate, expectedPath, StringComparison.Ordinal)
-                        && string.Equals(candidate, oldPath, StringComparison.Ordinal)
-                        ? candidate : string.Empty;
+                    if (!insideDiff || !string.Equals(candidate, expectedPath, StringComparison.Ordinal)
+                        || !string.Equals(candidate, oldPath, StringComparison.Ordinal)
+                        || path.Length > 0)
+                        throw new FormatException("Unexpected or mismatched destination Git file header.");
+                    path = candidate;
                     continue;
                 }
                 if (line.StartsWith("Binary files ", StringComparison.Ordinal)
@@ -96,7 +100,15 @@ namespace PaRuX.Services
                     || line.StartsWith("similarity index ", StringComparison.Ordinal)
                     || line.StartsWith("dissimilarity index ", StringComparison.Ordinal))
                     throw new FormatException("Binary, new/deleted, renamed or copied files require full-file review.");
-                if (!line.StartsWith("@@ ", StringComparison.Ordinal)) continue;
+                // A safe per-hunk preview supports only ordinary Git text metadata.
+                // Unknown lines (mode changes, submodules, extra headers) must not be
+                // silently ignored while some other hunk is considered reviewable.
+                if (line.StartsWith("index ", StringComparison.Ordinal)
+                    && insideDiff && oldPath.Length == 0 && path.Length == 0)
+                    continue;
+                if (line.Length == 0) continue; // Final split separator / blank diff line.
+                if (!line.StartsWith("@@ ", StringComparison.Ordinal))
+                    throw new FormatException("Unsupported Git diff metadata; review the entire file.");
 
                 if (result.Count >= MaximumReviewHunks)
                     throw new FormatException("Too many hunks for one interactive review.");
