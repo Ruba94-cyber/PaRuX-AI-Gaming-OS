@@ -1,3 +1,8 @@
+## 2026-11-05 — Audit of surviving GitHub branches and CLI help gap (SOURCE WIP)
+
+- Found 11 remote branches including main; no open PR; PRs #1–#6 are already merged. Most old branches are behind main; the divergent `feature/parux-ai-gaming-os-foundation` includes an actual missing CLI agent help change. Ported only the isolated help routing and synthetic child-process regression test to main, rather than merging 61 stale files or bringing `.ai/telemetry` into main. `parux agent [--help|-h|help]` and `parux agent run [--help|-h]` now show agent guidance without starting Core or tasks; help inside an actual goal remains unmodified. No branch has been deleted.
+- Legacy feature and remote branches remain retained until a separate explicit archive/delete decision. Old PR branch divergence after squash merges is NOT evidence by itself of missing functionality. Build and tests are still pending Windows validation.
+
 ## 2026-11-05 — Corrected GOS FlaUI Debug test build gate (SOURCE WIP)
 
 - `tools/test-gos-checkpoint.ps1 -RunUi` retains its Release build verification, then builds a matching Debug Server+App pair, stages Debug Core beside Debug App and runs FlaUI Debug. Prior source ran Release FlaUI while fixtures require DEBUG; this could give false negatives. No actual Windows runner used here; revalidate the script on an isolated developer desktop.
