@@ -88,6 +88,7 @@ namespace PaRuX
                     UiVerificationWorkerService.Current.Start();
                     ComputerUseWorkerService.Current.Start();
                 }
+                SetupProfileRuntime.MarkStartedBy(setup);
                 Log.Write("PaRuX starting (setup profile: " + SetupProfilePolicy.ToStorage(SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId)) + ").");
 
                 MainWin = new MainWindow();

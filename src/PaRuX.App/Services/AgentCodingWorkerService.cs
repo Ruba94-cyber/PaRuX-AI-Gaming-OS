@@ -59,6 +59,7 @@ namespace PaRuX.Services
         public static bool HasActiveExecutionLease => _desktopExecutionLease.CurrentCount == 0;
 
         private bool _started;
+        private int _generation;
 
         private AgentCodingWorkerService() { }
 
@@ -67,12 +68,21 @@ namespace PaRuX.Services
             if (_started) return;
             _started = true;
             CodingTaskChangeTracker.Configure(AppPaths.CodingAgentStateDir, new OrchestratorReviewStatusSink());
-            _ = RunLoopAsync();
+            _ = RunLoopAsync(++_generation);
         }
 
-        private async Task RunLoopAsync()
+        /// <summary>Stops claiming new tasks (setup-profile switch). A run already executing keeps its own token and
+        /// finishes or is cancelled by the user as usual; nothing is deleted. Safe to call repeatedly; <see cref="Start"/> resumes.</summary>
+        public void Stop()
         {
-            while (true)
+            if (!_started) return;
+            _started = false;
+            _generation++;
+        }
+
+        private async Task RunLoopAsync(int generation)
+        {
+            while (_started && generation == Volatile.Read(ref _generation))
             {
                 try { await PollOnceAsync().ConfigureAwait(false); }
                 catch (Exception ex) { Log.Write("AgentCodingWorkerService poll failed: " + ex.Message); }

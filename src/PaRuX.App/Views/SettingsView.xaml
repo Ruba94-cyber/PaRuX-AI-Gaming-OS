@@ -140,6 +140,12 @@
                             </ComboBox>
                         </Grid>
 
+                        <Border Style="{StaticResource PaRuXDividerStyle}" Margin="0,12,0,12" />
+
+                        <!-- "Use for" role profiles (Chat / Coding / Reasoning / Vision / Documents). The panel is created in
+                             SettingsView.SetupProfile.cs; it only reads installed models and the existing role store. -->
+                        <ContentControl x:Name="RoleProfileHost" IsTabStop="False" HorizontalContentAlignment="Stretch" />
+
                     </StackPanel>
                 </Border>
             </StackPanel>

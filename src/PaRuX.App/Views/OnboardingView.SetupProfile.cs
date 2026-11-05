@@ -54,15 +54,31 @@ namespace PaRuX.Views
             yield return (SetupProfileGamingOption, SetupProfile.GamingOnly);
         }
 
-        private void SetupProfileChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void SetupProfileChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_setupProfileInitialising) return;
             if (SetupProfileChoice.SelectedItem is not RadioButton chosen) return;
-            SetupProfile profile = OptionButtons().First(o => ReferenceEquals(o.Button, chosen)).Profile;
+            SetupProfile requested = OptionButtons().First(o => ReferenceEquals(o.Button, chosen)).Profile;
             SetupProfile previous = StoredSetupProfile;
-            SettingsStore.Current.Data.SetupProfileId = SetupProfilePolicy.ToStorage(profile);
-            SettingsStore.Current.Save();
+            if (requested == previous) return;
+
+            // Same transactional switch as Settings: services start/stop to match, the choice is saved only if that worked.
+            SetupTransitionResult result;
+            try { result = await SetupProfileRuntime.SwitchAsync(requested); }
+            catch (Exception ex)
+            {
+                Log.Write("Onboarding profile switch threw: " + ex.GetType().Name);
+                result = new SetupTransitionResult(false, previous, Array.Empty<SetupTransitionStep>(), Array.Empty<SetupTransitionStep>(), null, false, ex.GetType().Name);
+            }
+            SetupProfile profile = StoredSetupProfile;
+            if (profile != requested)
+            {
+                _setupProfileInitialising = true;
+                try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == profile); }
+                finally { _setupProfileInitialising = false; }
+            }
             ApplySetupProfileToLayout(profile);
+            if (!result.Success) SetupProfileDescription.Text = result.Message + " " + SetupProfileDescription.Text;
             App.MainWin?.ApplySetupProfile();
             // Coming back from Gaming only: the AI checks were skipped, so run them now.
             if (previous == SetupProfile.GamingOnly && profile != SetupProfile.GamingOnly) StartAiRefreshes();
@@ -79,8 +95,11 @@ namespace PaRuX.Views
                 original.Key.Visibility = gamingOnly ? Visibility.Collapsed : original.Value;
         }
 
-        private void GamingOnlyStart_Click(object sender, RoutedEventArgs e)
+        private async void GamingOnlyStart_Click(object sender, RoutedEventArgs e)
         {
+            // Services already match when the choice above was applied; this makes sure of it before finishing (idempotent).
+            try { await SetupProfileRuntime.SwitchAsync(SetupProfile.GamingOnly); }
+            catch (Exception ex) { Log.Write("Gaming-only start: profile switch threw: " + ex.GetType().Name); }
             SettingsStore.Current.Data.SetupProfileId = SetupProfilePolicy.ToStorage(SetupProfile.GamingOnly);
             SettingsStore.Current.Data.OnboardingCompleted = true;
             SettingsStore.Current.Save();

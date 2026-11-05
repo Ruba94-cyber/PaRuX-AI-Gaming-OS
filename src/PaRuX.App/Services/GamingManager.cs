@@ -26,6 +26,15 @@ namespace PaRuX.Services
             _ = RefreshAsync();
         }
 
+        /// <summary>Stops listening for Gaming Mode changes (setup-profile switch). It never touches the game marker, a running
+        /// game or any data. Safe to call repeatedly; <see cref="Start"/> resumes.</summary>
+        public void Stop()
+        {
+            if (!_started) return;
+            _started = false;
+            LocalAiController.Current.StateChanged -= OnLocalAiStateChanged;
+        }
+
         /// <summary>Starts Gaming Mode. A refusal comes back in the result with the server's reason, so the page can show it.</summary>
         public async Task<LocalAiController.ActionResult> EnterAsync(CancellationToken ct)
         {

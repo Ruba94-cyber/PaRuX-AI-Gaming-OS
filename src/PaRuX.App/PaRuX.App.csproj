@@ -57,6 +57,11 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- The one capability taxonomy (coding / vision / reasoning) the role screen and the search screen share. Pure static file. -->
+  <ItemGroup>
+    <Compile Include="..\PaRuX.Server\ModelCategoryClassifier.cs" Link="Models\ModelCategoryClassifier.cs" />
+  </ItemGroup>
+
   <!-- Reuse one original C# virtual-pad protocol and mapping core in the WinUI host.
        No separate driver/runtime package; the host owns all physical input observation. -->
   <ItemGroup>
