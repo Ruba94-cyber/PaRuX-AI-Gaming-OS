@@ -134,6 +134,11 @@ function Invoke-NativeProcessCapture {
         [Parameter(Mandatory = $true)][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory
     )
+    if ($FilePath -like '*.ps1') {
+        # A PowerShell script (e.g. a test shim) cannot be started as a native image; run it through this host.
+        $Arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $FilePath) + $Arguments
+        $FilePath = (Get-Process -Id $PID).Path
+    }
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $FilePath
     $startInfo.Arguments = ConvertTo-NativeArgumentString -Arguments $Arguments
