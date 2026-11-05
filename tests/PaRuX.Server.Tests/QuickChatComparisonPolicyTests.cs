@@ -83,6 +83,17 @@ public sealed class QuickChatComparisonPolicyTests
     }
 
     [Fact]
+    public void High_free_vram_does_not_auto_authorize_image_generation()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var image = MediaHardwarePresetPolicy.Suggest("image", 24L * gib, gameActive: false);
+        Assert.True(image.Suggested);
+        Assert.True(image.RequiresConfirmation);
+        Assert.Equal(1024, image.Width);
+        Assert.Equal(1024, image.Height);
+    }
+
+    [Fact]
     public void Very_low_free_vram_never_generates_an_optimistic_media_suggestion()
     {
         const long gib = 1024L * 1024 * 1024;
