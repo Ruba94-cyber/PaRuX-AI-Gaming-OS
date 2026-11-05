@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using PaRuX.Contracts;
 
 namespace PaRuX.Server.Orchestration.Gaming.Discover;
@@ -8,7 +9,10 @@ namespace PaRuX.Server.Orchestration.Gaming.Discover;
 /// <summary>Lazily built per host so Program.cs needs only the single endpoint registration line.</summary>
 internal sealed class GameDiscoverRuntime
 {
-    private static readonly ConditionalWeakTable<IServiceProvider, GameDiscoverRuntime> Instances = new();
+    // Handler-injected IServiceProvider can be request scoped. Keying this cache by
+    // that provider recreates the Steam client/rate limiter for every HTTP request.
+    // Host lifetime is one stable key per Core, without sharing across test hosts.
+    private static readonly ConditionalWeakTable<IHostApplicationLifetime, GameDiscoverRuntime> Instances = new();
 
     public GameDiscoverSettingsStore Settings { get; }
     public GameDiscoverGate Gate { get; }
@@ -26,8 +30,12 @@ internal sealed class GameDiscoverRuntime
         Service = new GameDiscoverService(Steam, Gate, Settings);
     }
 
-    public static GameDiscoverRuntime For(IServiceProvider sp) =>
-        Instances.GetValue(sp, p => new GameDiscoverRuntime(p.GetRequiredService<LocalRuntimeService>()));
+    public static GameDiscoverRuntime For(IServiceProvider sp)
+    {
+        IHostApplicationLifetime lifetime = sp.GetRequiredService<IHostApplicationLifetime>();
+        return Instances.GetValue(lifetime, _ =>
+            new GameDiscoverRuntime(sp.GetRequiredService<LocalRuntimeService>()));
+    }
 }
 
 public static class GameDiscoverEndpoints
