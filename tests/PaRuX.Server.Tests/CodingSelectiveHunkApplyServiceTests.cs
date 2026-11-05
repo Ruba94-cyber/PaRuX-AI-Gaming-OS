@@ -46,6 +46,44 @@ public sealed class CodingSelectiveHunkApplyServiceTests : IDisposable
     }
 
     [Fact]
+    public void Preview_is_read_only_and_binds_exact_source_and_result_digests()
+    {
+        const string before = "one\nold\nmiddle\nlast\n";
+        File.WriteAllText(Target, before);
+        var reviewed = Approve(before);
+        CodingHunkPreviewResult preview =
+            CodingSelectiveHunkApplyService.PreparePreview(_root, "code.txt", Diff, reviewed.Decisions);
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal(reviewed.Preview.PreimageSha256, preview.PreimageSha256);
+        Assert.Equal(reviewed.Preview.CandidateSha256, preview.CandidateSha256);
+        Assert.Equal(before, File.ReadAllText(Target));
+
+        CodingSelectiveHunkApplyResult result = CodingSelectiveHunkApplyService.Apply(
+            _root, "code.txt", Diff, reviewed.Decisions,
+            preview.PreimageSha256, preview.CandidateSha256!,
+            explicitOneShotApproval: true);
+        Assert.True(result.Applied, result.Explanation);
+        Assert.Equal(preview.CandidateText, File.ReadAllText(Target));
+    }
+
+    [Fact]
+    public void Preview_refuses_file_changed_from_worktree_diff_and_invalid_utf8()
+    {
+        File.WriteAllText(Target, "unrelated\n");
+        var reviewed = Approve("one\nold\nmiddle\nlast\n");
+        var stale = CodingSelectiveHunkApplyService.PreparePreview(
+            _root, "code.txt", Diff, reviewed.Decisions);
+        Assert.False(stale.Ready);
+        Assert.Equal("unrelated\n", File.ReadAllText(Target));
+
+        byte[] invalid = { 0xFF, 0xFE, 0x00 };
+        File.WriteAllBytes(Target, invalid);
+        Assert.False(CodingSelectiveHunkApplyService.PreparePreview(
+            _root, "code.txt", Diff, reviewed.Decisions).Ready);
+        Assert.Equal(invalid, File.ReadAllBytes(Target));
+    }
+
+    [Fact]
     public void Exact_one_shot_approval_applies_only_selected_hunk_through_journal()
     {
         const string before = "one\nold\nmiddle\nlast\n";
