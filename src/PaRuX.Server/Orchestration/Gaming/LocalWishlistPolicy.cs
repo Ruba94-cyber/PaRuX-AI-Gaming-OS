@@ -36,6 +36,7 @@ public static class LocalWishlistPolicy
             || !ValidCurrency(candidate.Currency)
             || (candidate.StoreCountryCode is not null && !ValidCountryCode(candidate.StoreCountryCode))
             || (candidate.PriceWatchOptIn && !ValidCountryCode(candidate.StoreCountryCode))
+            || (candidate.PriceWatchOptIn && candidate.PriceTargetMinor is null)
             || candidate.PriceTargetMinor is < 0)
             return (existing.ToArray(), "Choose a supported public store product, currency and optional target.");
 
