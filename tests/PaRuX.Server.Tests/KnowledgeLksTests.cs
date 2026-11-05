@@ -488,8 +488,10 @@ public sealed class KnowledgeLksTests : IDisposable
     [Fact]
     public async Task Benchmark_is_reproducible_across_profiles_with_the_same_quality()
     {
-        KnowledgeBenchmarkReport eco = await KnowledgeBenchmark.RunAsync(Path.Combine(_root, "b1"), new KnowledgeBenchmarkOptions(Documents: 30, Plan: KnowledgeResourcePlan.For(KnowledgeProfile.Eco, 8)));
-        KnowledgeBenchmarkReport perf = await KnowledgeBenchmark.RunAsync(Path.Combine(_root, "b2"), new KnowledgeBenchmarkOptions(Documents: 30, Plan: KnowledgeResourcePlan.For(KnowledgeProfile.Performance, 8)));
+        // The memory guard is covered by its own test; here it is disabled (budget 0) because a large shared test host
+        // is always over an Eco budget and the guard's forced collections would dominate the timing (full-suite hang).
+        KnowledgeBenchmarkReport eco = await KnowledgeBenchmark.RunAsync(Path.Combine(_root, "b1"), new KnowledgeBenchmarkOptions(Documents: 30, Plan: KnowledgeResourcePlan.For(KnowledgeProfile.Eco, 8) with { ManagedMemoryBudgetBytes = 0 }));
+        KnowledgeBenchmarkReport perf = await KnowledgeBenchmark.RunAsync(Path.Combine(_root, "b2"), new KnowledgeBenchmarkOptions(Documents: 30, Plan: KnowledgeResourcePlan.For(KnowledgeProfile.Performance, 8) with { ManagedMemoryBudgetBytes = 0 }));
         _output.WriteLine($"Eco index {eco.IndexSeconds:0.00}s vs Performance {perf.IndexSeconds:0.00}s");
         Assert.Equal(perf.RecallAtK, eco.RecallAtK, 3);
         Assert.Equal(perf.MeanReciprocalRank, eco.MeanReciprocalRank, 3);
