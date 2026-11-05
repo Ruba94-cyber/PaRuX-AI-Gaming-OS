@@ -81,7 +81,7 @@ internal static class MinecraftSkinUvRestyler
     /// compressed image bombs advertising enormous dimensions and non-PNG
     /// payloads while keeping this code independent of third-party decoders.
     /// </summary>
-    private static (int Width, int Height) ReadPngDimensions(byte[] bytes)
+    internal static (int Width, int Height) ReadPngDimensions(byte[] bytes)
     {
         ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
         if (bytes.Length < 33 ||
