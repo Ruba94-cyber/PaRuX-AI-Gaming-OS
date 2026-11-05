@@ -109,6 +109,12 @@ public sealed class AgentLibraryBackend : IAgentLibraryBackend
         return Task.FromResult(_services.GetRequiredService<TemporaryGameModService>().Preview(request));
     }
 
+    public Task<GameModPreviewDto> ProposeSettingPatchAsync(GameModSettingPatchRequest request, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(_services.GetRequiredService<TemporaryGameModService>().PreviewSettingPatch(request));
+    }
+
     public Task<QuickResumeStatusDto> QuickResumeListAsync(CancellationToken ct) => Task.Run(() => _quickResume.List(), ct);
     public Task<QuickResumeActionResult> QuickResumeSuspendAsync(QuickResumeActionRequest request, CancellationToken ct) =>
         _quickResume.SuspendAsync(request, ct);

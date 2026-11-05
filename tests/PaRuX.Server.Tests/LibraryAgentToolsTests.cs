@@ -23,6 +23,13 @@ public sealed class LibraryAgentToolsTests
         public string LaunchMessage = @"Started C:\Users\paolo\Games\Celeste\Celeste.exe";
         public bool Launched = true;
         public QuickResumeStatusDto QuickStatus = new(Array.Empty<QuickResumeAppDto>());
+        public Task<GameModPreviewDto> ProposeSettingPatchAsync(GameModSettingPatchRequest request, CancellationToken ct)
+        {
+            Calls.Add("patch:" + request.ManualGameId);
+            return Task.FromResult(new GameModPreviewDto(
+                "preview-patch", "Synthetic", request.RelativePath, new string('a', 64),
+                "CONFIDENTIAL ORIGINAL", request.Value, DateTime.UtcNow.AddMinutes(5), "Review only"));
+        }
         public Task<GameModPreviewDto> ProposeTemporaryModAsync(GameModProposalRequest request, CancellationToken ct)
         {
             Calls.Add("mod-propose:" + request.ManualGameId);
@@ -83,8 +90,9 @@ public sealed class LibraryAgentToolsTests
         var (tools, _, _) = Make();
         JsonArray schemas = tools.GetToolSchemas();
         var names = schemas.Select(s => s!["function"]!["name"]!.GetValue<string>()).ToList();
-        Assert.Equal(15, names.Count);
+        Assert.Equal(16, names.Count);
         Assert.Contains(AgentLibraryTools.GameModProposeTool, names);
+        Assert.Contains(AgentLibraryTools.GameModPatchTool, names);
         foreach (JsonNode? s in schemas)
             Assert.False(s!["function"]!["parameters"]!["additionalProperties"]!.GetValue<bool>());
         Assert.All(names, n => Assert.True(AgentLibraryTools.IsBuiltInTool(n)));
@@ -121,6 +129,33 @@ public sealed class LibraryAgentToolsTests
         Assert.Contains("NOTHING has been changed", second);
         Assert.Single(backend.Calls);
         Assert.StartsWith("mod-propose:", backend.Calls[0]);
+        Assert.Empty(consent.List());
+    }
+
+    [Fact]
+    public async Task Ai_setting_patch_needs_owner_consent_and_hides_current_config()
+    {
+        var (tools, backend, consent) = Make();
+        DateTime started = new(2026, 11, 5, 10, 0, 0, DateTimeKind.Utc);
+        backend.QuickStatus = new QuickResumeStatusDto(new[] {
+            new QuickResumeAppDto(333, "Demo", "Demo Game", started, Suspended: true,
+                CanSuspend: true, Reason: null)
+        });
+        string json = System.Text.Json.JsonSerializer.Serialize(new {
+            manual_game_id = "m1", process_id = 333, started_utc = started.ToString("O"),
+            relative_path = "config/settings.ini", section = "video", key = "brightness",
+            value = "3", offline_confirmed = true
+        });
+        Assert.Contains("Confirmation required",
+            await Call(tools, AgentLibraryTools.GameModPatchTool, json, bypass: true));
+        Assert.Empty(backend.Calls);
+        var consentItem = Assert.Single(consent.List());
+        Assert.True(consent.Approve(consentItem.Id));
+        string approved = json.TrimEnd('}') + ",\"confirmation_id\":\"" + consentItem.Id + "\"}";
+        string result = await Call(tools, AgentLibraryTools.GameModPatchTool, approved, bypass: true);
+        Assert.Contains("NOTHING has been changed", result);
+        Assert.DoesNotContain("CONFIDENTIAL ORIGINAL", result);
+        Assert.Single(backend.Calls);
         Assert.Empty(consent.List());
     }
 

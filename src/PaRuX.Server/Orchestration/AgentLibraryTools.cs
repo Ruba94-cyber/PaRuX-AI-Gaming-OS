@@ -40,6 +40,8 @@ public interface IAgentLibraryBackend
     // The model never receives an apply/restore tool: those remain owner-only UI actions.
     Task<GameModPreviewDto> ProposeTemporaryModAsync(GameModProposalRequest request, CancellationToken ct) =>
         Task.FromException<GameModPreviewDto>(new InvalidOperationException("Temporary mod preview unavailable."));
+    Task<GameModPreviewDto> ProposeSettingPatchAsync(GameModSettingPatchRequest request, CancellationToken ct) =>
+        Task.FromException<GameModPreviewDto>(new InvalidOperationException("Setting patch preview unavailable."));
 }
 
 /// <summary>One pending or decided confirmation. The summary is the text the user sees.</summary>
@@ -184,6 +186,7 @@ public sealed class AgentLibraryTools
     public const string QuickResumePauseTool = "quick_resume_pause";
     public const string QuickResumeResumeTool = "quick_resume_resume";
     public const string GameModProposeTool = "game_mod_propose";
+    public const string GameModPatchTool = "game_mod_patch";
 
     public const int MaxArgumentCharacters = 4096;
     public const int MaxQueryCharacters = 120;
@@ -200,7 +203,7 @@ public sealed class AgentLibraryTools
     private static readonly string[] Reversible = { SetFavoriteTool, SetTagsTool, SetCollectionTool };
     private static readonly string[] AlwaysConfirm =
         { LaunchTool, RemoveEntryTool, EnqueueDownloadTool, QuickResumePauseTool, QuickResumeResumeTool,
-          GameModProposeTool };
+          GameModProposeTool, GameModPatchTool };
 
     private static readonly Regex AbsolutePath = new(
         @"(?:[A-Za-z]:[\\/][^\s""'<>|*?]*)|(?:\\\\[^\s""'<>|]+)|(?:/(?:Users|home|mnt|var|etc|opt)/[^\s""'<>|]*)",
@@ -346,6 +349,21 @@ public sealed class AgentLibraryTools
                     "Owner confirms this is their offline single-player game, not an online or anti-cheat protected title." },
                 ["confirmation_id"] = Confirmation()
             }, "manual_game_id", "process_id", "started_utc", "relative_path", "proposed_text", "offline_confirmed");
+        Add(GameModPatchTool,
+            "Prepare a single-key INI/CFG setting change for a PaRuX-managed offline game paused via Quick Resume. The model never reads the original config. Explicit user confirmation is required for the preview, then the owner must separately review and approve applying it. Not live gameplay injection.",
+            new JsonObject
+            {
+                ["manual_game_id"] = Str("PaRuX-managed game id, not a folder path.", 64),
+                ["process_id"] = Pid(),
+                ["started_utc"] = Str("Exact paused process time from quick_resume_list.", 40),
+                ["relative_path"] = Str("Existing INI/CFG path relative to managed game root.", 240),
+                ["section"] = Str("Optional INI section without brackets.", 80),
+                ["key"] = Str("Existing INI setting name, ASCII letters/digits/dot/dash/underscore.", 80),
+                ["value"] = Str("One-line replacement setting value, at most 256 characters.", 256),
+                ["offline_confirmed"] = new JsonObject { ["type"] = "boolean",
+                    ["description"] = "Owner confirms offline single-player ownership/permission." },
+                ["confirmation_id"] = Confirmation()
+            }, "manual_game_id", "process_id", "started_utc", "relative_path", "key", "value", "offline_confirmed");
         return schemas;
     }
 
@@ -436,6 +454,8 @@ public sealed class AgentLibraryTools
                 case QuickResumeResumeTool: return QuickResume(args, tool, out outcome, out subject, out pending);
                 case GameModProposeTool:
                     return ProposeGameMod(args, out outcome, out subject, out pending);
+                case GameModPatchTool:
+                    return ProposeGameSettingPatch(args, out outcome, out subject, out pending);
             }
 
             if (tool == EnqueueDownloadTool) return Enqueue(args, tool, out outcome, out subject, out pending);
@@ -601,6 +621,75 @@ public sealed class AgentLibraryTools
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
+    }
+
+    private string ProposeGameSettingPatch(Args a, out string outcome, out string? subject, out Task<string>? pending)
+    {
+        pending = null;
+        subject = null;
+        string gameId = Text(a, "manual_game_id") ?? "";
+        string path = Text(a, "relative_path") ?? "";
+        string section = Text(a, "section") ?? "";
+        string key = Text(a, "key") ?? "";
+        string value = a.Values["value"].GetString() ?? "";
+        if (gameId.Length is < 1 or > 64 || !TemporaryGameModService.SafeRelativeConfig(path)
+            || !(path.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase))
+            || !Bool(a, "offline_confirmed"))
+        {
+            outcome = "refused";
+            return Failed + "Only an existing INI/CFG setting of a managed offline game can be proposed.";
+        }
+        if (!DateTime.TryParse(Text(a, "started_utc"),
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal |
+                System.Globalization.DateTimeStyles.AssumeUniversal, out DateTime started))
+        {
+            outcome = "invalid-arguments";
+            return Failed + "Invalid paused process start time.";
+        }
+        int pid = Int(a, "process_id") ?? 0;
+        QuickResumeAppDto? paused = _backend.QuickResumeListAsync(CancellationToken.None)
+            .GetAwaiter().GetResult().Apps.FirstOrDefault(x => x.ProcessId == pid && x.Suspended
+                && QuickResumePolicy.SameProcess(x.StartedUtc, started));
+        if (paused is null || GameAutoSuspendPolicy.IsExcludedProcess(paused.ProcessName))
+        {
+            outcome = "refused";
+            return Failed + "The exact offline game process must be paused in Quick Resume.";
+        }
+        subject = Clean(paused.ProcessName, 60);
+        string binding = AgentLibraryConsentStore.Bind(GameModPatchTool, gameId,
+            pid.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StartedText(paused.StartedUtc), path, section, key,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))));
+        string? gate = Gate(a, GameModPatchTool, binding,
+            "Allow the AI to preview an INI/CFG setting change in paused game " + subject
+            + " (file " + Redact(path) + ", key " + Redact(key)
+            + ")? The file will not be modified until you review and approve the preview.",
+            out outcome);
+        if (gate is not null) return gate;
+        pending = RunSettingPatchAsync(new GameModSettingPatchRequest(
+            gameId, pid, paused.StartedUtc, path, section, key, value, true));
+        outcome = "success";
+        return string.Empty;
+    }
+
+    private async Task<string> RunSettingPatchAsync(GameModSettingPatchRequest request)
+    {
+        try
+        {
+            GameModPreviewDto preview = await _backend.ProposeSettingPatchAsync(
+                request, CancellationToken.None).ConfigureAwait(false);
+            // Original config is visible only in the owner-only diff UI.
+            return "Prepared one-key game config preview " + preview.PreviewId + " for "
+                + Clean(preview.GameName, 80) + " / " + Redact(preview.RelativePath)
+                + ". Approve it separately in PaRuX Game Mods. NOTHING has been changed yet.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException
+            or InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return Failed + "setting preview was refused by paused-game and safe-config policy.";
+        }
     }
 
     private string ProposeGameMod(Args a, out string outcome, out string? subject, out Task<string>? pending)
@@ -827,6 +916,8 @@ public sealed class AgentLibraryTools
         [QuickResumeResumeTool] = (new[] { "process_id", "started_utc" }, new[] { "confirmation_id" }),
         [GameModProposeTool] = (new[] { "manual_game_id", "process_id", "started_utc",
             "relative_path", "proposed_text", "offline_confirmed" }, new[] { "confirmation_id" }),
+        [GameModPatchTool] = (new[] { "manual_game_id", "process_id", "started_utc",
+            "relative_path", "key", "value", "offline_confirmed" }, new[] { "section", "confirmation_id" }),
     };
 
     private static readonly Dictionary<string, int> TextLimits = new(StringComparer.Ordinal)
@@ -835,7 +926,7 @@ public sealed class AgentLibraryTools
         ["collection"] = GameTitleStore.MaxCollectionLength, ["title"] = MaxTitleCharacters,
         ["url"] = MaxUrlCharacters, ["file_name"] = 120, ["sha256"] = 64, ["confirmation_id"] = 32,
         ["started_utc"] = 40, ["manual_game_id"] = 64, ["relative_path"] = 240,
-        ["proposed_text"] = 2048,
+        ["proposed_text"] = 2048, ["section"] = 80, ["key"] = 80, ["value"] = 256,
     };
 
     private static bool TryParse(string tool, string json, out Args args, out string error)
