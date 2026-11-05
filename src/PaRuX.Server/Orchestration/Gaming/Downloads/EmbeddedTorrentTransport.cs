@@ -263,6 +263,23 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
     /// publisher authenticity. The parent download manager publishes only after
     /// hashing the newly created ZIP and checking its expected digest if supplied.
     /// </summary>
+    // A piece-verified torrent may still have its local stage altered or
+    // truncated between the engine stopping and the private copy. Never
+    // publish a partial payload merely because its initial length matched.
+    internal static long AdvanceVerifiedPayload(long completed, int read, long expected)
+    {
+        if (completed < 0 || read < 0 || expected < 0 ||
+            completed > expected || (long)read > expected - completed)
+            throw new GameDownloadException("Torrent payload exceeds its verified metadata length.");
+        return completed + read;
+    }
+
+    internal static void RequireExpectedPayloadLength(long completed, long expected)
+    {
+        if (completed != expected)
+            throw new GameDownloadException("Torrent payload length changed during the verified copy.");
+    }
+
     internal static async Task BundleVerifiedFilesAsync(
         GameDownloadTransferContext context, string staging, Torrent metadata, CancellationToken ct)
     {
@@ -319,16 +336,16 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                     ct.ThrowIfCancellationRequested();
                     if (context.GamingActive()) throw new OperationCanceledException(ct);
                     await context.Throttle(read, ct).ConfigureAwait(false);
+                    // Bound both the individual member and global payload BEFORE
+                    // writing the bytes to the ZIP, not only after EOF.
+                    copied = AdvanceVerifiedPayload(copied, read, item.Size);
+                    done = AdvanceVerifiedPayload(done, read, metadata.Size);
                     await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
-                    copied += read;
-                    done += read;
                     context.Report(done, metadata.Size);
                 }
-                if (copied != item.Size)
-                    throw new GameDownloadException("Torrent file changed during ZIP packaging.");
+                RequireExpectedPayloadLength(copied, item.Size);
             }
-            if (done != metadata.Size)
-                throw new GameDownloadException("Torrent ZIP payload total changed.");
+            RequireExpectedPayloadLength(done, metadata.Size);
         }
         await output.FlushAsync(ct).ConfigureAwait(false);
     }
@@ -361,10 +378,13 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                 ct.ThrowIfCancellationRequested();
                 if (context.GamingActive()) throw new OperationCanceledException(ct);
                 await context.Throttle(read, ct).ConfigureAwait(false);
+                done = AdvanceVerifiedPayload(done, read, metadata.Size);
                 await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
-                done += read;
                 context.Report(done, metadata.Size);
             }
+            // A stage file can shrink after the initial FileInfo check.
+            // Do not mark a truncated private copy as a completed transfer.
+            RequireExpectedPayloadLength(done, metadata.Size);
             await output.FlushAsync(ct).ConfigureAwait(false);
         }
     }

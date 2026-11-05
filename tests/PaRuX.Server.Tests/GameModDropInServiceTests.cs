@@ -267,6 +267,23 @@ public sealed class GameModDropInServiceTests : IDisposable
     }
 
     [Fact]
+    public void Uninstalled_game_with_missing_zip_and_executable_can_clear_only_its_orphan_receipt()
+    {
+        var bundle = WriteBundle();
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        string foreign = Path.Combine(Mods, "community-mod.zip");
+        File.WriteAllText(foreign, "foreign user-owned content");
+        File.Delete(installed.InstalledFile);
+        File.Delete(GameExe);
+        Assert.Equal("missing", Assert.Single(Service().List()).State);
+
+        Assert.True(Service().Remove(new(installed.Id, Consent: true, OfflineGameClosedConfirmed: true)));
+        Assert.Empty(Service().List());
+        Assert.Equal("foreign user-owned content", File.ReadAllText(foreign));
+        Assert.True(File.Exists(bundle.Path));
+    }
+
+    [Fact]
     public void Game_closed_and_loader_support_are_separate_mandatory_approvals()
     {
         var bundle = WriteBundle();

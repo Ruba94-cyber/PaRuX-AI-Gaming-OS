@@ -1,3 +1,9 @@
+## 2026-11-05 — Native torrent length gate + orphaned mod receipt cleanup (MAIN SOURCE WIP)
+
+- Native torrent copying now checks both individual and total v1 payload lengths **before writes**, and rejects a shortened single-file stage at EOF, rather than treating any truncated copy as a finished download. Shared bounded byte accounting also protects multifile ZIP packaging from overrun before archive writes. New synthetic accounting regression is authored, **NOT RUN**.
+- If the owner has already deleted a PaRuX ZIP and the game EXE has disappeared, opt-in removal can clear only the orphaned PaRuX receipt, preserving all remaining game files; dangling ZIP links fail closed. Existing/modified ZIPs still require selected-game process attestation and matching SHA-256. New synthetic recovery test is authored, **NOT RUN**.
+- No Windows .NET SDK, xUnit, FlaUI or peer swarm is available in this remote session. Run focused `EmbeddedTorrentTransportTests|EmbeddedMultifileTorrentTests|GameModDropInServiceTests`, full Server and FlaUI gates, and a lawful local torrent fixture. The changes do not assert peer/protocol interoperability or universal game mod compatibility. Do not release/tag 3.1.0.
+
 ## 2026-11-05 — Selected-game process attestation for optional mod installs (MAIN SOURCE WIP)
 
 - New `GameModProcessGuard` validates the owner-selected local, regular, non-junction `.exe` and conservative Windows process identity via `Process.GetProcessesByName` + `MainModule.FileName`; same-named inaccessible processes **fail closed**, not interpreted as a closed game. System/security processes remain excluded using existing `GameAutoSuspendPolicy`. It DOES NOT prove that helper/launcher/child processes of another name are stopped.

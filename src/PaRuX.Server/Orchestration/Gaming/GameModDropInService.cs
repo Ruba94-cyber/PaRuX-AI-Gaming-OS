@@ -373,11 +373,16 @@ public sealed class GameModDropInService
         {
             Receipt? receipt = ReadReceipts().SingleOrDefault(x => x.Id == request.ReceiptId);
             if (receipt is null) return false;
-            // An interrupted install may have persisted its receipt before
-            // the copy, and the user may later have removed the entire folder.
-            // In that case clear ONLY our receipt, never create a directory.
-            if (!Directory.Exists(receipt.ModFolder) && !File.Exists(receipt.InstalledFile))
+            // An interrupted install, user-removed ZIP or uninstalled game
+            // may leave only a PaRuX-owned receipt. Clearing that receipt
+            // must remain possible even when the original game EXE is gone.
+            // Do NOT touch any game folder or ZIP in this recovery path.
+            if (!File.Exists(receipt.InstalledFile))
             {
+                // File.Exists returns false for dangling links as well: do not
+                // silently forget a potentially unsafe leftover link.
+                if (new FileInfo(receipt.InstalledFile).LinkTarget is not null)
+                    throw new InvalidDataException("The installed mod path is a dangling link; manual review is required.");
                 File.Delete(ReceiptPath(receipt.Id));
                 return true;
             }

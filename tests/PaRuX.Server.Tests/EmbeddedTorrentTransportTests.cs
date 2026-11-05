@@ -86,6 +86,23 @@ public sealed class EmbeddedTorrentTransportTests
     }
 
     [Fact]
+    public void Torrent_copy_accounting_refuses_truncated_or_extended_stage_payloads()
+    {
+        // Synthetic source-only accounting: no tracker, peer or executable.
+        Assert.Equal(4L, EmbeddedTorrentTransport.AdvanceVerifiedPayload(0, 4, 6));
+        Assert.Equal(6L, EmbeddedTorrentTransport.AdvanceVerifiedPayload(4, 2, 6));
+        EmbeddedTorrentTransport.RequireExpectedPayloadLength(6, 6);
+        Assert.Throws<GameDownloadException>(() =>
+            EmbeddedTorrentTransport.RequireExpectedPayloadLength(4, 6));
+        Assert.Throws<GameDownloadException>(() =>
+            EmbeddedTorrentTransport.AdvanceVerifiedPayload(4, 3, 6));
+        Assert.Throws<GameDownloadException>(() =>
+            EmbeddedTorrentTransport.AdvanceVerifiedPayload(0, -1, 6));
+        Assert.Throws<GameDownloadException>(() =>
+            EmbeddedTorrentTransport.AdvanceVerifiedPayload(long.MaxValue, 1, long.MaxValue));
+    }
+
+    [Fact]
     public void Cancelled_owned_nested_torrent_stage_is_removed_without_touching_sibling_user_files()
     {
         string folder = Path.Combine(Path.GetTempPath(), "parux-stage-test-" + Guid.NewGuid().ToString("N"));
