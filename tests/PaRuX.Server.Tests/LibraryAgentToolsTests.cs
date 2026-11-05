@@ -22,6 +22,14 @@ public sealed class LibraryAgentToolsTests
         public string? DownloadFailure;
         public string LaunchMessage = @"Started C:\Users\paolo\Games\Celeste\Celeste.exe";
         public bool Launched = true;
+        public QuickResumeStatusDto QuickStatus = new(Array.Empty<QuickResumeAppDto>());
+        public Task<GameModPreviewDto> ProposeTemporaryModAsync(GameModProposalRequest request, CancellationToken ct)
+        {
+            Calls.Add("mod-propose:" + request.ManualGameId);
+            return Task.FromResult(new GameModPreviewDto(
+                "preview123", "Synthetic", request.RelativePath, new string('a', 64),
+                "old", request.ProposedText, DateTime.UtcNow.AddMinutes(5), "Review only"));
+        }
         public IReadOnlyList<GameTitleDto> Titles() => Items;
         public bool SetFavorite(string k, bool f) { Calls.Add($"fav:{k}:{f}"); return true; }
         public bool SetTags(string k, IReadOnlyList<string> t) { Calls.Add($"tags:{k}:{string.Join('|', t)}"); return true; }
@@ -41,7 +49,7 @@ public sealed class LibraryAgentToolsTests
             Task.FromResult(new GameCatalogListDto(GameDiscoverStatus.Ok, null, Array.Empty<GameCatalogEntryDto>()));
         public Task<GameDiscoverResultDto> DiscoverRecommendAsync(CancellationToken ct) =>
             Task.FromResult(new GameDiscoverResultDto(GameDiscoverStatus.Ok, null, Array.Empty<GameRecommendationDto>()));
-        public Task<QuickResumeStatusDto> QuickResumeListAsync(CancellationToken ct) => Task.FromResult(new QuickResumeStatusDto(Array.Empty<QuickResumeAppDto>()));
+        public Task<QuickResumeStatusDto> QuickResumeListAsync(CancellationToken ct) => Task.FromResult(QuickStatus);
         public Task<QuickResumeActionResult> QuickResumeSuspendAsync(QuickResumeActionRequest r, CancellationToken ct) => Task.FromResult(new QuickResumeActionResult(true, "ok"));
         public Task<QuickResumeActionResult> QuickResumeResumeAsync(QuickResumeActionRequest r, CancellationToken ct) => Task.FromResult(new QuickResumeActionResult(true, "ok"));
     }
@@ -75,10 +83,55 @@ public sealed class LibraryAgentToolsTests
         var (tools, _, _) = Make();
         JsonArray schemas = tools.GetToolSchemas();
         var names = schemas.Select(s => s!["function"]!["name"]!.GetValue<string>()).ToList();
-        Assert.Equal(14, names.Count);
+        Assert.Equal(15, names.Count);
+        Assert.Contains(AgentLibraryTools.GameModProposeTool, names);
         foreach (JsonNode? s in schemas)
             Assert.False(s!["function"]!["parameters"]!["additionalProperties"]!.GetValue<bool>());
         Assert.All(names, n => Assert.True(AgentLibraryTools.IsBuiltInTool(n)));
+    }
+
+    [Fact]
+    public async Task Ai_mod_proposal_requires_owner_confirmation_and_never_applies_a_file()
+    {
+        var (tools, backend, consent) = Make();
+        DateTime started = new(2026, 11, 5, 10, 0, 0, DateTimeKind.Utc);
+        backend.QuickStatus = new QuickResumeStatusDto(new[] {
+            new QuickResumeAppDto(333, "Demo", "Demo Game", started, Suspended: true,
+                CanSuspend: true, Reason: null)
+        });
+        string json = System.Text.Json.JsonSerializer.Serialize(new {
+            manual_game_id = "m1",
+            process_id = 333,
+            started_utc = started.ToString("O"),
+            relative_path = "config/settings.ini",
+            proposed_text = "[video]\\nbrightness=2",
+            offline_confirmed = true
+        });
+        string first = await Call(tools, AgentLibraryTools.GameModProposeTool, json, bypass: true);
+        Assert.Contains("Confirmation required", first);
+        Assert.Empty(backend.Calls);
+        var item = Assert.Single(consent.List());
+        Assert.True(consent.Approve(item.Id));
+        // A fresh owner approval allows only the mod PREVIEW, not write execution.
+        using var parsed = System.Text.Json.JsonDocument.Parse(json);
+        var args = parsed.RootElement.EnumerateObject()
+            .ToDictionary(x => x.Name, x => x.Value.Clone());
+        string confirmed = json.TrimEnd('}') + ",\"confirmation_id\":\"" + item.Id + "\"}";
+        string second = await Call(tools, AgentLibraryTools.GameModProposeTool, confirmed, bypass: true);
+        Assert.Contains("NOTHING has been changed", second);
+        Assert.Single(backend.Calls);
+        Assert.StartsWith("mod-propose:", backend.Calls[0]);
+        Assert.Empty(consent.List());
+    }
+
+    [Fact]
+    public async Task Ai_mod_proposal_refuses_unpaused_or_online_unconfirmed_game()
+    {
+        var (tools, backend, _) = Make();
+        const string json = "{\"manual_game_id\":\"m1\",\"process_id\":333,\"started_utc\":\"2026-11-05T10:00:00Z\",\"relative_path\":\"config/settings.ini\",\"proposed_text\":\"brightness=2\",\"offline_confirmed\":true}";
+        Assert.StartsWith("Library tool failed:", await Call(tools,
+            AgentLibraryTools.GameModProposeTool, json));
+        Assert.Empty(backend.Calls);
     }
 
     [Fact]
