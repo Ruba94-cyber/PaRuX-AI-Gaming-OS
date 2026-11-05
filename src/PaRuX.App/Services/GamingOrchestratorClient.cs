@@ -69,6 +69,10 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GameDownloadDto>> EnqueueGameDownloadAsync(GameDownloadRequest request, CancellationToken ct = default) =>
             SendAsync<GameDownloadDto>(HttpMethod.Post, "/api/v1/gaming/downloads", request, ct);
 
+        // Read-only status: embedded engine is bundled in Core, no external daemon.
+        public Task<GamingCallResult<GameTorrentEngineStatusDto>> GetGameTorrentEngineAsync(CancellationToken ct = default) =>
+            SendAsync<GameTorrentEngineStatusDto>(HttpMethod.Get, "/api/v1/gaming/downloads/torrent-engine", null, ct);
+
         // Optional external torrent client adapter (user's own qBittorrent on loopback). Off until configured.
         public Task<GamingCallResult<GameTorrentClientStatusDto>> GetGameTorrentClientAsync(CancellationToken ct = default) =>
             SendAsync<GameTorrentClientStatusDto>(HttpMethod.Get, "/api/v1/gaming/downloads/torrent-client", null, ct);
