@@ -56,6 +56,24 @@ Available features depend on your installed models, runtimes and hardware. **Not
 
 **PARTIAL — active software gaps; PHYSICAL_PC_ACCEPTANCE_REQUIRED.** The canonical status and the open work (the BIC-01 to BIC-17 backlog) live in [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md). Earlier "software complete" markers in the documentation are dated historical evidence, not the status of the current code. The Release build and the test classes touched in the latest fixes pass; the full xUnit suite and the FlaUI UI tests were NOT RUN for this statement.
 
+## Validation matrix (5 November 2026)
+
+Status refers to a **specific test or delivery**, not to the entire product. Remote source proposals below have not been merged, compiled or executed.
+
+| Capability / evidence | What is established | What remains |
+|---|---|---|
+| Latest published release | **3.0.0** (previous signed Windows release) | **3.1.0 not published**; release signing/assets only on the owner's Windows PC |
+| Baseline Server tests (before PR merges) | **Auto-tested on Windows**: 12,410 passed, 9 skipped (handoff dated 5 Nov 2026) | Newly merged PR tests are **Authored-not-run**, must not inherit prior evidence |
+| FlaUI desktop | **Verified on Windows**: Smoke 34/34. Prior full suite 270/283; 11 failures rerun passed after the bundled Core was refreshed | Run the **complete** Regression suite again by itself against the final source |
+| Coding diff and safe permissions (L2) | Main runtime/sandbox exists; **Merged source, authored-not-compiled** PR #1 adds strict metadata-checked per-hunk review, SHA-256 preview and OS + all-mutation-tools Auto admission | Rejects unknown metadata, unreviewable sections, binary/rename/add/delete; no transactional apply, UI or Windows tests |
+| Model comparison / personas (L3) | Arena/PersonaService on main; **Merged source, authored-not-compiled** PR #2 adds owner-only Core POST/GET, DTO/client, IT/EN statuses, advanced-only Chat Compare button, shared-prompt side-by-side dialog with refresh/cancel, and conservative VRAM preview policy | **FlaUI Smoke, HTTP security and focused xUnit authored-not-run**; no Windows UI, GPU/model-fit or 8 GB reference hardware proof; normal Chat routing unchanged |
+| Local game knowledge and GPU guard (L8) | Existing document Chat and Gaming hard-off; **Merged source, authored-not-compiled** PR #3 now verifies selected source IDs against independently supplied eligible local index IDs and blocks GPU admission for unknown game state | No Chat UI or index wiring; **Needs physical HW** for GPU isolation proof |
+| Auto-suspend and controllers (L6/L7) | Existing Quick Resume, virtual-pad and HidHide source; **Merged source, authored-not-compiled** PR #4 adds per-game suspend/debounce policies (3/5/10s, verified-process resets), anti-cheat guards and controller previews | **Needs physical HW**: event/sensor sampling, anti-cheat detection, device recovery; no XOutput-equivalence claim |
+| External library, wishlist and compliance (L4/L5/L9) | Existing discovery/SBOM scripts; **Merged source, authored-not-compiled** PR #5 adds owner-only in-memory JSON preview Core endpoint, desktop client, bilingual Gaming Home dialog and default-off wishlist with store/product/currency/country-checked price policy | Import persistence, tested real vendor formats, public API fetching, verified country, notification and full IT/EN audit remain open; **new HTTP/UI and synthetic tests not run** |
+| Corporate Lite | AI-only offline profile exists | 8 GB support and 4B answer quality on target hardware **not established** |
+
+Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1), [L3 PR #2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2), [L8 PR #3](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/3), [L6/L7 PR #4](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/4), [L4/L5/L9 PR #5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5). See [HANDOFF.md](HANDOFF.md) for the independent Windows gate and [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md) for status lines. All merged source remains local-first; no new model/driver downloads or game piracy support.
+
 ## Beta limitations
 
 - Development and acceptance testing are ongoing; **this is not production-ready software**.
