@@ -4,7 +4,7 @@
 
 The following code is in separate **draft PRs**, not on main or in a published build. All new tests are **Authored-not-run**; no release 3.1.0 has been cut.
 
-- **L2 PR #1:** strict same-file Git parser refuses unsupported changes and zero-hunk file sections, with SHA-256 in-memory preview; auto approval additionally requires verified OS sandbox **and** all mutation tools confined. No actual executor/UI or tests run.
+- **L2 PR #1:** strict same-file Git parser rejects unsupported/unknown metadata, zero-hunk sections and repeated headers, with SHA-256 in-memory preview; Auto requires OS and all mutation tools confined. No live executor/UI or tests run.
 - **L3 PR #2:** authenticated two-model Arena Core POST/GET and typed client/DTO with IT/EN status labels, strict model names, Core 4,000-character prompt limit and conservative free-VRAM media preview floor. No Chat control or hardware proof.
 - **L8 PR #3:** selected local game guides must match separately verified indexed-source IDs (empty/unknown scopes rejected), and unknown Gaming telemetry blocks GPU admission; no live Chat/OS integration or tests run.
 - **L6/L7 PR #4:** per-game suspend proposals with anti-cheat exclusions and monotonic continuity tracking (focus/battery/thermal; reset on changed process, rule edits or missing samples), controller diagnostic/remap previews and a typed consent-gated, PaRuX-owned undo plan; tests authored-not-run; **Needs physical HW**.
