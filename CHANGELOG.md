@@ -4,11 +4,11 @@
 
 The following code is in separate **draft PRs**, not on main or in a published build. All new tests are **Authored-not-run**; no release 3.1.0 has been cut.
 
-- **L2 PR #1:** per-hunk diff review, corrected Git prefix parser, SHA-256 preimage-bound selective preview, sandbox-gated approvals and bounded repair policy; **no live patch executor or UI wiring**.
+- **L2 PR #1:** per-hunk review with strict same-file Git headers, SHA-256 preimage-bound in-memory preview, sandbox-gated approvals and bounded repair policy; unsupported renames/binary/quoted paths refused; **no live patch executor or UI wiring**.
 - **L3 PR #2:** existing Arena and PersonaService reused; owner-gated quick-compare POST/GET Core routes, typed client and DTO, 4,000-character prompt policy, truthful side-by-side presenter, Auto wording and estimated media presets. New HTTP/security tests are authored, not run; no Chat UI wiring.
 - **L8 PR #3:** consent-scoped game-guide Chat policy (max 64 valid indexed source IDs, empty scope refused), game-first GPU policy; no Chat UI/runtime integration.
-- **L6/L7 PR #4:** per-game suspend proposals with explicit anti-cheat and custom process exclusions, controller diagnostic/remap previews and PaRuX-owned undo planner; **Needs physical HW**.
-- **L4/L5/L9 PR #5:** limited read-only game-library export parsers, opt-in local wishlist and store/product/currency-validated public price parsing, dependency-notice coverage and partial IT/EN audit; no API polling, notifications or UI integration.
+- **L6/L7 PR #4:** per-game suspend proposals with anti-cheat exclusions and monotonic continuity tracking (focus/battery/thermal; reset on changed process or missing samples), controller diagnostic/remap previews and PaRuX-owned undo planner; tests authored-not-run; **Needs physical HW**.
+- **L4/L5/L9 PR #5:** limited read-only library export parsers, **default-off** opt-in local wishlist, store/product/currency-matched price policy, dependency-notice coverage and partial IT/EN audit; no API polling, notifications or UI integration.
 - **Docs PR #6:** candid roadmap/README/handoff of current verified vs uncompiled work; Windows build, targeted xUnit, solo FlaUI regression and physical checks required before merging any of the proposals.
 
 
