@@ -86,6 +86,17 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> SetTitleHooksAsync(string key, GameHooksDto hooks, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/hooks", hooks, ct);
 
+        /// <summary>
+        /// Only previews a user-selected JSON export; the Core never reads file paths
+        /// from this text, and this call does not insert or launch any games.
+        /// The JSON is size-limited by Core before parsing.
+        /// </summary>
+        public Task<GamingCallResult<List<ExternalLibraryGamePreviewDto>>> PreviewExternalLibraryAsync(
+            string provider, string json, CancellationToken ct = default) =>
+            SendAsync<List<ExternalLibraryGamePreviewDto>>(HttpMethod.Post,
+                "/api/v1/gaming/library/import-preview",
+                new ExternalLibraryPreviewRequest(provider, json), ct);
+
         /// <summary>Edits a saved manual or emulator entry. Never touches game files.</summary>
         public Task<GamingCallResult<ManualGameDto>> UpdateManualGameAsync(string id, UpdateManualGameRequest request, CancellationToken ct = default) =>
             SendAsync<ManualGameDto>(HttpMethod.Put, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), request, ct);
