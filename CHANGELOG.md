@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-05 — L5 manual Steam price quote (WIP, not compiled/tested on Windows)
+
+- Added owner-only POST for an explicitly confirmed, one-shot Steam storefront price. The client reuses Game Discover's existing consent setting, fixed HTTPS host, cookie-free client, bounded response, timeout and request limiter; incoming country is only a requested storefront value, not an authenticated account region.
+- Game Discover runtime is now cached by host lifetime rather than request-scoped service provider, so its network lock and rate limiter persist across requests. Price results are discarded when Gaming starts, Discover is disabled, or the saved wishlist item changes during the call.
+- Gaming Home wishlist now shows an IT/EN **Check Steam price once** action and a clearly labeled indicative quote/threshold comparison. No scheduled polling, notifications, purchases or account login. New synthetic provider, owner-security and FlaUI regression tests are authored but **NOT RUN**; no real Steam API or device test was performed. The Store appdetails pricing endpoint is undocumented and may change.
+
+
 ### 2026-11-05 — Gaming L5: local Steam wishlist (WIP, not Windows tested)
 
 - Added an offline, versioned local wishlist store with bounded file size, cross-process write lease, atomic replacement, corruption refusal, duplicate validation and explicit opt-out on new items. Separate owner-only Core GET/POST/PUT/DELETE APIs never fetch prices, run timers or touch game files.
