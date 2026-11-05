@@ -304,6 +304,8 @@ public static class DocumentSkills
         "has","have","had","its","their","this","that","these","those","it","not","no","as","from","every","each"
     };
 
+    private static readonly HashSet<string> TokenStop = new(StringComparer.OrdinalIgnoreCase) { "the","a","an","is","are","to","of","be","see","il","la","lo","un","una","di","e" };
+
     // Numbers that name a place in a document or a version, not a measured value.
     private static readonly HashSet<string> KeyIgnore = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -391,7 +393,7 @@ public static class DocumentSkills
                     var (dim, factor) = NormalizeUnit(unit);
                     facts.Add(new Fact("id:" + id.ToLowerInvariant(), id, dim, num * factor, null, (nm.Groups["num"].Value + " " + unit).Trim(), hit, sentence));
                 }
-                else if (valText.Length > 0 && !KeyStop.Contains(valText) && !char.IsDigit(valText[0]))
+                else if (valText.Length > 0 && !TokenStop.Contains(valText) && !char.IsDigit(valText[0]))
                     facts.Add(new Fact("id:" + id.ToLowerInvariant(), id, "token", null, valText.ToLowerInvariant(), valText, hit, sentence));
                 idSpans.Add((m.Index, m.Index + m.Length));
             }

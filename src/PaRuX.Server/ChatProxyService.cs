@@ -111,8 +111,8 @@ public sealed class ChatProxyService
             }
             if (documentPlan.RewrittenQuestion != null)
             {
-                ChatCompletionMessage? lastUser = request.Messages.LastOrDefault(m => m.Role == "user");
-                if (lastUser != null) lastUser.Content = documentPlan.RewrittenQuestion;
+                ChatCompletionMessage? skillUser = request.Messages.LastOrDefault(m => m.Role == "user");
+                if (skillUser != null) skillUser.Content = documentPlan.RewrittenQuestion;
             }
         }
 

@@ -45,10 +45,29 @@ namespace PaRuX.Views
             panel.Children.Add(new TextBlock { Text = DT("Folders that may answer (none ticked = all)", "Cartelle che possono rispondere (nessuna = tutte)"), FontSize = 12, Opacity = 0.8 });
             panel.Children.Add(_documentsSources);
             panel.Children.Add(_documentsNote);
+            panel.Children.Add(new TextBlock { Text = DT("Document skills", "Competenze sui documenti"), FontSize = 12, Opacity = 0.8 });
+            panel.Children.Add(SkillButton(DT("Compare two versions", "Confronta due versioni"), "Chat_Documents_Skill_Diff", "/diff  |  "));
+            panel.Children.Add(SkillButton(DT("Check for contradictions", "Cerca contraddizioni"), "Chat_Documents_Skill_Contradictions", "/contradictions "));
             var flyout = new Flyout { Content = panel };
             flyout.Opening += async (s, e) => await LoadDocumentSourcesAsync();
             DocumentsButton.Flyout = flyout;
             UpdateDocumentsButtonVisual();
+        }
+
+        /// <summary>Quick action: turns Documents on and puts the command template in the composer for the person to complete and send.</summary>
+        private Button SkillButton(string label, string automationId, string template)
+        {
+            var button = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch };
+            AutomationProperties.SetAutomationId(button, automationId);
+            button.Click += (s, e) =>
+            {
+                ChatDocumentScopeState.SetEnabled(true);
+                if (_documentsSwitch != null) _documentsSwitch.IsOn = true;
+                UpdateDocumentsButtonVisual();
+                if (InputBox != null) { InputBox.Text = template; InputBox.Focus(FocusState.Programmatic); InputBox.SelectionStart = template.Length; }
+                DocumentsButton?.Flyout?.Hide();
+            };
+            return button;
         }
 
         private void UpdateDocumentsButtonVisual()
