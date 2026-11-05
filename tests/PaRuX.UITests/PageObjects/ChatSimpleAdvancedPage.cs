@@ -91,6 +91,9 @@ internal sealed class ChatSimpleAdvancedPage
     internal AutomationElement? FindModelRouteExplanationButton() =>
         _app.FindRawDescendant(_window, el => el.Properties.AutomationId.ValueOrDefault == "Chat_ModelRoute_Explain_Button");
 
+    internal AutomationElement? FindQuickModelCompareButton() =>
+        _app.FindRawDescendant(_window, el => el.Properties.AutomationId.ValueOrDefault == "Chat_QuickModelCompare_Button");
+
     internal AutomationElement? FindSkillSelector() =>
         _app.FindRawDescendant(_window, el => el.Properties.AutomationId.ValueOrDefault == "Chat_SkillSelector_ComboBox");
 

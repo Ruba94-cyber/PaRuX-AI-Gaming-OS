@@ -27,8 +27,34 @@ namespace PaRuX.Services
         public Task<ArenaRunDto> StartAsync(ArenaStartRequest request, CancellationToken ct) =>
             SendAsync<ArenaRunDto>(HttpMethod.Post, "/api/v1/models/arena/runs", request, ct);
 
+        /// <summary>
+        /// Explicit Chat-side two-model comparison. Core validates installed model names,
+        /// the 4,000-character prompt limit, owner authorization and Gaming hard-off.
+        /// This never changes the active Chat model or opens a second AI provider.
+        /// </summary>
+        public Task<ArenaRunDto> StartQuickCompareAsync(
+            string firstModel, string secondModel, string prompt, int maxTokens, CancellationToken ct) =>
+            SendAsync<ArenaRunDto>(HttpMethod.Post, "/api/v1/models/arena/quick-compare",
+                new ArenaStartRequest
+                {
+                    ModelFileNames = new List<string> { firstModel, secondModel },
+                    TaskIds = new List<string>(),
+                    CustomPrompt = prompt,
+                    MaxTokens = maxTokens
+                }, ct);
+
         public Task<ArenaRunDto> GetRunAsync(string id, CancellationToken ct) =>
             SendAsync<ArenaRunDto>(HttpMethod.Get, "/api/v1/models/arena/runs/" + Uri.EscapeDataString(id), null, ct);
+
+        /// <summary>Read the two-model Chat projection; outputs stay in the existing local Core.</summary>
+        public Task<ArenaQuickCompareViewDto> GetQuickCompareAsync(string id, CancellationToken ct) =>
+            GetQuickCompareAsync(id, italian: false, ct);
+
+        /// <summary>Use locally selected UI language; no server-side locale inference.</summary>
+        public Task<ArenaQuickCompareViewDto> GetQuickCompareAsync(string id, bool italian, CancellationToken ct) =>
+            SendAsync<ArenaQuickCompareViewDto>(HttpMethod.Get,
+                "/api/v1/models/arena/quick-compare/" + Uri.EscapeDataString(id)
+                    + (italian ? "?language=it" : "?language=en"), null, ct);
 
         public Task CancelAsync(string id, CancellationToken ct) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/models/arena/runs/" + Uri.EscapeDataString(id) + "/cancel", null, ct, allowEmpty: true);

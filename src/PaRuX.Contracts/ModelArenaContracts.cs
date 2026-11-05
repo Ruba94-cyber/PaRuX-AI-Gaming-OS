@@ -75,3 +75,15 @@ public sealed class ArenaJudgeRequest
     /// <summary>One of the run's models, or null to clear the judgement.</summary>
     public string? ModelFileName { get; set; }
 }
+
+/// <summary>
+/// Read-only two-column projection of an existing locally executed Arena run.
+/// Answers and user choices are separate; an incomplete run has no inferred winner.
+/// </summary>
+public sealed record ArenaQuickCompareColumnDto(
+    string ModelFileName, string StatusText, string AnswerText, bool AnswerAvailable);
+
+public sealed record ArenaQuickCompareViewDto(
+    bool Ready, string Prompt, string StatusText,
+    ArenaQuickCompareColumnDto Left, ArenaQuickCompareColumnDto Right,
+    string? UserPreferredModel);

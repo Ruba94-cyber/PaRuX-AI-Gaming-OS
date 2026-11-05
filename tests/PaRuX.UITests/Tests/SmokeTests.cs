@@ -65,6 +65,20 @@ public sealed class SmokeTests
             Assert.Contains("Send a chat turn", emptyState!.Name, StringComparison.Ordinal);
         });
 
+    [Fact, Trait("Category", "Smoke"), Trait("Category", "Chat"), Trait("Category", "Models")]
+    public void Quick_model_compare_is_advanced_only_and_accessible() => Run(
+        nameof(Quick_model_compare_is_advanced_only_and_accessible), app =>
+        {
+            var page = new ChatSimpleAdvancedPage(app.MainWindow, app);
+            page.EnableSimple();
+            Assert.True(ChatSimpleAdvancedPage.IsElementHidden(page.FindQuickModelCompareButton()));
+            page.EnableAdvanced();
+            UiWait.For(() =>
+                ChatSimpleAdvancedPage.IsElementVisible(page.FindQuickModelCompareButton()),
+                "Advanced Chat comparison button visible");
+            Assert.Equal("Compare two local models", page.FindQuickModelCompareButton()!.Name);
+        });
+
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Projects")]
     public void Simple_chat_code_folder_picker_opens() => Run(nameof(Simple_chat_code_folder_picker_opens), app =>
     {

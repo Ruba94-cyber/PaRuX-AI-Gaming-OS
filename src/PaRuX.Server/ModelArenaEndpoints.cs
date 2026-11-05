@@ -46,6 +46,38 @@ internal static class ModelArenaEndpoints
             catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        // Explicit two-model, one-prompt Chat comparison. This reuses the existing Arena
+        // executor, including installed-model admission, sequential runs, cancellation and Gaming hard-off.
+        // Desktop owner authorization is identical to the standard Arena start action.
+        app.MapPost("/api/v1/models/arena/quick-compare", (ArenaStartRequest request, ModelArenaService arena) =>
+        {
+            try
+            {
+                ArenaStartRequest strict = QuickChatComparisonPolicy.Create(request);
+                ArenaRunDto run = arena.Start(strict);
+                return Results.Accepted("/api/v1/models/arena/runs/" + run.Id, run);
+            }
+            catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
+        // Results remain local to the desktop owner. The underlying Arena has already
+        // measured each model; this read endpoint never runs inference or changes routing.
+        app.MapGet("/api/v1/models/arena/quick-compare/{id}", (string id, string? language, ModelArenaService arena) =>
+        {
+            // Restrict localization to the app's supported IT/EN languages.
+            if (!string.IsNullOrEmpty(language)
+                && !string.Equals(language, "it", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
+                return Results.BadRequest(new { error = "Unsupported comparison language. Use it or en." });
+            ArenaRunDto? run = arena.Get(id);
+            if (run is null) return Results.NotFound(new { error = "Comparison run not found" });
+            ArenaQuickCompareViewDto view = QuickChatComparisonPresenter.ToDto(run,
+                italian: string.Equals(language, "it", StringComparison.OrdinalIgnoreCase));
+            return view.Ready ? Results.Ok(view) :
+                Results.NotFound(new { error = "The run is not a two-model custom-prompt comparison." });
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/models/arena/runs/{id}/cancel", (string id, ModelArenaService arena) =>
             arena.Cancel(id) ? Results.Accepted() : Results.NotFound(new { error = "Active comparison run not found" })).RequireDesktopOwner();
 

@@ -122,6 +122,7 @@ namespace PaRuX.Views
             ProfileSelectorPanel.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             ModelSelector.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             ModelRouteExplanationButton.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
+            QuickModelCompareButton.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             SimpleModeAnsweringModelPanel.Visibility = advanced ? Visibility.Collapsed : Visibility.Visible;
             SimpleModeRuntimeHealthPanel.Visibility = advanced ? Visibility.Collapsed : Visibility.Visible;
             SkillSelector.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;

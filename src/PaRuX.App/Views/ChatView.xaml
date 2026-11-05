@@ -817,6 +817,17 @@
                     Click="ModelRouteExplanationButton_Click"
                     ToolTipService.ToolTip="Why this model?" />
 
+                <Button
+                    x:Name="QuickModelCompareButton"
+                    Content="Compare"
+                    Visibility="Collapsed"
+                    MinWidth="68"
+                    AutomationProperties.AutomationId="Chat_QuickModelCompare_Button"
+                    AutomationProperties.Name="Compare two local models"
+                    AutomationProperties.HelpText="Run the same prompt on two installed local models without changing Chat routing."
+                    Click="QuickModelCompareButton_Click"
+                    ToolTipService.ToolTip="Compare two local models" />
+
                 <!-- Skill: AUTO by default (server chooses); pick one to force it, or type a
                      slash command (e.g. "/research …") which auto-selects and strips itself. -->
                 <ComboBox
