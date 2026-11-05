@@ -181,6 +181,44 @@ public sealed class TemporaryGameModService
         }
     }
 
+    /// <summary>
+    /// Local desktop owner can see in-memory AI suggestions and compare the full
+    /// before/after. No model call can approve; stale/resumed/replaced processes
+    /// and changed config SHA values hide the proposal.
+    /// </summary>
+    public IReadOnlyList<GameModPreviewDto> ListPreviews()
+    {
+        lock (_gate)
+        {
+            DateTime now = DateTime.UtcNow;
+            foreach (string old in _proposals.Where(x => x.Value.ExpiresUtc <= now)
+                         .Select(x => x.Key).ToArray())
+                _proposals.Remove(old);
+            var previews = new List<GameModPreviewDto>();
+            foreach (Proposal proposal in _proposals.Values.ToArray())
+            {
+                try
+                {
+                    string path = ResolveTarget(proposal.ManualGameId, proposal.RelativePath, out ManualGameDto game);
+                    RequirePause(game, proposal.ProcessId, proposal.StartedUtc);
+                    byte[] current = File.ReadAllBytes(path);
+                    if (!string.Equals(path, proposal.Target, StringComparison.OrdinalIgnoreCase)
+                        || Digest(current) != proposal.OriginalSha)
+                        continue;
+                    string original = new UTF8Encoding(false, true).GetString(current);
+                    previews.Add(new GameModPreviewDto(proposal.Id, proposal.GameName,
+                        proposal.RelativePath, proposal.OriginalSha, original, proposal.ProposedText,
+                        proposal.ExpiresUtc, "AI proposal only. Compare before and after, then explicitly approve. "
+                        + "Not every game reloads config files while paused."));
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or
+                    IOException or UnauthorizedAccessException or InvalidDataException or DecoderFallbackException)
+                { /* A missing/resumed game cannot provide a valid preview. */ }
+            }
+            return previews;
+        }
+    }
+
     public GameTemporaryModDto Apply(GameModApplyRequest request)
     {
         if (request is null || !request.Consent)
