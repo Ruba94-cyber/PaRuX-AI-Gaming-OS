@@ -309,6 +309,15 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     }
 
     [Fact]
+    public async Task Desktop_quick_comparison_read_rejects_unsupported_locale()
+    {
+        using HttpClient client = DesktopClient();
+        using HttpResponseMessage response = await client.GetAsync(
+            "/api/v1/models/arena/quick-compare/nonexistent-synthetic-run?language=fr");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Desktop_quick_comparison_read_refuses_unknown_runs()
     {
         using HttpClient client = DesktopClient();
