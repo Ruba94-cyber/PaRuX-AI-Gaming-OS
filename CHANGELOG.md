@@ -1,5 +1,13 @@
 # Changelog
 
+### 2026-11-05 — GOS-07/GOS-13 verified portable ZIP auto-deployment (SOURCE WIP)
+
+- User can explicitly opt in **before** an HTTPS/magnet/.torrent download to auto-deploy one **portable ZIP** when finished. PaRuX requires an independently obtained SHA-256, the eventual .zip file name, an explicit relative non-installer .exe and a game title; no archive-provided scripts, MSI, setup, downloads, executables or games run automatically. Opt-in is OFF by default.
+- After normal queue SHA-256 verification, `PortableGameInstallService` re-verifies the source bytes, holds a Windows share lock, preflights bounded ZIP names/count/size/symlinks and exact .exe presence, then uses existing `SafeArchiveExtractor` into an isolated managed partial folder. It commits by directory rename and registers a manual-game entry; failure/cancellation attempts rollback and preserves the original verified archive.
+- Download and post-install states are separate, including Pending/Installing/Installed/Interrupted/Failed. IT/EN UI exposes the consent option, title, executable path, status and confirmation; original jobs and unrelated downloads keep existing semantics. Added synthetic ZIP security/rollback tests and a local HTTP-to-install integration test, plus UI assertions. **No build, xUnit, FlaUI, legitimate publisher-trust verification or Windows install performed in this cloud session**.
+- This is **not** unattended arbitrary EXE/MSI installation or piracy-source indexing. Multi-file torrents, 7z/RAR, signed installer adapters, launcher/store installers and rollback after a host crash are still NOT IMPLEMENTED.
+
+
 ### 2026-11-05 — GOS-13 integrated BitTorrent in Gaming downloads (source WIP; not Windows-tested)
 
 - Added a pinned **MonoTorrent 3.0.2** MIT library inside PaRuX Server (not an external app) and an `IGameDownloadTransport` implementation for user-provided BTIH magnets and local v1 **single-file** `.torrent` files. The existing owner-authorized queue, Gaming pause/cancellation, SHA-256 publication boundary and non-overwrite semantics are reused. Optional qBittorrent WebUI remains a per-job override; no new source catalogue.
