@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Drawing;
 using System.Drawing.Imaging;
 
@@ -75,12 +76,34 @@ internal static class MinecraftSkinUvRestyler
             throw new ArgumentException("Arm style must be classic or slim.");
     }
 
+    /// <summary>
+    /// Read the PNG IHDR before invoking the native image decoder. Reject
+    /// compressed image bombs advertising enormous dimensions and non-PNG
+    /// payloads while keeping this code independent of third-party decoders.
+    /// </summary>
+    private static (int Width, int Height) ReadPngDimensions(byte[] bytes)
+    {
+        ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (bytes.Length < 33 ||
+            !bytes.AsSpan(0, 8).SequenceEqual(signature) ||
+            BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(8, 4)) != 13 ||
+            !bytes.AsSpan(12, 4).SequenceEqual("IHDR"u8))
+            throw new InvalidDataException("Expected a standard PNG IHDR.");
+        uint w = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16, 4));
+        uint h = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20, 4));
+        if (w == 0 || h == 0 || w > 4096 || h > 4096)
+            throw new InvalidDataException("PNG dimensions are out of bounds.");
+        return ((int)w, (int)h);
+    }
+
     /// <summary>Do not resize or reinterpret a non-PNG baseline as an authentic skin.</summary>
     internal static void ValidateSkinPng(byte[] bytes)
     {
-        if (bytes is not { Length: >= 100 and <= MaximumSkinBytes } ||
-            !bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }))
-            throw new InvalidDataException("The original must be a bounded Minecraft PNG skin.");
+        if (bytes is not { Length: >= 100 and <= MaximumSkinBytes })
+            throw new InvalidDataException("The original Minecraft PNG is missing or too large.");
+        (int width, int height) = ReadPngDimensions(bytes);
+        if (width != 64 || height != 64)
+            throw new InvalidDataException("The original skin PNG must be exactly 64x64 pixels.");
     }
 
     /// <summary>
@@ -98,6 +121,9 @@ internal static class MinecraftSkinUvRestyler
         ValidateSkinPng(originalPng);
         if (referenceImage is not { Length: > 0 and <= 16 * 1024 * 1024 })
             throw new InvalidDataException("Local image reference is missing or too large.");
+        (int rw, int rh) = ReadPngDimensions(referenceImage);
+        if (rw is < 64 or > 4096 || rh is < 64 or > 4096)
+            throw new InvalidDataException("The local image reference dimensions are not supported.");
         try
         {
             using var source = new MemoryStream(originalPng, writable: false);
