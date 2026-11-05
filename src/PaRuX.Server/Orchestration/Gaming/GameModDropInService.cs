@@ -187,7 +187,8 @@ public sealed class GameModDropInService
             catch (Exception ex) when (ex is JsonException or KeyNotFoundException or
                 InvalidOperationException or FormatException or NotSupportedException)
             { throw new InvalidDataException("The PaRuX mod ZIP manifest is invalid.", ex); }
-            if (string.IsNullOrWhiteSpace(title) || title.Length > 100)
+            if (string.IsNullOrWhiteSpace(title) || title.Length > 100 ||
+                title.Any(char.IsControl))
                 throw new InvalidDataException("Mod ZIP has an invalid game title.");
             EnsureReceiptRoot();
             if (Directory.EnumerateFiles(_receiptRoot, "parux-mod-*.json").Take(MaxReceipts + 1).Count() >= MaxReceipts)
@@ -241,13 +242,15 @@ public sealed class GameModDropInService
         }
     }
 
-    private static GameModDropInReceiptDto ToDto(Receipt item)
+    private static GameModDropInReceiptDto ToDto(Receipt item, bool verifyContent = true)
     {
         string state;
         if (!ManualGameLibrary.IsSafeDirectory(item.ModFolder))
             state = "unsafe";
         else if (!File.Exists(item.InstalledFile))
             state = "missing";
+        else if (!verifyContent)
+            state = "unverified"; // manual inventory scan budget exhausted; removal always verifies.
         else
         {
             try
@@ -309,9 +312,33 @@ public sealed class GameModDropInService
 
     public IReadOnlyList<GameModDropInReceiptDto> List()
     {
+        // Inventory scanning is explicit but must never hash gigabytes of ZIPs
+        // during foreground gaming or monopolise disk I/O for a large library.
+        if (_gaming())
+            throw new InvalidOperationException("Mod inventory hashing is disabled during Gaming Mode.");
         lock (_gate)
-            return ReadReceipts().Take(MaxReceipts).Select(ToDto)
-                .OrderByDescending(x => x.CreatedUtc).ToArray();
+        {
+            const long scanBudget = 64L * 1024 * 1024;
+            long remaining = scanBudget;
+            var list = new List<GameModDropInReceiptDto>();
+            foreach (Receipt item in ReadReceipts().Take(MaxReceipts))
+            {
+                bool verify = false;
+                try
+                {
+                    var file = new FileInfo(item.InstalledFile);
+                    if (file.Exists && file.Length is > 0 and <= MaxBundleBytes &&
+                        file.Length <= remaining)
+                    {
+                        remaining -= file.Length;
+                        verify = true;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
+                list.Add(ToDto(item, verify));
+            }
+            return list.OrderByDescending(x => x.CreatedUtc).ToArray();
+        }
     }
 
     public bool Remove(GameModDropInRemoveRequest request)
