@@ -150,7 +150,7 @@ public sealed class GameModDropInServiceTests : IDisposable
         _gaming = true;
         Assert.Throws<InvalidOperationException>(() =>
             Service().Install(Request(bundle.Path, bundle.Sha)));
-        Assert.Empty(Service().List());
+        Assert.Throws<InvalidOperationException>(() => Service().List());
         Assert.Single(Directory.EnumerateFiles(Exports));
         _gaming = false;
         var item = Service().Install(Request(bundle.Path, bundle.Sha));
