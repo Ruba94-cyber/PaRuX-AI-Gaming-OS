@@ -1,5 +1,12 @@
 # Changelog
 
+### 2026-11-05 — Gaming L5: local Steam wishlist (WIP, not Windows tested)
+
+- Added an offline, versioned local wishlist store with bounded file size, cross-process write lease, atomic replacement, corruption refusal, duplicate validation and explicit opt-out on new items. Separate owner-only Core GET/POST/PUT/DELETE APIs never fetch prices, run timers or touch game files.
+- Added shared IT/EN desktop Gaming Home wishlist dialog to save numeric Steam app IDs, target price/currency/store country, enable or disable a stored watch **preference by explicit user confirmation**, and delete entries. No price notifications or actual monitoring are implemented.
+- New synthetic `LocalWishlistStoreTests` and owner-route security cases are **authored-not-run**. The new WinUI screen, Server/App/Contracts builds, Windows release gates and gamepad accessibility remain **NOT VERIFIED**. Do not infer readiness for 3.1.0.
+
+
 ### 2026-11-05 — Source merged on main; Windows validation outstanding
 
 PRs #1–#5 were squash-merged onto `main` on 2026-11-05. New code remains **Authored-not-compiled** in this remote session and all new tests remain **Authored-not-run**; neither integration nor publication of release 3.1.0 is claimed.
