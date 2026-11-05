@@ -47,7 +47,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             Path.Combine(PaRuXDataRoot.Path, "server", "game-downloads.json"),
             new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) }, torrent) { }
 
-    public GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
+    internal GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
         EmbeddedTorrentTransport nativeTorrent)
         : this(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(20) })
                { Timeout = Timeout.InfiniteTimeSpan },
@@ -56,7 +56,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) },
             torrent, nativeTorrent) { }
 
-    public GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
+    internal GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
         EmbeddedTorrentTransport nativeTorrent, PortableGameInstallService portableInstaller)
         : this(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(20) })
                { Timeout = Timeout.InfiniteTimeSpan },
