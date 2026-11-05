@@ -43,11 +43,15 @@ namespace PaRuX.Services
             var oldPath = string.Empty;
             var expectedPath = string.Empty;
             bool insideDiff = false;
+            bool priorDiffHasHunk = false;
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
                 if (line.StartsWith("diff --git ", StringComparison.Ordinal))
                 {
+                    if (insideDiff && !priorDiffHasHunk)
+                        throw new FormatException("A changed file has no reviewable text hunks.");
+                    priorDiffHasHunk = false;
                     path = string.Empty;
                     oldPath = string.Empty;
                     expectedPath = string.Empty; // Never carry identity into the next file.
@@ -143,7 +147,10 @@ namespace PaRuX.Services
                 string id = path + ":" + oldStart + ":" + newStart + ":" + result.Count;
                 result.Add(new CodingReviewHunk(id, path, oldStart, oldCount, newStart, newCount,
                     line, string.Join("\n", body)));
+                priorDiffHasHunk = true;
             }
+            if (insideDiff && !priorDiffHasHunk)
+                throw new FormatException("The final changed file has no reviewable text hunks.");
             return result;
         }
 
