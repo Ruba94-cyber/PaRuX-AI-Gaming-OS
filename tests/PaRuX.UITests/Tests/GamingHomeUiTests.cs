@@ -138,6 +138,46 @@ public sealed class GamingHomeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Preview_then_confirm_import_persists_only_the_synthetic_title()
+    {
+        const string name = nameof(Preview_then_confirm_import_persists_only_the_synthetic_title);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            Press(app, ById(app, "GameHome_ExternalLibraryPreview_Button"));
+            var json = ById(app, "GameHome_ExternalLibraryJson").AsTextBox();
+            json.Text = "{\"games\":[{\"Name\":\"Synthetic Import Puzzle\",\"GameId\":\"safe-demo-1\"," +
+                "\"InstallationDirectory\":\"DO-NOT-PERSIST-ANY-PATH\"}]}";
+            Press(app, Find(() => app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("PrimaryButton")), "preview synthetic export"));
+            ById(app, "GameHome_ExternalLibraryPreview_Result");
+            Press(app, Find(() => app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("PrimaryButton")), "approve metadata-only import"));
+
+            string path = Path.Combine(app.DataRoot, "server", "external-game-titles.json");
+            UiWait.For(() => File.Exists(path) &&
+                File.ReadAllText(path).Contains("Synthetic Import Puzzle", StringComparison.Ordinal),
+                "external title saved without launching a game");
+            string saved = File.ReadAllText(path);
+            Assert.DoesNotContain("DO-NOT-PERSIST-ANY-PATH", saved);
+            Assert.DoesNotContain("InstallationDirectory", saved);
+            Assert.Contains("safe-demo-1", saved);
+
+            // The real title query and Home refresh must include the imported
+            // metadata, but it must never provide an enabled Play action.
+            UiWait.For(() => TryById(app, "GameHome_ExternalLibraryPreview_Button") != null,
+                "returned to Gaming Home");
+            Press(app, ById(app, "GameTitles_Refresh_Button"));
+            UiWait.For(() => TryById(app, "GameTitles_Play_" + "syntheticimportpuzzle") is { } play &&
+                !play.Properties.IsEnabled.ValueOrDefault,
+                "metadata-only title has no enabled Play button");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Home_exposes_named_toolbar_controls_with_touch_sized_targets()
     {
         WaitForCoreIdle();
