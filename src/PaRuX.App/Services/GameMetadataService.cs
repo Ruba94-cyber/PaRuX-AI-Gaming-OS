@@ -106,6 +106,8 @@ namespace PaRuX.Services
             int found = 0, asked = 0;
             string? sgdbKey = SteamGridDbKeyStore.TryGet();
             SgdbSession? sgdb = sgdbKey is null ? null : new SgdbSession(sgdbKey);
+            var igdbPair = IgdbKeyStore.TryGet();
+            IgdbSession? igdb = igdbPair is null ? null : new IgdbSession(igdbPair.Value.ClientId, igdbPair.Value.ClientSecret);
             foreach (GameTitleDto title in titles)
             {
                 ct.ThrowIfCancellationRequested();
@@ -118,7 +120,7 @@ namespace PaRuX.Services
                     // Already described: only the cover is missing, so retry that download without asking the catalogues again.
                     string? fallbackCover = null;
                     GameInfoDto? info = known;
-                    if (known is null) (info, fallbackCover) = await LookUpAsync(title, sgdb, ct).ConfigureAwait(false);
+                    if (known is null) (info, fallbackCover) = await LookUpAsync(title, sgdb, igdb, ct).ConfigureAwait(false);
                     if (known is null) Save(title.TitleKey, info);
                     if (info is null) continue;
                     found++;
@@ -147,16 +149,99 @@ namespace PaRuX.Services
         /// Description and genres always come from Steam/Wikipedia. When a SteamGridDB key is set, its portrait grid is tried
         /// for the cover first; the catalogue cover is returned as the fallback for when that image cannot be downloaded.
         /// </summary>
-        private static async Task<(GameInfoDto? Info, string? FallbackCover)> LookUpAsync(GameTitleDto title, SgdbSession? sgdb, CancellationToken ct)
+        private static async Task<(GameInfoDto? Info, string? FallbackCover)> LookUpAsync(GameTitleDto title, SgdbSession? sgdb, IgdbSession? igdb, CancellationToken ct)
         {
             (string Url, long GameId, string Name)? grid = sgdb is { Disabled: false }
                 ? await LookUpSteamGridDbAsync(CleanName(title.Name), sgdb, ct).ConfigureAwait(false) : null;
             GameInfoDto? info = await LookUpCatalogueAsync(title, ct).ConfigureAwait(false);
-            if (grid is not { } g) return (info, null);
+            // IGDB only fills what is still missing: a portrait cover when SteamGridDB found none, or the whole entry when no catalogue knew the game.
+            GameInfoDto? igdbInfo = igdb is { Disabled: false } && (grid is null || info is null)
+                ? await LookUpIgdbAsync(title, CleanName(title.Name), igdb, ct).ConfigureAwait(false) : null;
+            if (grid is not { } g)
+            {
+                if (igdbInfo is null) return (info, null);
+                if (info is null) return (igdbInfo, null);
+                return igdbInfo.CoverUrl is null ? (info, null) : (info with { CoverUrl = igdbInfo.CoverUrl }, info.CoverUrl);
+            }
             if (info is null)
+            {
+                if (igdbInfo is not null) return (igdbInfo with { CoverUrl = g.Url }, igdbInfo.CoverUrl);
                 return (new GameInfoDto(title.TitleKey, g.Name.Length > 120 ? g.Name[..120] : g.Name, string.Empty, Array.Empty<string>(), string.Empty, string.Empty,
                     GameMetadataParsing.SourceSteamGridDb, "https://www.steamgriddb.com/game/" + g.GameId, g.Url), null);
+            }
             return (info with { CoverUrl = g.Url }, info.CoverUrl);
+        }
+
+        // ---- IGDB (optional, user-supplied Twitch application credentials). The secret only goes to id.twitch.tv; redirects are never followed.
+        private static readonly HttpClient IgdbHttp = CreateIgdbClient();
+        private static string? _igdbToken;
+        private static DateTime _igdbTokenExpiresUtc;
+
+        private static HttpClient CreateIgdbClient()
+        {
+            var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(15) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("PaRuX/2.0 (local game library; https://github.com/Ruba94-cyber)");
+            return client;
+        }
+
+        private sealed class IgdbSession
+        {
+            public IgdbSession(string clientId, string clientSecret) { ClientId = clientId; ClientSecret = clientSecret; }
+            public string ClientId { get; }
+            public string ClientSecret { get; }
+            public bool Disabled { get; set; }
+        }
+
+        private static async Task<string?> GetIgdbTokenAsync(IgdbSession igdb, CancellationToken ct)
+        {
+            if (_igdbToken is not null && DateTime.UtcNow < _igdbTokenExpiresUtc) return _igdbToken;
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://id.twitch.tv/oauth2/token")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = igdb.ClientId, ["client_secret"] = igdb.ClientSecret, ["grant_type"] = "client_credentials"
+                })
+            };
+            using HttpResponseMessage response = await IgdbHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            int status = (int)response.StatusCode;
+            if (status is 400 or 401 or 403)
+            {
+                igdb.Disabled = true;
+                Interlocked.Exchange(ref _notice, "IGDB rejected the Client ID / Secret, so covers come from the other sources only. Check or replace them with \"IGDB key...\".");
+                return null;
+            }
+            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength is > 100_000) { igdb.Disabled = status == 429; return null; }
+            var parsed = GameMetadataParsing.ParseIgdbToken(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (parsed is not { } p) return null;
+            _igdbToken = p.Token;
+            _igdbTokenExpiresUtc = DateTime.UtcNow.AddSeconds(Math.Max(60, p.ExpiresInSeconds - 300));
+            return _igdbToken;
+        }
+
+        private static async Task<GameInfoDto?> LookUpIgdbAsync(GameTitleDto title, string name, IgdbSession igdb, CancellationToken ct)
+        {
+            try
+            {
+                string? token = await GetIgdbTokenAsync(igdb, ct).ConfigureAwait(false);
+                if (token is null) return null;
+                using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.igdb.com/v4/games")
+                {
+                    Content = new StringContent(GameMetadataParsing.BuildIgdbQuery(name), Encoding.UTF8, "text/plain")
+                };
+                request.Headers.Add("Client-ID", igdb.ClientId);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                using HttpResponseMessage response = await IgdbHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                int status = (int)response.StatusCode;
+                if (status == 401) { _igdbToken = null; return null; }
+                if (status is 403 or 429) { igdb.Disabled = true; return null; }
+                if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength is > 2_000_000) return null;
+                return GameMetadataParsing.ParseIgdbBest(title.TitleKey, name, await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+            {
+                return null; // offline or an IGDB hiccup: the other sources still run
+            }
         }
 
         private static async Task<(string Url, long GameId, string Name)?> LookUpSteamGridDbAsync(string name, SgdbSession sgdb, CancellationToken ct)

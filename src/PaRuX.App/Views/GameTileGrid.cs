@@ -193,6 +193,7 @@ internal sealed class GameTileGrid : StackPanel
         // Repaint visible cards in place: do not reset "Show more", scroll position,
         // focused Play/Configure buttons or decoded cover bitmaps on theme switches.
         ActualThemeChanged += (_, _) => RepaintTheme();
+        KeyDown += OnTileKeyDown;
     }
 
     private void RepaintTheme()
@@ -326,6 +327,51 @@ internal sealed class GameTileGrid : StackPanel
     {
         if (_tiles.TryGetValue(key, out TileParts? parts)) return parts.Main.Focus(FocusState.Programmatic);
         return false;
+    }
+
+    /// <summary>Focuses the tile at <paramref name="index"/> (loading further pages when needed). False when it cannot be focused.</summary>
+    internal bool FocusIndex(int index)
+    {
+        if (index < 0 || index >= _titles.Count) return false;
+        while (index >= _shown && _shown < _titles.Count) AddTiles(PageStep);
+        return _tiles.TryGetValue(_titles[index].TitleKey, out TileParts? parts) && parts.Main.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>
+    /// Deterministic arrow / D-pad / bumper / Home / End / Page movement between the title buttons of the grid (one stop per
+    /// tile, like a console shelf). Enter or A opens the details, where Play is the first control; Tab still reaches each
+    /// tile's own Play and Configure buttons. Only keys pressed on a tile's title button are handled.
+    /// </summary>
+    private void OnTileKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (_selectMode || e.OriginalSource is not ButtonBase source) return;
+        int current = -1;
+        for (int i = 0; i < _titles.Count; i++)
+            if (_tiles.TryGetValue(_titles[i].TitleKey, out TileParts? parts) && ReferenceEquals(parts.Main, source)) { current = i; break; }
+        if (current < 0) return;
+        GameLibraryHome.Direction? direction = e.Key switch
+        {
+            Windows.System.VirtualKey.Left or Windows.System.VirtualKey.GamepadDPadLeft => GameLibraryHome.Direction.Left,
+            Windows.System.VirtualKey.Right or Windows.System.VirtualKey.GamepadDPadRight => GameLibraryHome.Direction.Right,
+            Windows.System.VirtualKey.Up or Windows.System.VirtualKey.GamepadDPadUp => GameLibraryHome.Direction.Up,
+            Windows.System.VirtualKey.Down or Windows.System.VirtualKey.GamepadDPadDown => GameLibraryHome.Direction.Down,
+            Windows.System.VirtualKey.Home => GameLibraryHome.Direction.First,
+            Windows.System.VirtualKey.End => GameLibraryHome.Direction.Last,
+            Windows.System.VirtualKey.PageUp or Windows.System.VirtualKey.GamepadLeftShoulder => GameLibraryHome.Direction.PageUp,
+            Windows.System.VirtualKey.PageDown or Windows.System.VirtualKey.GamepadRightShoulder => GameLibraryHome.Direction.PageDown,
+            _ => null,
+        };
+        if (direction is not { } move) return;
+        // A single-row shelf must not steal Up/Down focus movement from the page.
+        if (_presentation == Presentation.Shelf && move is GameLibraryHome.Direction.Up or GameLibraryHome.Direction.Down) return;
+        int columns = _presentation switch
+        {
+            Presentation.Shelf => Math.Max(1, _titles.Count),
+            Presentation.List => 1,
+            _ => Math.Max(1, (int)Math.Floor(Math.Max(ActualWidth, CardWidth) / (CardWidth + 12))),
+        };
+        int next = GameLibraryHome.Move(current, _titles.Count, columns, move);
+        if (next >= 0 && next != current && FocusIndex(next)) e.Handled = true;
     }
 
     internal bool FocusFirst()

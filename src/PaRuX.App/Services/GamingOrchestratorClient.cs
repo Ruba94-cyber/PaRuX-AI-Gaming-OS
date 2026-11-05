@@ -119,6 +119,20 @@ namespace PaRuX.Services
             SendAsync<GameSaveVerificationDto>(HttpMethod.Post,
                 "/api/v1/gaming/save-backups/" + Uri.EscapeDataString(id) + "/verify", null, ct, InspectionHttpClient);
 
+        /// <summary>Dry run of a restore: verifies the archive and lists what would be created or overwritten. Writes nothing.</summary>
+        public Task<GamingCallResult<GameSaveRestorePlanDto>> PlanGameSaveRestoreAsync(
+            string id, string targetFolder, CancellationToken ct = default) =>
+            SendAsync<GameSaveRestorePlanDto>(HttpMethod.Post,
+                "/api/v1/gaming/save-backups/" + Uri.EscapeDataString(id) + "/restore-plan",
+                new GameSaveRestoreRequest(targetFolder, false), ct, InspectionHttpClient);
+
+        /// <summary>Confirmed restore (the Core makes an automatic pre-restore backup first).</summary>
+        public Task<GamingCallResult<GameSaveRestoreResultDto>> RestoreGameSaveAsync(
+            string id, string targetFolder, CancellationToken ct = default) =>
+            SendAsync<GameSaveRestoreResultDto>(HttpMethod.Post,
+                "/api/v1/gaming/save-backups/" + Uri.EscapeDataString(id) + "/restore",
+                new GameSaveRestoreRequest(targetFolder, true), ct, InspectionHttpClient);
+
         public Task<GamingCallResult<List<StagedGamePackageDto>>> ListStagedPackagesAsync(
             CancellationToken ct = default) =>
             SendAsync<List<StagedGamePackageDto>>(

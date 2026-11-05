@@ -1,3 +1,4 @@
+using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming;
 using Xunit;
 

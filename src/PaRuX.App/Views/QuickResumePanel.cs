@@ -23,6 +23,7 @@ internal sealed class QuickResumePanel : StackPanel
     private readonly TextBlock _description = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _list = new() { Spacing = 6 };
+    private readonly StackPanel _recovery = new() { Spacing = 4 };
     private readonly Button _refresh = new() { MinHeight = 44 };
     private readonly Button _resumeAll = new() { MinHeight = 44, Visibility = Visibility.Collapsed };
     private bool _busy;
@@ -47,6 +48,7 @@ internal sealed class QuickResumePanel : StackPanel
         _resumeAll.Click += async (_, _) => await ResumeAllAsync();
         AutomationProperties.SetAutomationId(_status, "QuickResume_Status_Text");
         AutomationProperties.SetAutomationId(_list, "QuickResume_List");
+        AutomationProperties.SetAutomationId(_recovery, "QuickResume_Recovery_List");
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         buttons.Children.Add(_refresh);
@@ -55,6 +57,7 @@ internal sealed class QuickResumePanel : StackPanel
         Children.Add(_description);
         Children.Add(buttons);
         Children.Add(_status);
+        Children.Add(_recovery);
         Children.Add(_list);
         Loaded += async (_, _) => await RefreshAsync();
     }
@@ -72,6 +75,7 @@ internal sealed class QuickResumePanel : StackPanel
                 _status.Text = T("The app list is unavailable right now.", "L'elenco delle app non è disponibile in questo momento.");
                 return;
             }
+            ShowRecovery(result.Value);
             var apps = result.Value.Apps;
             int paused = apps.Count(a => a.Suspended);
             _resumeAll.Visibility = paused > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -83,6 +87,31 @@ internal sealed class QuickResumePanel : StackPanel
             foreach (QuickResumeAppDto app in apps) _list.Children.Add(BuildRow(app));
         }
         finally { _busy = false; }
+    }
+
+    /// <summary>What the automatic recovery at Core start-up / shutdown did with apps that were still paused. Failures stay visible until acted on.</summary>
+    private void ShowRecovery(QuickResumeStatusDto status)
+    {
+        _recovery.Children.Clear();
+        if (status.Recovery is not { Count: > 0 } entries) return;
+        _recovery.Children.Add(new TextBlock
+        {
+            Text = T("Automatic recovery after the last start or shutdown:", "Ripristino automatico dopo l'ultimo avvio o arresto:"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        });
+        foreach (QuickResumeRecoveryDto entry in entries.Take(10))
+        {
+            string outcome = entry.Outcome switch
+            {
+                "resumed" => T("resumed", "ripreso"),
+                "already-closed" => T("already closed", "già chiuso"),
+                _ => T("NOT resumed", "NON ripreso"),
+            };
+            var line = new TextBlock { Text = $"{entry.ProcessName} - {outcome}. {entry.Message}", TextWrapping = TextWrapping.Wrap, Opacity = entry.Outcome == "failed" ? 1 : 0.8 };
+            AutomationProperties.SetAutomationId(line, "QuickResume_Recovery_" + entry.ProcessId);
+            _recovery.Children.Add(line);
+        }
     }
 
     private UIElement BuildRow(QuickResumeAppDto app)

@@ -30,29 +30,37 @@ internal sealed class GameSaveBackupPanel : StackPanel
     private readonly Button _create = new(), _refresh = new(), _cancel = new();
     private CancellationTokenSource? _operation;
     private bool _busy;
+    private readonly string? _gameName;
+    private readonly string _suffix;
 
-    public GameSaveBackupPanel()
+    private string Id(string baseId) => baseId + _suffix;
+
+    /// <param name="gameName">When set, the panel serves one game: the backup label is fixed to its name and only its backups are listed.</param>
+    /// <param name="idSuffix">Appended to every AutomationId so a per-game panel and the shared panel never clash.</param>
+    public GameSaveBackupPanel(string? gameName = null, string idSuffix = "")
     {
+        _gameName = gameName;
+        _suffix = idSuffix;
         Spacing = 10;
-        AutomationProperties.SetAutomationId(this, "GameSaves_Panel");
+        AutomationProperties.SetAutomationId(this, Id("GameSaves_Panel"));
         Children.Add(new TextBlock
         {
-            Text = T("Save game backups", "Backup salvataggi"),
-            FontSize = 20,
+            Text = gameName is null ? T("Save game backups", "Backup salvataggi") : T("Save games", "Salvataggi"),
+            FontSize = gameName is null ? 20 : 16,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         });
         Children.Add(new TextBlock
         {
-            Text = T("Choose the save folder yourself. A local copy is archived with SHA-256 per file. This does not restore, replace, modify or automatically detect saved games. Disabled during Gaming.",
-                     "Scegli manualmente la cartella dei salvataggi. Una copia locale viene archiviata con SHA-256 per file. Non ripristina, sostituisce o modifica i salvataggi, né li rileva automaticamente. Disattivato durante il gioco."),
+            Text = T("Choose the save folder yourself (PaRuX does not detect save locations automatically). A local copy is archived with SHA-256 per file. Restore shows a preview first, saves a copy of the current files, never deletes anything and re-checks every file. Disabled during Gaming.",
+                     "Scegli tu la cartella dei salvataggi (PaRuX non la rileva automaticamente). Una copia locale viene archiviata con SHA-256 per file. Il ripristino mostra prima un'anteprima, salva una copia dei file attuali, non elimina nulla e ricontrolla ogni file. Disattivato durante il gioco."),
             TextWrapping = TextWrapping.Wrap
         });
 
         _source.Header = T("Save folder", "Cartella salvataggi");
-        AutomationProperties.SetAutomationId(_source, "GameSaves_Source");
+        AutomationProperties.SetAutomationId(_source, Id("GameSaves_Source"));
         Children.Add(_source);
         var browse = new Button { Content = T("Choose save folder", "Scegli cartella salvataggi") };
-        AutomationProperties.SetAutomationId(browse, "GameSaves_Browse");
+        AutomationProperties.SetAutomationId(browse, Id("GameSaves_Browse"));
         browse.Click += async (_, _) =>
         {
             if (_busy) return;
@@ -72,18 +80,19 @@ internal sealed class GameSaveBackupPanel : StackPanel
         Children.Add(browse);
 
         _label.Header = T("Backup label", "Etichetta del backup");
-        _label.Text = T("My save", "Il mio salvataggio");
-        AutomationProperties.SetAutomationId(_label, "GameSaves_Label");
+        _label.Text = gameName is null ? T("My save", "Il mio salvataggio") : GameSaveHookPresenter.BackupLabel(gameName);
+        if (gameName is not null) _label.Visibility = Visibility.Collapsed;
+        AutomationProperties.SetAutomationId(_label, Id("GameSaves_Label"));
         Children.Add(_label);
 
         _create.Content = T("Create local backup", "Crea backup locale");
-        AutomationProperties.SetAutomationId(_create, "GameSaves_Create");
+        AutomationProperties.SetAutomationId(_create, Id("GameSaves_Create"));
         _create.Click += async (_, _) => await CreateAsync();
         _refresh.Content = T("Show backups", "Mostra backup");
-        AutomationProperties.SetAutomationId(_refresh, "GameSaves_Refresh");
+        AutomationProperties.SetAutomationId(_refresh, Id("GameSaves_Refresh"));
         _refresh.Click += async (_, _) => await RefreshAsync();
         _cancel.Content = T("Cancel current operation", "Annulla operazione in corso");
-        AutomationProperties.SetAutomationId(_cancel, "GameSaves_Cancel");
+        AutomationProperties.SetAutomationId(_cancel, Id("GameSaves_Cancel"));
         _cancel.IsEnabled = false;
         _cancel.Click += (_, _) => _operation?.Cancel();
 
@@ -92,7 +101,7 @@ internal sealed class GameSaveBackupPanel : StackPanel
         actions.Children.Add(_refresh);
         actions.Children.Add(_cancel);
         Children.Add(actions);
-        AutomationProperties.SetAutomationId(_status, "GameSaves_Status");
+        AutomationProperties.SetAutomationId(_status, Id("GameSaves_Status"));
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Children.Add(_status);
         Children.Add(_archives);
@@ -103,7 +112,7 @@ internal sealed class GameSaveBackupPanel : StackPanel
     {
         if (_busy || Visibility != Visibility.Visible) return;
         string source = (_source.Text ?? "").Trim();
-        string label = (_label.Text ?? "").Trim();
+        string label = (_gameName is null ? (_label.Text ?? "") : GameSaveHookPresenter.BackupLabel(_gameName)).Trim();
         if (source.Length == 0 || label.Length == 0)
         {
             _status.Text = T("Choose a save folder and enter a label.", "Scegli una cartella e indica un'etichetta.");
@@ -170,7 +179,8 @@ internal sealed class GameSaveBackupPanel : StackPanel
                 return;
             }
             _archives.Children.Clear();
-            foreach (var archive in result.Value.Take(50))
+            var shown = result.Value.Where(a => _gameName is null || GameSaveHookPresenter.BelongsToGame(a, _gameName)).ToList();
+            foreach (var archive in shown.Take(50))
             {
                 var row = new StackPanel { Spacing = 5, Padding = new Thickness(8) };
                 row.Children.Add(new TextBlock
@@ -180,17 +190,101 @@ internal sealed class GameSaveBackupPanel : StackPanel
                     TextWrapping = TextWrapping.Wrap
                 });
                 var verify = new Button { Content = T("Verify archive", "Verifica archivio") };
-                AutomationProperties.SetAutomationId(verify, "GameSaves_Verify_" + archive.Id);
+                AutomationProperties.SetAutomationId(verify, Id("GameSaves_Verify_") + archive.Id);
                 verify.Click += async (_, _) => await VerifyAsync(archive.Id);
-                row.Children.Add(verify);
+                var restore = new Button { Content = T("Restore...", "Ripristina...") };
+                AutomationProperties.SetAutomationId(restore, Id("GameSaves_Restore_") + archive.Id);
+                AutomationProperties.SetName(restore, T("Restore backup ", "Ripristina il backup ") + archive.Label);
+                restore.Click += async (_, _) => await RestoreAsync(archive.Id);
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                buttons.Children.Add(verify);
+                buttons.Children.Add(restore);
+                row.Children.Add(buttons);
                 _archives.Children.Add(row);
             }
-            _status.Text = result.Value.Count == 0
+            _status.Text = shown.Count == 0
                 ? T("No local backups.", "Nessun backup locale.")
-                : T($"{result.Value.Count} local backups.", $"{result.Value.Count} backup locali.");
+                : T($"{shown.Count} local backups.", $"{shown.Count} backup locali.");
         }
         catch (Exception) { _status.Text = T("Could not read local backups.", "Impossibile leggere i backup locali."); }
         finally { _busy = false; _refresh.IsEnabled = true; }
+    }
+
+    /// <summary>
+    /// Dry run first (nothing written), then an explicit confirmation that states exactly what will happen, then the restore.
+    /// The Core makes the automatic pre-restore copy, refuses path escapes/links and re-verifies every file; any refusal is
+    /// shown in meaning instead of a generic failure.
+    /// </summary>
+    private async Task RestoreAsync(string id)
+    {
+        if (_busy || Visibility != Visibility.Visible) return;
+        string target = (_source.Text ?? "").Trim();
+        if (target.Length == 0)
+        {
+            _status.Text = T("Choose the folder to restore into first (the save folder field above).",
+                "Scegli prima la cartella in cui ripristinare (il campo cartella salvataggi qui sopra).");
+            return;
+        }
+        _busy = true;
+        _create.IsEnabled = false;
+        _refresh.IsEnabled = false;
+        _operation = new CancellationTokenSource();
+        _cancel.IsEnabled = true;
+        try
+        {
+            _status.Text = T("Checking the backup and what a restore would change...", "Controllo del backup e delle modifiche del ripristino...");
+            var plan = await GamingOrchestratorClient.Current.PlanGameSaveRestoreAsync(id, target, _operation.Token);
+            if (!plan.Succeeded || plan.Value is null)
+            {
+                _status.Text = T("The restore preview could not be completed: ", "Anteprima del ripristino non riuscita: ") + (plan.Error ?? "");
+                return;
+            }
+            if (!plan.Value.Ok)
+            {
+                _status.Text = T("Restore refused, nothing was changed: ", "Ripristino rifiutato, nulla è stato modificato: ") + plan.Value.Message;
+                return;
+            }
+            var (create, overwrite, _, _) = GameSaveHookPresenter.Summarize(plan.Value);
+            if (create + overwrite == 0)
+            {
+                _status.Text = T("The folder already matches this backup. Nothing to restore.", "La cartella coincide già con questo backup. Niente da ripristinare.");
+                return;
+            }
+            var confirmation = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Restore these save files?", "Ripristinare questi salvataggi?"),
+                Content = new TextBlock { Text = GameSaveHookPresenter.ConfirmationText(plan.Value, Italian), TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = T("Restore", "Ripristina"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+            {
+                _status.Text = T("Restore cancelled. Nothing was changed.", "Ripristino annullato. Nulla è stato modificato.");
+                return;
+            }
+            _status.Text = T("Restoring and verifying...", "Ripristino e verifica in corso...");
+            var done = await GamingOrchestratorClient.Current.RestoreGameSaveAsync(id, target, _operation.Token);
+            _status.Text = done.Succeeded && done.Value is { } result
+                ? GameSaveHookPresenter.RestoreOutcome(result, Italian)
+                : T("The restore could not be completed: ", "Il ripristino non è stato completato: ") + (done.Error ?? "");
+        }
+        catch (OperationCanceledException)
+        {
+            _status.Text = T("Restore interrupted. The pre-restore copy, if any, is among the backups.",
+                "Ripristino interrotto. L'eventuale copia preventiva è tra i backup.");
+        }
+        catch (Exception) { _status.Text = T("The restore did not complete.", "Il ripristino non è stato completato."); }
+        finally
+        {
+            _operation?.Dispose();
+            _operation = null;
+            _cancel.IsEnabled = false;
+            _busy = false;
+            _create.IsEnabled = true;
+            _refresh.IsEnabled = true;
+        }
     }
 
     private async Task VerifyAsync(string id)

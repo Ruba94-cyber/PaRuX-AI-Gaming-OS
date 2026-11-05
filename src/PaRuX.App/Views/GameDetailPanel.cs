@@ -147,7 +147,13 @@ internal sealed class GameDetailPanel : UserControl
             AutomationProperties.SetAutomationId(description, "GameDetail_Info_Description");
             _body.Children.Add(description);
         }
-        string source = info.Source == GameMetadataParsing.SourceSteam ? "Steam" : "Wikipedia";
+        string source = info.Source switch
+        {
+            GameMetadataParsing.SourceSteam => "Steam",
+            GameMetadataParsing.SourceIgdb => "IGDB",
+            GameMetadataParsing.SourceSteamGridDb => "SteamGridDB",
+            _ => "Wikipedia"
+        };
         TextBlock credit = Label(T("Source: ", "Fonte: ") + source, Small, secondary: true);
         AutomationProperties.SetAutomationId(credit, "GameDetail_Info_Source");
         _body.Children.Add(credit);
@@ -373,6 +379,21 @@ internal sealed class GameDetailPanel : UserControl
         // cover
         _body.Children.Add(BuildCoverControls(title));
 
+        // honest label for stores whose discovery has not been checked on a real install
+        GameInstallationDto? unverifiedStore = title.Installations.FirstOrDefault(i => GameLibraryHome.IsUnverifiedStore(i.Source));
+        if (unverifiedStore is not null)
+        {
+            TextBlock note = Label(GameLibraryHome.UnverifiedStoreNote(unverifiedStore.Source, GameUi.T("en", "it") == "it"), Small, secondary: true);
+            AutomationProperties.SetAutomationId(note, "GameDetail_UnverifiedStoreNote");
+            _body.Children.Add(note);
+        }
+
+        // save backup / restore and launch helpers (advanced, collapsed by default)
+        _body.Children.Add(BuildAdvancedSection(T("Save games: back up and restore", "Salvataggi: backup e ripristino"),
+            "GameDetail_Saves_Expander_" + key, new GameSaveBackupPanel(title.Name, "_" + key)));
+        _body.Children.Add(BuildAdvancedSection(T("Launch helpers (advanced)", "Helper di avvio (avanzato)"),
+            "GameDetail_Hooks_Expander_" + key, new GameHooksSection(key)));
+
         // launch details of saved entries (read after the shell is visible)
         var entries = new StackPanel { Spacing = 8 };
         _body.Children.Add(entries);
@@ -396,6 +417,22 @@ internal sealed class GameDetailPanel : UserControl
         if (generation != _generation) return;
         foreach (GameInstallationDto installation in managed)
             entries.Children.Add(BuildEntryCard(title, installation, saved.GetValueOrDefault(installation.SourceGameId)));
+    }
+
+    private UIElement BuildAdvancedSection(string header, string automationId, UIElement content)
+    {
+        var expander = new Expander
+        {
+            Header = header,
+            Content = content,
+            IsExpanded = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            MinHeight = Target,
+        };
+        AutomationProperties.SetAutomationId(expander, automationId);
+        AutomationProperties.SetName(expander, header);
+        return expander;
     }
 
     private void Apply(GameTitleDto updated)
