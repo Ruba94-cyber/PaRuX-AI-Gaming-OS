@@ -100,6 +100,15 @@ public sealed class GamingHomeUiTests
                 UiWait.For(() => element.BoundingRectangle.Height >= 44, id + " is at least 44px tall (was " + element.BoundingRectangle.Height + ")");
             }
 
+            // Asset Mod Studio is first-class in Gaming Home, NOT tied to
+            // Minecraft or to a suspended Quick Resume process.
+            var assetStudio = ById(app, "GameHome_AssetStudio_Open");
+            Assert.False(string.IsNullOrWhiteSpace(assetStudio.Name));
+            Assert.True(assetStudio.Properties.IsEnabled.ValueOrDefault);
+            Assert.True(assetStudio.BoundingRectangle.Height >= 44,
+                "asset studio has a keyboard/controller accessible touch target");
+            // This safe smoke does not launch an image model or modify a game.
+
             // An empty library has no Continue shelf and no bulk bar until select mode is turned on.
             var shelf = TryById(app, "GameHome_Continue_Shelf");
             Assert.True(shelf == null || shelf.Properties.IsOffscreen.ValueOrDefault, "no Continue shelf without play history");
