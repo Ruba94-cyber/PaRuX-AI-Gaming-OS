@@ -30,11 +30,11 @@ These are **independent, unmerged draft PRs**, all based on `main` before the ch
 
 | Block | Branch / draft PR | Exact new files or changes | Not yet demonstrated |
 |---|---|---|---|
-| L2 | `remote/l2-coding-review-policy-20261105` / [#1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1) | `src/PaRuX.App/Services/CodingHunkReviewPlanner.cs`; `tests/PaRuX.Server.Tests/CodingHunkReviewPlannerTests.cs`; xUnit project linked source | Patch preimage/transaction executor and actual per-hunk UI integration |
-| L3 | `remote/l3-chat-compare-media-presets-20261105` / [#2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2) | `src/PaRuX.Server/QuickChatComparisonPolicy.cs`; `tests/PaRuX.Server.Tests/QuickChatComparisonPolicyTests.cs` | Chat wiring and real GPU/model-fit checks |
+| L2 | `remote/l2-coding-review-policy-20261105` / [#1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1) | `src/PaRuX.App/Services/CodingHunkReviewPlanner.cs`; `src/PaRuX.App/Services/CodingSelectiveHunkPreview.cs`; `tests/PaRuX.Server.Tests/CodingHunkReviewPlannerTests.cs`; xUnit project links both sources | Real preimage recheck/transaction executor and actual per-hunk UI integration |
+| L3 | `remote/l3-chat-compare-media-presets-20261105` / [#2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2) | `src/PaRuX.Server/QuickChatComparisonPolicy.cs`; `src/PaRuX.Server/QuickChatComparisonPresenter.cs`; `tests/PaRuX.Server.Tests/QuickChatComparisonPolicyTests.cs` | Chat wiring and real GPU/model-fit checks |
 | L8 | `remote/l8-local-game-chat-resource-policy-20261105` / [#3](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/3) | `src/PaRuX.Server/Orchestration/Gaming/LocalGameChatPolicy.cs`; `tests/PaRuX.Server.Tests/LocalGameChatPolicyTests.cs` | Integration with Chat, gaming event checks and physical GPU isolation |
 | L6/L7 | `remote/l6-l7-suspend-controller-planners-20261105` / [#4](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/4) | `src/PaRuX.Server/Orchestration/Gaming/GameSuspendControllerPolicies.cs`; `tests/PaRuX.Server.Tests/GameSuspendControllerPoliciesTests.cs` | Live focus/battery/thermal events, anti-cheat confidence, controller/driver tests (**Needs physical HW**) |
-| L4/L5/L9 | `remote/l4-l5-external-library-prices-20261105` / [#5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5) | `src/PaRuX.Server/Orchestration/Gaming/ExternalLibraryPricePolicies.cs`; `tests/PaRuX.Server.Tests/ExternalLibraryPricePoliciesTests.cs`; `tools/check-direct-third-party-coverage.ps1`; `tools/audit-it-en-literal-pairs.ps1` | Real vendor export compatibility, API consent/wiring, PowerShell audit results |
+| L4/L5/L9 | `remote/l4-l5-external-library-prices-20261105` / [#5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5) | `src/PaRuX.Server/Orchestration/Gaming/ExternalLibraryPricePolicies.cs`; `src/PaRuX.Server/Orchestration/Gaming/LocalWishlistPolicy.cs`; `tests/PaRuX.Server.Tests/ExternalLibraryPricePoliciesTests.cs`; `tests/PaRuX.Server.Tests/LocalWishlistPolicyTests.cs`; `tools/check-direct-third-party-coverage.ps1`; `tools/audit-it-en-literal-pairs.ps1` | Real vendor export compatibility, API consent/wiring, PowerShell audit results |
 | Documentation | `remote/l-roadmap-handoff-20261105` / draft #6 | L section of `PARUX_EXECUTION_PLAN.md`, `CHANGELOG.md`, `README.md`, this `HANDOFF.md` | Windows gates after any code merge; no change to release runbook |
 
 ### Windows validation commands (one branch at a time; no parallel FlaUI)
@@ -71,7 +71,7 @@ git switch --detach origin/remote/l4-l5-external-library-prices-20261105
 git diff --check origin/main...HEAD
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
 dotnet build src/PaRuX.App -p:Platform=x64
-dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~ExternalLibraryPricePoliciesTests"
+dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~ExternalLibraryPricePoliciesTests|FullyQualifiedName~LocalWishlistPolicyTests"
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-direct-third-party-coverage.ps1 -SelfTest
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-direct-third-party-coverage.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/audit-it-en-literal-pairs.ps1 -SelfTest
@@ -92,10 +92,10 @@ After successful software gates: manually verify setup transitions, role profile
 
 ### Compile/runtime risks to inspect
 
-- L2: per-hunk parser handles a strict unified-diff subset; it never validates a live target/preimage or applies a patch. Verify linked App source compiles in both App and xUnit projects, and do not map `bypass` to unsandboxed execution.
-- L3: the comparison model and PersonaService already exist; the new policy constructs an Arena request but has no chat UI/action; estimated media presets must not replace actual resource admission.
-- L8: `ChatDocumentScope.SourceIds` empty means all eligible sources, so the new planner rejects empty consent; Core Gaming hard-off still owns enforcement.
-- L6/L7: anti-cheat list is deliberately incomplete; unknown classification blocks auto-suspension; normalized controller curves and restore steps are previews, not drivers.
-- L4/L5/L9: export JSON shapes are conservative examples, not general coverage of vendor versions; price snapshots are public-data parsers and cannot be called a working price watch; source-only i18n scan cannot detect dynamic/XAML translations.
+- L2: per-hunk parser handles a strict unified-diff subset; new in-memory preview checks old lines and emits a SHA-256 preimage fingerprint but does not re-read the actual file, handle BOM/encodings or apply a patch. Verify linked App source compiles in both App and xUnit projects, and do not map `bypass` to unsandboxed execution.
+- L3: the comparison model and PersonaService already exist; prompt length is now capped to Core Arena 4,000 characters; the new policy/presenter has no chat UI/action; estimated media presets must not replace actual resource admission.
+- L8: `ChatDocumentScope.SourceIds` empty means all eligible sources, so the new planner rejects empty, invalid or over-64 source scopes; Core Gaming hard-off still owns enforcement.
+- L6/L7: anti-cheat list is deliberately incomplete; unknown classification, protected process names and user exclusion entries now block the pure suspend proposal; normalized controller curves and restore steps are previews, not drivers.
+- L4/L5/L9: export JSON shapes are conservative examples, not general coverage of vendor versions; the wishlist and matched currency/product price decisions are models only (no API polling, persisted state, deduped notifications or store-region proof); source-only i18n scan cannot detect dynamic/XAML translations.
 
 **Release boundary:** `3.1.0` stays UNRELEASED. No tags, MSI, APK, portable ZIP or GitHub release creation is authorized in this cloud session. The original Windows-only release runbook above is unchanged; only use it after all gates pass and the maintainer performs authorized local signing.
