@@ -32,11 +32,19 @@ public static class GameDownloadKinds
 /// <paramref name="ExpectedSha256"/> is optional; when given, a mismatch deletes the file and fails the job.
 /// <paramref name="Kind"/> is http (default, <paramref name="Url"/> is an https address), magnet (a magnet:?xt=urn:btih: link) or
 /// torrentfile (<paramref name="Url"/> is a local .torrent path chosen by the user). The two torrent kinds need the optional
-/// external client adapter, which is off unless the user configured it.
+/// integrated single-file PaRuX transport by default, or the optional external client explicitly configured by the owner.
 /// </summary>
 public sealed record GameDownloadRequest(
     string Url, string DestinationDirectory, string? FileName = null, string? ExpectedSha256 = null, int Priority = 0,
     string Kind = GameDownloadKinds.Http);
+
+/// <summary>
+/// Product capability: embedded in PaRuX; nothing is listening, polling or uploading
+/// until the owner explicitly enqueues a user-supplied source.
+/// </summary>
+public sealed record GameTorrentEngineStatusDto(
+    bool EmbeddedAvailable, bool ExternalConfigured, string NewJobTransport,
+    bool SingleFileOnly, bool NoAutomaticSeeding, bool NoCatalogue);
 
 /// <summary>Loopback WebUI settings of the user's own qBittorrent. Held in memory only, never persisted.</summary>
 public sealed record GameTorrentClientConfigRequest(int Port, string Username, string Password);
