@@ -32,7 +32,8 @@ public static class GameDownloadKinds
 /// <paramref name="ExpectedSha256"/> is optional; when given, a mismatch deletes the file and fails the job.
 /// <paramref name="Kind"/> is http (default, <paramref name="Url"/> is an https address), magnet (a magnet:?xt=urn:btih: link) or
 /// torrentfile (<paramref name="Url"/> is a local .torrent path chosen by the user). The two torrent kinds need the optional
-/// integrated single-file PaRuX transport by default, or the optional external client explicitly configured by the owner.
+/// embedded PaRuX transport by default (v1 single-file or ZIP-packaged multifile), or the optional external
+/// client explicitly configured by the owner.
 /// </summary>
 /// <summary>
 /// Explicit pre-consent: when enabled, a verified ZIP containing a user-named
