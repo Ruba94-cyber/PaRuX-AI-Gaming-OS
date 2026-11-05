@@ -193,7 +193,8 @@ namespace PaRuX.Services
     public static class CodingReviewApprovalPresenter
     {
         public static (bool Allowed, string ExistingMode, string Reason) Select(
-            CodingReviewApprovalLevel level, bool sandboxVerified)
+            CodingReviewApprovalLevel level, bool sandboxVerified,
+            bool allMutationToolsSandboxed = false)
         {
             return level switch
             {
@@ -201,10 +202,12 @@ namespace PaRuX.Services
                     "Read-only planning; mutations are blocked."),
                 CodingReviewApprovalLevel.Ask => (true, CodingAgentPermissionMode.Ask,
                     "Ask for exact one-shot approval before changes."),
-                CodingReviewApprovalLevel.AutoInSandbox when sandboxVerified =>
-                    (true, CodingAgentPermissionMode.Bypass, "Automatic actions restricted to an established OS sandbox."),
+                CodingReviewApprovalLevel.AutoInSandbox when sandboxVerified && allMutationToolsSandboxed =>
+                    (true, CodingAgentPermissionMode.Bypass,
+                        "Automatic actions permitted only after independent OS and tool confinement checks."),
                 CodingReviewApprovalLevel.AutoInSandbox =>
-                    (false, CodingAgentPermissionMode.Plan, "Cannot enable auto without an established OS sandbox."),
+                    (false, CodingAgentPermissionMode.Plan,
+                        "Automatic mode is blocked until the OS sandbox and every mutation tool are independently confined."),
                 _ => (false, CodingAgentPermissionMode.Plan, "Unknown approval level.")
             };
         }
