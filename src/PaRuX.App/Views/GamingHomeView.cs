@@ -85,6 +85,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly TextBlock _quickResumeSummary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _quickResumeManage = new() { MinHeight = 44 };
     private readonly Button _gameAssetStudio = new() { MinHeight = 44 };
+    private readonly Button _installedMods = new() { MinHeight = 44 };
     private readonly QuickResumePanel _quickResume = new();
     private List<GameTitleDto> _allTitles = new();
     private bool _recentOnly;
@@ -678,7 +679,16 @@ internal sealed class GamingHomeView : StackPanel
         Children.Add(quickRow);
         // A first-class gaming-home workspace, not restricted to Minecraft or
         // requiring a paused game/process. Kept off the tight Quick Resume row.
-        Children.Add(_gameAssetStudio);
+        _installedMods.Content = T("Installed AI mods", "Mod IA installate");
+        Track(_installedMods, "GameHome_InstalledMods_Open",
+            T("Review and remove PaRuX-installed ZIP mod packages",
+              "Controlla e rimuovi i pacchetti ZIP mod installati da PaRuX"));
+        _installedMods.Click += async (_, _) =>
+            await GameModDropInDialog.ShowInstalledAsync(XamlRoot);
+        var modRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        modRow.Children.Add(_gameAssetStudio);
+        modRow.Children.Add(_installedMods);
+        Children.Add(modRow);
 
         _hero.PlayRequested += async t => await PlayAsync(t);
         _hero.DetailsRequested += async t => await OpenAsync(t);
@@ -895,6 +905,8 @@ internal sealed class GamingHomeView : StackPanel
         _quickResumeManage.MinHeight = enabled ? 56 : 44;
         _quickResumeManage.FontSize = enabled ? 20 : 14;
         _quickResumeSummary.FontSize = enabled ? 20 : 14;
+        _gameAssetStudio.MinHeight = _installedMods.MinHeight = enabled ? 56 : 44;
+        _gameAssetStudio.FontSize = _installedMods.FontSize = enabled ? 20 : 14;
         _grid.SetConsole(enabled);
         _detail.SetConsole(enabled);
         ApplyBodyLayout();
