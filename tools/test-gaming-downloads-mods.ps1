@@ -38,10 +38,14 @@ try {
 
     $filter = "FullyQualifiedName~EmbeddedMultifileTorrentTests|" +
               "FullyQualifiedName~EmbeddedTorrentTransportTests|" +
+              "FullyQualifiedName~NativeTorrentRecoveryStoreTests|" +
               "FullyQualifiedName~GameDownloadTorrentTests|" +
               "FullyQualifiedName~GameDownloadManagerTests|" +
               "FullyQualifiedName~PortableGameInstallServiceTests|" +
               "FullyQualifiedName~TemporaryGameModServiceTests|" +
+              "FullyQualifiedName~GameAssetModServiceTests|" +
+              "FullyQualifiedName~GameModDropInServiceTests|" +
+              "FullyQualifiedName~GameModProcessGuardTests|" +
               "FullyQualifiedName~LibraryAgentToolsTests|" +
               "FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
 

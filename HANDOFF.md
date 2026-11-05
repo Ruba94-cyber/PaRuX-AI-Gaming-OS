@@ -1,3 +1,7 @@
+## 2026-11-05 — Scoped Windows gaming downloads/mods gate expanded (SOURCE WIP)
+
+- `tools/test-gaming-downloads-mods.ps1` now selects native torrent encrypted-restart, generic AI asset ZIP, opt-in ZIP drop-in and selected-game process guard xUnit regressions in addition to the existing download/portable/config tests. This is test gate wiring only, NOT a Windows execution result.
+
 ## 2026-11-05 — Gaming hard-off after torrent bandwidth wait (MAIN SOURCE WIP)
 
 - Native single-file copy and multi-file ZIP packaging now recheck cancellation + Gaming Mode immediately after each throttling wait and before every payload write, with another check before the final flush. Synthetic tests simulate Gaming activating *inside* the limiter callback; neither path may publish the transfer. No Windows compile, xUnit execution, or peer fixture has been run. Remaining race window is non-atomic and requires Windows validation.
