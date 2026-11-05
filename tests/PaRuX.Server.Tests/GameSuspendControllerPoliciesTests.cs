@@ -12,7 +12,7 @@ public sealed class GameSuspendControllerPoliciesTests
     [InlineData(AntiCheatAssessment.ConfirmedPresent)]
     public void Never_auto_suspends_with_unknown_or_present_anti_cheat(AntiCheatAssessment state)
     {
-        var result = GameAutoSuspendPolicy.Evaluate(Rule, true, state, true, 10, 95);
+        var result = GameAutoSuspendPolicy.Evaluate(Rule, true, state, true, 10, 95, "synthetic-game");
         Assert.False(result.Eligible);
     }
 
@@ -20,20 +20,20 @@ public sealed class GameSuspendControllerPoliciesTests
     public void Requires_process_identity_even_when_other_inputs_would_trigger()
     {
         Assert.False(GameAutoSuspendPolicy.Evaluate(
-            Rule, false, AntiCheatAssessment.VerifiedAbsent, true, 10, 95).Eligible);
+            Rule, false, AntiCheatAssessment.VerifiedAbsent, true, 10, 95, "synthetic-game").Eligible);
     }
 
     [Fact]
     public void Respects_per_game_conditions_and_thresholds()
     {
         Assert.Equal(GameSuspendTrigger.FocusLost, GameAutoSuspendPolicy.Evaluate(
-            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, null, null).Trigger);
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, null, null, "synthetic-game").Trigger);
         Assert.Equal(GameSuspendTrigger.LowBattery, GameAutoSuspendPolicy.Evaluate(
-            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 10, null).Trigger);
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 10, null, "synthetic-game").Trigger);
         Assert.Equal(GameSuspendTrigger.HighTemperature, GameAutoSuspendPolicy.Evaluate(
-            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 60, 90).Trigger);
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 60, 90, "synthetic-game").Trigger);
         Assert.False(GameAutoSuspendPolicy.Evaluate(
-            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 60, 40).Eligible);
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, 60, 40, "synthetic-game").Eligible);
     }
 
     [Fact]
@@ -43,6 +43,20 @@ public sealed class GameSuspendControllerPoliciesTests
         Assert.True(GameAutoSuspendPolicy.IsExcludedProcess("custom-synthetic.exe",
             new[] { "custom-synthetic" }));
         Assert.False(GameAutoSuspendPolicy.IsExcludedProcess("example-game.exe"));
+    }
+
+    [Fact]
+    public void Excluded_processes_and_unknown_process_names_block_even_verified_anticheat()
+    {
+        Assert.False(GameAutoSuspendPolicy.Evaluate(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, 10, 95,
+            "EasyAntiCheat_EOS.exe").Eligible);
+        Assert.False(GameAutoSuspendPolicy.Evaluate(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, 10, 95,
+            "synthetic-game.exe", new[] { "synthetic-game" }).Eligible);
+        Assert.False(GameAutoSuspendPolicy.Evaluate(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, 10, 95,
+            null).Eligible);
     }
 
     [Fact]
