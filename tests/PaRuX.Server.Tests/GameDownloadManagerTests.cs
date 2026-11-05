@@ -1,4 +1,6 @@
 using System.Net;
+using System.IO.Compression;
+using PaRuX.Server.Orchestration.Gaming;
 using System.Security.Cryptography;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Downloads;
@@ -237,6 +239,82 @@ public sealed class GameDownloadManagerTests : IDisposable
         Assert.True(done.IntegrityChecked);
         Assert.Equal(_server.Data, await File.ReadAllBytesAsync(Path.Combine(_dir, "file.bin")));
         Assert.Empty(Directory.GetFiles(_dir, "*.parux-part*"));
+    }
+
+    /// <summary>Full synthetic loopback HTTP -> SHA -> ZIP extraction -> library, without starting any EXE.</summary>
+    [Fact]
+    public async Task Explicit_auto_portable_opt_in_downloads_verified_zip_and_registers_game()
+    {
+        string local = Path.Combine(_dir, "synthetic-source.zip");
+        using (var archive = ZipFile.Open(local, ZipArchiveMode.Create))
+        {
+            var entry = archive.CreateEntry("game/Demo.exe");
+            await using var output = entry.Open();
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes("inert test data; never executed");
+            await output.WriteAsync(bytes);
+        }
+        _server.Data = await File.ReadAllBytesAsync(local);
+        string checksum = Sha(_server.Data);
+        var library = new ManualGameLibrary(Path.Combine(_dir, "downloaded-games.json"));
+        var installer = new PortableGameInstallService(library, () => _gaming,
+            () => CancellationToken.None, Path.Combine(_dir, "managed-portable"));
+        using var manager = new GameDownloadManager(
+            new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false })
+                { Timeout = Timeout.InfiniteTimeSpan },
+            () => _gaming, _ => long.MaxValue, null, Array.Empty<TimeSpan>(),
+            torrent: null, nativeTorrent: null, portableInstaller: installer);
+        GameDownloadDto job = manager.Enqueue(new GameDownloadRequest(
+            _server.Url("demo.zip"), _dir, FileName: "downloaded.zip", ExpectedSha256: checksum,
+            AutoInstallPortable: true, PortableExecutableRelativePath: "game/Demo.exe",
+            PortableGameTitle: "Demo Game"));
+        Assert.Equal(GamePostInstallStates.Pending, job.PostInstallState);
+        DateTime cutoff = DateTime.UtcNow.AddSeconds(20);
+        GameDownloadDto status;
+        do
+        {
+            status = manager.List().Single(x => x.Id == job.Id);
+            if (status.PostInstallState is GamePostInstallStates.Installed or GamePostInstallStates.Failed)
+                break;
+            await Task.Delay(20);
+        } while (DateTime.UtcNow < cutoff);
+        Assert.Equal(GameDownloadStates.Completed, status.State);
+        Assert.Equal(GamePostInstallStates.Installed, status.PostInstallState);
+        Assert.True(status.IntegrityChecked);
+        Assert.Equal(checksum, Sha(await File.ReadAllBytesAsync(Path.Combine(_dir, "downloaded.zip"))));
+        var saved = Assert.Single(new ManualGameLibrary(Path.Combine(_dir, "downloaded-games.json")).List());
+        Assert.Equal("Demo Game", saved.Name);
+        Assert.True(File.Exists(saved.ExecutablePath));
+        Assert.Equal("inert test data; never executed",
+            (await File.ReadAllTextAsync(saved.ExecutablePath)).TrimStart('\uFEFF'));
+    }
+
+    [Fact]
+    public async Task Invalid_verified_zip_keeps_download_but_does_not_register_any_game()
+    {
+        _server.Data = System.Text.Encoding.UTF8.GetBytes("synthetic invalid ZIP");
+        var library = new ManualGameLibrary(Path.Combine(_dir, "bad-zip-games.json"));
+        var installer = new PortableGameInstallService(library, () => _gaming,
+            () => CancellationToken.None, Path.Combine(_dir, "bad-zip-managed"));
+        using var manager = new GameDownloadManager(new HttpClient(
+            new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan },
+            () => _gaming, _ => long.MaxValue, null, Array.Empty<TimeSpan>(),
+            portableInstaller: installer);
+        var job = manager.Enqueue(new GameDownloadRequest(
+            _server.Url("bad.zip"), _dir, FileName: "bad.zip", ExpectedSha256: Sha(_server.Data),
+            AutoInstallPortable: true, PortableExecutableRelativePath: "Game.exe",
+            PortableGameTitle: "Invalid Demo"));
+        DateTime cutoff = DateTime.UtcNow.AddSeconds(20);
+        GameDownloadDto status;
+        do
+        {
+            status = manager.List().Single(x => x.Id == job.Id);
+            if (status.PostInstallState == GamePostInstallStates.Failed) break;
+            await Task.Delay(20);
+        } while (DateTime.UtcNow < cutoff);
+        Assert.Equal(GameDownloadStates.Completed, status.State);
+        Assert.Equal(GamePostInstallStates.Failed, status.PostInstallState);
+        Assert.True(File.Exists(Path.Combine(_dir, "bad.zip")));
+        Assert.Empty(library.List());
     }
 
     [Fact]
