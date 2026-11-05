@@ -1,0 +1,253 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace PaRuX.Services
+{
+    public enum CodingHunkDecision { Pending, Accept, Reject }
+
+    /// <summary>A display-only hunk. Its content is untrusted diff text, never an executable patch.</summary>
+    public sealed record CodingReviewHunk(
+        string Id, string RelativePath, int OldStart, int OldCount,
+        int NewStart, int NewCount, string Header, string Text);
+
+    public sealed record CodingReviewChoice(string HunkId, CodingHunkDecision Decision);
+
+    public sealed record CodingHunkApplyPlan(
+        IReadOnlyList<CodingReviewHunk> Accepted,
+        IReadOnlyList<CodingReviewHunk> Rejected,
+        bool Ready, string Explanation);
+
+    /// <summary>
+    /// Per-hunk review data for the existing CodingTaskReviewModel workflow.
+    /// No file is modified: a future executor must re-read its trusted preimage,
+    /// validate paths, acquire the one-shot approval and apply transactionally.
+    /// </summary>
+    public static class CodingHunkReviewPlanner
+    {
+        private static readonly Regex Header = new(
+            @"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        private const int MaximumReviewHunks = 500;
+
+        public static IReadOnlyList<CodingReviewHunk> Parse(string? unifiedDiff)
+        {
+            if (string.IsNullOrWhiteSpace(unifiedDiff)) return Array.Empty<CodingReviewHunk>();
+            if (unifiedDiff.Length > 2_000_000)
+                throw new ArgumentOutOfRangeException(nameof(unifiedDiff), "Diff preview too large.");
+
+            string[] lines = unifiedDiff.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+            var result = new List<CodingReviewHunk>();
+            var path = string.Empty;
+            var oldPath = string.Empty;
+            var expectedPath = string.Empty;
+            bool insideDiff = false;
+            bool priorDiffHasHunk = false;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (line.StartsWith("diff --git ", StringComparison.Ordinal))
+                {
+                    if (insideDiff && !priorDiffHasHunk)
+                        throw new FormatException("A changed file has no reviewable text hunks.");
+                    priorDiffHasHunk = false;
+                    path = string.Empty;
+                    oldPath = string.Empty;
+                    expectedPath = string.Empty; // Never carry identity into the next file.
+                    string spec = line.Substring("diff --git ".Length);
+                    int separator = spec.IndexOf(" b/", StringComparison.Ordinal);
+                    if (!spec.StartsWith("a/", StringComparison.Ordinal) || separator <= 2)
+                        throw new FormatException("Unsupported Git diff file header.");
+                    string from = spec.Substring(2, separator - 2);
+                    string to = spec.Substring(separator + 3);
+                    // Rename, quoted paths, binary diffs and unquoted whitespace are
+                    // deliberately unsupported by this preview-only parser.
+                    if (!IsSafeRelativePath(from) || !IsSafeRelativePath(to)
+                        || !string.Equals(from, to, StringComparison.Ordinal))
+                        throw new FormatException("Only unquoted same-file text diffs are supported.");
+                    expectedPath = from;
+                    insideDiff = true;
+                    continue;
+                }
+                if (line.StartsWith("--- a/", StringComparison.Ordinal))
+                {
+                    string candidate = line.Substring(6);
+                    if (!insideDiff || !string.Equals(candidate, expectedPath, StringComparison.Ordinal)
+                        || path.Length > 0)
+                        throw new FormatException("Unexpected or mismatched original Git file header.");
+                    oldPath = candidate;
+                    continue;
+                }
+                if (line.StartsWith("+++ b/", StringComparison.Ordinal))
+                {
+                    string candidate = line.Substring(6);
+                    if (!insideDiff || !string.Equals(candidate, expectedPath, StringComparison.Ordinal)
+                        || !string.Equals(candidate, oldPath, StringComparison.Ordinal)
+                        || path.Length > 0)
+                        throw new FormatException("Unexpected or mismatched destination Git file header.");
+                    path = candidate;
+                    continue;
+                }
+                if (line.StartsWith("Binary files ", StringComparison.Ordinal)
+                    || line.StartsWith("GIT binary patch", StringComparison.Ordinal)
+                    || line.StartsWith("new file mode ", StringComparison.Ordinal)
+                    || line.StartsWith("deleted file mode ", StringComparison.Ordinal)
+                    || line.StartsWith("rename from ", StringComparison.Ordinal)
+                    || line.StartsWith("rename to ", StringComparison.Ordinal)
+                    || line.StartsWith("copy from ", StringComparison.Ordinal)
+                    || line.StartsWith("copy to ", StringComparison.Ordinal)
+                    || line.StartsWith("similarity index ", StringComparison.Ordinal)
+                    || line.StartsWith("dissimilarity index ", StringComparison.Ordinal))
+                    throw new FormatException("Binary, new/deleted, renamed or copied files require full-file review.");
+                // A safe per-hunk preview supports only ordinary Git text metadata.
+                // Unknown lines (mode changes, submodules, extra headers) must not be
+                // silently ignored while some other hunk is considered reviewable.
+                if (line.StartsWith("index ", StringComparison.Ordinal)
+                    && insideDiff && oldPath.Length == 0 && path.Length == 0)
+                    continue;
+                if (line.Length == 0) continue; // Final split separator / blank diff line.
+                if (!line.StartsWith("@@ ", StringComparison.Ordinal))
+                    throw new FormatException("Unsupported Git diff metadata; review the entire file.");
+
+                if (result.Count >= MaximumReviewHunks)
+                    throw new FormatException("Too many hunks for one interactive review.");
+                Match match = Header.Match(line);
+                if (!match.Success || path.Length == 0)
+                    throw new FormatException("Unsupported or unscoped diff hunk.");
+                string oldCountText = match.Groups[2].Success ? match.Groups[2].Value : "1";
+                string newCountText = match.Groups[4].Success ? match.Groups[4].Value : "1";
+                if (!int.TryParse(match.Groups[1].Value, out int oldStart)
+                    || !int.TryParse(oldCountText, out int oldCount)
+                    || !int.TryParse(match.Groups[3].Value, out int newStart)
+                    || !int.TryParse(newCountText, out int newCount))
+                    throw new FormatException("Diff hunk line number is out of range.");
+
+                var body = new List<string>();
+                int oldLines = 0, newLines = 0;
+                while (i + 1 < lines.Length)
+                {
+                    string next = lines[i + 1];
+                    // A deleted line can start "--- " and an added line can start "+++ ".
+                    // Treat them as body until the declared counts are satisfied.
+                    if (oldLines == oldCount && newLines == newCount)
+                    {
+                        if (next.StartsWith("\\ No newline at end of file", StringComparison.Ordinal))
+                        {
+                            body.Add(next);
+                            i++;
+                            continue;
+                        }
+                        if (next.Length == 0 || next.StartsWith("@@ ", StringComparison.Ordinal)
+                            || next.StartsWith("diff --git ", StringComparison.Ordinal)
+                            || next.StartsWith("--- ", StringComparison.Ordinal)
+                            || next.StartsWith("+++ ", StringComparison.Ordinal)) break;
+                        throw new FormatException("Unexpected diff content after hunk line counts.");
+                    }
+                    if (next.Length == 0) throw new FormatException("Incomplete diff hunk.");
+                    if (next[0] == ' ') { oldLines++; newLines++; }
+                    else if (next[0] == '-') oldLines++;
+                    else if (next[0] == '+') newLines++;
+                    else throw new FormatException("Unsupported diff body.");
+                    if (oldLines > oldCount || newLines > newCount)
+                        throw new FormatException("Diff body exceeds its declared line counts.");
+                    body.Add(next);
+                    i++;
+                }
+                if (oldLines != oldCount || newLines != newCount)
+                    throw new FormatException("Diff hunk line counts do not match header.");
+                string id = path + ":" + oldStart + ":" + newStart + ":" + result.Count;
+                result.Add(new CodingReviewHunk(id, path, oldStart, oldCount, newStart, newCount,
+                    line, string.Join("\n", body)));
+                priorDiffHasHunk = true;
+            }
+            if (insideDiff && !priorDiffHasHunk)
+                throw new FormatException("The final changed file has no reviewable text hunks.");
+            return result;
+        }
+
+        public static CodingHunkApplyPlan Plan(
+            IReadOnlyList<CodingReviewHunk> hunks, IReadOnlyList<CodingReviewChoice> choices)
+        {
+            ArgumentNullException.ThrowIfNull(hunks);
+            ArgumentNullException.ThrowIfNull(choices);
+            var ids = new HashSet<string>(hunks.Select(h => h.Id), StringComparer.Ordinal);
+            if (ids.Count != hunks.Count || choices.Count != hunks.Count
+                || choices.Any(c => !ids.Contains(c.HunkId))
+                || choices.Select(c => c.HunkId).Distinct(StringComparer.Ordinal).Count() != choices.Count)
+                return new(Array.Empty<CodingReviewHunk>(), Array.Empty<CodingReviewHunk>(),
+                    false, "Every hunk requires exactly one matching review decision.");
+            var selected = choices.ToDictionary(c => c.HunkId, c => c.Decision, StringComparer.Ordinal);
+            if (selected.Values.Any(v => v == CodingHunkDecision.Pending)
+                || selected.Values.Any(v => !Enum.IsDefined(typeof(CodingHunkDecision), v)))
+                return new(Array.Empty<CodingReviewHunk>(), Array.Empty<CodingReviewHunk>(),
+                    false, "Resolve every hunk before applying.");
+            var accepted = hunks.Where(h => selected[h.Id] == CodingHunkDecision.Accept).ToArray();
+            var rejected = hunks.Where(h => selected[h.Id] == CodingHunkDecision.Reject).ToArray();
+            return new(accepted, rejected, accepted.Length > 0,
+                accepted.Length == 0 ? "No accepted changes." :
+                "Review complete. Applying requires a fresh preimage check, approval and transactional executor.");
+        }
+
+        private static bool IsSafeRelativePath(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.StartsWith("/", StringComparison.Ordinal)
+                || value.Contains('\\') || value.Contains(':') || value.Contains('\0')) return false;
+            string[] parts = value.Split('/');
+            return parts.All(p => p.Length > 0 && p != "." && p != ".."
+                && !p.Any(char.IsControl) && !p.Any(char.IsWhiteSpace));
+        }
+    }
+
+    public enum CodingReviewApprovalLevel { ReadOnly, Ask, AutoInSandbox }
+
+    /// <summary>Maps the new review UI wording onto the existing permission modes without weakening its guards.</summary>
+    public static class CodingReviewApprovalPresenter
+    {
+        public static (bool Allowed, string ExistingMode, string Reason) Select(
+            CodingReviewApprovalLevel level, bool sandboxVerified,
+            bool allMutationToolsSandboxed = false)
+        {
+            return level switch
+            {
+                CodingReviewApprovalLevel.ReadOnly => (true, CodingAgentPermissionMode.Plan,
+                    "Read-only planning; mutations are blocked."),
+                CodingReviewApprovalLevel.Ask => (true, CodingAgentPermissionMode.Ask,
+                    "Ask for exact one-shot approval before changes."),
+                CodingReviewApprovalLevel.AutoInSandbox when sandboxVerified && allMutationToolsSandboxed =>
+                    (true, CodingAgentPermissionMode.Bypass,
+                        "Automatic actions permitted only after independent OS and tool confinement checks."),
+                CodingReviewApprovalLevel.AutoInSandbox =>
+                    (false, CodingAgentPermissionMode.Plan,
+                        "Automatic mode is blocked until the OS sandbox and every mutation tool are independently confined."),
+                _ => (false, CodingAgentPermissionMode.Plan, "Unknown approval level.")
+            };
+        }
+    }
+
+    public sealed record CodingRepairCycle(int AttemptsUsed, int MaximumAttempts, bool VerificationPassed,
+        string State)
+    {
+        public static CodingRepairCycle Start(int maximumAttempts = 2) =>
+            new(0, Math.Clamp(maximumAttempts, 0, 5), false, "Awaiting verification");
+
+        /// <summary>Consumes only observed results; never infers that a build or test ran.</summary>
+        public CodingRepairCycle ObserveVerification(int exitCode)
+        {
+            if (VerificationPassed) return this;
+            if (exitCode == 0) return this with { VerificationPassed = true, State = "Verified by observed command" };
+            return AttemptsUsed >= MaximumAttempts
+                ? this with { State = "Stopped: repair limit reached" }
+                : this with { State = "Verification failed; repair available" };
+        }
+
+        public CodingRepairCycle BeginRepair()
+        {
+            if (VerificationPassed || AttemptsUsed >= MaximumAttempts
+                || State != "Verification failed; repair available") return this;
+            return this with { AttemptsUsed = AttemptsUsed + 1, State = "Repair in progress; must re-verify" };
+        }
+
+        public string Display => State + " (" + AttemptsUsed + "/" + MaximumAttempts + " repairs)";
+    }
+}

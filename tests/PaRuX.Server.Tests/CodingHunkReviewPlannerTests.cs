@@ -1,0 +1,286 @@
+using PaRuX.Services;
+using Xunit;
+
+namespace PaRuX.Server.Tests;
+
+public sealed class CodingHunkReviewPlannerTests
+{
+    private const string Diff =
+        "diff --git a/src/demo.cs b/src/demo.cs\n" +
+        "--- a/src/demo.cs\n+++ b/src/demo.cs\n" +
+        "@@ -1,2 +1,2 @@\n one\n-old\n+new\n" +
+        "@@ -5 +5 @@\n-before\n+after\n";
+
+    [Fact]
+    public void Parses_two_hunks_and_separately_accepts_only_one()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.Equal(2, hunks.Count);
+        Assert.Equal("src/demo.cs", hunks[0].RelativePath);
+        Assert.Equal(2, hunks[0].OldCount);
+        var result = CodingHunkReviewPlanner.Plan(hunks, new[]
+        {
+            new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Reject),
+            new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Accept)
+        });
+        Assert.True(result.Ready);
+        Assert.Single(result.Accepted);
+        Assert.Single(result.Rejected);
+        Assert.Equal(hunks[1].Id, result.Accepted[0].Id);
+    }
+
+    [Fact]
+    public void Rejects_unscoped_or_malformed_hunks()
+    {
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "@@ -1 +1 @@\n-old\n+new"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n+++ b/../outside\n@@ -1 +1 @@\n-old\n+new"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,2 +1 @@\n-old\n+new"));
+    }
+
+    [Fact]
+    public void Forbids_missing_or_mismatched_git_preimage_paths_and_overflowed_line_numbers()
+    {
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "+++ b/x\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/y\n--- a/x\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n--- a/x\n+++ b/x\n" +
+            "@@ -999999999999999999999 +1 @@\n-old\n+new\n"));
+    }
+
+    [Fact]
+    public void Git_header_must_match_both_metadata_paths_and_disallow_rename_preview()
+    {
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/folder name b/folder name\n" +
+            "--- a/folder name\n+++ b/folder name\n@@ -1 +1 @@\n-old\n+new\n"));
+    }
+
+    [Theory]
+    [InlineData("GIT binary patch")]
+    [InlineData("Binary files a/demo.txt and b/demo.txt differ")]
+    [InlineData("new file mode 100644")]
+    [InlineData("deleted file mode 100644")]
+    [InlineData("rename from other.txt")]
+    [InlineData("copy to second.txt")]
+    public void Unsupported_Git_metadata_never_silently_discards_changes(string metadata)
+    {
+        string diff = "diff --git a/demo.txt b/demo.txt\n" +
+            metadata + "\n--- a/demo.txt\n+++ b/demo.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(diff));
+    }
+
+    [Fact]
+    public void Bounded_review_refuses_more_than_five_hundred_hunks()
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.Append("diff --git a/demo.txt b/demo.txt\n--- a/demo.txt\n+++ b/demo.txt\n");
+        for (int line = 1; line <= 501; line++)
+            builder.Append("@@ -").Append(line).Append(" +").Append(line)
+                .Append(" @@\n-old\n+new\n");
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(builder.ToString()));
+    }
+
+    [Fact]
+    public void Refuses_unreviewable_changed_file_after_an_otherwise_valid_file()
+    {
+        const string first = "diff --git a/first.txt b/first.txt\n" +
+            "--- a/first.txt\n+++ b/first.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        const string secondWithoutHunks = "diff --git a/second.txt b/second.txt\n" +
+            "index 1234567..7654321 100644\n--- a/second.txt\n+++ b/second.txt\n";
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(first + secondWithoutHunks));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(secondWithoutHunks + first));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(secondWithoutHunks));
+    }
+
+    [Fact]
+    public void Unexpected_git_metadata_does_not_disappear_from_a_review()
+    {
+        const string valid = "diff --git a/example.txt b/example.txt\n" +
+            "index 1234567..7654321 100644\n" +
+            "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Single(CodingHunkReviewPlanner.Parse(valid));
+
+        const string unsupportedModeChange = "diff --git a/example.txt b/example.txt\n" +
+            "old mode 100644\nnew mode 100755\n" +
+            "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(unsupportedModeChange));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(valid + "unexpected trailing patch metadata\n"));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(valid + "index 1111111..2222222 100644\n"));
+    }
+
+    [Fact]
+    public void Repeated_file_headers_cannot_rebind_an_existing_hunk()
+    {
+        const string duplicateHeader = "diff --git a/x b/x\n" +
+            "--- a/x\n+++ b/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(duplicateHeader));
+    }
+
+    [Fact]
+    public void All_hunks_must_be_reviewed_once_and_pending_cannot_apply()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.False(CodingHunkReviewPlanner.Plan(hunks, Array.Empty<CodingReviewChoice>()).Ready);
+        Assert.False(CodingHunkReviewPlanner.Plan(hunks, new[]
+        {
+            new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+            new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept)
+        }).Ready);
+        Assert.False(CodingHunkReviewPlanner.Plan(hunks, new[]
+        {
+            new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Pending),
+            new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+        }).Ready);
+    }
+
+    [Fact]
+    public void Auto_requires_verified_sandbox_and_read_only_maps_to_existing_plan()
+    {
+        var read = CodingReviewApprovalPresenter.Select(CodingReviewApprovalLevel.ReadOnly, false);
+        Assert.True(read.Allowed);
+        Assert.Equal(CodingAgentPermissionMode.Plan, read.ExistingMode);
+        Assert.False(CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, false).Allowed);
+        var insufficient = CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, true);
+        Assert.False(insufficient.Allowed);
+        Assert.Equal(CodingAgentPermissionMode.Plan, insufficient.ExistingMode);
+        var automatic = CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, true, allMutationToolsSandboxed: true);
+        Assert.True(automatic.Allowed);
+        Assert.Equal(CodingAgentPermissionMode.Bypass, automatic.ExistingMode);
+        Assert.False(CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, false, allMutationToolsSandboxed: true).Allowed);
+    }
+
+    [Fact]
+    public void Repair_requires_observed_failure_and_stops_at_bounded_limit()
+    {
+        var state = CodingRepairCycle.Start(1);
+        Assert.Equal(0, state.BeginRepair().AttemptsUsed);
+        state = state.ObserveVerification(1).BeginRepair();
+        Assert.Equal(1, state.AttemptsUsed);
+        Assert.False(state.VerificationPassed);
+        state = state.ObserveVerification(1);
+        Assert.Contains("limit", state.State, StringComparison.Ordinal);
+        Assert.Equal(state, state.BeginRepair());
+        Assert.True(CodingRepairCycle.Start().ObserveVerification(0).VerificationPassed);
+    }
+    [Fact]
+    public void Deleted_and_added_lines_with_header_looking_prefixes_are_not_misparsed()
+    {
+        const string diff = "diff --git a/demo.txt b/demo.txt\n" +
+            "--- a/demo.txt\n+++ b/demo.txt\n" +
+            "@@ -1 +1 @@\n---- original\n++++ replacement\n";
+        var hunks = CodingHunkReviewPlanner.Parse(diff);
+        Assert.Single(hunks);
+        Assert.Equal("---- original\n++++ replacement", hunks[0].Text);
+        var preview = CodingSelectiveHunkPreview.Create("demo.txt", "--- original\n", hunks,
+            new[] { new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept) });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("+++ replacement\n", preview.CandidateText);
+    }
+
+    [Fact]
+    public void Selective_preview_checks_all_hunks_but_changes_only_accepted_ones()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        const string before = "one\nold\nmiddle\nx\nbefore\nlast\n";
+        var preview = CodingSelectiveHunkPreview.Create("src/demo.cs", before, hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("one\nnew\nmiddle\nx\nbefore\nlast\n", preview.CandidateText);
+        Assert.True(CodingSelectiveHunkPreview.PreimageMatches(preview.PreimageSha256, before));
+        Assert.False(CodingSelectiveHunkPreview.PreimageMatches(
+            preview.PreimageSha256, "one\nchanged\nmiddle\nx\nbefore\nlast\n"));
+        Assert.NotEqual(preview.PreimageSha256, preview.CandidateSha256);
+    }
+
+    [Fact]
+    public void Preview_preserves_crlf_without_changing_the_original()
+    {
+        const string diff = "diff --git a/test.cs b/test.cs\n" +
+            "--- a/test.cs\n+++ b/test.cs\n@@ -1 +1 @@\n-old\n+new\n";
+        var h = Assert.Single(CodingHunkReviewPlanner.Parse(diff));
+        const string original = "old\r\n";
+        var preview = CodingSelectiveHunkPreview.Create("test.cs", original, new[] { h },
+            new[] { new CodingReviewChoice(h.Id, CodingHunkDecision.Accept) });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("new\r\n", preview.CandidateText);
+        Assert.Equal("old\r\n", original);
+    }
+
+    [Fact]
+    public void Preview_fails_closed_for_stale_source_unreviewed_hunks_and_no_newline_markers()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.False(CodingSelectiveHunkPreview.Create("src/demo.cs",
+            "one\nchanged\nmiddle\nx\nbefore\nlast\n", hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            }).Ready);
+        Assert.False(CodingSelectiveHunkPreview.Create("src/demo.cs", "one\nold\n", hunks,
+            new[] { new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept) }).Ready);
+
+        const string diff = "diff --git a/test.cs b/test.cs\n" +
+            "--- a/test.cs\n+++ b/test.cs\n@@ -1 +1 @@\n-old\n+new\n" +
+            "\\ No newline at end of file\n";
+        var h = Assert.Single(CodingHunkReviewPlanner.Parse(diff));
+        Assert.False(CodingSelectiveHunkPreview.Create("test.cs", "old", new[] { h },
+            new[] { new CodingReviewChoice(h.Id, CodingHunkDecision.Accept) }).Ready);
+    }
+
+    [Fact]
+    public void Selective_preview_refuses_unsafe_whitespace_and_control_character_paths()
+    {
+        var originalHunk = Assert.Single(CodingHunkReviewPlanner.Parse(
+            "diff --git a/demo.txt b/demo.txt\n--- a/demo.txt\n+++ b/demo.txt\n" +
+            "@@ -1 +1 @@\n-old\n+new\n"));
+        foreach (string unsafePath in new[] { "folder name/demo.txt", "tab\tname/demo.txt" })
+        {
+            var hunk = originalHunk with { RelativePath = unsafePath };
+            var preview = CodingSelectiveHunkPreview.Create(unsafePath, "old\n",
+                new[] { hunk }, new[]
+                {
+                    new CodingReviewChoice(hunk.Id, CodingHunkDecision.Accept)
+                });
+            Assert.False(preview.Ready);
+            Assert.Null(preview.CandidateText);
+        }
+    }
+
+    [Fact]
+    public void Empty_preimage_can_still_be_compared_but_paths_must_be_scoped()
+    {
+        string emptyHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("")));
+        Assert.True(CodingSelectiveHunkPreview.PreimageMatches(emptyHash, ""));
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.False(CodingSelectiveHunkPreview.Create("../untrusted.cs", "one\nold\n", hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            }).Ready);
+    }
+}

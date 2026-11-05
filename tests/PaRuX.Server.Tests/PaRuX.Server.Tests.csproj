@@ -273,6 +273,8 @@
     <Compile Include="..\..\src\PaRuX.App\Services\WorkspaceNavigationOrder.cs" Link="Navigation\WorkspaceNavigationOrder.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ChatDraftCoordinator.cs" Link="Chat\ChatDraftCoordinator.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingTaskSandboxWorkspacePolicy.cs" Link="CodingAgent\CodingTaskSandboxWorkspacePolicy.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CodingHunkReviewPlanner.cs" Link="CodingAgent\CodingHunkReviewPlanner.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CodingSelectiveHunkPreview.cs" Link="CodingAgent\CodingSelectiveHunkPreview.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingTaskReviewModel.cs" Link="CodingAgent\CodingTaskReviewModel.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingReviewFindingLedger.cs" Link="CodingAgent\CodingReviewFindingLedger.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingOwnChangeReverter.cs" Link="CodingAgent\CodingOwnChangeReverter.cs" />
