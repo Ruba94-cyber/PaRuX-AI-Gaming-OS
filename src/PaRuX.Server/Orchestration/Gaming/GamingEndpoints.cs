@@ -41,9 +41,6 @@ public static class GamingEndpoints
         { return Results.Problem(operation + " metadata could not be read."); }
     }
 
-    /// <summary>Desktop-owner-supplied export bytes only; no server-side file access.</summary>
-    public sealed record ExternalLibraryPreviewRequest(string? Provider, string? Json);
-
     public static void MapGamingEndpoints(this WebApplication app)
     {
         // Read-only preview of user-supplied JSON. This cannot inspect local files,
@@ -57,7 +54,8 @@ public static class GamingEndpoints
             {
                 IReadOnlyList<ExternalLibraryGame> preview =
                     ExternalGameLibraryExportParser.Parse(request.Provider ?? string.Empty, request.Json ?? string.Empty);
-                return Results.Ok(preview);
+                return Results.Ok(preview.Select(game =>
+                    new ExternalLibraryGamePreviewDto(game.Provider, game.ExternalId, game.Title)).ToArray());
             }
             catch (Exception ex) when (ex is InvalidDataException or JsonException)
             {
