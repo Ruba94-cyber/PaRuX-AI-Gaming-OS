@@ -53,6 +53,10 @@ public sealed class TemporaryGameModServiceTests : IDisposable
         Assert.Equal(baseline, preview.OriginalText);
         Assert.Equal("[video]\nbrightness=2\n", preview.ProposedText);
         Assert.Equal(baseline, File.ReadAllText(Config));
+        var pending = Assert.Single(service.ListPreviews());
+        Assert.Equal(preview.PreviewId, pending.PreviewId);
+        Assert.Equal(baseline, pending.OriginalText);
+        Assert.Equal(preview.ProposedText, pending.ProposedText);
 
         Assert.Throws<ArgumentException>(() =>
             service.Apply(new GameModApplyRequest(preview.PreviewId, Consent: false)));
@@ -61,6 +65,7 @@ public sealed class TemporaryGameModServiceTests : IDisposable
         GameTemporaryModDto applied = service.Apply(new(preview.PreviewId, true));
         Assert.Equal("[video]\nbrightness=2\n", File.ReadAllText(Config));
         Assert.Single(service.List());
+        Assert.Empty(service.ListPreviews()); // Preview token was single-use.
         Assert.Equal(applied.Id, Assert.Single(Service().List()).Id);
 
         Assert.True(Service().Restore(new GameModRestoreRequest(applied.Id, true)));
