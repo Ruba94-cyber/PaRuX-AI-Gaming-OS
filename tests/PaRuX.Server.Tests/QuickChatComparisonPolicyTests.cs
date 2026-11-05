@@ -61,4 +61,79 @@ public sealed class QuickChatComparisonPolicyTests
         Assert.Equal(25, video.Frames);
         Assert.True(video.RequiresConfirmation);
     }
+    [Fact]
+    public void Prompt_limit_matches_the_real_Core_Arena_contract()
+    {
+        Assert.Throws<System.IO.InvalidDataException>(() => QuickChatComparisonPolicy.Create(
+            "first.gguf", "second.gguf", new string('x', ModelArenaService.MaxPromptChars + 1)));
+        Assert.Equal(ModelArenaService.MaxPromptChars,
+            QuickChatComparisonPolicy.Create("first.gguf", "second.gguf",
+                new string('x', ModelArenaService.MaxPromptChars)).CustomPrompt!.Length);
+    }
+
+    [Fact]
+    public void Side_by_side_presenter_shows_exact_one_prompt_and_only_real_answers()
+    {
+        var run = new PaRuX.Contracts.ArenaRunDto
+        {
+            Status = "completed",
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            Prompts = new()
+            {
+                new PaRuX.Contracts.ArenaPromptResultDto
+                {
+                    TaskId = "custom",
+                    Prompt = "Synthetic comparison question",
+                    UserPick = "first.gguf",
+                    Results = new()
+                    {
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "first.gguf", Status = "completed", Output = "First answer"
+                        },
+                        new PaRuX.Contracts.ArenaModelResultDto
+                        {
+                            ModelFileName = "second.gguf", Status = "failed", Error = "Synthetic failure"
+                        }
+                    }
+                }
+            }
+        };
+
+        var presented = QuickChatComparisonPresenter.Build(run, italian: true);
+        Assert.True(presented.Ready);
+        Assert.Equal("Synthetic comparison question", presented.Prompt);
+        Assert.Equal("First answer", presented.Left.AnswerText);
+        Assert.True(presented.Left.AnswerAvailable);
+        Assert.False(presented.Right.AnswerAvailable);
+        Assert.Equal(string.Empty, presented.Right.AnswerText);
+        Assert.Equal("first.gguf", presented.UserPreferredModel);
+    }
+
+    [Fact]
+    public void Side_by_side_presenter_does_not_invent_winner_or_missing_answers()
+    {
+        var run = new PaRuX.Contracts.ArenaRunDto
+        {
+            Status = "running",
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            Prompts = new()
+            {
+                new PaRuX.Contracts.ArenaPromptResultDto
+                {
+                    TaskId = "custom",
+                    Prompt = "Example",
+                    UserPick = "second.gguf",
+                    Results = new()
+                }
+            }
+        };
+        var present = QuickChatComparisonPresenter.Build(run, italian: false);
+        Assert.True(present.Ready);
+        Assert.False(present.Left.AnswerAvailable);
+        Assert.False(present.Right.AnswerAvailable);
+        Assert.Null(present.UserPreferredModel);
+        Assert.Contains("running", present.StatusText, System.StringComparison.OrdinalIgnoreCase);
+        Assert.False(QuickChatComparisonPresenter.Build(null, italian: false).Ready);
+    }
 }
