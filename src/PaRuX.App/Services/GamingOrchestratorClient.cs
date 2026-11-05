@@ -100,6 +100,13 @@ namespace PaRuX.Services
                 "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/stage",
                 null, ct, InspectionHttpClient);
 
+        /// <summary>Owner-selected retry for a previously consented verified portable ZIP, never a new download or EXE run.</summary>
+        public Task<GamingCallResult<GameDownloadDto>> RetryPortableInstallAsync(
+            string id, CancellationToken ct = default) =>
+            SendAsync<GameDownloadDto>(HttpMethod.Post,
+                "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/portable/retry",
+                null, ct, InspectionHttpClient);
+
         public Task<GamingCallResult<object>> PauseGameDownloadAsync(string id, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/gaming/downloads/" + Uri.EscapeDataString(id) + "/pause", null, ct);
 
