@@ -215,6 +215,14 @@ namespace PaRuX.Views
                     return;
                 }
 
+                // The approval is for exact bytes, not merely a digest.
+                // Bound the display to avoid rendering megabytes of source text.
+                string candidateText = candidate.CandidateText ?? string.Empty;
+                string displayedCandidate = candidateText.Length > 4000
+                    ? candidateText[..4000] + GameUi.T(
+                        "\n... preview truncated; open the full file in the worktree for longer changes.",
+                        "\n... anteprima abbreviata; apri il file completo per modifiche più lunghe.")
+                    : candidateText;
                 var confirmation = new ContentDialog
                 {
                     XamlRoot = trigger.XamlRoot,
@@ -234,6 +242,8 @@ namespace PaRuX.Views
                                 + "/" + decisions.Length
                                 + "\nSHA-256 before: " + candidate.PreimageSha256
                                 + "\nSHA-256 after:  " + candidate.CandidateSha256
+                                + "\n\n" + GameUi.T("Candidate text preview:", "Anteprima del testo risultante:")
+                                + "\n" + displayedCandidate
                                 + "\n\n" + GameUi.T(
                                     "This subset is different from the fully tested task. PaRuX will apply it as uncommitted local changes using a recovery journal. Re-run your tests afterward. No commit or push will happen.",
                                     "Questa selezione differisce dal task verificato nel suo insieme. PaRuX applicherà le modifiche locali senza commit, usando un journal di recupero. Riesegui i test dopo l'applicazione. Non verranno eseguiti commit o push.")
