@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using MonoTorrent;
 using MonoTorrent.Client;
@@ -117,8 +118,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             // PaRuX-owned stage. It cannot write directly to the user's library.
             manager = await engine.AddAsync(metadata, staging).ConfigureAwait(false);
             job.ExternalId = job.InfoHash;
-            if (manager.Files.Count != 1)
-                throw new GameDownloadException("Only single-file torrents can be safely published yet.");
+            if (manager.Files.Count != metadata.Files.Count)
+                throw new GameDownloadException("Torrent engine inventory changed after metadata validation.");
             await manager.StartAsync().ConfigureAwait(false);
 
             while (!manager.Complete)
@@ -149,7 +150,10 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             stop.Token.ThrowIfCancellationRequested();
             if (_gamingActive() || context.GamingActive())
                 throw new OperationCanceledException(stop.Token);
-            await CopyVerifiedFileAsync(context, staging, metadata, stop.Token).ConfigureAwait(false);
+            if (metadata.Files.Count == 1)
+                await CopyVerifiedFileAsync(context, staging, metadata, stop.Token).ConfigureAwait(false);
+            else
+                await BundleVerifiedFilesAsync(context, staging, metadata, stop.Token).ConfigureAwait(false);
             finished = true;
         }
         catch (Exception ex) when (ex is not GameDownloadException and not OperationCanceledException)
@@ -210,16 +214,119 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
         catch (Exception ex) when (ex is not GameDownloadException and not OperationCanceledException)
         { throw new GameDownloadException("The embedded engine could not parse this torrent."); }
 
-        if (torrent.Files.Count != 1 || torrent.Size <= 0 || torrent.Size > maximumBytes)
-            throw new GameDownloadException("Only single-file torrents within the configured size limit are currently supported.");
-
-        string relative = torrent.Files[0].Path;
-        if (string.IsNullOrWhiteSpace(relative) || relative.Length > 200
-            || relative is "." or ".." || relative.Contains('/') || relative.Contains('\\')
-            || Path.IsPathRooted(relative) || relative.Any(char.IsControl)
-            || !string.Equals(relative, GameDownloadManager.SafeFileName(relative), StringComparison.Ordinal))
-            throw new GameDownloadException("The torrent contains an unsafe file name.");
+        if (torrent.Files.Count is < 1 or > 4096 || torrent.Size <= 0 || torrent.Size > maximumBytes)
+            throw new GameDownloadException("Too many files or a torrent larger than the configured limit.");
+        ValidateRelativePayloads(torrent);
+        if (torrent.Files.Count > 1 &&
+            (job.AutoInstallPortable || !job.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)))
+            throw new GameDownloadException(
+                "Multifile torrents need a user-selected .zip output name; auto-install is not supported.");
         return torrent;
+    }
+
+    /// <summary>Validate every metadata path before network payload writes start.</summary>
+    internal static IReadOnlyList<string> ValidateRelativePayloads(Torrent torrent)
+    {
+        if (torrent.Files.Count is < 1 or > 4096)
+            throw new GameDownloadException("Unsafe torrent file count.");
+        var paths = new List<string>(torrent.Files.Count);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in torrent.Files)
+        {
+            string relative = entry.Path.Replace('\\', '/');
+            if (relative.Length is < 1 or > 1024 || relative.StartsWith('/')
+                || relative.Any(char.IsControl))
+                throw new GameDownloadException("Unsafe torrent file path.");
+            string[] segments = relative.Split('/');
+            if (torrent.Files.Count == 1 && segments.Length != 1)
+                throw new GameDownloadException("A single-file torrent must have one regular file name.");
+            if (segments.Length is < 1 or > 16 || segments.Any(segment =>
+                segment.Length is < 1 or > 200 || segment is "." or ".."
+                || segment.StartsWith(".parux-", StringComparison.OrdinalIgnoreCase)
+                || segment.IndexOfAny("<>:\"|?*".ToCharArray()) >= 0
+                || !string.Equals(segment, GameDownloadManager.SafeFileName(segment), StringComparison.Ordinal)))
+                throw new GameDownloadException("Unsafe torrent path component.");
+            if (!seen.Add(relative))
+                throw new GameDownloadException("Duplicate torrent file path.");
+            paths.Add(relative);
+        }
+        return paths;
+    }
+
+    /// <summary>
+    /// The built-in engine can safely package completed v1 multifile torrents as
+    /// an ordinary ZIP. It does not launch installers, auto-extract or assert
+    /// publisher authenticity. The parent download manager publishes only after
+    /// hashing the newly created ZIP and checking its expected digest if supplied.
+    /// </summary>
+    internal static async Task BundleVerifiedFilesAsync(
+        GameDownloadTransferContext context, string staging, Torrent metadata, CancellationToken ct)
+    {
+        GameDownloadJob job = context.Job;
+        if (metadata.Files.Count < 2 || !job.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+            || job.AutoInstallPortable)
+            throw new GameDownloadException("Multifile payloads require a ZIP name and disabled auto-install.");
+        IReadOnlyList<string> names = ValidateRelativePayloads(metadata);
+        EnsureOwnedStaging(job, staging);
+        string root = Path.GetFullPath(staging).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var inputs = new List<(string Name, string Path, long Size)>(names.Count);
+        long total = 0;
+        foreach (string name in names)
+        {
+            ct.ThrowIfCancellationRequested();
+            string source = Path.GetFullPath(Path.Combine(staging, name.Replace('/', Path.DirectorySeparatorChar)));
+            if (!source.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+                || !ManualGameLibrary.IsSafeDirectory(Path.GetDirectoryName(source)!))
+                throw new GameDownloadException("A torrent file escaped the private staging folder.");
+            var info = new FileInfo(source);
+            if (!info.Exists || info.LinkTarget is not null
+                || (info.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new GameDownloadException("A torrent payload is missing or linked.");
+            total = checked(total + info.Length);
+            if (total > context.MaxFileBytes)
+                throw new GameDownloadException("Too many bytes in torrent payload.");
+            inputs.Add((name, source, info.Length));
+        }
+        if (total != metadata.Size)
+            throw new GameDownloadException("Torrent payload lengths disagree with the metadata.");
+        if (context.FreeBytes(job.Directory) < total + GameDownloadManager.FreeSpaceMarginBytes + 16L * 1024 * 1024)
+            throw new GameDownloadException("Not enough disk space to package this torrent.");
+        GameDownloadManager.CleanPartial(job);
+        GameDownloadManager.EnsureSafeDownloadPaths(job);
+        await using var output = new FileStream(job.PartPath, FileMode.CreateNew, FileAccess.Write,
+            FileShare.None, 1 << 16, useAsync: true);
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            byte[] buffer = new byte[1 << 16];
+            long done = 0;
+            foreach (var item in inputs)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (context.GamingActive()) throw new OperationCanceledException(ct);
+                var entry = archive.CreateEntry(item.Name, CompressionLevel.NoCompression);
+                entry.LastWriteTime = new DateTimeOffset(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                await using var input = new FileStream(item.Path, FileMode.Open,
+                    FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true);
+                await using Stream destination = entry.Open();
+                long copied = 0;
+                int read;
+                while ((read = await input.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false)) > 0)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (context.GamingActive()) throw new OperationCanceledException(ct);
+                    await context.Throttle(read, ct).ConfigureAwait(false);
+                    await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                    copied += read;
+                    done += read;
+                    context.Report(done, metadata.Size);
+                }
+                if (copied != item.Size)
+                    throw new GameDownloadException("Torrent file changed during ZIP packaging.");
+            }
+            if (done != metadata.Size)
+                throw new GameDownloadException("Torrent ZIP payload total changed.");
+        }
+        await output.FlushAsync(ct).ConfigureAwait(false);
     }
 
     private static async Task CopyVerifiedFileAsync(
