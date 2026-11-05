@@ -884,6 +884,7 @@ public sealed class AgentLibraryTools
             case "offline_confirmed":
             case "favorite":
                 if (v.ValueKind is JsonValueKind.True or JsonValueKind.False) return true;
+                error = "\"" + name + "\" must be true or false."; return false;
             case "proposed_text":
                 if (v.ValueKind != JsonValueKind.String ||
                     v.GetString() is not { } proposalText ||
@@ -893,7 +894,6 @@ public sealed class AgentLibraryTools
                     return false;
                 }
                 return true;
-                error = "\"favorite\" must be true or false."; return false;
             case "limit":
                 if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int n) && n is >= 1 and <= MaxResults) return true;
                 error = "\"limit\" must be an integer from 1 to " + MaxResults + "."; return false;
