@@ -45,6 +45,7 @@ namespace PaRuX.Views
         private int _startCheckingRetries;
         private readonly HashSet<string> _startInFlight = new HashSet<string>(StringComparer.Ordinal);
         private DispatcherTimer? _startPoll;
+        private RoleProfilePanel? _roleProfilePanel;
 
         private UIElement BuildStartPanel()
         {
@@ -76,6 +77,9 @@ namespace PaRuX.Views
             panel.Children.Add(_startSummary);
             panel.Children.Add(_startHardware);
             panel.Children.Add(_startCards);
+            // "Use for": which installed model serves Chat / Coding / Reasoning / Vision / Documents (reads the existing role store).
+            _roleProfilePanel = new RoleProfilePanel(startAdvanced: _isAdvancedMode);
+            panel.Children.Add(_roleProfilePanel);
 
             var more = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
             more.Children.Add(new TextBlock
@@ -170,6 +174,7 @@ namespace PaRuX.Views
             }
             finally { _startInFlight.Remove("text"); }
             RenderStartNow();
+            if (_roleProfilePanel != null) _ = _roleProfilePanel.RefreshAsync();
         }
 
         private void RenderStartNow()

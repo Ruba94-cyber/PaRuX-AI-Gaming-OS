@@ -168,6 +168,16 @@ namespace PaRuX.Services
             }
         }
 
+        /// <summary>Stops watching the AI state folder (setup-profile switch). Nothing on disk is touched. Safe to call repeatedly.</summary>
+        public void StopWatching()
+        {
+            FileSystemWatcher? watcher = _watcher;
+            if (watcher == null) return;
+            _watcher = null;
+            try { watcher.EnableRaisingEvents = false; watcher.Dispose(); }
+            catch (Exception ex) { Log.Write("LocalAiController.StopWatching failed: " + ex.Message); }
+        }
+
         private void RaiseVerifiedGameReturnChanged(string? fileName)
         {
             // Atomic Publish writes .tmp first, then renames to exactly this
