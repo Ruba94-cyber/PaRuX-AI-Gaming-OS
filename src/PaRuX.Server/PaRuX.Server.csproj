@@ -63,6 +63,8 @@
     <PackageReference Include="SharpCompress" Version="0.50.4" />
     <!-- Integrated BitTorrent v1 single-file transport; MIT licence; no external client required. -->
     <PackageReference Include="MonoTorrent" Version="3.0.2" />
+    <!-- Windows-only GDI+ decode and nearest-neighbor 64x64 PNG export for the local Minecraft skin preview; no external image tools. -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Built-in skill manifests live at the repo root (skills/built-in/) so the public
