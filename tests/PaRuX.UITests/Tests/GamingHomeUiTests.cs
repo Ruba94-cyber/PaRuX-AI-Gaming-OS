@@ -178,6 +178,29 @@ public sealed class GamingHomeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Wishlist_manual_batch_is_visible_but_disabled_without_opted_in_games()
+    {
+        const string name = nameof(Wishlist_manual_batch_is_visible_but_disabled_without_opted_in_games);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            Press(app, ById(app, "GameHome_Wishlist_Button"));
+            Assert.NotNull(ById(app, "GameHome_Wishlist_Select"));
+            Assert.NotNull(ById(app, "GameHome_Wishlist_Quote"));
+            AutomationElement batch = ById(app, "GameHome_Wishlist_BatchQuote");
+            Assert.False(batch.Properties.IsEnabled.ValueOrDefault);
+            Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")),
+                "close wishlist without triggering a network request")
+                .Patterns.Invoke.Pattern.Invoke();
+            UiWait.For(() => TryById(app, "GameHome_Wishlist_BatchQuote") is null,
+                "offline wishlist dialog closed");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Game_guide_dialog_is_explicit_and_closable_without_loading_ai()
     {
         const string name = nameof(Game_guide_dialog_is_explicit_and_closable_without_loading_ai);
