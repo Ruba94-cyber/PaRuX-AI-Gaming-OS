@@ -92,8 +92,8 @@ internal static class GamingWishlistDialog
             var panel = new StackPanel { Spacing = 12, MaxWidth = 490 };
             panel.Children.Add(new TextBlock
             {
-                Text = T("Your list stays on this PC. Only the Check price button contacts the Steam storefront, after Game Discover has been enabled. Nothing checks prices, sends alerts or makes purchases automatically.",
-                    "La lista resta su questo PC. Solo il pulsante Controlla prezzo contatta lo store Steam, dopo aver abilitato Game Discover. Nessun controllo automatico, avviso o acquisto."),
+                Text = T("Your list stays on this PC. Only explicit one-shot price buttons contact Steam after Game Discover consent. Batch checks at most 8 watched games in sequence. No scheduled checks, alerts or purchases.",
+                    "La lista resta su questo PC. Solo i pulsanti di verifica manuale contattano Steam dopo il consenso Game Discover. Il controllo multiplo verifica al massimo 8 giochi in sequenza. Nessun controllo programmato, avviso o acquisto."),
                 TextWrapping = TextWrapping.Wrap
             });
             panel.Children.Add(selection);
@@ -143,8 +143,106 @@ internal static class GamingWishlistDialog
                 finally { quote.IsEnabled = selection.SelectedItem is ComboBoxItem; }
             };
 
+            // A separate, explicit button checks only already opted-in items.
+            // This action is never scheduled and never runs from opening the dialog.
+            LocalWishlistManualBatchPlan batchPlan = LocalWishlistManualBatchPolicy.Build(items);
+            var batch = new Button
+            {
+                Content = T("Check watched prices once (max 8)", "Controlla prezzi selezionati una volta (max 8)"),
+                IsEnabled = batchPlan.Items.Count > 0
+            };
+            AutomationProperties.SetAutomationId(batch, "GameHome_Wishlist_BatchQuote");
+            var batchCts = new System.Threading.CancellationTokenSource();
+            Task batchTask = Task.CompletedTask;
+            bool closing = false;
+            batch.Click += (_, _) =>
+            {
+                batchTask = RunBatchAsync();
+            };
+
+            async Task RunBatchAsync()
+            {
+                batch.IsEnabled = false;
+                quote.IsEnabled = false;
+                remove.IsEnabled = false;
+                var results = new List<string>();
+                int passed = 0;
+                try
+                {
+                    foreach (LocalWishlistItemDto item in batchPlan.Items)
+                    {
+                        if (batchCts.IsCancellationRequested ||
+                            GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
+                        {
+                            results.Add(T("Stopped: Gaming started or the dialog closed.",
+                                "Interrotto: avviato Gaming o finestra chiusa."));
+                            break;
+                        }
+
+                        status.Text = T("Checking " + (passed + 1) + " of " + batchPlan.Items.Count
+                            + " watched games…", "Controllo " + (passed + 1) + " di " +
+                            batchPlan.Items.Count + " giochi selezionati…");
+                        // Each call reuses Core's owner consent, Discover allow-list,
+                        // shared rate limiter and Gaming hard-off.
+                        GamingCallResult<LocalWishlistQuoteDto> response =
+                            await Client.QuoteWishlistPriceAsync(
+                                item.ProductId, consent: true, batchCts.Token);
+                        if (batchCts.IsCancellationRequested || closing)
+                            break;
+                        passed++;
+                        if (response.Succeeded && response.Value is { } price)
+                        {
+                            string money = (price.PriceMinor / 100m).ToString("0.00",
+                                CultureInfo.CurrentCulture) + " " + price.Currency;
+                            string comparison = price.AtOrBelowTarget switch
+                            {
+                                true => T("target met", "obiettivo raggiunto"),
+                                false => T("above target", "sopra obiettivo"),
+                                _ => T("not comparable", "non confrontabile")
+                            };
+                            results.Add(item.Title + ": " + money + " (" + price.RequestedCountry
+                                + ", " + comparison + ")");
+                        }
+                        else
+                        {
+                            results.Add(item.Title + ": " +
+                                (response.Error ?? T("price unavailable", "prezzo non disponibile")));
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Closing the dialog or entering Gaming cancels the current HTTP call.
+                }
+                catch (Exception)
+                {
+                    results.Add(T("The batch stopped unexpectedly; try again when the Core is ready.",
+                        "Controllo interrotto; riprova quando Core è disponibile."));
+                }
+                finally
+                {
+                    if (!closing)
+                    {
+                        if (batchPlan.DeferredCount > 0)
+                            results.Add(T(batchPlan.DeferredCount + " more watched games were not checked. "
+                                + "Disable some watch preferences to select others.",
+                                batchPlan.DeferredCount + " altri giochi non sono stati controllati. "
+                                + "Disattiva alcune preferenze per sceglierne altri."));
+                        results.Add(T("Prices are indicative for the selected storefront, not a verified "
+                            + "Steam account region. No alerts or purchases.",
+                            "Prezzi indicativi dello store selezionato, non del paese verificato "
+                            + "dell'account Steam. Nessun avviso o acquisto."));
+                        status.Text = string.Join(Environment.NewLine, results);
+                        batch.IsEnabled = batchPlan.Items.Count > 0;
+                        quote.IsEnabled = selection.SelectedItem is ComboBoxItem;
+                        remove.IsEnabled = selection.Items.Count > 0;
+                    }
+                }
+            }
+
             panel.Children.Add(remove);
             panel.Children.Add(quote);
+            panel.Children.Add(batch);
             panel.Children.Add(status);
             var dialog = new ContentDialog
             {
@@ -157,7 +255,17 @@ internal static class GamingWishlistDialog
                 DefaultButton = ContentDialogButton.Close,
                 IsSecondaryButtonEnabled = selection.Items.Count > 0
             };
+            dialog.Closing += (_, _) =>
+            {
+                closing = true;
+                batchCts.Cancel();
+            };
             ContentDialogResult choice = await dialog.ShowAsync();
+            // Do not leave an in-flight request alive after the dialog closes or
+            // open another content dialog while its price run is still finishing.
+            batchCts.Cancel();
+            await batchTask;
+            batchCts.Dispose();
             if (choice == ContentDialogResult.None) return;
             if (choice == ContentDialogResult.Primary)
                 feedback = await AddAsync(root);
