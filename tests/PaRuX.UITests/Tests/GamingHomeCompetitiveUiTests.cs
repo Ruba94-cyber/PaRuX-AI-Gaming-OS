@@ -122,6 +122,8 @@ public sealed class GamingHomeCompetitiveUiTests
 
             PressWhenEnabled(app, "GameHome_Wishlist_Button");
             ById(app, "GameHome_Wishlist_Select");
+            Assert.False(ById(app, "GameHome_Wishlist_Quote").Properties.IsEnabled.ValueOrDefault,
+                "cannot contact Steam before an explicit saved-game selection");
             string displayed = TextOf(app, "GameHome_Wishlist_Status");
             Assert.False(string.IsNullOrWhiteSpace(displayed), "empty-list state has accessible status");
 
