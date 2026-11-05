@@ -101,6 +101,26 @@ public sealed class MinecraftSkinUvRestylerTests
     }
 
     [Fact]
+    public void Oversized_advertised_PNG_dimensions_fail_before_native_decoding()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        byte[] badSkin = Png(64, 64, true);
+        // Replace ONLY IHDR dimensions. A native decoder should never see
+        // this image (CRC deliberately left wrong).
+        badSkin[16] = 0x7f;
+        badSkin[17] = 0xff;
+        Assert.Throws<InvalidDataException>(() =>
+            MinecraftSkinUvRestyler.ValidateSkinPng(badSkin));
+
+        byte[] badReference = Png(128, 128, false);
+        badReference[20] = 0x7f;
+        badReference[21] = 0xff;
+        Assert.Throws<InvalidDataException>(() =>
+            MinecraftSkinUvRestyler.Recolour(Png(64, 64, true), badReference,
+                "head", "classic"));
+    }
+
+    [Fact]
     public async Task Imported_skin_local_ai_restylng_requires_separate_consent_to_export()
     {
         if (!OperatingSystem.IsWindows()) return;
