@@ -211,6 +211,8 @@ internal static class GameAssetModStudioDialog
                     "È necessaria un'installazione manuale con un gioco/mod loader compatibile.")
                 : saved.Error ?? T("The draft expired or its output folder was unsafe.",
                     "La bozza è scaduta o la cartella di esportazione non è sicura."));
+        if (saved.Succeeded && saved.Value is not null)
+            await GameModDropInDialog.OfferInstallAsync(root, saved.Value);
     }
 
     private static async Task MessageAsync(XamlRoot root, string title, string message)
