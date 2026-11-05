@@ -143,6 +143,41 @@ public sealed class GameModDropInServiceTests : IDisposable
     }
 
     [Fact]
+    public void Game_relaunch_between_preflight_and_publish_refuses_ZIP_commit()
+    {
+        var bundle = WriteBundle();
+        int checks = 0;
+        var service = new GameModDropInService(() => false, Exports, Receipts,
+            _ => ++checks >= 2); // closed during request admission, running before rename
+        Assert.Throws<InvalidOperationException>(() =>
+            service.Install(Request(bundle.Path, bundle.Sha)));
+        Assert.True(checks >= 2);
+        Assert.Empty(Directory.EnumerateFiles(Mods));
+        // A prewrite crash/relaunch receipt is deliberate, recoverable and
+        // does not itself prove a mod was ever installed.
+        var pending = Assert.Single(Service().List());
+        Assert.Equal("missing", pending.State);
+        _gameRunning = false;
+        Assert.True(Service().Remove(new(pending.Id, true, true)));
+        Assert.Empty(Service().List());
+    }
+
+    [Fact]
+    public void Game_relaunch_before_remove_commit_keeps_the_original_ZIP_and_receipt()
+    {
+        var bundle = WriteBundle();
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        int checks = 0;
+        var service = new GameModDropInService(() => false, Exports, Receipts,
+            _ => ++checks >= 2);
+        Assert.Throws<InvalidOperationException>(() =>
+            service.Remove(new(installed.Id, true, true)));
+        Assert.True(checks >= 2);
+        Assert.True(File.Exists(installed.InstalledFile));
+        Assert.Equal("installed", Assert.Single(Service().List()).State);
+    }
+
+    [Fact]
     public void Missing_game_executable_or_wrong_executable_is_refused_without_any_game_write()
     {
         var bundle = WriteBundle();
