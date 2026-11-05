@@ -14,7 +14,7 @@ public class GameDownloadException : Exception
 /// Native, modular download manager for files the user is entitled to fetch (installers, patches, mods, media):
 /// HTTP(S) with resume, optional SHA-256 check, bandwidth limit, queue with priority and concurrency, free-space and
 /// size checks, history, and automatic pause while Gaming. A bundled, opt-in in-process BitTorrent transport handles
-/// validated user-provided single-file torrents; the qBittorrent adapter remains optional. No built-in catalogue.
+/// validated user-provided v1 torrents (multifile output packed as ZIP); qBittorrent remains optional. No built-in catalogue.
 /// It never starts a downloaded file; opening or installing it is a separate, explicit step.
 /// </summary>
 public sealed class GameDownloadManager : IGamingResumable, IDisposable
