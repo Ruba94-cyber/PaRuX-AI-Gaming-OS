@@ -139,6 +139,11 @@ namespace PaRuX.Services
         public Task<GamingCallResult<List<GameTemporaryModDto>>> GetTemporaryGameModsAsync(CancellationToken ct = default) =>
             SendAsync<List<GameTemporaryModDto>>(HttpMethod.Get, "/api/v1/gaming/mods/temporary", null, ct);
 
+        public Task<GamingCallResult<List<GameModPreviewDto>>> GetPendingGameModPreviewsAsync(
+            CancellationToken ct = default) =>
+            SendAsync<List<GameModPreviewDto>>(HttpMethod.Get,
+                "/api/v1/gaming/mods/temporary/previews", null, ct);
+
         public Task<GamingCallResult<GameModPreviewDto>> PreviewTemporaryGameModAsync(
             GameModProposalRequest request, CancellationToken ct = default) =>
             SendAsync<GameModPreviewDto>(HttpMethod.Post,
