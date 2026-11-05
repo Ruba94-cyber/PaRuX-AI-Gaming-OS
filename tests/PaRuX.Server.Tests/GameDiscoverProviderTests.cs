@@ -95,6 +95,7 @@ public sealed class GameDiscoverProviderTests : IDisposable
     {
         Assert.Contains("app ids", GameDiscoverSettingsStore.ConsentText);
         Assert.Contains("store.steampowered.com", GameDiscoverSettingsStore.ConsentText);
+        Assert.Contains("two-letter storefront country", GameDiscoverSettingsStore.ConsentText);
     }
 
     [Fact]
