@@ -34,6 +34,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     private readonly Func<bool> _gamingActive;
     private readonly Func<string, long> _freeBytes;
     private readonly string? _historyPath;
+    private readonly NativeTorrentRecoveryStore? _nativeRecovery;
     private readonly TimeSpan[] _retryDelays;
     private readonly BandwidthLimiter _limiter = new();
     private int _maxConcurrent = 2;
@@ -78,6 +79,8 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         _torrent = torrent;
         _nativeTorrent = nativeTorrent;
         _portableInstaller = portableInstaller;
+        _nativeRecovery = historyPath is not null && nativeTorrent is not null
+            ? new NativeTorrentRecoveryStore(historyPath + ".torrent.dpapi") : null;
         IGameDownloadTransport? initialTorrent = nativeTorrent ?? (IGameDownloadTransport?)torrent;
         if (initialTorrent is not null)
         {
@@ -85,6 +88,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             _transports[GameDownloadKinds.TorrentFile] = initialTorrent;
         }
         LoadHistory();
+        LoadNativeTorrentRecovery();
     }
 
     internal int MaxConcurrent { get => _maxConcurrent; set => _maxConcurrent = Math.Clamp(value, 1, 8); }
@@ -238,6 +242,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 PostInstallState = request.AutoInstallPortable ? GamePostInstallStates.Pending : GamePostInstallStates.None,
             };
             _entries.Add(entry);
+            SaveNativeTorrentRecovery();
             Pump();
             return ToDto(entry);
         }
@@ -252,6 +257,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             e.UserPause = true;
             e.Reason = "Paused by you.";
             if (e.State == GameDownloadStates.Running) e.Run?.Cancel(); else e.State = GameDownloadStates.Paused;
+            SaveNativeTorrentRecovery();
             return true;
         }
     }
@@ -266,6 +272,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             e.UserPause = false;
             e.Reason = null;
             e.State = GameDownloadStates.Queued;
+            SaveNativeTorrentRecovery();
             Pump();
             return true;
         }
@@ -774,6 +781,95 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     // ------------------------------------------------------------------ history
 
+    /// <summary>
+    /// Restore only owner-queued native torrents into a visible PAUSED state,
+    /// never auto-connect to a peer or repeat post-download auto-install.
+    /// User must choose Resume. Source paths/magnets stayed DPAPI encrypted.
+    /// </summary>
+    private void LoadNativeTorrentRecovery()
+    {
+        if (_nativeRecovery is null || _nativeTorrent is null) return;
+        try
+        {
+            foreach (NativeTorrentRecoveryStore.Entry job in _nativeRecovery.Load())
+            {
+                if (_entries.Count >= 400) break;
+                if (job.Id is not { Length: 32 } || !job.Id.All(Uri.IsHexDigit) ||
+                    job.InfoHash is not { Length: 40 } || !job.InfoHash.All(Uri.IsHexDigit) ||
+                    job.Kind is not (GameDownloadKinds.Magnet or GameDownloadKinds.TorrentFile) ||
+                    job.FileName is null || !string.Equals(SafeFileName(job.FileName), job.FileName, StringComparison.Ordinal) ||
+                    job.Directory is null || !Path.IsPathFullyQualified(job.Directory) ||
+                    !Directory.Exists(job.Directory) || !ManualGameLibrary.IsSafeDirectory(job.Directory) ||
+                    job.Target is null || job.Target.Length > 4096 ||
+                    _entries.Any(x => x.Id == job.Id))
+                    continue;
+                if (job.ExpectedSha256 is not null &&
+                    !string.Equals(NormalizeSha(job.ExpectedSha256), job.ExpectedSha256, StringComparison.Ordinal))
+                    continue;
+                if (job.Kind == GameDownloadKinds.Magnet)
+                {
+                    GameMagnetLink magnet;
+                    try { magnet = GameDownloadSourceValidator.ValidateMagnet(job.Target); }
+                    catch (GameDownloadException) { continue; }
+                    if (!string.Equals(magnet.InfoHashHex, job.InfoHash, StringComparison.Ordinal))
+                        continue;
+                }
+                else if (!Path.IsPathFullyQualified(job.Target) ||
+                         !string.Equals(Path.GetExtension(job.Target), ".torrent", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                // Require an explicit human resume after a restart. Never re-run
+                // auto-install from a recovered job without a new confirmation.
+                _entries.Add(new GameDownloadJob
+                {
+                    Id = job.Id, Kind = job.Kind, Target = job.Target,
+                    Source = job.Kind == GameDownloadKinds.Magnet ? "magnet/" + job.InfoHash
+                        : "torrent-file/" + (SafeFileName(Path.GetFileName(job.Target)) ?? "file"),
+                    FileName = job.FileName, Directory = job.Directory,
+                    InfoHash = job.InfoHash, ChosenTransport = _nativeTorrent,
+                    ExpectedSha256 = job.ExpectedSha256, Priority = Math.Clamp(job.Priority, -10, 10),
+                    CreatedUtc = job.CreatedUtc, BytesDone = Math.Max(0, job.BytesDone),
+                    TotalBytes = job.TotalBytes,
+                    State = GameDownloadStates.Paused, UserPause = true,
+                    Reason = "Recovered after PaRuX restart. Review source and click Resume; portable auto-install is off.",
+                    AutoInstallPortable = false, PostInstallState = GamePostInstallStates.None
+                });
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            InvalidDataException or ArgumentException or System.Security.Cryptography.CryptographicException)
+        {
+            // A corrupt or undecryptable sidecar cannot start network activity.
+            // Never log or echo the original magnet's private tracker parameters.
+        }
+    }
+
+    /// <summary>
+    /// Called only with manager lock or during construction. State changes are
+    /// persisted before handing work to peer engines. Failed DPAPI persistence
+    /// cannot block ordinary transfer; it only limits crash recovery.
+    /// </summary>
+    private void SaveNativeTorrentRecovery()
+    {
+        if (_nativeRecovery is null) return;
+        try
+        {
+            var items = _entries.Where(x => !GameDownloadStates.IsTerminal(x.State)
+                && x.ChosenTransport == _nativeTorrent
+                && x.Kind is GameDownloadKinds.Magnet or GameDownloadKinds.TorrentFile)
+                .Take(200)
+                .Select(x => new NativeTorrentRecoveryStore.Entry(
+                    x.Id, x.Kind, x.Target, x.Source, x.FileName, x.Directory,
+                    x.InfoHash ?? string.Empty, x.ExpectedSha256,
+                    x.Priority, x.CreatedUtc, x.BytesDone, x.TotalBytes))
+                .ToArray();
+            _nativeRecovery.Save(items);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+            InvalidDataException or InvalidOperationException or
+            System.Security.Cryptography.CryptographicException)
+        { /* Explicit resume is still possible until shutdown; do not leak secrets or claim persistence. */ }
+    }
+
     private sealed record HistoryItem(string Id, string FileName, string Source, string State, string? Reason, long BytesDone, long? TotalBytes,
         int Priority, bool IntegrityChecked, string? VerifiedSha256, DateTime CreatedUtc, DateTime? FinishedUtc,
         string PostInstallState = GamePostInstallStates.None, string? PostInstallMessage = null);
@@ -794,6 +890,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             File.Move(temp, _historyPath, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        SaveNativeTorrentRecovery();
     }
 
     private void LoadHistory()
