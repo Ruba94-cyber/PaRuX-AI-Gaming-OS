@@ -15,7 +15,9 @@ public sealed class GameDiscoverSettingsStore
     public const string ConsentText =
         "Game Discover contacts the public Steam store (store.steampowered.com) to show recommended games. " +
         "The Steam app ids of games you play (for example 730) are sent to Steam so PaRuX can read their genres and tags, " +
-        "and your search text is sent if you search. No account, login, API key, play time or personal data is sent. " +
+        "and your search text is sent if you search. When you explicitly click the wishlist one-time price check, " +
+        "the saved numeric app id and the selected two-letter storefront country are sent to the Steam store. " +
+        "This does not verify the actual Steam account region. No account, login, API key or play time is sent. " +
         "Nothing is contacted while this is off or while a game is running. PaRuX never downloads games: " +
         "installing opens the official store client after you confirm.";
 
