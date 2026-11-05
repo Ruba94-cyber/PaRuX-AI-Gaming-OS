@@ -138,6 +138,22 @@ namespace PaRuX.Services
         public Task<GamingCallResult<List<ManualGameDto>>> GetManualGamesForModsAsync(CancellationToken ct = default) =>
             SendAsync<List<ManualGameDto>>(HttpMethod.Get, "/api/v1/gaming/library", null, ct);
 
+        /// <summary>Game-independent AI asset editor, manual mod ZIP only.</summary>
+        public Task<GamingCallResult<List<GameModAdapterDto>>> GetGameModAdaptersAsync(
+            CancellationToken ct = default) =>
+            SendAsync<List<GameModAdapterDto>>(HttpMethod.Get,
+                "/api/v1/gaming/mods/adapters", null, ct);
+
+        public Task<GamingCallResult<GameAssetModDraftDto>> GenerateGameAssetModAsync(
+            GameAssetModDraftRequest request, CancellationToken ct = default) =>
+            SendAsync<GameAssetModDraftDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/assets/generate", request, ct);
+
+        public Task<GamingCallResult<GameAssetModExportDto>> ExportGameAssetModAsync(
+            string draftId, bool consent, CancellationToken ct = default) =>
+            SendAsync<GameAssetModExportDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/assets/export", new GameAssetModExportRequest(draftId, consent), ct);
+
         /// <summary>Use PaRuX local image inference to generate a Minecraft Java 64x64 skin draft.</summary>
         public Task<GamingCallResult<GameSkinDraftDto>> GenerateMinecraftSkinAsync(
             GameSkinDraftRequest request, CancellationToken ct = default) =>
@@ -198,7 +214,7 @@ namespace PaRuX.Services
                 using var request = new HttpRequestMessage(method, bootstrap.Endpoint.TrimEnd('/') + path);
                 request.Headers.Add("X-PaRuX-Token", bootstrap.Token);
                 if (body != null) request.Content = JsonContent.Create(body, options: JsonOptions);
-                using HttpResponseMessage response = await (path is "/api/v1/gaming/mods/skin-studio/generate" or "/api/v1/gaming/mods/skin-studio/restyle" ? SkinGenerationHttpClient : HttpClient).SendAsync(request, ct).ConfigureAwait(false);
+                using HttpResponseMessage response = await (path is "/api/v1/gaming/mods/skin-studio/generate" or "/api/v1/gaming/mods/skin-studio/restyle" or "/api/v1/gaming/mods/assets/generate" ? SkinGenerationHttpClient : HttpClient).SendAsync(request, ct).ConfigureAwait(false);
                 return await GamingResponseReader.ReadAsync<T>(response, JsonOptions, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
