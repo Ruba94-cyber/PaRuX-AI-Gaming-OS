@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -48,7 +47,7 @@ internal static class GamingWishlistDialog
                 selection.Items.Add(new ComboBoxItem
                 {
                     Content = item.Title + " · Steam " + item.ProductId
-                        + " · " + (item.PriceWatchOptIn ? T("watch on", "controllo attivo") : T("watch off", "controllo spento")),
+                        + " · " + (item.PriceWatchOptIn ? T("preference saved", "preferenza salvata") : T("preference off", "preferenza disattivata")),
                     Tag = item
                 });
             }
