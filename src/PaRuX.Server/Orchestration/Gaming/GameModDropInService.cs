@@ -21,22 +21,35 @@ public sealed class GameModDropInService
     private readonly string _exportRoot;
     private readonly string _receiptRoot;
     private readonly Func<bool> _gaming;
+    private readonly Func<string, bool> _gameProcessRunning;
     private readonly object _gate = new();
 
     private sealed record Receipt(
         string Id, string GameName, string ModFolder, string InstalledFile,
-        string BundleSha256, string InstalledSha256, DateTime CreatedUtc);
+        string BundleSha256, string InstalledSha256, DateTime CreatedUtc,
+        string? GameExecutablePath = null);
 
     public GameModDropInService(LocalRuntimeService runtime)
         : this(() => runtime.GamingMode,
             Path.Combine(PaRuXDataRoot.Path, "server", "game-asset-mods"),
             Path.Combine(PaRuXDataRoot.Path, "server", "game-mod-install-receipts")) { }
 
-    internal GameModDropInService(Func<bool> gaming, string exportRoot, string receiptRoot)
+    internal GameModDropInService(Func<bool> gaming, string exportRoot, string receiptRoot,
+        Func<string, bool>? gameProcessRunning = null)
     {
         _gaming = gaming ?? throw new ArgumentNullException(nameof(gaming));
+        _gameProcessRunning = gameProcessRunning ?? GameModProcessGuard.IsRunning;
         _exportRoot = Path.GetFullPath(exportRoot);
         _receiptRoot = Path.GetFullPath(receiptRoot);
+    }
+
+    private string RequireStoppedGame(string? executable)
+    {
+        string full = GameModProcessGuard.ValidateExecutable(executable);
+        if (_gameProcessRunning(full))
+            throw new InvalidOperationException(
+                "The selected game is still running or paused. Fully close it before installing or removing a ZIP mod.");
+        return full;
     }
 
     private static string Sha(byte[] bytes) =>
@@ -178,6 +191,7 @@ public sealed class GameModDropInService
         if (!request.CompatibleZipLoaderConfirmed)
             throw new ArgumentException("Confirm that the game's mod loader accepts this exact standalone ZIP format.");
         RequireOffline(_gaming, request.OfflineGameClosedConfirmed);
+        string executable = RequireStoppedGame(request.GameExecutablePath);
         lock (_gate)
         {
             string folder = ValidateModFolder(request.TargetModFolder);
@@ -203,7 +217,7 @@ public sealed class GameModDropInService
             string receiptPath = ReceiptPath(id);
             string partial = Path.Combine(folder, "parux-mod-" + id + ".partial");
             var receipt = new Receipt(id, title, folder, target,
-                request.BundleSha256.ToLowerInvariant(), Sha(bundle), DateTime.UtcNow);
+                request.BundleSha256.ToLowerInvariant(), Sha(bundle), DateTime.UtcNow, executable);
             // Durable receipt is written BEFORE touching the mod folder so a
             // crash leaves a visible, recoverable pending entry.
             byte[] journal = JsonSerializer.SerializeToUtf8Bytes(receipt);
@@ -222,6 +236,7 @@ public sealed class GameModDropInService
                     output.Flush(flushToDisk: true);
                 }
                 RequireOffline(_gaming, request.OfflineGameClosedConfirmed);
+                RequireStoppedGame(executable);
                 ValidateModFolder(folder);
                 if (!string.Equals(Sha(File.ReadAllBytes(partial)), receipt.InstalledSha256, StringComparison.Ordinal))
                     throw new InvalidDataException("Mod ZIP changed while copying.");
@@ -245,7 +260,9 @@ public sealed class GameModDropInService
     private static GameModDropInReceiptDto ToDto(Receipt item, bool verifyContent = true)
     {
         string state;
-        if (!ManualGameLibrary.IsSafeDirectory(item.ModFolder))
+        if (string.IsNullOrWhiteSpace(item.GameExecutablePath))
+            state = "unbound"; // old receipt: never remove unknown ZIP without process identity
+        else if (!ManualGameLibrary.IsSafeDirectory(item.ModFolder))
             state = "unsafe";
         else if (!File.Exists(item.InstalledFile))
             state = "missing";
@@ -266,7 +283,9 @@ public sealed class GameModDropInService
             item.InstalledFile, item.BundleSha256, item.InstalledSha256,
             item.CreatedUtc, state,
             "Opt-in standalone ZIP placed in a user-confirmed compatible offline mod directory. " +
-            "The game may need restart or may reject this package. Only matching bytes can be removed by PaRuX.");
+            "The game may need restart or may reject this package. PaRuX checks the selected " +
+            "executable's process state and deletes only matching ZIP bytes; helper processes are not attested.",
+            item.GameExecutablePath ?? "");
     }
 
     private IEnumerable<Receipt> ReadReceipts()
@@ -359,6 +378,9 @@ public sealed class GameModDropInService
                 File.Delete(ReceiptPath(receipt.Id));
                 return true;
             }
+            // Old/unbound receipts are still visible, but must NEVER confer
+            // authority to delete a mod ZIP without a known game identity.
+            string executable = RequireStoppedGame(receipt.GameExecutablePath);
             string folder = ValidateModFolder(receipt.ModFolder);
             string path = Path.Combine(folder, "parux-mod-" + receipt.Id + ".zip");
             if (!string.Equals(path, receipt.InstalledFile, StringComparison.OrdinalIgnoreCase))
@@ -370,6 +392,7 @@ public sealed class GameModDropInService
                 if (!string.Equals(Sha(current), receipt.InstalledSha256, StringComparison.Ordinal))
                     throw new InvalidOperationException("Mod ZIP changed since PaRuX installed it; retained for manual review.");
                 RequireOffline(_gaming, request.OfflineGameClosedConfirmed);
+                RequireStoppedGame(executable);
                 ValidateModFolder(folder);
                 // Re-check immediately before deletion; external concurrent
                 // writers can still race on Windows and need hardware QA.
