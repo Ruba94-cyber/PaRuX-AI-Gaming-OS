@@ -240,6 +240,9 @@ public sealed class GameModDropInService
                 ValidateModFolder(folder);
                 if (!string.Equals(Sha(File.ReadAllBytes(partial)), receipt.InstalledSha256, StringComparison.Ordinal))
                     throw new InvalidDataException("Mod ZIP changed while copying.");
+                // Final stop check AFTER disk integrity verification, as near
+                // the publish boundary as this non-atomic OS API allows.
+                RequireStoppedGame(executable);
                 File.Move(partial, target); // create-only: NEVER overwrites an existing file.
                 return ToDto(receipt);
             }
@@ -399,6 +402,7 @@ public sealed class GameModDropInService
                 RequireRegularFile(path, MaxBundleBytes);
                 if (Sha(File.ReadAllBytes(path)) != receipt.InstalledSha256)
                     throw new InvalidOperationException("Mod ZIP changed; refusing to delete it.");
+                RequireStoppedGame(executable); // final gate after potentially slow hashing
                 File.Delete(path);
             }
             File.Delete(ReceiptPath(receipt.Id));
