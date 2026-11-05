@@ -90,6 +90,21 @@ public sealed class CodingHunkReviewPlannerTests
     }
 
     [Fact]
+    public void Refuses_unreviewable_changed_file_after_an_otherwise_valid_file()
+    {
+        const string first = "diff --git a/first.txt b/first.txt\n" +
+            "--- a/first.txt\n+++ b/first.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        const string secondWithoutHunks = "diff --git a/second.txt b/second.txt\n" +
+            "index 1234567..7654321 100644\n--- a/second.txt\n+++ b/second.txt\n";
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(first + secondWithoutHunks));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(secondWithoutHunks + first));
+        Assert.Throws<FormatException>(() =>
+            CodingHunkReviewPlanner.Parse(secondWithoutHunks));
+    }
+
+    [Fact]
     public void All_hunks_must_be_reviewed_once_and_pending_cannot_apply()
     {
         var hunks = CodingHunkReviewPlanner.Parse(Diff);
