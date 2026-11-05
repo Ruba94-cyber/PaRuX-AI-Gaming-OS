@@ -181,12 +181,14 @@ internal static class MinecraftSkinStudioDialog
             {
                 writer.WriteBytes(bytes);
                 await writer.StoreAsync();
+                writer.DetachStream(); // Closing DataWriter must not close the PNG preview stream.
             }
             imageStream.Seek(0);
             preview = new BitmapImage();
             await preview.SetSourceAsync(imageStream);
         }
-        catch (Exception ex) when (ex is FormatException or ArgumentException or IOException)
+        catch (Exception ex) when (ex is FormatException or ArgumentException or IOException
+            or InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
             await MessageAsync(root, T("Invalid image", "Immagine non valida"),
                 T("The returned PNG could not be displayed. No game files were changed.",
