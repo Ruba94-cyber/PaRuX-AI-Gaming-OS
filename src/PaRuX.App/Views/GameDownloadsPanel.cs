@@ -332,8 +332,8 @@ internal sealed class GameDownloadsPanel : StackPanel
                 ? (value.NewJobTransport == "external"
                     ? T("BitTorrent: optional external client selected. Single-file downloads only.",
                         "BitTorrent: client esterno facoltativo selezionato. Solo torrent a file singolo.")
-                    : T("BitTorrent: integrated PaRuX engine. No external app needed. Single-file downloads only.",
-                        "BitTorrent: motore PaRuX integrato. Nessuna app esterna necessaria. Solo torrent a file singolo."))
+                    : T("BitTorrent: integrated PaRuX engine. Single-file v1 and multi-file v1 packed as ZIP (choose an output filename ending .zip). Multi-file ZIP auto-install is not supported.",
+                        "BitTorrent: motore PaRuX integrato. Torrent v1 a file singolo o multifile impacchettati come ZIP (scegli un nome destinazione .zip). Installazione automatica degli ZIP multifile non supportata."))
                 : T("BitTorrent is disabled in Corporate Lite.", "BitTorrent disattivato in Corporate Lite."))
             : T("BitTorrent engine status is unavailable.", "Stato del motore BitTorrent non disponibile.");
     }
