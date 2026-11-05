@@ -1,3 +1,7 @@
+### 2026-11-05 — MonoTorrent pinned-version compatibility (SOURCE WIP)
+
+- Updated embedded transfer setup against upstream MonoTorrent `release-v3.0.2` API: immutable engine settings via `EngineSettingsBuilder`, rate properties named `MaximumDownloadRate/MaximumUploadRate`, builder-based runtime updates and `ReadOnlyMemory<byte>` metadata conversion. This addresses identified source-level compiler mismatches; **Windows build/real peer transfer still NOT RUN**.
+
 ### 2026-11-05 — UV-aware local character restyling and torrent restart test coverage (SOURCE WIP)
 
 - Existing Minecraft 64×64 Java skin can now be imported and selectively recoloured by a local image-generated material reference; UV maps for Classic/Slim head, torso, arms, legs and outer layers stay in their known positions. User-selected parts only; nonselected pixels and original files untouched. A new desktop-owner restyle endpoint and IT/EN PNG picker/body-part selector connect preview and consent-gated export.
