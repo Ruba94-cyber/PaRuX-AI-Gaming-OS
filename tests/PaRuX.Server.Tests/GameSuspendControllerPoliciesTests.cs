@@ -59,6 +59,40 @@ public sealed class GameSuspendControllerPoliciesTests
             null).Eligible);
     }
 
+    [Theory]
+    [InlineData(true, null, null, 2, false)]
+    [InlineData(true, null, null, 3, true)]
+    [InlineData(false, 10, null, 4, false)]
+    [InlineData(false, 10, null, 5, true)]
+    [InlineData(false, 60, 90, 9, false)]
+    [InlineData(false, 60, 90, 10, true)]
+    public void Stable_suspend_proposal_requires_trigger_specific_continuous_duration(
+        bool focusLost, int? charge, double? temperature, int observedSeconds, bool expected)
+    {
+        var decision = GameAutoSuspendPolicy.EvaluateStable(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent,
+            focusLost, charge, temperature, "synthetic-game.exe",
+            TimeSpan.FromSeconds(observedSeconds));
+        Assert.Equal(expected, decision.Eligible);
+    }
+
+    [Fact]
+    public void Stable_suspend_never_bypasses_anticheat_or_negative_time_guard()
+    {
+        Assert.False(GameAutoSuspendPolicy.EvaluateStable(
+            Rule, true, AntiCheatAssessment.Unknown, true, 10, 95,
+            "synthetic-game.exe", TimeSpan.FromMinutes(1)).Eligible);
+        Assert.False(GameAutoSuspendPolicy.EvaluateStable(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, null, null,
+            "EasyAntiCheat_EOS.exe", TimeSpan.FromMinutes(1)).Eligible);
+        Assert.False(GameAutoSuspendPolicy.EvaluateStable(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, true, null, null,
+            "synthetic-game.exe", TimeSpan.FromSeconds(-1)).Eligible);
+        Assert.False(GameAutoSuspendPolicy.EvaluateStable(
+            Rule, true, AntiCheatAssessment.VerifiedAbsent, false, null, null,
+            "synthetic-game.exe", TimeSpan.FromMinutes(1)).Eligible);
+    }
+
     [Fact]
     public void Curve_and_deadzone_only_preview_normalized_input()
     {
