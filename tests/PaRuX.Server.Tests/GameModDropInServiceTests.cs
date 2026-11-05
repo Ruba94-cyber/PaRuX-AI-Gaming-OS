@@ -22,13 +22,16 @@ public sealed class GameModDropInServiceTests : IDisposable
     private string Exports => Path.Combine(_root, "exported");
     private string Receipts => Path.Combine(_root, "receipts");
     private string Mods => Path.Combine(_root, "Synthetic Offline RPG", "mods");
+    private string GameExe => Path.Combine(_root, "Synthetic Offline RPG", "SyntheticGame.exe");
     private bool _gaming;
+    private bool _gameRunning;
 
     public GameModDropInServiceTests()
     {
         Directory.CreateDirectory(Exports);
         Directory.CreateDirectory(Receipts);
         Directory.CreateDirectory(Mods);
+        File.WriteAllText(GameExe, "inert EXE fixture; never run");
     }
 
     public void Dispose()
@@ -38,7 +41,8 @@ public sealed class GameModDropInServiceTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 
-    private GameModDropInService Service() => new(() => _gaming, Exports, Receipts);
+    private GameModDropInService Service() =>
+        new(() => _gaming, Exports, Receipts, _ => _gameRunning);
 
     // A tiny harmless PNG with a standard IHDR. The adapter only validates
     // dimensions/header and ZIP SHA; raster decoding belongs to generation.
@@ -87,7 +91,7 @@ public sealed class GameModDropInServiceTests : IDisposable
 
     private GameModDropInInstallRequest Request(string path, string sha, bool compatible = true,
         bool closed = true, string? folder = null) =>
-        new(path, sha, folder ?? Mods, compatible, closed);
+        new(path, sha, folder ?? Mods, compatible, closed, GameExe);
 
     [Fact]
     public void Installs_only_a_fresh_named_zip_and_removes_after_restart_with_sha_proof()
@@ -99,6 +103,7 @@ public sealed class GameModDropInServiceTests : IDisposable
         GameModDropInReceiptDto item = service.Install(Request(bundle.Path, bundle.Sha));
         Assert.StartsWith(Mods, item.InstalledFile);
         Assert.Equal("installed", item.State);
+        Assert.Equal(GameExe, item.GameExecutablePath);
         Assert.EndsWith(".zip", item.InstalledFile);
         Assert.Equal(File.ReadAllBytes(bundle.Path), File.ReadAllBytes(item.InstalledFile));
         Assert.Equal("foreign fixture", File.ReadAllText(Path.Combine(Mods, "my-original-mod.zip")));
@@ -112,6 +117,64 @@ public sealed class GameModDropInServiceTests : IDisposable
         Assert.True(File.Exists(bundle.Path)); // owner export isn't deleted
         Assert.Equal("foreign fixture", File.ReadAllText(Path.Combine(Mods, "my-original-mod.zip")));
         Assert.Empty(restarted.List());
+    }
+
+    [Fact]
+    public void A_running_or_paused_game_blocks_install_and_later_removal_even_with_consent()
+    {
+        var bundle = WriteBundle();
+        _gameRunning = true;
+        Assert.Throws<InvalidOperationException>(() =>
+            Service().Install(Request(bundle.Path, bundle.Sha)));
+        Assert.Empty(Service().List());
+        Assert.Empty(Directory.EnumerateFiles(Mods));
+
+        _gameRunning = false;
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        _gameRunning = true;
+        Assert.Throws<InvalidOperationException>(() =>
+            Service().Remove(new(installed.Id, true, true)));
+        Assert.True(File.Exists(installed.InstalledFile));
+        Assert.Single(Service().List());
+
+        _gameRunning = false;
+        Assert.True(Service().Remove(new(installed.Id, true, true)));
+        Assert.False(File.Exists(installed.InstalledFile));
+    }
+
+    [Fact]
+    public void Missing_game_executable_or_wrong_executable_is_refused_without_any_game_write()
+    {
+        var bundle = WriteBundle();
+        Assert.Throws<ArgumentException>(() => Service().Install(
+            Request(bundle.Path, bundle.Sha) with { GameExecutablePath = "" }));
+        Assert.Throws<ArgumentException>(() => Service().Install(
+            Request(bundle.Path, bundle.Sha) with { GameExecutablePath = Path.Combine(_root, "launcher.lnk") }));
+        Assert.Throws<InvalidOperationException>(() => Service().Install(
+            Request(bundle.Path, bundle.Sha) with { GameExecutablePath = Path.Combine(_root, "missing.exe") }));
+        Assert.Empty(Directory.EnumerateFiles(Mods));
+        Assert.Empty(Service().List());
+    }
+
+    [Fact]
+    public void Older_unbound_receipt_is_visible_but_cannot_authorize_deletion()
+    {
+        var bundle = WriteBundle();
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        string receiptPath = Path.Combine(Receipts, "parux-mod-" + installed.Id + ".json");
+        string text = File.ReadAllText(receiptPath);
+        using var document = JsonDocument.Parse(text);
+        var props = document.RootElement.EnumerateObject()
+            .Where(x => x.Name != "GameExecutablePath")
+            .ToDictionary(x => x.Name, x => x.Value.Clone());
+        File.WriteAllText(receiptPath, JsonSerializer.Serialize(props));
+
+        var unbound = Assert.Single(Service().List());
+        Assert.Equal("unbound", unbound.State);
+        Assert.Throws<ArgumentException>(() =>
+            Service().Remove(new(installed.Id, true, true)));
+        Assert.True(File.Exists(installed.InstalledFile));
+        Assert.Single(Service().List());
     }
 
     [Fact]
