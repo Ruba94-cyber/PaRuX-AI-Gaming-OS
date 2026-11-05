@@ -50,6 +50,19 @@ public static class GameDownloadEndpoints
             { return Results.Problem("The completed package could not be staged."); }
         }).RequireDesktopOwner();
 
+        // Retry after Gaming interruption or disk pressure without redownloading,
+        // only for a verified completed ZIP still owned in this Core session.
+        // Does not accept a path, archive URL, script, setup command or EULA waiver.
+        app.MapPost("/api/v1/gaming/downloads/{id}/portable/retry", async (
+            string id, GameDownloadManager downloads, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await downloads.RetryPortableInstallAsync(id, ct)) as IResult; }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+            catch (OperationCanceledException)
+            { return Results.Conflict(new { error = "Portable installation interrupted by Gaming." }); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/downloads/{id}/pause", (string id, GameDownloadManager downloads) =>
             downloads.Pause(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
