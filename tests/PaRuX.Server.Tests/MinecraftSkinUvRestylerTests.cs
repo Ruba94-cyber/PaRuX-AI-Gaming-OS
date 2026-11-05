@@ -25,9 +25,11 @@ public sealed class MinecraftSkinUvRestylerTests
         {
             // Skin: opaque base, mostly transparent second layers and unused cells.
             bool opaque = !skin || y is >= 8 and < 32 || (x is >= 8 and < 16 && y < 8);
-            bitmap.SetPixel(x, y, opaque
-                ? Color.FromArgb(255, 80 + x % 10, 100 + y % 10, 130)
-                : Color.FromArgb(0, 0, 0, 0));
+            bitmap.SetPixel(x, y, skin && x == 21 && y == 37
+                ? Color.FromArgb(120, 160, 100, 80) // translucent jacket pixel
+                : opaque
+                    ? Color.FromArgb(255, 80 + x % 10, 100 + y % 10, 130)
+                    : Color.FromArgb(0, 0, 0, 0));
         }
         using var output = new MemoryStream();
         bitmap.Save(output, ImageFormat.Png);
