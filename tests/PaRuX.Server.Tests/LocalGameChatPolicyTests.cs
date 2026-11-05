@@ -9,7 +9,8 @@ public sealed class LocalGameChatPolicyTests
     public void Uses_only_explicitly_selected_source_ids_in_existing_Chat_scope()
     {
         var result = LocalGameChatPolicy.Build("Example Quest", "Where is the manual save point?",
-            true, new[] { "guide-1", "guide-1", "manual-2" });
+            true, new[] { "guide-1", "guide-1", "manual-2" },
+            new[] { "guide-1", "manual-2", "unselected-public-guide" });
         Assert.True(result.Ready);
         Assert.NotNull(result.Documents);
         Assert.True(result.Documents!.Enabled);
@@ -25,6 +26,25 @@ public sealed class LocalGameChatPolicyTests
         Assert.False(empty.Ready);
         Assert.Null(empty.Documents);
         Assert.Equal(string.Empty, empty.QuestionForChat);
+    }
+
+    [Fact]
+    public void Selected_sources_must_belong_to_the_separately_verified_local_index()
+    {
+        var missingVerification = LocalGameChatPolicy.Build("Example Quest", "Where?",
+            true, new[] { "guide-1" });
+        Assert.False(missingVerification.Ready);
+        Assert.Null(missingVerification.Documents);
+
+        var outsideIndex = LocalGameChatPolicy.Build("Example Quest", "Where?",
+            true, new[] { "guide-1", "private-guide" }, new[] { "guide-1" });
+        Assert.False(outsideIndex.Ready);
+        Assert.Null(outsideIndex.Documents);
+
+        var approvedSubset = LocalGameChatPolicy.Build("Example Quest", "Where?",
+            true, new[] { "guide-1" }, new[] { "guide-1", "unselected-guide" });
+        Assert.True(approvedSubset.Ready);
+        Assert.Equal(new[] { "guide-1" }, approvedSubset.Documents!.SourceIds);
     }
 
     [Fact]
