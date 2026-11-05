@@ -64,6 +64,31 @@ public sealed class CodingHunkReviewPlannerTests
             "--- a/folder name\n+++ b/folder name\n@@ -1 +1 @@\n-old\n+new\n"));
     }
 
+    [Theory]
+    [InlineData("GIT binary patch")]
+    [InlineData("Binary files a/demo.txt and b/demo.txt differ")]
+    [InlineData("new file mode 100644")]
+    [InlineData("deleted file mode 100644")]
+    [InlineData("rename from other.txt")]
+    [InlineData("copy to second.txt")]
+    public void Unsupported_Git_metadata_never_silently_discards_changes(string metadata)
+    {
+        string diff = "diff --git a/demo.txt b/demo.txt\n" +
+            metadata + "\n--- a/demo.txt\n+++ b/demo.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(diff));
+    }
+
+    [Fact]
+    public void Bounded_review_refuses_more_than_five_hundred_hunks()
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.Append("diff --git a/demo.txt b/demo.txt\n--- a/demo.txt\n+++ b/demo.txt\n");
+        for (int line = 1; line <= 501; line++)
+            builder.Append("@@ -").Append(line).Append(" +").Append(line)
+                .Append(" @@\n-old\n+new\n");
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(builder.ToString()));
+    }
+
     [Fact]
     public void All_hunks_must_be_reviewed_once_and_pending_cannot_apply()
     {
