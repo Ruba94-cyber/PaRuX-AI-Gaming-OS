@@ -513,9 +513,28 @@ namespace PaRuX.Services
                                         StepsTaken = step,
                                         Summary = "Stopped during final UI verification: " + stopAfterRead
                                     };
+                                // Window focus can change after the model's
+                                // last action. Re-attest the live app allowlist
+                                // and active task lease before accepting any
+                                // single-window final proof.
+                                bool finalLeaseValid = true;
+                                if (finalReadback.HasEvidence && appLease.IsActive)
+                                {
+                                    ComputerUseWindowFocusPolicy.Candidate? finalIdentity =
+                                        DesktopAutomationService.CaptureWindowFocusIdentity(
+                                            new IntPtr(finalReadback.WindowHandle));
+                                    string[] finalApprovedPaths = (SettingsStore.Current.Data.ComputerApps
+                                        ?? new List<ComputerAppShortcut>())
+                                        .Select(a => a.ExecutablePath).ToArray();
+                                    finalLeaseValid = appLease.RefusalForAction(
+                                        new ForegroundWindowSnapshot(
+                                            finalReadback.ProcessId, finalReadback.WindowHandle, string.Empty),
+                                        finalIdentity, finalApprovedPaths) == null;
+                                }
                                 finalReadbackVerified = finalReadback.HasEvidence
                                     && pin.RefusalForUiaObservation(
                                         finalReadback.ProcessId, finalReadback.WindowHandle) == null
+                                    && finalLeaseValid
                                     && guiProofs.RecheckAll(finalReadback);
                             }
                             trace.RecordFinalReadback(

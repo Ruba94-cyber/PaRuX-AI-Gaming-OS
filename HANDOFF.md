@@ -1,3 +1,8 @@
+## 2026-11-05 — Recovered legacy Computer Use fail-closed checks (MAIN SOURCE WIP)
+
+- Compared all ten surviving non-main branches to main, including old PR branch trees. All six PRs are merged and all source paths exist on main; the sole legacy-only path is an internal `.ai/telemetry` log, intentionally NOT imported. Selectively recovered from the historical foundation branch three still-applicable security checks: reject malformed UIA windows anywhere in the observation, reject null cross-window final readbacks, and re-check the live selected-app lease and allowlist during single-window final proof. Added synthetic xUnit refusal scenarios. No blanket merge/overwrite of newer code.
+- Windows compilation, focused UIA/lease/Computer Use tests and real cross-window operation remain NOT RUN. Additional legacy script differences are still under audit. No release or branch deletion.
+
 ## 2026-11-05 — Audit of surviving GitHub branches and CLI help gap (SOURCE WIP)
 
 - Found 11 remote branches including main; no open PR; PRs #1–#6 are already merged. Most old branches are behind main; the divergent `feature/parux-ai-gaming-os-foundation` includes an actual missing CLI agent help change. Ported only the isolated help routing and synthetic child-process regression test to main, rather than merging 61 stale files or bringing `.ai/telemetry` into main. `parux agent [--help|-h|help]` and `parux agent run [--help|-h]` now show agent guidance without starting Core or tasks; help inside an actual goal remains unmodified. No branch has been deleted.

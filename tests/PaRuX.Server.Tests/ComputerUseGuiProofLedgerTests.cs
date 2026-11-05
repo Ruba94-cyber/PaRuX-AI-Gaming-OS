@@ -198,6 +198,10 @@ public sealed class ComputerUseGuiProofLedgerTests
         Assert.False(ledger.RecheckAllWindows(new[] { changedEditor, stillSaved }));
         Assert.False(ledger.RecheckAllWindows(new[] { stillSaved }));
         Assert.False(ledger.RecheckAllWindows(new[] { stillSaved, stillSaved }));
+        // Malformed merged readbacks are refusals, never null dereferences
+        // or an opportunity to accept incomplete cross-window evidence.
+        Assert.False(ledger.RecheckAllWindows(new[] { Evidence(), null! }));
+        Assert.False(ledger.RecheckAllWindows(new[] { null!, stillSaved }));
         Assert.False(ledger.RecheckAllWindows(new[] {
             Evidence(), Evidence(stillSaved.Tree, 203, 909)
         }));

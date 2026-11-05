@@ -115,6 +115,7 @@ namespace PaRuX.Services
                 int matches = 0;
                 foreach (WindowsUiTreeObservationService.Observation observed in fresh)
                 {
+                    if (observed == null) return false;
                     if (observed.HasEvidence && target.ProcessId == observed.ProcessId
                         && target.WindowHandle == observed.WindowHandle)
                         matches++;

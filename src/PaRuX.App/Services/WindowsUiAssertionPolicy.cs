@@ -55,15 +55,16 @@ namespace PaRuX.Services
                 int matches = 0;
                 foreach (JsonElement window in windows.EnumerateArray())
                 {
+                    // A partially malformed UIA response is not independent
+                    // proof: do not skip an invalid unrelated window and
+                    // accidentally accept a later selector as verified.
                     if (window.ValueKind != JsonValueKind.Object
                         || !window.TryGetProperty("hwnd", out JsonElement hwnd)
-                        || !MatchesWindow(hwnd, expectedWindow))
-                        continue;
-                    // The foreground window itself is malformed: refuse verification
-                    // rather than reporting a benign "target missing".
-                    if (!window.TryGetProperty("elements", out JsonElement elements)
+                        || !TryGetWindowHandle(hwnd, out long handle)
+                        || !window.TryGetProperty("elements", out JsonElement elements)
                         || elements.ValueKind != JsonValueKind.Array)
                         return Verdict.InvalidObservation;
+                    if (handle != expectedWindow) continue;
 
                     if (!FindElement(elements, selector!, 0, ref matched, ref matches))
                         return Verdict.InvalidObservation;
@@ -83,11 +84,13 @@ namespace PaRuX.Services
             }
         }
 
-        private static bool MatchesWindow(JsonElement handle, long expectedWindow) =>
-            (handle.ValueKind == JsonValueKind.Number
-                && handle.TryGetInt64(out long number) && number == expectedWindow)
-            || (handle.ValueKind == JsonValueKind.String
-                && long.TryParse(handle.GetString(), out long textHandle) && textHandle == expectedWindow);
+        private static bool TryGetWindowHandle(JsonElement handle, out long value)
+        {
+            value = 0;
+            return ((handle.ValueKind == JsonValueKind.Number && handle.TryGetInt64(out value))
+                || (handle.ValueKind == JsonValueKind.String && long.TryParse(handle.GetString(), out value)))
+                && value > 0;
+        }
 
         /// <summary>Malformed nested UIA controls refuse verification. Limit nesting
         /// so a tiny but pathological JSON tree cannot monopolize the UI thread.</summary>
