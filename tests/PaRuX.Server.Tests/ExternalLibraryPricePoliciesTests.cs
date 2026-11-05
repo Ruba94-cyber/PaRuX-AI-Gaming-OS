@@ -45,11 +45,14 @@ public sealed class ExternalLibraryPricePoliciesTests
         var sample = PublicStorePriceWatchPolicy.ParseSteamAppDetails("42", json, true, now);
         Assert.NotNull(sample);
         Assert.Equal(1999, sample!.PriceMinor);
-        Assert.False(PublicStorePriceWatchPolicy.ShouldNotify(sample, 2000, false, now));
-        Assert.True(PublicStorePriceWatchPolicy.ShouldNotify(sample, 2000, true, now));
-        Assert.False(PublicStorePriceWatchPolicy.ShouldNotify(sample, 1000, true, now));
-        Assert.False(PublicStorePriceWatchPolicy.ShouldNotify(sample, 2000, true,
-            now.AddHours(25)));
+        var wishlist = new LocalWishlistEntry("steam", "42", "Synthetic Puzzle", "EUR", 2000, false);
+        Assert.False(LocalWishlistPolicy.Evaluate(wishlist, sample, now).NotifyEligible);
+        Assert.True(LocalWishlistPolicy.Evaluate(
+            wishlist with { PriceWatchOptIn = true }, sample, now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(
+            wishlist with { PriceWatchOptIn = true, PriceTargetMinor = 1000 }, sample, now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(
+            wishlist with { PriceWatchOptIn = true }, sample, now.AddHours(25)).NotifyEligible);
     }
 
     [Fact]
