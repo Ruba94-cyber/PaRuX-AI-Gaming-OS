@@ -74,6 +74,11 @@ public sealed class GameModDropInService
 
     private void EnsureReceiptRoot()
     {
+        // Before creating an owned child, refuse a linked parent: creation
+        // itself must not traverse a pre-existing user-controlled junction.
+        string parent = Path.GetDirectoryName(_receiptRoot)!;
+        if (!ManualGameLibrary.IsSafeDirectory(parent))
+            throw new InvalidDataException("PaRuX mod receipts parent directory is unsafe.");
         Directory.CreateDirectory(_receiptRoot);
         if (!ManualGameLibrary.IsSafeDirectory(_receiptRoot))
             throw new InvalidDataException("PaRuX mod receipts directory is unsafe.");
