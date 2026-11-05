@@ -127,7 +127,7 @@ public sealed class SteamStoreCatalogProvider : IGameCatalogProvider
         blocked = _gate.Check();
         if (blocked is not null) return CatalogResult<PublicStorePriceSample>.Fail(blocked);
         PublicStorePriceSample? sample = PublicStorePriceWatchPolicy.ParseSteamAppDetails(
-            appId, result.Value, optIn: true, _clock(), requestedCountryCode: country);
+            appId, result.Value, optIn: true, observedAtUtc: _clock(), requestCountryCode: country);
         return sample is null
             ? CatalogResult<PublicStorePriceSample>.Fail(GameDiscoverStatus.Failed,
                 "The Steam storefront did not return a valid price for the requested country.")
