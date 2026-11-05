@@ -26,6 +26,7 @@ internal sealed class QuickResumePanel : StackPanel
     private readonly StackPanel _recovery = new() { Spacing = 4 };
     private readonly Button _refresh = new() { MinHeight = 44 };
     private readonly Button _resumeAll = new() { MinHeight = 44, Visibility = Visibility.Collapsed };
+    private readonly Button _modRestore = new() { MinHeight = 44 };
     private bool _busy;
     private bool _acting;
 
@@ -46,6 +47,9 @@ internal sealed class QuickResumePanel : StackPanel
         _resumeAll.Content = T("Resume all", "Riprendi tutto");
         AutomationProperties.SetAutomationId(_resumeAll, "QuickResume_ResumeAll_Button");
         _resumeAll.Click += async (_, _) => await ResumeAllAsync();
+        _modRestore.Content = T("Restore AI mods", "Ripristina mod IA");
+        AutomationProperties.SetAutomationId(_modRestore, "QuickResume_Mods_RestoreButton");
+        _modRestore.Click += async (_, _) => await TemporaryGameModsDialog.ShowRestoreListAsync(XamlRoot);
         AutomationProperties.SetAutomationId(_status, "QuickResume_Status_Text");
         AutomationProperties.SetAutomationId(_list, "QuickResume_List");
         AutomationProperties.SetAutomationId(_recovery, "QuickResume_Recovery_List");
@@ -53,6 +57,7 @@ internal sealed class QuickResumePanel : StackPanel
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         buttons.Children.Add(_refresh);
         buttons.Children.Add(_resumeAll);
+        buttons.Children.Add(_modRestore);
         Children.Add(_heading);
         Children.Add(_description);
         Children.Add(buttons);
@@ -142,8 +147,26 @@ internal sealed class QuickResumePanel : StackPanel
         AutomationProperties.SetAutomationId(button, (app.Suspended ? "QuickResume_Resume_" : "QuickResume_Pause_") + app.ProcessId);
         AutomationProperties.SetName(button, (app.Suspended ? T("Resume ", "Riprendi ") : T("Pause ", "Metti in pausa ")) + title);
         button.Click += async (_, _) => await ActAsync(app);
-        Grid.SetColumn(button, 1);
-        row.Children.Add(button);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        actions.Children.Add(button);
+        if (app.Suspended)
+        {
+            var mods = new Button
+            {
+                Content = T("AI Mod", "Mod IA"),
+                MinHeight = 44, MinWidth = 96
+            };
+            AutomationProperties.SetAutomationId(mods, "QuickResume_Mods_Open_" + app.ProcessId);
+            mods.Click += async (_, _) =>
+            {
+                mods.IsEnabled = false;
+                try { await TemporaryGameModsDialog.ShowAsync(XamlRoot, app); }
+                finally { mods.IsEnabled = true; }
+            };
+            actions.Children.Add(mods);
+        }
+        Grid.SetColumn(actions, 1);
+        row.Children.Add(actions);
         return row;
     }
 
