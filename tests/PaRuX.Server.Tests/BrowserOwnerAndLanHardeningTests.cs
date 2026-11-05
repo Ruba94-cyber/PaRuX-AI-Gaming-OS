@@ -209,6 +209,7 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     [InlineData("POST", "/api/v1/models/library/import", "{}")]
     [InlineData("POST", "/api/v1/models/library/no-such.gguf/alias", "{}")]
     [InlineData("DELETE", "/api/v1/models/downloads/no-such-id", null)]
+    [InlineData("POST", "/api/v1/gaming/library/import-preview", "{}")]
     [InlineData("POST", "/api/v1/models/benchmarks", "{}")]
     [InlineData("POST", "/api/v1/models/benchmarks/no-such-id/cancel", null)]
     [InlineData("PUT", "/api/v1/models/context-preference", "{}")]
