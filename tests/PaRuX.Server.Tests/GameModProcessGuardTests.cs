@@ -48,6 +48,16 @@ public sealed class GameModProcessGuardTests
     }
 
     [Fact]
+    public void Own_running_Windows_test_process_is_detected_without_launching_any_executable()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        using var current = System.Diagnostics.Process.GetCurrentProcess();
+        string actual = current.MainModule?.FileName ?? "";
+        if (!actual.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return;
+        Assert.True(GameModProcessGuard.IsRunning(Path.GetFullPath(actual)));
+    }
+
+    [Fact]
     public void Process_lookup_refuses_to_pretend_Windows_support_on_other_platforms()
     {
         if (OperatingSystem.IsWindows()) return;
