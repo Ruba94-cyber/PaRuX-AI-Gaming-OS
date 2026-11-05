@@ -585,8 +585,10 @@ internal sealed class GamingHomeView : StackPanel
                         if (!LocalGameGuideSourcePicker.TrySetSelected(selectedGuideIds, source.Id, true))
                         {
                             box.IsChecked = false;
-                            _status.Text = T("Up to 64 guide folders may be selected.",
-                                "Puoi selezionare al massimo 64 cartelle di guide.");
+                            UpdateSourceSummary();
+                            sourceSummary.Text += " " + T("Maximum reached: deselect a folder to choose another.",
+                                "Limite raggiunto: deseleziona una cartella per sceglierne un'altra.");
+                            return;
                         }
                         UpdateSourceSummary();
                     };
