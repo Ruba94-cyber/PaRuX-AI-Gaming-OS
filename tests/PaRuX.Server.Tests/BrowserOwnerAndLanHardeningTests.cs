@@ -212,6 +212,7 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     [InlineData("DELETE", "/api/v1/models/downloads/no-such-id", null)]
     [InlineData("POST", "/api/v1/gaming/library/import-preview", "{}")]
     [InlineData("GET", "/api/v1/gaming/wishlist", null)]
+    [InlineData("GET", "/api/v1/gaming/downloads/torrent-engine", null)]
     [InlineData("POST", "/api/v1/gaming/wishlist", "{}")]
     [InlineData("PUT", "/api/v1/gaming/wishlist/42/watch", "{\"enabled\":true,\"consent\":true}")]
     [InlineData("POST", "/api/v1/gaming/wishlist/42/quote", "{\"consent\":true}")]
