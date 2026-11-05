@@ -144,6 +144,12 @@ namespace PaRuX.Services
             SendAsync<GameSkinDraftDto>(HttpMethod.Post,
                 "/api/v1/gaming/mods/skin-studio/generate", request, ct);
 
+        /// <summary>Preserve genuine Minecraft skin UV layout while restyling selected parts using local AI.</summary>
+        public Task<GamingCallResult<GameSkinDraftDto>> RestyleMinecraftSkinAsync(
+            GameSkinRestyleRequest request, CancellationToken ct = default) =>
+            SendAsync<GameSkinDraftDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/skin-studio/restyle", request, ct);
+
         public Task<GamingCallResult<GameSkinExportDto>> ExportMinecraftSkinAsync(
             string draftId, bool consent, CancellationToken ct = default) =>
             SendAsync<GameSkinExportDto>(HttpMethod.Post,
@@ -192,7 +198,7 @@ namespace PaRuX.Services
                 using var request = new HttpRequestMessage(method, bootstrap.Endpoint.TrimEnd('/') + path);
                 request.Headers.Add("X-PaRuX-Token", bootstrap.Token);
                 if (body != null) request.Content = JsonContent.Create(body, options: JsonOptions);
-                using HttpResponseMessage response = await (path == "/api/v1/gaming/mods/skin-studio/generate" ? SkinGenerationHttpClient : HttpClient).SendAsync(request, ct).ConfigureAwait(false);
+                using HttpResponseMessage response = await (path is "/api/v1/gaming/mods/skin-studio/generate" or "/api/v1/gaming/mods/skin-studio/restyle" ? SkinGenerationHttpClient : HttpClient).SendAsync(request, ct).ConfigureAwait(false);
                 return await GamingResponseReader.ReadAsync<T>(response, JsonOptions, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
