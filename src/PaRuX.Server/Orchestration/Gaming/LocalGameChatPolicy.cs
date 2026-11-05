@@ -18,7 +18,8 @@ public static class LocalGameChatPolicy
     /// </summary>
     public static LocalGameChatPlan Build(
         string? gameTitle, string? question, bool optedIntoDocumentSearch,
-        IReadOnlyCollection<string>? approvedSourceIds)
+        IReadOnlyCollection<string>? approvedSourceIds,
+        IReadOnlyCollection<string>? verifiedIndexedSourceIds = null)
     {
         if (!optedIntoDocumentSearch)
             return new(false, string.Empty, null, "Select local game guides in Chat to enable document answers.");
@@ -38,6 +39,13 @@ public static class LocalGameChatPolicy
             .ToList();
         if (sources.Count == 0)
             return new(false, string.Empty, null, "Choose at least one consented indexed local source.");
+        // The host must supply a separate, current set from the index's authorised
+        // source picker. Never trust claimed user selections as index membership.
+        if (verifiedIndexedSourceIds is null)
+            return new(false, string.Empty, null, "Verify the available local sources before Chat.");
+        var permitted = new HashSet<string>(verifiedIndexedSourceIds, StringComparer.Ordinal);
+        if (sources.Any(id => !permitted.Contains(id)))
+            return new(false, string.Empty, null, "A selected source is missing or not authorised.");
         return new(true, "For the game \"" + title + "\": " + prompt,
             new ChatDocumentScope { Enabled = true, SourceIds = sources },
             "Uses the existing local document answer path; cited sources only, no online wiki fetch.");
