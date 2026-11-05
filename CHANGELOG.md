@@ -1,3 +1,9 @@
+### 2026-11-05 — Coding agent selective hunk transaction foundation (SOURCE WIP)
+
+- Added `CodingSelectiveHunkApplyService`: a one-file, existing-UTF-8-text-only application path for exact approved hunk decisions. Before any mutation it checks explicit approval, the reviewed diff, source/candidate SHA-256, path containment, encoding and size.
+- Reuses the existing journaled shadow transaction rather than a separate patch writer: per-project lease, SHA-256 Git-blob preimage, staged replacement, durable backups, final postimage and rollback that preserves unexpected human edits. No commit/push or automatic agent approval.
+- Six synthetic filesystem regression sources plus the focused Windows test selection added. **Not compiled/tested in this remote session**. Coding UI per-hunk integration, task receipt admission, real Windows races and full verification are open; this is not L2 DONE or part of a released 3.1.0 build.
+
 ### 2026-11-05 — Manual Steam wishlist multi-price checks (SOURCE WIP)
 
 - Added a separate, explicit **Check watched prices once** action in the Games wishlist: runs up to eight opted-in, valid Steam items sequentially through the existing owner-only, consented single-price API and shared rate limiter. Skipped items are reported, and currency/storefront-country/target comparisons remain indicative, not a verified Steam account region.
