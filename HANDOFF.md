@@ -1,3 +1,10 @@
+## 2026-11-05 — L8 searchable guide sources and selected-game process admission (MAIN SOURCE WIP)
+
+- Guide source picker in Gaming Home now searches all enabled indexed RAG folders (path or ID), shows only 64 checkbox controls at a time but preserves explicit selections through filter changes, and refuses over 64 selected sources with an inline dialog message. The endpoint still re-verifies enabled/indexed source IDs; no implicit all-source Chat scope or background send.
+- Before index reads and again before returning the prepared Chat question, Core probes the manually registered game's **exact Windows EXE** with the existing conservative process guard. A selected game running outside PaRuX, an unreadable same-name process, or an unsafe/missing EXE blocks preparation. This does not attest child/helper processes, other installed games, or a game launched after the final probe; actual Chat send still requires Core Gaming/GPU hard-off.
+- Three source-picker xUnit and three process-gate xUnit cases authored; Gaming Home FlaUI smoke checks the new filter/summary controls. Included in `tools/test-gos-checkpoint.ps1`. **None executed in this remote session**; no Windows build, FlaUI or physical-game evidence. Manual testing should cover >64 indexed folders, selection across filters, Gaming Mode active, game running outside launcher, stopped game, and busy/unsent Chat draft.
+- Keep all work on `main`; no release/tag/MSI/APK/ZIP, and 3.1.0 remains unpublished.
+
 ## 2026-11-05 — Local game guide question control-character admission (SOURCE WIP)
 
 - A user-supplied local guide question may be multiline, but NUL and other non-text control characters now fail closed at the owner HTTP boundary before index reads and in the reusable L8 policy. Synthetic HTTP and policy regression cases added. No local model, game, or network side effects. Compilation and Windows tests still pending.
