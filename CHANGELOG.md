@@ -1,15 +1,15 @@
 # Changelog
 
-### Unreleased proposals (2026-11-05) — Authored-not-compiled, NOT merged
+### 2026-11-05 — Source merged on main; Windows validation outstanding
 
-The following code is in separate **draft PRs**, not on main or in a published build. All new tests are **Authored-not-run**; no release 3.1.0 has been cut.
+PRs #1–#5 were squash-merged onto `main` on 2026-11-05. New code remains **Authored-not-compiled** in this remote session and all new tests remain **Authored-not-run**; neither integration nor publication of release 3.1.0 is claimed.
 
 - **L2 PR #1:** strict same-file Git parser rejects unsupported/unknown metadata, zero-hunk sections and repeated headers, with SHA-256 in-memory preview; Auto requires OS and all mutation tools confined. No live executor/UI or tests run.
 - **L3 PR #2:** owner-only two-model Arena Core POST/GET, typed client/DTO, IT/EN statuses, strict model names and 4,000-character prompt cap; added small Advanced Chat Compare button and side-by-side modal with manual refresh/cancel, plus authored-not-run FlaUI Smoke visibility test. No routing/chatbubble redesign or Windows/hardware verification; media free-VRAM presets remain estimates.
 - **L8 PR #3:** selected local game guides must match separately verified indexed-source IDs (empty/unknown scopes rejected), and unknown Gaming telemetry blocks GPU admission; no live Chat/OS integration or tests run.
 - **L6/L7 PR #4:** per-game suspend proposals with anti-cheat exclusions and monotonic continuity tracking (focus/battery/thermal; reset on changed process, rule edits or missing samples), controller diagnostic/remap previews and a typed consent-gated, PaRuX-owned undo plan; tests authored-not-run; **Needs physical HW**.
 - **L4/L5/L9 PR #5:** bounded export previews with desktop-owner-only/Gaming-blocked Core endpoint, shared DTO, authenticated client and bilingual Gaming Home preview dialog; default-off wishlist and public price parser requiring matching store/product/currency/country/freshness; offline license/IT-EN audit scripts. **All new source/tests authored-not-compiled/not-run**. No actual games imported, public API fetching, persisted monitoring, region proof or notifications.
-- **Docs PR #6:** candid roadmap/README/handoff of current verified vs uncompiled work; Windows build, targeted xUnit, solo FlaUI regression and physical checks required before merging any of the proposals.
+- **Docs PR #6:** reconcile roadmap, README and handoff to the merged source, preserving Windows build, targeted xUnit, full solo FlaUI regression and physical checks as release gates.
 
 
 ### 2026-11-05 - Gaming home: hero, filter rail, save restore and launch-helper UI, IGDB covers, Quick Resume status
