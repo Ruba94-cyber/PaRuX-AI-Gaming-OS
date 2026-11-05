@@ -335,6 +335,8 @@ namespace PaRuX.Views
                     _ = RefreshAutoFallbackAsync();
                     _ = RefreshPersonasAsync();
                     _ = RefreshGroupChatModelsAsync();
+                    _ = RefreshRagSourcesAsync();           // the RAG card lives in this category
+                    _ = RefreshEmbeddingEngineStatusAsync();
                     break;
                 case "Your PC apps":
                     _ = RefreshDesktopIntegrationsAsync();

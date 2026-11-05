@@ -80,7 +80,8 @@ internal sealed class UiTestApplication : IDisposable
         bool enableCompletedCodingTaskCardFixture = false,
         bool enableCompletedCodingTaskApplyFixture = false,
         bool enableSpeechCancellationFixture = false,
-        string? restartDataRoot = null)
+        string? restartDataRoot = null,
+        IReadOnlyDictionary<string, string>? extraEnvironment = null)
     {
         string isolatedRoot = Path.Combine(Repository.Root, ".ai", "artifacts", "ui-data");
         // Keep Git object/worktree paths below the Windows legacy path limit; the artifact
@@ -156,6 +157,7 @@ internal sealed class UiTestApplication : IDisposable
         };
         start.Environment["PARUX_DATA_ROOT"] = _testRoot;
         start.Environment["PARUX_LOCALAI_STATE_DIR"] = _localAiStateRoot;
+        if (extraEnvironment != null) foreach (var pair in extraEnvironment) start.Environment[pair.Key] = pair.Value;
         if (bootstrapUsesFixtureServerIdentity)
         {
             string expectedFixtureServerExecutable = Process.GetCurrentProcess().MainModule?.FileName
