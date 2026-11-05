@@ -39,18 +39,30 @@ namespace PaRuX.Services
             string[] lines = unifiedDiff.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
             var result = new List<CodingReviewHunk>();
             var path = string.Empty;
+            var oldPath = string.Empty;
+            bool insideDiff = false;
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
                 if (line.StartsWith("diff --git ", StringComparison.Ordinal))
                 {
-                    path = string.Empty; // Never carry a file identity into the next diff.
+                    insideDiff = true;
+                    path = string.Empty;
+                    oldPath = string.Empty; // Never carry identity into the next file.
+                    continue;
+                }
+                if (line.StartsWith("--- a/", StringComparison.Ordinal))
+                {
+                    string candidate = line.Substring(6);
+                    oldPath = insideDiff && IsSafeRelativePath(candidate) ? candidate : string.Empty;
                     continue;
                 }
                 if (line.StartsWith("+++ b/", StringComparison.Ordinal))
                 {
                     string candidate = line.Substring(6);
-                    path = IsSafeRelativePath(candidate) ? candidate : string.Empty;
+                    path = insideDiff && IsSafeRelativePath(candidate)
+                        && string.Equals(candidate, oldPath, StringComparison.Ordinal)
+                        ? candidate : string.Empty;
                     continue;
                 }
                 if (!line.StartsWith("@@ ", StringComparison.Ordinal)) continue;
@@ -58,12 +70,13 @@ namespace PaRuX.Services
                 Match match = Header.Match(line);
                 if (!match.Success || path.Length == 0)
                     throw new FormatException("Unsupported or unscoped diff hunk.");
-                int oldStart = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-                int oldCount = match.Groups[2].Success
-                    ? int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) : 1;
-                int newStart = int.Parse(match.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
-                int newCount = match.Groups[4].Success
-                    ? int.Parse(match.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture) : 1;
+                string oldCountText = match.Groups[2].Success ? match.Groups[2].Value : "1";
+                string newCountText = match.Groups[4].Success ? match.Groups[4].Value : "1";
+                if (!int.TryParse(match.Groups[1].Value, out int oldStart)
+                    || !int.TryParse(oldCountText, out int oldCount)
+                    || !int.TryParse(match.Groups[3].Value, out int newStart)
+                    || !int.TryParse(newCountText, out int newCount))
+                    throw new FormatException("Diff hunk line number is out of range.");
 
                 var body = new List<string>();
                 int oldLines = 0, newLines = 0;
