@@ -63,6 +63,11 @@ public sealed class GameAssetModServiceTests
         Assert.False(generic.CanHotReload);
         Assert.False(generic.RequiresPausedGame);
         Assert.Equal("Manual ZIP package", generic.Delivery);
+        var dropIn = Assert.Single(list.Where(x => x.Id == "zip-drop-in-owner-confirmed"));
+        Assert.True(dropIn.CanDirectApply);
+        Assert.False(dropIn.CanHotReload);
+        Assert.False(dropIn.RequiresPausedGame);
+        Assert.Contains("ONLY after", dropIn.Limitation);
     }
 
     [Fact]
