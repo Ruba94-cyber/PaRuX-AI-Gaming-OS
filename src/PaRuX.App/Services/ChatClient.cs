@@ -232,7 +232,8 @@ namespace PaRuX.Services
                     && string.IsNullOrWhiteSpace(projectId)
                     && string.IsNullOrWhiteSpace(forcedSkillId),
                 ContinueFinalMessage = continueFinalMessage,
-                ComputerUseConsent = computerUseConsent
+                ComputerUseConsent = computerUseConsent,
+                Documents = ChatDocumentScopeState.ToRequest()
             };
             if (!string.IsNullOrWhiteSpace(projectId))
                 payload.SkillParameters[ProjectScopeParameter] = projectId;

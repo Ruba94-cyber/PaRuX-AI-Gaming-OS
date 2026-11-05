@@ -1441,7 +1441,7 @@
                 <Border Style="{StaticResource PaRuXCardStyle}">
                     <StackPanel Spacing="{StaticResource PaRuXSpaceM}">
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
-                            Text="Index a folder and PaRuX retrieves relevant excerpts into chat automatically, with the source file named in the reply. Text, Markdown, CSV/JSON/XML/YAML, source files, and .docx/.xlsx/.pptx are indexed; PDFs are not yet." />
+                            Text="Index a folder and PaRuX retrieves relevant excerpts into chat automatically, with the source file and page, sheet or slide named in the reply. PDF, Office, text, code, e-mail and many other formats are indexed; anything unreadable is still findable by name. Folders with credentials or private application data are refused." />
 
                         <Grid ColumnSpacing="{StaticResource PaRuXSpaceL}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -1459,6 +1459,7 @@
                         </Grid>
                         <StackPanel x:Name="RagSourcesList" Spacing="6" />
                         <TextBlock x:Name="RagIndexStatus" Style="{StaticResource PaRuXCaptionTextStyle}" />
+                        <StackPanel x:Name="KnowledgeSettingsPanel" Spacing="{StaticResource PaRuXSpaceS}" />
                     </StackPanel>
                 </Border>
             </StackPanel>

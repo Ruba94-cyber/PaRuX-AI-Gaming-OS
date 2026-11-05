@@ -27,8 +27,25 @@ namespace PaRuX.Services
         public Task<List<RagSourceDto>> ListSourcesAsync(CancellationToken ct) =>
             SendAsync<List<RagSourceDto>>(HttpMethod.Get, "/api/v1/rag/sources", null, ct);
 
-        public Task<RagSourceDto> AddSourceAsync(string folderPath, CancellationToken ct) =>
-            SendAsync<RagSourceDto>(HttpMethod.Post, "/api/v1/rag/sources", new RagAddSourceRequest { FolderPath = folderPath }, ct);
+        /// <summary>Adds a folder. Throws <see cref="SensitiveFolderException"/> when the Core refuses a credential/system folder
+        /// ("sensitive_blocked") or needs the person's confirmation for a broad one ("consent_required"; retry with consent).</summary>
+        public async Task<RagSourceDto> AddSourceAsync(string folderPath, CancellationToken ct, bool consentSensitive = false)
+        {
+            try { return await SendAsync<RagSourceDto>(HttpMethod.Post, "/api/v1/rag/sources", new RagAddSourceRequest { FolderPath = folderPath, ConsentSensitive = consentSensitive }, ct).ConfigureAwait(false); }
+            catch (LocalAiException ex) when (ex.Message.Contains("(403)") || ex.Message.Contains("(409)"))
+            {
+                string code = ex.Message.Contains("consent_required") ? "consent_required" : ex.Message.Contains("sensitive_blocked") ? "sensitive_blocked" : string.Empty;
+                if (code.Length == 0) throw;
+                string reason = ex.Message;
+                try
+                {
+                    int i = ex.Message.IndexOf('{');
+                    if (i >= 0) { using var doc = JsonDocument.Parse(ex.Message.Substring(i)); if (doc.RootElement.TryGetProperty("error", out JsonElement m)) reason = m.GetString() ?? reason; }
+                }
+                catch (JsonException) { }
+                throw new SensitiveFolderException(code, reason);
+            }
+        }
 
         public Task SetEnabledAsync(string id, bool enabled, CancellationToken ct) =>
             SendNoContentAsync(HttpMethod.Post, "/api/v1/rag/sources/" + Uri.EscapeDataString(id) + "/enabled",

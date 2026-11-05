@@ -98,6 +98,7 @@ public sealed class RerankerService : IDisposable
     /// Explicitly requested, never automatic - same policy as EmbeddingService.</summary>
     public async Task<string> InstallEngineAsync(IProgress<string>? progress, CancellationToken ct)
     {
+        PaRuX.Server.Knowledge.OfflinePolicy.ThrowIfBlocked("the reranker model download");   // strict offline / Corporate
         Directory.CreateDirectory(_runtimeRoot);
         try
         {

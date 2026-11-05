@@ -85,7 +85,21 @@ public sealed partial class RagStore
         var connection = new SqliteConnection("Data Source=" + DatabasePath + ";Mode=ReadWriteCreate;Cache=Shared");
         connection.Open();
         EnsureSchema(connection);
+        ProtectDatabaseOnce();
         return connection;
+    }
+
+    private static readonly HashSet<string> ProtectedDatabases = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The index holds document text: limit rag.db (and its WAL/SHM) to the current user, once per path. It is not part of backups/exports.</summary>
+    private void ProtectDatabaseOnce()
+    {
+        lock (ProtectedDatabases)
+        {
+            if (!ProtectedDatabases.Add(DatabasePath)) return;
+        }
+        foreach (string suffix in new[] { string.Empty, "-wal", "-shm" })
+            if (File.Exists(DatabasePath + suffix)) PaRuX.Server.Knowledge.LocalFileProtection.RestrictToCurrentUser(DatabasePath + suffix);
     }
 
     private void EnsureSchema(SqliteConnection connection)

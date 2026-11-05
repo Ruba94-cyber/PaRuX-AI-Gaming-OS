@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,6 +35,10 @@ public sealed class KnowledgeIndexOptions
     /// <summary>Pause between files so indexing stays light on small PCs (0 = none).</summary>
     public int ThrottleMilliseconds { get; init; }
     public ExtractionLimits Limits { get; init; } = ExtractionLimits.Default;
+    /// <summary>Resource plan (profile): duty-cycle throttle, worker priority, memory budget. Null = unthrottled (tests, Performance).</summary>
+    public KnowledgeResourcePlan? Plan { get; init; }
+    /// <summary>Folders never entered while walking (PaRuX's own data root by default), even when a parent folder is indexed.</summary>
+    public string[] ProtectedFolders { get; init; } = { PaRuX.Contracts.PaRuXDataRoot.Path };
 }
 
 /// <summary>Pause/resume handle for a running index job.</summary>
@@ -58,7 +63,7 @@ public sealed class IndexControl
 public sealed class KnowledgeIndex : IDisposable
 {
     private readonly string _dbPath;
-    private readonly KnowledgeIndexOptions _options;
+    private volatile KnowledgeIndexOptions _options;
     private readonly IRetrievalEmbeddingProvider? _embedder;
     private readonly object _gate = new();
     private bool _hasFts5;
@@ -70,6 +75,9 @@ public sealed class KnowledgeIndex : IDisposable
         _options = options ?? new KnowledgeIndexOptions();
         _embedder = embedder;
     }
+
+    /// <summary>Replaces the options used by the next indexing run (settings or profile changed).</summary>
+    public void UpdateOptions(KnowledgeIndexOptions options) => _options = options;
 
     public bool HasFts5 { get { EnsureSchema(); return _hasFts5; } }
     public void Dispose() { }
@@ -89,6 +97,8 @@ public sealed class KnowledgeIndex : IDisposable
         {
             if (_ready) return;
             using SqliteConnection c = Open();
+            string? protectedDir = Path.GetDirectoryName(_dbPath);
+            if (!string.IsNullOrEmpty(protectedDir)) LocalFileProtection.RestrictToCurrentUser(protectedDir);   // index text is as sensitive as the documents
             Exec(c, @"
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS kn_files (
@@ -142,14 +152,21 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
         IndexProgress Snap(string state, string? current = null) =>
             new(state, seen, indexed, unchanged, metaOnly, failed, skipped, removed, renamed, dupes, current);
 
+        KnowledgeResourcePlan? plan = _options.Plan;
+        long maxFileBytes = plan == null ? _options.MaxFileBytes : Math.Min(_options.MaxFileBytes, plan.MaxFileBytes);
+        ExtractionLimits limits = plan == null ? _options.Limits : _options.Limits with { MaxCharacters = Math.Min(_options.Limits.MaxCharacters, plan.MaxCharacters) };
+        ThreadPriority priority = plan?.WorkerPriority ?? ThreadPriority.Normal;
+        var memory = plan == null ? null : new MemoryBudgetGuard(plan.ManagedMemoryBudgetBytes);
+        var skippedByPolicy = new List<(string rel, string reason)>();
         var failedDirs = new List<string>();
         var onDisk = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var files = new List<string>();
-        Walk(root, root, files, failedDirs, sourceId, ct);
+        Walk(root, root, files, failedDirs, skippedByPolicy, ct);
         foreach (string f in files) onDisk.Add(f);
 
         lock (_gate) { using SqliteConnection c = Open(); Exec(c, "DELETE FROM kn_problems WHERE source_id=$s;", ("$s", sourceId)); }
         foreach (string dir in failedDirs) AddProblem(sourceId, Rel(root, dir), "folder", "Folder is not accessible; its files were left as they were.");
+        foreach ((string rel, string reason) in skippedByPolicy) { skipped++; AddProblem(sourceId, rel, "skipped(policy)", reason); }
 
         foreach (string file in files)
         {
@@ -157,12 +174,15 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             if (control != null) await control.WaitIfPausedAsync(ct).ConfigureAwait(false);
             seen++;
             progress?.Report(Snap(control?.IsPaused == true ? "paused" : "running", Path.GetFileName(file)));
-            if (_options.ThrottleMilliseconds > 0) await Task.Delay(_options.ThrottleMilliseconds, ct).ConfigureAwait(false);
+            int fixedPause = plan?.ThrottleMilliseconds ?? _options.ThrottleMilliseconds;
+            if (fixedPause > 0) await Task.Delay(fixedPause, ct).ConfigureAwait(false);
+            if (memory != null) await memory.WaitForHeadroomAsync(ct).ConfigureAwait(false);
+            long workStart = Stopwatch.GetTimestamp();
 
             FileInfo info;
             try { info = new FileInfo(file); if (!info.Exists) { skipped++; continue; } }
             catch (Exception) { failed++; AddProblem(sourceId, Rel(root, file), "access", "File is not accessible."); continue; }
-            if (info.Length > _options.MaxFileBytes) { skipped++; AddProblem(sourceId, Rel(root, file), "skipped", "Larger than the configured size limit."); continue; }
+            if (info.Length > maxFileBytes) { skipped++; AddProblem(sourceId, Rel(root, file), "skipped", "Larger than the configured size limit."); continue; }
 
             long ticks = info.LastWriteTimeUtc.Ticks;
             (long id, long size, long mtime, string hash)? existing = Lookup(sourceId, file);
@@ -190,13 +210,20 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
                 dupes++;
             }
 
-            ExtractedDocument doc = await Task.Run(() => StructuredDocumentExtractor.Extract(file, _options.Limits, ct), ct).ConfigureAwait(false);
+            ExtractedDocument doc = await LowPriorityRunner.Run(() => StructuredDocumentExtractor.Extract(file, limits, ct), priority, ct).ConfigureAwait(false);
             if (doc.Tier == DocumentTier.Failed) { failed++; AddProblem(sourceId, Rel(root, file), "failed", doc.Note ?? "Could not be read."); }
             else if (doc.Tier == DocumentTier.MetadataOnly) { metaOnly++; if (doc.Note != null) AddProblem(sourceId, Rel(root, file), "metadata-only", doc.Note); }
-            else indexed++;
+            else { indexed++; if (doc.Note != null) AddProblem(sourceId, Rel(root, file), "partial", doc.Note); }
             if (doc.Truncated) AddProblem(sourceId, Rel(root, file), "truncated", "Read up to the configured limit; the rest is not indexed.");
 
             Store(sourceId, file, info, ticks, hash, doc, duplicateOf, existing?.id);
+            // Duty cycle: after real work, rest for (1/duty - 1) times as long, so a light PC stays responsive.
+            if (plan is { DutyCycle: > 0 and < 1 })
+            {
+                double workedMs = Stopwatch.GetElapsedTime(workStart).TotalMilliseconds;
+                int rest = (int)Math.Min(2000, workedMs * (1.0 / plan.DutyCycle - 1.0));
+                if (rest > 0) await Task.Delay(rest, ct).ConfigureAwait(false);
+            }
         }
         // Deleted files are removed after the walk so a rename is recognised first; an inaccessible folder is not a deletion.
         removed += RemoveMissing(sourceId, onDisk, failedDirs);
@@ -205,7 +232,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
         return final;
     }
 
-    private void Walk(string root, string dir, List<string> files, List<string> failedDirs, string sourceId, CancellationToken ct)
+    private void Walk(string root, string dir, List<string> files, List<string> failedDirs, List<(string rel, string reason)> policySkips, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         IEnumerable<string> entries;
@@ -220,12 +247,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             if ((attributes & FileAttributes.Directory) != 0)
             {
                 if (_options.ExcludedFolderNames.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
-                Walk(root, entry, files, failedDirs, sourceId, ct);
+                if (_options.ProtectedFolders.Any(f => string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(f)), Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry)), StringComparison.OrdinalIgnoreCase)))
+                { policySkips.Add((Rel(root, entry), "Skipped: PaRuX's own data folder.")); continue; }
+                SensitiveFinding sensitiveDir = SensitivePathPolicy.EvaluateEntry(Rel(root, entry), true);
+                if (sensitiveDir.Verdict == SensitiveVerdict.Blocked) { policySkips.Add((Rel(root, entry), sensitiveDir.Reason ?? "Skipped by policy.")); continue; }
+                Walk(root, entry, files, failedDirs, policySkips, ct);
             }
             else
             {
                 if (name.StartsWith("~$", StringComparison.Ordinal)) continue;       // Office lock files
                 if ((attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0) continue;
+                SensitiveFinding sensitiveFile = SensitivePathPolicy.EvaluateEntry(Rel(root, entry), false);
+                if (sensitiveFile.Verdict == SensitiveVerdict.Blocked) { policySkips.Add((Rel(root, entry), sensitiveFile.Reason ?? "Skipped by policy.")); continue; }
                 files.Add(entry);
             }
         }

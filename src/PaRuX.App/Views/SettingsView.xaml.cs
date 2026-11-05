@@ -335,6 +335,8 @@ namespace PaRuX.Views
                     _ = RefreshAutoFallbackAsync();
                     _ = RefreshPersonasAsync();
                     _ = RefreshGroupChatModelsAsync();
+                    _ = RefreshRagSourcesAsync();           // the RAG card lives in this category
+                    _ = RefreshEmbeddingEngineStatusAsync();
                     break;
                 case "Your PC apps":
                     _ = RefreshDesktopIntegrationsAsync();
@@ -640,6 +642,8 @@ namespace PaRuX.Views
             catch (Exception ex) { Log.Write("RefreshRagSourcesAsync failed: " + ex.Message); return; }
 
             RagSourcesList.Children.Clear();
+            _knowledgeRows.Clear();
+            _ = EnsureKnowledgeSettingsPanelAsync();
             if (sources.Count == 0)
             {
                 var empty = new TextBlock { Text = "No folders indexed yet." };
@@ -662,6 +666,7 @@ namespace PaRuX.Views
                 var meta = new TextBlock { Text = source.DocumentCount + " documents · " + source.ChunkCount + " chunks" };
                 ApplyCaptionStyle(meta);
                 text.Children.Add(meta);
+                AddKnowledgeStatusRows(text, source);
                 Grid.SetColumn(text, 0);
                 row.Children.Add(text);
 
@@ -722,7 +727,8 @@ namespace PaRuX.Views
                 }
                 else
                 {
-                    EmbeddingEngineStatusText.Text = "Not installed - Memory and RAG currently rank by keyword overlap only. Installing adds real semantic search for both, entirely local (sentence-transformers/all-MiniLM-L6-v2, ~90 MB, one-time download).";
+                    EmbeddingEngineStatusText.Text = "Not installed - Memory and RAG currently rank by keyword overlap only. Installing adds real semantic search for both, entirely local (sentence-transformers/all-MiniLM-L6-v2, ~90 MB, one-time download, verified against a pinned SHA-256)."
+                        + (_embeddingInstallFailure == null ? string.Empty : " Last install attempt failed: " + _embeddingInstallFailure);
                     if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.Visibility = Visibility.Visible;
                 }
             }
@@ -733,8 +739,11 @@ namespace PaRuX.Views
             }
         }
 
+        private string? _embeddingInstallFailure;
+
         private async void InstallEmbeddingEngine_Click(object sender, RoutedEventArgs e)
         {
+            _embeddingInstallFailure = null;
             if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.IsEnabled = false;
             if (EmbeddingEngineStatusText != null) EmbeddingEngineStatusText.Text = "Downloading (~90 MB)…";
             try
@@ -744,6 +753,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("InstallEmbeddingEngine failed: " + ex.Message);
+                _embeddingInstallFailure = ex.Message;
             }
             finally
             {
@@ -778,9 +788,26 @@ namespace PaRuX.Views
                 Windows.Storage.StorageFolder folder = await picker.PickSingleFolderAsync();
                 if (folder == null) return;
 
-                RagSourceDto source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None);
+                RagSourceDto source;
+                try { source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None); }
+                catch (SensitiveFolderException consent) when (consent.Code == "consent_required")
+                {
+                    var dialog = new ContentDialog
+                    {
+                        XamlRoot = XamlRoot, Title = "Index this broad location?",
+                        Content = new TextBlock { Text = consent.Message + "\n\n" + folder.Path, TextWrapping = TextWrapping.Wrap },
+                        PrimaryButtonText = "Index it", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+                    };
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(dialog, "Settings_Rag_Consent_Dialog");
+                    if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                    source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None, consentSensitive: true);
+                }
                 await RefreshRagSourcesAsync();
                 await ReindexRagSourceAsync(source);
+            }
+            catch (SensitiveFolderException blocked)
+            {
+                if (RagIndexStatus != null) RagIndexStatus.Text = "This folder is not indexed: " + blocked.Message;
             }
             catch (Exception ex)
             {

@@ -99,6 +99,7 @@ namespace PaRuX.Views
         public ChatView()
         {
             InitializeComponent();
+            InitDocumentsButton();
             // Non-modal "Tuning for your PC" line: visible only while a model is queued or being tuned.
             TuningStatusHost.Children.Add(new ModelTuningStatusControl(ModelTuningStatusControl.Mode.Line, "text"));
 
@@ -1096,6 +1097,7 @@ namespace PaRuX.Views
                 Style? sourcesStyle = LocalStyle("PaRuXMessageRouteTextStyle");
                 if (sourcesStyle != null) sources.Style = sourcesStyle;
                 visuals.Sources = sources;
+                AutomationProperties.SetAutomationId(sources, "Chat_Message_Sources_Text");
                 column.Children.Add(sources);
 
                 var provenance = new TextBlock { Margin = new Thickness(0, 2, 0, 0), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };

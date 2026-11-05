@@ -30,7 +30,7 @@ namespace PaRuX.Server;
 /// single inference fails, so MemoryStore/RagStore can fall back to their original
 /// keyword-overlap ranking exactly as it worked before this feature existed.
 /// </summary>
-public sealed class EmbeddingService : IDisposable
+public sealed class EmbeddingService : IDisposable, PaRuX.Server.Knowledge.IUnloadableModel
 {
     public const int Dimensions = 384;
 
@@ -99,13 +99,9 @@ public sealed class EmbeddingService : IDisposable
         Directory.CreateDirectory(_runtimeRoot);
         try
         {
-            foreach ((string remote, string local) in RequiredFiles)
-            {
-                ct.ThrowIfCancellationRequested();
-                progress?.Report("Downloading " + local + "...");
-                await DownloadFileAsync("https://huggingface.co/" + RepoId + "/resolve/main/" + remote,
-                    Path.Combine(_runtimeRoot, local), ct);
-            }
+            // Strict offline / Corporate mode refuses here, before any request; every file is checked against its pinned
+            // SHA-256 (or content-address digest) at a fixed revision before it can be loaded.
+            await Downloader.DownloadAsync(PaRuX.Server.Knowledge.PinnedModelManifest.MiniLmL6V2, _runtimeRoot, progress, ct);
 
             lock (_loadGate) { _session?.Dispose(); _session = null; _tokenizer = null; _loadAttempted = false; }
             if (!TryEnsureLoaded()) throw new InvalidOperationException("Downloaded files did not load as a valid embedding engine.");
@@ -121,44 +117,30 @@ public sealed class EmbeddingService : IDisposable
         }
     }
 
-    // HttpClient.Timeout does not reliably bound a streamed body read taken with
-    // HttpCompletionOption.ResponseHeadersRead - observed live (in RerankerService's identical
-    // download path), a real download stalled partway through (connection went silent, no error,
-    // no more bytes) and the copy hung indefinitely, outliving even the caller's own request
-    // cancellation. Each individual read below is bounded instead, so a stalled connection
-    // surfaces as a clear, recoverable timeout.
-    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
+    /// <summary>Replaceable in tests (fake HTTP handler / isolated settings).</summary>
+    internal PaRuX.Server.Knowledge.PinnedModelDownloader Downloader { get; set; } = new();
 
-    private static async Task DownloadFileAsync(string url, string destination, CancellationToken ct)
+    /// <summary>Upper bound for ONNX intra-op threads (0 = runtime default). Set from the knowledge resource plan.</summary>
+    public int ThreadLimit { get; set; }
+
+    private long _lastUsedTicks = DateTime.UtcNow.Ticks;
+    private int _inFlight;
+    public bool IsLoaded => _session != null;
+    public DateTime LastUsedUtc => new(Interlocked.Read(ref _lastUsedTicks), DateTimeKind.Utc);
+
+    /// <summary>Releases the model's memory when it has been idle; it reloads on the next use. Never unloads mid-inference.</summary>
+    public bool UnloadIfIdle(TimeSpan idle)
     {
-        string partial = destination + ".partial";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        using HttpResponseMessage response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        await using (Stream source = await response.Content.ReadAsStreamAsync(ct))
-        await using (FileStream target = new(partial, FileMode.Create, FileAccess.Write))
+        lock (_loadGate)
         {
-            var buffer = new byte[81920];
-            while (true)
-            {
-                using CancellationTokenSource readGuard = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                readGuard.CancelAfter(StallTimeout);
-                int read;
-                try
-                {
-                    read = await source.ReadAsync(buffer, readGuard.Token);
-                }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                {
-                    throw new TimeoutException(
-                        $"Download stalled: no data received for {StallTimeout.TotalSeconds:0}s from {url}.");
-                }
-                if (read == 0) break;
-                await target.WriteAsync(buffer.AsMemory(0, read), ct);
-            }
+            if (_session == null || Volatile.Read(ref _inFlight) > 0) return false;
+            if (DateTime.UtcNow - LastUsedUtc < idle) return false;
+            _session.Dispose();
+            _session = null;
+            _tokenizer = null;
+            _loadAttempted = false;
+            return true;
         }
-        if (File.Exists(destination)) File.Delete(destination);
-        File.Move(partial, destination);
     }
 
     /// <summary>
@@ -169,10 +151,11 @@ public sealed class EmbeddingService : IDisposable
     public float[]? TryEmbed(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        if (!TryEnsureLoaded()) return null;
-
+        Interlocked.Increment(ref _inFlight);
         try
         {
+            if (!TryEnsureLoaded()) return null;
+            Interlocked.Exchange(ref _lastUsedTicks, DateTime.UtcNow.Ticks);
             IReadOnlyList<int> ids = _tokenizer!.EncodeToIds(text, addSpecialTokens: true);
             if (ids.Count == 0) return null;
             if (ids.Count > MaxTokens) ids = ids.Take(MaxTokens).ToList();
@@ -214,6 +197,11 @@ public sealed class EmbeddingService : IDisposable
         {
             return null;
         }
+        finally
+        {
+            Interlocked.Decrement(ref _inFlight);
+            Interlocked.Exchange(ref _lastUsedTicks, DateTime.UtcNow.Ticks);
+        }
     }
 
     /// <summary>Both vectors are expected to be L2-normalized (as TryEmbed always returns), so
@@ -254,7 +242,9 @@ public sealed class EmbeddingService : IDisposable
             try
             {
                 _tokenizer = BertTokenizer.Create(VocabPath);
-                _session = new InferenceSession(ModelPath);
+                var options = new Microsoft.ML.OnnxRuntime.SessionOptions();
+                if (ThreadLimit > 0) { options.IntraOpNumThreads = ThreadLimit; options.InterOpNumThreads = 1; }
+                _session = new InferenceSession(ModelPath, options);
                 return true;
             }
             catch (Exception ex)

@@ -17,6 +17,8 @@ public sealed class ChatCompletionRequest
     /// Older clients omit it and keep the exact pre-existing behavior; when present, the Context
     /// Engine may include bounded recent history from that one conversation only.</summary>
     public string? ConversationId { get; set; }
+    /// <summary>Document questions: when enabled the answer is grounded on the chosen folders with citations, or the chat says there is not enough information.</summary>
+    public ChatDocumentScope? Documents { get; set; }
     /// <summary>Optional per-turn override for persisted conversation history. Null preserves the
     /// legacy behavior (include history when ConversationId is present); false is an explicit
     /// privacy/context opt-out for this request; true includes it when an id is available.</summary>
@@ -698,6 +700,16 @@ public sealed class RagSourceDto
 public sealed class RagAddSourceRequest
 {
     public string FolderPath { get; set; } = string.Empty;
+    /// <summary>True only after the person confirmed a broad/risky location (whole drive, user profile, app data). Never overrides a blocked credential/system folder.</summary>
+    public bool ConsentSensitive { get; set; }
+}
+
+/// <summary>Per-turn "answer from my documents" scope for the classic Chat. Null/disabled keeps the legacy behaviour.</summary>
+public sealed class ChatDocumentScope
+{
+    public bool Enabled { get; set; }
+    /// <summary>RAG source ids to search; empty = every enabled source.</summary>
+    public List<string> SourceIds { get; set; } = new();
 }
 
 public sealed class RagEnabledRequest

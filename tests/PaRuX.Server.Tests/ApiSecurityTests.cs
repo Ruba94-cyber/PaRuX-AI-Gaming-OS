@@ -406,8 +406,13 @@ public sealed class ApiSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFacto
             new RagAddSourceRequest { FolderPath = @"C:\this\path\does\not\exist\on\this\machine" });
         Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
 
-        HttpResponseMessage accepted = await client.PostAsJsonAsync("/api/v1/rag/sources",
+        // The temp folder lives under AppData: a broad/private location that needs the person's explicit confirmation.
+        HttpResponseMessage needsConsent = await client.PostAsJsonAsync("/api/v1/rag/sources",
             new RagAddSourceRequest { FolderPath = Path.GetTempPath() });
+        Assert.Equal(HttpStatusCode.Conflict, needsConsent.StatusCode);
+
+        HttpResponseMessage accepted = await client.PostAsJsonAsync("/api/v1/rag/sources",
+            new RagAddSourceRequest { FolderPath = Path.GetTempPath(), ConsentSensitive = true });
         RagSourceDto? source = await accepted.Content.ReadFromJsonAsync<RagSourceDto>();
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         Assert.NotNull(source);

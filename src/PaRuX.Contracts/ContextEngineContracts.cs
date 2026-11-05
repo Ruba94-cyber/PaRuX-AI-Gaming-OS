@@ -37,6 +37,8 @@ public sealed class ContextBuildRequest
     public int MaxCharacters { get; set; } = 12_000;
     public bool IncludeMemory { get; set; } = true;
     public bool IncludeRag { get; set; } = true;
+    /// <summary>Document-chat scope: when set and enabled, only these knowledge sources answer (empty = all enabled) and the classic store is not mixed in.</summary>
+    public ChatDocumentScope? DocumentScope { get; set; }
     public bool IncludeGraph { get; set; } = true;
     public bool IncludeArtifacts { get; set; } = true;
     public bool IncludeWeb { get; set; }
