@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using PaRuX.Contracts;
 
 namespace PaRuX.Server;
@@ -53,6 +54,7 @@ public static class QuickChatComparisonPolicy
         // A model identifier in Arena is always a basename; never accept arbitrary paths.
         if (name.Length == 0 || name.Length > 240 || name == "." || name == ".."
             || name.IndexOfAny(new[] { '/', '\\', ':', '\0' }) >= 0
+            || name.Any(char.IsControl)
             || string.Equals(name, "Auto", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Select an installed model by file name, not a path or Auto.");
         return name;
