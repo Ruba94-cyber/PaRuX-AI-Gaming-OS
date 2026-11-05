@@ -13,8 +13,10 @@ namespace PaRuX.Server.Orchestration.Gaming;
 /// No memory injection, DLL hooks, online game modifications, EXE patching,
 /// DRM changes, scripting or network I/O. All writes need a fresh owner preview
 /// and explicit separate approval. The AI cannot approve a preview.
-/// The mod remains active until the owner restores it. No false auto-rollback
-/// guarantee is made if PaRuX or the OS crashes.
+/// Once the exact original process has exited, an opt-in-background recovery
+/// pass restores unchanged temporary edits using the receipt. Conflicts keep
+/// their backup for manual recovery; a running game is never force-restored.
+
 /// </summary>
 public sealed class TemporaryGameModService
 {
@@ -35,6 +37,7 @@ public sealed class TemporaryGameModService
     private readonly string _managedRoot;
     private readonly string _journalRoot;
     private readonly Func<int, DateTime, string, bool> _pausedIdentity;
+    private readonly Func<int, DateTime, bool> _processAlive;
     private readonly object _gate = new();
     private readonly Dictionary<string, Proposal> _proposals = new();
 
@@ -45,12 +48,14 @@ public sealed class TemporaryGameModService
             (pid, started, exe) => !runtime.GamingMode && PausedProcessMatches(quickResume, pid, started, exe)) { }
 
     internal TemporaryGameModService(ManualGameLibrary library, string managedRoot, string journalRoot,
-        Func<int, DateTime, string, bool> pausedIdentity)
+        Func<int, DateTime, string, bool> pausedIdentity,
+        Func<int, DateTime, bool>? processAlive = null)
     {
         _library = library;
         _managedRoot = Path.GetFullPath(managedRoot);
         _journalRoot = Path.GetFullPath(journalRoot);
         _pausedIdentity = pausedIdentity;
+        _processAlive = processAlive ?? ProcessStillAlive;
     }
 
     private static bool PausedProcessMatches(QuickResumeService service, int pid, DateTime startedUtc, string exe)
@@ -292,35 +297,131 @@ public sealed class TemporaryGameModService
         lock (_gate)
         {
             using FileStream lease = AcquireLease();
-            if (request.ModId is not { Length: 32 } ||
-                !request.ModId.All(Uri.IsHexDigit)) throw new ArgumentException("Invalid mod id.");
+            if (request.ModId is not { Length: 32 } || !request.ModId.All(Uri.IsHexDigit))
+                throw new ArgumentException("Invalid mod id.");
             string file = JournalPath(request.ModId);
             if (!File.Exists(file)) return false;
-            Journal journal = JsonSerializer.Deserialize<Journal>(File.ReadAllText(file))
-                ?? throw new InvalidDataException("Temporary mod recovery receipt is invalid.");
-            string target = ResolveTarget(journal.ManualGameId, journal.RelativePath, out ManualGameDto game);
-            if (!string.Equals(target, journal.Target, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("The game directory changed; restore was not attempted.");
-            // Only restore when the same game is paused or has exited. Never
-            // mutate the config while it may be actively writing saves/settings.
-            if (ProcessStillAlive(journal.ProcessId, journal.StartedUtc))
-                RequirePause(game, journal.ProcessId, journal.StartedUtc);
-            byte[] original = Convert.FromBase64String(journal.OriginalBase64);
-            if (Digest(original) != journal.OriginalSha)
-                throw new InvalidDataException("Original file backup failed integrity validation.");
-            byte[] current = File.ReadAllBytes(target);
-            string currentHash = Digest(current);
-            if (currentHash != journal.ModifiedSha && currentHash != journal.OriginalSha)
-                throw new InvalidOperationException("Game or user changed this file after the mod; manual conflict resolution is required.");
-            if (currentHash != journal.OriginalSha)
-            {
-                string temp = target + ".parux-restore-" + journal.Id + ".tmp";
-                try { File.WriteAllBytes(temp, original); File.Move(temp, target, overwrite: true); }
-                finally { if (File.Exists(temp)) File.Delete(temp); }
-            }
-            File.Delete(file);
+            Journal journal = ReadJournal(file);
+            RestoreJournal(journal, file, automatic: false);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Idempotent, bounded recovery for temporary mods only AFTER their exact
+    /// paused game process has exited. This is the implicit rollback selected
+    /// by approving a temporary mod, not permission to touch a running game.
+    /// Conflicting edits, unsafe links, missing backups and new game instances
+    /// keep their journal for the owner's manual recovery.
+    /// </summary>
+    public int RestoreExited()
+    {
+        lock (_gate)
+        {
+            using FileStream lease = AcquireLease();
+            int restored = 0;
+            foreach (Journal journal in ReadJournals())
+            {
+                try
+                {
+                    if (_processAlive(journal.ProcessId, journal.StartedUtc))
+                        continue;
+                    RestoreJournal(journal, JournalPath(journal.Id), automatic: true);
+                    restored++;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                    InvalidOperationException or InvalidDataException or ArgumentException or
+                    System.Security.SecurityException)
+                {
+                    // Never discard the backup if the mod changed, game relaunched,
+                    // access was lost, or the journal cannot be trusted.
+                }
+            }
+            return restored;
+        }
+    }
+
+    private Journal ReadJournal(string path)
+    {
+        if (new FileInfo(path) is not { Exists: true } info || info.Length > MaxTextBytes * 3 ||
+            info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("Temporary mod recovery receipt is unsafe.");
+        Journal journal = JsonSerializer.Deserialize<Journal>(File.ReadAllText(path))
+            ?? throw new InvalidDataException("Temporary mod recovery receipt is invalid.");
+        if (journal.Id is not { Length: 32 } || !journal.Id.All(Uri.IsHexDigit) ||
+            !string.Equals(path, JournalPath(journal.Id), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Temporary mod recovery receipt identity changed.");
+        return journal;
+    }
+
+    private void RestoreJournal(Journal journal, string receiptPath, bool automatic)
+    {
+        string target = ResolveTarget(journal.ManualGameId, journal.RelativePath, out ManualGameDto game);
+        if (!string.Equals(target, journal.Target, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The game directory changed; restore was not attempted.");
+        bool originalAlive = _processAlive(journal.ProcessId, journal.StartedUtc);
+        if (automatic && originalAlive)
+            throw new InvalidOperationException("The paused game has not exited.");
+        if (originalAlive)
+            RequirePause(game, journal.ProcessId, journal.StartedUtc);
+        // A user may have immediately relaunched the game. Never restore a
+        // configuration that an active successor process may be editing.
+        if (!originalAlive && IsAnyGameInstanceRunning(game.ExecutablePath))
+            throw new InvalidOperationException("The game has restarted; close it before restoring the original.");
+        byte[] original;
+        try { original = Convert.FromBase64String(journal.OriginalBase64); }
+        catch (FormatException) { throw new InvalidDataException("The original config backup is malformed."); }
+        if (Digest(original) != journal.OriginalSha)
+            throw new InvalidDataException("Original file backup failed integrity validation.");
+        byte[] current = File.ReadAllBytes(target);
+        string currentHash = Digest(current);
+        if (currentHash != journal.ModifiedSha && currentHash != journal.OriginalSha)
+            throw new InvalidOperationException("Game or user changed this file after the mod; manual conflict resolution is required.");
+        if (currentHash != journal.OriginalSha)
+        {
+            string temp = target + ".parux-restore-" + journal.Id + ".tmp";
+            try
+            {
+                File.WriteAllBytes(temp, original);
+                if (_processAlive(journal.ProcessId, journal.StartedUtc) && automatic)
+                    throw new InvalidOperationException("Game resumed before automatic restore.");
+                if (IsAnyGameInstanceRunning(game.ExecutablePath) && !originalAlive)
+                    throw new InvalidOperationException("The game started while its original config was being prepared.");
+                if (Digest(File.ReadAllBytes(target)) != currentHash)
+                    throw new InvalidOperationException("The game config changed during restore; original backup retained.");
+                File.Move(temp, target, overwrite: true);
+            }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+        }
+        File.Delete(receiptPath);
+    }
+
+    private static bool IsAnyGameInstanceRunning(string exe)
+    {
+        // Background recovery runs on Windows in production. When a matching
+        // process exists but its path is unreadable, reject rather than guess.
+        if (!OperatingSystem.IsWindows()) return false;
+        Process[] processes;
+        try { processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(exe)); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        { return true; }
+        foreach (Process process in processes)
+        {
+            using (process)
+            {
+                try
+                {
+                    if (!process.HasExited &&
+                        string.Equals(Path.GetFullPath(process.MainModule?.FileName ?? ""),
+                            Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or
+                    System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+                { return true; }
+            }
+        }
+        return false;
     }
 
     private static bool ProcessStillAlive(int pid, DateTime started)
@@ -338,7 +439,7 @@ public sealed class TemporaryGameModService
 
     private static GameTemporaryModDto ToDto(Journal x) => new(
         x.Id, x.GameName, x.RelativePath, x.AppliedUtc, x.OriginalSha, x.ModifiedSha,
-        "Temporary config edit. Restore explicitly after play; the game may need restart to load config changes.");
+        "Temporary config edit. PaRuX tries to restore the original automatically after the game exits; if the file changes, recover manually. The game may require a restart to load config changes.");
 
     private string JournalPath(string id) => Path.Combine(_journalRoot, "mod-" + id + ".json");
 

@@ -316,6 +316,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<GamingGuardService>();
     builder.Services.AddHostedService<PaRuX.Server.Orchestration.Gaming.QuickResumeRecoveryHostedService>();
+    builder.Services.AddHostedService<PaRuX.Server.Orchestration.Gaming.TemporaryGameModRecoveryHostedService>();
     builder.Services.AddHostedService(sp => sp.GetRequiredService<WorkloadOrchestrator>());
     builder.Services.AddHostedService<AgentSchedulerHostedService>();
     builder.Services.AddHostedService(sp => new AutoMaintenanceHostedService(sp.GetRequiredService<AutoMaintenanceService>()));

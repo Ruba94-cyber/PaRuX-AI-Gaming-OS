@@ -15,6 +15,7 @@ public sealed class TemporaryGameModServiceTests : IDisposable
     private readonly DateTime _started = new(2026, 11, 05, 10, 0, 0, DateTimeKind.Utc);
     private ManualGameLibrary _library = null!;
     private bool _paused = true;
+    private bool _alive = true;
     private string _entryId = "";
     private string ManagedRoot => Path.Combine(_root, "portable-games");
     private string Config => Path.Combine(ManagedRoot, _gameId, "config", "settings.ini");
@@ -39,7 +40,8 @@ public sealed class TemporaryGameModServiceTests : IDisposable
     private TemporaryGameModService Service() =>
         new(_library, ManagedRoot, Backups, (pid, started, exe) =>
             _paused && pid == 999999 && QuickResumePolicy.SameProcess(_started, started)
-                && exe.EndsWith("Demo.exe", StringComparison.OrdinalIgnoreCase));
+                && exe.EndsWith("Demo.exe", StringComparison.OrdinalIgnoreCase),
+            (_, _) => _alive);
 
     private GameModProposalRequest Proposed(string path = "config/settings.ini", bool offline = true) =>
         new(_entryId, 999999, _started, path, "[video]\nbrightness=2\n", offline);
@@ -71,6 +73,33 @@ public sealed class TemporaryGameModServiceTests : IDisposable
         Assert.True(Service().Restore(new GameModRestoreRequest(applied.Id, true)));
         Assert.Equal(baseline, File.ReadAllText(Config));
         Assert.Empty(service.List());
+    }
+
+    [Fact]
+    public void Auto_recovery_never_edits_a_live_game_then_restores_after_exit()
+    {
+        var service = Service();
+        string original = File.ReadAllText(Config);
+        var applied = service.Apply(new(service.Preview(Proposed()).PreviewId, true));
+        Assert.Equal(0, service.RestoreExited()); // captured PID is still alive
+        Assert.Single(service.List());
+        _alive = false;
+        Assert.Equal(1, Service().RestoreExited()); // survives service restart
+        Assert.Equal(original, File.ReadAllText(Config));
+        Assert.Empty(service.List());
+        Assert.Equal(0, service.RestoreExited()); // idempotent after restart
+    }
+
+    [Fact]
+    public void Auto_recovery_keeps_conflicting_user_change_and_original_receipt()
+    {
+        var service = Service();
+        service.Apply(new(service.Preview(Proposed()).PreviewId, true));
+        File.WriteAllText(Config, "[video]\\nbrightness=custom\\n");
+        _alive = false;
+        Assert.Equal(0, Service().RestoreExited());
+        Assert.Equal("[video]\\nbrightness=custom\\n", File.ReadAllText(Config));
+        Assert.Single(service.List());
     }
 
     [Fact]

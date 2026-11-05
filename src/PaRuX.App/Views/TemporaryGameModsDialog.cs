@@ -152,7 +152,7 @@ internal static class TemporaryGameModsDialog
         {
             Text = preview.GameName + " · " + preview.RelativePath +
                 Environment.NewLine +
-                T("Backups are kept until you explicitly restore. Games may not read config changes until restart.",
+                T("PaRuX will restore the original after the game exits if the file is unchanged. Conflicts keep their backups for manual restore. Games may require restart.",
                   "Il backup resta finché non ripristini manualmente. Il gioco potrebbe leggere le modifiche solo al riavvio."),
             TextWrapping = TextWrapping.Wrap
         });
@@ -172,7 +172,7 @@ internal static class TemporaryGameModsDialog
         await MessageAsync(root,
             applied.Succeeded ? T("Mod applied", "Mod applicata") : T("Mod refused", "Mod rifiutata"),
             applied.Succeeded
-                ? T("Text config updated and original backed up. Restore it from AI Game Mods after play.",
+                ? T("Config updated and backup saved. PaRuX restores it after game exit when safe; use AI Game Mods to resolve conflicts.",
                     "Configurazione modificata e originale salvato. Ripristina la mod da AI Game Mods dopo il gioco.")
                 : applied.Error ?? T("The game resumed, file changed or preview expired. No new write was authorized.",
                     "Il gioco è stato ripreso, il file cambiato o l'anteprima scaduta. Nessuna scrittura autorizzata."));
