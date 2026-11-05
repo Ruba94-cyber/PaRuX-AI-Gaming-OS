@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Providers;
 
@@ -62,7 +63,10 @@ public static class GamingEndpoints
                 // Never echo user-supplied JSON, filenames, tokens or launch arguments.
                 return Results.BadRequest(new { error = "Unsupported or invalid external library JSON export." });
             }
-        }).RequireDesktopOwner();
+        }).RequireDesktopOwner()
+          // Encoded JSON requires some escaping headroom beyond the 512k-character
+          // inner export cap; still refuse multi-megabyte request bodies at HTTP entry.
+          .WithMetadata(new RequestSizeLimitAttribute(3_200_000));
 
         // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
         app.MapGet("/api/v1/gaming/library/discover/steam", (
