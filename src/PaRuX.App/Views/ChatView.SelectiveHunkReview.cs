@@ -263,35 +263,23 @@ namespace PaRuX.Views
                     .GetRepositorySetAsync(taskId, CancellationToken.None);
                 string currentRoot = AgentRepositoryApplyAuthority.RequireSinglePrimaryRoot(
                     currentAuthority, taskId);
-                if (!nowApproved || !string.Equals(nowVerified, verified, StringComparison.Ordinal)
-                    || !string.Equals(Path.GetFullPath(currentRoot),
-                        Path.GetFullPath(repositoryRoot), StringComparison.OrdinalIgnoreCase))
-                {
-                    ShowTransientStatus(GameUi.T("Task approval or repository authority changed.",
-                        "L'approvazione o l'autorizzazione del repository sono cambiate."));
-                    return;
-                }
                 string? freshOriginal = ShadowWorkspaceService.IsShadowRepository(currentRoot)
                     ? ShadowWorkspaceService.TryGetOriginalPath(currentRoot)
                     : currentRoot;
-                if (string.IsNullOrWhiteSpace(freshOriginal)
-                    || !string.Equals(Path.GetFullPath(freshOriginal),
-                        Path.GetFullPath(targetRoot), StringComparison.OrdinalIgnoreCase))
-                {
-                    ShowTransientStatus(GameUi.T("Original workspace authority changed.",
-                        "L'autorizzazione della cartella originale è cambiata."));
-                    return;
-                }
                 string? newFingerprint = await FingerprintReviewedTaskDiffAsync(
                     currentAuthority, worktree, false, CancellationToken.None);
                 CodingHunkDiffRead freshDiff = await CodingHunkReviewDiffReader.ReadAsync(
                     worktree, relativePath, CancellationToken.None);
-                if (!string.Equals(newFingerprint, verified, StringComparison.Ordinal)
-                    || !freshDiff.Ready || !string.Equals(freshDiff.Diff, fetched.Diff, StringComparison.Ordinal))
+                if (!freshDiff.Ready || !CodingSelectiveHunkAdmissionPolicy.Allows(
+                    nowApproved, verified, nowVerified,
+                    initialFingerprint, newFingerprint,
+                    repositoryRoot, currentRoot,
+                    targetRoot, freshOriginal,
+                    fetched.Diff, freshDiff.Diff))
                 {
                     ShowTransientStatus(GameUi.T(
-                        "The task diff changed after review. Nothing was applied.",
-                        "Il diff del task è cambiato dopo la revisione. Nessuna modifica applicata."));
+                        "Core approval, the verified worktree, the selected diff or the destination changed. Nothing was applied.",
+                        "L'approvazione di Core, il task verificato, il diff scelto o la destinazione sono cambiati. Nessuna modifica applicata."));
                     return;
                 }
                 CodingHunkPreviewResult freshCandidate = await Task.Run(() =>
