@@ -41,8 +41,31 @@ public static class GamingEndpoints
         { return Results.Problem(operation + " metadata could not be read."); }
     }
 
+    /// <summary>Desktop-owner-supplied export bytes only; no server-side file access.</summary>
+    public sealed record ExternalLibraryPreviewRequest(string? Provider, string? Json);
+
     public static void MapGamingEndpoints(this WebApplication app)
     {
+        // Read-only preview of user-supplied JSON. This cannot inspect local files,
+        // launch games or add entries to ManualGameLibrary. Desktop-only, Gaming hard-off.
+        app.MapPost("/api/v1/gaming/library/import-preview", (
+            ExternalLibraryPreviewRequest request, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "External library preview is disabled while Gaming." });
+            try
+            {
+                IReadOnlyList<ExternalLibraryGame> preview =
+                    ExternalGameLibraryExportParser.Parse(request.Provider ?? string.Empty, request.Json ?? string.Empty);
+                return Results.Ok(preview);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or JsonException)
+            {
+                // Never echo user-supplied JSON, filenames, tokens or launch arguments.
+                return Results.BadRequest(new { error = "Unsupported or invalid external library JSON export." });
+            }
+        }).RequireDesktopOwner();
+
         // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
         app.MapGet("/api/v1/gaming/library/discover/steam", (
             SteamGameDiscoveryProvider provider, LocalRuntimeService runtime, CancellationToken ct) =>
