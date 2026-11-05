@@ -1,3 +1,8 @@
+## 2026-11-05 — L8 owner-only local game document Chat preparation (SOURCE WIP)
+
+- `POST /api/v1/gaming/assistant/prepare` now binds the selected manual-library game ID to a real owner-registered game, explicit question and 1–64 currently enabled AND nonempty indexed source IDs. It rejects an empty scope (never fallback to every enabled folder), stale/unindexed IDs, Gaming/transition state, and unapproved clients. Returns only a bounded typed question and existing Chat document scope for a separate user-initiated Chat turn; no game binaries, AI inference, GPU allocation or network access. Synthetic policy/HTTP admission tests authored, NOT RUN.
+- UI source picker, actual Chat invocation, process-attested current-game identity, Windows compilation/FlaUI and GPU isolation remain PARTIAL/OPEN.
+
 ## 2026-11-05 — Legacy native process test capture recovered (SOURCE WIP)
 
 - Restored stdout/stderr separate native process collection and exit code preservation for .NET xUnit and Node browser gates, and Windows native/PowerShell failure sentinels via `-SelfTestNativeProcessCapture`. Old test runner from the feature branch was adapted to main's newer filters; other optional gates remain as before. Not yet run on Windows PowerShell/pwsh.

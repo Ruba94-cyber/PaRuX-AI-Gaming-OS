@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using PaRuX.Server.Knowledge;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Providers;
 
@@ -122,6 +123,60 @@ public static class GamingEndpoints
             { return Results.BadRequest(new { error = "Invalid external library identifier." }); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { return Results.Problem("Saved library metadata could not be changed."); }
+        }).RequireDesktopOwner();
+
+        // L8: a read-only, owner-prepared Chat handoff for a MANUALLY
+        // registered game and explicitly selected indexed local sources.
+        // Preparing never runs inference, changes Chat scope or wakes the GPU.
+        app.MapPost("/api/v1/gaming/assistant/prepare", (
+            LocalGameGuideRequest request, ManualGameLibrary library,
+            KnowledgeJobService knowledge, WorkloadOrchestrator orchestrator,
+            LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode || orchestrator.GetStatus() is not
+                { IsGamingActive: false, State: "AiReady" })
+                return Results.Conflict(new { error = "Exit Gaming and restore AI before preparing guide Chat." }) as IResult;
+            if (request is null || !request.Consent || request.SourceIds is null
+                || request.SourceIds.Count is < 1 or > 64
+                || string.IsNullOrWhiteSpace(request.ManualGameId)
+                || request.ManualGameId.Length > 100)
+                return Results.BadRequest(new { error = "Explicit consent, a saved game and 1 to 64 selected sources are required." });
+
+            try
+            {
+                ManualGameDto? game = library.List().FirstOrDefault(item =>
+                    item.Id == request.ManualGameId &&
+                    string.Equals(item.Kind, ManualEntryKinds.Game, StringComparison.OrdinalIgnoreCase));
+                if (game is null) return Results.NotFound(new { error = "Selected local game not found." });
+
+                // Every ID must exist, still be enabled AND have indexed content.
+                // Never use ScopedSourceIds(empty): the general Chat contract
+                // interprets an empty scope as ALL enabled document folders.
+                var enabled = new HashSet<string>(knowledge.EnabledSourceIds(), StringComparer.Ordinal);
+                var verified = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string? sourceId in request.SourceIds)
+                {
+                    if (string.IsNullOrWhiteSpace(sourceId) || sourceId.Length > 200
+                        || sourceId.Any(char.IsControl) || !enabled.Contains(sourceId))
+                        return Results.BadRequest(new { error = "A selected local document source is not enabled." });
+                    if (!verified.Add(sourceId)) continue;
+                    if (knowledge.Index.Stats(sourceId).chunks <= 0)
+                        return Results.Conflict(new { error = "A selected guide has no indexed content." });
+                }
+
+                LocalGameChatPlan prepared = LocalGameChatPolicy.Build(
+                    game.Name, request.Question, true, request.SourceIds, verified);
+                if (!prepared.Ready || prepared.Documents is null)
+                    return Results.BadRequest(new { error = "The game question or selected document scope is invalid." });
+                if (runtime.GamingMode || orchestrator.GetStatus() is not
+                    { IsGamingActive: false, State: "AiReady" })
+                    return Results.Conflict(new { error = "Gaming started while preparing the guide." });
+                return Results.Ok(new LocalGameGuidePreparationDto(
+                    prepared.QuestionForChat, prepared.Documents, prepared.Explanation));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidDataException or System.Text.Json.JsonException)
+            { return Results.Problem("Local game or indexed-guide metadata could not be verified."); }
         }).RequireDesktopOwner();
 
         // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
