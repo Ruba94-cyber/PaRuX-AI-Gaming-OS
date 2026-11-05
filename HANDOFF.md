@@ -25,6 +25,25 @@ Truth order: code > tests > live evidence > PARUX_EXECUTION_PLAN.md. Repo is PUB
 - Agent branches (worktree-agent-*) are all merged into main; WIP of stopped agents was committed on their branches.
 
 ## 2026-11-05 continuation on main: manual Steam prices (WIP)
+## 2026-11-05 continuation: automatic verified ZIP portable game deployment (SOURCE WIP)
+
+- `GameDownloadRequest` has **default-OFF** `AutoInstallPortable`, `PortableExecutableRelativePath`, `PortableGameTitle`. Enqueue demands .zip output, independently obtained 64-hex SHA-256, valid safe relative game EXE and title, and confirmation in the IT/EN Games Downloads UI. No content distributor, torrent title or AI agent can opt in implicitly.
+- `PortableGameInstallService` (Core DI registered) handles completed verified archives after HTTPS/magnet/.torrent: byte rehash and read-only share lease; bounded ZIP member inventory, duplicate/path/symlink detection; existing safe extractor to managed partial; same-volume directory rename; `ManualGameLibrary.Add` with the user-chosen game executable. It does NOT execute any installer or launch the game. Cancellation/Gaming and validation errors retain the original archive; managed temporary files are rolled back where safe.
+- Distinct PostInstallState is available in download DTO/history/UI. Synthetic `PortableGameInstallServiceTests`, `GameDownloadManagerTests` (local HTTP ZIP full path + invalid ZIP) and UI opt-out assertions are authored, **NOT COMPILED OR RUN**. The downloaded archive is not equated to a trusted publisher merely because bytes match an expected SHA-256.
+- `AutoInstallPortable` does **not** support 7z/RAR/ISO or split/multi-file torrent packages; no arbitrary setup EXE, silent MSI, scripts, EULA automation, DRM workarounds, source catalogues or unattended elevation. Need a separately risk-reviewed signed-provider installer adapter and transactional recovery design before offering those.
+
+On developer Windows PC run after pulling main, with no other PaRuX/FlaUI instance:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
+dotnet restore src/PaRuX.App/PaRuX.App.csproj -p:Platform=x64
+dotnet build src/PaRuX.App -p:Platform=x64
+dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~PortableGameInstallServiceTests|FullyQualifiedName~GameDownloadManagerTests|FullyQualifiedName~EmbeddedTorrentTransportTests|FullyQualifiedName~GameDownloadTorrentTests|FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate-license-inventory.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Smoke
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Regression
+```
+
 ## 2026-11-05 continuation on main: native torrent transfers (GOS-13, SOURCE WIP)
 
 Owner asked for Hydra-like in-app torrent management without qBittorrent as a mandatory external program. Existing HTTPS queue plus an optional qBittorrent WebUI adapter were preserved. **Source implemented on `main`, NOT BUILT/TESTED on Windows:** `src/PaRuX.Server/Orchestration/Gaming/Downloads/EmbeddedTorrentTransport.cs` uses MIT `MonoTorrent 3.0.2` packaged in Core, limited to explicitly user-selected v1 single-file magnets/`.torrent`; per-job transport assignment and new DI registration; no implicit torrent catalogue or repack sources. Existing queue pause/cancel, Gaming hard-off, rehash before publish and optional external qBittorrent remain. UI Games Downloads now supports source kind + local .torrent picker, consent warning about peers seeing IP, accessible progress indicators and visible-activity-only refresh; client/status owner-only endpoint. Corporate Lite denies Gaming endpoints. `THIRD_PARTY_NOTICES.md`, README and canonical plan are updated.
