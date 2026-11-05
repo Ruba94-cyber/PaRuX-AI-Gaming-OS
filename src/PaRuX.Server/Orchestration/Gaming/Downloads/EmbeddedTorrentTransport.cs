@@ -165,9 +165,8 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
             {
                 try { await manager.StopAsync(StopDeadline).ConfigureAwait(false); }
                 catch (Exception) { /* stopping a failed engine is best effort */ }
-                if (engine is not null)
-                    try { await engine.RemoveAsync(manager, RemoveMode.KeepAllData).ConfigureAwait(false); }
-                    catch (Exception) { /* directory is checked and managed separately */ }
+                // The engine belongs to this job and is disposed below. Removing
+                // the manager is unnecessary and could delete its resume staging.
             }
             try { engine?.Dispose(); } catch (Exception) { }
             _active.TryRemove(job.Id, out _);
@@ -208,7 +207,7 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
             throw new GameDownloadException("Torrent metadata does not match the selected content hash.");
         Torrent torrent;
         try { torrent = Torrent.Load(metadataBytes); }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or IOException)
+        catch (Exception ex) when (ex is not GameDownloadException and not OperationCanceledException)
         { throw new GameDownloadException("The embedded engine could not parse this torrent."); }
 
         if (torrent.Files.Count != 1 || torrent.Size <= 0 || torrent.Size > maximumBytes)
