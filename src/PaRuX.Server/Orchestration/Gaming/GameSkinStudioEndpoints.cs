@@ -32,6 +32,24 @@ public static class GameSkinStudioEndpoints
             { return Results.Problem("Local skin generation is unavailable. No game files were changed."); }
         }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(16_384));
 
+        app.MapPost("/api/v1/gaming/mods/skin-studio/restyle", async (
+            GameSkinRestyleRequest request, GameSkinStudioService studio,
+            LocalRuntimeService runtime, CancellationToken ct) =>
+        {
+            try
+            {
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                    ct, runtime.GamingCancellationToken);
+                return Results.Ok(await studio.RestyleDraftAsync(request, linked.Token)) as IResult;
+            }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted the AI skin restyle." }); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or
+                UnauthorizedAccessException or PlatformNotSupportedException or TimeoutException)
+            { return Results.Problem("Could not safely restyle this Minecraft skin; no original files were changed."); }
+        }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(3_000_000));
+
         app.MapGet("/api/v1/gaming/mods/skin-studio/drafts",
             (GameSkinStudioService studio) => Results.Ok(studio.ListDrafts()))
             .RequireDesktopOwner();
