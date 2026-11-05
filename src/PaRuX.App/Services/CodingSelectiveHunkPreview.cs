@@ -109,6 +109,7 @@ namespace PaRuX.Services
             !string.IsNullOrWhiteSpace(path) && path.Length <= 512
             && !path.StartsWith("/", StringComparison.Ordinal)
             && !path.Contains('\\') && !path.Contains(':') && !path.Contains('\0')
-            && path.Split('/').All(part => part.Length > 0 && part != "." && part != "..");
+            && path.Split('/').All(part => part.Length > 0 && part != "." && part != ".."
+                && !part.Any(char.IsControl) && !part.Any(char.IsWhiteSpace));
     }
 }
