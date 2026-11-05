@@ -48,8 +48,13 @@ namespace PaRuX.Services
 
         /// <summary>Read the two-model Chat projection; outputs stay in the existing local Core.</summary>
         public Task<ArenaQuickCompareViewDto> GetQuickCompareAsync(string id, CancellationToken ct) =>
+            GetQuickCompareAsync(id, italian: false, ct);
+
+        /// <summary>Use locally selected UI language; no server-side locale inference.</summary>
+        public Task<ArenaQuickCompareViewDto> GetQuickCompareAsync(string id, bool italian, CancellationToken ct) =>
             SendAsync<ArenaQuickCompareViewDto>(HttpMethod.Get,
-                "/api/v1/models/arena/quick-compare/" + Uri.EscapeDataString(id), null, ct);
+                "/api/v1/models/arena/quick-compare/" + Uri.EscapeDataString(id)
+                    + (italian ? "?language=it" : "?language=en"), null, ct);
 
         public Task CancelAsync(string id, CancellationToken ct) =>
             SendAsync<object>(HttpMethod.Post, "/api/v1/models/arena/runs/" + Uri.EscapeDataString(id) + "/cancel", null, ct, allowEmpty: true);
