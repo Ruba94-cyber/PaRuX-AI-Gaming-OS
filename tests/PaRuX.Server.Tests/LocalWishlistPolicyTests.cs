@@ -9,7 +9,10 @@ public sealed class LocalWishlistPolicyTests
         new(2026, 11, 5, 10, 0, 0, TimeSpan.Zero);
 
     private static LocalWishlistEntry Entry(bool optedIn = true, string currency = "EUR") =>
-        new("steam", "42", "Synthetic Puzzle", currency, 2500, optedIn);
+        new("steam", "42", "Synthetic Puzzle", currency, 2500, optedIn)
+        {
+            StoreCountryCode = "IT"
+        };
 
     [Fact]
     public void Adding_an_item_does_not_change_the_existing_list_or_auto_opt_in()
@@ -48,10 +51,14 @@ public sealed class LocalWishlistPolicyTests
     [Fact]
     public void Price_alert_requires_opt_in_and_correct_product_currency_and_store()
     {
-        var sample = new PublicStorePriceSample("steam", "42", "EUR", 1999, Now);
+        var sample = new PublicStorePriceSample("steam", "42", "EUR", 1999, Now) { StoreCountryCode = "IT" };
         Assert.True(LocalWishlistPolicy.Evaluate(Entry(), sample, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(optedIn: false), sample, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(currency: "USD"), sample, Now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(Entry() with { StoreCountryCode = "FR" }, sample, Now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(Entry() with { StoreCountryCode = null }, sample, Now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(Entry(), sample with { StoreCountryCode = null }, Now).NotifyEligible);
+        Assert.False(LocalWishlistPolicy.Evaluate(Entry(), sample with { StoreCountryCode = "DE" }, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(), sample with { ProductId = "77" }, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(), sample with { Store = "other" }, Now).NotifyEligible);
     }
@@ -59,12 +66,23 @@ public sealed class LocalWishlistPolicyTests
     [Fact]
     public void Stale_future_or_above_target_samples_are_not_eligible()
     {
-        var sample = new PublicStorePriceSample("steam", "42", "EUR", 2501, Now);
+        var sample = new PublicStorePriceSample("steam", "42", "EUR", 2501, Now) { StoreCountryCode = "IT" };
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(), sample, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(),
             sample with { PriceMinor = 1000, ObservedAtUtc = Now.AddHours(-25) }, Now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(Entry(),
             sample with { PriceMinor = 1000, ObservedAtUtc = Now.AddMinutes(5) }, Now).NotifyEligible);
+    }
+
+    [Fact]
+    public void Opted_in_wishlist_requires_a_valid_selected_store_country()
+    {
+        Assert.NotNull(LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(),
+            Entry() with { StoreCountryCode = null }).Error);
+        Assert.NotNull(LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(),
+            Entry() with { StoreCountryCode = "ITA" }).Error);
+        Assert.Null(LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(),
+            Entry() with { StoreCountryCode = "it" }).Error);
     }
 
     [Fact]
