@@ -101,6 +101,14 @@ public sealed class AgentLibraryBackend : IAgentLibraryBackend
         return await GameDiscoverRuntime.For(scope.ServiceProvider).Service.RecommendAsync(library, ct).ConfigureAwait(false);
     }
 
+    public Task<GameModPreviewDto> ProposeTemporaryModAsync(GameModProposalRequest request, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // One shared, owner-authorized service performs the same checks as the desktop mod UI.
+        // This tool may PREPARE a preview only; no model tool can apply/restore the edit.
+        return Task.FromResult(_services.GetRequiredService<TemporaryGameModService>().Preview(request));
+    }
+
     public Task<QuickResumeStatusDto> QuickResumeListAsync(CancellationToken ct) => Task.Run(() => _quickResume.List(), ct);
     public Task<QuickResumeActionResult> QuickResumeSuspendAsync(QuickResumeActionRequest request, CancellationToken ct) =>
         _quickResume.SuspendAsync(request, ct);
