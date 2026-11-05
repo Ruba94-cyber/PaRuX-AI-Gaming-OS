@@ -1,3 +1,9 @@
+### 2026-11-05 — Bind mod ZIP install/remove to verified game EXE (SOURCE WIP)
+
+- Opt-in ZIP mod install now requires the actual local game executable in addition to the owner confirmation, and conservatively checks its Windows process identity before installing, again before publish, and again before SHA-checked removal. A paused/suspended process is still running and blocks. Invalid/linked/system executables and inaccessible same-name processes fail closed.
+- The recovery receipt persists the chosen game EXE. Older receipts without a bound game process are visible but cannot authorize deleting an existing ZIP. Added game EXE picker, installed-mod identity display, relaunch-race and OS process probe synthetic regression sources.
+- Does not attest every differently named helper process, online state, game engine, or actual mod loader compatibility. Windows build and live OS/process/FlaUI acceptance are NOT RUN.
+
 ### 2026-11-05 — Consent-gated ZIP mod folder deployment (SOURCE WIP)
 
 - Opt-in game-independent ZIP mod delivery now supports only an existing folder selected by the owner and independently documented to accept this exact package layout. New-file-only atomic placement, SHA validation, pre-copy recovery receipt, installation inventory and SHA-checked manual removal with changed-file retention; disabled during Gaming and requires the game to be closed.
