@@ -5,12 +5,12 @@ namespace PaRuX.Server.Orchestration.Gaming;
 
 /// <summary>
 /// Transient, caller-owned state. The process stamp must come from a trusted
-/// PID + start-time identity check; a process name alone is not sufficient.
+/// PID + start-time identity check; a process name alone is not sufficient.\n/// Changing a rule snapshot resets elapsed observation time.
 /// The monotonic time is injected by the existing host (never DateTime.Now).
 /// </summary>
 public sealed record GameSuspendDebounceState(
-    string GameId, string VerifiedProcessStamp, GameSuspendTrigger Trigger,
-    TimeSpan FirstObservedAt, TimeSpan LastObservedAt);
+    GameAutoSuspendRule RuleSnapshot, string VerifiedProcessStamp,
+    GameSuspendTrigger Trigger, TimeSpan FirstObservedAt, TimeSpan LastObservedAt);
 
 public sealed record GameSuspendDebounceResult(
     GameSuspendDebounceState? NextState, GameAutoSuspendDecision Decision,
@@ -47,7 +47,7 @@ public static class GameSuspendDebouncePolicy
         if (!proposal.Eligible || rule is null) return Reset(proposal.Reason);
 
         bool same = prior is not null
-            && string.Equals(prior.GameId, rule.GameId, StringComparison.Ordinal)
+            && prior.RuleSnapshot == rule
             && string.Equals(prior.VerifiedProcessStamp, verifiedProcessStamp, StringComparison.Ordinal)
             && prior.Trigger == proposal.Trigger
             && monotonicNow >= prior.LastObservedAt
@@ -56,7 +56,7 @@ public static class GameSuspendDebouncePolicy
 
         GameSuspendDebounceState next = same
             ? prior!
-            : new GameSuspendDebounceState(rule.GameId, verifiedProcessStamp,
+            : new GameSuspendDebounceState(rule, verifiedProcessStamp,
                 proposal.Trigger, monotonicNow, monotonicNow);
         next = next with { LastObservedAt = monotonicNow };
 
