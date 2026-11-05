@@ -63,10 +63,23 @@ public sealed class TemporaryGameModService
         try
         {
             using Process process = Process.GetProcessById(pid);
-            return !process.HasExited
-                && QuickResumePolicy.SameProcess(process.StartTime.ToUniversalTime(), startedUtc)
-                && string.Equals(Path.GetFullPath(process.MainModule?.FileName ?? ""),
-                    Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase);
+            if (process.HasExited ||
+                !QuickResumePolicy.SameProcess(process.StartTime.ToUniversalTime(), startedUtc) ||
+                !string.Equals(Path.GetFullPath(process.MainModule?.FileName ?? ""),
+                    Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase))
+                return false;
+            // A Quick Resume journal entry is only an intent until Windows
+            // confirms the threads have actually stopped. Mod writes must not
+            // trust that journal alone: fail closed if any observed game thread
+            // is not in a suspended wait. Some games/platforms will be ineligible.
+            int seen = 0;
+            foreach (ProcessThread thread in process.Threads)
+            {
+                seen++;
+                if (thread.ThreadState != System.Diagnostics.ThreadState.Wait ||
+                    thread.WaitReason != ThreadWaitReason.Suspended) return false;
+            }
+            return seen > 0;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException
             or System.ComponentModel.Win32Exception or UnauthorizedAccessException) { return false; }
