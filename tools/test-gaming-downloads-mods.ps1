@@ -26,7 +26,7 @@ try {
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         throw "dotnet is required on this Windows development machine."
     }
-    if (-not $IsWindows -and $PSVersionTable.PSEdition -eq "Core") {
+    if ($PSVersionTable.PSEdition -eq "Core" -and -not $IsWindows) {
         throw "Run this gate on Windows, not in a Linux cloud session."
     }
 
