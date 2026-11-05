@@ -83,6 +83,20 @@ public sealed class QuickChatComparisonPolicyTests
     }
 
     [Fact]
+    public void Very_low_free_vram_never_generates_an_optimistic_media_suggestion()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var lowImage = MediaHardwarePresetPolicy.Suggest("image", 3L * gib, false);
+        var lowVideo = MediaHardwarePresetPolicy.Suggest("video", 7L * gib, false);
+        Assert.False(lowImage.Suggested);
+        Assert.Equal(0, lowImage.Width);
+        Assert.False(lowVideo.Suggested);
+        Assert.Equal(0, lowVideo.Frames);
+        Assert.True(lowImage.RequiresConfirmation);
+        Assert.True(lowVideo.RequiresConfirmation);
+    }
+
+    [Fact]
     public void Hardware_suggestions_are_conservative_estimates()
     {
         var image = MediaHardwarePresetPolicy.Suggest("image", 8L * 1024 * 1024 * 1024, false);
