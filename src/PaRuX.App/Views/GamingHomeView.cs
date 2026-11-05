@@ -47,6 +47,7 @@ internal sealed class GamingHomeView : StackPanel
     private bool _metadataRunning;
     private readonly Button _steamGridDb = new();
     private readonly Button _igdb = new();
+    private readonly Button _externalPreview = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
@@ -338,6 +339,12 @@ internal sealed class GamingHomeView : StackPanel
         _igdb.IsEnabled = _metadata.IsChecked == true;
         _igdb.Click += async (_, _) => await OnIgdbKeyAsync();
 
+        _externalPreview.Content = T("Preview external library", "Anteprima libreria esterna");
+        Track(_externalPreview, "GameHome_ExternalLibraryPreview_Button",
+            T("Preview Playnite, Heroic or Lutris JSON without importing",
+              "Anteprima JSON Playnite, Heroic o Lutris senza importare"));
+        _externalPreview.Click += async (_, _) => await ShowExternalLibraryPreviewAsync();
+
         _refresh.Content = T("Refresh", "Aggiorna");
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
@@ -345,11 +352,91 @@ internal sealed class GamingHomeView : StackPanel
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
                    _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _igdb, _selectMode, _refresh })
+                   _metadata, _steamGridDb, _igdb, _externalPreview, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+    }
+
+    /// <summary>
+    /// Read-only import preview. User supplies JSON explicitly; neither PaRuX nor
+    /// the Core opens an executable, archive or vendor account in this workflow.
+    /// Never echoes untrusted JSON or launch arguments in the output.
+    /// </summary>
+    private async Task ShowExternalLibraryPreviewAsync()
+    {
+        var provider = new ComboBox { Header = T("Export source", "Origine export") };
+        provider.Items.Add(Choice("Playnite", "playnite"));
+        provider.Items.Add(Choice("Heroic", "heroic"));
+        provider.Items.Add(Choice("Lutris", "lutris"));
+        provider.SelectedIndex = 0;
+        AutomationProperties.SetAutomationId(provider, "GameHome_ExternalLibraryProvider");
+        var json = new TextBox
+        {
+            Header = T("Paste JSON export", "Incolla export JSON"),
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            MaxLength = 512000,
+            MinHeight = 100,
+            MaxHeight = 260
+        };
+        AutomationProperties.SetAutomationId(json, "GameHome_ExternalLibraryJson");
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = T("Preview only: no games, launch paths or settings will be imported.",
+                "Solo anteprima: non verranno importati giochi, percorsi di avvio o impostazioni.")
+        });
+        panel.Children.Add(provider);
+        panel.Children.Add(json);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("External library preview", "Anteprima libreria esterna"),
+            Content = panel,
+            PrimaryButtonText = T("Preview", "Anteprima"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        string source = (provider.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+        if (json.Text.Length == 0 || json.Text.Length > 512000) return;
+        _externalPreview.IsEnabled = false;
+        try
+        {
+            GamingCallResult<List<ExternalLibraryGamePreviewDto>> response =
+                await GamingLibraryClient.Current.PreviewExternalLibraryAsync(source, json.Text);
+            var output = new TextBox
+            {
+                IsReadOnly = true,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 100,
+                MaxHeight = 420,
+                Text = response.Succeeded && response.Value is { } games
+                    ? (games.Count == 0
+                        ? T("No supported entries found.", "Nessuna voce supportata trovata.")
+                        : string.Join(Environment.NewLine,
+                            games.Select(g => g.Title + " [" + g.Provider + ": " + g.ExternalId + "]")))
+                    : T("This export could not be previewed. Nothing was imported.",
+                        "Impossibile visualizzare questo export. Non è stato importato nulla.")
+            };
+            AutomationProperties.SetAutomationId(output, "GameHome_ExternalLibraryPreview_Result");
+            var resultDialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Preview results (not imported)", "Risultati anteprima (non importati)"),
+                Content = output,
+                CloseButtonText = T("Close", "Chiudi")
+            };
+            await resultDialog.ShowAsync();
+        }
+        finally
+        {
+            _externalPreview.IsEnabled = true;
+        }
     }
 
     private void RebuildPresetChoices(string? select)
