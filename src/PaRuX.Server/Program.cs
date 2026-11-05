@@ -270,6 +270,7 @@ builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<ManualGameLibrary>();
+builder.Services.AddSingleton<LocalWishlistStore>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.QuickResumeService>();
 builder.Services.AddSingleton<ManualGameSessionService>();
 builder.Services.AddSingleton<SteamGameDiscoveryProvider>();
@@ -3848,6 +3849,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 }).RequireDesktopOwner();
 
 app.MapGamingEndpoints();
+app.MapLocalWishlistEndpoints();
 app.MapGgufQuantizeEndpoints();
 app.MapGameTitleEndpoints();
 PaRuX.Server.Orchestration.AgentLibraryEndpoints.MapAgentLibraryEndpoints(app);
