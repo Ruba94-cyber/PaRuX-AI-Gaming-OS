@@ -453,6 +453,10 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 entry.InstallerRun is not null || entry.ExpectedSha256 is null ||
                 string.IsNullOrEmpty(entry.PublishedPath))
                 throw new InvalidOperationException("This portable install cannot be retried now.");
+            // Re-authorize exactly one owner-requested retry. Removing history
+            // after this check revokes authorization before the install starts.
+            entry.PostInstallState = GamePostInstallStates.Pending;
+            entry.PostInstallMessage = "Owner-approved retry awaiting verification.";
         }
         await RunAutoPortableInstallAsync(entry, ct).ConfigureAwait(false);
         lock (_gate) return ToDto(entry);
