@@ -84,6 +84,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly StackPanel _mainColumn = new() { Spacing = 12 };
     private readonly TextBlock _quickResumeSummary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _quickResumeManage = new() { MinHeight = 44 };
+    private readonly Button _gameAssetStudio = new() { MinHeight = 44 };
     private readonly QuickResumePanel _quickResume = new();
     private List<GameTitleDto> _allTitles = new();
     private bool _recentOnly;
@@ -668,7 +669,16 @@ internal sealed class GamingHomeView : StackPanel
         var quickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         quickRow.Children.Add(_quickResumeManage);
         quickRow.Children.Add(new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center });
+        _gameAssetStudio.Content = T("AI Game Asset Mods", "Mod IA asset dei giochi");
+        Track(_gameAssetStudio, "GameHome_AssetStudio_Open",
+            T("Open local AI texture and asset mod studio for compatible games",
+              "Apri lo studio mod texture e asset IA locale per giochi compatibili"));
+        _gameAssetStudio.Click += async (_, _) =>
+            await GameAssetModStudioDialog.ShowAsync(XamlRoot);
         Children.Add(quickRow);
+        // A first-class gaming-home workspace, not restricted to Minecraft or
+        // requiring a paused game/process. Kept off the tight Quick Resume row.
+        Children.Add(_gameAssetStudio);
 
         _hero.PlayRequested += async t => await PlayAsync(t);
         _hero.DetailsRequested += async t => await OpenAsync(t);
