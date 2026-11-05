@@ -1,3 +1,9 @@
+### 2026-11-05 — Manual Steam wishlist multi-price checks (SOURCE WIP)
+
+- Added a separate, explicit **Check watched prices once** action in the Games wishlist: runs up to eight opted-in, valid Steam items sequentially through the existing owner-only, consented single-price API and shared rate limiter. Skipped items are reported, and currency/storefront-country/target comparisons remain indicative, not a verified Steam account region.
+- Added cancellation of BOTH single and batch quote calls on wishlist dialog closure, blocked conflicting UI actions during a batch, refreshed batch candidates after a user removes an entry, and bounded-scroll dialog layout for small screens. Opening the wishlist never sends price requests. No periodic monitoring, account login, alerts or buying.
+- Added pure policy and FlaUI smoke regression sources. Updated local GOS Windows test selection. **Source only; Windows restore/build/xUnit/FlaUI, live Steam and Gaming-race validation NOT RUN.** No v3.1.0 publication.
+
 ### 2026-11-05 — L8 local guide Chat handoff with explicit indexed sources (SOURCE WIP)
 
 - Added desktop-owner guide preparation API: real saved manual-game identity, consent, 1–64 enabled and indexed local folders, no implicit all-folder fallback, Gaming hard-off and AI-ready recheck. Added Games Home IT/EN dialog, existing RAG folder picker, and a non-sending handoff to the existing Chat composer with source-scope selection and collision refusal.
