@@ -73,6 +73,11 @@ public sealed class PortableGameInstallService
             || !GameInstallerInspectionService.ValidLocalPackagePath(downloadedArchive))
             throw new InvalidDataException("Automatic portable installation supports regular local ZIP packages only.");
 
+        // Hold a read-only share lock for the entire verify/extract transaction.
+        // On Windows this prevents a separate writer from changing the ZIP after
+        // its independent SHA-256 was checked but before extraction completes.
+        using var packageLease = new FileStream(downloadedArchive, FileMode.Open,
+            FileAccess.Read, FileShare.Read);
         var package = new FileInfo(downloadedArchive);
         long bytes = package.Length;
         DateTime modified = package.LastWriteTimeUtc;
@@ -165,9 +170,7 @@ public sealed class PortableGameInstallService
                     x.ExecutablePath.StartsWith(installed + Path.DirectorySeparatorChar,
                         StringComparison.OrdinalIgnoreCase)); }
                 catch (Exception) { referenced = true; }
-                if (!referenced && registration is null)
-                    SafeDeleteOwnedTree(installed);
-                else if (!referenced && registration is not null)
+                if (!referenced)
                     SafeDeleteOwnedTree(installed);
             }
         }
