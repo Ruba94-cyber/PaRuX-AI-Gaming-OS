@@ -1,5 +1,24 @@
 # PaRuX hand-off (written 2026-11-05) - continue on another PC
 
+## 2026-11-05 continuation — torrent fixes and temporary AI game mods (SOURCE WIP)
+
+- Native MonoTorrent stage cleanup is bounded, recursive only for PaRuX-owned GUID stage trees and refuses links. Core DI now explicitly constructs the manager with integrated native torrent and portable ZIP post-deployment services; internal C# type visibility corrected. Actual MonoTorrent 3.0.2 package API and peer transfer NOT COMPILED OR TESTED.
+- New TemporaryGameModService allows owner-approved text-only (.ini/.cfg/.json/.txt) edits to OFFLINE portable games PaRuX manages while the exact Quick Resume process is paused. SHA-bound preview (5-min TTL), original backup journal, atomic replacement, conflict-safe explicit restore. A game may require restart to read changes; no automatic restore at game exit.
+- The AI game_mod_propose tool requires a separate single-use owner confirmation, returns only an in-memory preview ID and cannot apply/restore. Quick Resume UI includes Review AI mods, AI Mod and Restore AI mods, with full before/after human review. Owner-only API GET/POST routes; no online, anti-cheat, memory hooks or EXE/DRM changes.
+- New source-only TemporaryGameModServiceTests, agent consent, browser security and FlaUI checks added. All are AUTHORED-NOT-RUN, not proof of Windows integration.
+
+Run on Windows main after reviewing newest sources and with no other PaRuX instance:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
+    dotnet restore src/PaRuX.App/PaRuX.App.csproj -p:Platform=x64
+    dotnet build src/PaRuX.App -p:Platform=x64
+    dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~EmbeddedTorrentTransportTests|FullyQualifiedName~GameDownloadManagerTests|FullyQualifiedName~PortableGameInstallServiceTests|FullyQualifiedName~TemporaryGameModServiceTests|FullyQualifiedName~LibraryAgentToolsTests|FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
+    dotnet test tests/PaRuX.Server.Tests
+    powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Smoke
+    powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Regression
+
+Required real-world checks: legal local peer swarm and torrent metadata; closed/paused game config before/after review; explicit restore after exit; restart behavior and crash backup recovery; controller and 13-inch IT/EN UI. Multifile torrents and auto-rollback at game exit remain NOT IMPLEMENTED. Never publish 3.1.0 from cloud.
+
 Truth order: code > tests > live evidence > PARUX_EXECUTION_PLAN.md. Repo is PUBLIC: never commit company/personal data; run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1` before every commit (maintainer deny-list is git-ignored, never print it).
 
 ## State of main (all pushed)
