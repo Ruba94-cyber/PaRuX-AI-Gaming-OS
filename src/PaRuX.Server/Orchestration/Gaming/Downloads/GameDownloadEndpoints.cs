@@ -80,7 +80,7 @@ public static class GameDownloadEndpoints
                 EmbeddedAvailable: !CorporateMode.IsActive,
                 ExternalConfigured: external.IsEnabled,
                 NewJobTransport: external.IsEnabled ? "external" : "embedded",
-                SingleFileOnly: true,
+                SingleFileOnly: external.IsEnabled,
                 NoAutomaticSeeding: true,
                 NoCatalogue: true))).RequireDesktopOwner();
 
