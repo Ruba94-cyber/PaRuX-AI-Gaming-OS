@@ -178,6 +178,49 @@ internal static class TemporaryGameModsDialog
                     "Il gioco è stato ripreso, il file cambiato o l'anteprima scaduta. Nessuna scrittura autorizzata."));
     }
 
+    public static async Task ShowPendingAiProposalsAsync(XamlRoot root)
+    {
+        var listed = await Client.GetPendingGameModPreviewsAsync();
+        if (!listed.Succeeded || listed.Value is null)
+        {
+            await MessageAsync(root, T("AI proposals unavailable", "Proposte IA non disponibili"),
+                listed.Error ?? T("Could not read proposals.", "Impossibile leggere le proposte."));
+            return;
+        }
+        if (listed.Value.Count == 0)
+        {
+            await MessageAsync(root, T("No pending AI mods", "Nessuna mod IA in attesa"),
+                T("Proposals require the same game to remain paused and expire in five minutes.",
+                    "Le proposte richiedono che lo stesso gioco rimanga in pausa e scadono dopo cinque minuti."));
+            return;
+        }
+        var selector = new ComboBox
+        {
+            Header = T("AI suggestions waiting for review", "Proposte dell'IA in attesa di revisione"),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetAutomationId(selector, "QuickResume_Mods_PendingSelect");
+        foreach (GameModPreviewDto proposal in listed.Value)
+            selector.Items.Add(new ComboBoxItem
+            {
+                Content = proposal.GameName + " · " + proposal.RelativePath,
+                Tag = proposal
+            });
+        selector.SelectedIndex = 0;
+        var choose = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = T("Review AI game mod", "Rivedi la mod IA per il gioco"),
+            Content = selector,
+            PrimaryButtonText = T("Review before applying", "Rivedi prima di applicare"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await choose.ShowAsync() != ContentDialogResult.Primary ||
+            selector.SelectedItem is not ComboBoxItem { Tag: GameModPreviewDto proposal }) return;
+        await ReviewAndApplyAsync(root, proposal);
+    }
+
     public static async Task ShowRestoreListAsync(XamlRoot root)
     {
         var listed = await Client.GetTemporaryGameModsAsync();
