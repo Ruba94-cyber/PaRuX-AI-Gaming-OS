@@ -54,6 +54,8 @@ internal sealed class GameDownloadTransferContext
     public required Func<string, long> FreeBytes { get; init; }
     public required long MaxFileBytes { get; init; }
     public required Func<int, CancellationToken, Task> Throttle { get; init; }
+    /// <summary>Current manager network limit, read at runtime; zero means unlimited.</summary>
+    public Func<long>? NetworkBytesPerSecond { get; init; }
     public required Action<long, long?> Report { get; init; }
     public required Func<bool> UserCancelled { get; init; }
 }
