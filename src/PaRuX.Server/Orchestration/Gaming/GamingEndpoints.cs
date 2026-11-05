@@ -133,14 +133,18 @@ public static class GamingEndpoints
             KnowledgeJobService knowledge, WorkloadOrchestrator orchestrator,
             LocalRuntimeService runtime) =>
         {
-            if (runtime.GamingMode || orchestrator.GetStatus() is not
-                { IsGamingActive: false, State: "AiReady" })
-                return Results.Conflict(new { error = "Exit Gaming and restore AI before preparing guide Chat." }) as IResult;
+            // Validate the explicit request before any expensive runtime/index read.
             if (request is null || !request.Consent || request.SourceIds is null
                 || request.SourceIds.Count is < 1 or > 64
                 || string.IsNullOrWhiteSpace(request.ManualGameId)
                 || request.ManualGameId.Length > 100)
-                return Results.BadRequest(new { error = "Explicit consent, a saved game and 1 to 64 selected sources are required." });
+                return Results.BadRequest(new { error = "Explicit consent, a saved game and 1 to 64 selected sources are required." }) as IResult;
+            if (string.IsNullOrWhiteSpace(request.Question) ||
+                request.Question.Trim().Length > 3000)
+                return Results.BadRequest(new { error = "Enter a valid game question." });
+            if (runtime.GamingMode || orchestrator.GetStatus() is not
+                { IsGamingActive: false, State: "AiReady" })
+                return Results.Conflict(new { error = "Exit Gaming and restore AI before preparing guide Chat." });
 
             try
             {
@@ -174,8 +178,10 @@ public static class GamingEndpoints
                 return Results.Ok(new LocalGameGuidePreparationDto(
                     prepared.QuestionForChat, prepared.Documents, prepared.Explanation));
             }
+            catch (InvalidDataException)
+            { return Results.BadRequest(new { error = "The selected game, guide scope or question is invalid." }); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                or InvalidDataException or System.Text.Json.JsonException)
+                or System.Text.Json.JsonException)
             { return Results.Problem("Local game or indexed-guide metadata could not be verified."); }
         }).RequireDesktopOwner();
 

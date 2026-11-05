@@ -127,11 +127,12 @@ namespace PaRuX
                     sources.Any(id => string.IsNullOrWhiteSpace(id) ||
                         id.Length > 200 || id.Any(char.IsControl)))
                     return false;
-                // Refuse to replace unsent chat work. The Gaming Home keeps
-                // its error/status visible if this handoff is not accepted.
+                // The existing Chat may contain an unsent draft or be busy.
+                // Navigate only on the person's explicit handoff, never auto-send.
+                ShowChat();
                 if (!ChatPage.TryPrefillGameGuideDraft(question)) return false;
                 if (!ChatDocumentScopeState.TryUseExplicitSources(sources)) return false;
-                ShowChat();
+                ChatPage.RefreshGuideDocumentScopeVisual();
                 return true;
             };
 

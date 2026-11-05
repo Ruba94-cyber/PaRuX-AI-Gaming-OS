@@ -1,3 +1,7 @@
+## 2026-11-05 — Local guide full UI handoff review and focused Windows gates (SOURCE WIP)
+
+- Guide API validates consent/question first, avoids index reads on invalid input, and distinguishes invalid scope from unavailable local metadata; Chat composer now permits ordinary multiline question text while still rejecting NUL and preserving existing drafts. Navigation happens on user choice; Documents toggle visual reflects exact selected sources. Added synthetic FlaUI open/cancel smoke; GOS focused xUnit filter now includes LocalGameChatPolicyTests and LocalGameGuideEndpointTests. NOT RUN on Windows.
+
 ## 2026-11-05 — L8 local guide consent UI and existing Chat draft handoff (SOURCE WIP)
 
 - Gaming Home adds an IT/EN local guide dialog: choose a saved manual game, enter a question, explicitly check source folders (none never means all), then Core re-verifies enabled and indexed IDs. A successful result is forwarded through UniversalLibraryPanel -> ManualGameLibraryView -> MainWindow to the **existing** Chat composer, not a new agent. Existing nonempty draft/busy Chat is preserved and the handoff fails; selected document IDs are atomically set only on accepted draft. Sending the question requires the user's next explicit click. No AI wakes during Gaming.

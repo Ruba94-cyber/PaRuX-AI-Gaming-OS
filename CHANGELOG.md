@@ -1,3 +1,8 @@
+### 2026-11-05 — L8 local guide Chat handoff with explicit indexed sources (SOURCE WIP)
+
+- Added desktop-owner guide preparation API: real saved manual-game identity, consent, 1–64 enabled and indexed local folders, no implicit all-folder fallback, Gaming hard-off and AI-ready recheck. Added Games Home IT/EN dialog, existing RAG folder picker, and a non-sending handoff to the existing Chat composer with source-scope selection and collision refusal.
+- Recovered selective legacy-branch Computer Use UIA/final-lease security guards and native test process capture, without merging obsolete code or the internal telemetry file. Focused xUnit and FlaUI sources authored. **NOT COMPILED/TESTED on Windows; no real game/GPU/RAG runtime acceptance.**
+
 ### 2026-11-05 — Metadata-only library imports from Playnite, Heroic and Lutris (SOURCE WIP)
 
 - Users can preview explicit JSON exports and separately opt to retain provider/title/external ID only, up to 1000 entries. Stored records use safe bounded atomic writes, a cross-process lock and individual owner-approved removal; the original vendor files and launcher commands are never touched or retained.

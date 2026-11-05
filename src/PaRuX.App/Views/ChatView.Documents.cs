@@ -79,6 +79,15 @@ namespace PaRuX.Views
             AutomationProperties.SetHelpText(DocumentsButton, on ? "On" : "Off");
         }
 
+        /// <summary>Synchronise the existing document toggle after a scoped
+        /// Gaming guide handoff; the normal Chat source picker stays authoritative.</summary>
+        public void RefreshGuideDocumentScopeVisual()
+        {
+            if (_documentsSwitch != null)
+                _documentsSwitch.IsOn = ChatDocumentScopeState.Enabled;
+            UpdateDocumentsButtonVisual();
+        }
+
         private async Task LoadDocumentSourcesAsync()
         {
             if (_documentsSources == null || _documentsNote == null) return;

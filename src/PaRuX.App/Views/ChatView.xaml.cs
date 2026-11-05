@@ -2592,7 +2592,7 @@ namespace PaRuX.Views
         public bool TryPrefillGameGuideDraft(string? preparedQuestion)
         {
             if (string.IsNullOrWhiteSpace(preparedQuestion) ||
-                preparedQuestion.Length > 3400 || preparedQuestion.Any(char.IsControl) ||
+                preparedQuestion.Length > 3400 || preparedQuestion.Contains('\0') ||
                 !string.IsNullOrWhiteSpace(InputBox.Text) ||
                 ChatSession.Current.IsBusy || _isSwitchingProfile)
                 return false;

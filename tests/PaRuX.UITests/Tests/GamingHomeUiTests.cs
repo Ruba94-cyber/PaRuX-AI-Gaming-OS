@@ -178,6 +178,28 @@ public sealed class GamingHomeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Game_guide_dialog_is_explicit_and_closable_without_loading_ai()
+    {
+        const string name = nameof(Game_guide_dialog_is_explicit_and_closable_without_loading_ai);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            Press(app, ById(app, "GameHome_LocalGuide_Button"));
+            Assert.NotNull(ById(app, "GameHome_LocalGuide_Game"));
+            Assert.NotNull(ById(app, "GameHome_LocalGuide_Question"));
+            Assert.NotNull(ById(app, "GameHome_LocalGuide_Sources"));
+            Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")),
+                "cancel scoped guide request without creating Chat turn")
+                .Patterns.Invoke.Pattern.Invoke();
+            UiWait.For(() => TryById(app, "GameHome_LocalGuide_Question") is null,
+                "local guide dialog was cancelled");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Home_exposes_named_toolbar_controls_with_touch_sized_targets()
     {
         WaitForCoreIdle();
@@ -191,7 +213,8 @@ public sealed class GamingHomeUiTests
                          "GameHome_InstalledFilter", "GameHome_TagFilter", "GameTitles_Collection_Filter", "GameTitles_Collection_Apply",
                          "GameTitles_FavoritesOnly_Toggle", "GameHome_ShowHidden", "GameHome_LayoutToggle", "GameHome_SelectMode",
                          "GameTitles_Refresh_Button",
-                         "GameHome_ExternalLibraryPreview_Button", "GameHome_ExternalLibrarySaved_Button"
+                         "GameHome_ExternalLibraryPreview_Button", "GameHome_ExternalLibrarySaved_Button",
+                         "GameHome_LocalGuide_Button"
                      })
             {
                 var element = ById(app, id);
