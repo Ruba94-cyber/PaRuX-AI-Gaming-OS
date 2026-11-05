@@ -43,7 +43,8 @@ namespace PaRuX.Services
             try
             {
                 root = Path.GetFullPath(targetRoot);
-                if (!Directory.Exists(root) || HasLinkedAncestor(root)
+                if ((OperatingSystem.IsWindows() && root.StartsWith(@"\\", StringComparison.Ordinal))
+                    || !Directory.Exists(root) || HasLinkedAncestor(root)
                     || relativePath.Replace('\\', '/').Split('/').Any(part =>
                         string.Equals(part, ".git", StringComparison.OrdinalIgnoreCase))
                     || !ShadowApplyPathPolicy.IsSafe(root, root, relativePath))
@@ -67,7 +68,7 @@ namespace PaRuX.Services
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                sourceBytes = File.ReadAllBytes(target);
+                sourceBytes = ReadBoundedBytes(target);
                 if (sourceBytes.Length > MaximumFileBytes || HasUtf8Bom(sourceBytes))
                     return Refuse("Oversized or BOM-encoded source needs full-file review.");
                 sourceText = StrictUtf8.GetString(sourceBytes);
@@ -167,6 +168,26 @@ namespace PaRuX.Services
                 try { if (Directory.Exists(stageRoot)) Directory.Delete(stageRoot, recursive: true); }
                 catch { /* Never hide the primary failure. */ }
             }
+        }
+
+        private static byte[] ReadBoundedBytes(string path)
+        {
+            // A file may grow after FileInfo.Length was checked. Never allow
+            // File.ReadAllBytes to allocate an unbounded payload in that race.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.Read, 64 * 1024, FileOptions.SequentialScan);
+            var buffer = new byte[MaximumFileBytes + 1];
+            int length = 0;
+            while (length < buffer.Length)
+            {
+                int read = stream.Read(buffer, length, buffer.Length - length);
+                if (read == 0) break;
+                length += read;
+            }
+            if (length > MaximumFileBytes)
+                throw new InvalidDataException("The selected file grew past the review limit.");
+            Array.Resize(ref buffer, length);
+            return buffer;
         }
 
         private static bool HasUtf8Bom(byte[] bytes) =>
