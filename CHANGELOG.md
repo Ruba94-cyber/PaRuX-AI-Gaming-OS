@@ -1,3 +1,9 @@
+### 2026-11-05 — Cross-game AI asset mod foundation (MAIN SOURCE WIP)
+
+- Added `GameAssetModService`, game-agnostic DTOs, public capability inventory, desktop-owner endpoints and a first-class IT/EN `AI Game Asset Mods` action in Gaming Home. User selects existing PNG texture and safe asset replacement path, local model produces a colour/material variant while retaining original dimensions and transparency, then preview/explicit approval produces a self-contained ZIP with exactly one replacement texture and a PaRuX manifest. No game files or game sessions are edited; game-specific mod loader support and installation remain external/manual.
+- Extracted a shared PNG security guard independent of Minecraft. Added synthetic tests for original-file preservation, source/preview/export and ZIP boundaries, path attacks, Gaming hard-off, signed owner routes and FlaUI accessibility.
+- Status: SOURCE WIP only. No Windows compilation, real local AI model run, game interoperability/hot reload, installation/rollback or full regression tests done. Minecraft remains an example adapter; actual architecture is cross-game.
+
 ### 2026-11-05 — MonoTorrent pinned-version compatibility (SOURCE WIP)
 
 - Updated embedded transfer setup against upstream MonoTorrent `release-v3.0.2` API: immutable engine settings via `EngineSettingsBuilder`, rate properties named `MaximumDownloadRate/MaximumUploadRate`, builder-based runtime updates and `ReadOnlyMemory<byte>` metadata conversion. This addresses identified source-level compiler mismatches; **Windows build/real peer transfer still NOT RUN**.
