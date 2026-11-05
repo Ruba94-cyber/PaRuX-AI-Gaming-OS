@@ -6,6 +6,36 @@ namespace PaRuX.Server.Tests;
 public sealed class QuickChatComparisonPolicyTests
 {
     [Fact]
+    public void Typed_Quick_compare_rejects_hidden_tasks_and_extra_models()
+    {
+        var invalidTasks = new PaRuX.Contracts.ArenaStartRequest
+        {
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            TaskIds = new() { "chat-explain" },
+            CustomPrompt = "Synthetic same question",
+            MaxTokens = 256
+        };
+        Assert.Throws<System.IO.InvalidDataException>(() => QuickChatComparisonPolicy.Create(invalidTasks));
+        var invalidModels = new PaRuX.Contracts.ArenaStartRequest
+        {
+            ModelFileNames = new() { "first.gguf", "second.gguf", "third.gguf" },
+            CustomPrompt = "Synthetic same question",
+            MaxTokens = 256
+        };
+        Assert.Throws<System.IO.InvalidDataException>(() => QuickChatComparisonPolicy.Create(invalidModels));
+
+        var accepted = QuickChatComparisonPolicy.Create(new PaRuX.Contracts.ArenaStartRequest
+        {
+            ModelFileNames = new() { "first.gguf", "second.gguf" },
+            CustomPrompt = "  Same prompt  ",
+            MaxTokens = 256
+        });
+        Assert.Equal(new[] { "first.gguf", "second.gguf" }, accepted.ModelFileNames);
+        Assert.Equal("Same prompt", accepted.CustomPrompt);
+        Assert.Empty(accepted.TaskIds);
+    }
+
+    [Fact]
     public void Two_model_request_uses_one_identical_custom_prompt_via_existing_Core_contract()
     {
         var request = QuickChatComparisonPolicy.Create("first.gguf", "second.gguf", "  Explain DBC bits.  ");
