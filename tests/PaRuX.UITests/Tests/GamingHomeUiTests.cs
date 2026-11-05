@@ -78,6 +78,37 @@ public sealed class GamingHomeUiTests
     private static void Press(UiTestApplication app, AutomationElement element) => new InstallProgressPage(app).Invoke(element);
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Cross_game_AI_mod_studio_opens_and_cancels_without_generating_assets()
+    {
+        const string name = nameof(Cross_game_AI_mod_studio_opens_and_cancels_without_generating_assets);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            Press(app, ById(app, "GameHome_AssetStudio_Open"));
+            foreach (string id in new[]
+                     {
+                         "GameAssetStudio_GameName", "GameAssetStudio_Source",
+                         "GameAssetStudio_Browse", "GameAssetStudio_RelativePath",
+                         "GameAssetStudio_Prompt", "GameAssetStudio_OfflineConsent"
+                     })
+                Assert.NotNull(ById(app, id));
+            Find(() => app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("CloseButton")), "close local asset editor without generation")
+                .Patterns.Invoke.Pattern.Invoke();
+
+            // Read-only inventory can open and close when no ZIPs were
+            // installed; no loader, model or filesystem installation is run.
+            Press(app, ById(app, "GameHome_InstalledMods_Open"));
+            Find(() => app.MainWindow.FindFirstDescendant(cf =>
+                cf.ByAutomationId("CloseButton")), "close empty installed mod inventory")
+                .Patterns.Invoke.Pattern.Invoke();
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Home_exposes_named_toolbar_controls_with_touch_sized_targets()
     {
         WaitForCoreIdle();
