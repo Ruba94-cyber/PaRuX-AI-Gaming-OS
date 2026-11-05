@@ -14,6 +14,7 @@ public static class GameAssetModEndpoints
         app.MapGet("/api/v1/gaming/mods/drop-in", (GameModDropInService service) =>
         {
             try { return Results.Ok(service.List()) as IResult; }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { return Results.Problem("PaRuX mod installation receipts cannot be read safely."); }
         }).RequireDesktopOwner();
