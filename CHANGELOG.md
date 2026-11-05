@@ -1,3 +1,9 @@
+### 2026-11-05 — Consent-gated ZIP mod folder deployment (SOURCE WIP)
+
+- Opt-in game-independent ZIP mod delivery now supports only an existing folder selected by the owner and independently documented to accept this exact package layout. New-file-only atomic placement, SHA validation, pre-copy recovery receipt, installation inventory and SHA-checked manual removal with changed-file retention; disabled during Gaming and requires the game to be closed.
+- Added owner-only endpoints and IT/EN UI in Gaming Home and after mod asset export, focused synthetic regression/security/FlaUI test sources. No game executable, original asset or pre-existing mod files are overwritten; no loaders/anticheat are altered, no universal live reload claim.
+- Windows build, xUnit, FlaUI, crash races and actual compatible game-mod-loader testing **NOT RUN**. The feature remains partial/unshipped.
+
 ### 2026-11-05 — Cross-game AI asset mod foundation (MAIN SOURCE WIP)
 
 - Added `GameAssetModService`, game-agnostic DTOs, public capability inventory, desktop-owner endpoints and a first-class IT/EN `AI Game Asset Mods` action in Gaming Home. User selects existing PNG texture and safe asset replacement path, local model produces a colour/material variant while retaining original dimensions and transparency, then preview/explicit approval produces a self-contained ZIP with exactly one replacement texture and a PaRuX manifest. No game files or game sessions are edited; game-specific mod loader support and installation remain external/manual.
