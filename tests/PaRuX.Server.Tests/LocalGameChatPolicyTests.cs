@@ -44,4 +44,18 @@ public sealed class LocalGameChatPolicyTests
         var decision = GameGpuAdmissionPolicy.Evaluate(false, true, true);
         Assert.NotEqual(GameGpuAdmission.Allowed, decision.Status);
     }
+    [Fact]
+    public void Malformed_or_oversized_local_knowledge_scope_is_refused_before_Chat()
+    {
+        var malformed = LocalGameChatPolicy.Build(
+            "Example Quest", "Where is the guide?", true, new[] { "guide-1", "invalid\nsource" });
+        Assert.False(malformed.Ready);
+        Assert.Null(malformed.Documents);
+        var tooMany = LocalGameChatPolicy.Build(
+            "Example Quest", "Where is the guide?", true,
+            Enumerable.Range(0, 65).Select(i => "synthetic-source-" + i).ToArray());
+        Assert.False(tooMany.Ready);
+        Assert.Null(tooMany.Documents);
+    }
+
 }
