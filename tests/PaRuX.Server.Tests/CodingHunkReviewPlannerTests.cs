@@ -251,6 +251,25 @@ public sealed class CodingHunkReviewPlannerTests
     }
 
     [Fact]
+    public void Selective_preview_refuses_unsafe_whitespace_and_control_character_paths()
+    {
+        var originalHunk = Assert.Single(CodingHunkReviewPlanner.Parse(
+            "diff --git a/demo.txt b/demo.txt\n--- a/demo.txt\n+++ b/demo.txt\n" +
+            "@@ -1 +1 @@\n-old\n+new\n"));
+        foreach (string unsafePath in new[] { "folder name/demo.txt", "tab\tname/demo.txt" })
+        {
+            var hunk = originalHunk with { RelativePath = unsafePath };
+            var preview = CodingSelectiveHunkPreview.Create(unsafePath, "old\n",
+                new[] { hunk }, new[]
+                {
+                    new CodingReviewChoice(hunk.Id, CodingHunkDecision.Accept)
+                });
+            Assert.False(preview.Ready);
+            Assert.Null(preview.CandidateText);
+        }
+    }
+
+    [Fact]
     public void Empty_preimage_can_still_be_compared_but_paths_must_be_scoped()
     {
         string emptyHash = Convert.ToHexString(
