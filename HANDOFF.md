@@ -24,6 +24,23 @@ Truth order: code > tests > live evidence > PARUX_EXECUTION_PLAN.md. Repo is PUB
 - Python bench scripts on Windows need absolute Windows paths.
 - Agent branches (worktree-agent-*) are all merged into main; WIP of stopped agents was committed on their branches.
 
+## 2026-11-05 continuation on main: manual Steam prices (WIP)
+
+- **Implemented in source on main, no build/tests run in this cloud session:** explicit manual POST `/api/v1/gaming/wishlist/{productId}/quote` requires desktop-owner authorization and `Consent=true`, the existing separately enabled Game Discover consent, a saved valid numeric Steam ID/country, and Gaming inactive. Only requests `https://store.steampowered.com/api/appdetails` with fixed parameters. Store `cc` is **requested**, not a verified Steam-account region; results only shown as an indicative quote, never automatically notified or persisted.
+- Reuses `SteamStoreCatalogProvider` with bounded HTTPS-only no-redirect/no-cookie/timeout policy and shared per-host rate limiter; `GameDiscoverRuntime` now keys its `ConditionalWeakTable` by `IHostApplicationLifetime` so request DI scopes do not reset the limiter. Rechecks Game Discover/Gaming and the current wishlist record after fetching. App has a one-click bilingual quote button and an accessible status area. No polling, Steam account login, purchases or free-price assumptions.
+- Synthetic tests added/extended in `GameDiscoverProviderTests`, `BrowserOwnerAndLanHardeningTests` and `GamingHomeCompetitiveUiTests`; **all authored, not run**. Real Steam endpoint pricing JSON is not guaranteed stable: it is undocumented. No Windows build or hardware acceptance claimed.
+
+Windows integration commands (run with current `main`; no parallel FlaUI):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-public-safety.ps1
+dotnet build src/PaRuX.App -p:Platform=x64
+dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~GameDiscoverProviderTests|FullyQualifiedName~LocalWishlistStoreTests|FullyQualifiedName~LocalWishlistPolicyTests|FullyQualifiedName~BrowserOwnerAndLanHardeningTests"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-ui.ps1 -Suite Regression
+```
+
+Verify the opt-out/no-network case, manual quote with/without Discover consent, malformed/missing/free/region-mismatched Steam responses, cancellation when Gaming starts, host-shared rate limit, and 13-inch dialog/controller. Run the full Server and solo UI suites before release 3.1.0. No release, tag or binary publication from this cloud session.
+
 ## 2026-11-05 continuation on main: L5 local Steam wishlist (WIP)
 
 New source commits on `main`: local wishlist metadata store with cross-process lease and atomic replace, no implicit opt-in; protected GET/POST/PUT/DELETE endpoints, explicit consent gate, App contract/client, compact IT/EN Gaming Home dialog and synthetic tests. No store account connection, price fetch, polling, notifications, payment or automatic game install. New files: `src/PaRuX.Server/Orchestration/Gaming/LocalWishlistStore.cs`, `src/PaRuX.Contracts/LocalWishlistContracts.cs`, `src/PaRuX.App/Views/GamingWishlistDialog.cs`, `tests/PaRuX.Server.Tests/LocalWishlistStoreTests.cs`; updated Program, GamingLibraryClient, GamingHomeView, LocalWishlistPolicy and BrowserOwnerAndLanHardeningTests. All newly authored source/tests remain **NOT COMPILED / NOT RUN in this cloud session**. The old Windows baseline cannot validate them.
