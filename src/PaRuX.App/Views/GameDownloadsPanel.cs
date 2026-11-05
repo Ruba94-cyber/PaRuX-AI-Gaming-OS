@@ -62,8 +62,8 @@ internal sealed class GameDownloadsPanel : StackPanel
 
         _sourceKind.Header = T("Download source", "Origine download");
         _sourceKind.Items.Add(new ComboBoxItem { Content = T("Direct HTTPS", "HTTPS diretto"), Tag = GameDownloadKinds.Http });
-        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Magnet link (built-in)", "Link magnet (integrato)"), Tag = GameDownloadKinds.Magnet });
-        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Local .torrent file (built-in)", "File .torrent locale (integrato)"), Tag = GameDownloadKinds.TorrentFile });
+        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Magnet link", "Link magnet"), Tag = GameDownloadKinds.Magnet });
+        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Local .torrent file", "File .torrent locale"), Tag = GameDownloadKinds.TorrentFile });
         AutomationProperties.SetAutomationId(_sourceKind, "GameDownloads_Kind");
         _sourceKind.SelectionChanged += (_, _) => UpdateDownloadSourceUi();
         _sourceKind.SelectedIndex = 0;
