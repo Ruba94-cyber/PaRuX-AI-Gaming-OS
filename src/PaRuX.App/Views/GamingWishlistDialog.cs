@@ -82,6 +82,7 @@ internal static class GamingWishlistDialog
                         : response.Error ?? T("Could not remove the game.", "Impossibile rimuovere il gioco.");
                     if (response.Succeeded)
                     {
+                        items.RemoveAll(x => x.ProductId == selected.ProductId);
                         selection.Items.Remove(selection.SelectedItem);
                         if (selection.Items.Count > 0) selection.SelectedIndex = 0;
                     }
@@ -185,6 +186,16 @@ internal static class GamingWishlistDialog
             async Task RunBatchAsync()
             {
                 if (isBatchRunning || isSingleRunning || closing) return;
+                // A game can be removed while this dialog is open; refresh
+                // the candidate snapshot before the first network call.
+                batchPlan = LocalWishlistManualBatchPolicy.Build(items);
+                if (batchPlan.Items.Count == 0)
+                {
+                    batch.IsEnabled = false;
+                    status.Text = T("No eligible watched games remain.",
+                        "Non rimangono giochi selezionati per il controllo prezzi.");
+                    return;
+                }
                 isBatchRunning = true;
                 batch.IsEnabled = false;
                 quote.IsEnabled = false;
@@ -273,7 +284,11 @@ internal static class GamingWishlistDialog
             {
                 XamlRoot = root,
                 Title = T("Steam wishlist · local-first", "Lista desideri Steam · locale"),
-                Content = panel,
+                Content = new ScrollViewer
+                {
+                    Content = panel, MaxHeight = 440,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                },
                 PrimaryButtonText = T("Add game", "Aggiungi gioco"),
                 SecondaryButtonText = T("Change watch setting", "Cambia controllo prezzi"),
                 CloseButtonText = T("Close", "Chiudi"),
