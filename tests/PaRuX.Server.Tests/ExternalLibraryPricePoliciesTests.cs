@@ -42,10 +42,19 @@ public sealed class ExternalLibraryPricePoliciesTests
         const string json = "{\"42\":{\"success\":true,\"data\":{\"price_overview\":{\"currency\":\"EUR\",\"final\":1999}}}}";
         var now = new System.DateTimeOffset(2026, 11, 5, 6, 0, 0, System.TimeSpan.Zero);
         Assert.Null(PublicStorePriceWatchPolicy.ParseSteamAppDetails("42", json, false, now));
-        var sample = PublicStorePriceWatchPolicy.ParseSteamAppDetails("42", json, true, now);
+        var unknownCountry = PublicStorePriceWatchPolicy.ParseSteamAppDetails("42", json, true, now);
+        Assert.NotNull(unknownCountry);
+        Assert.Null(unknownCountry!.StoreCountryCode);
+        var sample = PublicStorePriceWatchPolicy.ParseSteamAppDetails("42", json, true, now, "it");
         Assert.NotNull(sample);
         Assert.Equal(1999, sample!.PriceMinor);
-        var wishlist = new LocalWishlistEntry("steam", "42", "Synthetic Puzzle", "EUR", 2000, false);
+        Assert.Equal("IT", sample.StoreCountryCode);
+        var wishlist = new LocalWishlistEntry("steam", "42", "Synthetic Puzzle", "EUR", 2000, false)
+        {
+            StoreCountryCode = "IT"
+        };
+        Assert.False(LocalWishlistPolicy.Evaluate(
+            wishlist with { PriceWatchOptIn = true }, unknownCountry, now).NotifyEligible);
         Assert.False(LocalWishlistPolicy.Evaluate(wishlist, sample, now).NotifyEligible);
         Assert.True(LocalWishlistPolicy.Evaluate(
             wishlist with { PriceWatchOptIn = true }, sample, now).NotifyEligible);
@@ -63,5 +72,8 @@ public sealed class ExternalLibraryPricePoliciesTests
             "{\"42\":{\"success\":true,\"data\":{}}}", true, now));
         Assert.Null(PublicStorePriceWatchPolicy.ParseSteamAppDetails("42",
             "{not-json}", true, now));
+        Assert.Null(PublicStorePriceWatchPolicy.ParseSteamAppDetails("42",
+            "{\"42\":{\"success\":true,\"data\":{\"price_overview\":{\"currency\":\"EUR\",\"final\":1999}}}}",
+            true, now, "ITALY"));
     }
 }
