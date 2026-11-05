@@ -107,6 +107,11 @@ public sealed class GamingHomeUiTests
             Assert.True(assetStudio.Properties.IsEnabled.ValueOrDefault);
             Assert.True(assetStudio.BoundingRectangle.Height >= 44,
                 "asset studio has a keyboard/controller accessible touch target");
+            var installedMods = ById(app, "GameHome_InstalledMods_Open");
+            Assert.False(string.IsNullOrWhiteSpace(installedMods.Name));
+            Assert.True(installedMods.Properties.IsEnabled.ValueOrDefault);
+            Assert.True(installedMods.BoundingRectangle.Height >= 44,
+                "installed mod management has an accessible touch target");
             // This safe smoke does not launch an image model or modify a game.
 
             // An empty library has no Continue shelf and no bulk bar until select mode is turned on.
