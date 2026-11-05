@@ -178,6 +178,30 @@ public sealed class GameModDropInServiceTests : IDisposable
     }
 
     [Fact]
+    public void Installing_the_same_export_twice_is_refused_without_touching_existing_mod()
+    {
+        var bundle = WriteBundle();
+        GameModDropInReceiptDto item = Service().Install(Request(bundle.Path, bundle.Sha));
+        Assert.Throws<InvalidOperationException>(() =>
+            Service().Install(Request(bundle.Path, bundle.Sha)));
+        Assert.Equal("installed", Assert.Single(Service().List()).State);
+        Assert.Single(Directory.EnumerateFiles(Mods));
+        Assert.Equal(File.ReadAllBytes(bundle.Path), File.ReadAllBytes(item.InstalledFile));
+    }
+
+    [Fact]
+    public void Missing_mod_folder_can_clear_an_orphaned_receipt_after_consent()
+    {
+        var bundle = WriteBundle();
+        GameModDropInReceiptDto item = Service().Install(Request(bundle.Path, bundle.Sha));
+        Directory.Delete(Mods, recursive: true);
+        Assert.Equal("unsafe", Assert.Single(Service().List()).State);
+        Assert.True(Service().Remove(new(item.Id, true, true)));
+        Assert.Empty(Service().List());
+        Assert.False(Directory.Exists(Mods));
+    }
+
+    [Fact]
     public void A_tampered_source_or_executable_ZIP_cannot_be_placed()
     {
         var bundle = WriteBundle();
