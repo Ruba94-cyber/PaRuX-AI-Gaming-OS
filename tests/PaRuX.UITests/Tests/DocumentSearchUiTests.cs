@@ -50,7 +50,7 @@ public sealed class DocumentSearchUiTests
         public void IndexAndWait(string id)
         {
             using HttpResponseMessage r = _http.PostAsync(_endpoint + "/api/v1/knowledge/sources/" + id + "/index", null).GetAwaiter().GetResult();
-            Assert.True(r.IsSuccessStatusCode);
+            Assert.True(r.IsSuccessStatusCode, (int)r.StatusCode + " " + r.Content.ReadAsStringAsync().GetAwaiter().GetResult());
             UiWait.For(() =>
             {
                 using JsonDocument doc = JsonDocument.Parse(_http.GetStringAsync(_endpoint + "/api/v1/knowledge/sources/" + id + "/status").GetAwaiter().GetResult());
