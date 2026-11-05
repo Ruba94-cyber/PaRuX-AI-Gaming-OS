@@ -284,6 +284,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 {
                     e.PostInstallState = GamePostInstallStates.Interrupted;
                     e.PostInstallMessage = "Portable installation cancelled by the owner.";
+                    e.InstallerRun?.Cancel();
                     e.Run?.Cancel();
                 }
                 _entries.Remove(e);
@@ -402,6 +403,11 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 e.State = GameDownloadStates.Failed;
                 e.Reason = failure;
                 e.FinishedUtc = DateTime.UtcNow;
+                if (e.AutoInstallPortable)
+                {
+                    e.PostInstallState = GamePostInstallStates.Failed;
+                    e.PostInstallMessage = "Download failed before portable installation.";
+                }
                 if (failure.Contains("SHA-256", StringComparison.Ordinal)) CleanPartial(e); // a corrupt file is not kept for resume
             }
             else if (e.State == GameDownloadStates.Completed) { /* set by TransferAsync */ }
@@ -423,11 +429,39 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
     }
 
+    /// <summary>
+    /// A single owner-confirmed retry for a completed, independently verified ZIP.
+    /// No source URL, magnet trackers or executable command is accepted here.
+    /// Interrupted jobs recovered from disk history are deliberately ineligible:
+    /// the original source and exact published path are not persisted.
+    /// </summary>
+    public async Task<GameDownloadDto> RetryPortableInstallAsync(string id, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        GameDownloadJob entry;
+        lock (_gate)
+        {
+            entry = Find(id) ?? throw new InvalidOperationException("The download is not in this session.");
+            if (_disposed || _gamingActive() || !entry.AutoInstallPortable ||
+                entry.State != GameDownloadStates.Completed ||
+                entry.PostInstallState is not (GamePostInstallStates.Interrupted or GamePostInstallStates.Failed) ||
+                entry.InstallerRun is not null || entry.ExpectedSha256 is null ||
+                string.IsNullOrEmpty(entry.PublishedPath))
+                throw new InvalidOperationException("This portable install cannot be retried now.");
+        }
+        await RunAutoPortableInstallAsync(entry, ct).ConfigureAwait(false);
+        lock (_gate) return ToDto(entry);
+    }
+
     private async Task RunAutoPortableInstallAsync(GameDownloadJob e, CancellationToken ct)
     {
         if (_portableInstaller is null) return;
+        CancellationTokenSource linked;
         lock (_gate)
         {
+            if (e.InstallerRun is not null ||
+                e.PostInstallState is GamePostInstallStates.Installing or GamePostInstallStates.Installed)
+                throw new InvalidOperationException("Portable installation is already active or completed.");
             if (e.State != GameDownloadStates.Completed ||
                 !e.IntegrityChecked || e.ExpectedSha256 is null ||
                 !string.Equals(e.ExpectedSha256, e.VerifiedSha256, StringComparison.OrdinalIgnoreCase) ||
@@ -437,6 +471,8 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 e.PostInstallMessage = "Portable deployment requires the independently verified completed package.";
                 return;
             }
+            linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            e.InstallerRun = linked;
             e.PostInstallState = GamePostInstallStates.Installing;
             e.PostInstallMessage = "Safely extracting and registering the portable game; nothing is running.";
         }
@@ -444,7 +480,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         {
             ManualGameDto installed = await _portableInstaller.InstallAsync(
                 e.PublishedPath!, e.ExpectedSha256!, e.PortableExecutableRelativePath!,
-                e.PortableGameTitle!, ct).ConfigureAwait(false);
+                e.PortableGameTitle!, linked.Token).ConfigureAwait(false);
             lock (_gate)
             {
                 e.PostInstallState = GamePostInstallStates.Installed;
@@ -467,6 +503,15 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 e.PostInstallState = GamePostInstallStates.Failed;
                 e.PostInstallMessage = "Portable install refused: " + ex.Message;
             }
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(e.InstallerRun, linked)) e.InstallerRun = null;
+                SaveHistory();
+            }
+            linked.Dispose();
         }
     }
 
@@ -770,7 +815,11 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         lock (_gate)
         {
             _disposed = true;
-            foreach (GameDownloadJob e in _entries) e.Run?.Cancel();
+            foreach (GameDownloadJob e in _entries)
+            {
+                e.Run?.Cancel();
+                e.InstallerRun?.Cancel();
+            }
         }
         _http.Dispose();
         _torrent?.Dispose();
