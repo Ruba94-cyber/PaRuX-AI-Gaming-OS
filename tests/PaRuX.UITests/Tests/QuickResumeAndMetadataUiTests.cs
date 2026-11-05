@@ -169,6 +169,12 @@ public sealed class QuickResumeAndMetadataUiTests
             var refresh = ById(app, "QuickResume_Refresh_Button");
             var reviewMods = ById(app, "QuickResume_Mods_ReviewButton");
             var restoreMods = ById(app, "QuickResume_Mods_RestoreButton");
+            var skinStudio = ById(app, "QuickResume_Mods_SkinStudioButton");
+            Assert.False(string.IsNullOrWhiteSpace(skinStudio.Name), "local AI skin studio has an accessible label");
+            Assert.True(skinStudio.Properties.IsEnabled.ValueOrDefault);
+            UiWait.For(() => skinStudio.BoundingRectangle.Height >= 44,
+                "Minecraft skin studio button has minimum touch target");
+
             Assert.False(string.IsNullOrWhiteSpace(reviewMods.Name), "review AI mods has a name");
             Assert.False(string.IsNullOrWhiteSpace(restoreMods.Name), "restore mod backups has a name");
             Assert.True(reviewMods.Properties.IsEnabled.ValueOrDefault);
