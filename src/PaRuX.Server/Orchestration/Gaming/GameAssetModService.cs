@@ -65,6 +65,11 @@ public sealed class GameAssetModService
             false, false, false, "Manual ZIP package",
             "Only titles or community mod loaders that accept loose PNG replacement paths can use this package. "
             + "The exact virtual path and game-specific pack format must be supplied by the owner; no game is modified automatically."),
+        new("zip-drop-in-owner-confirmed", "Opt-in ZIP mod-folder deployment", ".zip (single PNG overlay)",
+            false, true, false, "User-selected existing mods/resourcepacks/addons folder",
+            "ONLY after the owner independently verifies that THIS game's mod loader directly accepts " +
+            "the exact ZIP format. PaRuX places a new uniquely named file without overwriting existing mods, " +
+            "tracks it for hash-checked removal, and NEVER guarantees that the game loads or hot-reloads it."),
         new("minecraft-java-skin", "Minecraft Java player skin", ".png (64x64)",
             false, false, false, "Reviewed PNG in official skin selector",
             "Specific skin UV editor; applies only when imported separately using Minecraft's supported interface."),
