@@ -75,6 +75,17 @@ namespace PaRuX.Services
         public Task<GamingCallResult<BulkGameTitleResult>> BulkUpdateTitlesAsync(BulkGameTitleRequest request, CancellationToken ct = default) =>
             SendAsync<BulkGameTitleResult>(HttpMethod.Put, "/api/v1/gaming/titles/bulk", request, ct);
 
+        /// <summary>Off-by-default per-game launch hooks: the global switch and every configured title.</summary>
+        public Task<GamingCallResult<GameHooksStateDto>> GetGameHooksAsync(CancellationToken ct = default) =>
+            SendAsync<GameHooksStateDto>(HttpMethod.Get, "/api/v1/gaming/hooks", null, ct);
+
+        public Task<GamingCallResult<object>> SetGameHooksEnabledAsync(bool enabled, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/hooks/enabled?enabled=" + (enabled ? "true" : "false"), null, ct);
+
+        /// <summary>Sets (or, with both phases null, clears) the hooks of one title. The Core validates every program.</summary>
+        public Task<GamingCallResult<object>> SetTitleHooksAsync(string key, GameHooksDto hooks, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/hooks", hooks, ct);
+
         /// <summary>Edits a saved manual or emulator entry. Never touches game files.</summary>
         public Task<GamingCallResult<ManualGameDto>> UpdateManualGameAsync(string id, UpdateManualGameRequest request, CancellationToken ct = default) =>
             SendAsync<ManualGameDto>(HttpMethod.Put, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), request, ct);

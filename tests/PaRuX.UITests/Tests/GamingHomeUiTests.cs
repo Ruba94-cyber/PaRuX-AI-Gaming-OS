@@ -95,7 +95,9 @@ public sealed class GamingHomeUiTests
             {
                 var element = ById(app, id);
                 Assert.False(string.IsNullOrWhiteSpace(element.Name), id + " has an accessible name");
-                Assert.True(element.BoundingRectangle.Height >= 44, id + " is at least 44px tall");
+                // The toolbar now sits beside the filter rail and may wrap below the fold: bring it into view before measuring.
+                try { element.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView(); } catch (Exception) { /* best effort */ }
+                UiWait.For(() => element.BoundingRectangle.Height >= 44, id + " is at least 44px tall (was " + element.BoundingRectangle.Height + ")");
             }
 
             // An empty library has no Continue shelf and no bulk bar until select mode is turned on.

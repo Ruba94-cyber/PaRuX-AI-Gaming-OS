@@ -5,15 +5,6 @@ using PaRuX.Contracts;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
-/// <summary>One user-chosen helper program for a hook phase.</summary>
-public sealed record GameHookSpec(string Path, string Arguments = "", int TimeoutSeconds = 15);
-
-/// <summary>Hooks of one title. Either phase may be unset.</summary>
-public sealed record GameHooksDto(GameHookSpec? Pre, GameHookSpec? Post);
-
-/// <summary>Global switch plus every configured per-title hook (for the settings surface).</summary>
-public sealed record GameHooksStateDto(bool Enabled, IReadOnlyDictionary<string, GameHooksDto> Hooks);
-
 public enum GameHookPhase { Pre, Post }
 
 public sealed record GameHookRunResult(bool Ran, string Reason, int? ExitCode = null);

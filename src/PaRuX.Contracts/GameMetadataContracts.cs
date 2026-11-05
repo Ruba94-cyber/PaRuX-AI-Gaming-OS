@@ -166,7 +166,7 @@ public static partial class GameMetadataParsing
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo)) return false;
         string host = uri.Host.ToLowerInvariant();
         return host == "upload.wikimedia.org" || host.EndsWith(".steamstatic.com", StringComparison.Ordinal)
-            || host == "steamcdn-a.akamaihd.net" || IsSteamGridDbImageUrl(url);
+            || host == "steamcdn-a.akamaihd.net" || IsSteamGridDbImageUrl(url) || IsIgdbImageUrl(url);
     }
 
     /// <summary>SteamGridDB serves its images only from these two https hosts.</summary>

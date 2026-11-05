@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using PaRuX.Contracts;
 using PaRuX.Models;
@@ -45,6 +46,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ToggleButton _metadata = new();
     private bool _metadataRunning;
     private readonly Button _steamGridDb = new();
+    private readonly Button _igdb = new();
     private readonly ToggleButton _selectMode = new();
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
@@ -74,6 +76,16 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Grid _body = new();
     private readonly StackPanel _libraryColumn = new() { Spacing = 10 };
     private readonly GameDetailPanel _detail;
+    private readonly GameHeroCard _hero = new();
+    private readonly GameSideFilterPanel _side = new();
+    private readonly Grid _main = new();
+    private readonly StackPanel _mainColumn = new() { Spacing = 12 };
+    private readonly TextBlock _quickResumeSummary = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly Button _quickResumeManage = new() { MinHeight = 44 };
+    private readonly QuickResumePanel _quickResume = new();
+    private List<GameTitleDto> _allTitles = new();
+    private bool _recentOnly;
+    private string _genre = string.Empty;
 
     private readonly List<Button> _buttons = new();
     private readonly List<TextBox> _boxes = new();
@@ -320,6 +332,12 @@ internal sealed class GamingHomeView : StackPanel
         _steamGridDb.IsEnabled = _metadata.IsChecked == true;
         _steamGridDb.Click += async (_, _) => await OnSteamGridDbKeyAsync();
 
+        _igdb.Content = T("IGDB key...", "Chiave IGDB...");
+        Track(_igdb, "GameHome_Igdb_Button",
+            T("Set the optional IGDB credentials for more covers", "Imposta le credenziali IGDB facoltative per altre copertine"));
+        _igdb.IsEnabled = _metadata.IsChecked == true;
+        _igdb.Click += async (_, _) => await OnIgdbKeyAsync();
+
         _refresh.Content = T("Refresh", "Aggiorna");
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
@@ -327,7 +345,7 @@ internal sealed class GamingHomeView : StackPanel
         foreach (FrameworkElement element in new FrameworkElement[]
                  { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
                    _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _selectMode, _refresh })
+                   _metadata, _steamGridDb, _igdb, _selectMode, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -420,6 +438,8 @@ internal sealed class GamingHomeView : StackPanel
     private async Task ApplyPresetAsync(GameFilterPreset preset)
     {
         ++_searchEditGeneration;
+        _recentOnly = false;
+        _genre = string.Empty;
         _applying = true;
         try
         {
@@ -540,6 +560,21 @@ internal sealed class GamingHomeView : StackPanel
             "Ogni gioco una sola volta, comunque lo avvii: Steam, Epic, GOG, copia locale o emulatore.");
         Children.Add(_introDescription);
 
+        // Quick Resume status near the top: what is paused now and what the start-up recovery did. The full panel stays below.
+        AutomationProperties.SetAutomationId(_quickResumeSummary, "GameHome_QuickResume_Summary");
+        AutomationProperties.SetLiveSetting(_quickResumeSummary, AutomationLiveSetting.Polite);
+        _quickResumeManage.Content = T("Quick Resume", "Quick Resume");
+        Track(_quickResumeManage, "GameHome_QuickResume_Manage", T("Show Quick Resume: pause and resume open apps", "Mostra Quick Resume: metti in pausa e riprendi le app aperte"));
+        _quickResumeManage.Click += (_, _) => { _quickResume.StartBringIntoView(); _ = _quickResume.RefreshAsync(); };
+        var quickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        quickRow.Children.Add(_quickResumeManage);
+        quickRow.Children.Add(new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center });
+        Children.Add(quickRow);
+
+        _hero.PlayRequested += async t => await PlayAsync(t);
+        _hero.DetailsRequested += async t => await OpenAsync(t);
+        Children.Add(_hero);
+
         _continueHeading.Text = T("Continue", "Continua");
         _continueHeading.FontSize = 18;
         _continueHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
@@ -559,9 +594,9 @@ internal sealed class GamingHomeView : StackPanel
         _libraryHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         AutomationProperties.SetHeadingLevel(_libraryHeading, AutomationHeadingLevel.Level3);
         AutomationProperties.SetAutomationId(_libraryHeading, "GameHome_Library_Heading");
-        Children.Add(_libraryHeading);
-        Children.Add(_toolbar);
-        Children.Add(_status);
+        _mainColumn.Children.Add(_libraryHeading);
+        _mainColumn.Children.Add(_toolbar);
+        _mainColumn.Children.Add(_status);
         // An intentional empty state is more actionable than a blank card grid.
         // The same panel is used for a new library and a filtered-out library.
         var emptyLayout = new StackPanel { Spacing = 12 };
@@ -579,8 +614,8 @@ internal sealed class GamingHomeView : StackPanel
         emptyLayout.Children.Add(_clearFilters);
         _emptyState.Child = emptyLayout;
         AutomationProperties.SetAutomationId(_emptyState, "GameHome_EmptyState");
-        Children.Add(_emptyState);
-        Children.Add(_bulkBar);
+        _mainColumn.Children.Add(_emptyState);
+        _mainColumn.Children.Add(_bulkBar);
 
         _body.ColumnSpacing = 16;
         _body.RowSpacing = 12;
@@ -601,8 +636,32 @@ internal sealed class GamingHomeView : StackPanel
         _body.Children.Add(_libraryColumn);
         _body.Children.Add(_detail);
         ApplyBodyLayout();
-        Children.Add(_body);
-        Children.Add(new QuickResumePanel());
+        _mainColumn.Children.Add(_body);
+
+        // Side filter rail + library. Arrow keys / D-pad move focus spatially between the rail, the toolbar and the tiles.
+        _side.StoreChosen += source => Quiet(() => SelectByTag(_source, source));
+        _side.InstalledChosen += state => Quiet(() => SelectByTag(_installed, state));
+        _side.FavoritesChosen += on => Quiet(() => _favoritesOnly.IsChecked = on);
+        _side.RecentChosen += on => _recentOnly = on;
+        _side.GenreChosen += genre => _genre = genre;
+        _side.Applied += async () =>
+        {
+            SavePreferences();
+            await ReloadAsync();
+        };
+        _main.ColumnSpacing = 16;
+        _main.RowSpacing = 12;
+        _main.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _main.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _main.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _main.Children.Add(_side);
+        _main.Children.Add(_mainColumn);
+        _main.SizeChanged += (_, _) => ApplyMainLayout();
+        ApplyMainLayout();
+        Children.Add(_main);
+        Children.Add(_quickResume);
+        XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Enabled;
         SetConsolePresentation(false);
     }
 
@@ -647,6 +706,33 @@ internal sealed class GamingHomeView : StackPanel
         _emptyState.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
         _emptyTitle.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _emptyDescription.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
+    }
+
+    private void Quiet(Action change)
+    {
+        bool previous = _applying;
+        _applying = true;
+        try { change(); }
+        finally { _applying = previous; }
+    }
+
+    /// <summary>A wide window shows the filter rail beside the library; a narrow one puts it above.</summary>
+    private void ApplyMainLayout()
+    {
+        double width = _main.ActualWidth > 0 ? _main.ActualWidth : ActualWidth;
+        bool rail = width >= 900;
+        _side.Width = rail ? (_console ? 300 : 230) : double.NaN;
+        _side.VerticalAlignment = VerticalAlignment.Top;
+        if (rail)
+        {
+            Grid.SetRow(_side, 0); Grid.SetColumn(_side, 0); Grid.SetColumnSpan(_side, 1);
+            Grid.SetRow(_mainColumn, 0); Grid.SetColumn(_mainColumn, 1); Grid.SetColumnSpan(_mainColumn, 1);
+        }
+        else
+        {
+            Grid.SetRow(_side, 0); Grid.SetColumn(_side, 0); Grid.SetColumnSpan(_side, 2);
+            Grid.SetRow(_mainColumn, 1); Grid.SetColumn(_mainColumn, 0); Grid.SetColumnSpan(_mainColumn, 2);
+        }
     }
 
     /// <summary>Wide windows show the detail card beside the library; narrow ones put it above the tiles.</summary>
@@ -695,6 +781,11 @@ internal sealed class GamingHomeView : StackPanel
         _continueHeading.FontSize = enabled ? 26 : 18;
         _libraryHeading.FontSize = enabled ? 26 : 18;
         _shelf.SetConsole(enabled);
+        _hero.SetConsole(enabled);
+        _side.SetConsole(enabled);
+        _quickResumeManage.MinHeight = enabled ? 56 : 44;
+        _quickResumeManage.FontSize = enabled ? 20 : 14;
+        _quickResumeSummary.FontSize = enabled ? 20 : 14;
         _grid.SetConsole(enabled);
         _detail.SetConsole(enabled);
         ApplyBodyLayout();
@@ -724,7 +815,7 @@ internal sealed class GamingHomeView : StackPanel
     private bool FiltersActive =>
         !string.IsNullOrWhiteSpace(_search.Text) || !string.IsNullOrEmpty(TagOf(_source)) || !string.IsNullOrEmpty(TagOf(_platform))
         || !string.IsNullOrEmpty(TagOf(_installed)) || _favoritesOnly.IsChecked == true || !string.IsNullOrEmpty(TagOf(_tag))
-        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true;
+        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true || _recentOnly || _genre.Length > 0;
 
     /// <summary>
     /// Recover from a zero-result filter combination without resetting the user's
@@ -746,6 +837,8 @@ internal sealed class GamingHomeView : StackPanel
             _collectionFilter.Text = string.Empty;
             _favoritesOnly.IsChecked = false;
             _showHidden.IsChecked = false;
+            _recentOnly = false;
+            _genre = string.Empty;
         }
         finally { _applying = false; }
         ++_searchEditGeneration;
@@ -774,6 +867,7 @@ internal sealed class GamingHomeView : StackPanel
             data.GameMetadataEnabled = true;
             SettingsStore.Current.Save();
             _steamGridDb.IsEnabled = true;
+            _igdb.IsEnabled = true;
             await RunMetadataAsync();
         }
         else
@@ -781,6 +875,7 @@ internal sealed class GamingHomeView : StackPanel
             data.GameMetadataEnabled = false;
             SettingsStore.Current.Save();
             _steamGridDb.IsEnabled = false;
+            _igdb.IsEnabled = false;
         }
     }
 
@@ -859,6 +954,86 @@ internal sealed class GamingHomeView : StackPanel
         }
     }
 
+    /// <summary>
+    /// Optional IGDB credentials: the Client ID and Client Secret of the user's own free Twitch application. The dialog states what is
+    /// sent and where; they are stored with DPAPI (never in settings.json) and never shown again.
+    /// </summary>
+    private async Task OnIgdbKeyAsync()
+    {
+        if (!SettingsStore.Current.Data.GameMetadataEnabled) return;
+        bool hasKey = IgdbKeyStore.HasKey;
+        var id = new TextBox { MaxLength = 64, PlaceholderText = T("Client ID", "Client ID") };
+        var secret = new PasswordBox
+        {
+            PlaceholderText = hasKey ? T("Credentials are saved. Enter a new Client Secret to replace them.", "Credenziali salvate. Inserisci un nuovo Client Secret per sostituirle.")
+                                     : T("Client Secret", "Client Secret")
+        };
+        AutomationProperties.SetAutomationId(id, "GameHome_Igdb_ClientId");
+        AutomationProperties.SetName(id, T("IGDB Client ID", "Client ID IGDB"));
+        AutomationProperties.SetAutomationId(secret, "GameHome_Igdb_ClientSecret");
+        AutomationProperties.SetName(secret, T("IGDB Client Secret", "Client Secret IGDB"));
+        var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        AutomationProperties.SetAutomationId(error, "GameHome_Igdb_Error");
+        AutomationProperties.SetLiveSetting(error, AutomationLiveSetting.Assertive);
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = T(
+                "IGDB can fill covers and details that Steam, Wikipedia and SteamGridDB miss. It needs your own free Twitch application (dev.twitch.tv, Applications): paste its Client ID and Client Secret. This is optional. " +
+                "When set, your Client ID and Secret are sent to id.twitch.tv to get a short-lived token, and the game names are sent to api.igdb.com; nothing else is sent. Nothing is contacted while Covers & info is off or while a game is running. " +
+                "The credentials are stored encrypted for your Windows account only, never in the settings file, and are not shown again. Covers are cached on this PC and keep working offline.",
+                "IGDB può completare copertine e dettagli che Steam, Wikipedia e SteamGridDB non trovano. Serve una tua applicazione Twitch gratuita (dev.twitch.tv, Applications): incolla Client ID e Client Secret. È facoltativo. " +
+                "Se impostate, Client ID e Secret vengono inviati a id.twitch.tv per ottenere un token temporaneo e i nomi dei giochi a api.igdb.com; non viene inviato altro. Non viene contattato nulla mentre Copertine e info è spento o mentre un gioco è in esecuzione. " +
+                "Le credenziali sono salvate cifrate solo per il tuo account Windows, mai nel file delle impostazioni, e non vengono più mostrate. Le copertine restano in cache su questo PC e funzionano anche offline.")
+        });
+        panel.Children.Add(id);
+        panel.Children.Add(secret);
+        panel.Children.Add(error);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("IGDB credentials", "Credenziali IGDB"),
+            Content = panel,
+            PrimaryButtonText = T("Save", "Salva"),
+            SecondaryButtonText = T("Remove", "Rimuovi"),
+            CloseButtonText = T("Cancel", "Annulla"),
+            DefaultButton = ContentDialogButton.Primary,
+            IsSecondaryButtonEnabled = hasKey
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            string joined = (id.Text ?? string.Empty).Trim() + ":" + secret.Password.Trim();
+            if (GameMetadataParsing.ParseIgdbCredentials(joined) is null)
+            {
+                args.Cancel = true;
+                error.Text = T("That does not look like a Twitch Client ID and Secret. Paste both exactly as the Twitch console shows them (letters and digits only).",
+                    "Non sembrano un Client ID e un Secret Twitch. Incollali esattamente come li mostra la console Twitch (solo lettere e cifre).");
+                error.Visibility = Visibility.Visible;
+            }
+            else if (!IgdbKeyStore.Save(joined))
+            {
+                args.Cancel = true;
+                error.Text = T("The credentials could not be saved securely.", "Impossibile salvare le credenziali in modo sicuro.");
+                error.Visibility = Visibility.Visible;
+            }
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        secret.Password = string.Empty;
+        if (result == ContentDialogResult.Primary)
+        {
+            _status.Text = T("IGDB credentials saved. They are used from the next refresh for games without a cover.",
+                "Credenziali IGDB salvate. Verranno usate dal prossimo aggiornamento per i giochi senza copertina.");
+            _ = RunMetadataAsync();
+        }
+        else if (result == ContentDialogResult.Secondary)
+        {
+            _status.Text = IgdbKeyStore.Remove()
+                ? T("IGDB credentials removed.", "Credenziali IGDB rimosse.")
+                : T("The IGDB credentials could not be removed.", "Impossibile rimuovere le credenziali IGDB.");
+        }
+    }
+
     private async Task RunMetadataAsync()
     {
         if (_metadataRunning || _titles.Count == 0) return;
@@ -871,7 +1046,9 @@ internal sealed class GamingHomeView : StackPanel
                 CancellationToken.None);
             if (found > 0) await ReloadAsync();
             if (GameMetadataService.TakeNotice() is string notice)
-                _status.Text = T(notice, "SteamGridDB ha rifiutato la chiave API: le copertine arrivano solo da Steam e Wikipedia. Controlla o sostituisci la chiave con \"Chiave SteamGridDB...\".");
+                _status.Text = T(notice, notice.StartsWith("IGDB", StringComparison.Ordinal)
+                    ? "IGDB ha rifiutato Client ID/Secret: le copertine arrivano solo dalle altre fonti. Controlla o sostituisci le credenziali con \"Chiave IGDB...\"."
+                    : "SteamGridDB ha rifiutato la chiave API: le copertine arrivano solo da Steam e Wikipedia. Controlla o sostituisci la chiave con \"Chiave SteamGridDB...\".");
         }
         catch (Exception) { /* offline or cancelled: covers simply stay as they are */ }
         finally { _metadataRunning = false; }
@@ -916,7 +1093,7 @@ internal sealed class GamingHomeView : StackPanel
                 ScheduleReloadRetry(generation);
                 return;
             }
-            _titles = result.Value;
+            _titles = ApplySideFilter(result.Value);
             _reloadRetries = 0;
             foreach (GameTitleDto title in _titles)
             {
@@ -973,21 +1150,59 @@ internal sealed class GamingHomeView : StackPanel
         UpdateBulkBar();
     }
 
-    /// <summary>The Continue shelf: titles with a play history, most recently played first then most played, never hidden.</summary>
+    private static IReadOnlyList<string> GenresOf(string titleKey) =>
+        GameMetadataService.TryGetInfo(titleKey)?.Genres ?? (IReadOnlyList<string>)Array.Empty<string>();
+
+    /// <summary>The recently-played and genre rail choices are applied here; store, install state and favourites go to the Core with the query.</summary>
+    private List<GameTitleDto> ApplySideFilter(List<GameTitleDto> fromCore)
+    {
+        if (!_recentOnly && _genre.Length == 0) return fromCore;
+        var filter = new GameHomeFilter { RecentlyPlayedOnly = _recentOnly, Genre = _genre };
+        // The Core already ordered the list; keep that order by filtering without re-sorting.
+        var keep = GameLibraryHome.Apply(fromCore, filter, null, GenresOf, DateTime.UtcNow).Select(t => t.TitleKey).ToHashSet(StringComparer.Ordinal);
+        return fromCore.Where(t => keep.Contains(t.TitleKey)).ToList();
+    }
+
+    private GameHomeFilter ActiveSideFilter() => new()
+    {
+        Source = TagOf(_source) ?? string.Empty,
+        Installed = TagOf(_installed) switch { "installed" => true, "notinstalled" => false, _ => null },
+        FavoritesOnly = _favoritesOnly.IsChecked == true,
+        RecentlyPlayedOnly = _recentOnly,
+        Genre = _genre,
+    };
+
+    /// <summary>
+    /// The unfiltered library feeds the hero (last played game), the Continue shelf (the next most recent), the filter rail counts and the
+    /// Quick Resume summary. Titles with a play history only; hidden titles never appear in any of them.
+    /// </summary>
     private async Task LoadContinueAsync(CancellationToken ct, int generation)
     {
         var result = await GamingLibraryClient.Current.QueryTitlesAsync(new GameTitleListQuery { Sort = GameTitleSorts.LastPlayed }, ct);
         if (generation != _generation || ct.IsCancellationRequested) return;
-        List<GameTitleDto> recent = result.Succeeded && result.Value is not null
-            ? result.Value
-                .Where(t => !t.Hidden && (t.LastPlayedUtc.HasValue || t.PlaySeconds > 0))
-                .OrderByDescending(t => t.LastPlayedUtc.HasValue).ThenByDescending(t => t.LastPlayedUtc).ThenByDescending(t => t.PlaySeconds)
-                .Take(10).ToList()
-            : new List<GameTitleDto>();
+        _allTitles = result.Succeeded && result.Value is not null ? result.Value : new List<GameTitleDto>();
+        GameTitleDto? hero = GameLibraryHome.PickHero(_allTitles);
+        _hero.Show(hero);
+        List<GameTitleDto> recent = _allTitles
+            .Where(t => !t.Hidden && (t.LastPlayedUtc.HasValue || t.PlaySeconds > 0) && (hero is null || t.TitleKey != hero.TitleKey))
+            .OrderByDescending(t => t.LastPlayedUtc.HasValue).ThenByDescending(t => t.LastPlayedUtc).ThenByDescending(t => t.PlaySeconds)
+            .Take(10).ToList();
         bool any = recent.Count > 0;
         _continueHeading.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         _shelf.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         _shelf.Render(recent, new HashSet<string>(StringComparer.Ordinal), null);
+        _side.Update(GameLibraryHome.Facets(_allTitles, GenresOf, DateTime.UtcNow), ActiveSideFilter());
+        await RefreshQuickResumeSummaryAsync(ct, generation);
+    }
+
+    private async Task RefreshQuickResumeSummaryAsync(CancellationToken ct, int generation)
+    {
+        var status = await GamingLibraryClient.Current.GetQuickResumeAsync(ct);
+        if (generation != _generation || ct.IsCancellationRequested) return;
+        bool italian = T("en", "it") == "it";
+        _quickResumeSummary.Text = status.Succeeded && status.Value is not null
+            ? "Quick Resume: " + GameLibraryHome.QuickResumeSummary(status.Value, italian)
+            : "Quick Resume: " + T("status unavailable right now.", "stato non disponibile in questo momento.");
     }
 
     private async Task OnTitleChangedAsync(GameTitleDto changed)
