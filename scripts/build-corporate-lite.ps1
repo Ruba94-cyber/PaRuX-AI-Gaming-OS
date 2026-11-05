@@ -75,9 +75,10 @@ if ($Fetch) {
     Get-File $asset.browser_download_url $zip
     $RuntimeDir = Join-Path $assets "llama-cpu"
     if (-not (Test-Path $RuntimeDir)) { Expand-Archive $zip $RuntimeDir }
-    # Qwen3-1.7B Q4_K_M, Apache-2.0 (official Qwen repository).
-    $ModelPath = Join-Path $assets "Qwen3-1.7B-Q8_0.gguf"
-    Get-File "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf" $ModelPath
+    # Qwen3-4B Q4_K_M, Apache-2.0 (official Qwen repository): clearly better answers than 1.7B for technical questions,
+    # still CPU-usable on 16 GB. Q4_K_M is the quality floor PaRuX uses for technical work.
+    $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
+    Get-File "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf" $ModelPath
     # all-MiniLM-L6-v2 (Apache-2.0): the files the Core's EmbeddingService expects.
     $EmbeddingDir = Join-Path $assets "embeddings"
     New-Item -ItemType Directory -Force $EmbeddingDir | Out-Null
@@ -115,7 +116,7 @@ PaRuX Corporate Lite Offline $Version
 Start with "Start PaRuX Corporate Lite.cmd". No installation and no administrator rights are needed by the application.
 Runs entirely on this PC (CPU). Choose the folders to search; documents are only read, never modified. No data leaves the PC:
 no cloud, no telemetry, no automatic updates, no downloads. Your IT policy still applies; this package does not bypass it.
-Licences: see LICENSE.txt and THIRD_PARTY_NOTICES.md (model: Qwen3-1.7B, Apache-2.0; embeddings: all-MiniLM-L6-v2, Apache-2.0;
+Licences: see LICENSE.txt and THIRD_PARTY_NOTICES.md (model: Qwen3-4B, Apache-2.0; embeddings: all-MiniLM-L6-v2, Apache-2.0;
 llama.cpp: MIT).
 
 Avvio: "Start PaRuX Corporate Lite.cmd". Nessuna installazione. Funziona offline su CPU; i documenti vengono solo letti.
