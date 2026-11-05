@@ -56,6 +56,32 @@ internal static class GameModDropInDialog
             return;
         }
         if (string.IsNullOrWhiteSpace(folder)) return;
+        var gameExe = new TextBox
+        {
+            Header = T("Actual game executable (not the launcher)", "Eseguibile effettivo del gioco (non il launcher)"),
+            IsReadOnly = true,
+            PlaceholderText = T("Choose the installed game's .exe", "Seleziona il file .exe del gioco installato")
+        };
+        AutomationProperties.SetAutomationId(gameExe, "GameAssetStudio_DropIn_GameExe");
+        var chooseGameExe = new Button
+        {
+            Content = T("Choose game executable", "Scegli eseguibile gioco"),
+            MinHeight = 44
+        };
+        AutomationProperties.SetAutomationId(chooseGameExe, "GameAssetStudio_DropIn_ChooseExe");
+        chooseGameExe.Click += async (_, _) =>
+        {
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.FileTypeFilter.Add(".exe");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                    WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+                var file = await picker.PickSingleFileAsync();
+                if (file is not null) gameExe.Text = file.Path;
+            }
+            catch (Exception) { gameExe.Text = string.Empty; }
+        };
         var compatible = new CheckBox
         {
             Content = T("I verified this game's loader accepts this EXACT ZIP format in this folder",
@@ -76,6 +102,14 @@ internal static class GameModDropInDialog
             Text = T("Target folder: ", "Cartella destinazione: ") + folder,
             TextWrapping = TextWrapping.Wrap
         });
+        content.Children.Add(new TextBlock
+        {
+            Text = T("PaRuX checks the selected game's running process before modifying this folder. Choose the actual game EXE; other child processes cannot be verified automatically.",
+                "PaRuX controlla che il processo del gioco selezionato sia chiuso prima di modificare la cartella. Seleziona l'EXE effettivo del gioco: i processi ausiliari non sono verificabili automaticamente."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        content.Children.Add(gameExe);
+        content.Children.Add(chooseGameExe);
         content.Children.Add(compatible);
         content.Children.Add(closed);
         var confirm = new ContentDialog
@@ -88,15 +122,16 @@ internal static class GameModDropInDialog
             DefaultButton = ContentDialogButton.Close
         };
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
-        if (compatible.IsChecked != true || closed.IsChecked != true)
+        if (compatible.IsChecked != true || closed.IsChecked != true ||
+            string.IsNullOrWhiteSpace(gameExe.Text))
         {
             await MessageAsync(root, T("Install not approved", "Installazione non approvata"),
-                T("Both confirmations are required. Nothing was copied to the game.",
-                    "Sono necessarie entrambe le conferme. Nessun file copiato nel gioco."));
+                T("Choose the real game executable and approve both confirmations. Nothing was copied.",
+                    "Seleziona l'eseguibile effettivo del gioco e approva entrambe le conferme. Nessun file copiato."));
             return;
         }
         var installed = await Client.InstallGameModPackageAsync(new GameModDropInInstallRequest(
-            bundle.BundlePath, bundle.BundleSha256, folder, true, true));
+            bundle.BundlePath, bundle.BundleSha256, folder, true, true, gameExe.Text.Trim()));
         await MessageAsync(root, installed.Succeeded
             ? T("ZIP placed in mod folder", "ZIP aggiunto alla cartella mod")
             : T("Install refused", "Installazione rifiutata"),
@@ -151,12 +186,14 @@ internal static class GameModDropInDialog
         {
             if (select.SelectedItem is ComboBoxItem { Tag: GameModDropInReceiptDto item })
                 details.Text = T("Installed path: ", "Percorso installato: ") + item.InstalledFile +
+                    Environment.NewLine + T("Game executable: ", "Eseguibile gioco: ") + item.GameExecutablePath +
                     Environment.NewLine + T("State: ", "Stato: ") + item.State +
                     Environment.NewLine + T("Only the exact originally installed ZIP can be removed. Changed files are kept.",
                         "È rimovibile solo lo ZIP identico a quello installato. I file modificati vengono conservati.");
         };
         if (select.SelectedItem is ComboBoxItem { Tag: GameModDropInReceiptDto first })
-            details.Text = first.InstalledFile + Environment.NewLine + first.State;
+            details.Text = first.InstalledFile + Environment.NewLine +
+                first.GameExecutablePath + Environment.NewLine + first.State;
         var panel = new StackPanel { Spacing = 12, MaxWidth = 560 };
         panel.Children.Add(select);
         panel.Children.Add(details);
