@@ -84,4 +84,88 @@ public sealed class CodingHunkReviewPlannerTests
         Assert.Equal(state, state.BeginRepair());
         Assert.True(CodingRepairCycle.Start().ObserveVerification(0).VerificationPassed);
     }
+    [Fact]
+    public void Deleted_and_added_lines_with_header_looking_prefixes_are_not_misparsed()
+    {
+        const string diff = "diff --git a/demo.txt b/demo.txt\n" +
+            "--- a/demo.txt\n+++ b/demo.txt\n" +
+            "@@ -1 +1 @@\n---- original\n++++ replacement\n";
+        var hunks = CodingHunkReviewPlanner.Parse(diff);
+        Assert.Single(hunks);
+        Assert.Equal("---- original\n++++ replacement", hunks[0].Text);
+        var preview = CodingSelectiveHunkPreview.Create("demo.txt", "--- original\n", hunks,
+            new[] { new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept) });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("+++ replacement\n", preview.CandidateText);
+    }
+
+    [Fact]
+    public void Selective_preview_checks_all_hunks_but_changes_only_accepted_ones()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        const string before = "one\nold\nmiddle\nx\nbefore\nlast\n";
+        var preview = CodingSelectiveHunkPreview.Create("src/demo.cs", before, hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("one\nnew\nmiddle\nx\nbefore\nlast\n", preview.CandidateText);
+        Assert.True(CodingSelectiveHunkPreview.PreimageMatches(preview.PreimageSha256, before));
+        Assert.False(CodingSelectiveHunkPreview.PreimageMatches(
+            preview.PreimageSha256, "one\nchanged\nmiddle\nx\nbefore\nlast\n"));
+        Assert.NotEqual(preview.PreimageSha256, preview.CandidateSha256);
+    }
+
+    [Fact]
+    public void Preview_preserves_crlf_without_changing_the_original()
+    {
+        const string diff = "diff --git a/test.cs b/test.cs\n" +
+            "--- a/test.cs\n+++ b/test.cs\n@@ -1 +1 @@\n-old\n+new\n";
+        var h = Assert.Single(CodingHunkReviewPlanner.Parse(diff));
+        const string original = "old\r\n";
+        var preview = CodingSelectiveHunkPreview.Create("test.cs", original, new[] { h },
+            new[] { new CodingReviewChoice(h.Id, CodingHunkDecision.Accept) });
+        Assert.True(preview.Ready, preview.Explanation);
+        Assert.Equal("new\r\n", preview.CandidateText);
+        Assert.Equal("old\r\n", original);
+    }
+
+    [Fact]
+    public void Preview_fails_closed_for_stale_source_unreviewed_hunks_and_no_newline_markers()
+    {
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.False(CodingSelectiveHunkPreview.Create("src/demo.cs",
+            "one\nchanged\nmiddle\nx\nbefore\nlast\n", hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            }).Ready);
+        Assert.False(CodingSelectiveHunkPreview.Create("src/demo.cs", "one\nold\n", hunks,
+            new[] { new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept) }).Ready);
+
+        const string diff = "diff --git a/test.cs b/test.cs\n" +
+            "--- a/test.cs\n+++ b/test.cs\n@@ -1 +1 @@\n-old\n+new\n" +
+            "\\ No newline at end of file\n";
+        var h = Assert.Single(CodingHunkReviewPlanner.Parse(diff));
+        Assert.False(CodingSelectiveHunkPreview.Create("test.cs", "old", new[] { h },
+            new[] { new CodingReviewChoice(h.Id, CodingHunkDecision.Accept) }).Ready);
+    }
+
+    [Fact]
+    public void Empty_preimage_can_still_be_compared_but_paths_must_be_scoped()
+    {
+        string emptyHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("")));
+        Assert.True(CodingSelectiveHunkPreview.PreimageMatches(emptyHash, ""));
+        var hunks = CodingHunkReviewPlanner.Parse(Diff);
+        Assert.False(CodingSelectiveHunkPreview.Create("../untrusted.cs", "one\nold\n", hunks,
+            new[]
+            {
+                new CodingReviewChoice(hunks[0].Id, CodingHunkDecision.Accept),
+                new CodingReviewChoice(hunks[1].Id, CodingHunkDecision.Reject)
+            }).Ready);
+    }
 }
