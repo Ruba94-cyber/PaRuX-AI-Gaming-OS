@@ -221,6 +221,9 @@ public sealed class GameSkinStudioService
             throw new PlatformNotSupportedException("The Minecraft skin decoder requires Windows.");
         if (data is not { Length: > 0 and <= MaxSourceBytes })
             throw new InvalidDataException("Generated skin image is missing or too large.");
+        (int pngWidth, int pngHeight) = MinecraftSkinUvRestyler.ReadPngDimensions(data);
+        if (pngWidth < 64 || pngHeight < 64)
+            throw new InvalidDataException("Generated texture is too small for a Minecraft skin.");
         try
         {
             using var input = new MemoryStream(data, writable: false);
