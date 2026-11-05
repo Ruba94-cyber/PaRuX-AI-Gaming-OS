@@ -7,7 +7,11 @@ namespace PaRuX.Server.Orchestration.Gaming;
 /// <summary>Wishlist data only. Price watching defaults off; storage, networking and notifications are out of scope.</summary>
 public sealed record LocalWishlistEntry(
     string Store, string ProductId, string Title, string Currency,
-    int? PriceTargetMinor, bool PriceWatchOptIn = false);
+    int? PriceTargetMinor, bool PriceWatchOptIn = false)
+{
+    /// <summary>Optional two-letter store country; mandatory before a price can qualify.</summary>
+    public string? StoreCountryCode { get; init; }
+}
 
 public sealed record LocalWishlistEvaluation(bool NotifyEligible, string Reason);
 
@@ -30,6 +34,8 @@ public static class LocalWishlistPolicy
             || string.IsNullOrWhiteSpace(candidate.Title) || candidate.Title.Length > 200
             || candidate.Title.Any(char.IsControl)
             || !ValidCurrency(candidate.Currency)
+            || (candidate.StoreCountryCode is not null && !ValidCountryCode(candidate.StoreCountryCode))
+            || (candidate.PriceWatchOptIn && !ValidCountryCode(candidate.StoreCountryCode))
             || candidate.PriceTargetMinor is < 0)
             return (existing.ToArray(), "Choose a supported public store product, currency and optional target.");
 
@@ -45,7 +51,8 @@ public static class LocalWishlistPolicy
             Store = "steam",
             ProductId = candidate.ProductId.Trim(),
             Title = candidate.Title.Trim(),
-            Currency = candidate.Currency.ToUpperInvariant()
+            Currency = candidate.Currency.ToUpperInvariant(),
+            StoreCountryCode = candidate.StoreCountryCode?.ToUpperInvariant()
         });
         return (copy, null);
     }
@@ -68,6 +75,10 @@ public static class LocalWishlistPolicy
             || !string.Equals(sample.ProductId, entry.ProductId, StringComparison.Ordinal)
             || !string.Equals(sample.Currency, entry.Currency, StringComparison.OrdinalIgnoreCase))
             return new(false, "The store, product or currency differs.");
+        if (!ValidCountryCode(entry.StoreCountryCode)
+            || !ValidCountryCode(sample.StoreCountryCode)
+            || !string.Equals(entry.StoreCountryCode, sample.StoreCountryCode, StringComparison.OrdinalIgnoreCase))
+            return new(false, "The store country is missing or differs from the selected wishlist country.");
         if (sample.PriceMinor < 0)
             return new(false, "The public price is invalid.");
 
@@ -85,5 +96,9 @@ public static class LocalWishlistPolicy
 
     private static bool ValidCurrency(string? code) =>
         code is { Length: 3 }
+        && code.All(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+
+    private static bool ValidCountryCode(string? code) =>
+        code is { Length: 2 }
         && code.All(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
 }
