@@ -53,6 +53,43 @@ public sealed class EmbeddedMultifileTorrentTests
     }
 
     [Fact]
+    public async Task Gaming_started_while_throttling_a_multifile_zip_blocks_payload_writes()
+    {
+        string folder = Directory.CreateTempSubdirectory("parux-multi-hardoff-").FullName;
+        try
+        {
+            var job = Job(folder, "payload.zip");
+            Torrent metadata = EmbeddedTorrentTransport.DecodeAndAdmit(job, MultiTorrentBytes(), 100);
+            string stage = EmbeddedTorrentTransport.StagingPath(job);
+            foreach (var entry in metadata.Files)
+            {
+                string file = Path.Combine(stage, entry.Path.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                File.WriteAllBytes(file, entry.Path.EndsWith("a.txt", StringComparison.Ordinal)
+                    ? new byte[] { 1, 2, 3, 4 } : new byte[] { 5, 6 });
+            }
+            bool gaming = false;
+            var context = new GameDownloadTransferContext
+            {
+                Job = job, GamingActive = () => gaming, FreeBytes = _ => long.MaxValue,
+                MaxFileBytes = 100,
+                Throttle = (_, _) => { gaming = true; return Task.CompletedTask; },
+                Report = (_, _) => { }, UserCancelled = () => false
+            };
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                EmbeddedTorrentTransport.BundleVerifiedFilesAsync(
+                    context, stage, metadata, CancellationToken.None));
+            Assert.False(File.Exists(job.FinalPath));
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public async Task Native_multifile_bundle_stages_zip_without_auto_install_or_publication()
     {
         string folder = Directory.CreateTempSubdirectory("parux-multi-").FullName;

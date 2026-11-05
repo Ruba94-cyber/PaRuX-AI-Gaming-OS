@@ -584,6 +584,8 @@ Added 2026-10-31. PaRuX remains a Windows application; OS describes its integrat
 - Acceptance: choose folder → candidates ranked → user confirms → entry created; installer path never runs without a visible confirmation; every path rule has a negative test.
 
 ### GOS-13 — Download manager (native, modular) — IN PROGRESS (HTTP + embedded BitTorrent source WIP)
+**2026-11-05 Gaming hard-off after limiter wait (MAIN SOURCE WIP):** Native single/multi-file transfers now recheck the runtime Gaming gate immediately after rate-limit waits before each payload write and again before flush. Synthetic tests inject Gaming during the limiter callback; authored only, NOT RUN. This narrows a resource interference race but is not a cross-thread atomic guarantee; keep GOS-13 PARTIAL.
+
 **2026-11-05 final-copy length validation (MAIN SOURCE WIP):** Native v1 torrent output now bounds every copied chunk against declared metadata and rejects short single-file stage reads at EOF; ZIP-packaged multi-file output also checks each entry before writing. A new source-only accounting regression is authored but NOT RUN. Still require Windows restore/build, real local peer, cancellation/race and full security acceptance. No release.
 **2026-11-05 pinned API correction (SOURCE WIP):** Checked `release-v3.0.2` upstream and fixed identified `EngineSettings` immutability, speed-property names, runtime update and magnet metadata return-type mismatches in `EmbeddedTorrentTransport`. The original source could not compile as written against 3.0.2. New code is source-only; restore/build/peer transfer in real Windows environment still mandatory before marking the native engine DONE.
 

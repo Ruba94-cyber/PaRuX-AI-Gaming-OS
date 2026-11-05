@@ -266,6 +266,12 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
     // A piece-verified torrent may still have its local stage altered or
     // truncated between the engine stopping and the private copy. Never
     // publish a partial payload merely because its initial length matched.
+    private static void stopIfGaming(GameDownloadTransferContext context, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (context.GamingActive()) throw new OperationCanceledException(ct);
+    }
+
     internal static long AdvanceVerifiedPayload(long completed, int read, long expected)
     {
         if (completed < 0 || read < 0 || expected < 0 ||
@@ -336,6 +342,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                     ct.ThrowIfCancellationRequested();
                     if (context.GamingActive()) throw new OperationCanceledException(ct);
                     await context.Throttle(read, ct).ConfigureAwait(false);
+                    // Gaming may have started while the bandwidth limiter waited.
+                    stopIfGaming(context, ct);
                     // Bound both the individual member and global payload BEFORE
                     // writing the bytes to the ZIP, not only after EOF.
                     copied = AdvanceVerifiedPayload(copied, read, item.Size);
@@ -347,6 +355,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             }
             RequireExpectedPayloadLength(done, metadata.Size);
         }
+        stopIfGaming(context, ct);
         await output.FlushAsync(ct).ConfigureAwait(false);
     }
 
@@ -378,6 +387,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                 ct.ThrowIfCancellationRequested();
                 if (context.GamingActive()) throw new OperationCanceledException(ct);
                 await context.Throttle(read, ct).ConfigureAwait(false);
+                stopIfGaming(context, ct);
                 done = AdvanceVerifiedPayload(done, read, metadata.Size);
                 await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                 context.Report(done, metadata.Size);
@@ -385,6 +395,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             // A stage file can shrink after the initial FileInfo check.
             // Do not mark a truncated private copy as a completed transfer.
             RequireExpectedPayloadLength(done, metadata.Size);
+            stopIfGaming(context, ct);
             await output.FlushAsync(ct).ConfigureAwait(false);
         }
     }

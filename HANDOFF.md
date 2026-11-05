@@ -1,3 +1,7 @@
+## 2026-11-05 — Gaming hard-off after torrent bandwidth wait (MAIN SOURCE WIP)
+
+- Native single-file copy and multi-file ZIP packaging now recheck cancellation + Gaming Mode immediately after each throttling wait and before every payload write, with another check before the final flush. Synthetic tests simulate Gaming activating *inside* the limiter callback; neither path may publish the transfer. No Windows compile, xUnit execution, or peer fixture has been run. Remaining race window is non-atomic and requires Windows validation.
+
 ## 2026-11-05 — Native torrent length gate + orphaned mod receipt cleanup (MAIN SOURCE WIP)
 
 - Native torrent copying now checks both individual and total v1 payload lengths **before writes**, and rejects a shortened single-file stage at EOF, rather than treating any truncated copy as a finished download. Shared bounded byte accounting also protects multifile ZIP packaging from overrun before archive writes. New synthetic accounting regression is authored, **NOT RUN**.

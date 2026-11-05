@@ -149,6 +149,46 @@ public sealed class EmbeddedTorrentTransportTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task Gaming_started_during_native_single_file_throttle_blocks_the_write()
+    {
+        string folder = Directory.CreateTempSubdirectory("parux-native-hardoff-").FullName;
+        try
+        {
+            byte[] torrentBytes = TorrentBytes("safe.bin", 4);
+            var job = new GameDownloadJob
+            {
+                Id = Guid.NewGuid().ToString("N"), Kind = GameDownloadKinds.TorrentFile,
+                FileName = "download.bin", Directory = folder,
+                Source = "torrent-file/synthetic",
+                InfoHash = GameDownloadSourceValidator.ParseTorrent(torrentBytes).InfoHash
+            };
+            Torrent metadata = EmbeddedTorrentTransport.DecodeAndAdmit(job, torrentBytes, 16);
+            string stage = EmbeddedTorrentTransport.StagingPath(job);
+            Directory.CreateDirectory(stage);
+            File.WriteAllBytes(Path.Combine(stage, "safe.bin"), new byte[] { 1, 2, 3, 4 });
+            bool gaming = false;
+            var context = new GameDownloadTransferContext
+            {
+                Job = job, GamingActive = () => gaming,
+                FreeBytes = _ => long.MaxValue, MaxFileBytes = 16,
+                Throttle = (_, _) => { gaming = true; return System.Threading.Tasks.Task.CompletedTask; },
+                Report = (_, _) => { }, UserCancelled = () => false
+            };
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                EmbeddedTorrentTransport.CopyVerifiedFileAsync(
+                    context, stage, metadata, System.Threading.CancellationToken.None));
+            Assert.False(File.Exists(job.FinalPath));
+            Assert.Equal(0L, new FileInfo(job.PartPath).Length); // no payload write after Gaming hard-off
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public void Cancelled_owned_nested_torrent_stage_is_removed_without_touching_sibling_user_files()
     {
         string folder = Path.Combine(Path.GetTempPath(), "parux-stage-test-" + Guid.NewGuid().ToString("N"));
