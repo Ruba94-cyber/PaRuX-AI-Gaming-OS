@@ -132,6 +132,30 @@ namespace PaRuX.Services
         public Task<GamingCallResult<ManualGameDto>> UpdateManualGameAsync(string id, UpdateManualGameRequest request, CancellationToken ct = default) =>
             SendAsync<ManualGameDto>(HttpMethod.Put, "/api/v1/gaming/library/" + Uri.EscapeDataString(id), request, ct);
 
+        /// <summary>Owner-only offline temporary game mod workflows, no game memory injection or auto execution.</summary>
+        public Task<GamingCallResult<List<ManualGameDto>>> GetManualGamesForModsAsync(CancellationToken ct = default) =>
+            SendAsync<List<ManualGameDto>>(HttpMethod.Get, "/api/v1/gaming/library", null, ct);
+
+        public Task<GamingCallResult<List<GameTemporaryModDto>>> GetTemporaryGameModsAsync(CancellationToken ct = default) =>
+            SendAsync<List<GameTemporaryModDto>>(HttpMethod.Get, "/api/v1/gaming/mods/temporary", null, ct);
+
+        public Task<GamingCallResult<GameModPreviewDto>> PreviewTemporaryGameModAsync(
+            GameModProposalRequest request, CancellationToken ct = default) =>
+            SendAsync<GameModPreviewDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/temporary/preview", request, ct);
+
+        public Task<GamingCallResult<GameTemporaryModDto>> ApplyTemporaryGameModAsync(
+            string previewId, bool consent, CancellationToken ct = default) =>
+            SendAsync<GameTemporaryModDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/temporary/apply",
+                new GameModApplyRequest(previewId, consent), ct);
+
+        public Task<GamingCallResult<object>> RestoreTemporaryGameModAsync(
+            string modId, bool consent, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Post,
+                "/api/v1/gaming/mods/temporary/restore",
+                new GameModRestoreRequest(modId, consent), ct);
+
         /// <summary>Open application windows that Quick Resume can pause, plus what is paused now.</summary>
         public Task<GamingCallResult<QuickResumeStatusDto>> GetQuickResumeAsync(CancellationToken ct = default) =>
             SendAsync<QuickResumeStatusDto>(HttpMethod.Get, "/api/v1/gaming/quick-resume", null, ct);
