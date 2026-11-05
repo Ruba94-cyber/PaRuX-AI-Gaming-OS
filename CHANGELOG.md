@@ -5,7 +5,7 @@
 The following code is in separate **draft PRs**, not on main or in a published build. All new tests are **Authored-not-run**; no release 3.1.0 has been cut.
 
 - **L2 PR #1:** per-hunk diff review, corrected Git prefix parser, SHA-256 preimage-bound selective preview, sandbox-gated approvals and bounded repair policy; **no live patch executor or UI wiring**.
-- **L3 PR #2:** exact two-model Arena request (4,000-character Core prompt cap), truthful side-by-side presenter, simple Auto explanation and estimated media presets; existing PersonaService reused.
+- **L3 PR #2:** existing Arena and PersonaService reused; owner-gated quick-compare POST/GET Core routes, typed client and DTO, 4,000-character prompt policy, truthful side-by-side presenter, Auto wording and estimated media presets. New HTTP/security tests are authored, not run; no Chat UI wiring.
 - **L8 PR #3:** consent-scoped game-guide Chat policy (max 64 valid indexed source IDs, empty scope refused), game-first GPU policy; no Chat UI/runtime integration.
 - **L6/L7 PR #4:** per-game suspend proposals with explicit anti-cheat and custom process exclusions, controller diagnostic/remap previews and PaRuX-owned undo planner; **Needs physical HW**.
 - **L4/L5/L9 PR #5:** limited read-only game-library export parsers, opt-in local wishlist and store/product/currency-validated public price parsing, dependency-notice coverage and partial IT/EN audit; no API polling, notifications or UI integration.
