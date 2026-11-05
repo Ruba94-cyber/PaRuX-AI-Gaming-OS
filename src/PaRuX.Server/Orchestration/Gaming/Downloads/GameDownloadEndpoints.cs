@@ -59,6 +59,18 @@ public static class GameDownloadEndpoints
         app.MapDelete("/api/v1/gaming/downloads/{id}", (string id, GameDownloadManager downloads) =>
             downloads.CancelOrRemove(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
+        // Capability report only: the bundled engine starts no peer activity until
+        // the desktop owner explicitly adds a magnet or a local .torrent file.
+        app.MapGet("/api/v1/gaming/downloads/torrent-engine", (
+            ExternalTorrentClientTransport external, EmbeddedTorrentTransport embedded) =>
+            Results.Ok(new GameTorrentEngineStatusDto(
+                EmbeddedAvailable: !CorporateMode.IsActive,
+                ExternalConfigured: external.IsEnabled,
+                NewJobTransport: external.IsEnabled ? "external" : "embedded",
+                SingleFileOnly: true,
+                NoAutomaticSeeding: true,
+                NoCatalogue: true))).RequireDesktopOwner();
+
         // Optional external torrent client adapter (the user's own qBittorrent, loopback only). Off by default;
         // the credentials live in memory only and are never echoed back.
         app.MapGet("/api/v1/gaming/downloads/torrent-client", (ExternalTorrentClientTransport torrent) =>
