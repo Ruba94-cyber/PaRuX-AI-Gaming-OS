@@ -94,7 +94,7 @@ public sealed class GameSkinStudioService
         lock (_gate)
         {
             PruneExpired();
-            if (!_drafts.Remove(request.DraftId, out Draft? draft))
+            if (!_drafts.TryGetValue(request.DraftId, out Draft? draft))
                 throw new InvalidOperationException("This draft has expired or was already exported.");
             // Export writes only PaRuX-owned, newly created, uniquely named files.
             Directory.CreateDirectory(_outputRoot);
@@ -109,6 +109,7 @@ public sealed class GameSkinStudioService
                     file.Write(draft.Png);
                     file.Flush(flushToDisk: true);
                 }
+                _drafts.Remove(request.DraftId); // Consume only after the durable export succeeds.
                 return new GameSkinExportDto(path,
                     Convert.ToHexString(SHA256.HashData(draft.Png)).ToLowerInvariant(),
                     draft.ArmStyle,
