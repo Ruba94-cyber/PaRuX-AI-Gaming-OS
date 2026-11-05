@@ -543,19 +543,74 @@ internal sealed class GamingHomeView : StackPanel
                 TextWrapping = TextWrapping.Wrap
             };
             AutomationProperties.SetAutomationId(question, "GameHome_LocalGuide_Question");
+            var allGuideSources = sources
+                .Select(s => new LocalGameGuideSourceOption(s.Id, s.FolderPath))
+                .ToArray();
+            var selectedGuideIds = new HashSet<string>(StringComparer.Ordinal);
+            var sourceFilter = new TextBox
+            {
+                Header = T("Find an indexed folder", "Cerca una cartella indicizzata"),
+                PlaceholderText = T("Filter by folder path or source ID", "Filtra per percorso o ID"),
+                MaxLength = 100
+            };
+            AutomationProperties.SetAutomationId(sourceFilter, "GameHome_LocalGuide_SourceFilter");
+            var sourceSummary = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            AutomationProperties.SetAutomationId(sourceSummary, "GameHome_LocalGuide_SourceSummary");
             var chosenSources = new StackPanel { Spacing = 4 };
             AutomationProperties.SetAutomationId(chosenSources, "GameHome_LocalGuide_Sources");
-            foreach (RagSourceDto source in sources.Take(64))
+
+            // Only 64 checkboxes are realised at once, but every indexed folder
+            // remains discoverable and selected IDs survive changes to the filter.
+            // Core still validates current consent, membership and indexed chunks.
+            void RefreshSourceChoices()
             {
-                string name = System.IO.Path.GetFileName(source.FolderPath.TrimEnd('\\', '/'));
-                var box = new CheckBox
+                LocalGameGuideSourcePage page =
+                    LocalGameGuideSourcePicker.Filter(allGuideSources, sourceFilter.Text);
+                chosenSources.Children.Clear();
+                int ordinal = 0;
+                foreach (LocalGameGuideSourceOption source in page.Visible)
                 {
-                    Content = string.IsNullOrWhiteSpace(name) ? source.Id : name,
-                    Tag = source.Id, IsChecked = false
-                };
-                AutomationProperties.SetAutomationId(box, "GameHome_LocalGuide_Source_" + chosenSources.Children.Count);
-                chosenSources.Children.Add(box);
+                    string name = System.IO.Path.GetFileName(source.FolderPath.TrimEnd('\\', '/'));
+                    var box = new CheckBox
+                    {
+                        Content = string.IsNullOrWhiteSpace(name) ? source.FolderPath : name,
+                        Tag = source.Id,
+                        IsChecked = selectedGuideIds.Contains(source.Id)
+                    };
+                    AutomationProperties.SetAutomationId(box, "GameHome_LocalGuide_Source_" + ordinal++);
+                    AutomationProperties.SetName(box, source.FolderPath);
+                    ToolTipService.SetToolTip(box, source.FolderPath);
+                    box.Checked += (_, _) =>
+                    {
+                        if (!LocalGameGuideSourcePicker.TrySetSelected(selectedGuideIds, source.Id, true))
+                        {
+                            box.IsChecked = false;
+                            _status.Text = T("Up to 64 guide folders may be selected.",
+                                "Puoi selezionare al massimo 64 cartelle di guide.");
+                        }
+                        UpdateSourceSummary();
+                    };
+                    box.Unchecked += (_, _) =>
+                    {
+                        LocalGameGuideSourcePicker.TrySetSelected(selectedGuideIds, source.Id, false);
+                        UpdateSourceSummary();
+                    };
+                    chosenSources.Children.Add(box);
+                }
+                UpdateSourceSummary();
+
+                void UpdateSourceSummary()
+                {
+                    sourceSummary.Text = T(
+                        selectedGuideIds.Count + " of 64 selected; showing " + page.Visible.Count +
+                            " of " + page.TotalMatches + " matching folders. Search to find others.",
+                        selectedGuideIds.Count + " di 64 selezionate; visualizzate " + page.Visible.Count +
+                            " di " + page.TotalMatches + " cartelle corrispondenti. Cerca per trovarne altre.");
+                }
             }
+            sourceFilter.TextChanged += (_, _) => RefreshSourceChoices();
+            RefreshSourceChoices();
+
             var panel = new StackPanel { Spacing = 10 };
             panel.Children.Add(new TextBlock
             {
@@ -565,22 +620,17 @@ internal sealed class GamingHomeView : StackPanel
             });
             panel.Children.Add(gamePicker);
             panel.Children.Add(question);
+            panel.Children.Add(sourceFilter);
             panel.Children.Add(new TextBlock
             {
                 Text = T("Indexed folders (select at least one)", "Cartelle indicizzate (selezionane almeno una)")
             });
+            panel.Children.Add(sourceSummary);
             panel.Children.Add(new ScrollViewer
             {
                 Content = chosenSources, MaxHeight = 190,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             });
-            if (sources.Count > 64)
-                panel.Children.Add(new TextBlock
-                {
-                    Text = T("Showing the first 64 folders. Narrow the indexed sources in Document Search to access others.",
-                        "Sono mostrate le prime 64 cartelle. Riduci le fonti in Ricerca documenti per accedere alle altre."),
-                    TextWrapping = TextWrapping.Wrap
-                });
             if (games.Count == 0 || sources.Count == 0)
                 panel.Children.Add(new TextBlock
                 {
@@ -600,9 +650,9 @@ internal sealed class GamingHomeView : StackPanel
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             if (gamePicker.SelectedItem is not ComboBoxItem { Tag: ManualGameDto selectedGame })
                 return;
-            string[] chosen = chosenSources.Children.OfType<CheckBox>()
-                .Where(box => box.IsChecked == true).Select(box => box.Tag as string ?? "")
-                .Where(s => s.Length > 0).ToArray();
+            string[] chosen = allGuideSources
+                .Where(source => selectedGuideIds.Contains(source.Id))
+                .Select(source => source.Id).Distinct(StringComparer.Ordinal).ToArray();
             if (chosen.Length == 0 || string.IsNullOrWhiteSpace(question.Text))
             {
                 _status.Text = T("Enter a question and select at least one guide folder.",
