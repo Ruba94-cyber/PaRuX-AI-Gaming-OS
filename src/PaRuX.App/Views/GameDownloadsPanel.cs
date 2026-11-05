@@ -467,6 +467,48 @@ internal sealed class GameDownloadsPanel : StackPanel
                 actions.Children.Add(stage);
             }
         }
+        if (job.State == GameDownloadStates.Completed &&
+            job.PostInstallState is GamePostInstallStates.Failed or GamePostInstallStates.Interrupted)
+        {
+            var retry = new Button { Content = T("Retry verified ZIP installation", "Riprova installazione ZIP verificato") };
+            AutomationProperties.SetAutomationId(retry, "GameDownloads_RetryPortable_" + job.Id);
+            retry.Click += async (_, _) =>
+            {
+                if (_busy || Visibility != Visibility.Visible) return;
+                var confirm = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = T("Retry extracting the verified portable ZIP?", "Riprovare l'estrazione dello ZIP portatile verificato?"),
+                    Content = T(
+                        "PaRuX will check the same independently supplied SHA-256 again, extract the managed ZIP and register the game. It will not run any programs.",
+                        "PaRuX ricontrollerà lo stesso SHA-256 indipendente, estrarrà lo ZIP gestito e registrerà il gioco. Non avvierà alcun programma."),
+                    PrimaryButtonText = T("Retry", "Riprova"),
+                    CloseButtonText = T("Cancel", "Annulla"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+                if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+                _busy = true;
+                retry.IsEnabled = false;
+                try
+                {
+                    var result = await GamingOrchestratorClient.Current.RetryPortableInstallAsync(job.Id);
+                    _status.Text = result.Succeeded && result.Value is { } updated
+                        ? updated.PostInstallState == GamePostInstallStates.Installed
+                            ? T("Game added to library, not launched.", "Gioco aggiunto alla libreria, non avviato.")
+                            : T("Portable deployment did not complete; ZIP retained.",
+                                "Installazione portatile non completata; ZIP conservato.")
+                        : T("Retry unavailable. The game may be running or this download belongs to a previous session.",
+                            "Riprova non disponibile: il gioco potrebbe essere avviato o il download appartiene a una sessione precedente.");
+                }
+                catch (Exception)
+                {
+                    _status.Text = T("Could not retry ZIP installation.", "Impossibile riprovare l'installazione ZIP.");
+                }
+                finally { _busy = false; retry.IsEnabled = true; }
+                await RefreshAsync();
+            };
+            actions.Children.Add(retry);
+        }
         if (job.State is GameDownloadStates.Queued or GameDownloadStates.Running)
             AddAction(T("Pause", "Pausa"), "Pause", () => GamingOrchestratorClient.Current.PauseGameDownloadAsync(job.Id));
         if (job.State == GameDownloadStates.Paused)
