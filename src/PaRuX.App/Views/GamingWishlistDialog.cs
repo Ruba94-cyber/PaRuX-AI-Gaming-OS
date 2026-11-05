@@ -107,19 +107,28 @@ internal static class GamingWishlistDialog
             };
             AutomationProperties.SetAutomationId(quote, "GameHome_Wishlist_Quote");
             bool isBatchRunning = false;
+            bool isSingleRunning = false;
+            bool closing = false;
+            var singleQuoteCts = new System.Threading.CancellationTokenSource();
+            Task singleQuoteTask = Task.CompletedTask;
             selection.SelectionChanged += (_, _) =>
             {
-                quote.IsEnabled = !isBatchRunning && selection.SelectedItem is ComboBoxItem;
+                quote.IsEnabled = !isBatchRunning && !isSingleRunning && selection.SelectedItem is ComboBoxItem;
             };
-            quote.Click += async (_, _) =>
+            quote.Click += (_, _) => { singleQuoteTask = RunSingleQuoteAsync(); };
+            async Task RunSingleQuoteAsync()
             {
+                if (isSingleRunning || isBatchRunning || closing) return;
                 if (selection.SelectedItem is not ComboBoxItem { Tag: LocalWishlistItemDto item }) return;
+                isSingleRunning = true;
                 quote.IsEnabled = false;
+                remove.IsEnabled = false;
                 status.Text = T("Requesting a one-time storefront price…", "Richiesta prezzo una tantum allo store…");
                 try
                 {
                     GamingCallResult<LocalWishlistQuoteDto> response =
-                        await Client.QuoteWishlistPriceAsync(item.ProductId, consent: true);
+                        await Client.QuoteWishlistPriceAsync(item.ProductId, consent: true, ct: singleQuoteCts.Token);
+                    if (singleQuoteCts.IsCancellationRequested || closing) return;
                     if (!response.Succeeded || response.Value is null)
                     {
                         status.Text = response.Error ??
@@ -141,8 +150,21 @@ internal static class GamingWishlistDialog
                             "Indicative storefront price only: Steam account region not verified. No alerts or purchases.",
                             "Prezzo indicativo dello store: paese dell'account Steam non verificato. Nessun avviso o acquisto.");
                 }
-                finally { quote.IsEnabled = selection.SelectedItem is ComboBoxItem; }
-            };
+                catch (OperationCanceledException) { /* Dialog closed: HTTP request cancelled. */ }
+                catch (Exception)
+                {
+                    if (!closing) status.Text = T("One-time Steam lookup failed.", "Richiesta prezzo Steam non riuscita.");
+                }
+                finally
+                {
+                    isSingleRunning = false;
+                    if (!closing)
+                    {
+                        quote.IsEnabled = !isBatchRunning && selection.SelectedItem is ComboBoxItem;
+                        remove.IsEnabled = selection.Items.Count > 0;
+                    }
+                }
+            }
 
             // A separate, explicit button checks only already opted-in items.
             // This action is never scheduled and never runs from opening the dialog.
@@ -155,7 +177,6 @@ internal static class GamingWishlistDialog
             AutomationProperties.SetAutomationId(batch, "GameHome_Wishlist_BatchQuote");
             var batchCts = new System.Threading.CancellationTokenSource();
             Task batchTask = Task.CompletedTask;
-            bool closing = false;
             batch.Click += (_, _) =>
             {
                 batchTask = RunBatchAsync();
@@ -163,7 +184,7 @@ internal static class GamingWishlistDialog
 
             async Task RunBatchAsync()
             {
-                if (isBatchRunning || closing) return;
+                if (isBatchRunning || isSingleRunning || closing) return;
                 isBatchRunning = true;
                 batch.IsEnabled = false;
                 quote.IsEnabled = false;
@@ -263,13 +284,16 @@ internal static class GamingWishlistDialog
             {
                 closing = true;
                 batchCts.Cancel();
+                singleQuoteCts.Cancel();
             };
             ContentDialogResult choice = await dialog.ShowAsync();
             // Do not leave an in-flight request alive after the dialog closes or
             // open another content dialog while its price run is still finishing.
             batchCts.Cancel();
-            await batchTask;
+            singleQuoteCts.Cancel();
+            await Task.WhenAll(batchTask, singleQuoteTask);
             batchCts.Dispose();
+            singleQuoteCts.Dispose();
             if (choice == ContentDialogResult.None) return;
             if (choice == ContentDialogResult.Primary)
                 feedback = await AddAsync(root);
