@@ -113,6 +113,16 @@ namespace PaRuX.Services
                 "/api/v1/gaming/wishlist/" + Uri.EscapeDataString(productId) + "/watch",
                 new LocalWishlistWatchUpdate(enabled, consent), ct);
 
+        /// <summary>
+        /// Only a direct user action may request one indicative Steam storefront quote.
+        /// Discover must already be opted in; no polling or notification is started.
+        /// </summary>
+        public Task<GamingCallResult<LocalWishlistQuoteDto>> QuoteWishlistPriceAsync(
+            string productId, bool consent, CancellationToken ct = default) =>
+            SendAsync<LocalWishlistQuoteDto>(HttpMethod.Post,
+                "/api/v1/gaming/wishlist/" + Uri.EscapeDataString(productId) + "/quote",
+                new LocalWishlistQuoteRequest(consent), ct);
+
         public Task<GamingCallResult<object>> RemoveWishlistItemAsync(
             string productId, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Delete,
