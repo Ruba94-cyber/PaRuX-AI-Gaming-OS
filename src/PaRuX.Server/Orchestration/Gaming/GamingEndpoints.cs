@@ -43,6 +43,33 @@ public static class GamingEndpoints
         { return Results.Problem(operation + " metadata could not be read."); }
     }
 
+    /// <summary>
+    /// Fail closed when an owner-selected saved game's exact executable cannot be
+    /// inspected or is still running (including a game launched outside PaRuX).
+    /// This is point-in-time evidence for one executable, not a GPU-wide process
+    /// inventory or a substitute for Core Gaming hard-off on the eventual Chat send.
+    /// </summary>
+    internal static bool IsSelectedGameClosed(
+        string? executable, Func<string?, string> validateExecutable,
+        Func<string, bool> isRunning)
+    {
+        ArgumentNullException.ThrowIfNull(validateExecutable);
+        ArgumentNullException.ThrowIfNull(isRunning);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(executable)) return false;
+            string canonical = validateExecutable(executable);
+            return !isRunning(canonical);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException
+            or IOException or UnauthorizedAccessException or PlatformNotSupportedException
+            or System.ComponentModel.Win32Exception or System.Security.SecurityException
+            or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     public static void MapGamingEndpoints(this WebApplication app)
     {
         // Read-only preview of user-supplied JSON. This cannot inspect local files,
@@ -153,6 +180,9 @@ public static class GamingEndpoints
                     item.Id == request.ManualGameId &&
                     string.Equals(item.Kind, ManualEntryKinds.Game, StringComparison.OrdinalIgnoreCase));
                 if (game is null) return Results.NotFound(new { error = "Selected local game not found." });
+                if (!IsSelectedGameClosed(game.ExecutablePath,
+                    GameModProcessGuard.ValidateExecutable, GameModProcessGuard.IsRunning))
+                    return Results.Conflict(new { error = "The selected game is running or its process identity cannot be verified. Close the game before using AI." });
 
                 // Every ID must exist, still be enabled AND have indexed content.
                 // Never use ScopedSourceIds(empty): the general Chat contract
@@ -176,6 +206,11 @@ public static class GamingEndpoints
                 if (runtime.GamingMode || orchestrator.GetStatus() is not
                     { IsGamingActive: false, State: "AiReady" })
                     return Results.Conflict(new { error = "Gaming started while preparing the guide." });
+                // Re-probe after potentially slow index reads; a game may have
+                // launched in the meantime without passing through PaRuX.
+                if (!IsSelectedGameClosed(game.ExecutablePath,
+                    GameModProcessGuard.ValidateExecutable, GameModProcessGuard.IsRunning))
+                    return Results.Conflict(new { error = "The selected game started or its process identity became unavailable." });
                 return Results.Ok(new LocalGameGuidePreparationDto(
                     prepared.QuestionForChat, prepared.Documents, prepared.Explanation));
             }
