@@ -1,5 +1,13 @@
 # Changelog
 
+### 2026-11-05 — GOS-13 integrated BitTorrent in Gaming downloads (source WIP; not Windows-tested)
+
+- Added a pinned **MonoTorrent 3.0.2** MIT library inside PaRuX Server (not an external app) and an `IGameDownloadTransport` implementation for user-provided BTIH magnets and local v1 **single-file** `.torrent` files. The existing owner-authorized queue, Gaming pause/cancellation, SHA-256 publication boundary and non-overwrite semantics are reused. Optional qBittorrent WebUI remains a per-job override; no new source catalogue.
+- Added source validation, torrent hash and size checks, isolated stage, peer shutoff at completion, no UPnP/NAT port forwarding, no LAN discovery or continued seeding, and hook for the existing live bandwidth cap. Unsupported multifile/v2 and suspicious files fail closed. No auto installation, executable launch, seeder discovery feed or DRM bypass.
+- Added IT/EN source selector, `.torrent` file picker, explicit P2P IP privacy/rights warning, progress bars and active-download-only UI refresh. Owner-only torrent-engine status API and client, synthetic metadata/xUnit and FlaUI assertions, and updated redistributed MIT licence inventory.
+- **NOT COMPILED / NOT RUN** in this remote session. NuGet restore, MonoTorrent API correctness, real peer transfer, pause/resume/cancel & cleanup, Gaming hard-off and all Windows FlaUI/physical gates remain open. Not part of any published release.
+
+
 ### 2026-11-05 — L5 manual Steam price quote (WIP, not compiled/tested on Windows)
 
 - Added owner-only POST for an explicitly confirmed, one-shot Steam storefront price. The client reuses Game Discover's existing consent setting, fixed HTTPS host, cookie-free client, bounded response, timeout and request limiter; incoming country is only a requested storefront value, not an authenticated account region.
