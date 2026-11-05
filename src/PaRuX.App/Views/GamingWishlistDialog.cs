@@ -106,9 +106,10 @@ internal static class GamingWishlistDialog
                 IsEnabled = selection.Items.Count > 0
             };
             AutomationProperties.SetAutomationId(quote, "GameHome_Wishlist_Quote");
+            bool isBatchRunning = false;
             selection.SelectionChanged += (_, _) =>
             {
-                quote.IsEnabled = selection.SelectedItem is ComboBoxItem;
+                quote.IsEnabled = !isBatchRunning && selection.SelectedItem is ComboBoxItem;
             };
             quote.Click += async (_, _) =>
             {
@@ -162,6 +163,8 @@ internal static class GamingWishlistDialog
 
             async Task RunBatchAsync()
             {
+                if (isBatchRunning || closing) return;
+                isBatchRunning = true;
                 batch.IsEnabled = false;
                 quote.IsEnabled = false;
                 remove.IsEnabled = false;
@@ -186,7 +189,7 @@ internal static class GamingWishlistDialog
                         // shared rate limiter and Gaming hard-off.
                         GamingCallResult<LocalWishlistQuoteDto> response =
                             await Client.QuoteWishlistPriceAsync(
-                                item.ProductId, consent: true, batchCts.Token);
+                                item.ProductId, consent: true, ct: batchCts.Token);
                         if (batchCts.IsCancellationRequested || closing)
                             break;
                         passed++;
@@ -237,6 +240,7 @@ internal static class GamingWishlistDialog
                         quote.IsEnabled = selection.SelectedItem is ComboBoxItem;
                         remove.IsEnabled = selection.Items.Count > 0;
                     }
+                    isBatchRunning = false;
                 }
             }
 
