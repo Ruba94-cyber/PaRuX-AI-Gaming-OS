@@ -85,9 +85,19 @@ public sealed class GameAssetModService
             p is "." or ".." || p.StartsWith('.') || p.EndsWith('.') ||
             p.EndsWith(' ') ||
             p.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-')) ||
-            Path.GetFileNameWithoutExtension(p) is "CON" or "PRN" or "AUX" or "NUL"))
+            IsReservedWindowsName(p)))
             throw new ArgumentException("Asset path components contain unsupported or unsafe characters.");
         return relative;
+    }
+
+    private static bool IsReservedWindowsName(string segment)
+    {
+        string name = segment.Split('.')[0].ToUpperInvariant();
+        if (name is "CON" or "PRN" or "AUX" or "NUL") return true;
+        return name.Length == 4 &&
+            (name.StartsWith("COM", StringComparison.Ordinal) ||
+             name.StartsWith("LPT", StringComparison.Ordinal)) &&
+            name[3] is >= '1' and <= '9';
     }
 
     private static string Hash(byte[] bytes) =>
@@ -112,7 +122,7 @@ public sealed class GameAssetModService
         catch (FormatException ex) { throw new ArgumentException("Original asset is not base64 PNG.", ex); }
         if (original.Length > MaxSourceBytes)
             throw new ArgumentException("The original PNG asset exceeds 2 MiB.");
-        (int width, int height) = MinecraftSkinUvRestyler.ReadPngDimensions(original);
+        (int width, int height) = PngAssetGuard.ReadDimensions(original);
         if (width is < 16 or > 1024 || height is < 16 or > 1024)
             throw new ArgumentException("Source texture dimensions must be between 16 and 1024 pixels.");
         if (_gaming())
@@ -157,7 +167,7 @@ public sealed class GameAssetModService
             throw new PlatformNotSupportedException("PNG texture editing currently requires Windows.");
         if (referenceBytes is not { Length: > 0 and <= MaxReferenceBytes })
             throw new InvalidDataException("Local image material reference is empty or too large.");
-        (int rw, int rh) = MinecraftSkinUvRestyler.ReadPngDimensions(referenceBytes);
+        (int rw, int rh) = PngAssetGuard.ReadDimensions(referenceBytes);
         if (rw is < 64 or > 4096 || rh is < 64 or > 4096)
             throw new InvalidDataException("Generated material image dimensions are not supported.");
         try
