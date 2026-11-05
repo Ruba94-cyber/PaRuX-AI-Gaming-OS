@@ -51,14 +51,9 @@ internal static class ModelArenaEndpoints
         // Desktop owner authorization is identical to the standard Arena start action.
         app.MapPost("/api/v1/models/arena/quick-compare", (ArenaStartRequest request, ModelArenaService arena) =>
         {
-            if (request is null || request.ModelFileNames is not { Count: 2 }
-                || request.TaskIds is { Count: > 0 })
-                return Results.BadRequest(new { error = "Choose exactly two installed models and one custom prompt." });
             try
             {
-                ArenaStartRequest strict = QuickChatComparisonPolicy.Create(
-                    request.ModelFileNames[0], request.ModelFileNames[1],
-                    request.CustomPrompt, request.MaxTokens);
+                ArenaStartRequest strict = QuickChatComparisonPolicy.Create(request);
                 ArenaRunDto run = arena.Start(strict);
                 return Results.Accepted("/api/v1/models/arena/runs/" + run.Id, run);
             }
