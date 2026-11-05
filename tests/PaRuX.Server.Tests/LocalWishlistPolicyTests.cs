@@ -25,6 +25,16 @@ public sealed class LocalWishlistPolicyTests
     }
 
     [Fact]
+    public void New_wishlist_entry_is_opted_out_unless_explicitly_enabled()
+    {
+        var proposed = new LocalWishlistEntry("steam", "42", "Synthetic Puzzle", "EUR", 2500);
+        Assert.False(proposed.PriceWatchOptIn);
+        var result = LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(), proposed);
+        Assert.Null(result.Error);
+        Assert.False(Assert.Single(result.Entries).PriceWatchOptIn);
+    }
+
+    [Fact]
     public void Duplicate_ids_and_invalid_store_or_identifier_are_rejected()
     {
         var items = LocalWishlistPolicy.TryAdd(Array.Empty<LocalWishlistEntry>(), Entry()).Entries;
