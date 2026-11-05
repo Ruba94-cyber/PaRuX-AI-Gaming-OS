@@ -18,7 +18,7 @@ The GitHub MSI includes the self-contained WinUI desktop application, self-conta
 | ExcelDataReader | MIT | Desktop/Server | Spreadsheet import |
 | PdfPig | Apache-2.0 | Server | PDF text extraction with page numbers (LKS-1) |
 | QRCoder | MIT | Desktop | Pairing QR generation |
-| System.Drawing.Common | MIT | Desktop | Windows image/QR support |
+| System.Drawing.Common | MIT | Desktop/Server | Windows image/QR support and owner-approved 64x64 game skin PNG conversion |
 | ModelContextProtocol | Apache-2.0 | Server | Outbound MCP client capabilities |
 | ModelContextProtocol.AspNetCore | Apache-2.0 | Server | PaRuX MCP server/ASP.NET integration |
 | Microsoft.ML.OnnxRuntime | MIT | Server | Local ONNX embedding inference |
