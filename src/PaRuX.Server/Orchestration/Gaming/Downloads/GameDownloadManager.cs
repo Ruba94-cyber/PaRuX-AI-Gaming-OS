@@ -13,7 +13,8 @@ public class GameDownloadException : Exception
 /// <summary>
 /// Native, modular download manager for files the user is entitled to fetch (installers, patches, mods, media):
 /// HTTP(S) with resume, optional SHA-256 check, bandwidth limit, queue with priority and concurrency, free-space and
-/// size checks, history, and automatic pause while Gaming. There is no built-in catalogue and no torrent engine.
+/// size checks, history, and automatic pause while Gaming. A bundled, opt-in in-process BitTorrent transport handles
+/// validated user-provided single-file torrents; the qBittorrent adapter remains optional. No built-in catalogue.
 /// It never starts a downloaded file; opening or installing it is a separate, explicit step.
 /// </summary>
 public sealed class GameDownloadManager : IGamingResumable, IDisposable
@@ -28,6 +29,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     private readonly HttpClient _http;
     private readonly Dictionary<string, IGameDownloadTransport> _transports = new(StringComparer.Ordinal);
     private readonly ExternalTorrentClientTransport? _torrent;
+    private readonly EmbeddedTorrentTransport? _nativeTorrent;
     private readonly Func<bool> _gamingActive;
     private readonly Func<string, long> _freeBytes;
     private readonly string? _historyPath;
@@ -44,8 +46,18 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             Path.Combine(PaRuXDataRoot.Path, "server", "game-downloads.json"),
             new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) }, torrent) { }
 
+    public GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
+        EmbeddedTorrentTransport nativeTorrent)
+        : this(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(20) })
+               { Timeout = Timeout.InfiniteTimeSpan },
+            () => runtime.GamingMode, DefaultFreeBytes,
+            Path.Combine(PaRuXDataRoot.Path, "server", "game-downloads.json"),
+            new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) },
+            torrent, nativeTorrent) { }
+
     internal GameDownloadManager(HttpClient http, Func<bool> gamingActive, Func<string, long> freeBytes,
-        string? historyPath, TimeSpan[] retryDelays, ExternalTorrentClientTransport? torrent = null)
+        string? historyPath, TimeSpan[] retryDelays, ExternalTorrentClientTransport? torrent = null,
+        EmbeddedTorrentTransport? nativeTorrent = null)
     {
         _http = http;
         _gamingActive = gamingActive;
@@ -54,10 +66,12 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         _retryDelays = retryDelays;
         _transports[GameDownloadKinds.Http] = new HttpGameDownloadTransport(http);
         _torrent = torrent;
-        if (torrent is not null)
+        _nativeTorrent = nativeTorrent;
+        IGameDownloadTransport? initialTorrent = nativeTorrent ?? (IGameDownloadTransport?)torrent;
+        if (initialTorrent is not null)
         {
-            _transports[GameDownloadKinds.Magnet] = torrent;
-            _transports[GameDownloadKinds.TorrentFile] = torrent;
+            _transports[GameDownloadKinds.Magnet] = initialTorrent;
+            _transports[GameDownloadKinds.TorrentFile] = initialTorrent;
         }
         LoadHistory();
     }
@@ -169,8 +183,12 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 defaultName = Path.GetFileName(Uri.UnescapeDataString(url.AbsolutePath));
                 break;
         }
-        if (kind != GameDownloadKinds.Http && (_torrent is null || !_torrent.IsEnabled))
-            throw new GameDownloadException("The external torrent client adapter is off. Configure it in the download settings first.");
+        if (kind != GameDownloadKinds.Http && _nativeTorrent is null && (_torrent is null || !_torrent.IsEnabled))
+            throw new GameDownloadException("Torrent transfers require the integrated engine or an explicitly configured client.");
+        // qBittorrent is an explicit override; otherwise torrent bytes come directly
+        // from the bundled MonoTorrent engine. Never switch a queued job mid-transfer.
+        IGameDownloadTransport? selected = kind == GameDownloadKinds.Http ? null :
+            _torrent?.IsEnabled == true ? _torrent : _nativeTorrent;
         string directory = ValidateDirectory(request.DestinationDirectory);
         string name = SafeFileName(request.FileName) ?? SafeFileName(defaultName) ?? "download";
         string? sha = NormalizeSha(request.ExpectedSha256);
@@ -189,7 +207,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 throw new GameDownloadException("A download to that file is already in progress.");
             var entry = new GameDownloadJob
             {
-                Id = Guid.NewGuid().ToString("N"), Kind = kind, InfoHash = infoHash, Url = url, Target = target, Source = source, FileName = name, Directory = directory,
+                Id = Guid.NewGuid().ToString("N"), Kind = kind, InfoHash = infoHash, ChosenTransport = selected, Url = url, Target = target, Source = source, FileName = name, Directory = directory,
                 ExpectedSha256 = sha, Priority = Math.Clamp(request.Priority, -10, 10),
             };
             _entries.Add(entry);
@@ -245,7 +263,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             e.FinishedUtc = DateTime.UtcNow;
             e.Run?.Cancel();
             if (!running) CleanPartial(e);
-            if (e.ExternalId is not null && _transports.TryGetValue(e.Kind, out IGameDownloadTransport? owner))
+            IGameDownloadTransport? owner = e.ChosenTransport;
+            if (owner is null) _transports.TryGetValue(e.Kind, out owner);
+            if (owner is not null && (owner is EmbeddedTorrentTransport || e.ExternalId is not null))
                 _ = AbandonExternalAsync(owner, e);
             SaveHistory();
             Pump();
@@ -385,8 +405,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         if (_gamingActive())
             throw new OperationCanceledException("Gaming disabled new download disk and network work.");
         EnsureSafeDownloadPaths(e);
-        IGameDownloadTransport transport = _transports.TryGetValue(e.Kind, out IGameDownloadTransport? t)
-            ? t : throw new GameDownloadException("This kind of download is not available.");
+        IGameDownloadTransport transport = e.ChosenTransport ??
+            (_transports.TryGetValue(e.Kind, out IGameDownloadTransport? t) ? t
+                : throw new GameDownloadException("This kind of download is not available."));
         var context = new GameDownloadTransferContext
         {
             Job = e, GamingActive = _gamingActive, FreeBytes = _freeBytes, MaxFileBytes = _maxFileBytes,
@@ -657,6 +678,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         }
         _http.Dispose();
         _torrent?.Dispose();
+        _nativeTorrent?.Dispose();
     }
 
     // ------------------------------------------------------------------ bandwidth
