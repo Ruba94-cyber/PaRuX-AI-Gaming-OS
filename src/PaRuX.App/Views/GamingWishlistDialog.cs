@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using PaRuX.Contracts;
 using PaRuX.Services;
@@ -60,6 +62,7 @@ internal static class GamingWishlistDialog
                     : T("These preferences are stored only on this PC.", "Queste preferenze rimangono solo su questo PC."))
             };
             AutomationProperties.SetAutomationId(status, "GameHome_Wishlist_Status");
+            AutomationProperties.SetLiveSetting(status, AutomationLiveSetting.Polite);
             var remove = new Button
             {
                 Content = T("Remove selected game", "Rimuovi gioco selezionato"),
@@ -93,7 +96,54 @@ internal static class GamingWishlistDialog
                 TextWrapping = TextWrapping.Wrap
             });
             panel.Children.Add(selection);
+            // A quote is requested only from this explicit click; it never starts
+            // periodic checks and requires the separately enabled Game Discover
+            // setting. The requested country may not match the Steam account's region.
+            var quote = new Button
+            {
+                Content = T("Check Steam price once", "Controlla prezzo Steam una volta"),
+                IsEnabled = selection.Items.Count > 0
+            };
+            AutomationProperties.SetAutomationId(quote, "GameHome_Wishlist_Quote");
+            selection.SelectionChanged += (_, _) =>
+            {
+                quote.IsEnabled = selection.SelectedItem is ComboBoxItem;
+            };
+            quote.Click += async (_, _) =>
+            {
+                if (selection.SelectedItem is not ComboBoxItem { Tag: LocalWishlistItemDto item }) return;
+                quote.IsEnabled = false;
+                status.Text = T("Requesting a one-time storefront price…", "Richiesta prezzo una tantum allo store…");
+                try
+                {
+                    GamingCallResult<LocalWishlistQuoteDto> response =
+                        await Client.QuoteWishlistPriceAsync(item.ProductId, consent: true);
+                    if (!response.Succeeded || response.Value is null)
+                    {
+                        status.Text = response.Error ??
+                            T("Steam did not provide a price. Enable Game Discover to allow one-time lookups.",
+                              "Steam non ha fornito un prezzo. Abilita Game Discover per le ricerche una tantum.");
+                        return;
+                    }
+                    LocalWishlistQuoteDto result = response.Value;
+                    string money = (result.PriceMinor / 100m).ToString("0.00", CultureInfo.CurrentCulture)
+                        + " " + result.Currency;
+                    string compared = result.AtOrBelowTarget switch
+                    {
+                        true => T("at or below target", "entro il prezzo obiettivo"),
+                        false => T("above target", "sopra il prezzo obiettivo"),
+                        _ => T("not comparable to the saved target", "non confrontabile con la soglia salvata")
+                    };
+                    status.Text = money + " · " + result.RequestedCountry + " · " + compared
+                        + Environment.NewLine + T(
+                            "Indicative storefront price only: Steam account region not verified. No alerts or purchases.",
+                            "Prezzo indicativo dello store: paese dell'account Steam non verificato. Nessun avviso o acquisto.");
+                }
+                finally { quote.IsEnabled = selection.SelectedItem is ComboBoxItem; }
+            };
+
             panel.Children.Add(remove);
+            panel.Children.Add(quote);
             panel.Children.Add(status);
             var dialog = new ContentDialog
             {
