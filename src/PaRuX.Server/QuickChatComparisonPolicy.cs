@@ -85,6 +85,11 @@ public static class MediaHardwarePresetPolicy
         if (freeVramBytes <= 0)
             return new(mode, 0, 0, 0, true, false,
                 "Free GPU memory is unknown. Pick a local runtime and confirm resources before generating.");
+        // Never recommend a media job when measured free VRAM is below the conservative
+        // preview floor. These are NOT minimum supported hardware specifications.
+        if (freeVramBytes < (mode == "image" ? 4L * GiB : 8L * GiB))
+            return new(mode, 0, 0, 0, true, false,
+                "Insufficient free GPU-memory headroom for a suggested preview. Core must verify actual fit.");
         if (mode == "image")
             return freeVramBytes >= 12 * GiB
                 ? new(mode, 1024, 1024, 1, false, true, "Suggested starting size; actual model fit is checked by Core.")
