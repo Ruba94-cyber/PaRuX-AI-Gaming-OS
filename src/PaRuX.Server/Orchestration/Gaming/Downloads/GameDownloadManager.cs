@@ -30,6 +30,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     private readonly Dictionary<string, IGameDownloadTransport> _transports = new(StringComparer.Ordinal);
     private readonly ExternalTorrentClientTransport? _torrent;
     private readonly EmbeddedTorrentTransport? _nativeTorrent;
+    private readonly PortableGameInstallService? _portableInstaller;
     private readonly Func<bool> _gamingActive;
     private readonly Func<string, long> _freeBytes;
     private readonly string? _historyPath;
@@ -55,9 +56,18 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) },
             torrent, nativeTorrent) { }
 
+    public GameDownloadManager(LocalRuntimeService runtime, ExternalTorrentClientTransport torrent,
+        EmbeddedTorrentTransport nativeTorrent, PortableGameInstallService portableInstaller)
+        : this(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(20) })
+               { Timeout = Timeout.InfiniteTimeSpan },
+            () => runtime.GamingMode, DefaultFreeBytes,
+            Path.Combine(PaRuXDataRoot.Path, "server", "game-downloads.json"),
+            new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(30) },
+            torrent, nativeTorrent, portableInstaller) { }
+
     internal GameDownloadManager(HttpClient http, Func<bool> gamingActive, Func<string, long> freeBytes,
         string? historyPath, TimeSpan[] retryDelays, ExternalTorrentClientTransport? torrent = null,
-        EmbeddedTorrentTransport? nativeTorrent = null)
+        EmbeddedTorrentTransport? nativeTorrent = null, PortableGameInstallService? portableInstaller = null)
     {
         _http = http;
         _gamingActive = gamingActive;
@@ -67,6 +77,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         _transports[GameDownloadKinds.Http] = new HttpGameDownloadTransport(http);
         _torrent = torrent;
         _nativeTorrent = nativeTorrent;
+        _portableInstaller = portableInstaller;
         IGameDownloadTransport? initialTorrent = nativeTorrent ?? (IGameDownloadTransport?)torrent;
         if (initialTorrent is not null)
         {
@@ -193,6 +204,18 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         string name = SafeFileName(request.FileName) ?? SafeFileName(defaultName) ?? "download";
         string? sha = NormalizeSha(request.ExpectedSha256);
         if (request.ExpectedSha256 is { Length: > 0 } && sha is null) throw new GameDownloadException("The SHA-256 must be 64 hexadecimal characters.");
+        if (request.AutoInstallPortable)
+        {
+            if (_portableInstaller is null || sha is null ||
+                !string.Equals(Path.GetExtension(name), ".zip", StringComparison.OrdinalIgnoreCase) ||
+                !PortableGameInstallService.ValidPortableEntryPoint(request.PortableExecutableRelativePath) ||
+                string.IsNullOrWhiteSpace(request.PortableGameTitle) ||
+                request.PortableGameTitle.Length > 200 || request.PortableGameTitle.Any(char.IsControl))
+                throw new GameDownloadException(
+                    "Auto-deploy requires a ZIP, a separate independent SHA-256 and a valid user-chosen portable game executable/title.");
+        }
+        else if (request.PortableExecutableRelativePath is not null || request.PortableGameTitle is not null)
+            throw new GameDownloadException("Portable game parameters require explicit AutoInstallPortable opt-in.");
         if (_gamingActive()) throw new GameDownloadException("Downloads are paused while a game is running.");
 
         lock (_gate)
@@ -209,6 +232,10 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             {
                 Id = Guid.NewGuid().ToString("N"), Kind = kind, InfoHash = infoHash, ChosenTransport = selected, Url = url, Target = target, Source = source, FileName = name, Directory = directory,
                 ExpectedSha256 = sha, Priority = Math.Clamp(request.Priority, -10, 10),
+                AutoInstallPortable = request.AutoInstallPortable,
+                PortableExecutableRelativePath = request.AutoInstallPortable ? request.PortableExecutableRelativePath : null,
+                PortableGameTitle = request.AutoInstallPortable ? request.PortableGameTitle?.Trim() : null,
+                PostInstallState = request.AutoInstallPortable ? GamePostInstallStates.Pending : GamePostInstallStates.None,
             };
             _entries.Add(entry);
             Pump();
@@ -253,6 +280,12 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             if (e is null) return false;
             if (GameDownloadStates.IsTerminal(e.State))
             {
+                if (e.PostInstallState == GamePostInstallStates.Installing)
+                {
+                    e.PostInstallState = GamePostInstallStates.Interrupted;
+                    e.PostInstallMessage = "Portable installation cancelled by the owner.";
+                    e.Run?.Cancel();
+                }
                 _entries.Remove(e);
                 SaveHistory();
                 return true;
@@ -342,6 +375,11 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                 catch (IOException) when (attempt < _retryDelays.Length && !ct.IsCancellationRequested && !DiskIsFull(e))
                 { await Task.Delay(_retryDelays[attempt], ct).ConfigureAwait(false); }
             }
+            // Deployment happens only after the existing SHA-256 verified
+            // non-overwriting publication. An install failure never deletes the
+            // downloaded archive or relabels valid bytes as a failed download.
+            if (e.AutoInstallPortable)
+                await RunAutoPortableInstallAsync(e, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { /* pause, cancel or Gaming: handled below */ }
         catch (GameDownloadPausedException ex) { externalPause = ex.Message; }
@@ -382,6 +420,53 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             }
             SaveHistory();
             Pump();
+        }
+    }
+
+    private async Task RunAutoPortableInstallAsync(GameDownloadJob e, CancellationToken ct)
+    {
+        if (_portableInstaller is null) return;
+        lock (_gate)
+        {
+            if (e.State != GameDownloadStates.Completed ||
+                !e.IntegrityChecked || e.ExpectedSha256 is null ||
+                !string.Equals(e.ExpectedSha256, e.VerifiedSha256, StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(e.PublishedPath))
+            {
+                e.PostInstallState = GamePostInstallStates.Failed;
+                e.PostInstallMessage = "Portable deployment requires the independently verified completed package.";
+                return;
+            }
+            e.PostInstallState = GamePostInstallStates.Installing;
+            e.PostInstallMessage = "Safely extracting and registering the portable game; nothing is running.";
+        }
+        try
+        {
+            ManualGameDto installed = await _portableInstaller.InstallAsync(
+                e.PublishedPath!, e.ExpectedSha256!, e.PortableExecutableRelativePath!,
+                e.PortableGameTitle!, ct).ConfigureAwait(false);
+            lock (_gate)
+            {
+                e.PostInstallState = GamePostInstallStates.Installed;
+                e.PostInstallMessage = "Portable game registered in your library: " + installed.Name + ". Not executed.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_gate)
+            {
+                e.PostInstallState = GamePostInstallStates.Interrupted;
+                e.PostInstallMessage = "Portable install stopped; the verified ZIP is still available.";
+            }
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException
+            or InvalidOperationException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            lock (_gate)
+            {
+                e.PostInstallState = GamePostInstallStates.Failed;
+                e.PostInstallMessage = "Portable install refused: " + ex.Message;
+            }
         }
     }
 
@@ -625,12 +710,17 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     private static GameDownloadDto ToDto(GameDownloadJob e) => new(
         e.Id, e.FileName, e.Source, e.State, e.Reason, e.BytesDone, e.TotalBytes,
-        e.Priority, e.IntegrityChecked, e.VerifiedSha256, e.CreatedUtc, e.FinishedUtc);
+        e.Priority, e.IntegrityChecked, e.VerifiedSha256, e.CreatedUtc, e.FinishedUtc)
+    {
+        PostInstallState = e.PostInstallState,
+        PostInstallMessage = e.PostInstallMessage
+    };
 
     // ------------------------------------------------------------------ history
 
     private sealed record HistoryItem(string Id, string FileName, string Source, string State, string? Reason, long BytesDone, long? TotalBytes,
-        int Priority, bool IntegrityChecked, string? VerifiedSha256, DateTime CreatedUtc, DateTime? FinishedUtc);
+        int Priority, bool IntegrityChecked, string? VerifiedSha256, DateTime CreatedUtc, DateTime? FinishedUtc,
+        string PostInstallState = GamePostInstallStates.None, string? PostInstallMessage = null);
 
     private void SaveHistory()
     {
@@ -639,7 +729,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
         {
             var items = _entries.Where(x => GameDownloadStates.IsTerminal(x.State)).OrderByDescending(x => x.FinishedUtc).Take(MaxHistory)
                 .Select(x => new HistoryItem(x.Id, x.FileName, x.Source, x.State, x.Reason, x.BytesDone, x.TotalBytes,
-                    x.Priority, x.IntegrityChecked, x.VerifiedSha256, x.CreatedUtc, x.FinishedUtc)).ToList();
+                    x.Priority, x.IntegrityChecked, x.VerifiedSha256, x.CreatedUtc, x.FinishedUtc,
+                    x.PostInstallState == GamePostInstallStates.Installing ? GamePostInstallStates.Interrupted : x.PostInstallState,
+                    x.PostInstallMessage)).ToList();
             Directory.CreateDirectory(Path.GetDirectoryName(_historyPath)!);
             string temp = _historyPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(items));
@@ -664,6 +756,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
                     Id = h.Id, Kind = GameDownloadKinds.Http, Target = string.Empty, Source = h.Source, FileName = h.FileName, Directory = string.Empty, Priority = h.Priority,
                     CreatedUtc = h.CreatedUtc, State = h.State, Reason = h.Reason, BytesDone = h.BytesDone, TotalBytes = h.TotalBytes,
                     IntegrityChecked = h.IntegrityChecked, VerifiedSha256 = h.VerifiedSha256, FinishedUtc = h.FinishedUtc,
+                    PostInstallState = h.PostInstallState == GamePostInstallStates.Installing
+                        ? GamePostInstallStates.Interrupted : h.PostInstallState,
+                    PostInstallMessage = h.PostInstallMessage,
                 });
             }
         }
