@@ -820,6 +820,7 @@
                 <Button
                     x:Name="QuickModelCompareButton"
                     Content="Compare"
+                    Visibility="Collapsed"
                     MinWidth="68"
                     AutomationProperties.AutomationId="Chat_QuickModelCompare_Button"
                     AutomationProperties.Name="Compare two local models"
