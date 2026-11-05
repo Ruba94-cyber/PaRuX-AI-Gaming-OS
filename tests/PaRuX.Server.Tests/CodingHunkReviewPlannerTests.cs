@@ -129,10 +129,16 @@ public sealed class CodingHunkReviewPlannerTests
         Assert.Equal(CodingAgentPermissionMode.Plan, read.ExistingMode);
         Assert.False(CodingReviewApprovalPresenter.Select(
             CodingReviewApprovalLevel.AutoInSandbox, false).Allowed);
-        var automatic = CodingReviewApprovalPresenter.Select(
+        var insufficient = CodingReviewApprovalPresenter.Select(
             CodingReviewApprovalLevel.AutoInSandbox, true);
+        Assert.False(insufficient.Allowed);
+        Assert.Equal(CodingAgentPermissionMode.Plan, insufficient.ExistingMode);
+        var automatic = CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, true, allMutationToolsSandboxed: true);
         Assert.True(automatic.Allowed);
         Assert.Equal(CodingAgentPermissionMode.Bypass, automatic.ExistingMode);
+        Assert.False(CodingReviewApprovalPresenter.Select(
+            CodingReviewApprovalLevel.AutoInSandbox, false, allMutationToolsSandboxed: true).Allowed);
     }
 
     [Fact]
