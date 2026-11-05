@@ -178,6 +178,35 @@ public sealed class GameModDropInServiceTests : IDisposable
     }
 
     [Fact]
+    public void Game_relaunch_at_final_install_gate_leaves_only_a_recoverable_receipt()
+    {
+        var bundle = WriteBundle();
+        int checks = 0;
+        var service = new GameModDropInService(() => false, Exports, Receipts,
+            _ => ++checks >= 3);
+        Assert.Throws<InvalidOperationException>(() =>
+            service.Install(Request(bundle.Path, bundle.Sha)));
+        Assert.True(checks >= 3);
+        Assert.Empty(Directory.EnumerateFiles(Mods));
+        Assert.Equal("missing", Assert.Single(Service().List()).State);
+    }
+
+    [Fact]
+    public void Game_relaunch_at_final_removal_gate_does_not_delete_mod()
+    {
+        var bundle = WriteBundle();
+        var installed = Service().Install(Request(bundle.Path, bundle.Sha));
+        int checks = 0;
+        var service = new GameModDropInService(() => false, Exports, Receipts,
+            _ => ++checks >= 3);
+        Assert.Throws<InvalidOperationException>(() =>
+            service.Remove(new(installed.Id, true, true)));
+        Assert.True(checks >= 3);
+        Assert.True(File.Exists(installed.InstalledFile));
+        Assert.Equal("installed", Assert.Single(Service().List()).State);
+    }
+
+    [Fact]
     public void Missing_game_executable_or_wrong_executable_is_refused_without_any_game_write()
     {
         var bundle = WriteBundle();
