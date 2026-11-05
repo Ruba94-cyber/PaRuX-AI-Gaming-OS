@@ -292,6 +292,31 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Desktop_quick_comparison_refuses_hidden_task_ids_without_starting_models()
+    {
+        using HttpClient client = DesktopClient();
+        var request = new ArenaStartRequest
+        {
+            ModelFileNames = new() { "synthetic-a.gguf", "synthetic-b.gguf" },
+            TaskIds = new() { "chat-explain" },
+            CustomPrompt = "Synthetic comparison question",
+            MaxTokens = 256
+        };
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/models/arena/quick-compare", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Desktop_quick_comparison_read_refuses_unknown_runs()
+    {
+        using HttpClient client = DesktopClient();
+        HttpResponseMessage response = await client.GetAsync(
+            "/api/v1/models/arena/quick-compare/nonexistent-synthetic-run");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("127.0.0.1", "desktop", true)]
     [InlineData("127.0.0.1", "web:session", false)]
