@@ -66,7 +66,7 @@ public sealed record QuantDecision(
 ///    is ever chosen automatically (an Unsloth Dynamic "UD-" file or an imatrix file counts a little higher than its
 ///    plain label, because it keeps the sensitive layers at higher precision for the same size).
 /// 3. Among files that fit in free VRAM, take the highest effective quality, but a bigger file must leave headroom:
-///    Q5-class up to 75% of the VRAM budget, Q6 up to 65%, Q8 up to 50%. Decode speed is memory-bandwidth bound, so a
+///    Q5 and Q6 up to 75% of the VRAM budget, Q8 up to 50% (thresholds checked against a measured KLD/speed ladder, see XLVIII D). Decode speed is memory-bandwidth bound, so a
 ///    file twice as big decodes about half as fast for a small quality gain; that gain is only worth it with spare memory.
 /// 4. If nothing fits in VRAM, take the smallest file at or above the floor that fits VRAM + RAM (or RAM alone without a GPU).
 ///    CPU-only machines never step above Q5-class.
@@ -218,7 +218,9 @@ public static class QuantLadderPolicy
         if (bpw < 5.20) return 1.0;
         if (bpw < 6.20) return cpuOnly ? 0.60 : 0.75;
         if (cpuOnly) return 0.0;           // CPU decode speed scales with file size; no Q6/Q8 step-up.
-        if (bpw < 7.50) return 0.65;
+        // Measured (Qwen3.5-4B, RTX 5080): Q6_K decodes as fast as Q5_K_M (160 vs 162 tok/s) with half its KL divergence,
+        // so it gets the same headroom as Q5. Q8_0 is 16% slower than Q6_K for a KLD gain from 0.011 to ~0: keep it for spare memory.
+        if (bpw < 7.50) return 0.75;
         return 0.50;
     }
 

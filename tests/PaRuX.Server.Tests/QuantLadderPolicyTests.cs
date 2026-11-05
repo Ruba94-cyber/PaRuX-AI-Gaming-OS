@@ -43,6 +43,13 @@ public sealed class QuantLadderPolicyTests
     }
 
     [Fact]
+    public void Q6_GetsTheSameHeadroomAsQ5_BecauseMeasuredSpeedWasEqual()
+    {
+        // budget 9.5: Q6 6.6 <= 0.75 * 9.5 = 7.1 -> Q6 beats Q5 (measured: 160 vs 162 tok/s, KLD 0.011 vs 0.022).
+        Assert.Equal("Q6_K", QuantLadderPolicy.Decide(Ladder(), Gpu(11.0), QuantTask.Technical).Selected!.Quantization);
+    }
+
+    [Fact]
     public void Technical_NeverPicksBelowQ4KM_EvenIfOnlyLowerFits()
     {
         var onlyLow = new List<QuantCandidate> { C("Q3_K_M", 3.9), C("IQ4_XS", 4.3), C("Q4_K_S", 4.6), C("Q4_K_M", 4.9) };
@@ -177,7 +184,14 @@ public sealed class SameFamilyDraftSelectionTests
     private static readonly string Target = @"C:\m\Qwen3-8B-Q4_K_M.gguf";
 
     private static IReadOnlyList<SpeculativeDraftDiscovery.Candidate> Pick(params (string Path, long Size)[] files) =>
-        SpeculativeDraftDiscovery.SelectSameFamilySmallModels(Target, 5000 * Mib, files);
+        SpeculativeDraftDiscovery.SelectSameFamilySmallModels(Target, 9000 * Mib, files);
+
+    [Fact]
+    public void SmallTargets_UnderSixGiB_AreNotRaced_BecauseMeasuredSpeculationLost()
+    {
+        Assert.Empty(SpeculativeDraftDiscovery.SelectSameFamilySmallModels(
+            Target, 4500 * Mib, new[] { (@"C:\m\Qwen3-0.6B-Q8_0.gguf", 640 * Mib) }));
+    }
 
     [Fact]
     public void FamilyKey_IgnoresSizeQuantAndInstructMarkers()

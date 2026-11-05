@@ -91,6 +91,8 @@ public static partial class SpeculativeDraftDiscovery
     internal const double MaxDraftSizeFraction = 0.25;
     /// <summary>Below this a GGUF is a projector/stub, not a language model.</summary>
     internal const long MinDraftBytes = 50L * 1024 * 1024;
+    /// <summary>Smallest target file for which a plain draft model is even raced. Not validated above this size (no larger same-family pair was measured).</summary>
+    internal const long MinTargetBytesForPlainDraft = 6L * 1024 * 1024 * 1024;
 
     /// <summary>
     /// Pure selection of same-family smaller models by file name and size only (no I/O). Family = the model name with
@@ -101,7 +103,10 @@ public static partial class SpeculativeDraftDiscovery
     internal static IReadOnlyList<Candidate> SelectSameFamilySmallModels(
         string targetPath, long targetSizeBytes, IEnumerable<(string Path, long Size)> files)
     {
-        if (targetSizeBytes <= 0) return Array.Empty<Candidate>();
+        // Measured on an RTX 5080 with Qwen3.5-4B (0.8B same-family draft, 4.2 GiB Q8_0 .. 2.2 GiB Q3_K_M targets): speculation was
+        // 0.22x-0.54x of plain decode with 34-89% acceptance and non-identical greedy output. Small targets already decode at
+        // 150-200 tok/s, so the draft cannot pay for itself; do not spend calibration time on them.
+        if (targetSizeBytes < MinTargetBytesForPlainDraft) return Array.Empty<Candidate>();
         string targetFile = System.IO.Path.GetFileNameWithoutExtension(targetPath);
         string family = FamilyKey(targetFile);
         if (family.Length < 4 || PaRuX.Intelligence.GgufFileNaming.IsProjector(targetFile)) return Array.Empty<Candidate>();
