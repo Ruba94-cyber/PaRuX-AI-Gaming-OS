@@ -4,10 +4,10 @@ using System.Linq;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
-/// <summary>Wishlist configuration data only; storage, network calls and notifications are outside this policy.</summary>
+/// <summary>Wishlist data only. Price watching defaults off; storage, networking and notifications are out of scope.</summary>
 public sealed record LocalWishlistEntry(
     string Store, string ProductId, string Title, string Currency,
-    int? PriceTargetMinor, bool PriceWatchOptIn);
+    int? PriceTargetMinor, bool PriceWatchOptIn = false);
 
 public sealed record LocalWishlistEvaluation(bool NotifyEligible, string Reason);
 
