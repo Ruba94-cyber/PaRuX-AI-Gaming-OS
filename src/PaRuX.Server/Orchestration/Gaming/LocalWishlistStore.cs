@@ -8,6 +8,7 @@ using System.Threading;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using PaRuX.Contracts;
+using PaRuX.Server.Orchestration.Gaming.Discover;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
@@ -176,6 +177,76 @@ public static class LocalWishlistEndpoints
             try { return Results.Ok(wishlist.List()) as IResult; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { return Results.Problem("Local wishlist metadata is unavailable."); }
+        }).RequireDesktopOwner();
+
+        // Explicit, owner-only, POST-only one-shot quote. No timer or implicit fetch from
+        // the list route. Reuses Game Discover's separate opt-in, HTTPS allow-list,
+        // rate limiter and Gaming hard-off. Storefront country is *requested*,
+        // never verified as the owner's Steam account country.
+        app.MapPost("/api/v1/gaming/wishlist/{productId}/quote", async (
+            string productId, LocalWishlistQuoteRequest request,
+            LocalWishlistStore wishlist, LocalRuntimeService runtime,
+            IServiceProvider services, CancellationToken ct) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Leave Gaming before requesting a store price." }) as IResult;
+            if (request is null || !request.Consent)
+                return Results.BadRequest(new { error = "One-shot price lookups require explicit confirmation." });
+            if (!SteamStoreCatalogProvider.IsValidAppId(productId))
+                return Results.BadRequest(new { error = "Invalid Steam app id." });
+
+            LocalWishlistEntry? original;
+            try { original = wishlist.List().FirstOrDefault(x => x.Store == "steam" && x.ProductId == productId); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Local wishlist metadata is unavailable."); }
+            if (original is null) return Results.NotFound(new { error = "Wishlist entry not found." });
+            if (original.StoreCountryCode is not { Length: 2 } country
+                || !country.All(char.IsAsciiLetter))
+                return Results.Conflict(new { error = "Select a two-letter Steam storefront country first." });
+
+            GameDiscoverRuntime discover = GameDiscoverRuntime.For(services);
+            string? blocked = discover.Gate.Check();
+            if (blocked is not null)
+                return Results.Conflict(new { error = GameDiscoverGate.MessageFor(blocked) });
+
+            using var hardOff = new GamingHardOffWatch(() => runtime.GamingMode, ct);
+            try
+            {
+                var result = await discover.Steam.QuotePriceAsync(productId, country, hardOff.Token)
+                    .ConfigureAwait(false);
+                if (hardOff.Triggered || runtime.GamingMode)
+                    return Results.Conflict(new { error = "Store price lookup stopped when Gaming started." });
+                blocked = discover.Gate.Check();
+                if (blocked is not null)
+                    return Results.Conflict(new { error = GameDiscoverGate.MessageFor(blocked) });
+                if (!result.IsOk || result.Value is null)
+                    return Results.Conflict(new { error = result.Message ?? "The Steam storefront price is unavailable." });
+
+                // A user may change consent, country, currency or remove an entry
+                // while the network request is in flight. Recheck current state
+                // before using a result; never persist it or send a notification.
+                LocalWishlistEntry? current = wishlist.List()
+                    .FirstOrDefault(x => x.Store == "steam" && x.ProductId == productId);
+                if (current is null || !Equals(current, original))
+                    return Results.Conflict(new { error = "Wishlist settings changed during the lookup. Try again." });
+
+                PublicStorePriceSample price = result.Value;
+                bool sameCurrency = string.Equals(price.Currency, current.Currency, StringComparison.OrdinalIgnoreCase);
+                bool? meetsTarget = sameCurrency && current.PriceTargetMinor is int target
+                    ? price.PriceMinor <= target : null;
+                return Results.Ok(new LocalWishlistQuoteDto(
+                    price.Store, price.ProductId, country.ToUpperInvariant(), price.Currency,
+                    price.PriceMinor, current.PriceTargetMinor, meetsTarget, price.ObservedAtUtc,
+                    "Indicative Steam storefront quote for the requested country; the Steam account region is not verified. "
+                    + "No automatic checks, alerts, purchases or store-account access. "
+                    + (sameCurrency ? "" : "The returned currency differs from the saved target currency.")));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            { return Results.StatusCode(499); }
+            catch (OperationCanceledException)
+            { return Results.Conflict(new { error = "Store lookup was interrupted; no price was recorded." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Local wishlist data could not be read."); }
         }).RequireDesktopOwner();
 
         app.MapPost("/api/v1/gaming/wishlist", (
