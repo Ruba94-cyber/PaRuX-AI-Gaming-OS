@@ -1,3 +1,9 @@
+### 2026-11-05 — Torrent source/staging hardening and temporary game mod exit recovery (SOURCE WIP)
+
+- Read local torrent metadata through one bounded file handle; reject duplicate `info` and critical bencode keys; preflight resumed native-torrent stage trees for links before peer writes. New synthetic regression tests, not run.
+- Approved temporary game config mods are eligible for automatic restore after the original process exits; new game instances and changed configs block restore and retain original recovery backups. Slow background recovery checks do not run during Gaming. New synthetic service tests, not run.
+- Platform build, dependency/API compatibility, peer swarm integration, game pause/resume and full UI regression remain unverified on Windows. No 3.1.0 release.
+
 # Changelog
 
 ### 2026-11-05 — Torrent hardening + AI temporary game mods (source WIP)

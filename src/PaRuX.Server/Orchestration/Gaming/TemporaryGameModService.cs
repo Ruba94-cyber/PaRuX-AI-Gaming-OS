@@ -343,11 +343,20 @@ public sealed class TemporaryGameModService
 
     private Journal ReadJournal(string path)
     {
-        if (new FileInfo(path) is not { Exists: true } info || info.Length > MaxTextBytes * 3 ||
+        var info = new FileInfo(path);
+        if (!info.Exists || info.Length > MaxTextBytes * 3 ||
             info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("Temporary mod recovery receipt is unsafe.");
-        Journal journal = JsonSerializer.Deserialize<Journal>(File.ReadAllText(path))
-            ?? throw new InvalidDataException("Temporary mod recovery receipt is invalid.");
+        Journal journal;
+        try
+        {
+            journal = JsonSerializer.Deserialize<Journal>(File.ReadAllText(path))
+                ?? throw new InvalidDataException("Temporary mod recovery receipt is invalid.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Temporary mod recovery receipt is corrupted.", ex);
+        }
         if (journal.Id is not { Length: 32 } || !journal.Id.All(Uri.IsHexDigit) ||
             !string.Equals(path, JournalPath(journal.Id), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Temporary mod recovery receipt identity changed.");

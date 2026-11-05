@@ -1,3 +1,9 @@
+## 2026-11-05 follow-up — native torrent safety + auto-restoring temporary game mods (SOURCE WIP)
+
+- Native BitTorrent: selected local .torrent sources are read once under a file-share lease, hash-checked from the bytes actually transferred, with duplicate critical keys refused. Pre-existing GUID-owned staging trees now fail closed on symlink/junctions before new peer writes, and cleaning remains bounded. Added synthetic source/stage tests.
+- Temporary game mods: original text is automatically restored ONLY when the captured process exits, no newly launched matching game instance exists, and the file still equals the originally applied SHA. A 15-second lightweight recovery host is disabled during Gaming; it retains backups for conflicts and manual recovery. Added synthetic tests for live-process refusal, restart and conflict.
+- Both changes are pushed to `main`, but NOT COMPILED / NOT TESTED on Windows; no claim of functioning peer download, portable install, or game mod hot-reload. No release/tag from cloud.
+
 # PaRuX hand-off (written 2026-11-05) - continue on another PC
 
 ## 2026-11-05 continuation — torrent fixes and temporary AI game mods (SOURCE WIP)

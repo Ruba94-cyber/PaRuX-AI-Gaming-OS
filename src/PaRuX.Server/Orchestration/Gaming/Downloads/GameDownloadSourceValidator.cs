@@ -81,11 +81,11 @@ internal static class GameDownloadSourceValidator
     /// </summary>
     public static byte[] ReadValidatedTorrentBytes(string fullPath, string expectedInfoHash)
     {
-        (_, byte[] bytes) = ReadTorrentFile(fullPath);
-        (_, string actualHash, _) = ParseTorrent(bytes);
+        var snapshot = ReadTorrentFile(fullPath);
+        string actualHash = ParseTorrent(snapshot.Bytes).InfoHash;
         if (!string.Equals(actualHash, expectedInfoHash, StringComparison.Ordinal))
             throw new GameDownloadException("The .torrent file changed since it was selected.");
-        return bytes;
+        return snapshot.Bytes;
     }
 
     private static (string FullPath, byte[] Bytes) ReadTorrentFile(string? path)
