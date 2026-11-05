@@ -127,7 +127,7 @@ internal static class MinecraftSkinUvRestyler
         try
         {
             using var source = new MemoryStream(originalPng, writable: false);
-            using var imported = Image.FromStream(source, false, true);
+            using var imported = new Bitmap(source);
             if (imported.Width != 64 || imported.Height != 64)
                 throw new InvalidDataException("Only native 64x64 Minecraft Java PNG skins can be restyled.");
             using var imageStream = new MemoryStream(referenceImage, writable: false);
@@ -135,11 +135,12 @@ internal static class MinecraftSkinUvRestyler
             if (reference.Width is < 64 or > 4096 || reference.Height is < 64 or > 4096)
                 throw new InvalidDataException("The local image reference dimensions are not supported.");
             using var output = new Bitmap(64, 64, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(output))
-            {
-                g.Clear(Color.Transparent);
-                g.DrawImage(imported, new Rectangle(0, 0, 64, 64), 0, 0, 64, 64, GraphicsUnit.Pixel);
-            }
+            // Copy decoded pixels exactly. Graphics.DrawImage with SourceOver
+            // may alter partially transparent unselected pixels, breaking the
+            // preservation guarantee of a body-part-only restyle.
+            for (int yy = 0; yy < 64; yy++)
+            for (int xx = 0; xx < 64; xx++)
+                output.SetPixel(xx, yy, imported.GetPixel(xx, yy));
             foreach (Face face in Faces(part, armStyle))
             {
                 var r = face.Rect;
