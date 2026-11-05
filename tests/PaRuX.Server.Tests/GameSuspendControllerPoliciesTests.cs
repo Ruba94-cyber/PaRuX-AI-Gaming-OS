@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using PaRuX.Server.Orchestration.Gaming;
 using Xunit;
 
@@ -118,6 +120,36 @@ public sealed class GameSuspendControllerPoliciesTests
             new System.Collections.Generic.Dictionary<string, double>(),
             System.Array.Empty<string>(), null, "unknown");
         Assert.Contains("not measured", ControllerRemapPresenter.LatencyText(snapshot));
+    }
+
+    [Fact]
+    public void Typed_undo_plan_only_contains_owned_changes_and_never_runs_without_consent()
+    {
+        var refused = ControllerUndoEverythingPlanner.BuildPlan(
+            false, true, true, true);
+        Assert.False(refused.Allowed);
+        Assert.Empty(refused.Actions);
+
+        var onlyJournal = ControllerUndoEverythingPlanner.BuildPlan(
+            true, false, true, false);
+        Assert.True(onlyJournal.Allowed);
+        Assert.Equal(new[]
+        {
+            ControllerUndoStepKind.RestoreOwnedHidHideEntries,
+            ControllerUndoStepKind.RefreshDeviceStatus
+        }, onlyJournal.Actions.Select(a => a.Kind));
+
+        var everything = ControllerUndoEverythingPlanner.BuildPlan(
+            true, true, true, true);
+        Assert.Equal(new[]
+        {
+            ControllerUndoStepKind.StopOwnedForwarding,
+            ControllerUndoStepKind.RestoreOwnedHidHideEntries,
+            ControllerUndoStepKind.ClearOwnedGameMapping,
+            ControllerUndoStepKind.RefreshDeviceStatus
+        }, everything.Actions.Select(a => a.Kind));
+        Assert.DoesNotContain(everything.Actions,
+            a => a.Description.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
