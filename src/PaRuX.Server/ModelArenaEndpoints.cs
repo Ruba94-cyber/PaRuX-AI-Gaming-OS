@@ -61,6 +61,17 @@ internal static class ModelArenaEndpoints
             catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        // Results remain local to the desktop owner. The underlying Arena has already
+        // measured each model; this read endpoint never runs inference or changes routing.
+        app.MapGet("/api/v1/models/arena/quick-compare/{id}", (string id, ModelArenaService arena) =>
+        {
+            ArenaRunDto? run = arena.Get(id);
+            if (run is null) return Results.NotFound(new { error = "Comparison run not found" });
+            ArenaQuickCompareViewDto view = QuickChatComparisonPresenter.ToDto(run, italian: false);
+            return view.Ready ? Results.Ok(view) :
+                Results.NotFound(new { error = "The run is not a two-model custom-prompt comparison." });
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/models/arena/runs/{id}/cancel", (string id, ModelArenaService arena) =>
             arena.Cancel(id) ? Results.Accepted() : Results.NotFound(new { error = "Active comparison run not found" })).RequireDesktopOwner();
 
