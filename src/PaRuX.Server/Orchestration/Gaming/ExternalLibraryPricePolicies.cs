@@ -93,14 +93,4 @@ public static class PublicStorePriceWatchPolicy
         catch (InvalidOperationException) { return null; }
     }
 
-    public static bool ShouldNotify(PublicStorePriceSample? sample,
-        int userMaximumPriceMinor, bool notificationsOptedIn, DateTimeOffset nowUtc)
-    {
-        if (!notificationsOptedIn || sample is null || userMaximumPriceMinor < 0
-            || sample.PriceMinor < 0 || !string.Equals(sample.Store, "steam", StringComparison.Ordinal))
-            return false;
-        TimeSpan age = nowUtc.ToUniversalTime() - sample.ObservedAtUtc;
-        return age >= TimeSpan.Zero && age <= TimeSpan.FromHours(24)
-            && sample.PriceMinor <= userMaximumPriceMinor;
-    }
 }
