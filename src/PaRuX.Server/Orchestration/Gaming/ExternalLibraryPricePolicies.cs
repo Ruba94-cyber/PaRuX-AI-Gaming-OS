@@ -54,7 +54,11 @@ public static class ExternalGameLibraryExportParser
 
 public sealed record PublicStorePriceSample(
     string Store, string ProductId, string Currency, int PriceMinor,
-    DateTimeOffset ObservedAtUtc);
+    DateTimeOffset ObservedAtUtc)
+{
+    /// <summary>Country code from the caller's actual public-store price request, not from currency.</summary>
+    public string? StoreCountryCode { get; init; }
+}
 
 /// <summary>
 /// Parses a caller-supplied Steam public appdetails response; does NOT fetch an API,
@@ -64,9 +68,16 @@ public sealed record PublicStorePriceSample(
 public static class PublicStorePriceWatchPolicy
 {
     public static PublicStorePriceSample? ParseSteamAppDetails(
-        string? appId, string? json, bool optIn, DateTimeOffset observedAtUtc)
+        string? appId, string? json, bool optIn, DateTimeOffset observedAtUtc,
+        string? requestCountryCode = null)
     {
         if (!optIn) return null;
+        // The caller must attach the exact 'cc' country sent to the public store.
+        // Missing country remains unknown and cannot qualify for a wishlist alert.
+        if (requestCountryCode is not null &&
+            (requestCountryCode.Length != 2
+                || requestCountryCode.Any(c => !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')))))
+            return null;
         if (string.IsNullOrEmpty(appId) || appId.Length > 12
             || appId.Any(c => c < '0' || c > '9')
             || string.IsNullOrWhiteSpace(json) || json.Length > 128_000)
@@ -87,7 +98,10 @@ public static class PublicStorePriceWatchPolicy
                 return null;
             string code = currency.GetString() ?? string.Empty;
             if (code.Length != 3 || code.Any(c => c < 'A' || c > 'Z')) return null;
-            return new("steam", appId, code, minor, observedAtUtc.ToUniversalTime());
+            return new("steam", appId, code, minor, observedAtUtc.ToUniversalTime())
+            {
+                StoreCountryCode = requestCountryCode?.ToUpperInvariant()
+            };
         }
         catch (JsonException) { return null; }
         catch (InvalidOperationException) { return null; }
