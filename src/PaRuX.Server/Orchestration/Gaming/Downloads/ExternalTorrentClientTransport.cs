@@ -7,7 +7,7 @@ namespace PaRuX.Server.Orchestration.Gaming.Downloads;
 
 /// <summary>
 /// Optional adapter that drives a torrent client the USER installed (qBittorrent) through its local WebUI API.
-/// PaRuX bundles no torrent engine and no catalogue. The adapter is OFF until the user configures it, only ever talks
+/// The bundled MonoTorrent engine is separate and optional; this adapter is OFF until the user configures it and only talks
 /// to 127.0.0.1, and keeps the port and credentials in memory (never persisted, never logged). The client only
 /// produces bytes: the manager re-hashes the finished file itself and publishes it through the normal integrity path.
 /// </summary>
@@ -165,12 +165,68 @@ public sealed class ExternalTorrentClientTransport : IGameDownloadTransport, IDi
         return RemoveFromClientAsync(session, job.InfoHash, staging);
     }
 
-    private static void EnsureStaging(string staging)
+    private const int MaxStageEntries = 10_000;
+
+    private static bool OwnedStageName(string staging)
     {
-        System.IO.Directory.CreateDirectory(staging);
-        var info = new DirectoryInfo(staging);
-        if (info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0)
-            throw new GameDownloadException("The torrent staging folder is a linked folder.");
+        string name = Path.GetFileName(staging.TrimEnd(Path.DirectorySeparatorChar));
+        const string prefix = ".parux-torrent-";
+        return name.StartsWith(prefix, StringComparison.Ordinal)
+            && name.Length == prefix.Length + 32
+            && name[prefix.Length..].All(Uri.IsHexDigit);
+    }
+
+    /// <summary>Fail closed before qBittorrent touches an existing PaRuX stage.</summary>
+    internal static void EnsureStaging(string staging)
+    {
+        if (!OwnedStageName(staging))
+            throw new GameDownloadException("The torrent staging path is not PaRuX-owned.");
+        if (!ManualGameLibrary.IsSafeDirectory(Path.GetDirectoryName(staging)!))
+            throw new GameDownloadException("The torrent staging parent is not a safe local folder.");
+        if (File.Exists(staging))
+            throw new GameDownloadException("A file occupies the torrent staging directory.");
+        Directory.CreateDirectory(staging);
+        ValidateStageTree(staging);
+    }
+
+    private static void ValidateStageTree(string root)
+    {
+        var remaining = new Stack<string>();
+        remaining.Push(root);
+        int visited = 0;
+        while (remaining.Count > 0)
+        {
+            string folder = remaining.Pop();
+            if (++visited > MaxStageEntries || !ManualGameLibrary.IsSafeDirectory(folder))
+                throw new GameDownloadException("The torrent stage contains unsafe links or too many entries.");
+            foreach (string entry in Directory.EnumerateFileSystemEntries(folder, "*", SearchOption.TopDirectoryOnly))
+            {
+                if (++visited > MaxStageEntries) throw new GameDownloadException("The torrent stage is too large.");
+                FileAttributes attr = File.GetAttributes(entry);
+                if ((attr & FileAttributes.ReparsePoint) != 0
+                    || new FileInfo(entry).LinkTarget is not null)
+                    throw new GameDownloadException("The torrent stage contains a linked file or directory.");
+                if ((attr & FileAttributes.Directory) != 0) remaining.Push(entry);
+            }
+        }
+    }
+
+    /// <summary>
+    /// qBittorrent never receives deleteFiles=true: only PaRuX cleans its own
+    /// GUID stage after it has inspected every directory/file for links.
+    /// A suspicious stage is preserved for manual inspection.
+    /// </summary>
+    internal static void CleanOwnedStaging(string staging)
+    {
+        try
+        {
+            if (!OwnedStageName(staging) || !Directory.Exists(staging)
+                || !ManualGameLibrary.IsSafeDirectory(Path.GetDirectoryName(staging)!)) return;
+            ValidateStageTree(staging);
+            Directory.Delete(staging, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or GameDownloadException)
+        { /* Leave unsafe partials untouched rather than following links. */ }
     }
 
     private async Task AddAsync(Session session, GameDownloadTransferContext context, string staging, string hash, CancellationToken ct)
@@ -263,7 +319,10 @@ public sealed class ExternalTorrentClientTransport : IGameDownloadTransport, IDi
         string source = Path.GetFullPath(Path.Combine(staging, relative));
         string root = Path.GetFullPath(staging).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         // The client is not trusted to name a path outside the staging folder.
-        if (relative.Length == 0 || !source.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        if (relative.Length == 0 || relative.Contains('/') || relative.Contains('\\')
+            || relative is "." or ".." || Path.IsPathRooted(relative)
+            || !string.Equals(relative, GameDownloadManager.SafeFileName(relative), StringComparison.Ordinal)
+            || !source.StartsWith(root, StringComparison.OrdinalIgnoreCase))
             throw new GameDownloadException("The torrent client reported an unexpected file path.");
         var info = new FileInfo(source);
         if (!info.Exists || info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0)
@@ -306,12 +365,11 @@ public sealed class ExternalTorrentClientTransport : IGameDownloadTransport, IDi
             {
                 Content = new FormUrlEncodedContent(new[]
                 {
-                    new KeyValuePair<string, string>("hashes", hash), new KeyValuePair<string, string>("deleteFiles", "true"),
+                    new KeyValuePair<string, string>("hashes", hash), new KeyValuePair<string, string>("deleteFiles", "false"),
                 }),
             }, cts.Token).ConfigureAwait(false);
         }).ConfigureAwait(false);
-        try { if (System.IO.Directory.Exists(staging)) System.IO.Directory.Delete(staging, recursive: true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        CleanOwnedStaging(staging);
     }
 
     private static async Task BestEffortAsync(Func<Task> action)

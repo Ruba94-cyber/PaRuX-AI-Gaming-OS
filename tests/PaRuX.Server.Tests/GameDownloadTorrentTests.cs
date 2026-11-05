@@ -33,7 +33,7 @@ public sealed class GameDownloadTorrentTests : IDisposable
         public bool V5; // v5 uses stop/start instead of pause/resume
         public int FailInfo;     // answer 503 this many times on /info
         public int InfoCalls, Logins;
-        public string? SavePath, AddedBody;
+        public string? SavePath, AddedBody, DeletedBody;
         public List<string> Paths = new();
         private int _poll;
 
@@ -130,7 +130,7 @@ public sealed class GameDownloadTorrentTests : IDisposable
                     case "/api/v2/torrents/stop": lock (_gate) PauseCalled = true; Write(c, 200, ""); break;
                     case "/api/v2/torrents/resume": lock (_gate) ResumeCalled = true; if (V5) Write(c, 404, ""); else Write(c, 200, ""); break;
                     case "/api/v2/torrents/start": lock (_gate) { ResumeCalled = true; StartRoute = true; } Write(c, 200, ""); break;
-                    case "/api/v2/torrents/delete": lock (_gate) Deleted = true; Write(c, 200, ""); break;
+                    case "/api/v2/torrents/delete": lock (_gate) { Deleted = true; DeletedBody = body; } Write(c, 200, ""); break;
                     default: Write(c, 404, ""); break;
                 }
             }
@@ -403,6 +403,7 @@ public sealed class GameDownloadTorrentTests : IDisposable
         Assert.Equal(_client.Content, await File.ReadAllBytesAsync(Path.Combine(_dir, "game.bin")));
         Assert.DoesNotContain(".parux-part", string.Join('|', Directory.GetFileSystemEntries(_dir).Select(Path.GetFileName)));
         Assert.True(_client.Deleted, "the finished torrent entry we added is removed from the client");
+        Assert.Contains("deleteFiles=false", _client.DeletedBody); // Client never recursively removes stage data itself.
         Assert.False(Directory.Exists(Path.Combine(_dir, ".parux-torrent-" + job.Id)));
         Assert.Contains("urls", _client.AddedBody);
         Assert.Contains("tracker.example", _client.AddedBody); // trackers go to the client, only there
@@ -498,6 +499,43 @@ public sealed class GameDownloadTorrentTests : IDisposable
         var failed2 = await WaitFor(manager, job2.Id, GameDownloadStates.Failed);
         Assert.Contains("unexpected file path", failed2.Reason);
         Assert.False(File.Exists(Path.Combine(_dir, "n.bin")));
+    }
+
+    [Fact]
+    public void External_client_never_resumes_from_a_linked_or_unowned_stage()
+    {
+        string stage = Path.Combine(_dir, ".parux-torrent-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(stage);
+        string outside = Path.Combine(_dir, "outside.txt");
+        File.WriteAllText(outside, "preserve");
+        string link = Path.Combine(stage, "unsafe.txt");
+        try { File.CreateSymbolicLink(link, outside); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        { return; }
+        Assert.Throws<GameDownloadException>(() => ExternalTorrentClientTransport.EnsureStaging(stage));
+        ExternalTorrentClientTransport.CleanOwnedStaging(stage);
+        Assert.True(Directory.Exists(stage));
+        Assert.Equal("preserve", File.ReadAllText(outside));
+        File.Delete(link);
+        ExternalTorrentClientTransport.CleanOwnedStaging(stage);
+        Assert.False(Directory.Exists(stage));
+        Assert.Equal("preserve", File.ReadAllText(outside));
+    }
+
+    [Fact]
+    public void External_client_staging_cleanup_is_strictly_owned_and_bounded()
+    {
+        string wrong = Path.Combine(_dir, "ordinary-folder");
+        Directory.CreateDirectory(wrong);
+        File.WriteAllText(Path.Combine(wrong, "keep.txt"), "keep");
+        ExternalTorrentClientTransport.CleanOwnedStaging(wrong);
+        Assert.Equal("keep", File.ReadAllText(Path.Combine(wrong, "keep.txt")));
+        string safe = Path.Combine(_dir, ".parux-torrent-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(safe, "nested", "content"));
+        File.WriteAllText(Path.Combine(safe, "nested", "content", "piece.bin"), "fixture");
+        ExternalTorrentClientTransport.EnsureStaging(safe);
+        ExternalTorrentClientTransport.CleanOwnedStaging(safe);
+        Assert.False(Directory.Exists(safe));
     }
 
     [Fact]
