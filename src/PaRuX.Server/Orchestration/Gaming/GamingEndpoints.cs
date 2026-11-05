@@ -68,6 +68,62 @@ public static class GamingEndpoints
           // inner export cap; still refuse multi-megabyte request bodies at HTTP entry.
           .WithMetadata(new RequestSizeLimitAttribute(3_200_000));
 
+        // Saved title-only external library snapshots are local and do not
+        // grant launch, install, ownership or access to third-party accounts.
+        app.MapGet("/api/v1/gaming/library/imported", (
+            ExternalGameLibraryStore imported, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "External library management is disabled while Gaming." }) as IResult;
+            try { return Results.Ok(imported.List()) as IResult; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Saved library metadata cannot be read."); }
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/library/import", (
+            ExternalLibraryImportRequest request, ExternalGameLibraryStore imported,
+            GameTitleReadCache cache, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "External library import is disabled while Gaming." }) as IResult;
+            if (request is null || !request.Consent)
+                return Results.BadRequest(new { error = "Importing requires a separate, explicit owner confirmation." });
+            try
+            {
+                IReadOnlyList<ExternalLibraryGame> candidates =
+                    ExternalGameLibraryExportParser.Parse(request.Provider ?? "", request.Json ?? "");
+                // No external paths or launch parameters enter durable storage.
+                var result = imported.Import(candidates);
+                cache.Invalidate();
+                return Results.Ok(result) as IResult;
+            }
+            catch (Exception ex) when (ex is InvalidDataException or JsonException or ArgumentException)
+            { return Results.BadRequest(new { error = "Unsupported, empty or invalid external library export." }); }
+            catch (InvalidOperationException)
+            { return Results.Conflict(new { error = "The saved external library has reached its limit." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { return Results.Problem("Saved library metadata could not be written."); }
+        }).RequireDesktopOwner()
+          .WithMetadata(new RequestSizeLimitAttribute(3_200_000));
+
+        app.MapDelete("/api/v1/gaming/library/imported/{provider}/{externalId}", (
+            string provider, string externalId, ExternalGameLibraryStore imported,
+            GameTitleReadCache cache, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "External library management is disabled while Gaming." }) as IResult;
+            try
+            {
+                if (!imported.Remove(provider, externalId)) return Results.NotFound();
+                cache.Invalidate();
+                return Results.NoContent();
+            }
+            catch (ArgumentException)
+            { return Results.BadRequest(new { error = "Invalid external library identifier." }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return Results.Problem("Saved library metadata could not be changed."); }
+        }).RequireDesktopOwner();
+
         // Enumerate local Steam manifests only: no installer, launcher or untrusted command execution.
         app.MapGet("/api/v1/gaming/library/discover/steam", (
             SteamGameDiscoveryProvider provider, LocalRuntimeService runtime, CancellationToken ct) =>

@@ -39,6 +39,7 @@ public static class GameLibraryHome
         GameInstallationSources.Steam, GameInstallationSources.Epic, GameInstallationSources.Gog, GameInstallationSources.Ea,
         GameInstallationSources.BattleNet, GameInstallationSources.Ubisoft, GameInstallationSources.Xbox,
         GameInstallationSources.Manual, GameInstallationSources.Emulator,
+        GameInstallationSources.Playnite, GameInstallationSources.Heroic, GameInstallationSources.Lutris,
     };
 
     public static bool IsInstalled(GameTitleDto title) => title.Installations.Any(i => i.InstallState == GameInstallStates.Installed);

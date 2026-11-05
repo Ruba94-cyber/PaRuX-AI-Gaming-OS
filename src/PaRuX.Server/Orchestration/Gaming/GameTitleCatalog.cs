@@ -15,6 +15,7 @@ public static class GameTitleCatalog
         GameInstallationSources.Manual, GameInstallationSources.Steam, GameInstallationSources.Epic,
         GameInstallationSources.Gog, GameInstallationSources.Ea, GameInstallationSources.BattleNet,
         GameInstallationSources.Ubisoft, GameInstallationSources.Xbox, GameInstallationSources.Emulator,
+        GameInstallationSources.Playnite, GameInstallationSources.Heroic, GameInstallationSources.Lutris,
     };
 
     public const string PcPlatform = "PC";

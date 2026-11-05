@@ -8,3 +8,11 @@ public sealed record ExternalLibraryPreviewRequest(string? Provider, string? Jso
 
 /// <summary>Safe title/identifier projection; executable paths and launch data are excluded.</summary>
 public sealed record ExternalLibraryGamePreviewDto(string Provider, string ExternalId, string Title);
+
+/// <summary>
+/// Second, distinct owner action after viewing a preview. Imports metadata only:
+/// paths, executables, save files and launch arguments in the JSON are discarded.
+/// </summary>
+public sealed record ExternalLibraryImportRequest(string? Provider, string? Json, bool Consent);
+
+public sealed record ExternalLibraryImportResultDto(int Added, int AlreadyPresent, int Total);

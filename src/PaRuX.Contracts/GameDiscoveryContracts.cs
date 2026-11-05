@@ -7,6 +7,8 @@ public static class GameInstallStates
     public const string Installed = "installed";
     public const string Updating = "updating";
     public const string Incomplete = "incomplete";
+    /// <summary>Imported third-party title-only metadata; NEVER an executable or a launch grant.</summary>
+    public const string MetadataOnly = "metadata-only";
 }
 
 /// <summary>

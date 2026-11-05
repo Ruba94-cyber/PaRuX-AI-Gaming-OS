@@ -270,6 +270,7 @@ builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<ManualGameLibrary>();
+builder.Services.AddSingleton<ExternalGameLibraryStore>();
 builder.Services.AddSingleton<LocalWishlistStore>();
 builder.Services.AddSingleton<PaRuX.Server.Orchestration.Gaming.QuickResumeService>();
 builder.Services.AddSingleton<TemporaryGameModService>();

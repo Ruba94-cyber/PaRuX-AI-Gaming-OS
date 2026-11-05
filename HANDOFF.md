@@ -1,3 +1,9 @@
+## 2026-11-05 — External library title-only opt-in import (MAIN SOURCE WIP)
+
+- Added `ExternalGameLibraryStore` and explicit desktop-owner import/list/remove API for Playnite/Heroic/Lutris JSON. Import saves only validated provider, title and external ID (never export launch paths, arguments or credentials); duplicate IDs do not silently replace names. 1000 saved entries maximum, bounded versioned file, cross-process lease, safe non-link storage, atomic replace; Gaming Mode disallows import/removal. Preview stays read-only.
+- Imported items participate in the unified Games catalogue as `metadata-only`, which is NOT launchable by the existing `GameTitleLaunchPolicy`; existing Steam/manual titles can still be launched through their separate verified installation.
+- This is source-only and still requires compile, focused xUnit/HTTP, FlaUI, live 13-inch UI, and real Playnite/Heroic/Lutris export compatibility. Do not publish release 3.1.0.
+
 ## 2026-11-05 — Scoped Windows gaming downloads/mods gate expanded (SOURCE WIP)
 
 - `tools/test-gaming-downloads-mods.ps1` now selects native torrent encrypted-restart, generic AI asset ZIP, opt-in ZIP drop-in and selected-game process guard xUnit regressions in addition to the existing download/portable/config tests. This is test gate wiring only, NOT a Windows execution result.

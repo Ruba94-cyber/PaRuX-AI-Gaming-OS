@@ -33,7 +33,8 @@ public static class GameTitleEndpoints
             string? q, string? source, bool? favorite, string? tag, string? collection, bool? refresh,
             string? sort, string? platform, bool? installed, string? hidden,
             SteamGameDiscoveryProvider steam, EpicGameDiscoveryProvider epic, GogGameDiscoveryProvider gog,
-            ManualGameLibrary library, GameTitleStore store, GameTitleReadCache cache,
+            ManualGameLibrary library, ExternalGameLibraryStore externalImports,
+            GameTitleStore store, GameTitleReadCache cache,
             LocalRuntimeService runtime, ExtraStoreCatalog extraStores, CancellationToken ct) =>
         {
             // Reject unknown sort/hidden values instead of silently ignoring a typo.
@@ -75,6 +76,12 @@ public static class GameTitleEndpoints
                 }
                 if (runtime.GamingMode) return FromCache();
                 scanToken.ThrowIfCancellationRequested();
+                // Imported third-party exports contain *titles only*. They are
+                // metadata-only installations, never launchable game binaries.
+                // No vendor paths or commands enter the unified catalogue.
+                discovered.AddRange(externalImports.List().Select(game =>
+                    new DiscoveredGameDto(game.Provider, game.ExternalId, game.Title,
+                        string.Empty, GameInstallStates.MetadataOnly)));
                 var titles = GameTitleCatalog.Build(discovered, library.List(), store.Snapshot());
                 if (runtime.GamingMode) return FromCache();
                 scanToken.ThrowIfCancellationRequested();
@@ -89,7 +96,9 @@ public static class GameTitleEndpoints
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
             catch (OperationCanceledException) when (runtime.GamingMode) { return FromCache(); }
-            catch (InvalidDataException) { return Results.Problem("The game library could not be read."); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                InvalidDataException or System.Text.Json.JsonException)
+            { return Results.Problem("The game library could not be read."); }
         }).RequireDesktopOwner();
 
         app.MapPut("/api/v1/gaming/titles/{key}/hidden", (

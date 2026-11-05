@@ -12,6 +12,9 @@ public static class GameInstallationSources
     public const string Ubisoft = "ubisoft";
     public const string Xbox = "xbox";
     public const string Emulator = "emulator";
+    public const string Playnite = "playnite";
+    public const string Heroic = "heroic";
+    public const string Lutris = "lutris";
 }
 
 /// <summary>
