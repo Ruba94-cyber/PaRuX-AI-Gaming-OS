@@ -85,7 +85,8 @@ internal sealed class NativeTorrentRecoveryStore
         try
         {
             Entry[] items = JsonSerializer.Deserialize<Entry[]>(plain) ?? Array.Empty<Entry>();
-            if (items.Length > MaxItems) throw new InvalidDataException("Too many stored torrent jobs.");
+            if (items.Length > MaxItems || items.Any(item => item is null))
+                throw new InvalidDataException("Stored torrent jobs contain unsafe records.");
             return items;
         }
         catch (JsonException ex)
