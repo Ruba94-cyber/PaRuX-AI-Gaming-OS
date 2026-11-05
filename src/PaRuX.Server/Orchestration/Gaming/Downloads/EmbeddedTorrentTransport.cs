@@ -39,7 +39,7 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
     internal static string StagingPath(GameDownloadJob job) =>
         Path.Combine(job.Directory, ".parux-native-torrent-" + job.Id);
 
-    public async Task FetchAsync(GameDownloadTransferContext context, CancellationToken cancellationToken)
+    async Task IGameDownloadTransport.FetchAsync(GameDownloadTransferContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         GameDownloadJob job = context.Job;
@@ -159,7 +159,7 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
     }
 
     /// <summary>A cancellation removes only PaRuX's own stage; never an installed game or user .torrent.</summary>
-    public Task AbandonAsync(GameDownloadJob job, CancellationToken ct)
+    Task IGameDownloadTransport.AbandonAsync(GameDownloadJob job, CancellationToken ct)
     {
         if (_active.TryGetValue(job.Id, out var stop))
         {
