@@ -29,8 +29,8 @@ function Get-ForeignUiRunners {
     while ($cur) { $mine[[int]$cur] = $true; $p = Get-CimInstance Win32_Process -Filter "ProcessId=$cur" -ErrorAction SilentlyContinue; $cur = if ($p) { $p.ParentProcessId } else { 0 } }
     Get-CimInstance Win32_Process | Where-Object {
         -not $mine.ContainsKey([int]$_.ProcessId) -and (
-            ($_.Name -eq 'testhost.exe' -and $_.CommandLine -match 'UITests|FlaUI') -or
-            ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -match '\btest\b' -and $_.CommandLine -match 'UITests|FlaUI'))
+            ($_.Name -eq 'testhost.exe' -and $_.CommandLine -match 'UITests|GuiTests|FlaUI') -or
+            ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -match '\btest\b' -and $_.CommandLine -match 'UITests|GuiTests|FlaUI'))
     } | Select-Object ProcessId, Name
 }
 
