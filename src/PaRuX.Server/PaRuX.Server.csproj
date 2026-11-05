@@ -61,6 +61,8 @@
     <!-- Official ComfyUI Windows portable releases are .7z archives. Extraction is performed
          entry-by-entry by SafeArchiveExtractor so path validation remains under PaRuX control. -->
     <PackageReference Include="SharpCompress" Version="0.50.4" />
+    <!-- Integrated BitTorrent v1 single-file transport; MIT licence; no external client required. -->
+    <PackageReference Include="MonoTorrent" Version="3.0.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- Built-in skill manifests live at the repo root (skills/built-in/) so the public
