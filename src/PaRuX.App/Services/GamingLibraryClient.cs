@@ -154,6 +154,22 @@ namespace PaRuX.Services
             SendAsync<GameAssetModExportDto>(HttpMethod.Post,
                 "/api/v1/gaming/mods/assets/export", new GameAssetModExportRequest(draftId, consent), ct);
 
+        /// <summary>Explicit ZIP-drop-in adapter. No automatic game patching or reload.</summary>
+        public Task<GamingCallResult<List<GameModDropInReceiptDto>>> GetInstalledGameModPackagesAsync(
+            CancellationToken ct = default) =>
+            SendAsync<List<GameModDropInReceiptDto>>(HttpMethod.Get,
+                "/api/v1/gaming/mods/drop-in", null, ct);
+
+        public Task<GamingCallResult<GameModDropInReceiptDto>> InstallGameModPackageAsync(
+            GameModDropInInstallRequest request, CancellationToken ct = default) =>
+            SendAsync<GameModDropInReceiptDto>(HttpMethod.Post,
+                "/api/v1/gaming/mods/drop-in/install", request, ct);
+
+        public Task<GamingCallResult<object>> RemoveGameModPackageAsync(
+            GameModDropInRemoveRequest request, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Post,
+                "/api/v1/gaming/mods/drop-in/remove", request, ct);
+
         /// <summary>Use PaRuX local image inference to generate a Minecraft Java 64x64 skin draft.</summary>
         public Task<GamingCallResult<GameSkinDraftDto>> GenerateMinecraftSkinAsync(
             GameSkinDraftRequest request, CancellationToken ct = default) =>
