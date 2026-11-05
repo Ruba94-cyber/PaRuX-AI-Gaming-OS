@@ -189,6 +189,8 @@ public sealed class GamingHomeUiTests
             Press(app, ById(app, "GameHome_LocalGuide_Button"));
             Assert.NotNull(ById(app, "GameHome_LocalGuide_Game"));
             Assert.NotNull(ById(app, "GameHome_LocalGuide_Question"));
+            Assert.NotNull(ById(app, "GameHome_LocalGuide_SourceFilter"));
+            Assert.NotNull(ById(app, "GameHome_LocalGuide_SourceSummary"));
             Assert.NotNull(ById(app, "GameHome_LocalGuide_Sources"));
             Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")),
                 "cancel scoped guide request without creating Chat turn")
