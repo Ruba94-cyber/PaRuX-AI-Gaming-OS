@@ -40,27 +40,42 @@ namespace PaRuX.Services
             var result = new List<CodingReviewHunk>();
             var path = string.Empty;
             var oldPath = string.Empty;
+            var expectedPath = string.Empty;
             bool insideDiff = false;
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
                 if (line.StartsWith("diff --git ", StringComparison.Ordinal))
                 {
-                    insideDiff = true;
                     path = string.Empty;
-                    oldPath = string.Empty; // Never carry identity into the next file.
+                    oldPath = string.Empty;
+                    expectedPath = string.Empty; // Never carry identity into the next file.
+                    string spec = line.Substring("diff --git ".Length);
+                    int separator = spec.IndexOf(" b/", StringComparison.Ordinal);
+                    if (!spec.StartsWith("a/", StringComparison.Ordinal) || separator <= 2)
+                        throw new FormatException("Unsupported Git diff file header.");
+                    string from = spec.Substring(2, separator - 2);
+                    string to = spec.Substring(separator + 3);
+                    // Rename, quoted paths, binary diffs and unquoted whitespace are
+                    // deliberately unsupported by this preview-only parser.
+                    if (!IsSafeRelativePath(from) || !IsSafeRelativePath(to)
+                        || !string.Equals(from, to, StringComparison.Ordinal))
+                        throw new FormatException("Only unquoted same-file text diffs are supported.");
+                    expectedPath = from;
+                    insideDiff = true;
                     continue;
                 }
                 if (line.StartsWith("--- a/", StringComparison.Ordinal))
                 {
                     string candidate = line.Substring(6);
-                    oldPath = insideDiff && IsSafeRelativePath(candidate) ? candidate : string.Empty;
+                    oldPath = insideDiff && string.Equals(candidate, expectedPath, StringComparison.Ordinal)
+                        ? candidate : string.Empty;
                     continue;
                 }
                 if (line.StartsWith("+++ b/", StringComparison.Ordinal))
                 {
                     string candidate = line.Substring(6);
-                    path = insideDiff && IsSafeRelativePath(candidate)
+                    path = insideDiff && string.Equals(candidate, expectedPath, StringComparison.Ordinal)
                         && string.Equals(candidate, oldPath, StringComparison.Ordinal)
                         ? candidate : string.Empty;
                     continue;
@@ -146,7 +161,8 @@ namespace PaRuX.Services
             if (string.IsNullOrWhiteSpace(value) || value.StartsWith("/", StringComparison.Ordinal)
                 || value.Contains('\\') || value.Contains(':') || value.Contains('\0')) return false;
             string[] parts = value.Split('/');
-            return parts.All(p => p.Length > 0 && p != "." && p != "..");
+            return parts.All(p => p.Length > 0 && p != "." && p != ".."
+                && !p.Any(char.IsControl) && !p.Any(char.IsWhiteSpace));
         }
     }
 
