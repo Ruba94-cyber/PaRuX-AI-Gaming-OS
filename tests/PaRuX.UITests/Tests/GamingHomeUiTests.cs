@@ -170,7 +170,7 @@ public sealed class GamingHomeUiTests
             UiWait.For(() => TryById(app, "GameHome_ExternalLibraryPreview_Button") != null,
                 "returned to Gaming Home");
             Press(app, ById(app, "GameTitles_Refresh_Button"));
-            UiWait.For(() => TryById(app, "GameTitles_Play_" + "syntheticimportpuzzle") is { } play &&
+            UiWait.For(() => TryById(app, "GameTilePlay_" + "syntheticimportpuzzle") is { } play &&
                 !play.Properties.IsEnabled.ValueOrDefault,
                 "metadata-only title has no enabled Play button");
         }
