@@ -32,14 +32,17 @@ public static class GameAutoSuspendPolicy
         IReadOnlyCollection<string>? userExcludedProcesses = null)
     {
         if (string.IsNullOrWhiteSpace(processName)) return true;
-        string normalized = processName.Trim();
-        if (normalized.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized.Substring(0, normalized.Length - 4);
+        string normalized = NormalizeProcessName(processName);
         return ProtectedAntiCheatProcesses.Contains(normalized)
             || (userExcludedProcesses?.Any(x =>
-                string.Equals(x?.Trim().EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true
-                    ? x.Trim().Substring(0, x.Trim().Length - 4) : x?.Trim(),
-                    normalized, StringComparison.OrdinalIgnoreCase)) ?? false);
+                string.Equals(NormalizeProcessName(x), normalized, StringComparison.OrdinalIgnoreCase)) ?? false);
+    }
+
+    private static string NormalizeProcessName(string? value)
+    {
+        string result = value?.Trim() ?? string.Empty;
+        return result.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? result.Substring(0, result.Length - 4) : result;
     }
 
     public static GameAutoSuspendDecision Evaluate(
