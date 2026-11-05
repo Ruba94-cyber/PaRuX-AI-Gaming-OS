@@ -11,6 +11,16 @@ namespace PaRuX.Server;
 /// </summary>
 public static class QuickChatComparisonPolicy
 {
+    /// <summary>Fail-closed admission for the typed Core request, before starting Arena.</summary>
+    public static ArenaStartRequest Create(ArenaStartRequest? request)
+    {
+        if (request is null || request.ModelFileNames is not { Count: 2 }
+            || request.TaskIds is { Count: > 0 })
+            throw new InvalidDataException("Choose exactly two installed models and one custom prompt.");
+        return Create(request.ModelFileNames[0], request.ModelFileNames[1],
+            request.CustomPrompt, request.MaxTokens);
+    }
+
     public static ArenaStartRequest Create(string? firstModel, string? secondModel,
         string? samePrompt, int maxTokens = 256)
     {
