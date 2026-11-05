@@ -23,6 +23,13 @@ internal sealed class GameDownloadJob
     public required string FileName { get; init; }
     public required string Directory { get; init; }
     public string? ExpectedSha256 { get; init; }
+    // Explicit, immutable owner intent from the enqueue request only. Never
+    // execute downloaded files; only consented verified portable ZIP deployment.
+    public bool AutoInstallPortable { get; init; }
+    public string? PortableExecutableRelativePath { get; init; }
+    public string? PortableGameTitle { get; init; }
+    public string PostInstallState = GamePostInstallStates.None;
+    public string? PostInstallMessage;
     public int Priority { get; init; }
     public DateTime CreatedUtc { get; init; } = DateTime.UtcNow;
     public string State = GameDownloadStates.Queued;
