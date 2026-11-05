@@ -18,7 +18,7 @@ public static class QuickChatComparisonPresenter
     public static QuickChatComparisonPresentation Build(ArenaRunDto? run, bool italian)
     {
         static QuickChatComparisonColumn Empty() => new(string.Empty, string.Empty, string.Empty, false);
-        if (run?.ModelFileNames is not { Count: 2 }
+        if (run is null || run.ModelFileNames is not { Count: 2 }
             || run.Prompts is not { Count: 1 }
             || !string.Equals(run.Prompts[0].TaskId, "custom", StringComparison.Ordinal))
             return new(false, string.Empty,
