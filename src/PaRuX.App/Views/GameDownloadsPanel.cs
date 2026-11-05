@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -24,6 +25,8 @@ internal sealed class GameDownloadsPanel : StackPanel
     private static string T(string en, string it) => Italian ? it : en;
 
     private readonly TextBox _url = new() { MaxLength = 2048 };
+    private readonly ComboBox _sourceKind = new() { MinWidth = 220 };
+    private readonly Button _chooseTorrent = new();
     private readonly TextBox _destination = new() { MaxLength = 1024 };
     private readonly TextBox _fileName = new() { MaxLength = 160 };
     private readonly TextBox _sha256 = new() { MaxLength = 64 };
@@ -55,10 +58,39 @@ internal sealed class GameDownloadsPanel : StackPanel
             TextWrapping = TextWrapping.Wrap
         });
 
+        _sourceKind.Header = T("Download source", "Origine download");
+        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Direct HTTPS", "HTTPS diretto"), Tag = GameDownloadKinds.Http });
+        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Magnet link (built-in)", "Link magnet (integrato)"), Tag = GameDownloadKinds.Magnet });
+        _sourceKind.Items.Add(new ComboBoxItem { Content = T("Local .torrent file (built-in)", "File .torrent locale (integrato)"), Tag = GameDownloadKinds.TorrentFile });
+        AutomationProperties.SetAutomationId(_sourceKind, "GameDownloads_Kind");
+        _sourceKind.SelectionChanged += (_, _) => UpdateDownloadSourceUi();
+        _sourceKind.SelectedIndex = 0;
+        Children.Add(_sourceKind);
+
         _url.Header = T("Download URL (HTTPS; local HTTP only for testing)", "URL download (HTTPS; HTTP locale solo per test)");
         _url.PlaceholderText = "https://";
         AutomationProperties.SetAutomationId(_url, "GameDownloads_Url");
         Children.Add(_url);
+        _chooseTorrent.Content = T("Choose .torrent file", "Seleziona file .torrent");
+        AutomationProperties.SetAutomationId(_chooseTorrent, "GameDownloads_TorrentBrowse");
+        _chooseTorrent.Visibility = Visibility.Collapsed;
+        _chooseTorrent.Click += async (_, _) =>
+        {
+            if (_busy) return;
+            _busy = true;
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.FileTypeFilter.Add(".torrent");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                    WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+                var file = await picker.PickSingleFileAsync();
+                if (file is not null) _url.Text = file.Path;
+            }
+            catch (Exception) { _status.Text = T("The .torrent picker is unavailable.", "Selezione file .torrent non disponibile."); }
+            finally { _busy = false; }
+        };
+        Children.Add(_chooseTorrent);
 
         _destination.Header = T("Destination folder", "Cartella di destinazione");
         AutomationProperties.SetAutomationId(_destination, "GameDownloads_Destination");
@@ -131,20 +163,53 @@ internal sealed class GameDownloadsPanel : StackPanel
         Loaded += async (_, _) => await RefreshAsync();
     }
 
+    private string SelectedKind =>
+        (_sourceKind.SelectedItem as ComboBoxItem)?.Tag as string ?? GameDownloadKinds.Http;
+
+    private void UpdateDownloadSourceUi()
+    {
+        string kind = SelectedKind;
+        _chooseTorrent.Visibility = kind == GameDownloadKinds.TorrentFile
+            ? Visibility.Visible : Visibility.Collapsed;
+        _url.Header = kind switch
+        {
+            GameDownloadKinds.Magnet => T("Paste magnet link", "Incolla il link magnet"),
+            GameDownloadKinds.TorrentFile => T("Selected local .torrent path", "Percorso file .torrent locale"),
+            _ => T("Download URL (HTTPS; local HTTP only for testing)", "URL download (HTTPS; HTTP locale solo per test)")
+        };
+        _url.PlaceholderText = kind switch
+        {
+            GameDownloadKinds.Magnet => "magnet:?xt=urn:btih:",
+            GameDownloadKinds.TorrentFile => T("Use Choose .torrent file", "Usa Seleziona file .torrent"),
+            _ => "https://"
+        };
+    }
+
     private async Task EnqueueAsync()
     {
         if (_busy || Visibility != Visibility.Visible) return;
         string address = (_url.Text ?? "").Trim();
         string destination = (_destination.Text ?? "").Trim();
         string checksum = (_sha256.Text ?? "").Trim();
-        if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? source) ||
-            (source.Scheme != Uri.UriSchemeHttps &&
-             !(source.Scheme == Uri.UriSchemeHttp && source.IsLoopback)) ||
-            string.IsNullOrWhiteSpace(destination) ||
+        string kind = SelectedKind;
+        Uri? source = null;
+        bool validSource = kind switch
+        {
+            GameDownloadKinds.Magnet =>
+                address.StartsWith("magnet:?xt=urn:btih:", StringComparison.OrdinalIgnoreCase)
+                && address.Length <= 2048,
+            GameDownloadKinds.TorrentFile =>
+                Path.IsPathFullyQualified(address) && !address.StartsWith(@"\\", StringComparison.Ordinal)
+                && string.Equals(Path.GetExtension(address), ".torrent", StringComparison.OrdinalIgnoreCase),
+            _ => Uri.TryCreate(address, UriKind.Absolute, out source)
+                 && (source.Scheme == Uri.UriSchemeHttps ||
+                     (source.Scheme == Uri.UriSchemeHttp && source.IsLoopback))
+        };
+        if (!validSource || string.IsNullOrWhiteSpace(destination) ||
             (checksum.Length != 0 && (checksum.Length != 64 || !checksum.All(Uri.IsHexDigit))))
         {
-            _status.Text = T("Check the URL, destination folder and optional 64-character SHA-256.",
-                             "Controlla URL, cartella e SHA-256 facoltativo di 64 caratteri.");
+            _status.Text = T("Check the HTTPS address, magnet or local .torrent file, destination and optional 64-character SHA-256.",
+                             "Controlla indirizzo HTTPS, magnet o file .torrent locale, destinazione e SHA-256 facoltativo di 64 caratteri.");
             return;
         }
 
@@ -152,9 +217,13 @@ internal sealed class GameDownloadsPanel : StackPanel
         {
             XamlRoot = XamlRoot,
             Title = T("Confirm download", "Conferma download"),
-            Content = T("Download from ", "Scaricare da ") + source.Host + "?" +
-                      T(" The file is not verified as safe or licensed and will not be executed.",
-                        " Il file non è certificato come sicuro o autorizzato e non verrà eseguito."),
+            Content = kind == GameDownloadKinds.Http
+                ? T("Download from ", "Scaricare da ") + source!.Host + "?" +
+                    T(" The file is not verified as safe or licensed and will not be executed.",
+                      " Il file non è certificato come sicuro o autorizzato e non verrà eseguito.")
+                : T(
+                    "Start a BitTorrent transfer for the source you chose? Peers and trackers can see your IP address and exchange pieces while the download runs. PaRuX stops seeding at completion and never installs the content. Download only material you have permission to share.",
+                    "Avviare il trasferimento BitTorrent scelto? Peer e tracker possono vedere il tuo indirizzo IP e scambiare parti durante il download. PaRuX interrompe il seeding al termine e non installa il contenuto. Scarica solo materiale che puoi condividere legalmente."),
             PrimaryButtonText = T("Start", "Avvia"),
             CloseButtonText = T("Cancel", "Annulla"),
             DefaultButton = ContentDialogButton.Close
@@ -168,12 +237,15 @@ internal sealed class GameDownloadsPanel : StackPanel
                 address, destination,
                 string.IsNullOrWhiteSpace(_fileName.Text) ? null : _fileName.Text.Trim(),
                 checksum.Length == 0 ? null : checksum,
-                (_priority.SelectedItem as ComboBoxItem)?.Tag is int selectedPriority ? selectedPriority : 0);
+                (_priority.SelectedItem as ComboBoxItem)?.Tag is int selectedPriority ? selectedPriority : 0,
+                kind);
             var result = await GamingOrchestratorClient.Current.EnqueueGameDownloadAsync(request);
             _status.Text = result.Succeeded
                 ? T("Download queued. Refresh to see its progress.", "Download in coda. Aggiorna per vedere l'avanzamento.")
                 : T("Download refused. Check the address, folder, available space or Gaming status.",
                     "Download rifiutato. Verifica indirizzo, cartella, spazio disponibile o stato Gaming.");
+            if (result.Succeeded && kind != GameDownloadKinds.Http)
+                _url.Text = string.Empty; // do not keep magnet tracker addresses in the editable UI
         }
         catch (Exception)
         {
