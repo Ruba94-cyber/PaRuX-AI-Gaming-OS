@@ -103,6 +103,52 @@ public sealed class EmbeddedTorrentTransportTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task Single_file_native_copy_uses_private_stage_without_publishing_or_running_anything()
+    {
+        string folder = Directory.CreateTempSubdirectory("parux-single-native-").FullName;
+        try
+        {
+            byte[] torrentBytes = TorrentBytes("safe.bin", 4);
+            var job = new GameDownloadJob
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Kind = GameDownloadKinds.TorrentFile,
+                Target = "synthetic-local-metadata",
+                FileName = "manual-output.bin",
+                Directory = folder,
+                Source = "torrent-file/synthetic",
+                InfoHash = GameDownloadSourceValidator.ParseTorrent(torrentBytes).InfoHash
+            };
+            Torrent metadata = EmbeddedTorrentTransport.DecodeAndAdmit(job, torrentBytes, 16);
+            string stage = EmbeddedTorrentTransport.StagingPath(job);
+            Directory.CreateDirectory(stage);
+            byte[] inert = { 1, 2, 3, 4 };
+            File.WriteAllBytes(Path.Combine(stage, "safe.bin"), inert);
+            long reported = -1;
+            var context = new GameDownloadTransferContext
+            {
+                Job = job, GamingActive = () => false,
+                FreeBytes = _ => long.MaxValue, MaxFileBytes = 16,
+                Throttle = (_, _) => System.Threading.Tasks.Task.CompletedTask,
+                Report = (current, _) => reported = current,
+                UserCancelled = () => false
+            };
+            await EmbeddedTorrentTransport.CopyVerifiedFileAsync(
+                context, stage, metadata, System.Threading.CancellationToken.None);
+            Assert.Equal(inert, File.ReadAllBytes(job.PartPath));
+            Assert.Equal(4L, reported);
+            Assert.False(File.Exists(job.FinalPath)); // publication belongs to the download manager
+            Assert.True(File.Exists(Path.Combine(stage, "safe.bin")));
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public void Cancelled_owned_nested_torrent_stage_is_removed_without_touching_sibling_user_files()
     {
         string folder = Path.Combine(Path.GetTempPath(), "parux-stage-test-" + Guid.NewGuid().ToString("N"));

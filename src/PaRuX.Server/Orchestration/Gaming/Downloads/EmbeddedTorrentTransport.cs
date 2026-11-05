@@ -350,7 +350,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
         await output.FlushAsync(ct).ConfigureAwait(false);
     }
 
-    private static async Task CopyVerifiedFileAsync(
+    internal static async Task CopyVerifiedFileAsync(
         GameDownloadTransferContext context, string staging, Torrent metadata, CancellationToken ct)
     {
         GameDownloadJob job = context.Job;
