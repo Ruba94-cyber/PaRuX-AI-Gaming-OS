@@ -47,10 +47,14 @@ public static class GameAutoSuspendPolicy
 
     public static GameAutoSuspendDecision Evaluate(
         GameAutoSuspendRule? rule, bool processIdentityVerified, AntiCheatAssessment antiCheat,
-        bool focusLost, int? batteryPercent, double? temperatureCelsius)
+        bool focusLost, int? batteryPercent, double? temperatureCelsius,
+        string? processName, IReadOnlyCollection<string>? userExcludedProcesses = null)
     {
         if (rule is null || !rule.Enabled || string.IsNullOrWhiteSpace(rule.GameId))
             return new(false, GameSuspendTrigger.None, "Automatic suspend is disabled for this game.");
+        if (IsExcludedProcess(processName, userExcludedProcesses))
+            return new(false, GameSuspendTrigger.None,
+                "Automatic suspension is blocked for this excluded game or anti-cheat process.");
         if (!processIdentityVerified || antiCheat != AntiCheatAssessment.VerifiedAbsent)
             return new(false, GameSuspendTrigger.None,
                 "Verify the process identity and absence of anti-cheat before proposing suspend.");
