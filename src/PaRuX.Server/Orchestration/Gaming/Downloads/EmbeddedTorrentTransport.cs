@@ -9,8 +9,8 @@ using PaRuX.Contracts;
 namespace PaRuX.Server.Orchestration.Gaming.Downloads;
 
 /// <summary>
-/// Integrated, in-process BitTorrent transport for explicitly user-provided single-file
-/// v1 torrents and btih magnets. It is NOT a catalogue or a game installer. MonoTorrent
+/// Integrated, in-process BitTorrent transport for explicitly user-provided
+/// v1 torrents (single-file and safe multi-file ZIP output) and btih magnets. It is NOT a catalogue or a game installer. MonoTorrent
 /// is shipped inside the PaRuX Core, not run as a separate process or qBittorrent service.
 /// Each active transfer owns an engine. Network access starts only for a queued user job;
 /// no permanent daemon, UPnP/NAT port mapping or ongoing seeding is permitted.
@@ -114,7 +114,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
             if (context.FreeBytes(job.Directory) < metadata.Size + GameDownloadManager.FreeSpaceMarginBytes)
                 throw new GameDownloadException("Not enough free space for this torrent.");
 
-            // From here on, MonoTorrent may create its ONE validated file in the
+            // From here on, MonoTorrent may create validated payload files only in the
             // PaRuX-owned stage. It cannot write directly to the user's library.
             manager = await engine.AddAsync(metadata, staging).ConfigureAwait(false);
             job.ExternalId = job.InfoHash;
@@ -145,7 +145,7 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
                 await Task.Delay(PollInterval, stop.Token).ConfigureAwait(false);
             }
 
-            // Stop seeding before opening the verified single file.
+            // Stop seeding before copying the completed file or constructing its ZIP archive.
             await manager.StopAsync(StopDeadline).ConfigureAwait(false);
             stop.Token.ThrowIfCancellationRequested();
             if (_gamingActive() || context.GamingActive())
@@ -200,7 +200,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
     /// <summary>
     /// Fail closed on untrusted metadata. The existing bencode parser checks the
     /// precise v1 info-hash; MonoTorrent independently checks individual pieces.
-    /// Explicitly reject all multi-file payloads until atomic folder publication exists.
+    /// Multi-file payloads are admitted only with an explicit ZIP output name;
+    /// auto-install remains disabled for such generated archives.
     /// </summary>
     internal static Torrent DecodeAndAdmit(GameDownloadJob job, byte[] metadataBytes, long maximumBytes)
     {
