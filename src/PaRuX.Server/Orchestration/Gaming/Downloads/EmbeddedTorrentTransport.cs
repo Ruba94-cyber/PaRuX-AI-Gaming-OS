@@ -18,7 +18,7 @@ namespace PaRuX.Server.Orchestration.Gaming.Downloads;
 /// pause/resume, Gaming hard-off, history and consent. A torrent's SHA-1 piece hashes
 /// verify transfer integrity, not the publisher's authenticity or distribution licence.
 /// </summary>
-public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposable
+internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposable
 {
     private const int MaxMetadataBytes = (int)GameDownloadSourceValidator.MaxTorrentFileBytes;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(350);
@@ -275,12 +275,30 @@ public sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDisposab
         try
         {
             if (!Directory.Exists(path) || !ManualGameLibrary.IsSafeDirectory(path)) return;
-            // Refuse to delete an unexpected nested directory or any linked file.
-            if (Directory.EnumerateDirectories(path, "*", SearchOption.TopDirectoryOnly).Any()
-                || Directory.EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly).Any(p =>
-                    new FileInfo(p).LinkTarget is not null ||
-                    (File.GetAttributes(p) & FileAttributes.ReparsePoint) != 0))
-                return;
+            // Validate the complete bounded stage BEFORE recursive deletion:
+            // many legal torrent layouts contain nested paths. Never follow
+            // symlinks/junctions or delete foreign directories outside the
+            // exact GUID-named PaRuX stage.
+            if (job.Id.Length != 32 || !job.Id.All(Uri.IsHexDigit)) return;
+            var pending = new Stack<string>();
+            pending.Push(path);
+            int examined = 0;
+            while (pending.Count > 0)
+            {
+                string dir = pending.Pop();
+                if (++examined > 10000 || !ManualGameLibrary.IsSafeDirectory(dir)) return;
+                foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly))
+                {
+                    if (++examined > 10000 || (File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
+                        return;
+                }
+                foreach (string sub in Directory.EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly))
+                {
+                    if (++examined > 10000 ||
+                        (File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0) return;
+                    pending.Push(sub);
+                }
+            }
             Directory.Delete(path, recursive: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
