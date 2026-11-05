@@ -685,6 +685,16 @@ namespace PaRuX.Views
                 buttonRow.Children.Add(applyButton);
                 applyButtonRef = applyButton;
 
+                var hunkButton = AutoId(new Button
+                {
+                    Content = GameUi.T("Review individual hunks", "Rivedi singoli blocchi"),
+                    Padding = new Thickness(12, 6, 12, 6),
+                    IsEnabled = reviewModel.TotalFiles > 0
+                }, "Chat_CodingTask_ReviewHunks_Button");
+                hunkButton.Click += async (_, _) =>
+                    await ReviewSingleFileHunksAsync(message, hunkButton);
+                buttonRow.Children.Add(hunkButton);
+
                 var vsCodeButton = AutoId(new Button
                 {
                     Content = "Review in VS Code",
