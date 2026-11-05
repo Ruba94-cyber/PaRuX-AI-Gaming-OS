@@ -5,7 +5,8 @@ namespace PaRuX.Server.Orchestration.Gaming;
 
 /// <summary>
 /// Transient, caller-owned state. The process stamp must come from a trusted
-/// PID + start-time identity check; a process name alone is not sufficient.\n/// Changing a rule snapshot resets elapsed observation time.
+/// PID + start-time identity check; a process name alone is not sufficient.
+/// Changing a rule snapshot resets elapsed observation time.
 /// The monotonic time is injected by the existing host (never DateTime.Now).
 /// </summary>
 public sealed record GameSuspendDebounceState(
