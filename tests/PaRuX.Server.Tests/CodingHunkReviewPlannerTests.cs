@@ -37,7 +37,19 @@ public sealed class CodingHunkReviewPlannerTests
         Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
             "diff --git a/x b/x\n+++ b/../outside\n@@ -1 +1 @@\n-old\n+new"));
         Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
-            "diff --git a/x b/x\n+++ b/x\n@@ -1,2 +1 @@\n-old\n+new"));
+            "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,2 +1 @@\n-old\n+new"));
+    }
+
+    [Fact]
+    public void Forbids_missing_or_mismatched_git_preimage_paths_and_overflowed_line_numbers()
+    {
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "+++ b/x\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/y\n--- a/x\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n"));
+        Assert.Throws<FormatException>(() => CodingHunkReviewPlanner.Parse(
+            "diff --git a/x b/x\n--- a/x\n+++ b/x\n" +
+            "@@ -999999999999999999999 +1 @@\n-old\n+new\n"));
     }
 
     [Fact]
