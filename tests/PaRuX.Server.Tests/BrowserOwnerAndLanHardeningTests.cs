@@ -211,6 +211,7 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     [InlineData("DELETE", "/api/v1/models/downloads/no-such-id", null)]
     [InlineData("POST", "/api/v1/models/benchmarks", "{}")]
     [InlineData("POST", "/api/v1/models/arena/quick-compare", "{}")]
+    [InlineData("GET", "/api/v1/models/arena/quick-compare/no-such-run", null)]
     [InlineData("POST", "/api/v1/models/benchmarks/no-such-id/cancel", null)]
     [InlineData("PUT", "/api/v1/models/context-preference", "{}")]
     [InlineData("DELETE", "/api/v1/models/context-preference?path=no-such", null)]
