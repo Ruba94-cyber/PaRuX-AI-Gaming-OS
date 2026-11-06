@@ -289,6 +289,7 @@ namespace PaRuX.Views
                 : "Search GGUF models or enter owner/repository";
             _search.MinHeight = 44;
             _search.HorizontalAlignment = HorizontalAlignment.Stretch;
+            _search.IsEnabled = !CorporateMode.IsActive || CorporateMode.ModelDownloadsAllowed;
             AutomationProperties.SetAutomationId(_search, "ModelHub_Search_TextBox");
             _search.KeyDown += async (_, e) =>
             {
@@ -318,7 +319,11 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_category, "ModelHub_Category_ComboBox");
             AutomationProperties.SetName(_category, "Model category");
             searchActions.Children.Add(_category);
-            var searchButton = new Button { Content = StartItalian ? "Cerca" : "Search", MinHeight = 44, MinWidth = 80 };
+            var searchButton = new Button
+            {
+                Content = StartItalian ? "Cerca" : "Search", MinHeight = 44, MinWidth = 80,
+                IsEnabled = !CorporateMode.IsActive || CorporateMode.ModelDownloadsAllowed
+            };
             AutomationProperties.SetAutomationId(searchButton, "ModelHub_Search_Button");
             searchButton.Click += async (_, _) => await SearchAsync();
             searchActions.Children.Add(searchButton);
@@ -333,6 +338,14 @@ namespace PaRuX.Views
             searchActions.Children.Add(refreshButton);
             searchRow.Children.Add(searchActions);
             body.Children.Add(searchRow);
+            if (CorporateMode.IsActive && !CorporateMode.ModelDownloadsAllowed)
+                body.Children.Add(new TextBlock
+                {
+                    Text = StartItalian
+                        ? "Ricerca online disattivata. Puoi importare un file GGUF dalla scheda Inizia, senza Internet e senza reinstallare il runtime."
+                        : "Online search is off. Import a local GGUF from the Start tab without Internet or reinstalling the runtime.",
+                    TextWrapping = TextWrapping.Wrap, Opacity = 0.85
+                });
             AutomationProperties.SetAutomationId(_discoveryRefreshStatus,
                 "ModelHub_DiscoveryRefresh_Status_Text");
             body.Children.Add(_discoveryRefreshStatus);
