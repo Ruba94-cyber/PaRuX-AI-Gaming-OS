@@ -260,8 +260,26 @@ if ($Smoke) {
                 $detail = if (Test-Path -LiteralPath $errorPath) { Get-Content -LiteralPath $errorPath -Raw } else { 'No bootstrap error file.' }
                 throw "Portable Core started but did not bootstrap the bundled Vulkan runtime into its isolated data root. $detail"
             }
+
+            # Binary load/linked-DLL smoke: prevents treating a copied llama-server.exe as usable
+            # while ggml-vulkan.dll or other native dependencies fail to load. A real model
+            # inference and device/ICD check still requires separate physical Windows acceptance.
+            $nativeOut = Join-Path $smokeDir "vulkan-help.stdout.txt"
+            $nativeErr = Join-Path $smokeDir "vulkan-help.stderr.txt"
+            $native = Start-Process -FilePath $managedVulkan -ArgumentList "--help" -WorkingDirectory (Split-Path -Parent $managedVulkan) -NoNewWindow -PassThru -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+            try {
+                if (-not $native.WaitForExit(15000)) {
+                    try { $native.Kill() } catch { }
+                    throw "Bundled Vulkan llama-server --help did not exit within 15 seconds."
+                }
+                if ($native.ExitCode -ne 0) {
+                    $errorText = if (Test-Path -LiteralPath $nativeErr) { (Get-Content -LiteralPath $nativeErr -Raw).Trim() } else { "" }
+                    throw "Bundled Vulkan llama-server failed its native loader probe (exit $($native.ExitCode)): $errorText"
+                }
+            }
+            finally { $native.Dispose() }
         }
-        Write-Host "Smoke OK: extracted portable Core started$(if ($WithoutVulkan) { '' } else { ' and Vulkan baseline bootstrapped' }). GPU inference still needs a real model/driver test."
+        Write-Host "Smoke OK: extracted portable Core started$(if ($WithoutVulkan) { '' } else { ' and Vulkan native loader passed' }). Real GPU inference still requires a model/driver test."
     }
     finally {
         Get-Process -Name PaRuX, PaRuX.Server -ErrorAction SilentlyContinue |
