@@ -123,7 +123,12 @@ internal sealed class GamingHomeView : StackPanel
         BuildBulkBar();
         LoadPreferences();
         BuildContent();
-        Loaded += async (_, _) => await ReloadAsync();
+        Loaded += async (_, _) =>
+        {
+            // A profile change may make the control Loaded while OnShown has
+            // already started its one-shot query. Never double-scan the library.
+            if (_cancellation == null) await ReloadAsync();
+        };
         SizeChanged += (_, _) => ApplyBodyLayout();
         // The inner grid can change width independently as NavigationView's pane
         // expands/collapses, without firing a size change on this StackPanel.
@@ -1217,6 +1222,22 @@ internal sealed class GamingHomeView : StackPanel
 
     /// <summary>One-shot catalog refresh after a foreground return from Gaming. Never scan stores periodically or while a game owns the PC.</summary>
     internal Task RefreshAfterGameAsync() => ReloadAsync(refresh: true);
+
+    /// <summary>Refresh once when the Gaming workspace returns, without forcing
+    /// an expensive store rediscovery or duplicating a pending load.</summary>
+    internal Task RefreshWhenShownAsync() => _cancellation == null
+        ? ReloadAsync(refresh: false) : Task.CompletedTask;
+
+    /// <summary>Stop pending title searches, typing debounce and delayed
+    /// retry callbacks on workspace exit. Existing tiles remain intact until
+    /// the next explicit return; no model/console CPU activity is left behind.</summary>
+    internal void CancelPendingQueries()
+    {
+        ++_generation;
+        ++_searchEditGeneration;
+        _reloadRetries = 0;
+        _cancellation?.Cancel(); // the owning ReloadAsync disposes its CTS
+    }
 
     internal bool FocusSearch() => _search.Focus(FocusState.Programmatic);
 
