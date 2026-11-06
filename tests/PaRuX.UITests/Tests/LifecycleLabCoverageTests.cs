@@ -65,6 +65,9 @@ public sealed class LifecycleLabCoverageTests
             Assert.NotNull(advanced);
             Assert.True(advanced!.Patterns.ExpandCollapse.IsSupported);
             advanced.Patterns.ExpandCollapse.Pattern.Expand();
+            UiWait.ById(app.MainWindow, "LifecycleLab_Precision_ComboBox", ControlType.ComboBox);
+            UiWait.ById(app.MainWindow, "LifecycleLab_Targets_ComboBox", ControlType.ComboBox);
+            UiWait.ById(app.MainWindow, "LifecycleLab_Packing_CheckBox", ControlType.CheckBox);
             UiWait.ById(app.MainWindow, "LifecycleLab_TrainingMethod_ComboBox", ControlType.ComboBox);
             UiWait.ById(app.MainWindow, "LifecycleLab_CheckRun_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "LifecycleLab_StartTraining_Button", ControlType.Button);
