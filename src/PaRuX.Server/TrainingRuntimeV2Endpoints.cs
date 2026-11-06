@@ -1,4 +1,5 @@
 using PaRuX.Contracts;
+using PaRuX.Intelligence;
 
 namespace PaRuX.Server;
 
@@ -79,6 +80,7 @@ public static class TrainingRuntimeV2Endpoints
         app.MapPost("/api/v2/training/jobs", async (
             TrainingJobRequest request,
             TrainingLabService training,
+            RuntimeManagerService runtimeManager,
             CancellationToken ct) =>
         {
             try
@@ -88,9 +90,30 @@ public static class TrainingRuntimeV2Endpoints
                     .GetStatusAsync(RuntimeRoot, VenvRoot, ct).ConfigureAwait(false);
                 TrainingRuntimeJobGate.ValidateStatus(runtimeStatus, request.Method);
 
-                // TrainingLabService remains the single owner of dataset validation, execution
-                // profiles, durable job state, Gaming Mode cancellation and adapter registration.
-                // v2 changes only the runtime admission boundary in front of that proven path.
+                // The desktop and CLI inspect a run first, but no direct API client may
+                // bypass memory/shape refusal by skipping that advisory preflight.
+                // This is especially important for opt-in 16-bit LoRA and unpaired KTO.
+                TrainingDatasetShape.Shape dataset = TrainingDatasetShape.Inspect(request.TrainJsonlPath);
+                RuntimeManagerStatus hardware = await runtimeManager.GetStatusAsync(ct).ConfigureAwait(false);
+                double availableGib = hardware.GpuDetected && hardware.VramTotalMib > 0
+                    ? hardware.VramTotalMib / 1024.0
+                    : hardware.RamTotalBytes / 1024.0 / 1024.0 / 1024.0 * 0.5;
+                TrainingRunPlanner.RunPlan plan = TrainingRunPlanner.Plan(
+                    dataset, request.Method, request.BaseModel,
+                    request.LoraRank, request.MaxSteps, request.LearningRate,
+                    availableGib, request.Precision, request.TargetPreset);
+                if (!plan.CanStart)
+                    return Results.BadRequest(new
+                    {
+                        error = "This training run cannot start with the submitted dataset, model or resource budget.",
+                        plan.DetectedMethod,
+                        plan.EstimatedGib,
+                        plan.AvailableGib,
+                        findings = plan.Blocking.Select(x => new { field = x.Field, message = x.Message }).ToArray()
+                    });
+
+                // TrainingLabService remains the single owner of full dataset checks,
+                // physical KTO microbatch validation, durable jobs and Gaming hard-off.
                 return Results.Ok(training.CreateJob(request));
             }
             catch (OperationCanceledException) { throw; }
