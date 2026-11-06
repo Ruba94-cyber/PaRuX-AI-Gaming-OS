@@ -91,9 +91,24 @@ namespace PaRuX.Views
                     : " · " + st.Progress.FilesSeen + KT(" files seen", " file esaminati") + ", " + st.Progress.Indexed + KT(" indexed", " indicizzati")
                       + ", " + st.Progress.Unchanged + KT(" unchanged", " invariati") + ", " + st.Progress.MetadataOnly + KT(" by name only", " solo per nome")
                       + ", " + st.Progress.Failed + KT(" failed", " falliti") + ", " + st.Progress.Skipped + KT(" skipped", " saltati");
-                ui.Status.Text = stateText + " · " + st.Files + KT(" documents", " documenti") + ", " + st.Chunks + KT(" passages", " passaggi") + counts;
+                string location = st.Progress?.CurrentPage is int page && st.Progress.TotalPages is int pages
+                    ? " · " + KT("PDF page ", "PDF pagina ") + page.ToString("N0")
+                      + "/" + pages.ToString("N0")
+                    : st.Progress?.Current is { Length: > 0 } current
+                        ? " · " + current : string.Empty;
+                ui.Status.Text = stateText + " · " + st.Files + KT(" documents", " documenti")
+                    + ", " + st.Chunks + KT(" passages", " passaggi") + counts + location;
                 ui.Progress.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-                ui.Progress.IsIndeterminate = st.State == "running";   // the total is unknown while walking, so no fake percentage
+                // Only claim a real percentage when the PDF parser supplies
+                // concrete page/total counts. Folder traversal has no total.
+                bool pageProgress = running && st.Progress?.CurrentPage is > 0
+                    && st.Progress?.TotalPages is > 0;
+                ui.Progress.IsIndeterminate = running && !pageProgress;
+                if (pageProgress)
+                {
+                    ui.Progress.Maximum = st.Progress!.TotalPages!.Value;
+                    ui.Progress.Value = st.Progress.CurrentPage!.Value;
+                }
                 ui.PauseResume.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
                 ui.PauseResume.Content = st.State == "paused" ? KT("Resume", "Riprendi") : KT("Pause", "Pausa");
 
