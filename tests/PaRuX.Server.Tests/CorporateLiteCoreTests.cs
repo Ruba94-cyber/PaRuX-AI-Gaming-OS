@@ -73,6 +73,23 @@ public sealed class CorporateLiteCoreTests : IDisposable
     }
 
     [Fact]
+    public void Corporate_gguf_header_is_checked_without_loading_a_multi_gigabyte_file()
+    {
+        string path = Path.Combine(_root, "synthetic-gguf.gguf");
+        using (var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write))
+        {
+            fs.SetLength(128_000);
+            fs.Write(new byte[] { (byte)'G', (byte)'G', (byte)'U', (byte)'F' });
+        }
+        Assert.True(CorporateModelImportPolicy.IsAcceptableModel(Path.GetFileName(path), new FileInfo(path).Length));
+        Assert.True(CorporateModelImportPolicy.HasGgufHeader(path));
+        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write))
+            fs.Write(new byte[] { (byte)'B', (byte)'A', (byte)'D', (byte)'!' });
+        Assert.False(CorporateModelImportPolicy.HasGgufHeader(path));
+        Assert.False(CorporateModelImportPolicy.HasGgufHeader(Path.Combine(_root, "missing.gguf")));
+    }
+
+    [Fact]
     public void Corporate_package_default_is_stable_when_new_models_are_added()
     {
         string models = Path.Combine(_root, "corporate-models");
