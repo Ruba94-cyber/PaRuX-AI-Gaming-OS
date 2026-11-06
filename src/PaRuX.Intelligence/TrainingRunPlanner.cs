@@ -87,6 +87,11 @@ public static class TrainingRunPlanner
             findings.Add(new Finding(Severity.Blocking, "precision",
                 "16-bit LoRA is available only for text SFT, DPO, GRPO and continued pretraining in this runtime."));
 
+        if (sixteenBit && (baseModelId?.Contains("bnb-4bit", StringComparison.OrdinalIgnoreCase) == true
+            || baseModelId?.Contains("4bit", StringComparison.OrdinalIgnoreCase) == true))
+            findings.Add(new Finding(Severity.Blocking, "baseModel",
+                "16-bit LoRA must use an unquantized Hugging Face base model. A repository named 4bit/bnb-4bit cannot be assumed to contain full-precision weights."));
+
         double? parameters = ParameterBillionsFrom(baseModelId);
         double methodMultiplier = normalizedMethod switch
         {
