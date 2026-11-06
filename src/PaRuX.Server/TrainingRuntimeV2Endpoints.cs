@@ -101,7 +101,7 @@ public static class TrainingRuntimeV2Endpoints
                 TrainingRunPlanner.RunPlan plan = TrainingRunPlanner.Plan(
                     dataset, request.Method, request.BaseModel,
                     request.LoraRank, request.MaxSteps, request.LearningRate,
-                    availableGib, request.Precision, request.TargetPreset);
+                    availableGib, request.Precision, request.TargetPreset, request.MaxSequenceLength);
                 if (!plan.CanStart)
                     return Results.BadRequest(new
                     {
