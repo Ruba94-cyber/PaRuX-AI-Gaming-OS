@@ -23,6 +23,18 @@ public sealed class CorporateModelHubCoverageTests
             && element.BoundingRectangle.Width > 1 && element.BoundingRectangle.Height > 1;
     }
 
+    private static void OpenCorporateModelHubViaSettings(UiTestApplication app)
+    {
+        // In Corporate the Model Hub intentionally lives behind model management,
+        // not in the Chat-first sidebar.
+        var nav = new WorkspaceNavigationPage(app.MainWindow, app);
+        nav.NavigateTo(WorkspaceNavigationPage.SettingsDescriptor.Id);
+        nav.WaitForWorkspace(WorkspaceNavigationPage.SettingsDescriptor);
+        UiWait.ById(app.MainWindow, "Settings_Category_Models_Button", ControlType.Button).Click(moveMouse: false);
+        UiWait.ById(app.MainWindow, "Settings_Corporate_OpenModelHub_Button", ControlType.Button).Click(moveMouse: false);
+        UiWait.ById(app.MainWindow, "ModelHub_Corporate_ImportGguf_Button", ControlType.Button);
+    }
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "Corporate"), Trait("Category", "FlaUI")]
     public void Offline_corporate_offers_local_import_but_not_online_download_or_media()
     {
@@ -34,9 +46,7 @@ public sealed class CorporateModelHubCoverageTests
         });
         try
         {
-            var nav = new WorkspaceNavigationPage(app.MainWindow, app);
-            nav.NavigateTo(WorkspaceNavigationPage.ModelHubDescriptor.Id);
-            nav.WaitForWorkspace(WorkspaceNavigationPage.ModelHubDescriptor);
+            OpenCorporateModelHubViaSettings(app);
 
             UiWait.ById(app.MainWindow, "ModelHub_Corporate_ImportGguf_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "ModelHub_Corporate_ImportExternal_Button", ControlType.Button);
@@ -59,9 +69,7 @@ public sealed class CorporateModelHubCoverageTests
         });
         try
         {
-            var nav = new WorkspaceNavigationPage(app.MainWindow, app);
-            nav.NavigateTo(WorkspaceNavigationPage.ModelHubDescriptor.Id);
-            nav.WaitForWorkspace(WorkspaceNavigationPage.ModelHubDescriptor);
+            OpenCorporateModelHubViaSettings(app);
 
             UiWait.ById(app.MainWindow, "ModelHub_Corporate_ImportGguf_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "ModelHub_Corporate_BrowseDownloads_Button", ControlType.Button);
