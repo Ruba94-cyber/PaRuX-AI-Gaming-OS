@@ -33,7 +33,8 @@ public static class TrainingRunPlanner
         int loraRank,
         int maxSteps,
         double learningRate,
-        double availableGib)
+        double availableGib,
+        string precision = "qlora-4bit")
     {
         var findings = new List<Finding>();
         string normalizedMethod = NormalizeMethod(method);
@@ -76,6 +77,16 @@ public static class TrainingRunPlanner
 
         ValidateModelFamily(baseModelId, normalizedMethod, findings);
 
+        // 16-bit LoRA holds a much larger base model in memory than 4-bit QLoRA.
+        // This is an estimate and MUST be followed by actual device admission/measurement.
+        bool sixteenBit = string.Equals(precision, "lora-16bit", StringComparison.Ordinal);
+        if (precision is not ("qlora-4bit" or "lora-16bit"))
+            findings.Add(new Finding(Severity.Blocking, "precision",
+                "Select a supported precision: QLoRA 4-bit or LoRA 16-bit."));
+        if (sixteenBit && normalizedMethod is "vision-sft" or "tts-sft")
+            findings.Add(new Finding(Severity.Blocking, "precision",
+                "16-bit LoRA is available only for text SFT, DPO, GRPO and continued pretraining in this runtime."));
+
         double? parameters = ParameterBillionsFrom(baseModelId);
         double methodMultiplier = normalizedMethod switch
         {
@@ -87,7 +98,8 @@ public static class TrainingRunPlanner
             _ => 1.0
         };
         double estimatedGib = parameters.HasValue
-            ? Math.Max(MinimumRunGib, parameters.Value * GibPerBillionParameters4Bit * methodMultiplier)
+            ? Math.Max(MinimumRunGib, parameters.Value * GibPerBillionParameters4Bit
+                * methodMultiplier * (sixteenBit ? 2.8 : 1.0))
             : 0;
 
         if (parameters.HasValue && availableGib > 0 && estimatedGib > availableGib)
@@ -102,7 +114,7 @@ public static class TrainingRunPlanner
                 "PaRuX could not establish parameter count from the model id, so it has not checked whether this model fits; memory fit is unproven rather than assumed."));
         }
 
-        if (normalizedMethod is not "tts-sft" && !string.IsNullOrWhiteSpace(baseModelId)
+        if (!sixteenBit && normalizedMethod is not "tts-sft" && !string.IsNullOrWhiteSpace(baseModelId)
             && !baseModelId.Contains("bnb-4bit", StringComparison.OrdinalIgnoreCase)
             && !baseModelId.Contains("4bit", StringComparison.OrdinalIgnoreCase))
         {
