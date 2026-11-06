@@ -1,3 +1,12 @@
+## 2026-11-06 — Source corrections to setup-specific UX and Corporate CPU runtime (WINDOWS TESTS PENDING)
+
+Direct `main` changes after the previous UX/performance slice:
+- New pure `SettingsSectionVisibilityPolicy` for mixed General/Data/Chat/Models categories, with xUnit. Exempts new Corporate Models/Privacy panels by stable AutomationId; neither is accidentally hidden. Gaming-only Games page hides and guards Return to AI, game-to-Chat local guide and AI game asset generator; retains non-AI installed mod management. New FlaUI assertions cover hidden actions. Corporate Lite disables the legacy floating bubble even if shared settings had it enabled.
+- **Real CPU readiness fix:** bundled `text-cpu` status and `llama-server-cpu` read-only inventory now appear in Corporate; CUDA/Vulkan/ComfyUI no longer cause false diagnostics. CPU never scans GPU to display status. Local Chat Standard role resolves the packaged pinned starter or user model even with stale Gaming-only data; old GPU fallback-only restriction remains for non-Corporate, Corporate may assign its own small GGUF. Role API no longer advertises Corporate vision. Missing saved model fallback is visible in diagnostics.
+- Corporate first-run verification accepts a present, sleeping CPU engine, then requires a genuinely healthy/running CPU backend and local challenge. Health transitioning installed→healthy no longer increments config revision/invalidates proof; hardware/path/model changes still do. Check for separate missing engine vs missing GGUF errors; bounded cold start verification 7 minutes; CTAs in IT/EN; never apply an invisible local-AI storage field in Corporate.
+- Cheap 4-byte `GGUF` magic preflight in Corporate UI picker, Core import, model choices and CPU launch. Native parsing still governs actual compatibility; import is atomic from the prior slice.
+- Added pure and source-contract xUnit and one setup-profile FlaUI change. **No tests were executed, no Windows packaging or signed releases performed.** Verify in Windows before tagging. All unsolved acceptance items remain in `PARUX_EXECUTION_PLAN.md`.
+
 ## 2026-11-06 — Continued PaRuX gap closure (SOURCE CHANGES; WINDOWS VALIDATION NOT DONE)
 
 Direct `main` commits after the profile-specific UI slice: Corporate onboarding now hides generic automatic-install/Vulkan/manual screens and instead offers local Chat readiness + optional GGUF model-management handoff with safe Return to Setup. The prebundled CPU engine is not downloaded again. The setup cannot switch during a live verification/component operation.
