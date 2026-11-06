@@ -50,11 +50,12 @@ public static class TrainingMethod
 {
     public const string Sft = "sft";
     public const string Dpo = "dpo";
+    public const string Orpo = "orpo";
     public const string ContinuedPretraining = "continued-pretraining";
     public const string Grpo = "grpo";
     public const string VisionSft = "vision-sft";
     public const string TtsSft = "tts-sft";
-    public static readonly string[] All = { Sft, Dpo, ContinuedPretraining, Grpo, VisionSft, TtsSft };
+    public static readonly string[] All = { Sft, Dpo, Orpo, ContinuedPretraining, Grpo, VisionSft, TtsSft };
 
     public static string Normalize(string? value)
     {
@@ -128,6 +129,7 @@ public sealed class TrainingJobRequest
     public int MaxSteps { get; set; } = 60;
     public double LearningRate { get; set; } = 0.0002;
     public string Method { get; set; } = TrainingMethod.Sft;
+    /// <summary>Preference objective strength for DPO and ORPO.</summary>
     public double DpoBeta { get; set; } = 0.1;
     public int MaxSequenceLength { get; set; } = 2048;
     /// <summary>4-bit QLoRA by default; 16-bit LoRA uses more memory and is opt-in.</summary>
