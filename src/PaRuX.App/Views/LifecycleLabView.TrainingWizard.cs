@@ -110,7 +110,7 @@ namespace PaRuX.Views
             panel.Children.Add(variants);
 
             var preference = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            preference.Children.Add(Caption("DPO beta"));
+            preference.Children.Add(Caption("DPO/ORPO beta"));
             preference.Children.Add(_dpoBeta);
             preference.Children.Add(Caption("GRPO reward"));
             preference.Children.Add(_grpoReward);
@@ -180,6 +180,7 @@ namespace PaRuX.Views
 
             Add("SFT", TrainingMethod.Sft);
             Add("DPO", TrainingMethod.Dpo);
+            Add("ORPO", TrainingMethod.Orpo);
             Add("Continued pretraining", TrainingMethod.ContinuedPretraining);
             Add("GRPO", TrainingMethod.Grpo);
             Add("Vision SFT", TrainingMethod.VisionSft);
@@ -237,7 +238,7 @@ namespace PaRuX.Views
             _trainingTargets.IsEnabled = textOnly;
             _trainingPacking.IsEnabled = method is TrainingMethod.Sft or TrainingMethod.ContinuedPretraining;
             if (!_trainingPacking.IsEnabled) _trainingPacking.IsChecked = false;
-            _dpoBeta.IsEnabled = method == TrainingMethod.Dpo;
+            _dpoBeta.IsEnabled = method is TrainingMethod.Dpo or TrainingMethod.Orpo;
             _grpoReward.IsEnabled = method == TrainingMethod.Grpo;
             _grpoGenerations.IsEnabled = method == TrainingMethod.Grpo;
             _textField.IsEnabled = method is TrainingMethod.ContinuedPretraining or TrainingMethod.TtsSft;
@@ -247,6 +248,7 @@ namespace PaRuX.Views
             _methodRequirements.Text = method switch
             {
                 TrainingMethod.Dpo => "DPO · every row needs prompt, chosen and rejected. Beta controls preference strength.",
+                TrainingMethod.Orpo => "ORPO · prompt/chosen/rejected preference pairs; trains chosen answers and penalizes rejected ones without a separate reference model. Beta controls odds-ratio weight.",
                 TrainingMethod.ContinuedPretraining => "Continued pretraining · every row needs the selected text field. Use conservative learning rates for domain adaptation.",
                 TrainingMethod.Grpo => "GRPO · prompt is required. Reference reward modes also require reference; XML/JSON rewards are deterministic format checks and never execute dataset code.",
                 TrainingMethod.VisionSft => "Vision SFT · each row needs the selected image field plus messages (or prompt/response); the base model must be vision-language capable.",
