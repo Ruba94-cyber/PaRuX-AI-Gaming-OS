@@ -49,7 +49,7 @@ public static class TrainingRunPlanner
             bool supported = Supports(dataset, normalizedMethod);
             if (!supported)
             {
-                string alternative = normalizedMethod == "dpo" && dataset.SupportsSupervisedFineTuning
+                string alternative = (normalizedMethod is "dpo" or "orpo") && dataset.SupportsSupervisedFineTuning
                     ? " This file is chat-shaped, so supervised fine-tuning would accept it."
                     : normalizedMethod != "dpo" && dataset.SupportsPreferenceTuning
                         ? " This file is preference-shaped, so DPO preference tuning would accept it."
@@ -95,6 +95,7 @@ public static class TrainingRunPlanner
             "vision-sft" => 1.55,
             "tts-sft" => 1.70,
             "dpo" => 1.15,
+            "orpo" => 1.15,
             _ => 1.0
         };
         double estimatedGib = parameters.HasValue
@@ -140,7 +141,7 @@ public static class TrainingRunPlanner
         {
             double warningThreshold = normalizedMethod switch
             {
-                "grpo" or "dpo" => 1e-4,
+                "grpo" or "dpo" or "orpo" => 1e-4,
                 "tts-sft" => 2e-4,
                 _ => 1e-3
             };
@@ -163,6 +164,7 @@ public static class TrainingRunPlanner
         double learningRate = normalized switch
         {
             "dpo" => examples < 2_000 ? 5e-6 : 2e-6,
+            "orpo" => examples < 2_000 ? 1e-5 : 5e-6,
             "grpo" => examples < 2_000 ? 5e-6 : 2e-6,
             "continued-pretraining" => examples < 2_000 ? 5e-5 : 2e-5,
             "vision-sft" => examples < 2_000 ? 1e-4 : 5e-5,
@@ -177,7 +179,7 @@ public static class TrainingRunPlanner
 
     public static bool Supports(TrainingDatasetShape.Shape dataset, string method) => NormalizeMethod(method) switch
     {
-        "dpo" => dataset.SupportsPreferenceTuning,
+        "dpo" or "orpo" => dataset.SupportsPreferenceTuning,
         "continued-pretraining" => dataset.SupportsContinuedPretraining,
         "grpo" => dataset.SupportsGrpo,
         "vision-sft" => dataset.SupportsVisionFineTuning,
@@ -215,7 +217,7 @@ public static class TrainingRunPlanner
 
     private static string RequiredShape(string method) => method switch
     {
-        "dpo" => "JSONL objects with prompt, chosen and rejected strings.",
+        "dpo" or "orpo" => "JSONL objects with prompt, chosen and rejected strings.",
         "continued-pretraining" => "JSONL objects with a non-empty text string.",
         "grpo" => "JSONL objects with prompt and, for reference rewards, reference strings.",
         "vision-sft" => "JSONL objects with image plus messages, or image + prompt + response.",
@@ -226,6 +228,7 @@ public static class TrainingRunPlanner
     private static string FriendlyMethod(string method) => method switch
     {
         "dpo" => "DPO",
+        "orpo" => "ORPO",
         "continued-pretraining" => "continued pretraining",
         "grpo" => "GRPO",
         "vision-sft" => "Vision SFT",
@@ -236,7 +239,7 @@ public static class TrainingRunPlanner
     private static string NormalizeMethod(string? method)
     {
         string value = string.IsNullOrWhiteSpace(method) ? "sft" : method.Trim().ToLowerInvariant();
-        return value is "sft" or "dpo" or "continued-pretraining" or "grpo" or "vision-sft" or "tts-sft" ? value : "sft";
+        return value is "sft" or "dpo" or "orpo" or "continued-pretraining" or "grpo" or "vision-sft" or "tts-sft" ? value : "sft";
     }
 
     public static double? ParameterBillionsFrom(string? modelId)
