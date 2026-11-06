@@ -101,6 +101,20 @@ public sealed class AdvancedTrainingMethodsTests : IDisposable
         Assert.Equal(5e-6, plan.Recommended.LearningRate, 8);
     }
 
+    [Fact]
+    public void Orpo_checks_records_beyond_the_shape_preview_before_training()
+    {
+        string dataset = WriteJsonl("orpo-late-invalid.jsonl",
+            Enumerable.Repeat("{\"prompt\":\"q\",\"chosen\":\"good\",\"rejected\":\"bad\"}", 2_000)
+            .Concat(new[] { "{\"prompt\":\"late bad row\"}" }));
+        TrainingDatasetShape.Shape shape = TrainingDatasetShape.Inspect(dataset);
+        Assert.True(shape.SupportsPreferenceTuning);
+        Assert.True(shape.Truncated);
+        InvalidDataException error = Assert.Throws<InvalidDataException>(() =>
+            TrainingLabService.ValidateDatasetForMethod(dataset, TrainingMethod.Orpo, null));
+        Assert.Contains("2001", error.Message);
+    }
+
     [Theory]
     [InlineData("sft")]
     [InlineData("dpo")]
