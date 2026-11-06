@@ -119,6 +119,7 @@ public sealed class AdvancedTrainingMethodsTests : IDisposable
     [InlineData("sft")]
     [InlineData("dpo")]
     [InlineData("orpo")]
+    [InlineData("kto")]
     [InlineData("continued-pretraining")]
     [InlineData("grpo")]
     [InlineData("vision-sft")]
