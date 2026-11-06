@@ -35,7 +35,7 @@ public sealed partial class KnowledgeIndex
         catch { return false; } // Let the usual extractor report an unreadable PDF.
     }
 
-    private PdfCheckpoint GetOrCreatePdfCheckpoint(string sourceId, string path, string hash, int pages)
+    private PdfCheckpoint GetOrCreatePdfCheckpoint(string sourceId, string path, string hash, int pages, bool ocrMode)
     {
         lock (_gate)
         {
@@ -43,7 +43,7 @@ public sealed partial class KnowledgeIndex
             using SqliteTransaction tx = db.BeginTransaction();
             using SqliteCommand read = db.CreateCommand();
             read.Transaction = tx;
-            read.CommandText = @"SELECT hash,total_pages,next_page,next_ord,empty_pages
+            read.CommandText = @"SELECT hash,total_pages,next_page,next_ord,empty_pages,ocr_mode
 FROM kn_pdf_progress WHERE source_id=$s AND path=$p;";
             read.Parameters.AddWithValue("$s", sourceId);
             read.Parameters.AddWithValue("$p", path);
@@ -59,7 +59,13 @@ FROM kn_pdf_progress WHERE source_id=$s AND path=$p;";
                     checkpoint = new PdfCheckpoint(cursor.GetInt32(2), cursor.GetInt32(3), cursor.GetInt32(4));
                 }
             }
-            if (checkpoint != null && previousHash == hash && previousTotal == pages)
+            bool previousOcr = false;
+            // An old checkpoint cannot be reused with different OCR settings:
+            // otherwise skipped pages would silently persist after enabling OCR.
+            if (checkpoint != null)
+                previousOcr = CheckStageOcrMode(db, tx, sourceId, path);
+            if (checkpoint != null && previousHash == hash && previousTotal == pages
+                && previousOcr == ocrMode)
             {
                 tx.Commit();
                 return checkpoint;
@@ -69,11 +75,22 @@ FROM kn_pdf_progress WHERE source_id=$s AND path=$p;";
             ExecPdf(db, tx, "DELETE FROM kn_pdf_staging WHERE source_id=$s AND path=$p;", sourceId, path);
             ExecPdf(db, tx, "DELETE FROM kn_pdf_progress WHERE source_id=$s AND path=$p;", sourceId, path);
             ExecPdf(db, tx, @"INSERT INTO kn_pdf_progress
-(source_id,path,hash,total_pages,next_page,next_ord,empty_pages)
-VALUES($s,$p,$h,$n,1,0,0);", sourceId, path, hash, pages);
+(source_id,path,hash,total_pages,next_page,next_ord,empty_pages,ocr_mode)
+VALUES($s,$p,$h,$n,1,0,0," + (ocrMode ? "1" : "0") + ");", sourceId, path, hash, pages);
             tx.Commit();
             return new PdfCheckpoint(1, 0, 0);
         }
+    }
+
+    private static bool CheckStageOcrMode(SqliteConnection db, SqliteTransaction tx,
+        string sourceId, string path)
+    {
+        using SqliteCommand command = db.CreateCommand();
+        command.Transaction = tx;
+        command.CommandText = "SELECT ocr_mode FROM kn_pdf_progress WHERE source_id=$s AND path=$p;";
+        command.Parameters.AddWithValue("$s", sourceId);
+        command.Parameters.AddWithValue("$p", path);
+        return Convert.ToInt32(command.ExecuteScalar()) != 0;
     }
 
     private static void ExecPdf(SqliteConnection db, SqliteTransaction tx, string sql,
@@ -147,7 +164,7 @@ WHERE source_id=$s AND path=$p;";
         int totalPages = pdf.NumberOfPages;
         if (totalPages == 0)
             throw new InvalidDataException("Large PDF contains no pages.");
-        PdfCheckpoint state = GetOrCreatePdfCheckpoint(sourceId, path, hash, totalPages);
+        PdfCheckpoint state = GetOrCreatePdfCheckpoint(sourceId, path, hash, totalPages, ocrMode);
         var pending = new List<(int page, long offset, string text)>();
         var blankPages = new List<int>();
         int processed = 0, currentPage = state.NextPage - 1;
