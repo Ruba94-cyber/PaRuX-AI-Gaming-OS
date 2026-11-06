@@ -2,6 +2,8 @@
 
 **Implemented directly on main:** Document Chat no longer broadens an explicitly selected source scope to *all* enabled folders when the last folder is unchecked, removed or disabled. `ChatDocumentScopeState` disables document mode fail-closed and retains the intentional owner-triggered empty=all behavior only after the switch is reenabled. The Chat source picker now supports IT/EN name/path filtering, deterministic 40-item pages, selected-count / all-folder status, preserved selections across pages and visible warning when scope is revoked. New pure `DocumentSourcePicker`, state regression tests, source contracts and Corporate FlaUI scenario were authored.
 
+**Final static audit:** 10 impacted source/test files were inspected for wiring and source-level invariants; no Windows .NET or Android compiler was available, and static assertions are not runtime test evidence. Index polling now also skips updating completed UI rows on each tick, reducing WinUI text-layout work.
+
 **Low-spec performance:** `DocumentSearchView` shows a responsive Grid-based search row on narrow windows and caches per-source status; after the initial overview, it polls only active index jobs (up to four concurrent requests) instead of hundreds of finished folders every two seconds. Navigation calls `OnHidden` to stop polling even if WinUI does not unload a Collapsed page.
 
 **Android UX:** the existing mobile Chat can send an image without text, has an 8 MiB streaming content-provider limit before base64 allocation, reports invalid/oversize selections in the composer and only clears pending attachment/draft after the local turn was admitted. These are source changes, not actual device results.
