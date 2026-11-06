@@ -70,6 +70,7 @@ namespace PaRuX.Views
         private readonly Button _startTrainingButton = new() { Content = "Start local training" };
         private bool _trainingSubmissionInProgress;
         private TrainingPlanResult? _lastPlan;
+        private string? _previousTrainingMethod;
 
         private UIElement BuildTrainingWizardControls()
         {
@@ -230,6 +231,14 @@ namespace PaRuX.Views
         private void RefreshMethodControlsAndDraft()
         {
             string method = SelectedTag(_trainingMethod) ?? TrainingMethod.Sft;
+            if (!string.Equals(method, _previousTrainingMethod, StringComparison.Ordinal))
+            {
+                // Do not inherit a much higher SFT default learning rate when the
+                // user switches to KTO: TRL recommends roughly 1e-6 at beta 0.1.
+                if (method == TrainingMethod.Kto)
+                    _learningRate.Value = 0.000001;
+                _previousTrainingMethod = method;
+            }
             bool textOnly = method is not TrainingMethod.VisionSft and not TrainingMethod.TtsSft;
             if (!textOnly && SelectedTag(_trainingPrecision) == TrainingPrecision.Lora16Bit)
                 _trainingPrecision.SelectedIndex = 0;
@@ -250,7 +259,7 @@ namespace PaRuX.Views
             {
                 TrainingMethod.Dpo => "DPO · every row needs prompt, chosen and rejected. Beta controls preference strength.",
                 TrainingMethod.Orpo => "ORPO · prompt/chosen/rejected preference pairs; trains chosen answers and penalizes rejected ones without a separate reference model. Beta controls odds-ratio weight.",
-                TrainingMethod.Kto => "KTO · each JSONL line needs prompt and completion text plus a real boolean label (true=desirable, false=undesirable). Include both classes and at least four examples. The GPU must fit two concurrent training examples; beta controls feedback strength.",
+                TrainingMethod.Kto => "KTO · each JSONL line needs prompt and completion text plus a real boolean label (true=desirable, false=undesirable). Include both classes and at least four examples. The GPU must fit four concurrent examples (effective batch 16). The default learning rate is 1e-6; beta controls feedback strength.",
                 TrainingMethod.ContinuedPretraining => "Continued pretraining · every row needs the selected text field. Use conservative learning rates for domain adaptation.",
                 TrainingMethod.Grpo => "GRPO · prompt is required. Reference reward modes also require reference; XML/JSON rewards are deterministic format checks and never execute dataset code.",
                 TrainingMethod.VisionSft => "Vision SFT · each row needs the selected image field plus messages (or prompt/response); the base model must be vision-language capable.",
