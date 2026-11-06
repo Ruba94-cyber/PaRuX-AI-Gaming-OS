@@ -21,6 +21,26 @@ public sealed class PaRuXDataRootTests
     }
 
     [Fact]
+    public void Corporate_portable_data_is_resolved_for_desktop_and_nested_server()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "corp-root-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(root);
+            string nestedServer = Path.Combine(root, "PaRuX.Server");
+            Directory.CreateDirectory(nestedServer);
+            Assert.Null(PaRuXDataRoot.FindCorporatePortableDataRoot(root));
+            File.WriteAllText(Path.Combine(root, CorporateMode.MarkerFileName), "Corporate");
+            Assert.Null(PaRuXDataRoot.FindCorporatePortableDataRoot(root));
+            string data = Path.Combine(root, "PaRuXData");
+            Directory.CreateDirectory(data);
+            Assert.Equal(data, PaRuXDataRoot.FindCorporatePortableDataRoot(root));
+            Assert.Equal(data, PaRuXDataRoot.FindCorporatePortableDataRoot(nestedServer));
+        }
+        finally { try { Directory.Delete(root, true); } catch { } }
+    }
+
+    [Fact]
     public void The_test_run_is_isolated_from_the_real_data_root()
     {
         // If this ever fails, the suite is writing into the developer's installation again.
