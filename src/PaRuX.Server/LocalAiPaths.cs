@@ -418,7 +418,8 @@ public static class LocalAiPaths
                 try
                 {
                     return File.Exists(path) && CorporateModelImportPolicy.IsAcceptableModel(
-                        Path.GetFileName(path), new FileInfo(path).Length);
+                        Path.GetFileName(path), new FileInfo(path).Length)
+                        && CorporateModelImportPolicy.HasGgufHeader(path);
                 }
                 catch (IOException) { return false; }
                 catch (UnauthorizedAccessException) { return false; }
