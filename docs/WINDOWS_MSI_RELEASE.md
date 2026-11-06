@@ -377,9 +377,30 @@ The in-app Update Manager enables installation only when the release is newer, b
 
 Cancelling the PaRuX confirmation or UAC leaves the installed application unchanged. Desktop exits only after the elevated bootstrap helper reports that protected staging and the staged worker were created successfully.
 
-## Portable build policy
+## Portable build policy (Standard vs Corporate Lite)
 
-A self-contained publish directory/ZIP remains useful for development, diagnostics and recovery experiments. It is **not** the primary public distribution and does not get a second self-overwrite updater. The supported application-update trust boundary is the versioned MSI product family above.
+The Standard portable is an independent ZIP distribution (not an MSI extraction). It contains **Desktop + Core + hash-locked llama.cpp b10549 Vulkan native runtime/DLLs**, plus required licence/provenance notices. It deliberately omits model weights, CUDA/cuBLAS, ComfyUI/media packs, Python/uv, data/indexes, the Update Helper, and the self-contained terminal CLI by default. The CLI is opt-in through `-IncludeCli`. The full AI/Gaming application remains one application; optional features install their dependencies only on explicit request.
+
+```powershell
+.\scripts\build-portable.ps1 -Smoke
+# If a standalone terminal CLI is required as well:
+.\scripts\build-portable.ps1 -IncludeCli -Smoke
+```
+
+The portable reuses `stage-msi-runtime.ps1 -ArtifactIds llama.cpp-vulkan`: the upstream archive must match the locked size/SHA-256, and the emitted ZIP verification rehashes **all** staged native files (including `ggml-vulkan.dll`) against the per-file manifest. There is no requirement to pre-install a separate Vulkan SDK. A compatible **GPU driver/Vulkan loader and ICD** are host prerequisites, however; an archive cannot embed the vendor driver or guarantee Vulkan-capable hardware. The ZIP includes no GGUF, so baseline chat requires downloading/locating an approved model. Vulkan-only is not a guarantee of usability on a CPU-only PC; this is an explicit remaining acceptance gap.
+
+Use `PaRuX.exe` for the current PC user profile or `PaRuX (portable data).cmd` for an isolated `PaRuXData` folder beside the executable. The isolated mode must not inherit a pre-existing `Documents\LocalAI` directory. The shipped Vulkan baseline is verified and bootstrapped to the selected data root on first Core launch; no CUDA hardware probe runs for the Vulkan-only package. Copying the folder preserves any downloaded data, but **models are not embedded in the initial Standard ZIP**.
+
+Corporate Lite is a separate CPU-only/offline package built using `build-portable.ps1 -WithoutVulkan` as its lean application shell and then adding its curated CPU runtime, one quantized model, and embedding model. Neither a Vulkan payload nor the optional CLI should leak into its final ZIP.
+
+**Windows verification (not established by source edits):**
+1. Fresh build + ZIP inspection: no missing native DLL, no unexpected CUDA/uv/CLI, no developer models or indexes, SHA-256 verification succeeds.
+2. Extract to a clean Windows VM/PC without an MSI; `-Smoke` proves isolated Core bootstrap and native Vulkan binary presence. Confirm no path reads from a host `Documents\LocalAI`.
+3. On supported AMD/NVIDIA/Intel GPU drivers, run `llama-server.exe --list-devices` from the extracted Vulkan runtime, install a small approved GGUF via Runtime/Model Hub, send a streaming chat and confirm GPU offload/device choice. Also test no Vulkan ICD, unsupported CPU and misleading iGPU-vs-dGPU enumeration (fail with an actionable UI message; do not claim success).
+4. Compare cold launch, warm launch, time-to-first-token, tokens/s, peak RSS/VRAM, disk footprint and running child processes against the MSI **on the same hardware/model**, and check Gaming hard-off after exiting text generation.
+5. Run xUnit (`PortableLocalAiRootPolicyTests` and baseline tests), release build, full FlaUI, integrity/security gates, and sign/publish only with the owner's local Windows release workflow. **Do not equate ZIP smoke with actual inference or a signed release.**
+
+Portable builds are not self-updating: replace the ZIP with a newer verified release. The MSI's privileged update helper and its manifest-signature trust boundary are not copied into Portable.
 
 ## Local release-candidate verification (no network, no upload)
 
