@@ -48,5 +48,9 @@ public sealed class OnboardingTextReadinessPolicyTests
         Assert.Contains("Re-extract", english);
         Assert.Contains("CPU runtime", english);
         Assert.DoesNotContain("install a local text runtime", english, StringComparison.OrdinalIgnoreCase);
+        string modelMissing = OnboardingTextReadinessPolicy.MissingModelMessage(true, false);
+        Assert.Contains("GGUF", modelMissing);
+        Assert.DoesNotContain("CPU runtime is missing", modelMissing);
+        Assert.Contains("modello", OnboardingTextReadinessPolicy.MissingModelMessage(true, true));
     }
 }
