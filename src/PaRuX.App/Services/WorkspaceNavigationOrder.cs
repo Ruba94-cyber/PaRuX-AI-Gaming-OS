@@ -148,9 +148,11 @@ namespace PaRuX.Services
             string? selectedAutomationId,
             bool keyboardFocusIsCurrent,
             bool isAdvancedMode,
-            bool isGamingMode = false)
+            bool isGamingMode = false,
+            SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null)
         {
-            IReadOnlyList<string> visibleIds = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
+            IReadOnlyList<string> visibleIds = GetOrderedAutomationIds(
+                isAdvancedMode, isGamingMode, setupProfile, corporateMode);
             bool focusedIsVisible = !string.IsNullOrWhiteSpace(focusedAutomationId)
                 && IndexOf(visibleIds, focusedAutomationId) >= 0;
             bool selectedIsVisible = !string.IsNullOrWhiteSpace(selectedAutomationId)
@@ -181,19 +183,22 @@ namespace PaRuX.Services
         /// <summary>
         /// Resolves the next workspace AutomationId in visual order, with defined end (null at boundary).
         /// </summary>
-        public static string? Next(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false) =>
-            GetNext(currentAutomationId, isAdvancedMode, isGamingMode);
+        public static string? Next(string currentAutomationId, bool isAdvancedMode,
+            bool isGamingMode = false, SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null) =>
+            GetNext(currentAutomationId, isAdvancedMode, isGamingMode, setupProfile, corporateMode);
 
         /// <summary>
         /// Resolves the previous workspace AutomationId in visual order, with defined start (null at boundary).
         /// </summary>
-        public static string? Previous(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false) =>
-            GetPrevious(currentAutomationId, isAdvancedMode, isGamingMode);
+        public static string? Previous(string currentAutomationId, bool isAdvancedMode,
+            bool isGamingMode = false, SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null) =>
+            GetPrevious(currentAutomationId, isAdvancedMode, isGamingMode, setupProfile, corporateMode);
 
-        public static string? GetNext(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false)
+        public static string? GetNext(string currentAutomationId, bool isAdvancedMode,
+            bool isGamingMode = false, SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null)
         {
             if (string.IsNullOrWhiteSpace(currentAutomationId)) return null;
-            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
+            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode, setupProfile, corporateMode);
             int index = IndexOf(list, currentAutomationId);
             if (index < 0 || index >= list.Count - 1)
             {
@@ -202,10 +207,11 @@ namespace PaRuX.Services
             return list[index + 1];
         }
 
-        public static string? GetPrevious(string currentAutomationId, bool isAdvancedMode, bool isGamingMode = false)
+        public static string? GetPrevious(string currentAutomationId, bool isAdvancedMode,
+            bool isGamingMode = false, SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null)
         {
             if (string.IsNullOrWhiteSpace(currentAutomationId)) return null;
-            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode);
+            var list = GetOrderedAutomationIds(isAdvancedMode, isGamingMode, setupProfile, corporateMode);
             int index = IndexOf(list, currentAutomationId);
             if (index <= 0)
             {
