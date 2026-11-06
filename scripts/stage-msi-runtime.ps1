@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$PublishDir,
     [string]$LockFile = "",
-    [string]$CacheDir = ""
+    [string]$CacheDir = "",
+    [string[]]$ArtifactIds = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,6 +34,20 @@ if ($lock.schemaVersion -ne 1 -or $lock.platform -ne "win-x64") {
 if ($null -eq $lock.artifacts -or $lock.artifacts.Count -lt 1) {
     throw "Baseline runtime lock contains no artifacts."
 }
+
+# Allow portable distributions to stage only their essential, hash-locked engines.
+# The ordinary MSI call passes no selection and retains the complete baseline.
+$selectedArtifacts = @($lock.artifacts)
+if ($ArtifactIds.Count -gt 0) {
+    $allowed = @($lock.artifacts | ForEach-Object { [string]$_.id })
+    foreach ($id in $ArtifactIds) {
+        if ([string]::IsNullOrWhiteSpace($id) -or $allowed -cnotcontains $id) {
+            throw "Unknown baseline artifact id '$id'. Allowed: $($allowed -join ', ')"
+        }
+    }
+    $selectedArtifacts = @($lock.artifacts | Where-Object { $ArtifactIds -ccontains ([string]$_.id) })
+}
+if ($selectedArtifacts.Count -lt 1) { throw "No baseline runtime artifacts selected." }
 
 New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
 
@@ -209,7 +224,7 @@ function Stage-ZipArtifactGroup([object[]]$Artifacts) {
  # Artifacts with the same destination are co-staged into one immutable runtime folder. CUDA's
  # llama-server build and NVIDIA's separate cudart/cuBLAS redistributable archive are one payload.
 $destinationGroups = [ordered]@{}
-foreach ($artifact in @($lock.artifacts)) {
+foreach ($artifact in $selectedArtifacts) {
     $key = ([string]$artifact.destination).Replace('/', '\').ToLowerInvariant()
     if ([string]::IsNullOrWhiteSpace($key)) { throw "Baseline artifact $($artifact.id) has no destination." }
     if (-not $destinationGroups.Contains($key)) {
@@ -224,10 +239,20 @@ foreach ($key in $destinationGroups.Keys) {
 $serverDir = Join-Path $PublishDir "PaRuX.Server"
 $baselineDir = Join-Path $serverDir "runtime-baseline"
 New-Item -ItemType Directory -Force -Path $baselineDir | Out-Null
-Copy-Item -LiteralPath $LockFile -Destination (Join-Path $baselineDir "baseline-lock.json") -Force
+$stagedLockPath = Join-Path $baselineDir "baseline-lock.json"
+if ($ArtifactIds.Count -eq 0) {
+    Copy-Item -LiteralPath $LockFile -Destination $stagedLockPath -Force
+} else {
+    # Ship a truthful lock: no CUDA or Python archive metadata in a Vulkan-only ZIP.
+    [ordered]@{
+        schemaVersion = $lock.schemaVersion
+        platform = $lock.platform
+        artifacts = $selectedArtifacts
+    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $stagedLockPath -Encoding UTF8
+}
 
 $manifestPath = Join-Path $baselineDir "staging-manifest.json"
-$lockHash = Get-Sha256 $LockFile
+$lockHash = Get-Sha256 $stagedLockPath
 $manifestFiles = @()
 $serverPrefix = [System.IO.Path]::GetFullPath($serverDir).TrimEnd('\') + '\'
 $rootsToInventory = @(
