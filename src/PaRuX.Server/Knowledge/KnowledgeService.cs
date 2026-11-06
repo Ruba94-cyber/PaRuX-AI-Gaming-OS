@@ -16,11 +16,19 @@ public static class KnowledgeContextProvider
         try
         {
             KnowledgeJobService? service = Current;
-            if (service == null || !service.HasData) return null;
-            IReadOnlyList<KnowledgeHit> hits = service.Index.Search(query, KnowledgeSearchMode.Auto, topK, service.ScopedSourceIds(sourceIds));
-            return hits.Count == 0 ? null : hits;
+            // Corporate's authoritative position-bearing index must never
+            // silently fall back to an out-of-date classic RAG chunk without
+            // reliable page/revision evidence, even when no hit is found.
+            if (service == null || !service.HasData)
+                return CorporateMode.IsActive ? Array.Empty<KnowledgeHit>() : null;
+            IReadOnlyList<KnowledgeHit> hits = service.Index.Search(
+                query, KnowledgeSearchMode.Auto, topK, service.ScopedSourceIds(sourceIds));
+            return hits.Count == 0 && !CorporateMode.IsActive ? null : hits;
         }
-        catch (Exception) { return null; }
+        catch (Exception)
+        {
+            return CorporateMode.IsActive ? Array.Empty<KnowledgeHit>() : null;
+        }
     }
 }
 
