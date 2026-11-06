@@ -22,7 +22,13 @@ namespace PaRuX.Views
 
         private static bool SetupProfileItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
 
-        private static SetupProfile StoredSetupProfile => SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId);
+        // Corporate Lite is fixed to AI Chat, even when a data folder copied
+        // from a Gaming-only installation contains a stale Gaming preference.
+        // Do not rewrite that preference: it may still be used by the full app.
+        private static SetupProfile StoredSetupProfile =>
+            PaRuX.Contracts.CorporateMode.IsActive
+                ? SetupProfile.AiOnly
+                : SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId);
 
         private void InitializeSetupProfileChoice()
         {
