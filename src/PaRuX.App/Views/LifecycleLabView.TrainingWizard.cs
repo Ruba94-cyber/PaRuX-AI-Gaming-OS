@@ -510,8 +510,13 @@ namespace PaRuX.Views
         {
             _planSummary.Text = (plan.CanStart ? "Ready to start. " : "This run cannot succeed as configured. ")
                 + plan.DatasetSummary
+                + (plan.DetectedMethod == TrainingMethod.Kto
+                    ? $" KTO feedback: {plan.DatasetValidKtoRecords:N0} labelled,"
+                      + $" {plan.DatasetDesirableKtoRecords:N0} desirable,"
+                      + $" {plan.DatasetUndesirableKtoRecords:N0} undesirable."
+                    : string.Empty)
                 + (plan.DatasetSampleTruncated
-                    ? " (Only the bounded shape sample was read; the runner still validates the real file.)"
+                    ? " (Preflight samples only the first 2,000 records; KTO/ORPO perform full-row checks before GPU admission.)"
                     : string.Empty)
                 + (plan.EstimatedGib > 0
                     ? $" Needs roughly {plan.EstimatedGib:0.#} GB against {plan.AvailableGib:0.#} GB available."
@@ -564,6 +569,7 @@ namespace PaRuX.Views
             TrainingMethod.TtsSft => 1024,
             TrainingMethod.Grpo => 2048,
             TrainingMethod.Dpo => 2048,
+            TrainingMethod.Kto => 2048,
             _ => 2048
         };
 
