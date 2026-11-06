@@ -404,11 +404,12 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
 
     internal static void ValidateKtoMicroBatch(int microBatch)
     {
-        // TRL KTO's default KL estimator rotates completions inside the physical batch:
-        // gradient accumulation does NOT substitute for two concurrent samples.
-        if (microBatch < 2)
+        // TRL 0.24 recommends >=4 physical samples for a reliable KTO KL estimate,
+        // plus an effective batch of 16..128. Accumulation cannot make a 1x4
+        // physical micro-batch behave like four concurrent KL partners.
+        if (microBatch < 4)
             throw new InvalidOperationException(
-                "KTO requires a physical micro-batch of at least two examples for the KL reference. "
+                "KTO requires at least four physical samples per GPU step for a reliable KL estimate. "
                 + "Reduce maximum sequence length or use an accelerator with more free VRAM.");
     }
 
@@ -774,6 +775,11 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         }
 
         (int microBatch, int gradientAccumulation) = PlanBatchShape(request.MaxSequenceLength);
+        // KTO's loss estimates a KL term over contemporaneous physical samples;
+        // its effective batch is deliberately raised from 4 to 16 without
+        // changing the native per-device batch or other training objectives.
+        if (entry.Status.Method == TrainingMethod.Kto)
+            gradientAccumulation = Math.Max(4, gradientAccumulation);
         // Available free VRAM may have changed since job admission. If the second
         // check fails, persist a terminal status instead of letting the fire-and-
         // forget worker throw and leaving the job permanently "queued".
@@ -1275,10 +1281,19 @@ else:
             # KTO learns from independent binary judgements instead of paired ranked
             # completions. The pinned TRL estimator needs physical batches of >= 2
             # (gradient accumulation alone cannot create its mismatched KL pairs).
-            if cfg.get("batch_size", 1) < 2:
-                raise ValueError("KTO needs a physical training batch of at least two")
+            if cfg.get("batch_size", 1) < 4 or (
+                    cfg.get("batch_size", 1) * cfg.get("gradient_accumulation_steps", 1) < 16):
+                raise ValueError("KTO needs at least four physical examples and an effective batch of sixteen")
             data = [{"prompt": r["prompt"], "completion": r["completion"], "label": r["label"]} for r in rows()]
             dataset = Dataset.from_list(data)
+            positive_count = sum(1 for item in data if item["label"])
+            negative_count = len(data) - positive_count
+            if positive_count == 0 or negative_count == 0:
+                raise ValueError("KTO requires true and false feedback examples")
+            # Upweight the smaller class, with bounded multipliers so an
+            # extremely skewed dataset does not dominate a single batch.
+            desirable_weight = min(10.0, max(1.0, negative_count / positive_count))
+            undesirable_weight = min(10.0, max(1.0, positive_count / negative_count))
             from trl import KTOTrainer, KTOConfig
             trainer = KTOTrainer(
                 model=model, train_dataset=dataset, processing_class=tokenizer,
@@ -1289,6 +1304,7 @@ else:
                     max_length=cfg["max_seq_length"],
                     max_prompt_length=max(64, cfg["max_seq_length"] // 2),
                     beta=cfg.get("dpo_beta", .1), loss_type="kto",
+                    desirable_weight=desirable_weight, undesirable_weight=undesirable_weight,
                     logging_steps=1, save_strategy="steps", save_steps=checkpoint_steps,
                     save_total_limit=2, output_dir=out_dir, report_to=[],
                     fp16=not torch.cuda.is_bf16_supported(), bf16=torch.cuda.is_bf16_supported()))
