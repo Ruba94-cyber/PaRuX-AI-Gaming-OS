@@ -34,7 +34,8 @@ public static class TrainingRunPlanner
         int maxSteps,
         double learningRate,
         double availableGib,
-        string precision = "qlora-4bit")
+        string precision = "qlora-4bit",
+        string targetPreset = "attention")
     {
         var findings = new List<Finding>();
         string normalizedMethod = NormalizeMethod(method);
@@ -80,6 +81,14 @@ public static class TrainingRunPlanner
         // 16-bit LoRA holds a much larger base model in memory than 4-bit QLoRA.
         // This is an estimate and MUST be followed by actual device admission/measurement.
         bool sixteenBit = string.Equals(precision, "lora-16bit", StringComparison.Ordinal);
+        if (targetPreset is not ("attention" or "all-linear"))
+            findings.Add(new Finding(Severity.Blocking, "targetPreset",
+                "Choose a supported LoRA target preset: attention or all-linear."));
+        if (targetPreset == "all-linear" && (normalizedMethod is "vision-sft" or "tts-sft"))
+            findings.Add(new Finding(Severity.Blocking, "targetPreset",
+                "Vision/TTS use fixed target modules; all-linear is currently supported only for text methods."));
+
+
         if (precision is not ("qlora-4bit" or "lora-16bit"))
             findings.Add(new Finding(Severity.Blocking, "precision",
                 "Select a supported precision: QLoRA 4-bit or LoRA 16-bit."));
