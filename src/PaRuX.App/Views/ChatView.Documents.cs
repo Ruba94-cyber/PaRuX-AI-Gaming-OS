@@ -42,10 +42,25 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_documentsSources, "Chat_Documents_Sources");
             var panel = new StackPanel { Spacing = 8, Padding = new Thickness(4) };
             panel.Children.Add(_documentsSwitch);
-            panel.Children.Add(new TextBlock { Text = DT("Folders that may answer (none ticked = all)", "Cartelle che possono rispondere (nessuna = tutte)"), FontSize = 12, Opacity = 0.8 });
-            panel.Children.Add(_documentsSources);
+            panel.Children.Add(new TextBlock
+            {
+                Text = DT("Select specific folders below. If none is selected, ALL enabled folders can be used.",
+                    "Seleziona cartelle specifiche qui sotto. Se non ne selezioni nessuna, possono essere usate TUTTE le cartelle attive."),
+                FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.8
+            });
+            var sourceScroll = new ScrollViewer
+            {
+                Content = _documentsSources, MaxHeight = 220,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            AutomationProperties.SetAutomationId(sourceScroll, "Chat_Documents_Sources_Scroll");
+            panel.Children.Add(sourceScroll);
             panel.Children.Add(_documentsNote);
-            panel.Children.Add(new TextBlock { Text = DT("Document skills", "Competenze sui documenti"), FontSize = 12, Opacity = 0.8 });
+            panel.Children.Add(new TextBlock { Text = DT("Work with evidence", "Lavora con le fonti"), FontSize = 12, Opacity = 0.8 });
+            panel.Children.Add(SkillButton(DT("Summarize with sources", "Riassumi con le fonti"),
+                "Chat_Documents_Skill_Summary",
+                DT("Summarize the selected documents, separating key facts from uncertainties and citing the source for each point.",
+                   "Riassumi i documenti selezionati, distinguendo fatti e incertezze e citando la fonte per ogni punto.")));
             panel.Children.Add(SkillButton(DT("Compare two versions", "Confronta due versioni"), "Chat_Documents_Skill_Diff", "/diff  |  ", caret: "/diff ".Length));
             panel.Children.Add(SkillButton(DT("Check for contradictions", "Cerca contraddizioni"), "Chat_Documents_Skill_Contradictions", "/contradictions "));
             var flyout = new Flyout { Content = panel };
@@ -61,6 +76,14 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(button, automationId);
             button.Click += (s, e) =>
             {
+                // Never discard a draft merely because the user chose a shortcut.
+                if (InputBox != null && !string.IsNullOrWhiteSpace(InputBox.Text))
+                {
+                    if (_documentsNote != null)
+                        _documentsNote.Text = DT("Send or clear your current draft before inserting this action.",
+                            "Invia o cancella la bozza attuale prima di inserire questa azione.");
+                    return;
+                }
                 ChatDocumentScopeState.SetEnabled(true);
                 if (_documentsSwitch != null) _documentsSwitch.IsOn = true;
                 UpdateDocumentsButtonVisual();
