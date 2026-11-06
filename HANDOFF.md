@@ -1,3 +1,9 @@
+## 2026-11-06 — Windows validation of cloud-authored source + 3.1.0 RC artifacts (VERIFIED ON WINDOWS)
+
+- main fast-forwarded (cloud work was never compiled): fixed 1 WinUI compile error, 8 test/script issues. Server xUnit green per chunk (host-exit flake documented in docs/RELEASE_CANDIDATE_3.1.0.md). FlaUI Smoke 35/35, Regression 287/290 -> 3 fixed and re-run green individually; run the full Regression once more alone before release.
+- Unsigned RC artifacts (MSI, Portable, Corporate Lite, Android APK) built and smoke-tested; see docs/RELEASE_CANDIDATE_3.1.0.md for what was and was NOT verified (MSI install needs elevation; no physical Android device) and the owner's signing/publish checklist. Version bumped to 3.1.0 (no tag, no release).
+- FlaUI is serialised via tools/Invoke-ExclusiveDesktop.ps1 (another Claude session also runs FlaUI on this PC). Next: elevated MSI test, full FlaUI re-run, L2 hunk review real end-to-end, remaining open plan items.
+
 ## 2026-11-05 — L2 single-file selective hunk transaction foundation (MAIN SOURCE WIP)
 
 - Added `src/PaRuX.App/Services/CodingSelectiveHunkApplyService.cs`. Unlike the pre-existing **preview-only** hunk parser, this can perform a real change to **one already-existing UTF-8 text file**, and requires an exact matching approved preimage SHA-256, approved postimage SHA-256, reviewed hunk decisions and a one-shot approval flag. It rejects links, unsafe/UNC/metadata paths, oversized and invalid/binary/BOM input, and a changed preimage.
