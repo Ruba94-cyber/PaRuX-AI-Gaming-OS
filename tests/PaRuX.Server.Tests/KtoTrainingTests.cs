@@ -43,6 +43,7 @@ public sealed class KtoTrainingTests : IDisposable
             16, 80, 5e-6, 16);
         Assert.True(plan.CanStart);
         Assert.Equal(TrainingMethod.Kto, plan.DetectedMethod);
+        Assert.InRange(plan.Recommended.LearningRate, 5e-7, 1e-6);
     }
 
     [Theory]
@@ -84,10 +85,11 @@ public sealed class KtoTrainingTests : IDisposable
     }
 
     [Fact]
-    public void KL_estimation_needs_two_physical_samples_not_accumulation_steps()
+    public void KL_estimation_needs_four_physical_samples_not_accumulation_steps()
     {
         Assert.Throws<InvalidOperationException>(() => TrainingLabService.ValidateKtoMicroBatch(1));
-        TrainingLabService.ValidateKtoMicroBatch(2);
+        Assert.Throws<InvalidOperationException>(() => TrainingLabService.ValidateKtoMicroBatch(2));
+        Assert.Throws<InvalidOperationException>(() => TrainingLabService.ValidateKtoMicroBatch(3));
         TrainingLabService.ValidateKtoMicroBatch(4);
     }
 
@@ -108,7 +110,9 @@ public sealed class KtoTrainingTests : IDisposable
         Assert.Contains("from trl import KTOTrainer, KTOConfig", python);
         Assert.Contains("trainer = KTOTrainer(", python);
         Assert.Contains("loss_type=\"kto\"", python);
-        Assert.Contains("if cfg.get(\"batch_size\", 1) < 2:", python);
+        Assert.Contains("if cfg.get(\"batch_size\", 1) < 4", python);
+        Assert.Contains("desirable_weight=desirable_weight", python);
+        Assert.Contains("undesirable_weight=undesirable_weight", python);
     }
 
     public void Dispose()
