@@ -230,11 +230,27 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_hfButton, "ModelHub_HfCheckpoint_Button");
             AutomationProperties.SetAutomationId(_hfStatus, "ModelHub_HfCheckpoint_Status");
             _hfButton.Click += async (_, _) => await AddHuggingFaceCheckpointAsync();
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            // The old single row needed 900+ DIP of width (two large TextBoxes,
+            // a ComboBox and an action). It was unusable on small laptops or with
+            // Windows text scaling. Stack fields vertically with explicit labels.
+            var row = new StackPanel { Orientation = Orientation.Vertical, Spacing = 10 };
+            _hfRepo.MinWidth = 0;
+            _hfFile.MinWidth = 0;
+            _hfRepo.MinHeight = 44;
+            _hfFile.MinHeight = 44;
+            _hfRepo.HorizontalAlignment = HorizontalAlignment.Stretch;
+            _hfFile.HorizontalAlignment = HorizontalAlignment.Stretch;
+            row.Children.Add(new TextBlock { Text = StartItalian ? "Repository Hugging Face" : "Hugging Face repository" });
             row.Children.Add(_hfRepo);
+            row.Children.Add(new TextBlock { Text = StartItalian ? "Percorso del file nel repository" : "File path within the repository" });
             row.Children.Add(_hfFile);
-            row.Children.Add(_hfType);
-            row.Children.Add(_hfButton);
+            var options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            _hfType.MinWidth = 132;
+            _hfType.MinHeight = 44;
+            _hfButton.MinHeight = 44;
+            options.Children.Add(_hfType);
+            options.Children.Add(_hfButton);
+            row.Children.Add(options);
             panel.Children.Add(row);
             panel.Children.Add(_hfStatus);
             panel.Children.Add(_hfRows);
