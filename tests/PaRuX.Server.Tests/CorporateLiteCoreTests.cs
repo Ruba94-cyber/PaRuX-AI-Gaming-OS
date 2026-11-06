@@ -52,6 +52,60 @@ public sealed class CorporateLiteCoreTests : IDisposable
     }
 
     [Fact]
+    public void Corporate_model_downloads_are_opt_in_and_never_enable_standard_installations()
+    {
+        Assert.False(CorporateMode.AreModelDownloadsAllowed(true, null));
+        Assert.False(CorporateMode.AreModelDownloadsAllowed(true, "0"));
+        Assert.False(CorporateMode.AreModelDownloadsAllowed(false, "1"));
+        Assert.True(CorporateMode.AreModelDownloadsAllowed(true, "1"));
+        Assert.True(CorporateMode.AreModelDownloadsAllowed(true, " TRUE "));
+    }
+
+    [Fact]
+    public void Corporate_model_import_refuses_projectors_empty_and_unsafe_paths()
+    {
+        Assert.True(CorporateModelImportPolicy.IsAcceptableModel("qwen-Q4_K_M.gguf", 200_000));
+        Assert.False(CorporateModelImportPolicy.IsAcceptableModel("empty.gguf", 1));
+        Assert.False(CorporateModelImportPolicy.IsAcceptableModel("mmproj.gguf", 200_000));
+        Assert.False(CorporateModelImportPolicy.IsAcceptableModel("vision-projector.gguf", 200_000));
+        Assert.False(CorporateModelImportPolicy.IsAcceptableModel("../out.gguf", 200_000));
+        Assert.False(CorporateModelImportPolicy.IsAcceptableModel("model.onnx", 200_000));
+    }
+
+    [Fact]
+    public void Corporate_package_default_is_stable_when_new_models_are_added()
+    {
+        string models = Path.Combine(_root, "corporate-models");
+        Directory.CreateDirectory(models);
+        string fallback = Path.Combine(models, "z-original.gguf");
+        File.WriteAllText(fallback, "synthetic");
+        File.WriteAllText(Path.Combine(models, "a-new.gguf"), "synthetic");
+        File.WriteAllText(Path.Combine(models, ".corporate-default-model"), "z-original.gguf");
+        Assert.Equal(fallback, LocalAiPaths.FindBundledCorporateModel(models));
+        File.WriteAllText(Path.Combine(models, ".corporate-default-model"), "../outside.gguf");
+        Assert.Equal(Path.Combine(models, "a-new.gguf"), LocalAiPaths.FindBundledCorporateModel(models));
+    }
+
+    [Fact]
+    public void Corporate_download_policy_accepts_only_gguf_and_resumes_saved_gguf()
+    {
+        Assert.True(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { FileName = "model-Q4_K_M.gguf" }));
+        Assert.False(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { FileName = "image.safetensors" }));
+        Assert.False(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { FileName = "mmproj.gguf" }));
+        Assert.False(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { FileName = "model.gguf", MediaCheckpointType = "video" }));
+        Assert.True(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { ResumeFromDownloadId = "job-1" },
+            id => id == "job-1" ? "resume.gguf" : null));
+        Assert.False(CorporateModelDownloadPolicy.IsTextGgufRequest(
+            new ModelDownloadRequest { ResumeFromDownloadId = "job-2" },
+            _ => "bad.safetensors"));
+    }
+
+    [Fact]
     public void Cpu_launch_is_loopback_only_bounded_and_unloads_when_idle()
     {
         List<string> a = LocalAiProcessManager.BuildCorporateCpuArguments(@"C:\m\x.gguf", 8123, 16);
