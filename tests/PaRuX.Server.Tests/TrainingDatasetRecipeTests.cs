@@ -57,6 +57,22 @@ public sealed class TrainingDatasetRecipeTests : IDisposable
     }
 
     [Fact]
+    public async Task Csv_large_quoted_multiline_cells_remain_identical_after_parser_yield_optimization()
+    {
+        string original = "line one, with comma and " + new string('x', 8193) + "\nline two";
+        string path = Source("multiline.csv",
+            "prompt,answer\n\"" + original.Replace("\"", "\"\"") + "\",\"fine\"\n");
+        TrainingDatasetRecipeResult result = await _service.CreateTrainingRecipeAsync(new()
+        {
+            SourcePath = path, Method = TrainingMethod.Sft,
+            PromptColumn = "prompt", ResponseColumn = "answer"
+        }, CancellationToken.None);
+        using JsonDocument doc = JsonDocument.Parse(File.ReadLines(result.TrainJsonlPath).Single());
+        string observed = doc.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!;
+        Assert.Equal(original, observed);
+    }
+
+    [Fact]
     public async Task Dpo_recipe_never_invents_rejected_answers()
     {
         string path = Source("preference.csv",
