@@ -40,6 +40,8 @@ public sealed class LifecycleLabCoverageTests
             UiWait.ById(app.MainWindow, "LifecycleLab_DatasetSearch_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "LifecycleLab_SourcePath_TextBox", ControlType.Edit);
             UiWait.ById(app.MainWindow, "LifecycleLab_Inspect_Button", ControlType.Button);
+            UiWait.ById(app.MainWindow, "LifecycleLab_TrainingRecipeMethod_ComboBox", ControlType.ComboBox);
+            UiWait.ById(app.MainWindow, "LifecycleLab_CreateTrainingRecipe_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "LifecycleLab_PromptColumn_ComboBox", ControlType.ComboBox);
             UiWait.ById(app.MainWindow, "LifecycleLab_EvalDataset_ComboBox", ControlType.ComboBox);
             UiWait.ById(app.MainWindow, "LifecycleLab_NewEvalName_TextBox", ControlType.Edit);
