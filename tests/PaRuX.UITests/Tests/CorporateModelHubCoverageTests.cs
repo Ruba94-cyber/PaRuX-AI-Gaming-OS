@@ -23,6 +23,27 @@ public sealed class CorporateModelHubCoverageTests
             && element.BoundingRectangle.Width > 1 && element.BoundingRectangle.Height > 1;
     }
 
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Corporate"), Trait("Category", "FlaUI")]
+    public void Corporate_chat_keeps_documents_and_model_choice_but_hides_unavailable_media_tools()
+    {
+        const string test = nameof(Corporate_chat_keeps_documents_and_model_choice_but_hides_unavailable_media_tools);
+        using var app = new UiTestApplication(test, extraEnvironment: new Dictionary<string, string>
+        {
+            ["PARUX_CORPORATE"] = "1"
+        });
+        try
+        {
+            UiWait.ById(app.MainWindow, "Chat_Prompt_TextBox", ControlType.Edit);
+            UiWait.ById(app.MainWindow, "Chat_Documents_Button", ControlType.Button);
+            Assert.False(Visible(app, "Chat_Home_Image_Button"));
+            Assert.False(Visible(app, "Chat_Home_Code_Button"));
+            Assert.False(Visible(app, "Chat_Audio_Attach_Button"));
+            Assert.False(Visible(app, "Chat_VoiceMode_Toggle"));
+            Assert.False(Visible(app, "MainWindow_ConsoleMode_Button"));
+        }
+        catch (Exception ex) { app.CaptureFailure(test, ex); throw; }
+    }
+
     private static void OpenCorporateModelHubViaSettings(UiTestApplication app)
     {
         // In Corporate the Model Hub intentionally lives behind model management,
