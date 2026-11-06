@@ -9,6 +9,11 @@ public static class CorporateNetworkGuard
 {
     public const string DeadProxy = "http://127.0.0.1:9";
 
+    /// <summary>The OS/IT-selected proxy as it existed BEFORE PaRuX disabled generic outbound HTTP.
+    /// Model-only consented traffic uses this proxy instead of bypassing enterprise settings.
+    /// Null outside an explicitly approved Corporate model-download session.</summary>
+    public static System.Net.IWebProxy? ApprovedModelProxy { get; private set; }
+
     public static IReadOnlyDictionary<string, string> Variables { get; } = new Dictionary<string, string>
     {
         ["HTTP_PROXY"] = DeadProxy, ["HTTPS_PROXY"] = DeadProxy, ["ALL_PROXY"] = DeadProxy,
@@ -19,6 +24,10 @@ public static class CorporateNetworkGuard
     public static bool ApplyIfCorporate()
     {
         if (!CorporateMode.IsActive) return false;
+        // Capture the existing system/enterprise proxy BEFORE redirecting other clients to
+        // dead loopback. The model transfer client alone can use the originally configured proxy.
+        if (CorporateMode.ModelDownloadsAllowed)
+            ApprovedModelProxy ??= HttpClient.DefaultProxy;
         foreach (var kv in Variables) Environment.SetEnvironmentVariable(kv.Key, kv.Value);
         return true;
     }
