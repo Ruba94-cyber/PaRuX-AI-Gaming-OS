@@ -613,8 +613,9 @@ namespace PaRuX.Views
                 }).ToList();
                 _stateMachine.SetComponents(componentStates);
 
-                bool runtimeHealthy = components.Any(c =>
-                    (c.Id == "llama-server-cuda" || c.Id == "llama-server-vulkan") && c.Detected);
+                bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+                bool runtimeHealthy = OnboardingTextReadinessPolicy.HasInstalledRuntime(
+                    components, corporate);
 
                 List<ModelRoleStatus>? roles = null;
                 try
@@ -649,8 +650,8 @@ namespace PaRuX.Views
                 {
                     RuntimeManagerStatus runtimeStatus = await ModelRolesClient.Current.GetRuntimeStatusAsync(CancellationToken.None);
                     // A detected binary or selected role does not prove a live, healthy backend.
-                    probeSucceeded = runtimeStatus.Backends.Any(b =>
-                        (b.Backend == "text-cuda" || b.Backend == "text-vulkan") && (b.Running || b.Healthy));
+                    probeSucceeded = OnboardingTextReadinessPolicy.HasHealthyTextBackend(
+                        runtimeStatus.Backends, corporate);
                 }
                 catch (Exception ex)
                 {
@@ -660,11 +661,15 @@ namespace PaRuX.Views
 
                 var evidence = ChatReadinessEvidence.Create(
                     runtimeHealthy: runtimeHealthy,
-                    runtimeSummary: runtimeHealthy ? "Text runtime detected" : "No text runtime detected",
+                    runtimeSummary: runtimeHealthy
+                        ? (corporate ? "Bundled CPU text runtime detected" : "Text runtime detected")
+                        : (corporate ? "Bundled CPU text runtime missing" : "No text runtime detected"),
                     modelAvailable: modelAvailable,
                     modelSummary: !string.IsNullOrWhiteSpace(modelName) ? System.IO.Path.GetFileName(modelName) : null,
                     probeSucceeded: probeSucceeded,
-                    probeSummary: probeSucceeded ? "Text backend reported healthy" : "Text backend health is unverified",
+                    probeSummary: probeSucceeded
+                        ? (corporate ? "Local CPU text backend is healthy" : "Text backend reported healthy")
+                        : "Text backend health is unverified",
                     errorMessage: probeError);
 
                 ReadinessAssessment assessment = _stateMachine.EvaluateReadiness(evidence);
@@ -729,7 +734,8 @@ namespace PaRuX.Views
             // Do not require a healthy running process before exercising Core's managed
             // start-on-demand path; the post-request check below still requires it.
             if (initial == null || !initial.RuntimeHealthy || !initial.ModelAvailable)
-                return "Install a local text runtime and a chat model first. Check Components and Model Hub.";
+                return OnboardingTextReadinessPolicy.MissingRuntimeMessage(
+                    PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian);
 
             token.ThrowIfCancellationRequested();
             string challenge = "PRX-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
