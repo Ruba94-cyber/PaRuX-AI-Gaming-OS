@@ -42,10 +42,9 @@
                             Style="{StaticResource AccentButtonStyle}" Click="GamingOnlyStart_Click" />
                 </StackPanel>
 
-                <!-- One primary action: detect, keep the runtime, pick a fitting model, download it
-                     (after licence review), assign roles and prove chat works. Every step is also
-                     available manually below. -->
-                <StackPanel Spacing="{StaticResource PaRuXSpaceS}">
+                <!-- The automatic installer wizard is for regular AI setups. Corporate's
+                     CPU runtime and starter model are already in the extracted package. -->
+                <StackPanel x:Name="AutoSetupSection" Spacing="{StaticResource PaRuXSpaceS}">
                     <TextBlock Text="AUTOMATIC SETUP" Style="{StaticResource PaRuXSectionHeaderTextStyle}" Margin="4,0,0,0" />
                     <Border x:Name="AutoSetupCard"
                             AutomationProperties.AutomationId="Onboarding_AutoSetup_Card"
@@ -89,8 +88,8 @@
                     </Border>
                 </StackPanel>
 
-                <!-- First-install effort and bundled runtime overview -->
-                <StackPanel Spacing="{StaticResource PaRuXSpaceS}">
+                <!-- Non-Corporate installers only: this text describes Vulkan packaging. -->
+                <StackPanel x:Name="BundledDetailsSection" Spacing="{StaticResource PaRuXSpaceS}">
                     <Expander Header="What's included in PaRuX"
                               AutomationProperties.AutomationId="Onboarding_BundledDetails_Expander"
                               IsExpanded="False">
@@ -143,7 +142,7 @@
                     </Expander>
                 </StackPanel>
 
-                <StackPanel Spacing="{StaticResource PaRuXSpaceS}">
+                <StackPanel x:Name="StorageDetailsSection" Spacing="{StaticResource PaRuXSpaceS}">
                     <Expander Header="Advanced: runtime storage folder"
                               AutomationProperties.AutomationId="Onboarding_StorageDetails_Expander"
                               IsExpanded="False">
@@ -251,6 +250,11 @@
                                 AutomationProperties.AutomationId="Onboarding_VerifyLocalChat_Button"
                                 Content="Verify local chat"
                                 HorizontalAlignment="Left" Click="VerifyLocalChat_Click" />
+                        <Button x:Name="CorporateManageModelsButton"
+                                AutomationProperties.AutomationId="Onboarding_Corporate_ManageModels_Button"
+                                Content="Choose or import another model"
+                                HorizontalAlignment="Left" MinHeight="44"
+                                Visibility="Collapsed" Click="CorporateManageModels_Click" />
                         <TextBlock x:Name="VerifyLocalChatStatusText"
                                    AutomationProperties.AutomationId="Onboarding_VerifyLocalChat_Status"
                                    Text="After installing a model, verify it can answer a one-time challenge. Cloud responses do not count."
