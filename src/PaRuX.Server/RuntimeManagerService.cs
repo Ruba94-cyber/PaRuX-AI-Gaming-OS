@@ -106,11 +106,23 @@ public sealed class RuntimeManagerService
         bool textHealthy = textResident && await _process.IsTextHealthyAsync(ct).ConfigureAwait(false);
         bool mediaHealthy = mediaPid != null && await _process.IsMediaHealthyAsync(ct).ConfigureAwait(false);
 
-        var backends = new List<RuntimeBackendStatus>
+        var backends = new List<RuntimeBackendStatus>();
+        if (CorporateMode.IsActive)
         {
-            DescribeLlamaBackend("text-cuda", LocalAiPaths.RuntimeCudaPath, textPid, textHealthy, inProcessManaged),
-            DescribeLlamaBackend("text-vulkan", LocalAiPaths.RuntimeVulkanPath, textPid, textHealthy, inProcessManaged),
-            new()
+            // Corporate reports exactly the backend it ships. Do not advertise
+            // CUDA, Vulkan or ComfyUI slots that this edition cannot use.
+            string cpuDir = LocalAiPaths.FindBundledCpuRuntime()
+                ?? Path.Combine(LocalAiPaths.RuntimeRoot, "missing-cpu-runtime");
+            backends.Add(DescribeLlamaBackend(
+                "text-cpu", cpuDir, textPid, textHealthy, inProcessManaged));
+        }
+        else
+        {
+            backends.Add(DescribeLlamaBackend(
+                "text-cuda", LocalAiPaths.RuntimeCudaPath, textPid, textHealthy, inProcessManaged));
+            backends.Add(DescribeLlamaBackend(
+                "text-vulkan", LocalAiPaths.RuntimeVulkanPath, textPid, textHealthy, inProcessManaged));
+            backends.Add(new RuntimeBackendStatus
             {
                 Backend = "media-comfyui",
                 Installed = File.Exists(LocalAiPaths.ComfyPython) && File.Exists(LocalAiPaths.ComfyMain),
@@ -118,15 +130,7 @@ public sealed class RuntimeManagerService
                 Running = mediaPid != null,
                 Healthy = mediaHealthy,
                 ProcessId = mediaPid
-            }
-        };
-
-        if (CorporateMode.IsActive)
-        {
-            string cpuDir = LocalAiPaths.FindBundledCpuRuntime()
-                ?? Path.Combine(LocalAiPaths.RuntimeRoot, "missing-cpu-runtime");
-            backends.Insert(0, DescribeLlamaBackend(
-                "text-cpu", cpuDir, textPid, textHealthy, inProcessManaged));
+            });
         }
 
         string activeProfile = textResident ? _process.GetActiveProfileLabel() : string.Empty;
