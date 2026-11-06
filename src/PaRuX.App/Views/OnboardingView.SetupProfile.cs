@@ -17,6 +17,7 @@ namespace PaRuX.Views
     public sealed partial class OnboardingView
     {
         private bool _setupProfileInitialising;
+        private bool _setupProfileSwitchBusy;
         private readonly Dictionary<UIElement, Visibility> _aiSectionVisibility = new Dictionary<UIElement, Visibility>();
 
         private static bool SetupProfileItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
@@ -33,6 +34,10 @@ namespace PaRuX.Views
                 AutomationProperties.SetName(button, SetupProfilePolicy.Label(profile, it) + ". " + SetupProfilePolicy.Description(profile, it));
             }
             GamingOnlyStartButton.Content = it ? "Inizia con i giochi" : "Start with games";
+            OnboardingWelcomeSubtitle.Text = it
+                ? "Scegli IA, Gaming o entrambe. La configurazione guidata ti porta alla prima chat; i dettagli tecnici restano facoltativi."
+                : "Choose AI, Gaming or both. Guided setup gets you to your first chat; technical settings are optional.";
+            ManualSetupExpander.Header = it ? "Configurazione manuale, modelli e download" : "Manual setup, models and downloads";
 
             if (SetupProfileSection.Parent is Panel parent)
             {
@@ -56,32 +61,69 @@ namespace PaRuX.Views
 
         private async void SetupProfileChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_setupProfileInitialising) return;
+            if (_setupProfileInitialising || _setupProfileSwitchBusy) return;
             if (SetupProfileChoice.SelectedItem is not RadioButton chosen) return;
             SetupProfile requested = OptionButtons().First(o => ReferenceEquals(o.Button, chosen)).Profile;
             SetupProfile previous = StoredSetupProfile;
             if (requested == previous) return;
 
-            // Same transactional switch as Settings: services start/stop to match, the choice is saved only if that worked.
-            SetupTransitionResult result;
-            try { result = await SetupProfileRuntime.SwitchAsync(requested); }
-            catch (Exception ex)
-            {
-                Log.Write("Onboarding profile switch threw: " + ex.GetType().Name);
-                result = new SetupTransitionResult(false, previous, Array.Empty<SetupTransitionStep>(), Array.Empty<SetupTransitionStep>(), null, false, ex.GetType().Name);
-            }
-            SetupProfile profile = StoredSetupProfile;
-            if (profile != requested)
+            // A user cannot replace the running AI setup profile halfway through a model download
+            // or runtime verification. Revert the visual choice instead of silently switching workers.
+            if (_autoSetupCts != null)
             {
                 _setupProfileInitialising = true;
-                try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == profile); }
+                try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == previous); }
                 finally { _setupProfileInitialising = false; }
+                SetupProfileDescription.Text = SetupProfileItalian
+                    ? "Completa o annulla la configurazione automatica prima di cambiare modalità."
+                    : "Finish or cancel automatic setup before changing mode.";
+                return;
             }
-            ApplySetupProfileToLayout(profile);
-            if (!result.Success) SetupProfileDescription.Text = result.Message + " " + SetupProfileDescription.Text;
-            App.MainWin?.ApplySetupProfile();
-            // Coming back from Gaming only: the AI checks were skipped, so run them now.
-            if (previous == SetupProfile.GamingOnly && profile != SetupProfile.GamingOnly) StartAiRefreshes();
+
+            _setupProfileSwitchBusy = true;
+            SetupProfileChoice.IsEnabled = false;
+            GamingOnlyStartButton.IsEnabled = false;
+            AutoSetupStartButton.IsEnabled = false;
+            GetStartedButton.IsEnabled = false;
+            SetupProfileDescription.Text = SetupProfileItalian ? "Cambio modalità in corso…" : "Switching mode…";
+
+            try
+            {
+                // The transactional switch persists only after all services changed successfully.
+                SetupTransitionResult result;
+                try { result = await SetupProfileRuntime.SwitchAsync(requested); }
+                catch (Exception ex)
+                {
+                    Log.Write("Onboarding profile switch threw: " + ex.GetType().Name);
+                    result = new SetupTransitionResult(false, previous, Array.Empty<SetupTransitionStep>(),
+                        Array.Empty<SetupTransitionStep>(), null, false, ex.GetType().Name);
+                }
+                SetupProfile effective = StoredSetupProfile;
+                if (effective != requested)
+                {
+                    _setupProfileInitialising = true;
+                    try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == effective); }
+                    finally { _setupProfileInitialising = false; }
+                }
+                ApplySetupProfileToLayout(effective);
+                if (!result.Success)
+                    SetupProfileDescription.Text = (SetupProfileItalian
+                        ? "Cambio non riuscito; modalità precedente mantenuta. "
+                        : "Mode change failed; previous mode retained. ")
+                        + result.Message + " " + SetupProfileDescription.Text;
+                App.MainWin?.ApplySetupProfile();
+                if (previous == SetupProfile.GamingOnly && effective != SetupProfile.GamingOnly)
+                    StartAiRefreshes();
+            }
+            finally
+            {
+                _setupProfileSwitchBusy = false;
+                SetupProfileChoice.IsEnabled = true;
+                GamingOnlyStartButton.IsEnabled = true;
+                AutoSetupStartButton.IsEnabled = _autoSetup == null
+                    || OnboardingAutoSetupPresenter.Present(_autoSetup.State).PrimaryEnabled;
+                GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null && _autoSetupCts == null;
+            }
         }
 
         private void ApplySetupProfileToLayout(SetupProfile profile)
@@ -97,13 +139,31 @@ namespace PaRuX.Views
 
         private async void GamingOnlyStart_Click(object sender, RoutedEventArgs e)
         {
-            // Services already match when the choice above was applied; this makes sure of it before finishing (idempotent).
-            try { await SetupProfileRuntime.SwitchAsync(SetupProfile.GamingOnly); }
-            catch (Exception ex) { Log.Write("Gaming-only start: profile switch threw: " + ex.GetType().Name); }
-            SettingsStore.Current.Data.SetupProfileId = SetupProfilePolicy.ToStorage(SetupProfile.GamingOnly);
-            SettingsStore.Current.Data.OnboardingCompleted = true;
-            SettingsStore.Current.Save();
-            Completed?.Invoke();
+            if (_setupProfileSwitchBusy || _autoSetupCts != null || StoredSetupProfile != SetupProfile.GamingOnly) return;
+            GamingOnlyStartButton.IsEnabled = false;
+            try
+            {
+                SetupTransitionResult result = await SetupProfileRuntime.SwitchAsync(SetupProfile.GamingOnly);
+                if (!result.Success || result.EffectiveProfile != SetupProfile.GamingOnly)
+                {
+                    SetupProfileDescription.Text = (SetupProfileItalian
+                        ? "Non è possibile avviare Gaming: "
+                        : "Cannot start Gaming: ") + result.Message;
+                    return;
+                }
+
+                SettingsStore.Current.Data.OnboardingCompleted = true;
+                SettingsStore.Current.Save();
+                Completed?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Gaming-only start failed: " + ex.GetType().Name);
+                SetupProfileDescription.Text = SetupProfileItalian
+                    ? "Impossibile completare l'avvio Gaming. Riprova."
+                    : "Could not complete Gaming setup. Please retry.";
+            }
+            finally { GamingOnlyStartButton.IsEnabled = true; }
         }
     }
 }
