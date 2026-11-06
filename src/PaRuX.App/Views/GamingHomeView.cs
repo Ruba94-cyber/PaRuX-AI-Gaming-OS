@@ -57,6 +57,12 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _refresh = new();
     private readonly VariableSizedWrapGrid _toolbar = new() { Orientation = Orientation.Horizontal };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
+    // Cached catalogue statistics only; never probes installed binaries, accounts or disks.
+    private readonly TextBlock _healthSummary = new()
+    { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+    private readonly Button _healthAttention = new()
+    { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Left, MinHeight = 44 };
+    private GameLibraryHealthSummary? _health;
     // Only shown after a successful query returning no titles. Failed queries keep
     // their error status and never masquerade as an empty game library.
     private readonly Border _emptyState = new() { Visibility = Visibility.Collapsed, CornerRadius = new CornerRadius(12),
@@ -397,6 +403,12 @@ internal sealed class GamingHomeView : StackPanel
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+        AutomationProperties.SetAutomationId(_healthSummary, "GameHome_HealthSummary_Text");
+        AutomationProperties.SetAutomationId(_healthAttention, "GameHome_HealthAttention_Button");
+        AutomationProperties.SetName(_healthAttention,
+            T("Review titles without a launch candidate", "Controlla titoli senza avvio disponibile"));
+        _healthAttention.Content = T("Review library issues", "Controlla problemi libreria");
+        _healthAttention.Click += async (_, _) => await ShowLibraryHealthAttentionAsync();
     }
 
     /// <summary>
@@ -1029,6 +1041,8 @@ internal sealed class GamingHomeView : StackPanel
         AutomationProperties.SetHeadingLevel(_libraryHeading, AutomationHeadingLevel.Level3);
         AutomationProperties.SetAutomationId(_libraryHeading, "GameHome_Library_Heading");
         _mainColumn.Children.Add(_libraryHeading);
+        _mainColumn.Children.Add(_healthSummary);
+        _mainColumn.Children.Add(_healthAttention);
         _mainColumn.Children.Add(_toolbar);
         _mainColumn.Children.Add(_status);
         // An intentional empty state is more actionable than a blank card grid.
@@ -1202,6 +1216,9 @@ internal sealed class GamingHomeView : StackPanel
         foreach (ComboBox box in new[] { _sort, _source, _platform, _installed, _tag }) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (ToggleButton toggle in new[] { _favoritesOnly, _showHidden, _layout, _metadata, _selectMode }) { toggle.FontSize = size; toggle.MinHeight = enabled ? 56 : 44; }
         _status.FontSize = size;
+        _healthSummary.FontSize = size;
+        _healthAttention.FontSize = size;
+        _healthAttention.MinHeight = enabled ? 56 : 44;
         _emptyTitle.FontSize = enabled ? 26 : 20;
         _emptyDescription.FontSize = size;
         _clearFilters.FontSize = size;
@@ -1558,6 +1575,8 @@ internal sealed class GamingHomeView : StackPanel
                 _emptyState.Visibility = Visibility.Collapsed;
                 _clearFilters.Visibility = Visibility.Collapsed;
                 _status.Text = T("The game list is unavailable right now.", "L'elenco dei giochi non è disponibile in questo momento.");
+                _health = null;
+                _healthSummary.Visibility = _healthAttention.Visibility = Visibility.Collapsed;
                 ScheduleReloadRetry(generation);
                 return;
             }
@@ -1584,6 +1603,8 @@ internal sealed class GamingHomeView : StackPanel
                 _emptyState.Visibility = Visibility.Collapsed;
                 _clearFilters.Visibility = Visibility.Collapsed;
                 _status.Text = T("Could not read your games.", "Impossibile leggere i tuoi giochi.");
+                _health = null;
+                _healthSummary.Visibility = _healthAttention.Visibility = Visibility.Collapsed;
             }
         }
         finally
@@ -1648,6 +1669,12 @@ internal sealed class GamingHomeView : StackPanel
     {
         var result = await GamingLibraryClient.Current.QueryTitlesAsync(new GameTitleListQuery { Sort = GameTitleSorts.LastPlayed }, ct);
         if (generation != _generation || ct.IsCancellationRequested) return;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _health = null;
+            _healthSummary.Visibility = _healthAttention.Visibility = Visibility.Collapsed;
+        }
+        else UpdateLibraryHealth(result.Value);
         _allTitles = result.Succeeded && result.Value is not null ? result.Value : new List<GameTitleDto>();
         GameTitleDto? hero = GameLibraryHome.PickHero(_allTitles);
         _hero.Show(hero);
@@ -1661,6 +1688,57 @@ internal sealed class GamingHomeView : StackPanel
         _shelf.Render(recent, new HashSet<string>(StringComparer.Ordinal), null);
         _side.Update(GameLibraryHome.Facets(_allTitles, GenresOf, DateTime.UtcNow), ActiveSideFilter());
         await RefreshQuickResumeSummaryAsync(ct, generation);
+    }
+
+    private void UpdateLibraryHealth(IReadOnlyList<GameTitleDto> cachedTitles)
+    {
+        _health = GameLibraryHealthPolicy.Summarize(cachedTitles);
+        GameLibraryHealthSummary health = _health;
+        _healthSummary.Text = T(
+            $"Library overview · {health.VisibleTitles} visible · {health.LaunchCandidates} launch candidates · " +
+            $"{health.ExplicitlyInstalledTitles} reported installed · {health.MetadataOnlyTitles} metadata-only · " +
+            $"{health.Favorites} favorites · {health.TotalPlaySeconds / 3600d:0.#} h played",
+            $"Panoramica libreria · {health.VisibleTitles} visibili · {health.LaunchCandidates} possibili avvii · " +
+            $"{health.ExplicitlyInstalledTitles} segnalati installati · {health.MetadataOnlyTitles} solo metadati · " +
+            $"{health.Favorites} preferiti · {health.TotalPlaySeconds / 3600d:0.#} h giocate");
+        _healthSummary.Visibility = Visibility.Visible;
+        _healthAttention.Content = T(
+            $"Review {health.NeedsAttention} title(s) without a launch candidate",
+            $"Controlla {health.NeedsAttention} titoli senza avvio disponibile");
+        _healthAttention.Visibility = health.NeedsAttention > 0
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async Task ShowLibraryHealthAttentionAsync()
+    {
+        GameLibraryHealthSummary? snapshot = _health;
+        if (snapshot is null || snapshot.NeedsAttention == 0) return;
+        string names = string.Join("\n", snapshot.AttentionTitles.Take(30).Select(title =>
+            "• " + (title.Name.Length <= 100 ? title.Name : title.Name[..100] + "…")));
+        string more = snapshot.NeedsAttention > 30
+            ? T($"\n… and {snapshot.NeedsAttention - 30} more.", $"\n… e altri {snapshot.NeedsAttention - 30}.")
+            : string.Empty;
+        var explanation = new TextBlock
+        {
+            Text = T(
+                "These titles have no launchable installation according to the cached provider metadata. " +
+                "Imported Playnite/Heroic/Lutris titles are metadata-only, not executable permissions. " +
+                "To play a title, discover your owned store installation or add an existing local game in Game Management. " +
+                "Nothing is installed, deleted or verified by this view.\n\n",
+                "Questi titoli non hanno un'installazione avviabile secondo i metadati in cache. " +
+                "Gli import Playnite/Heroic/Lutris contengono solo metadati, non autorizzano l'avvio. " +
+                "Per giocare, rileva l'installazione dal tuo store o aggiungi un gioco locale esistente in Gestione giochi. " +
+                "Questa schermata non installa, elimina né verifica file.\n\n")
+                + names + more,
+            TextWrapping = TextWrapping.Wrap
+        };
+        await new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("Library attention", "Controllo libreria"),
+            Content = new ScrollViewer { Content = explanation, MaxHeight = 400 },
+            CloseButtonText = T("Close", "Chiudi")
+        }.ShowAsync();
     }
 
     private async Task RefreshQuickResumeSummaryAsync(CancellationToken ct, int generation)
