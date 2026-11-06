@@ -90,9 +90,17 @@ public static class DocumentChatPlanner
         return best >= 0.5;
     }
 
-    private static bool IsTechnicalEvidence(KnowledgeHit hit) =>
-        !(string.Equals(hit.Position.Heading, "file name", StringComparison.OrdinalIgnoreCase)
-            && hit.Text.StartsWith("File: ", StringComparison.OrdinalIgnoreCase));
+    private static bool IsTechnicalEvidence(KnowledgeHit hit)
+    {
+        if (!hit.Text.StartsWith("File: ", StringComparison.OrdinalIgnoreCase))
+            return true;
+        // Both the synthetic searchable file-name chunk and the extractor's
+        // metadata-only fallback can contain a diagnostic identifier in a
+        // filename. Neither proves the meaning/value of that identifier.
+        return !string.Equals(hit.Position.Heading, "file name", StringComparison.OrdinalIgnoreCase)
+            && !(hit.Text.Contains("\nType: ", StringComparison.OrdinalIgnoreCase)
+                && hit.Text.Contains("\nSize: ", StringComparison.OrdinalIgnoreCase));
+    }
 
     public static bool NeedsReasoning(string query)
     {
