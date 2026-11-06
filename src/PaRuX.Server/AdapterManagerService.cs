@@ -44,15 +44,25 @@ public sealed class AdapterManagerService
             Name = "Adapter " + job.CreatedUtc.ToString("yyyy-MM-dd HH:mm") + " (" + request.BaseModel + ")",
             BaseModel = request.BaseModel,
             AdapterPath = job.AdapterPath,
-            // The training script always loads the base model in 4-bit today, for either
-            // objective. SFT (the pre-existing default) keeps its exact original "QLoRA"
-            // label - zero behavior change for every caller that predates DPO support; only
-            // a genuinely new DPO job gets a distinct label recording which loss actually
-            // shaped this adapter's weights.
-            Method = request.Method == TrainingMethod.Dpo ? "QLoRA-DPO" : "QLoRA",
+            // Preserve legacy QLoRA / QLoRA-DPO labels but record the truth for new
+            // 16-bit and preference methods. Output provenance must never claim that a
+            // full-precision base was loaded in 4-bit or that ORPO used a DPO loss.
+            Method = TrainingAdapterMethodLabel(request),
             SourceTrainingJobId = job.Id,
             SourceDatasetPath = request.TrainJsonlPath,
         });
+    }
+
+    internal static string TrainingAdapterMethodLabel(TrainingJobRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        string baseType = request.Method == TrainingMethod.TtsSft
+            ? "LoRA"
+            : TrainingPrecision.Normalize(request.Precision) == TrainingPrecision.Lora16Bit
+                ? "LoRA-16bit" : "QLoRA";
+        return request.Method == TrainingMethod.Sft
+            ? baseType
+            : baseType + "-" + TrainingMethod.Normalize(request.Method).ToUpperInvariant();
     }
 
     /// <summary>Removes only the registry row - the adapter's files are left on disk. Deleting
