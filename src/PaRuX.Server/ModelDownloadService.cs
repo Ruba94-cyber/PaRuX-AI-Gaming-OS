@@ -703,7 +703,35 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         if (!PaRuXPathSafety.IsWithin(ModelsDirectory, destination))
             throw new InvalidDataException("The destination is outside PaRuX's managed library.");
         if (File.Exists(destination)) throw new InvalidOperationException("A managed model with that file name already exists.");
-        File.Copy(sourcePath, destination, overwrite: false);
+
+        // A multi-GB GGUF must never appear in the visible managed library halfway through
+        // import. Stage into a unique non-GGUF file on the SAME filesystem, verify its
+        // length, then publish atomically without overwriting another model. On disk-full,
+        // revoked permissions or a failed read, clean the staging file in finally.
+        string staging = Path.Combine(ModelsDirectory, ".model-import-" + Guid.NewGuid().ToString("N") + ".partial");
+        try
+        {
+            using (var input = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 1024 * 1024, options: FileOptions.SequentialScan))
+            using (var output = new FileStream(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                bufferSize: 1024 * 1024, options: FileOptions.SequentialScan))
+            {
+                long expected = input.Length;
+                input.CopyTo(output, bufferSize: 1024 * 1024);
+                output.Flush(flushToDisk: true);
+                if (output.Length != expected)
+                    throw new InvalidDataException("The selected model changed while copying. No incomplete model was published.");
+            }
+            // File.Move without overwrite fails closed if another import claimed this name.
+            File.Move(staging, destination);
+        }
+        finally
+        {
+            try { if (File.Exists(staging)) File.Delete(staging); }
+            catch (IOException) { /* orphan .partial is not a usable model */ }
+            catch (UnauthorizedAccessException) { /* cleanup can be retried manually */ }
+        }
+
         FileInfo info = new(destination);
         return new ManagedModelInfo
         {
