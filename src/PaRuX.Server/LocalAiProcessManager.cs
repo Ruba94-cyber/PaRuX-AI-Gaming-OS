@@ -1181,7 +1181,7 @@ public sealed class LocalAiProcessManager
         try
         {
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
-            // Corporate Lite has no GPU tiers, no media and no downloads: one bundled model on the bundled CPU runtime.
+            // Corporate Lite stays CPU-only; a locally imported or explicitly downloaded GGUF can replace the starter.
             if (PaRuX.Contracts.CorporateMode.IsActive) return await StartCorporateCpuTextAsync(ct, modelPathOverride).ConfigureAwait(false);
             if (!await StopMediaAwaitingVramReleaseAsync(ct).ConfigureAwait(false)) return new RuntimeResult(false, "The media runtime did not stop, so local text was not started.");
             // One inventory decides the tier and the backend: nvidia-smi for an NVIDIA device, DXGI for every other adapter. The launch reads
@@ -1438,8 +1438,12 @@ public sealed class LocalAiProcessManager
     {
         string? runtime = LocalAiPaths.FindBundledCpuRuntime();
         if (runtime == null) return new RuntimeResult(false, "The bundled CPU runtime (llama.cpp-*-cpu) was not found in " + LocalAiPaths.RuntimeRoot + ".");
-        string? model = modelPathOverride ?? LocalAiPaths.FindBundledCorporateModel();
-        if (model == null || !File.Exists(model)) return new RuntimeResult(false, "The bundled model was not found in " + ModelDownloadService.ModelsDirectory + ".");
+        // The user's Chat model choice wins. The packaged starter is only a fallback,
+        // not a hardwired permanent limit of Corporate Lite.
+        string? model = modelPathOverride ?? LocalAiPaths.GetRoleOverride("standard")
+            ?? LocalAiPaths.FindBundledCorporateModel();
+        if (model == null || !File.Exists(model))
+            return new RuntimeResult(false, "The selected Corporate GGUF model is missing. Import or choose an installed text model in Model Hub.");
         string profile = Path.GetFileNameWithoutExtension(model) + " CPU (Corporate Lite)";
         if ((ReadTrimmed(LocalAiPaths.ActiveProfileFile) == profile || PathsEqual(GetActiveTextModelPath(), model))
             && await IsTextHealthyAsync(ct).ConfigureAwait(false))
