@@ -94,36 +94,39 @@ public sealed class SetupProfileRuntimeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "SetupProfile"), Trait("Category", "FlaUI")]
-    public void Corporate_edition_keeps_ai_only_and_explains_why_a_wider_choice_was_not_kept()
+    public void Corporate_edition_is_chat_first_without_an_unavailable_setup_switch()
     {
-        const string step = nameof(Corporate_edition_keeps_ai_only_and_explains_why_a_wider_choice_was_not_kept);
-        using var app = new UiTestApplication(step, extraEnvironment: new Dictionary<string, string> { ["PARUX_CORPORATE"] = "1" });
+        const string step = nameof(Corporate_edition_is_chat_first_without_an_unavailable_setup_switch);
+        using var app = new UiTestApplication(step, extraEnvironment: new Dictionary<string, string>
+        {
+            ["PARUX_CORPORATE"] = "1"
+        });
         try
         {
             var page = new SetupProfilePage(app);
-            UiWait.For(() => page.IsShown(ChatNav) && page.ModeTabsHidden && !page.IsShown(GamesNav), "the Corporate AI-only shell");
-            page.OpenSettingsGeneral();
-            UiWait.For(() => page.SelectedItemId == AiItem, "AI only shown as the active profile");
-            string description = page.HintText;
+            UiWait.For(() => page.IsShown(ChatNav) && page.ModeTabsHidden && !page.IsShown(GamesNav),
+                "the Corporate Chat-only shell");
+            Assert.True(page.IsShown("Navigation_DocumentSearch_Item"));
+            Assert.False(page.IsShown("Navigation_Create_Item"));
+            Assert.False(page.IsShown("Navigation_Projects_Item"));
+            Assert.False(page.IsShown("Navigation_ModelHub_Item"));
+            Assert.False(page.IsShown("Navigation_Runtime_Item"));
+            Assert.False(page.IsShown("MainWindow_ConsoleMode_Button"));
 
-            int handled = 0;
-            foreach (string wider in new[] { BothItem, GamingItem })
-            {
-                page.Choose(wider);
-                handled++;
-                // Every choice is processed once (one log line each) ...
-                UiWait.For(() => page.LogCount("Setup profile switch ai -> ai: success=True, steps=0") == handled,
-                    "the switch to " + wider + " being resolved to AI only");
-                // ... the row snaps back to the profile that is really active AND tells the person why (no silent revert).
-                UiWait.For(() => page.SelectedItemId == AiItem, "the row back on AI only after choosing " + wider);
-                UiWait.For(() => page.HintText.Contains("Corporate", StringComparison.Ordinal),
-                    "the explanation that Corporate Lite keeps AI only after choosing " + wider);
-                Assert.True(page.ModeTabsHidden, "Corporate never shows the AI | Gaming tabs");
-                Assert.False(page.IsShown(GamesNav), "Corporate never shows the Games workspace");
-                string? saved = page.SavedProfile();
-                Assert.True(saved is null or "ai", "a wider profile was saved in Corporate: " + saved);
-                Assert.NotEqual(description, page.HintText);
-            }
+            page.OpenSettingsGeneral();
+            UiWait.For(() => page.HintText.Contains("Corporate", StringComparison.OrdinalIgnoreCase)
+                || page.HintText.Contains("Chat", StringComparison.OrdinalIgnoreCase),
+                "the fixed Corporate Chat setup description");
+
+            AutomationElement? combo = app.MainWindow.FindFirstDescendant(
+                cf => cf.ByAutomationId(ComboId));
+            Assert.True(combo == null || combo.Properties.IsOffscreen.ValueOrDefault,
+                "Corporate must not show an unchangeable AI/Gaming/Both combo.");
+            Assert.False(page.IsShown("Settings_Category_GamingAISharing_Button"));
+            Assert.False(page.IsShown("Settings_Category_MediaGeneration_Button"));
+            Assert.False(page.IsShown("Settings_Category_Agents_Button"));
+            Assert.True(page.IsShown("Settings_Category_Models_Button"));
+            Assert.True(page.ModeTabsHidden);
         }
         catch (Exception ex) { app.CaptureFailure(step, ex); throw; }
     }
