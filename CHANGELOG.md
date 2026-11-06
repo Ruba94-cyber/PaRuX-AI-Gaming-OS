@@ -1,3 +1,9 @@
+## Unreleased (post-4.0.1, source only)
+
+- Portable Standard now stages a complete SHA-256-locked llama.cpp Vulkan engine/DLL payload while omitting the heavyweight CUDA/uv/media/model assets and optional standalone CLI. The ZIP is inspected and its native files hashed; optional Windows smoke launches the isolated Core and native binary loader.
+- Corporate Lite uses a separate CPU-only portable shell. Fixed portable-data-root isolation from existing host Documents/LocalAI; skip the NVIDIA telemetry probe when a portable has no bundled CUDA payload.
+- Windows build/inference/performance/8 GB hardware acceptance remains OPEN. **These changes are not part of the signed v4.0.1 release.**
+
 ## 4.0.1 (signed with the owner's local certificates)
 
 - Patch over 4.0.0 with three product fixes found by live FlaUI verification of setup profiles, "Use for" roles, document skills and secure delete (see commit 4c6eff2), plus new regression coverage (SetupProfilePolicy, RoleProfilePanel, SetupProfileRuntime, DocumentSkillsAndRagWipe).
