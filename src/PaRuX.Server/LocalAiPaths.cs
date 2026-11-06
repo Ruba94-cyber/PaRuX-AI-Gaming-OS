@@ -154,13 +154,34 @@ public static class LocalAiPaths
             .FirstOrDefault();
     }
 
-    /// <summary>The model the Corporate Lite package carries: the (single) text GGUF in the models folder, never a projector.</summary>
+    /// <summary>The Corporate fallback text model, pinned by the package manifest.
+    /// Importing another GGUF must never silently change the active fallback just because
+    /// its filename sorts earlier. The explicit user-owned Chat role still takes precedence.</summary>
     public static string? FindBundledCorporateModel(string? modelsDirectory = null)
     {
         string dir = modelsDirectory ?? ModelDownloadService.ModelsDirectory;
         if (!Directory.Exists(dir)) return null;
+        try
+        {
+            string marker = Path.Combine(dir, ".corporate-default-model");
+            if (File.Exists(marker))
+            {
+                string name = File.ReadAllText(marker).Trim().Trim('\uFEFF');
+                if (PaRuXPathSafety.IsSimpleFileName(name)
+                    && name.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
+                    && !name.Contains("mmproj", StringComparison.OrdinalIgnoreCase)
+                    && !name.Contains("projector", StringComparison.OrdinalIgnoreCase))
+                {
+                    string pinned = Path.Combine(dir, name);
+                    if (File.Exists(pinned)) return pinned;
+                }
+            }
+        }
+        catch (IOException) { /* unreadable marker: use legacy deterministic fallback */ }
+        catch (UnauthorizedAccessException) { /* directory may be read-only */ }
         return Directory.EnumerateFiles(dir, "*.gguf", SearchOption.TopDirectoryOnly)
-            .Where(f => !Path.GetFileName(f).Contains("mmproj", StringComparison.OrdinalIgnoreCase))
+            .Where(f => !Path.GetFileName(f).Contains("mmproj", StringComparison.OrdinalIgnoreCase)
+                && !Path.GetFileName(f).Contains("projector", StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
     }
