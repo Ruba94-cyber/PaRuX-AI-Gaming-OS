@@ -105,6 +105,18 @@ public sealed class AdaptiveWorkspaceUiContractTests
     }
 
     [Fact]
+    public void Media_checkpoint_form_stacks_inputs_instead_of_overflowing_a_small_display()
+    {
+        string source = File.ReadAllText(SourcePath("ModelHubView.Tabs.cs"));
+        Assert.Contains("var row = new StackPanel { Orientation = Orientation.Vertical, Spacing = 10 };",
+            source, StringComparison.Ordinal);
+        Assert.Contains("_hfRepo.MinWidth = 0;", source, StringComparison.Ordinal);
+        Assert.Contains("_hfFile.MinWidth = 0;", source, StringComparison.Ordinal);
+        Assert.Contains("_hfRepo.HorizontalAlignment = HorizontalAlignment.Stretch;", source, StringComparison.Ordinal);
+        Assert.Contains("_hfFile.HorizontalAlignment = HorizontalAlignment.Stretch;", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Onboarding_never_completes_gaming_mode_after_a_failed_service_switch()
     {
         string source = File.ReadAllText(SourcePath("OnboardingView.SetupProfile.cs"));
