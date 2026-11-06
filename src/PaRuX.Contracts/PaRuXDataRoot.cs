@@ -59,7 +59,36 @@ public static class PaRuXDataRoot
         if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
             return System.IO.Path.GetFullPath(overrideRoot);
 
+        // Double-clicking PaRuX.exe inside an extracted Corporate ZIP must be portable
+        // as well: the launcher is helpful for consent but not a prerequisite for finding
+        // the preseeded CPU runtime, model and document index. Never apply this to MSI/
+        // standard portable editions without the explicit corporate marker.
+        string? corporateRoot = FindCorporatePortableDataRoot(AppContext.BaseDirectory);
+        if (corporateRoot != null) return corporateRoot;
+
         return System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), FolderName);
+    }
+
+    /// <summary>Pure directory boundary for tests and normal executable/server startup.
+    /// The marker must sit adjacent to a real PaRuXData directory. Environment-only
+    /// corporate UI tests do not accidentally inherit a sibling directory.</summary>
+    internal static string? FindCorporatePortableDataRoot(string baseDirectory)
+    {
+        try
+        {
+            string current = System.IO.Path.GetFullPath(baseDirectory);
+            foreach (string root in new[] { current, System.IO.Path.GetDirectoryName(current.TrimEnd(
+                System.IO.Path.DirectorySeparatorChar)) ?? current })
+            {
+                if (System.IO.File.Exists(System.IO.Path.Combine(root, CorporateMode.MarkerFileName)))
+                {
+                    string data = System.IO.Path.Combine(root, "PaRuXData");
+                    if (System.IO.Directory.Exists(data)) return data;
+                }
+            }
+        }
+        catch (Exception) { /* ordinary local profile fallback */ }
+        return null;
     }
 }
