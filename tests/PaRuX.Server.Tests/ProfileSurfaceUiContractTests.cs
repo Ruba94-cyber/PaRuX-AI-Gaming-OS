@@ -60,6 +60,10 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("Settings_Corporate_OpenModelHub_Button", corporate, StringComparison.Ordinal);
         Assert.Contains("Settings_CorporatePrivacy_Panel", corporate, StringComparison.Ordinal);
         Assert.Contains("SetupProfileCombo.Visibility = PaRuX.Contracts.CorporateMode.IsActive", profile, StringComparison.Ordinal);
+        string mixed = Read("src", "PaRuX.App", "Views", "SettingsView.ProfileSections.cs");
+        Assert.Contains("SettingsSectionVisibilityPolicy.IsVisible(", mixed, StringComparison.Ordinal);
+        Assert.Contains("Settings_CorporateModels_Panel", mixed, StringComparison.Ordinal);
+        Assert.Contains("Settings_CorporatePrivacy_Panel", mixed, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
