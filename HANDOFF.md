@@ -1,3 +1,5 @@
+**Follow-up robustness:** model library local GGUF import now stages a unique `.partial` file, verifies the copied byte count, atomically renames to the final `.gguf` without overwrite, and deletes staging files on normal exceptions (source `ModelDownloadService.ImportManagedModel`). An existing unit test asserts no residue/no duplicate overwrites. This is source-only; Windows disk-full and power-loss tests are still required.
+
 ## 2026-11-06 — Corporate preinstalled CPU runtime + dynamic GGUF models (SOURCE WIP / WINDOWS TESTS PENDING)
 
 Latest directly committed on `main` (no branches or actions): Corporate Lite no longer assumes its one bundled model is the permanent only model. The default portable ZIP includes CPU llama.cpp native runtime + a starter GGUF + embeddings. The verified packaging now checks actual CPU `llama-server.exe`, model and native SHA-256 from final ZIP, and a bounded `--help` loader smoke; native model inference is **not** proven. CPU directory nesting is normalised, and a `.corporate-default-model` marker prevents later imports from unexpectedly changing the original fallback.
