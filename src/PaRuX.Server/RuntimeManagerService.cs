@@ -89,7 +89,9 @@ public sealed class RuntimeManagerService
 
     internal async Task<RuntimeManagerStatus> GetStatusAsync(CancellationToken ct, SystemRamSnapshot? ramSnapshot)
     {
-        int vramMib = await _process.GetVramMibAsync(ct);
+        // Corporate Lite uses the bundled CPU engine regardless of adapter. Avoid
+        // GPU inventory scans during Chat readiness on low-power office machines.
+        int vramMib = CorporateMode.IsActive ? 0 : await _process.GetVramMibAsync(ct);
         int? textPid = _process.GetTextProcessId();
         int? mediaPid = _process.GetMediaProcessId();
         // The hermetic overhead benchmark hosts a managed-compatible listener in the current test
@@ -118,6 +120,14 @@ public sealed class RuntimeManagerService
                 ProcessId = mediaPid
             }
         };
+
+        if (CorporateMode.IsActive)
+        {
+            string cpuDir = LocalAiPaths.FindBundledCpuRuntime()
+                ?? Path.Combine(LocalAiPaths.RuntimeRoot, "missing-cpu-runtime");
+            backends.Insert(0, DescribeLlamaBackend(
+                "text-cpu", cpuDir, textPid, textHealthy, inProcessManaged));
+        }
 
         string activeProfile = textResident ? _process.GetActiveProfileLabel() : string.Empty;
         string activeProjector = textResident ? _process.GetActiveVisionProjectorPath() : string.Empty;
