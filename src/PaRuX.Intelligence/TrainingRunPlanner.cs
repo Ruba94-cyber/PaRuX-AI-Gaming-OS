@@ -83,7 +83,7 @@ public static class TrainingRunPlanner
         if (precision is not ("qlora-4bit" or "lora-16bit"))
             findings.Add(new Finding(Severity.Blocking, "precision",
                 "Select a supported precision: QLoRA 4-bit or LoRA 16-bit."));
-        if (sixteenBit && normalizedMethod is "vision-sft" or "tts-sft")
+        if (sixteenBit && (normalizedMethod is "vision-sft" or "tts-sft"))
             findings.Add(new Finding(Severity.Blocking, "precision",
                 "16-bit LoRA is available only for text SFT, DPO, GRPO and continued pretraining in this runtime."));
 
