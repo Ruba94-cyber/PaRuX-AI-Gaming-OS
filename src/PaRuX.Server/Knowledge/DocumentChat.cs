@@ -73,9 +73,9 @@ public static class DocumentChatPlanner
     {
         if (hits.Count == 0) return false;
         // A file-name metadata record is useful for locating a manual, but it
-        // contains no verified procedure/parameter. Do not send it to the model
-        // as purported evidence about a DTC, DID, torque or diagnostic step.
-        hits = hits.Where(IsTechnicalEvidence).ToList();
+        // contains no verified facts or clauses. Do not send it to the model
+        // as purported evidence about a contract, invoice, diagnosis or procedure.
+        hits = hits.Where(IsSourceEvidence).ToList();
         if (hits.Count == 0) return false;
         IReadOnlyList<string> exact = KnowledgeIndex.ExactTerms(query);
         if (exact.Count > 0 && hits.Any(h => h.Match == "exact")) return true;
@@ -91,13 +91,13 @@ public static class DocumentChatPlanner
         return best >= 0.5;
     }
 
-    private static bool IsTechnicalEvidence(KnowledgeHit hit)
+    private static bool IsSourceEvidence(KnowledgeHit hit)
     {
         if (!hit.Text.StartsWith("File: ", StringComparison.OrdinalIgnoreCase))
             return true;
         // Both the synthetic searchable file-name chunk and the extractor's
-        // metadata-only fallback can contain a diagnostic identifier in a
-        // filename. Neither proves the meaning/value of that identifier.
+        // metadata-only fallback can contain a seemingly important identifier
+        // in a filename. Neither proves the meaning/value of that identifier.
         return !string.Equals(hit.Position.Heading, "file name", StringComparison.OrdinalIgnoreCase)
             && !(hit.Text.Contains("\nType: ", StringComparison.OrdinalIgnoreCase)
                 && hit.Text.Contains("\nSize: ", StringComparison.OrdinalIgnoreCase));
@@ -121,7 +121,7 @@ public static class DocumentChatPlanner
     {
         if (!IsSufficient(query, hits))
             return new(DocumentChatKind.NotEnoughInformation, NotEnoughInformationText, Array.Empty<string>(), Array.Empty<KnowledgeHit>());
-        hits = hits.Where(IsTechnicalEvidence).ToList();
+        hits = hits.Where(IsSourceEvidence).ToList();
         var citations = hits.Select(h => h.Citation).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         bool lookup = KnowledgeIndex.ExactTerms(query).Count > 0 && hits.Any(h => h.Match == "exact") && !NeedsReasoning(query);
         if (!lookup) return new(DocumentChatKind.NeedsModel, string.Empty, citations, hits);
