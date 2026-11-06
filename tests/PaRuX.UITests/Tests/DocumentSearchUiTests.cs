@@ -126,6 +126,22 @@ public sealed class DocumentSearchUiTests
     });
 
     [Fact, Trait("Category", "DocSearch")]
+    public void Document_search_asks_before_removing_a_source_and_cancel_keeps_files_and_index() => Run(
+        nameof(Document_search_asks_before_removing_a_source_and_cancel_keeps_files_and_index), (app, core, folder) =>
+    {
+        string id = core.AddFolder(folder);
+        core.IndexAndWait(id);
+        OpenDocumentSearch(app);
+        UiWait.ById(app.MainWindow, "DocSearch_FolderStatus_" + id, ControlType.Text);
+        UiWait.ById(app.MainWindow, "DocSearch_Remove_" + id, ControlType.Button).AsButton().Invoke();
+        UiWait.For(() => app.MainWindow.FindFirstDescendant(
+            cf => cf.ByAutomationId("DocSearch_RemoveConfirm_Dialog")) != null, "remove confirmation");
+        Keyboard.Press(VirtualKeyShort.ESCAPE);
+        Assert.Contains(id, core.SourceIds());
+        Assert.True(File.Exists(Path.Combine(folder, "maintenance.md")));
+    });
+
+    [Fact, Trait("Category", "DocSearch")]
     public void Document_search_reports_nothing_found_instead_of_inventing_results() => Run(
         nameof(Document_search_reports_nothing_found_instead_of_inventing_results), (app, core, folder) =>
     {
