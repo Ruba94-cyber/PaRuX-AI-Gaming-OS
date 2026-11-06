@@ -20,7 +20,7 @@
 | Local chat, model hub, desktop/portable, CPU Corporate | `ModelHubView`, `LocalRuntimeService`, setup profile policies, CPU runtime and GGUF bootstrap | SOURCE; full Windows/CPU acceptance still needed |
 | RAG/document extraction/citations, offline search | `KnowledgeService`, `RagStore`, `DocumentChat` | SOURCE; real corpus quality/indexing benchmark |
 | Unsloth-style quick SFT/QLoRA/LoRA16/DPO/ORPO/KTO/GRPO | `TrainingLabService`, `TrainingRuntimeCatalog`, `TrainingRunPlanner`, `LifecycleLabView` | SOURCE; compile + native GPU/VRAM/quality/eval |
-| Data Recipes from CSV/JSON/Parquet | `DatasetCurationService` reads/inspects/splits these inputs, but cannot directly create supervised/preference JSONL from mapped columns | **P0 MISSING**: explicit column-mapped training recipe (no fabricated preferences); bounded output, preview, app UI |
+| Data Recipes from CSV/JSON/Parquet | `DatasetCurationService` reads/inspects/splits these inputs, but cannot directly create supervised/preference JSONL from mapped columns | **P0 SOURCE IMPLEMENTED / WINDOWS UNVERIFIED**: explicit SFT/DPO/KTO column-mapped recipe, bounded atomic managed JSONL, SHA256, source preservation, owner-only+Corporate/Gaming refusal, Lifecycle UI + tests; real parsing, parquet and GPU acceptance pending |
 | PDF/DOCX synthetic recipe authoring | Generic document extractors exist; no end-to-end reviewed training dataset authoring | **P1 MISSING**: safe extraction, explicit reviewed prompt/answer pairs, no unattended hallucinated targets |
 | Full model/FP8/embedding fine-tuning + GSPO | No verified integrated training path compared with Unsloth | **P1 MISSING**, hardware/runtime compatibility gates |
 | Train metrics GPU / VRAM / charts & export merged model | `TrainingJobStatus.History`, Adapter Manager conversion; complete family coverage not proven | **P1 PARTIAL**: live metrics, test true merge + GGUF/FP8 against model families |
@@ -38,7 +38,7 @@
 | Save archive/verify/recovery | `GameSaveBackupService`, `GameSaveRestore` with explicit restore/verified staging | SOURCE; real save formats, locked files, rollback/PC test |
 | Download queue + torrent/magnet | Embedded MonoTorrent transport + optional qBittorrent per repo evidence | SOURCE; legal-source use, network/privacy/rehash/performance QA; no DRM bypass |
 | Owned-store install/update/repair/move | Store discovery/launch and game package stage exist; not full Heroic account management | **P1 PARTIAL/MISSING**: provider-specific permissioned install, verify/repair/move without deleting user saves |
-| Recent/playtime/favorites/collections | `GameTitleStore`, `GameTitleCatalog`, UI | SOURCE; **P0 UX GAP:** health/attention summary using existing cached data, no disk scan during Gaming |
+| Recent/playtime/favorites/collections | `GameTitleStore`, `GameTitleCatalog`, UI | SOURCE; **P0 SOURCE IMPLEMENTED / WINDOWS UNVERIFIED:** pure GameLibraryHealthPolicy, cached overview, read-only attention dialog + tests, no disk scan during Gaming |
 | Full gamepad-first UI and remapping | `GamingHomeView`, `ControllerProfileStore`, console controls | **P1 PARTIAL**: real Xbox/DS/DualSense/Stadia tests, focus loops, 13-inch/TV |
 | Emulators/recomps | `Emulators`, library; no verified first-party native recomp install adapter | **P2** licensed/user-owned ROM policy + safe opt-in provider |
 | Achievements/leaderboards | Some playtime/history, no backed account/server achievement ecosystem observed | **P2** explicit opt-in and supported provider SDK, never invent achievements |
@@ -48,11 +48,17 @@
 
 ## Priority execution queue / definition of done
 
-- **P0 AI-A:** column-mapped data recipe from existing dataset curator -> SFT/DPO/KTO strict JSONL in PaRuX-owned folder -> inspect -> select in Training Lab -> real training verification.
-- **P0 GOS-A:** side-effect-free, cached library health/attention summary (playability, hidden, metadata-only, missing installs, time stats) shown in Games Home. Never rescan stores in gaming mode.
+- **P0 AI-A (SOURCE IMPLEMENTED):** real column-mapped SFT/DPO/KTO from existing CSV/JSON/JSONL/Parquet parsers to 32 MiB bounded atomic JSONL, kept under PaRuXDataRoot; 64 MiB input and 20k row max; no guessed labels; error if >5% missing or labels malformed; UI selects output for Training Lab. Build/native training still pending.
+- **P0 GOS-A (SOURCE IMPLEMENTED):** derived unfiltered visible-library statistics and attention dialog from cached GameTitleDto, explicitly counts launch *candidates* rather than validated binaries, no store rescan or writes while Gaming. Hidden titles are excluded from the returned default catalog and not claimed as counted. Native FlaUI/controller check pending.
 - **P0 CROSS:** Windows build, targeted/full xUnit, exclusive FlaUI, GPU training + controller/playtime acceptance; no releases/signing until done.
 - **P1 AI:** model family support + adaptive LoRA targets, FP8/full fine-tuning, dataset extraction DOCX/PDF, merged export, VRAM/metrics graphs; per-hardware evidence.
 - **P1 Gaming:** install/repair/update/move with supported owned-account providers, cloud-save conflict flow, couch interaction/TV focus and gamepad, emulators.
 - **P2:** full achievements/leaderboards, recompiled native games, advanced RL and multimodal, plugin marketplace; only after security, licensing and performance review.
 
 **Acceptance policy:** Nothing labeled DONE until source, specific tests, native UI, failure/cancel/rollback, Gaming hard-off, security and real Windows hardware are verified. Release artifacts and signatures remain only on authorized developer PC. All integrations opt-in with user-owned legal sources and local-first defaults. Avoid shallow feature count comparisons.
+
+### 2026-11-06 first implementation tranche — source evidence (NOT hardware-verified)
+
+- AI: `src/PaRuX.Server/DatasetCurationService.TrainingRecipes.cs`, `PaRuX.Contracts/DatasetContracts.cs`, `Program.cs` training-recipe endpoint, `DatasetHubClient`, `LifecycleLabView`; `TrainingDatasetRecipeTests.cs`, FlaUI reachability. Existing CSV parser no longer yields on every input character (cooperatively yields per 4,096 chars). No network, model or training is run on recipe creation; still need source-size/Parquet stress tests, E2E training and correct 13-inch WinUI layout.
+- Gaming: `src/PaRuX.Contracts/GameLibraryHealthPolicy.cs`, `GamingHomeView.cs`, `GameLibraryHealthPolicyTests.cs`, gaming-home FlaUI scenario. Uses already fetched title metadata only, not an installation verifier; no new provider account or disk access, no cloud save or game repair claimed.
+- Run `dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~TrainingDatasetRecipeTests|FullyQualifiedName~GameLibraryHealthPolicyTests|FullyQualifiedName~DatasetHubTests"` then full xUnit, exclusive FlaUI and real desktop UX. Do not issue release/sign until verified.
