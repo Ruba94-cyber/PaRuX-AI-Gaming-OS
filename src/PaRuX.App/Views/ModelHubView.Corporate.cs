@@ -117,8 +117,9 @@ namespace PaRuX.Views
 
                 var file = new FileInfo(chosen.Path);
                 if (!file.Exists) throw new FileNotFoundException("The selected file is not accessible.", chosen.Path);
-                if (!CorporateModelImportPolicy.IsAcceptableModel(file.Name, file.Length))
-                    throw new InvalidDataException("Choose a nonempty text GGUF model, not a vision projector.");
+                if (!CorporateModelImportPolicy.IsAcceptableModel(file.Name, file.Length)
+                    || !CorporateModelImportPolicy.HasGgufHeader(file.FullName))
+                    throw new InvalidDataException("Choose a genuine text GGUF model, not a projector, empty file or renamed file.");
 
                 var confirm = new ContentDialog
                 {
