@@ -3578,6 +3578,27 @@ app.MapPost("/api/v1/datasets/downloads/{id}/cancel", (string id, DatasetDownloa
 app.MapPost("/api/v1/datasets/inspect", async (DatasetInspectRequest request, DatasetCurationService curation, CancellationToken ct) =>
     Results.Ok(await curation.InspectAsync(request.SourcePath, ct))).RequireDesktopOwner();
 
+// Explicit owner-triggered Data Recipe: no inferred mapping, no synthetic labels,
+// no write outside PaRuX-managed storage and no work competing with a running game.
+app.MapPost("/api/v1/datasets/training-recipe", async (
+    TrainingDatasetRecipeRequest request, DatasetCurationService curation,
+    LocalRuntimeService runtime, CancellationToken ct) =>
+{
+    if (runtime.GamingMode) return Results.Conflict(new { error = "Dataset recipes are disabled during Gaming." });
+    using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, runtime.GamingCancellationToken);
+    try
+    {
+        TrainingDatasetRecipeResult result = await curation.CreateTrainingRecipeAsync(request, linked.Token);
+        return Results.Ok(result);
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested) { return Results.StatusCode(499); }
+    catch (OperationCanceledException) { return Results.Conflict(new { error = "Gaming interrupted the data recipe." }); }
+    catch (Exception ex) when (ex is InvalidDataException or ArgumentException or FileNotFoundException)
+    { return Results.BadRequest(new { error = ex.Message }); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    { return Results.Problem("The local training dataset recipe could not be written."); }
+}).RequireDesktopOwner();
+
 app.MapPost("/api/v1/datasets/split", async (DatasetSplitRequest request, DatasetCurationService curation, CancellationToken ct) =>
 {
     try { return Results.Ok(await curation.SplitAsync(request, ct)); }
