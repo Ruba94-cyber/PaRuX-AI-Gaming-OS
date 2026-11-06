@@ -92,6 +92,40 @@ public sealed class AdaptiveWorkspaceUiContractTests
     }
 
     [Fact]
+    public void Corporate_first_run_uses_preinstalled_cpu_and_hides_generic_auto_installer()
+    {
+        XDocument doc = XDocument.Load(SourcePath("OnboardingView.xaml"));
+        XNamespace ui = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        foreach (string group in new[] { "AutoSetupSection", "BundledDetailsSection", "StorageDetailsSection" })
+            Assert.Single(doc.Descendants(ui + "StackPanel").Where(e => (string?)e.Attribute(x + "Name") == group));
+        var manage = Assert.Single(doc.Descendants(ui + "Button")
+            .Where(e => (string?)e.Attribute(x + "Name") == "CorporateManageModelsButton"));
+        Assert.Equal("Collapsed", (string?)manage.Attribute("Visibility"));
+
+        string setup = File.ReadAllText(SourcePath("OnboardingView.SetupProfile.cs"));
+        string page = File.ReadAllText(SourcePath("OnboardingView.xaml.cs"));
+        string nav = File.ReadAllText(Path.Combine(Path.GetDirectoryName(SourcePath("OnboardingView.xaml"))!, "..", "MainWindow.Workspaces.cs"));
+        Assert.Contains("AutoSetupSection.Visibility = Visibility.Collapsed", setup, StringComparison.Ordinal);
+        Assert.Contains("ManualSetupExpander.Visibility = Visibility.Collapsed", setup, StringComparison.Ordinal);
+        Assert.Contains("CorporateManageModelsButton.Visibility = Visibility.Visible", setup, StringComparison.Ordinal);
+        Assert.Contains("FindModelRequested?.Invoke(string.Empty)", page, StringComparison.Ordinal);
+        Assert.Contains("if (PaRuX.Contracts.CorporateMode.IsActive)", page, StringComparison.Ordinal);
+        Assert.Contains("ModelHubPage.OnShown(); // Corporate's local model management", nav, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Onboarding_download_progress_preserves_rows_and_keyboard_focus_during_polling()
+    {
+        string code = File.ReadAllText(SourcePath("OnboardingView.xaml.cs"));
+        Assert.Contains("_downloadRowsById.TryGetValue(job.Id", code, StringComparison.Ordinal);
+        Assert.Contains("PositionDownloadRow(previous.Row, index)", code, StringComparison.Ordinal);
+        Assert.Contains("if (previous.Summary.Text != summaryText)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("FirstModelDownloadRows.Children.Clear()", code, StringComparison.Ordinal);
+        Assert.Contains("while (FirstModelDownloadRows.Children.Count > ordered.Count)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Model_hub_keeps_responsive_search_and_only_loads_advanced_evaluation_on_demand()
     {
         string source = File.ReadAllText(SourcePath("ModelHubView.cs"));
