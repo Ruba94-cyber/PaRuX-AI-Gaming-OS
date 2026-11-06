@@ -744,6 +744,20 @@ WHERE (name=$n COLLATE NOCASE OR name LIKE $like ESCAPE '\' OR ($hex=1 AND hash 
         return (exact.Count > 0 ? exact : list).Take(limit).ToList();
     }
 
+    /// <summary>Cheap SQLite count for large-document workflows. Use before any
+    /// operation that would otherwise materialize the whole 30k-page manual.</summary>
+    public int PassageChunkCount(long fileId)
+    {
+        EnsureSchema();
+        lock (_gate)
+        {
+            using SqliteConnection c = Open();
+            return Convert.ToInt32(Scalar(c,
+                "SELECT COUNT(*) FROM kn_chunks WHERE file_id=$f;",
+                ("$f", fileId)));
+        }
+    }
+
     /// <summary>The text of one indexed file as passages (overlapping chunks are merged back, the synthetic file-name chunk is left out).</summary>
     public IReadOnlyList<IndexedPassage> GetPassages(long fileId)
     {
