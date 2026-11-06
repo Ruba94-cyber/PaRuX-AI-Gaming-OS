@@ -5,6 +5,7 @@ import android.content.ContentResolver
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Base64
+import java.io.ByteArrayOutputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +72,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showHistory by remember { mutableStateOf(false) }
     var composerText by remember { mutableStateOf("") }
     var pendingImage by remember { mutableStateOf<PendingImage?>(null) }
+    var attachmentError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val listState = rememberLazyListState()
 
@@ -86,7 +88,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) pendingImage = uriToPendingImage(context.contentResolver, uri)
+        if (uri != null) {
+            val image = uriToPendingImage(context.contentResolver, uri)
+            if (image == null) {
+                attachmentError = "Could not attach this image. Use a supported image smaller than 8 MB."
+            } else {
+                pendingImage = image
+                attachmentError = null
+            }
+        }
     }
     val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.startVoiceMode() else viewModel.microphonePermissionDenied()
@@ -146,6 +156,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
 
+            attachmentError?.let { problem ->
+                Text(problem, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+
             pendingImage?.let { image ->
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Attached: ${image.fileName}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
@@ -157,6 +172,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 text = composerText,
                 onTextChange = { composerText = it },
                 isStreaming = state.isStreaming,
+                hasAttachment = pendingImage != null,
                 voiceModeEnabled = state.voiceModeEnabled,
                 voicePhase = state.voicePhase,
                 onVoiceClick = ::toggleVoice,
@@ -170,6 +186,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (accepted) {
                         composerText = ""
                         pendingImage = null
+                        attachmentError = null
                     }
                 },
                 onStop = viewModel::stopGeneration
@@ -381,6 +398,7 @@ private fun Composer(
     text: String,
     onTextChange: (String) -> Unit,
     isStreaming: Boolean,
+    hasAttachment: Boolean,
     voiceModeEnabled: Boolean,
     voicePhase: LiveVoicePhase,
     onVoiceClick: () -> Unit,
@@ -409,7 +427,7 @@ private fun Composer(
         )
         Spacer(Modifier.width(4.dp))
         if (isStreaming) IconButton(onClick = onStop) { Icon(Icons.Default.Stop, contentDescription = "Stop") }
-        else IconButton(onClick = onSend, enabled = text.isNotBlank()) { Icon(Icons.Default.Send, contentDescription = "Send") }
+        else IconButton(onClick = onSend, enabled = text.isNotBlank() || hasAttachment) { Icon(Icons.Default.Send, contentDescription = "Send") }
     }
 }
 
@@ -432,9 +450,27 @@ private fun HistorySheet(conversations: List<ConversationSummary>, onDismiss: ()
     }
 }
 
+private const val MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024
+
 private fun uriToPendingImage(resolver: ContentResolver, uri: Uri): PendingImage? = try {
-    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-    val mimeType = resolver.getType(uri) ?: "image/jpeg"
+    val mimeType = resolver.getType(uri) ?: return null
+    if (!mimeType.startsWith("image/")) return null
+    // Content providers may not supply a trustworthy length. Bound the
+    // streamed bytes before base64 expansion to protect low-memory phones.
+    val bytes = resolver.openInputStream(uri)?.use { input ->
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var size = 0
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            size += n
+            if (size > MAX_CHAT_IMAGE_BYTES) return null
+            output.write(buffer, 0, n)
+        }
+        output.toByteArray()
+    } ?: return null
+    if (bytes.isEmpty()) return null
     PendingImage(
         fileName = "attachment.${mimeType.substringAfterLast('/')}",
         mediaType = mimeType,
