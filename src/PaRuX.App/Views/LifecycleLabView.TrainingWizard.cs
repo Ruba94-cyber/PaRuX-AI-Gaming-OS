@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Storage.Pickers;
 using PaRuX.Contracts;
 using PaRuX.Intelligence;
 using PaRuX.Services;
@@ -251,6 +252,38 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 _planSummary.Text = "Could not check this run: " + ex.Message;
+            }
+        }
+
+        private async Task PickTrainingDatasetAsync()
+        {
+            if (App.MainWin == null)
+            {
+                _status.Text = "Choose a JSONL dataset after the PaRuX window is ready.";
+                return;
+            }
+            try
+            {
+                var picker = new FileOpenPicker
+                {
+                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                    ViewMode = PickerViewMode.List
+                };
+                picker.FileTypeFilter.Add(".jsonl");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                    WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+                Windows.Storage.StorageFile? chosen = await picker.PickSingleFileAsync();
+                if (chosen == null) return;
+                if (!File.Exists(chosen.Path))
+                    throw new FileNotFoundException("The selected JSONL file is not accessible.", chosen.Path);
+                _trainingPath.Text = chosen.Path;
+                _lastPlan = null;
+                _planSummary.Text = "Dataset selected. Quick train will inspect it before any training starts.";
+                _status.Text = "Selected training dataset: " + chosen.Name;
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "Unable to select a training dataset: " + ex.Message;
             }
         }
 
