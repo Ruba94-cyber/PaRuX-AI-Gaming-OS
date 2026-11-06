@@ -92,7 +92,13 @@ namespace PaRuX.Views
                 await Task.WhenAll(modelsTask, rolesTask, hardwareTask);
                 if (generation != _generation) return;
 
-                _installed = modelsTask.Result.Select(ToCandidate).ToList();
+                // Corporate's bundled CPU llama.cpp accepts text GGUFs, not vision
+                // projectors or unrelated managed checkpoint files. Such files must
+                // never be offered by the manual Chat model selector.
+                _installed = modelsTask.Result
+                    .Where(m => !CorporateMode.IsActive
+                        || CorporateModelImportPolicy.IsAcceptableModel(m.FileName, m.SizeBytes))
+                    .Select(ToCandidate).ToList();
                 _hardware = hardwareTask.Result;
                 _current = rolesTask.Result
                     .Where(r => string.Equals(r.Kind, "text", StringComparison.OrdinalIgnoreCase))
