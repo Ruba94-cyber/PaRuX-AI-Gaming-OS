@@ -108,7 +108,9 @@ namespace PaRuX
             if (ctrlDown && e.Key == VirtualKey.M)
             {
                 e.Handled = true;
-                if (StudioModeToggle != null)
+                if (StudioModeToggle != null && !PaRuX.Contracts.CorporateMode.IsActive
+                    && SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) != SetupProfile.GamingOnly
+                    && !IsGamingModeTab)
                 {
                     StudioModeToggle.IsOn = !StudioModeToggle.IsOn;
                 }
@@ -118,7 +120,8 @@ namespace PaRuX
             if (ctrlDown && e.Key == VirtualKey.N)
             {
                 e.Handled = true;
-                NewChat_Click(NewChatButton, new RoutedEventArgs());
+                if (CurrentSetupPlan.ShowAiWorkspaces)
+                    NewChat_Click(NewChatButton, new RoutedEventArgs());
                 return;
             }
 
@@ -168,20 +171,23 @@ namespace PaRuX
             bool keyboardFocusIsCurrent =
                 string.Equals(focusedAutomationId, _workspaceNavigationFocusedAutomationId, StringComparison.Ordinal)
                 && string.Equals(selectedAutomationId, _workspaceNavigationSelectedAutomationIdAtFocus, StringComparison.Ordinal);
+            SetupProfile activeProfile = SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId);
+            bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
             string? currentAutomationId = WorkspaceNavigationOrder.ResolveNavigationOrigin(
                 focusedAutomationId,
                 selectedAutomationId,
                 keyboardFocusIsCurrent,
                 isAdvanced,
-                IsGamingModeTab);
+                IsGamingModeTab,
+                activeProfile, corporate);
             if (currentAutomationId == null)
             {
                 return false;
             }
 
             string? targetAutomationId = key == VirtualKey.Up
-                ? WorkspaceNavigationOrder.GetPrevious(currentAutomationId, isAdvanced, IsGamingModeTab)
-                : WorkspaceNavigationOrder.GetNext(currentAutomationId, isAdvanced, IsGamingModeTab);
+                ? WorkspaceNavigationOrder.GetPrevious(currentAutomationId, isAdvanced, IsGamingModeTab, activeProfile, corporate)
+                : WorkspaceNavigationOrder.GetNext(currentAutomationId, isAdvanced, IsGamingModeTab, activeProfile, corporate);
 
             if (string.IsNullOrEmpty(targetAutomationId))
             {
@@ -191,7 +197,7 @@ namespace PaRuX
             }
 
             NavigationViewItem? targetItem = FindWorkspaceNavigationItem(targetAutomationId);
-            if (targetItem != null)
+            if (targetItem != null && targetItem.Visibility == Visibility.Visible)
             {
                 targetItem.StartBringIntoView();
                 targetItem.Focus(FocusState.Keyboard);
