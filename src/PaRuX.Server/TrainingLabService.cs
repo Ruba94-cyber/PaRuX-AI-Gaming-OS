@@ -368,6 +368,7 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         }
         TrainingJobRequest requestSnapshot = CloneRequest(request);
         string datasetSha256 = TrainingJobDurability.ComputeFileSha256(requestSnapshot.TrainJsonlPath);
+        VerifyExpectedDatasetHash(requestSnapshot.ExpectedDatasetSha256, datasetSha256);
         string runtimeFingerprint = TrainingJobDurability.ComputeRuntimeFingerprint(runtimeStatus);
         var status = new TrainingJobStatus
         {
@@ -386,6 +387,21 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         _jobs[status.Id] = entry;
         _ = Task.Run(() => RunAsync(entry, requestSnapshot));
         return Snapshot(entry);
+    }
+
+    /// <summary>
+    /// Optional owner-reviewed dataset identity. The earlier planner's checksum is
+    /// not trusted by itself: it must match the actual bytes on the Core at admission.
+    /// Legacy Advanced/CLI requests without this field remain compatible.
+    /// </summary>
+    internal static void VerifyExpectedDatasetHash(string? expected, string actual)
+    {
+        if (string.IsNullOrWhiteSpace(expected)) return;
+        if (expected.Length != 64 || expected.Any(c => !Uri.IsHexDigit(c)))
+            throw new InvalidDataException("Expected training dataset SHA-256 must be exactly 64 hex characters.");
+        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(
+                "The training dataset changed after full preflight. Review the dataset again before submitting.");
     }
 
     internal static void ValidateKtoMicroBatch(int microBatch)
