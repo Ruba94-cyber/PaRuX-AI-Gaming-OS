@@ -1,3 +1,10 @@
+### Corporate Lite flexible models (unreleased; Windows build/inference pending)
+
+- The Corporate portable still pre-bundles a CPU `llama.cpp` engine, one starter GGUF and offline embeddings; the build now checks native executable packaging and SHA-256 in the final ZIP. The starter remains a stable fallback when users add models.
+- Corporate Model Hub supports importing local GGUF files or models detected in Ollama/LM Studio and assigning an imported model to Chat without reinstalling the CPU runtime. Imported/downloading models share the existing managed library.
+- Added a separate IT-approved model-download launcher for Hugging Face **text GGUFs only** while keeping the ordinary launcher offline; arbitrary web, cloud inference, runtime installers, Gaming and media remain disabled. Narrow model HTTP uses the existing enterprise proxy.
+- Improved Corporate AI home and startup data root, removed unavailable media controls and unnecessary media refreshes, added xUnit/FlaUI source regression coverage. Windows native/CPU smoke, tests and signed release still pending.
+
 ### UX recovery source changes (unreleased; Windows validation pending)
 
 - Condensed the first-run welcome flow around guided setup and readiness; manual components/models/download controls are progressively disclosed with explicit recovery paths. Mode switching is serialized, and Gaming-only setup no longer claims success after a failed service change.
