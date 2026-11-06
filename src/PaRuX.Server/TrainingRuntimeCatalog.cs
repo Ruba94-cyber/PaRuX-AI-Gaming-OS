@@ -50,6 +50,7 @@ internal static class TrainingRuntimeCatalog
         TrainingMethod.Sft,
         TrainingMethod.Dpo,
         TrainingMethod.Orpo,
+        TrainingMethod.Kto,
         TrainingMethod.ContinuedPretraining,
         TrainingMethod.Grpo,
         TrainingMethod.VisionSft,
