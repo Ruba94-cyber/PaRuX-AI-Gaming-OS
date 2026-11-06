@@ -56,6 +56,14 @@ namespace PaRuX.Views
                 // Its setup profile cannot be changed: don't show choices the user
                 // cannot actually select or unrelated Gaming/Media onboarding.
                 SetupProfileSection.Visibility = Visibility.Collapsed;
+                AutoSetupSection.Visibility = Visibility.Collapsed;
+                BundledDetailsSection.Visibility = Visibility.Collapsed;
+                StorageDetailsSection.Visibility = Visibility.Collapsed;
+                ManualSetupExpander.Visibility = Visibility.Collapsed;
+                CorporateManageModelsButton.Visibility = Visibility.Visible;
+                VerifyLocalChatButton.Content = it ? "Verifica la Chat locale" : "Verify local Chat";
+                CorporateManageModelsButton.Content = it ? "Scegli o importa un altro modello" : "Choose or import another model";
+                GetStartedButton.Content = it ? "Apri Chat" : "Open Chat";
                 OnboardingWelcomeSubtitle.Text = it
                     ? "Corporate Lite: Chat AI e documenti sul PC. Il motore CPU è già incluso; puoi importare altri modelli quando vuoi."
                     : "Corporate Lite: AI Chat and documents on this PC. The CPU engine is already included; add more models whenever you need.";
