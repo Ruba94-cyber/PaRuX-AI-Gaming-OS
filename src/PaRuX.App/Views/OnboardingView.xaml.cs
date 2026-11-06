@@ -98,7 +98,8 @@ namespace PaRuX.Views
             {
                 Log.Write("Onboarding download progress refresh failed: " + ex.Message);
                 if (_modelDownloadViewLoaded)
-                    FirstModelDownloadStatusText.Text = "Couldn't refresh model download progress: " + ex.Message;
+                    FirstModelDownloadStatusText.Text =
+                        UserFailureRecoveryMapper.Map(ex, "Could not refresh downloads").FormatStatusLine();
             }
             finally { _modelDownloadRefreshBusy = false; }
         }
@@ -120,6 +121,29 @@ namespace PaRuX.Views
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 });
 
+                // A progress bar is quicker to scan than a changing byte count; unknown-length
+                // transfers explicitly remain indeterminate rather than showing invented percentages.
+                bool active = ModelDownloadStatusPolicy.IsActive(job.Status);
+                if (job.TotalBytes > 0 || active)
+                {
+                    var bar = new ProgressBar
+                    {
+                        Minimum = 0,
+                        Maximum = 100,
+                        Value = job.TotalBytes > 0
+                            ? Math.Clamp(100d * Math.Max(0, job.BytesDownloaded) / job.TotalBytes, 0, 100)
+                            : 0,
+                        IsIndeterminate = job.TotalBytes <= 0 && active,
+                        Height = 5,
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(bar,
+                        "Onboarding_DownloadProgress_" + job.Id);
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(bar,
+                        job.FileName + " download progress");
+                    row.Children.Add(bar);
+                }
+
                 string details = ModelDownloadPresentationPolicy.FormatDetails(job);
                 if (details.Length > 0)
                     row.Children.Add(new TextBlock { Text = details, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.78 });
@@ -127,7 +151,7 @@ namespace PaRuX.Views
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 if (ModelDownloadStatusPolicy.CanPause(job.Status))
                 {
-                    var pause = new Button { Content = "Pause", FontSize = 12, Padding = new Thickness(9, 3, 9, 3) };
+                    var pause = new Button { Content = "Pause", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(pause,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Pause"));
                     pause.Click += async (s, e) =>
@@ -144,7 +168,7 @@ namespace PaRuX.Views
                 }
                 else if (ModelDownloadStatusPolicy.CanResume(job.Status))
                 {
-                    var resume = new Button { Content = "Resume", FontSize = 12, Padding = new Thickness(9, 3, 9, 3) };
+                    var resume = new Button { Content = "Resume", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(resume,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Resume"));
                     resume.Click += async (s, e) =>
@@ -162,7 +186,7 @@ namespace PaRuX.Views
 
                     if (ModelDownloadStatusPolicy.CanRemove(job.Status, job.Id))
                     {
-                        var remove = new Button { Content = "Remove", FontSize = 12, Padding = new Thickness(9, 3, 9, 3) };
+                        var remove = new Button { Content = "Remove", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(remove,
                             ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Remove"));
                         remove.Click += async (s, e) =>
@@ -844,6 +868,7 @@ namespace PaRuX.Views
             _unprovenWarningShown = false;
             _verifyLocalChatCts?.Cancel();
             _stateMachine.ReturnFromModelHub();
+            if (ManualSetupExpander != null) ManualSetupExpander.IsExpanded = true;
             await RefreshComponentsAsync();
             await RefreshFirstModelAdviceAsync();
             await RefreshReadyCheckAsync();
