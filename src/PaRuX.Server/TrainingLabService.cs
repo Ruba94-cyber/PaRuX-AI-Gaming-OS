@@ -774,8 +774,25 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         }
 
         (int microBatch, int gradientAccumulation) = PlanBatchShape(request.MaxSequenceLength);
+        // Available free VRAM may have changed since job admission. If the second
+        // check fails, persist a terminal status instead of letting the fire-and-
+        // forget worker throw and leaving the job permanently "queued".
         if (entry.Status.Method == TrainingMethod.Kto)
-            ValidateKtoMicroBatch(microBatch);
+        {
+            try { ValidateKtoMicroBatch(microBatch); }
+            catch (InvalidOperationException ex)
+            {
+                lock (entry.Gate)
+                {
+                    entry.Status.Status = "failed";
+                    entry.Status.Stage = "KTO physical batch resource admission failed";
+                    entry.Status.Error = ex.Message;
+                    entry.Status.UpdatedUtc = DateTime.UtcNow;
+                }
+                TryPersistEntry(entry);
+                return;
+            }
+        }
 
         var config = new
         {
