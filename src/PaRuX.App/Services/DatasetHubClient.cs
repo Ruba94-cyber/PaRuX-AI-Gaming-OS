@@ -38,6 +38,11 @@ namespace PaRuX.Services
             SendAsync<DatasetCurationReport>(HttpMethod.Post, "/api/v1/datasets/inspect",
                 new DatasetInspectRequest { SourcePath = sourcePath }, ct);
 
+        /// <summary>Builds an explicitly mapped, managed SFT/DPO/KTO JSONL file without altering user data.</summary>
+        public Task<TrainingDatasetRecipeResult> CreateTrainingRecipeAsync(
+            TrainingDatasetRecipeRequest request, CancellationToken ct) =>
+            SendAsync<TrainingDatasetRecipeResult>(HttpMethod.Post, "/api/v1/datasets/training-recipe", request, ct);
+
         public Task<DatasetSplitResult> SplitAsync(DatasetSplitRequest request, CancellationToken ct) =>
             SendAsync<DatasetSplitResult>(HttpMethod.Post, "/api/v1/datasets/split", request, ct);
 
