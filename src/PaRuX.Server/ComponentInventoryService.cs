@@ -44,6 +44,33 @@ public sealed class ComponentInventoryService
     public async Task<IReadOnlyList<ComponentStatus>> DiscoverAsync(CancellationToken ct)
     {
         RuntimeManagerStatus runtime = await _runtime.GetStatusAsync(ct);
+        if (CorporateMode.IsActive)
+        {
+            // Corporate has no optional runtime installers. Return only the
+            // executable actually shipped with this CPU portable package,
+            // never synthetic "missing CUDA/Vulkan/ComfyUI" install actions.
+            string? cpuDir = LocalAiPaths.FindBundledCpuRuntime();
+            RuntimeBackendStatus? cpu = runtime.Backends.FirstOrDefault(b => b.Backend == "text-cpu");
+            bool installed = cpuDir != null && cpu?.Installed == true;
+            return new[]
+            {
+                new ComponentStatus
+                {
+                    Id = "llama-server-cpu",
+                    DisplayName = "llama.cpp (CPU, bundled)",
+                    Ownership = ComponentOwnership.PARUX_MANAGED,
+                    Detected = installed,
+                    Path = installed ? Path.Combine(cpuDir!, LocalAiPaths.LlamaServerExecutable) : null,
+                    Version = cpu?.Version,
+                    Health = cpu?.Healthy == true ? "healthy" : installed ? "installed" : "missing",
+                    ValidationStatus = cpu?.Healthy == true ? "validated" : installed ? "unverified" : "missing",
+                    ValidationMessage = installed
+                        ? "Bundled CPU text runtime is present; its health is verified after the first local Chat request."
+                        : "Bundled CPU runtime is missing from this Corporate package. Re-extract the verified portable package.",
+                    Actions = Array.Empty<string>()
+                }
+            };
+        }
         var result = new List<ComponentStatus>
         {
             Component("llama-server-cuda", "llama.cpp (CUDA)", LocalAiPaths.RuntimeCudaPath, LocalAiPaths.LlamaServerExecutable, runtime.Backends.FirstOrDefault(b => b.Backend == "text-cuda"), installSupported: true),
