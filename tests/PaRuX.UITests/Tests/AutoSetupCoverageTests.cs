@@ -71,8 +71,25 @@ public sealed class AutoSetupCoverageTests
             }
 
             UiWait.ById(app.MainWindow, "Onboarding_AutoSetup_Manual_Text", ControlType.Text);
-            // The manual first-model path is still there beside the automatic one.
+            // Manual controls are progressive disclosure: not shown until explicitly expanded.
+            AutomationElement manual = UiWait.ById(app.MainWindow, "Onboarding_ManualSetup_Expander");
+            var pattern = manual.Patterns.ExpandCollapse.PatternOrDefault;
+            Assert.NotNull(pattern);
+            Assert.Equal(ExpandCollapseState.Collapsed, pattern!.ExpandCollapseState.ValueOrDefault);
+            UiWait.ExpandById(app.MainWindow, "Onboarding_ManualSetup_Expander");
             UiWait.ById(app.MainWindow, "FirstModelInstallButton", ControlType.Button);
             UiWait.ById(app.MainWindow, "Onboarding_VerifyLocalChat_Button", ControlType.Button);
+        });
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Onboarding"), Trait("Category", "FlaUI")]
+    public void Manual_setup_disclosure_does_not_hide_the_primary_ready_check() => Run(
+        nameof(Manual_setup_disclosure_does_not_hide_the_primary_ready_check), app =>
+        {
+            UiWait.ById(app.MainWindow, "Onboarding_AutoSetup_Start_Button", ControlType.Button);
+            UiWait.ById(app.MainWindow, "Onboarding_ManualSetup_Expander");
+            // Readiness and the final action must remain accessible outside the technical panel.
+            UiWait.ById(app.MainWindow, "Onboarding_VerifyLocalChat_Button", ControlType.Button);
+            AutomationElement? start = app.MainWindow.FindFirstDescendant(cf => cf.ByName("Get Started").And(cf.ByControlType(ControlType.Button)));
+            Assert.NotNull(start);
         });
 }
