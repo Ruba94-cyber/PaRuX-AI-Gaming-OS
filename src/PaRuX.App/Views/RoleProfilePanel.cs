@@ -60,12 +60,19 @@ namespace PaRuX.Views
             var heading = new TextBlock { Text = RoleProfilePresenter.Heading(it), FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
             AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level3);
             root.Children.Add(heading);
-            root.Children.Add(new TextBlock { Text = RoleProfilePresenter.Intro(it), TextWrapping = TextWrapping.Wrap, Opacity = 0.82 });
+            root.Children.Add(new TextBlock
+            {
+                Text = CorporateMode.IsActive
+                    ? (it ? "Il motore CPU è già incluso. Seleziona il modello GGUF da usare per Chat; Documenti utilizza automaticamente lo stesso modello."
+                          : "The CPU engine is already included. Choose a GGUF model for Chat; Documents automatically uses the same model.")
+                    : RoleProfilePresenter.Intro(it),
+                TextWrapping = TextWrapping.Wrap, Opacity = 0.82
+            });
             root.Children.Add(_summary);
             root.Children.Add(_rows);
 
             var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            footer.Children.Add(_applyAll);
+            if (!CorporateMode.IsActive) footer.Children.Add(_applyAll);
             if (!CorporateMode.IsActive)
             {
                 footer.Children.Add(new TextBlock { Text = RoleProfilePresenter.AdvancedLabel(it), VerticalAlignment = VerticalAlignment.Center });
@@ -205,12 +212,18 @@ namespace PaRuX.Views
 
             if (row.AdvancedChoices.Count > 0)
             {
-                var combo = new ComboBox { MinWidth = 280, PlaceholderText = it ? "Scegli un modello…" : "Choose a model…" };
+                var combo = new ComboBox
+                {
+                    MinWidth = 0, MaxWidth = 720, MinHeight = 44,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    PlaceholderText = it ? "Scegli un modello…" : "Choose a model…"
+                };
                 AutomationProperties.SetAutomationId(combo, row.AutomationPrefix + "_Override");
                 AutomationProperties.SetName(combo, (it ? "Modello per " : "Model for ") + row.Title);
                 foreach (RoleOverrideChoice choice in row.AdvancedChoices)
                 {
                     var option = new ComboBoxItem { Content = choice.Name, Tag = choice.Path };
+                    ToolTipService.SetToolTip(option, choice.Path);
                     // Stable id from the file name (not the localized label): RoleProfile_Coding_Override_<file>_Item.
                     string fileId = new string(Path.GetFileName(choice.Path).Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
                     AutomationProperties.SetAutomationId(option, row.AutomationPrefix + "_Override_" + fileId + "_Item");
