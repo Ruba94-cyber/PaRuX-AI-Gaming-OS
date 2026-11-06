@@ -38,6 +38,10 @@ namespace PaRuX.Views
         private readonly ComboBox _promptColumn = new() { PlaceholderText = "Prompt column", MinWidth = 220, IsEnabled = false };
         private readonly ComboBox _expectedColumn = new() { PlaceholderText = "Expected behavior column", MinWidth = 220, IsEnabled = false };
         private readonly ComboBox _systemColumn = new() { PlaceholderText = "Optional system-prompt column", MinWidth = 220, IsEnabled = false };
+        private readonly ComboBox _recipeMethod = new() { MinWidth = 155 };
+        private readonly ComboBox _recipeExtraColumn = new()
+        { PlaceholderText = "Rejected / boolean label column", MinWidth = 210, IsEnabled = false };
+        private readonly TextBlock _recipeSummary = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.76 };
 
         private readonly ComboBox _evalDataset = new() { PlaceholderText = "Eval dataset", MinWidth = 260, IsEnabled = false };
         private readonly TextBox _newEvalName = new() { PlaceholderText = "New Eval dataset name", MinWidth = 260 };
@@ -75,6 +79,17 @@ namespace PaRuX.Views
             _trainingMethod.Items.Add(new ComboBoxItem { Content = "SFT", Tag = TrainingMethod.Sft });
             _trainingMethod.Items.Add(new ComboBoxItem { Content = "DPO", Tag = TrainingMethod.Dpo });
             _trainingMethod.SelectedIndex = 0;
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = "SFT · chat", Tag = TrainingMethod.Sft });
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = "DPO · paired choices", Tag = TrainingMethod.Dpo });
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = "KTO · binary feedback", Tag = TrainingMethod.Kto });
+            _recipeMethod.SelectedIndex = 0;
+            _recipeMethod.SelectionChanged += (_, _) =>
+            {
+                string kind = SelectedTag(_recipeMethod) ?? TrainingMethod.Sft;
+                _recipeExtraColumn.IsEnabled = kind != TrainingMethod.Sft && _recipeExtraColumn.Items.Count > 0;
+                _recipeExtraColumn.PlaceholderText = kind == TrainingMethod.Kto
+                    ? "Boolean label: true / false" : "Rejected response column";
+            };
             _evalRole.Items.Add(EvalRoleAutomatic);
             foreach (string known in ModelRoleCatalog.TextRoles) _evalRole.Items.Add(known);
             _evalRole.SelectedIndex = 0;
@@ -102,6 +117,9 @@ namespace PaRuX.Views
             Id(_promptColumn, "LifecycleLab_PromptColumn_ComboBox", "Prompt column");
             Id(_expectedColumn, "LifecycleLab_ExpectedColumn_ComboBox", "Expected behavior column");
             Id(_systemColumn, "LifecycleLab_SystemColumn_ComboBox", "Optional system-prompt column");
+            Id(_recipeMethod, "LifecycleLab_TrainingRecipeMethod_ComboBox", "Training dataset recipe method");
+            Id(_recipeExtraColumn, "LifecycleLab_TrainingRecipeExtra_ComboBox", "Rejected or boolean label dataset column");
+            Id(_recipeSummary, "LifecycleLab_TrainingRecipeSummary_Text", "Training recipe result");
             Id(_evalDataset, "LifecycleLab_EvalDataset_ComboBox", "Eval dataset");
             Id(_newEvalName, "LifecycleLab_NewEvalName_TextBox", "New Eval dataset name");
             Id(_evalRole, "LifecycleLab_EvalRole_ComboBox", "Eval run role");
@@ -212,6 +230,22 @@ namespace PaRuX.Views
             Id(import, "LifecycleLab_ImportToEval_Button");
             import.Click += async (_, _) => await ImportIntoEvalAsync();
             content.Children.Add(import);
+
+            content.Children.Add(Label("CREATE TRAINING JSONL · EXPLICIT COLUMN MAPPING"));
+            content.Children.Add(new TextBlock
+            {
+                Text = "Use the prompt + expected/response selectors above. For DPO additionally choose a REAL rejected-response column; for KTO choose a boolean true/false label column. No generated answers or labels. No file is modified and no training starts automatically.",
+                FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.76
+            });
+            var recipeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            recipeRow.Children.Add(_recipeMethod);
+            recipeRow.Children.Add(_recipeExtraColumn);
+            content.Children.Add(recipeRow);
+            var buildRecipe = new Button { Content = "Create training JSONL from mapped columns", MinHeight = 40 };
+            Id(buildRecipe, "LifecycleLab_CreateTrainingRecipe_Button");
+            buildRecipe.Click += async (_, _) => await CreateTrainingRecipeFromColumnsAsync();
+            content.Children.Add(buildRecipe);
+            content.Children.Add(_recipeSummary);
             content.Children.Add(new TextBlock
             {
                 Text = "PaRuX never guesses semantic columns. Inspect first, then explicitly choose prompt and expected-behavior mappings.",
@@ -521,17 +555,67 @@ namespace PaRuX.Views
             _promptColumn.Items.Clear();
             _expectedColumn.Items.Clear();
             _systemColumn.Items.Clear();
+            _recipeExtraColumn.Items.Clear();
             _systemColumn.Items.Add(new ComboBoxItem { Content = "(none)", Tag = string.Empty });
             foreach (string column in columns)
             {
                 _promptColumn.Items.Add(new ComboBoxItem { Content = column, Tag = column });
                 _expectedColumn.Items.Add(new ComboBoxItem { Content = column, Tag = column });
                 _systemColumn.Items.Add(new ComboBoxItem { Content = column, Tag = column });
+                _recipeExtraColumn.Items.Add(new ComboBoxItem { Content = column, Tag = column });
             }
             _systemColumn.SelectedIndex = 0;
             _promptColumn.IsEnabled = _promptColumn.Items.Count > 0;
             _expectedColumn.IsEnabled = _expectedColumn.Items.Count > 0;
             _systemColumn.IsEnabled = true;
+            _recipeExtraColumn.IsEnabled = _recipeExtraColumn.Items.Count > 0
+                && SelectedTag(_recipeMethod) != TrainingMethod.Sft;
+        }
+
+        private async Task CreateTrainingRecipeFromColumnsAsync()
+        {
+            string path = (_sourcePath.Text ?? string.Empty).Trim();
+            string? prompt = SelectedTag(_promptColumn);
+            string? response = SelectedTag(_expectedColumn);
+            string method = SelectedTag(_recipeMethod) ?? TrainingMethod.Sft;
+            string? extra = SelectedTag(_recipeExtraColumn);
+            if (path.Length == 0 || string.IsNullOrWhiteSpace(prompt) || string.IsNullOrWhiteSpace(response)
+                || (method != TrainingMethod.Sft && string.IsNullOrWhiteSpace(extra)))
+            {
+                _recipeSummary.Text = "Inspect the source dataset first, then choose prompt and answer columns. DPO also needs rejected; KTO needs a true/false label column.";
+                return;
+            }
+            SetBusy(true, "Building a local training recipe…");
+            try
+            {
+                TrainingDatasetRecipeResult result = await DatasetHubClient.Current.CreateTrainingRecipeAsync(
+                    new TrainingDatasetRecipeRequest
+                    {
+                        SourcePath = path, Method = method,
+                        PromptColumn = prompt, ResponseColumn = response,
+                        ExtraColumn = method == TrainingMethod.Sft ? null : extra,
+                        SystemColumn = method == TrainingMethod.Sft ? SelectedTag(_systemColumn) : null
+                    }, CancellationToken.None);
+                _recipeSummary.Text = "Created " + result.WrittenRows.ToString("N0") + " " + method.ToUpperInvariant()
+                    + " example(s); skipped " + result.SkippedRows + ". Local only. SHA-256: "
+                    + result.Sha256[..Math.Min(result.Sha256.Length, 16)] + "…";
+                _trainingPath.Text = result.TrainJsonlPath;
+                for (int i = 0; i < _trainingMethod.Items.Count; i++)
+                {
+                    if (_trainingMethod.Items[i] is ComboBoxItem choice
+                        && string.Equals(choice.Tag as string, method, StringComparison.Ordinal))
+                    {
+                        _trainingMethod.SelectedIndex = i;
+                        break;
+                    }
+                }
+                _status.Text = "Training dataset is ready for preflight in section 3. No GPU job was started.";
+            }
+            catch (Exception ex)
+            {
+                _recipeSummary.Text = "Training recipe refused: " + ex.Message;
+            }
+            finally { SetBusy(false); }
         }
 
         private async Task ImportIntoEvalAsync()
