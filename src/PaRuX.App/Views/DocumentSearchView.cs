@@ -167,7 +167,8 @@ namespace PaRuX.Views
                 var states = _sources.Where(source => _statusCache.ContainsKey(source.Id))
                     .Select(source => (Source: source, Status: _statusCache[source.Id])).ToArray();
                 string[] newOrder = states.Select(item => item.Source.Id).ToArray();
-                if (!_rowOrder.SequenceEqual(newOrder))
+                bool rowsChanged = !_rowOrder.SequenceEqual(newOrder);
+                if (rowsChanged)
                 {
                     _folders.Children.Clear();
                     _rows.Clear();
@@ -187,9 +188,14 @@ namespace PaRuX.Views
                         Opacity = 0.75
                     });
                 bool running = false;
+                var freshIds = new HashSet<string>(updated.Select(item => item.Source.Id), StringComparer.Ordinal);
                 foreach (var item in states)
                 {
-                    UpdateFolderRow(_rows[item.Source.Id], item.Source, item.Status);
+                    // Updating every completed row on each 2-second tick caused
+                    // expensive text layout even though those values did not
+                    // change. Preserve those controls and their keyboard focus.
+                    if (rowsChanged || reload || freshIds.Contains(item.Source.Id))
+                        UpdateFolderRow(_rows[item.Source.Id], item.Source, item.Status);
                     running |= item.Status.State == "running";
                 }
                 if (running && _shown) _poll.Start(); else _poll.Stop();
