@@ -1144,6 +1144,12 @@ public sealed class ModelDownloadServiceTests : IDisposable
         Assert.True(File.Exists(source));
         Assert.Equal(3, imported.SizeBytes);
         Assert.Equal(new byte[] { 4, 5, 6 }, File.ReadAllBytes(destination));
+        Assert.Empty(Directory.EnumerateFiles(ModelsDir, ".model-import-*.partial"));
+
+        // A duplicate must never replace an existing model or leave a staging file.
+        Assert.Throws<InvalidOperationException>(() => service.ImportManagedModel(source));
+        Assert.Equal(new byte[] { 4, 5, 6 }, File.ReadAllBytes(destination));
+        Assert.Empty(Directory.EnumerateFiles(ModelsDir, ".model-import-*.partial"));
     }
 
     [Fact]
