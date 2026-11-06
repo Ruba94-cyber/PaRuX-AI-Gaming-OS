@@ -47,6 +47,14 @@ namespace PaRuX.Server.Tests
             Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__create__", SetupProfile.AiOnly, corporateMode: true));
             Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__games__", SetupProfile.AiOnly, corporateMode: true));
             Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__workflows__", SetupProfile.AiOnly, corporateMode: true));
+            Assert.Equal(WorkspaceNavigationOrder.DocumentSearchAutomationId,
+                WorkspaceNavigationOrder.GetNext(WorkspaceNavigationOrder.ChatAutomationId,
+                    true, isGamingMode: false, SetupProfile.AiOnly, corporateMode: true));
+            Assert.Equal(WorkspaceNavigationOrder.SettingsAutomationId,
+                WorkspaceNavigationOrder.GetNext(WorkspaceNavigationOrder.DocumentSearchAutomationId,
+                    true, isGamingMode: false, SetupProfile.AiOnly, corporateMode: true));
+            Assert.Null(WorkspaceNavigationOrder.GetPrevious(WorkspaceNavigationOrder.ChatAutomationId,
+                true, isGamingMode: false, SetupProfile.AiOnly, corporateMode: true));
         }
 
         [Fact]
