@@ -349,6 +349,7 @@ public sealed partial class DatasetCurationService
         var field = new StringBuilder();
         bool inQuotes = false;
         bool sawAnyChar = false;
+        int processedChars = 0;
         int ci;
         while ((ci = reader.Read()) != -1)
         {
@@ -369,7 +370,11 @@ public sealed partial class DatasetCurationService
             else if (c == '\r') { /* wait for \n, or a bare \r as a line end is rare enough to ignore here */ }
             else if (c == '\n') { fields.Add(field.ToString()); return fields; }
             else field.Append(c);
-            await Task.Yield();
+            // Cooperative async scheduling every 4096 characters rather than once
+            // PER CHARACTER. The previous hot loop yielded thousands of times for
+            // an ordinary CSV line and caused huge latency on large datasets.
+            // Cancellation is still checked on every character above.
+            if ((++processedChars & 4095) == 0) await Task.Yield();
         }
         if (sawAnyChar) fields.Add(field.ToString());
         return fields.Count > 0 ? fields : null;
