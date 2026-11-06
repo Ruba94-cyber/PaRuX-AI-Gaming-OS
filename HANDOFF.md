@@ -1,3 +1,7 @@
+## 2026-11-06 — 4.0.1 built, signed and published
+
+- Patch over 4.0.0 (3 UI-verified product fixes). Signed MSI (Authenticode + manifest envelope), portable ZIP, Corporate Lite (Qwen3-4B Q4_K_M, split .001/.002), signed APK (versionCode 21); `verify-release-assets` PASS; tag v4.0.1 at 893a43c; GitHub release v4.0.1. Still NOT verified: elevated MSI lifecycle, physical Android, Corporate Lite on 8 GB, physical HW.
+
 ## 2026-11-06 — Windows validation of cloud-authored source + 3.1.0 RC artifacts (VERIFIED ON WINDOWS)
 
 - main fast-forwarded (cloud work was never compiled): fixed 1 WinUI compile error, 8 test/script issues. Server xUnit green per chunk (host-exit flake documented in docs/RELEASE_CANDIDATE_3.1.0.md). FlaUI Smoke 35/35, Regression 287/290 -> 3 fixed and re-run green individually; run the full Regression once more alone before release.
