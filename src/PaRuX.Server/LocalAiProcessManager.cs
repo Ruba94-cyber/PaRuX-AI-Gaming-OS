@@ -1475,7 +1475,8 @@ public sealed class LocalAiProcessManager
         {
             if (!File.Exists(path)) return false;
             return CorporateModelImportPolicy.IsAcceptableModel(
-                Path.GetFileName(path), new FileInfo(path).Length);
+                Path.GetFileName(path), new FileInfo(path).Length)
+                && CorporateModelImportPolicy.HasGgufHeader(path);
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
