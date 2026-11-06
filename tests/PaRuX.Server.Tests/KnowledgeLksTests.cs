@@ -477,6 +477,23 @@ public sealed class KnowledgeLksTests : IDisposable
     }
 
     [Fact]
+    public void Document_grounding_and_exact_lookup_work_across_non_automotive_domains()
+    {
+        var invoice = new KnowledgeHit(201, "C:/Work/invoice.pdf", "invoice.pdf",
+            "Invoice INV_2026_884: the payment deadline is 30 November 2026, total EUR 420.00.",
+            new DocumentPosition(Page: 12), 3.0, "exact");
+        DocumentChatPlan result = DocumentChatPlanner.Plan(
+            "Where is INV_2026_884 described?", new[] { invoice });
+        Assert.Equal(DocumentChatKind.Deterministic, result.Kind);
+        Assert.Contains("invoice.pdf, p. 12", result.Citations);
+        Assert.Contains("EUR 420.00", result.Text);
+        Assert.Contains("legal, finance, HR", DocumentChatPlanner.GroundingInstruction);
+        Assert.Contains("currencies", DocumentChatPlanner.GroundingInstruction);
+        Assert.Contains("jurisdiction", DocumentChatPlanner.GroundingInstruction);
+        Assert.DoesNotContain("model/year/ECU variants", DocumentChatPlanner.GroundingInstruction);
+    }
+
+    [Fact]
     public void Real_cited_technical_passage_survives_metadata_exclusion()
     {
         var metadata = new KnowledgeHit(101, "C:/manual.pdf", "manual.pdf",
