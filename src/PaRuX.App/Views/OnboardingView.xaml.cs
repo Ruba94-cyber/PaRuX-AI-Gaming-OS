@@ -802,7 +802,12 @@ namespace PaRuX.Views
                 return;
             }
 
-            using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            // A CPU-only notebook can spend up to five minutes just loading the
+            // bundled GGUF. The old 3-minute verification timeout cancelled a
+            // healthy cold start before llama.cpp's own launch timeout elapsed.
+            // Keep Cancel available; add bounded time for the challenge afterward.
+            using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(
+                PaRuX.Contracts.CorporateMode.IsActive ? 7 : 3));
             _verifyLocalChatCts = operation;
             VerifyLocalChatButton.Content = SetupProfileItalian ? "Annulla verifica" : "Cancel verification";
             VerifyLocalChatStatusText.Text = PaRuX.Contracts.CorporateMode.IsActive
