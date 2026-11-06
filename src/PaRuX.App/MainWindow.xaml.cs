@@ -770,6 +770,15 @@ namespace PaRuX
 
         public void ShowChat()
         {
+            // Gaming-only setup must not expose Chat through tray/deep links even
+            // though Chat is the ordinary startup page for the full product.
+            if (SettingsStore.Current.Data.OnboardingCompleted
+                && !IsWorkspaceAllowedForSetup(ChatHomeNavigationPolicy.ChatWorkspaceTag))
+            {
+                ShowStudioWorkspace(StudioWorkspace.Games);
+                GameLibraryPage.OnShown();
+                return;
+            }
             SyncModeTabToWorkspace(gaming: false);
             SetNavPaneVisible(true);
             if (NavView.SelectedItem is NavigationViewItem selectedItem
@@ -835,7 +844,7 @@ namespace PaRuX
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
             SetNavPaneVisible(true);
             ShowChat();
-            // Gaming only lands on the game library instead of Chat; both profiles keep every workspace available.
+            // The setup profile now determines the actual workspace inventory and landing page.
             ApplySetupProfile();
             // Queued rather than called inline: the tour points at sidebar controls, and they need
             // to be laid out on screen before a TeachingTip can position itself against them.
