@@ -277,21 +277,34 @@ namespace PaRuX.Views
             // Non-modal "Tuning for your PC" status: the running job, or the latest result for a few minutes (text and media).
             outer.Children.Add(new ModelTuningStatusControl(ModelTuningStatusControl.Mode.Hub));
 
-            var searchRow = new Grid { ColumnSpacing = 8 };
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // Keep search readable on 13-inch screens, at 150/200% scaling and with the sidebar
+            // open: a full-width input followed by a compact actions row, never four cramped columns.
+            var searchRow = new StackPanel { Spacing = 8 };
+            _search.PlaceholderText = StartItalian
+                ? "Cerca un modello GGUF o inserisci utente/repository"
+                : "Search GGUF models or enter owner/repository";
+            _search.MinHeight = 44;
+            _search.HorizontalAlignment = HorizontalAlignment.Stretch;
             AutomationProperties.SetAutomationId(_search, "ModelHub_Search_TextBox");
-            Grid.SetColumn(_search, 0); searchRow.Children.Add(_search);
+            _search.KeyDown += async (_, e) =>
+            {
+                if (e.Key != Windows.System.VirtualKey.Enter) return;
+                e.Handled = true;
+                await SearchAsync();
+            };
+            searchRow.Children.Add(_search);
+
+            var searchActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            _category.MinWidth = 132;
+            _category.MinHeight = 44;
             AutomationProperties.SetAutomationId(_category, "ModelHub_Category_ComboBox");
             AutomationProperties.SetName(_category, "Model category");
-            Grid.SetColumn(_category, 1); searchRow.Children.Add(_category);
-            var searchButton = new Button { Content = "Search" };
+            searchActions.Children.Add(_category);
+            var searchButton = new Button { Content = StartItalian ? "Cerca" : "Search", MinHeight = 44, MinWidth = 80 };
             AutomationProperties.SetAutomationId(searchButton, "ModelHub_Search_Button");
             searchButton.Click += async (_, _) => await SearchAsync();
-            Grid.SetColumn(searchButton, 2); searchRow.Children.Add(searchButton);
-            var refreshButton = new Button { Content = "Refresh" };
+            searchActions.Children.Add(searchButton);
+            var refreshButton = new Button { Content = StartItalian ? "Aggiorna" : "Refresh", MinHeight = 44, MinWidth = 80 };
             AutomationProperties.SetAutomationId(refreshButton, "ModelHub_Refresh_Button");
             refreshButton.Click += async (_, _) =>
             {
@@ -299,7 +312,8 @@ namespace PaRuX.Views
                 InvalidateExplicitDiscovery();
                 await RefreshAllAsync();
             };
-            Grid.SetColumn(refreshButton, 3); searchRow.Children.Add(refreshButton);
+            searchActions.Children.Add(refreshButton);
+            searchRow.Children.Add(searchActions);
             body.Children.Add(searchRow);
             AutomationProperties.SetAutomationId(_discoveryRefreshStatus,
                 "ModelHub_DiscoveryRefresh_Status_Text");
@@ -718,6 +732,7 @@ namespace PaRuX.Views
 
         public void ApplyInterfaceMode(bool advanced)
         {
+            bool becameAdvanced = advanced && !_isAdvancedMode;
             _isAdvancedMode = advanced;
             RenderSuggestions();
             if (_recommendedTitle != null)
@@ -735,6 +750,10 @@ namespace PaRuX.Views
             if (_candidatesSection != null) _candidatesSection.Visibility = advancedVisibility;
 
             ReorderSections(advanced);
+            // The simple home defers heavy candidate/evaluation queries. Fetch them only
+            // when the user actually opens the Advanced surface.
+            if (becameAdvanced && IsLoaded && Visibility == Visibility.Visible)
+                _ = RefreshAllAsync();
         }
 
         private void ReorderSections(bool advanced)
@@ -842,9 +861,15 @@ namespace PaRuX.Views
                 Task<RuntimeManagerHardwareStatus?> hardwareTask = TryGetHardwareAsync(ct);
                 Task<AiStorageBudgetStatus?> storageBudgetTask = TryGetStorageBudgetAsync(ct);
                 Task<ModelDiscoveryCatalog?> discoveryTask = TryGetDiscoveryCatalogAsync(ct);
-                Task<List<CandidateEvaluationJobStatus>?> candidateJobHistoryTask = TryGetCandidateJobHistoryAsync(ct);
-                Task<CandidateUtilityPolicyStatus?> candidateUtilityPolicyTask = TryGetCandidateUtilityPolicyAsync(ct);
-                Task<CandidateRecommendationStatusResponse?> recommendationStatusTask = TryGetRecommendationStatusAsync(ct);
+                Task<List<CandidateEvaluationJobStatus>?> candidateJobHistoryTask = _isAdvancedMode
+                    ? TryGetCandidateJobHistoryAsync(ct)
+                    : Task.FromResult<List<CandidateEvaluationJobStatus>?>(null);
+                Task<CandidateUtilityPolicyStatus?> candidateUtilityPolicyTask = _isAdvancedMode
+                    ? TryGetCandidateUtilityPolicyAsync(ct)
+                    : Task.FromResult<CandidateUtilityPolicyStatus?>(null);
+                Task<CandidateRecommendationStatusResponse?> recommendationStatusTask = _isAdvancedMode
+                    ? TryGetRecommendationStatusAsync(ct)
+                    : Task.FromResult<CandidateRecommendationStatusResponse?>(null);
                 Task<List<ManagedModelInfo>?> incompleteSetsTask = TryGetIncompleteSplitSetsAsync(ct);
                 Task<SuggestionFeedStatusDto?> maintenanceTask = TryGetMaintenanceStatusAsync(ct);
                 await Task.WhenAll(maintenanceTask, recommendedTask, downloadsTask, installedTask, mediaTask, mediaRecommendedTask, mediaCatalogueTask,
@@ -859,7 +884,7 @@ namespace PaRuX.Views
                     ReconcileCandidateJobHistory(candidateJobHistory);
                     _candidateJobHistoryRefreshFailed = false;
                 }
-                else _candidateJobHistoryRefreshFailed = true;
+                else _candidateJobHistoryRefreshFailed = _isAdvancedMode;
 
                 _hardware = hardwareTask.Result;
                 _storageBudget = storageBudgetTask.Result;
@@ -4000,7 +4025,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 if (IsCurrentSearch(generation, ct, expectedRefreshGeneration))
-                    _status.Text = "Search failed: " + ex.Message;
+                    _status.Text = UserFailureRecoveryMapper.Map(ex, "Model search failed").FormatStatusLine();
             }
             finally
             {
