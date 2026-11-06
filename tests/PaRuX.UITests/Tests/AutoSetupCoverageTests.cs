@@ -89,7 +89,7 @@ public sealed class AutoSetupCoverageTests
             UiWait.ById(app.MainWindow, "Onboarding_ManualSetup_Expander");
             // Readiness and the final action must remain accessible outside the technical panel.
             UiWait.ById(app.MainWindow, "Onboarding_VerifyLocalChat_Button", ControlType.Button);
-            AutomationElement? start = app.MainWindow.FindFirstDescendant(cf => cf.ByName("Get Started").And(cf.ByControlType(ControlType.Button)));
-            Assert.NotNull(start);
+            AutomationElement start = UiWait.ById(app.MainWindow, "Onboarding_GetStarted_Button", ControlType.Button);
+            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
         });
 }
