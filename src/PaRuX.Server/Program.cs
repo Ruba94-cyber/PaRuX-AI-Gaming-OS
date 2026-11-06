@@ -2970,7 +2970,8 @@ static ModelRoleStatus DescribeTextRole(string role, string? activeRole, Runtime
         OverrideOriginReason = overrideOrigin == RoleOverrideOrigin.UnknownLegacy
             ? RoleOverrideOrigin.UnknownLegacyReason
             : null,
-        FileExists = modelPath != null && File.Exists(modelPath), HasVisionSupport = modelPath != null && !overridden,
+        FileExists = modelPath != null && File.Exists(modelPath),
+        HasVisionSupport = !CorporateMode.IsActive && modelPath != null && !overridden,
         IsActive = isActive
     };
 
