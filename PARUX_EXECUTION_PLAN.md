@@ -1,3 +1,5 @@
+Additional source reliability improvement: `ModelDownloadService.ImportManagedModel` now writes model copies into unique non-GGUF staging files and atomically promotes them only on successful byte-count verification, with exception cleanup and regression assertions. Disk-full/power-loss real-PC validation remains open.
+
 ### 2026-11-06 — Corporate Lite dynamic GGUF models + preloaded CPU runtime (SOURCE IMPLEMENTED / WINDOWS UNVERIFIED)
 
 Owner requirement: Corporate Portable must retain the **pre-bundled CPU llama.cpp runtime** but permit adding/changing local models and, when explicitly authorised by company IT, downloading new GGUF models. It is **offline by default**, local inference only; no mandatory admin rights, MSI, Python, cloud inference, Gaming or media.
