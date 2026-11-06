@@ -121,7 +121,8 @@ public sealed class AdaptiveWorkspaceUiContractTests
     {
         string source = File.ReadAllText(SourcePath("OnboardingView.SetupProfile.cs"));
         Assert.Contains("if (!result.Success || result.EffectiveProfile != SetupProfile.GamingOnly)", source, StringComparison.Ordinal);
-        Assert.Contains("if (_setupProfileInitialising || _setupProfileSwitchBusy) return;", source, StringComparison.Ordinal);
+        Assert.Contains("if (_setupProfileInitialising || _setupProfileSwitchBusy", source, StringComparison.Ordinal);
+        Assert.Contains("|| PaRuX.Contracts.CorporateMode.IsActive) return;", source, StringComparison.Ordinal);
         Assert.Contains("SetupProfileChoice.IsEnabled = false;", source, StringComparison.Ordinal);
         Assert.Contains("Mode change failed; previous mode retained.", source, StringComparison.Ordinal);
     }
