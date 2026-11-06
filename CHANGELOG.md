@@ -1,3 +1,8 @@
+## 4.0.1 (signed with the owner's local certificates)
+
+- Patch over 4.0.0 with three product fixes found by live FlaUI verification of setup profiles, "Use for" roles, document skills and secure delete (see commit 4c6eff2), plus new regression coverage (SetupProfilePolicy, RoleProfilePanel, SetupProfileRuntime, DocumentSkillsAndRagWipe).
+- Known limits unchanged from 4.0.0 (docs/RELEASE_CANDIDATE_4.0.0.md): MSI lifecycle not run elevated, no physical Android device, Corporate Lite not measured on 8 GB, physical-hardware paths unverified.
+
 ## 4.0.0 (release candidate, unsigned, unpublished)
 
 - Major release: Gaming engine (library, torrents, mods/asset studio, suspend/controller policies), Local Knowledge & Search, Corporate Lite portable, Codex-class selective per-hunk coding review, run-time AI/Gaming/Both transitions.
