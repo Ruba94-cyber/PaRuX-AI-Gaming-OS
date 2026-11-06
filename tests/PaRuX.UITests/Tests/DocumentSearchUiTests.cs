@@ -153,6 +153,31 @@ public sealed class DocumentSearchUiTests
         Assert.DoesNotContain(AllText(app), t => t.Contains("maintenance.md"));
     });
 
+    [Fact, Trait("Category", "DocSearch"), Trait("Category", "Chat")]
+    public void Corporate_chat_can_filter_document_folders_and_last_deselection_disables_scope() => Run(
+        nameof(Corporate_chat_can_filter_document_folders_and_last_deselection_disables_scope), (app, core, folder) =>
+    {
+        string id = core.AddFolder(folder);
+        var main = new MainWindowPage(app.MainWindow);
+        main.Click("Navigation_Chat_Item", ControlType.ListItem);
+        UiWait.ById(app.MainWindow, "Chat_Documents_Button", ControlType.Button).AsButton().Invoke();
+        var filter = UiWait.ById(app.MainWindow, "Chat_Documents_SourceFilter_TextBox", ControlType.Edit).AsTextBox();
+        filter.Text = "a-folder-that-does-not-exist";
+        UiWait.For(() => AllText(app).Any(t => t.Contains("No matching folder") || t.Contains("Nessuna cartella corrispondente")),
+            "no-match source filter");
+        filter.Text = Path.GetFileName(folder);
+        var selectedFolder = UiWait.ById(app.MainWindow, "Chat_Documents_Source_" + id, ControlType.CheckBox);
+        var master = UiWait.ById(app.MainWindow, "Chat_Documents_Switch", ControlType.Button);
+        if (master.Patterns.Toggle.Pattern.ToggleState.Value != ToggleState.On)
+            master.Patterns.Toggle.Pattern.Toggle();
+        if (selectedFolder.Patterns.Toggle.Pattern.ToggleState.Value != ToggleState.On)
+            selectedFolder.Patterns.Toggle.Pattern.Toggle();
+        Assert.Equal(ToggleState.On, master.Patterns.Toggle.Pattern.ToggleState.Value);
+        selectedFolder.Patterns.Toggle.Pattern.Toggle();
+        UiWait.For(() => master.Patterns.Toggle.Pattern.ToggleState.Value == ToggleState.Off,
+            "document mode disabled when the last folder is deselected");
+    });
+
     [Fact, Trait("Category", "DocSearch")]
     public void Settings_rag_card_shows_index_status_ocr_off_by_default_profile_and_strict_offline() => Run(
         nameof(Settings_rag_card_shows_index_status_ocr_off_by_default_profile_and_strict_offline), (app, core, folder) =>
