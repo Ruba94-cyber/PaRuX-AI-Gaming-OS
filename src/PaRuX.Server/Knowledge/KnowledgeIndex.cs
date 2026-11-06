@@ -831,7 +831,8 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
         IReadOnlyCollection<string>? sourceIds = null)
     {
         EnsureSchema();
-        if (string.IsNullOrWhiteSpace(query)) return Array.Empty<KnowledgeHit>();
+        if (string.IsNullOrWhiteSpace(query) || sourceIds is { Count: 0 })
+            return Array.Empty<KnowledgeHit>();
         IReadOnlyList<string> exactTerms = ExactTerms(query);
         bool semanticPossible = _embedder is { IsAvailable: true };
 
@@ -921,7 +922,9 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
         {
             using SqliteConnection c = Open();
             using SqliteCommand cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id, embedding FROM kn_chunks WHERE embedding IS NOT NULL;";
+            cmd.CommandText = @"SELECT k.id, k.embedding FROM kn_chunks k
+JOIN kn_files f ON f.id=k.file_id WHERE k.embedding IS NOT NULL"
+                + AppendSourceRestriction(cmd, sources, "f") + ";";
             using SqliteDataReader r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -957,6 +960,21 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
         try
         {
             using SqliteCommand cmd = c.CreateCommand();
+            if (sources != null)
+            {
+                string table = sql.Contains("FROM kn_tri ", StringComparison.Ordinal)
+                    ? "kn_tri" : "kn_fts";
+                // FTS LIMIT must be applied AFTER folder scoping, otherwise
+                // thousands of unrelated chunks from other folders can crowd
+                // out an exact DID/DTC result in the selected source.
+                sql = sql.Replace("SELECT rowid,", "SELECT " + table + ".rowid,", StringComparison.Ordinal)
+                    .Replace("FROM " + table + " WHERE",
+                        "FROM " + table + " JOIN kn_chunks kscope ON kscope.id=" + table
+                        + ".rowid JOIN kn_files fscope ON fscope.id=kscope.file_id WHERE",
+                        StringComparison.Ordinal);
+                string where = AppendSourceRestriction(cmd, sources, "fscope");
+                sql = sql.Replace(" ORDER BY 2", where + " ORDER BY 2", StringComparison.Ordinal);
+            }
             cmd.CommandText = sql;
             cmd.Parameters.AddWithValue("$q", match); cmd.Parameters.AddWithValue("$n", limit);
             using SqliteDataReader r = cmd.ExecuteReader();
@@ -970,12 +988,32 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
     private void CollectScan(SqliteConnection c, string term, int limit, IReadOnlyCollection<string>? sources, Dictionary<long, KnowledgeHit> hits)
     {
         using SqliteCommand cmd = c.CreateCommand();
-        cmd.CommandText = "SELECT id FROM kn_chunks WHERE text LIKE $q ESCAPE '\\' LIMIT $n;";
+        cmd.CommandText = "SELECT k.id FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id "
+            + "WHERE k.text LIKE $q ESCAPE '\\'"
+            + AppendSourceRestriction(cmd, sources, "f") + " LIMIT $n;";
         cmd.Parameters.AddWithValue("$q", "%" + term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
         cmd.Parameters.AddWithValue("$n", limit);
         var ids = new List<long>();
         using (SqliteDataReader r = cmd.ExecuteReader()) while (r.Read()) ids.Add(r.GetInt64(0));
         foreach (long id in ids) Hydrate(c, id, 1.0, "exact", sources, hits);
+    }
+
+    private static string AppendSourceRestriction(
+        SqliteCommand command, IReadOnlyCollection<string>? sources, string fileAlias)
+    {
+        if (sources == null) return string.Empty;
+        string[] ids = sources.Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal).ToArray();
+        if (ids.Length == 0) return " AND 1=0";
+        if (ids.Length > 900)
+            throw new InvalidDataException("More than 900 source folders were selected; narrow the scope.");
+        var placeholders = new string[ids.Length];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            placeholders[i] = "$scope" + i;
+            command.Parameters.AddWithValue(placeholders[i], ids[i]);
+        }
+        return " AND " + fileAlias + ".source_id IN (" + string.Join(",", placeholders) + ")";
     }
 
     private void Hydrate(SqliteConnection c, long chunkId, double score, string label, IReadOnlyCollection<string>? sources, Dictionary<long, KnowledgeHit> hits)
