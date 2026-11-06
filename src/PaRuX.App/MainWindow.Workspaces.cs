@@ -189,6 +189,10 @@ namespace PaRuX
 
         private bool TryNavigateWorkspace(string tag)
         {
+            // A link, keyboard action or UIA invoke must obey the SAME profile as the
+            // sidebar. Visibility is not a sufficient access boundary: a hidden item
+            // or old deep link could otherwise open a different product surface.
+            if (!IsWorkspaceAllowedForSetup(tag)) return true;
             switch (tag)
             {
                 case "__games__":
@@ -255,6 +259,8 @@ namespace PaRuX
 
         private void ShowStudioWorkspace(StudioWorkspace workspace)
         {
+            if (!IsWorkspaceAllowedForSetup(NavigationItemFor(workspace).Tag as string))
+                return;
             if (workspace == StudioWorkspace.Chat)
             {
                 ShowChat();
@@ -284,6 +290,50 @@ namespace PaRuX
                 case StudioWorkspace.Games: GameLibraryPage.Visibility = Visibility.Visible; break;
                 case StudioWorkspace.DocumentSearch: DocumentSearchPage.Visibility = Visibility.Visible; break;
             }
+        }
+
+        private bool IsWorkspaceAllowedForSetup(string? tag) =>
+            WorkspaceNavigationOrder.CanOpenWorkspace(tag,
+                SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId),
+                CorporateMode.IsActive);
+
+        /// <summary>If the user switches from Both to AI-only or Gaming-only while on
+        /// an incompatible page, leave that page immediately. Also repairs the active
+        /// page after restart or restored deep links. Never switches away from first-run setup.</summary>
+        private void EnsureWorkspaceFitsSetupProfile()
+        {
+            if (OnboardingPage.Visibility == Visibility.Visible) return;
+            string? activeTag = ActiveWorkspaceTag();
+            if (activeTag == null || IsWorkspaceAllowedForSetup(activeTag)) return;
+
+            if (CurrentSetupPlan.StartInGamingTab)
+            {
+                ShowStudioWorkspace(StudioWorkspace.Games);
+                GameLibraryPage.OnShown();
+            }
+            else
+            {
+                ShowChat();
+            }
+        }
+
+        private string? ActiveWorkspaceTag()
+        {
+            if (GameLibraryPage.Visibility == Visibility.Visible) return "__games__";
+            if (CreatePage.Visibility == Visibility.Visible) return "__create__";
+            if (ProjectsPage.Visibility == Visibility.Visible) return "__projects__";
+            if (ModelHubPage.Visibility == Visibility.Visible) return "__modelhub__";
+            if (DocumentSearchPage.Visibility == Visibility.Visible) return "__documents__";
+            if (ModelRoutingPage.Visibility == Visibility.Visible) return "__modelrouting__";
+            if (LifecycleLabPage.Visibility == Visibility.Visible) return "__lifecycle__";
+            if (WorkflowPage.Visibility == Visibility.Visible) return "__workflows__";
+            if (ToolsAutomationPage.Visibility == Visibility.Visible) return "__tools__";
+            if (ObservabilityPage.Visibility == Visibility.Visible) return "__observability__";
+            if (UpdateManagerPage.Visibility == Visibility.Visible) return "__updates__";
+            if (RuntimeManagerPage.Visibility == Visibility.Visible) return "__runtime__";
+            if (ChatPage.Visibility == Visibility.Visible) return "__chat__";
+            if (SettingsPage.Visibility == Visibility.Visible) return "__settings__";
+            return null;
         }
 
         private void SelectWorkspaceNavigationItem(NavigationViewItem? selected)
