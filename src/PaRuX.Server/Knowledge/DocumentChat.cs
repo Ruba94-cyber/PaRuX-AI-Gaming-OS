@@ -78,6 +78,13 @@ public static class DocumentChatPlanner
         hits = hits.Where(IsSourceEvidence).ToList();
         if (hits.Count == 0) return false;
         IReadOnlyList<string> exact = KnowledgeIndex.ExactTerms(query);
+        // A comparison or multi-ID lookup must not be declared supported
+        // just because ONE of the requested codes appeared somewhere.
+        // Do not infer a missing invoice, revision, part or DID from the
+        // existence of another exact match in the same source collection.
+        if (exact.Count > 1 && exact.Any(term => !hits.Any(h =>
+                h.Match == "exact" && h.Text.Contains(term, StringComparison.OrdinalIgnoreCase))))
+            return false;
         if (exact.Count > 0 && hits.Any(h => h.Match == "exact")) return true;
         IReadOnlyList<string> terms = ContentTerms(query);
         if (terms.Count == 0) return false;
