@@ -165,10 +165,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     val toSend = composerText
                     val image = pendingImage
                     val (skillId, stripped) = viewModel.parseSlashCommand(toSend.trimStart())
-                    composerText = ""
-                    pendingImage = null
-                    if (skillId != null) viewModel.sendMessage(stripped, image, skillId)
-                    else viewModel.sendMessage(toSend, image)
+                    val accepted = if (skillId != null) viewModel.sendMessage(stripped, image, skillId)
+                        else viewModel.sendMessage(toSend, image)
+                    if (accepted) {
+                        composerText = ""
+                        pendingImage = null
+                    }
                 },
                 onStop = viewModel::stopGeneration
             )
