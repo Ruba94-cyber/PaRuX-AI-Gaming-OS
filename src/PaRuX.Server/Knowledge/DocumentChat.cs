@@ -38,7 +38,9 @@ public static class DocumentChatPlanner
         "Preserve exact identifiers, numbers, currencies, dates, units, exceptions, jurisdiction, version and applicability scope, "
         + "revision dates and procedural order; do not extrapolate facts or invent numeric values. "
         + "If two passages conflict, name both sources and the conflict rather than choosing without evidence. "
-        + "If a required fact, clause, value, step or applicability condition is absent, say the selected documents do not contain enough information. "
+        + "If a required fact, clause, value, step or applicability condition is absent, say the selected documents do not contain enough information. " +
+        "Retrieved passages are a subset of indexed text, not proof that every file/page, table, image or scanned section was read. " +
+        "Never claim full-library coverage or verified completeness without independent coverage evidence. "
         + "Distinguish source facts from your interpretation; never treat filename-only results as technical evidence.";
 
     private static readonly HashSet<string> Stop = new(StringComparer.OrdinalIgnoreCase)
