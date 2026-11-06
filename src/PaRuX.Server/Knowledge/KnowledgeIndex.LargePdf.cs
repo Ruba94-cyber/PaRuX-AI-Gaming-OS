@@ -140,7 +140,7 @@ WHERE source_id=$s AND path=$p;";
         string sourceId, string path, FileInfo info, long ticks, string hash,
         long? duplicateOf, long? existingId, IndexControl? control,
         IProgress<IndexProgress>? progress, Func<string, string?, IndexProgress> snap,
-        ExtractionLimits limits, CancellationToken ct)
+        ExtractionLimits limits, bool ocrMode, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using PdfDocument pdf = PdfDocument.Open(path);
@@ -242,13 +242,13 @@ WHERE source_id=$s AND path=$p;";
                 throw new InvalidDataException("PDF changed during indexing. Restart to discard stale page checkpoints.");
         }
         ct.ThrowIfCancellationRequested();
-        PromotePdf(sourceId, path, info, ticks, hash, duplicateOf, existingId, state, totalPages, ct);
+        PromotePdf(sourceId, path, info, ticks, hash, duplicateOf, existingId, state, totalPages, ocrMode, ct);
         return new LargePdfIndexResult(totalPages, state.EmptyPages);
     }
 
     private void PromotePdf(string sourceId, string path, FileInfo info, long ticks,
         string hash, long? duplicateOf, long? existingId, PdfCheckpoint state,
-        int totalPages, CancellationToken ct)
+        int totalPages, bool ocrMode, CancellationToken ct)
     {
         lock (_gate)
         {
@@ -273,8 +273,8 @@ WHERE source_id=$s AND path=$p;";
             using SqliteCommand insertFile = db.CreateCommand();
             insertFile.Transaction = tx;
             insertFile.CommandText = @"INSERT INTO kn_files
-(source_id,path,name,size,mtime_ticks,hash,tier,extractor,note,duplicate_of,indexed_utc)
-VALUES($s,$p,$n,$z,$m,$h,$t,'pdf-paged',$o,$d,$u);
+(source_id,path,name,size,mtime_ticks,hash,tier,extractor,note,duplicate_of,indexed_utc,ocr_mode)
+VALUES($s,$p,$n,$z,$m,$h,$t,'pdf-paged',$o,$d,$u,$ocr);
 SELECT last_insert_rowid();";
             insertFile.Parameters.AddWithValue("$s", sourceId);
             insertFile.Parameters.AddWithValue("$p", path);
@@ -286,6 +286,7 @@ SELECT last_insert_rowid();";
             insertFile.Parameters.AddWithValue("$o", note);
             insertFile.Parameters.AddWithValue("$d", (object?)duplicateOf ?? DBNull.Value);
             insertFile.Parameters.AddWithValue("$u", DateTime.UtcNow.ToString("O"));
+            insertFile.Parameters.AddWithValue("$ocr", ocrMode ? 1 : 0);
             long fileId = (long)insertFile.ExecuteScalar()!;
             int ord = 0;
             InsertPdfIndexedChunk(db, tx, fileId, ord++, "File: " + Path.GetFileName(path),
