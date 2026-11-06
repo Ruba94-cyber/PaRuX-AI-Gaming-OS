@@ -43,6 +43,8 @@ public sealed class KnowledgeIndexOptions
     /// <summary>Embed chunks at index time when an embedding provider is available (semantic search needs them).</summary>
     public bool EmbedChunks { get; init; } = true;
     public int EmbedBatchSize { get; init; } = 16;
+    /// <summary>PDFs at/above this page count use crash-resumable page batches instead of accumulating the whole document in RAM.</summary>
+    public int LargePdfPageThreshold { get; init; } = 512;
     /// <summary>Pause between files so indexing stays light on small PCs (0 = none).</summary>
     public int ThrottleMilliseconds { get; init; }
     public ExtractionLimits Limits { get; init; } = ExtractionLimits.Default;
@@ -71,7 +73,7 @@ public sealed class IndexControl
 /// It never needs a generative model; embeddings are optional and only add semantic ranking. Documents are only read.
 /// The text is stored once (kn_chunks); both FTS tables are external-content views of it.
 /// </summary>
-public sealed class KnowledgeIndex : IDisposable
+public sealed partial class KnowledgeIndex : IDisposable
 {
     private readonly string _dbPath;
     private volatile KnowledgeIndexOptions _options;
@@ -121,7 +123,16 @@ CREATE TABLE IF NOT EXISTS kn_chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT, file_id INTEGER NOT NULL, ord INTEGER NOT NULL, text TEXT NOT NULL, heading TEXT,
     page INTEGER, sheet TEXT, cell_range TEXT, slide INTEGER, char_offset INTEGER NOT NULL DEFAULT 0, embedding BLOB);
 CREATE INDEX IF NOT EXISTS ix_kn_chunks_file ON kn_chunks(file_id);
-CREATE TABLE IF NOT EXISTS kn_problems (source_id TEXT NOT NULL, rel_path TEXT NOT NULL, kind TEXT NOT NULL, reason TEXT NOT NULL);");
+CREATE TABLE IF NOT EXISTS kn_problems (source_id TEXT NOT NULL, rel_path TEXT NOT NULL, kind TEXT NOT NULL, reason TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS kn_pdf_progress (
+    source_id TEXT NOT NULL, path TEXT NOT NULL, hash TEXT NOT NULL, total_pages INTEGER NOT NULL,
+    next_page INTEGER NOT NULL, next_ord INTEGER NOT NULL, empty_pages INTEGER NOT NULL,
+    PRIMARY KEY(source_id,path));
+CREATE TABLE IF NOT EXISTS kn_pdf_staging (
+    source_id TEXT NOT NULL, path TEXT NOT NULL, ord INTEGER NOT NULL, text TEXT NOT NULL,
+    page INTEGER NOT NULL, char_offset INTEGER NOT NULL, embedding BLOB,
+    PRIMARY KEY(source_id,path,ord));
+CREATE INDEX IF NOT EXISTS ix_kn_pdf_stage_source ON kn_pdf_staging(source_id,path);");
             try
             {
                 Exec(c, @"
@@ -193,7 +204,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             FileInfo info;
             try { info = new FileInfo(file); if (!info.Exists) { skipped++; continue; } }
             catch (Exception) { failed++; AddProblem(sourceId, Rel(root, file), "access", "File is not accessible."); continue; }
-            if (info.Length > maxFileBytes) { skipped++; AddProblem(sourceId, Rel(root, file), "skipped", "Larger than the configured size limit."); continue; }
+            // Large text-layer PDFs use bounded page staging even under the Eco
+            // profile. The 2 GiB hard cap still prevents unbounded structured input.
+            bool largePdf = IsLargePdf(file, info, _options.LargePdfPageThreshold);
+            long admittedFileBytes = largePdf ? Math.Max(maxFileBytes, 2L << 30) : maxFileBytes;
+            if (info.Length > admittedFileBytes) { skipped++; AddProblem(sourceId, Rel(root, file), "skipped", "Larger than the configured size limit."); continue; }
 
             long ticks = info.LastWriteTimeUtc.Ticks;
             (long id, long size, long mtime, string hash)? existing = Lookup(sourceId, file);
@@ -221,6 +236,28 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
                 dupes++;
             }
 
+            if (largePdf)
+            {
+                try
+                {
+                    LargePdfIndexResult result = await LowPriorityRunner.Run(
+                        () => IndexLargePdf(sourceId, file, info, ticks, hash, duplicateOf, existing?.id,
+                            control, progress, Snap, ct), priority, ct).ConfigureAwait(false);
+                    indexed++;
+                    if (result.EmptyPages > 0)
+                        AddProblem(sourceId, Rel(root, file), "partial",
+                            result.EmptyPages + " page(s) have no extracted text; large-PDF OCR is not yet indexed. Do not infer data from these pages.");
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    failed++;
+                    AddProblem(sourceId, Rel(root, file), "failed",
+                        "Large PDF indexing failed: " + ex.GetType().Name
+                        + ". The last checkpoint is retained; retry this source to resume.");
+                }
+                continue;
+            }
             ExtractedDocument doc = await LowPriorityRunner.Run(() => StructuredDocumentExtractor.Extract(file, limits, ct), priority, ct).ConfigureAwait(false);
             if (doc.Tier == DocumentTier.Failed) { failed++; AddProblem(sourceId, Rel(root, file), "failed", doc.Note ?? "Could not be read."); }
             else if (doc.Tier == DocumentTier.MetadataOnly) { metaOnly++; if (doc.Note != null) AddProblem(sourceId, Rel(root, file), "metadata-only", doc.Note); }
@@ -548,6 +585,8 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
             }
             foreach (long id in ids) DeleteFile(c, id);
             Exec(c, "DELETE FROM kn_problems WHERE source_id=$s;", ("$s", sourceId));
+            Exec(c, "DELETE FROM kn_pdf_staging WHERE source_id=$s;", ("$s", sourceId));
+            Exec(c, "DELETE FROM kn_pdf_progress WHERE source_id=$s;", ("$s", sourceId));
             Scrub(c);
         }
         return new SecureDeletionResult(files, chunks, true, true);
@@ -593,6 +632,8 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
                 Exec(c, "DELETE FROM kn_chunks;");
                 Exec(c, "DELETE FROM kn_files;");
                 Exec(c, "DELETE FROM kn_problems;");
+                Exec(c, "DELETE FROM kn_pdf_staging;");
+                Exec(c, "DELETE FROM kn_pdf_progress;");
                 Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
                 Exec(c, "VACUUM;");
                 Exec(c, "PRAGMA wal_checkpoint(TRUNCATE);");
