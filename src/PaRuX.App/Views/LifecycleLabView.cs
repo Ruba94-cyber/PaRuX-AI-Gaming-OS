@@ -807,26 +807,59 @@ namespace PaRuX.Views
 
         private async Task StartTrainingAsync()
         {
+            // The advanced button shares the same admission latch as Quick Training. A fast
+            // second click must never enqueue a second expensive GPU job.
+            if (_trainingSubmissionInProgress) return;
             string path = (_trainingPath.Text ?? string.Empty).Trim();
             string model = (_baseModel.Text ?? string.Empty).Trim();
             string method = SelectedTag(_trainingMethod) ?? TrainingMethod.Sft;
-            if (path.Length == 0 || model.Length == 0) return;
-            int steps = SafeWholeNumber(_steps.Value, 60);
-            int rank = SafeWholeNumber(_rank.Value, 16);
+            if (path.Length == 0 || model.Length == 0)
+            {
+                _status.Text = "Choose a training dataset and base model before starting.";
+                return;
+            }
+
+            _trainingSubmissionInProgress = true;
+            _quickTrainButton.IsEnabled = false;
+            _startTrainingButton.IsEnabled = false;
             try
             {
+                SyncInteractiveDraft();
+                _status.Text = "Validating advanced training settings…";
+                TrainingPlanResult plan = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
+                {
+                    TrainJsonlPath = path, BaseModel = model, Method = method,
+                    MaxSteps = SafeWholeNumber(_steps.Value, 60),
+                    LoraRank = SafeWholeNumber(_rank.Value, 16),
+                    LearningRate = SafeDouble(_learningRate.Value, 0.0002),
+                    MaxSequenceLength = SafeWholeNumber(_maxSequenceLength.Value, 2048),
+                    GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference
+                }, CancellationToken.None);
+                _lastPlan = plan;
+                RenderPlan(plan);
+                if (!plan.CanStart)
+                {
+                    _status.Text = "Advanced training blocked by preflight; resolve the highlighted issues first.";
+                    return;
+                }
+
                 TrainingJobStatus job = await TrainingLabClient.Current.CreateJobAsync(new TrainingJobRequest
                 {
-                    TrainJsonlPath = path,
-                    BaseModel = model,
-                    Method = method,
-                    MaxSteps = steps,
-                    LoraRank = rank
+                    TrainJsonlPath = path, BaseModel = model, Method = method,
+                    MaxSteps = SafeWholeNumber(_steps.Value, 60),
+                    LoraRank = SafeWholeNumber(_rank.Value, 16)
                 }, CancellationToken.None);
-                _status.Text = "Training job " + job.Id + " queued. Successful output auto-registers in Adapter Manager with provenance.";
+                _status.Text = "Training job " + job.Id
+                    + " queued. Successful output auto-registers in Adapter Manager with provenance.";
                 await RefreshTrainingAsync(CancellationToken.None);
             }
             catch (Exception ex) { _status.Text = "Training start failed: " + ex.Message; }
+            finally
+            {
+                _trainingSubmissionInProgress = false;
+                _quickTrainButton.IsEnabled = true;
+                _startTrainingButton.IsEnabled = true;
+            }
         }
 
         private async Task RefreshAdaptersAsync(CancellationToken ct)
