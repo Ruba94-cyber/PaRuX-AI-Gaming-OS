@@ -135,7 +135,7 @@ namespace PaRuX.Services
         public IReadOnlyList<string> UnprovenItems { get; private set; } = Array.Empty<string>();
 
         /// <summary>
-        /// True if the bundled baseline Vulkan text runtime is detected, providing a working text path with 0 B runtime download.
+        /// True if a bundled text runtime is detected (Vulkan for the standard app or CPU for Corporate), requiring no runtime download.
         /// </summary>
         public bool HasBundledTextRuntime =>
             _components.Any(c => (string.Equals(c.Id, "llama-server-vulkan", StringComparison.OrdinalIgnoreCase)
@@ -452,9 +452,13 @@ namespace PaRuX.Services
                 return CurrentReadiness;
             }
 
-            string runtimeDesc = HasBundledTextRuntime
-                ? "bundled local text runtime (Vulkan) is healthy and ready without extra download"
-                : "local text runtime is healthy";
+            bool bundledCpu = _components.Any(c =>
+                string.Equals(c.Id, "llama-server-cpu", StringComparison.OrdinalIgnoreCase) && c.Detected);
+            string runtimeDesc = bundledCpu
+                ? "bundled local CPU text runtime is healthy and ready without extra download"
+                : HasBundledTextRuntime
+                    ? "bundled local text runtime (Vulkan) is healthy and ready without extra download"
+                    : "local text runtime is healthy";
             string summary = "Chat is fully configured: " + runtimeDesc + ", model is available ("
                 + (evidence.ModelSummary ?? "active") + "), and chat health probe passed.";
             CurrentReadiness = ReadinessAssessment.Ready(summary);
