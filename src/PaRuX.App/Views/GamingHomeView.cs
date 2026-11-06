@@ -503,6 +503,9 @@ internal sealed class GamingHomeView : StackPanel
     /// </summary>
     private async Task ShowLocalGameGuideAsync()
     {
+        if (!SetupProfilePolicy.Plan(
+            SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId)).StartLocalAi)
+            return;
         _localGuide.IsEnabled = false;
         try
         {
@@ -982,7 +985,12 @@ internal sealed class GamingHomeView : StackPanel
             T("Open local AI texture and asset mod studio for compatible games",
               "Apri lo studio mod texture e asset IA locale per giochi compatibili"));
         _gameAssetStudio.Click += async (_, _) =>
+        {
+            if (!SetupProfilePolicy.Plan(
+                SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId)).StartLocalAi)
+                return;
             await GameAssetModStudioDialog.ShowAsync(XamlRoot);
+        };
         Children.Add(quickRow);
         // A first-class gaming-home workspace, not restricted to Minecraft or
         // requiring a paused game/process. Kept off the tight Quick Resume row.
@@ -1089,6 +1097,7 @@ internal sealed class GamingHomeView : StackPanel
         Children.Add(_quickResume);
         XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Enabled;
         SetConsolePresentation(false);
+        ApplySetupProfilePresentation();
     }
 
     private void WireGrid(GameTileGrid grid)
@@ -1226,9 +1235,23 @@ internal sealed class GamingHomeView : StackPanel
 
     /// <summary>Refresh once when the Gaming workspace returns, without forcing
     /// an expensive store rediscovery or duplicating a pending load.</summary>
-    internal Task RefreshWhenShownAsync() =>
-        _cancellation == null || _cancellation.IsCancellationRequested
+    internal Task RefreshWhenShownAsync()
+    {
+        ApplySetupProfilePresentation();
+        return _cancellation == null || _cancellation.IsCancellationRequested
             ? ReloadAsync(refresh: false) : Task.CompletedTask;
+    }
+
+    /// <summary>AI-dependent tools must not be offered as if usable in the
+    /// Gaming-only installation (no language model is started). Keep installed
+    /// mod management: it works with existing files without AI inference.</summary>
+    internal void ApplySetupProfilePresentation()
+    {
+        bool aiEnabled = SetupProfilePolicy.Plan(
+            SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId)).StartLocalAi;
+        _localGuide.Visibility = aiEnabled ? Visibility.Visible : Visibility.Collapsed;
+        _gameAssetStudio.Visibility = aiEnabled ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <summary>Stop pending title searches, typing debounce and delayed
     /// retry callbacks on workspace exit. Existing tiles remain intact until
