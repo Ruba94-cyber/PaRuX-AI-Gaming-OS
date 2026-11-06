@@ -2837,7 +2837,7 @@ app.MapGet("/api/v1/models/downloads/{id}", (string id, ModelDownloadService mod
 app.MapPost("/api/v1/models/downloads", async (ModelDownloadRequest request, ModelDownloadService models, CancellationToken ct) =>
 {
     if (PaRuX.Contracts.CorporateMode.IsActive
-        && !CorporateModelDownloadPolicy.IsTextGgufRequest(request))
+        && !CorporateModelDownloadPolicy.IsTextGgufRequest(request, id => models.Get(id)?.FileName))
         return Results.BadRequest(new { error = "Corporate Lite accepts only explicitly selected GGUF text model downloads." });
     try { return Results.Ok(await models.CreateDownloadAsync(request, ct)); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
