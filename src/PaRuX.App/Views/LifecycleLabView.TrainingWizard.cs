@@ -390,7 +390,7 @@ namespace PaRuX.Views
             _startTrainingButton.IsEnabled = false;
             try
             {
-                _status.Text = "Quick training: checking the local training runtime and dataset…";
+                _status.Text = "Quick training: checking runtime, every dataset row and SHA-256 identity…";
                 TrainingEngineStatus engine = await TrainingLabClient.Current
                     .GetEngineStatusAsync(CancellationToken.None);
                 if (!engine.Ready)
@@ -441,16 +441,14 @@ namespace PaRuX.Views
                 {
                     TrainJsonlPath = path, BaseModel = model, Method = profile.Method,
                     LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
-                    LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength
+                    LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength,
+                    ValidateEntireDataset = true
                 }, CancellationToken.None);
                 _lastPlan = checkedRun;
                 RenderPlan(checkedRun);
-                int validMethodRecords = profile.Method == TrainingMethod.Dpo
-                    ? checkedRun.DatasetValidPreferenceRecords
-                    : checkedRun.DatasetValidChatRecords;
-                string? refusal = QuickTrainingPolicy.Refusal(
-                    checkedRun.CanStart, checkedRun.DatasetExamples, validMethodRecords,
-                    checkedRun.DatasetUnparseableLines, checkedRun.DatasetSampleTruncated);
+                string? refusal = QuickTrainingPolicy.RefusalAfterFullVerification(
+                    checkedRun.CanStart, checkedRun.DatasetFullyValidated,
+                    checkedRun.DatasetVerifiedRecords, checkedRun.DatasetSha256);
                 if (refusal != null)
                 {
                     _status.Text = "Quick training blocked: " + refusal;
@@ -462,19 +460,22 @@ namespace PaRuX.Views
                     .Take(5)
                     .Select(finding => "• " + finding.Message)
                     .ToArray();
-                if (warnings.Length > 0)
+                // Every Quick run requires an explicit final consent after checking
+                // ALL records. The original quick-button click only starts preflight.
                 {
                     var confirmation = new ContentDialog
                     {
-                        Title = "Review quick fine-tune warnings",
+                        Title = "Confirm local Quick Training",
                         Content = new TextBlock
                         {
                             Text = "Method " + profile.Method.ToUpperInvariant()
                                 + " · rank " + profile.LoraRank
                                 + " · " + profile.MaxSteps + " steps"
                                 + " · sequence " + profile.MaxSequenceLength
-                                + "\n\n" + string.Join("\n", warnings)
-                                + "\n\nStart this local GPU job anyway?",
+                                + "\nVerified " + checkedRun.DatasetVerifiedRecords.ToString("N0")
+                                + " records · SHA-256 " + checkedRun.DatasetSha256![..12] + "…"
+                                + (warnings.Length > 0 ? "\n\nWarnings:\n" + string.Join("\n", warnings) : "")
+                                + "\n\nStart this local GPU job?",
                             TextWrapping = TextWrapping.Wrap
                         },
                         PrimaryButtonText = "Start local training",
@@ -495,6 +496,7 @@ namespace PaRuX.Views
                     new TrainingJobRequest
                     {
                         TrainJsonlPath = path, BaseModel = model, Method = profile.Method,
+                        ExpectedDatasetSha256 = checkedRun.DatasetSha256,
                         LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
                         LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength
                     }, CancellationToken.None);
