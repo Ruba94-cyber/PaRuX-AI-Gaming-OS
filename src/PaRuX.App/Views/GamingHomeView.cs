@@ -63,6 +63,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _healthAttention = new()
     { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Left, MinHeight = 44 };
     private GameLibraryHealthSummary? _health;
+    private bool _attentionOnly;
     // Only shown after a successful query returning no titles. Failed queries keep
     // their error status and never masquerade as an empty game library.
     private readonly Border _emptyState = new() { Visibility = Visibility.Collapsed, CornerRadius = new CornerRadius(12),
@@ -1300,7 +1301,7 @@ internal sealed class GamingHomeView : StackPanel
     private bool FiltersActive =>
         !string.IsNullOrWhiteSpace(_search.Text) || !string.IsNullOrEmpty(TagOf(_source)) || !string.IsNullOrEmpty(TagOf(_platform))
         || !string.IsNullOrEmpty(TagOf(_installed)) || _favoritesOnly.IsChecked == true || !string.IsNullOrEmpty(TagOf(_tag))
-        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true || _recentOnly || _genre.Length > 0;
+        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true || _recentOnly || _genre.Length > 0 || _attentionOnly;
 
     /// <summary>
     /// Recover from a zero-result filter combination without resetting the user's
@@ -1324,6 +1325,7 @@ internal sealed class GamingHomeView : StackPanel
             _showHidden.IsChecked = false;
             _recentOnly = false;
             _genre = string.Empty;
+            _attentionOnly = false;
         }
         finally { _applying = false; }
         ++_searchEditGeneration;
@@ -1581,6 +1583,8 @@ internal sealed class GamingHomeView : StackPanel
                 return;
             }
             _titles = ApplySideFilter(result.Value);
+            if (_attentionOnly)
+                _titles = _titles.Where(t => !t.Installations.Any(GameTitleLaunchPolicy.CanStart)).ToList();
             _reloadRetries = 0;
             foreach (GameTitleDto title in _titles)
             {
@@ -1702,15 +1706,22 @@ internal sealed class GamingHomeView : StackPanel
             $"{health.ExplicitlyInstalledTitles} segnalati installati · {health.MetadataOnlyTitles} solo metadati · " +
             $"{health.Favorites} preferiti · {health.TotalPlaySeconds / 3600d:0.#} h giocate");
         _healthSummary.Visibility = Visibility.Visible;
-        _healthAttention.Content = T(
-            $"Review {health.NeedsAttention} title(s) without a launch candidate",
-            $"Controlla {health.NeedsAttention} titoli senza avvio disponibile");
-        _healthAttention.Visibility = health.NeedsAttention > 0
+        _healthAttention.Content = _attentionOnly
+            ? T("Show all titles", "Mostra tutti i titoli")
+            : T($"Review {health.NeedsAttention} title(s) without a launch candidate",
+                $"Controlla {health.NeedsAttention} titoli senza avvio disponibile");
+        _healthAttention.Visibility = health.NeedsAttention > 0 || _attentionOnly
             ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async Task ShowLibraryHealthAttentionAsync()
     {
+        if (_attentionOnly)
+        {
+            _attentionOnly = false;
+            await ReloadAsync();
+            return;
+        }
         GameLibraryHealthSummary? snapshot = _health;
         if (snapshot is null || snapshot.NeedsAttention == 0) return;
         string names = string.Join("\n", snapshot.AttentionTitles.Take(30).Select(title =>
@@ -1732,13 +1743,28 @@ internal sealed class GamingHomeView : StackPanel
                 + names + more,
             TextWrapping = TextWrapping.Wrap
         };
-        await new ContentDialog
+        ContentDialogResult choice = await new ContentDialog
         {
             XamlRoot = XamlRoot,
             Title = T("Library attention", "Controllo libreria"),
             Content = new ScrollViewer { Content = explanation, MaxHeight = 400 },
-            CloseButtonText = T("Close", "Chiudi")
+            PrimaryButtonText = T("Show these titles in Library", "Mostra questi titoli nella libreria"),
+            CloseButtonText = T("Close", "Chiudi"),
+            DefaultButton = ContentDialogButton.Close
         }.ShowAsync();
+        if (choice == ContentDialogResult.Primary)
+        {
+            // Use the same unfiltered cached title snapshot; no disk, account,
+            // launcher query or provider scan is triggered while Gaming.
+            _attentionOnly = true;
+            _titles = snapshot.AttentionTitles.ToList();
+            _selected.IntersectWith(_titles.Select(t => t.TitleKey));
+            RenderLibrary();
+            _status.Text = T(
+                $"{_titles.Count} title(s) need an installation or import review.",
+                $"{_titles.Count} titoli richiedono il controllo dell'installazione o dell'importazione.");
+            UpdateLibraryHealth(_allTitles);
+        }
     }
 
     private async Task RefreshQuickResumeSummaryAsync(CancellationToken ct, int generation)
