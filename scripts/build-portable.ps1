@@ -193,13 +193,41 @@ try {
     }
     foreach ($file in $unwanted) { if ($names -contains $file) { throw "Minimal portable ZIP contains an unwanted heavyweight runtime: $file" } }
     if (-not $WithoutVulkan) {
-        # A manifest alone is insufficient: ensure it describes the actual staged Vulkan payload.
+        # Recheck the actual ZIP bytes, not merely staging: every native DLL and EXE
+        # must match the hash-locked upstream payload selected for this distribution.
+        $lock = Get-Content -LiteralPath (Join-Path $stageDir "PaRuX.Server\runtime-baseline\baseline-lock.json") -Raw | ConvertFrom-Json
+        $ids = @($lock.artifacts | ForEach-Object { [string]$_.id })
+        if ($ids.Count -ne 1 -or $ids[0] -cne "llama.cpp-vulkan") {
+            throw "Minimal portable must contain exactly the Vulkan runtime lock entry."
+        }
         $manifest = Get-Content -LiteralPath (Join-Path $stageDir "PaRuX.Server\runtime-baseline\staging-manifest.json") -Raw | ConvertFrom-Json
         $entries = @($manifest.files | Where-Object { ([string]$_.path).StartsWith("runtime-baseline/llama.cpp-b10549-vulkan/") })
-        if ($entries.Count -lt 2) { throw "Vulkan baseline manifest is missing the native payload/dependency inventory." }
-        foreach ($entry in $entries) {
-            $entryName = "PaRuX.Server/" + [string]$entry.path
-            if ($names -notcontains $entryName) { throw "Manifested Vulkan payload missing from ZIP: $entryName" }
+        if ($entries.Count -lt 2) { throw "Vulkan baseline manifest is missing native dependencies." }
+        if (@($entries | Where-Object { $_.path -eq "runtime-baseline/llama.cpp-b10549-vulkan/ggml-vulkan.dll" }).Count -ne 1) {
+            throw "The bundled Vulkan engine is missing ggml-vulkan.dll."
+        }
+        $inventory = @($manifest.files | Where-Object { ([string]$_.path).StartsWith("runtime-baseline/") })
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            foreach ($entry in $inventory) {
+                $entryName = "PaRuX/PaRuX.Server/" + [string]$entry.path
+                $zipEntry = $zip.GetEntry($entryName)
+                if ($null -eq $zipEntry -or $zipEntry.Length -ne [int64]$entry.sizeBytes) {
+                    throw "Manifested runtime payload is missing or has a different size: $entryName"
+                }
+                $stream = $zipEntry.Open()
+                try {
+                    $actualHash = [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace("-", "").ToLowerInvariant()
+                }
+                finally { $stream.Dispose() }
+                if ($actualHash -cne ([string]$entry.sha256).ToLowerInvariant()) {
+                    throw "Manifested runtime payload SHA-256 mismatch: $entryName"
+                }
+            }
+        }
+        finally { $sha256.Dispose() }
+        if (@($names | Where-Object { $_ -like "PaRuX.Server/runtime-baseline/llama.cpp-*-cuda*/*" -or $_ -like "PaRuX.Server/runtime-tools/uv/*" }).Count -gt 0) {
+            throw "Minimal portable contains unwanted CUDA or uv runtime files."
         }
     }
     $bad = @($names | Where-Object { $_ -match $forbiddenPattern -and $_ -notmatch '(?i)(^|/)(Microsoft\.|System\.|onnxruntime|DirectML)' })
