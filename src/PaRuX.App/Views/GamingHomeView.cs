@@ -127,7 +127,8 @@ internal sealed class GamingHomeView : StackPanel
         {
             // A profile change may make the control Loaded while OnShown has
             // already started its one-shot query. Never double-scan the library.
-            if (_cancellation == null) await ReloadAsync();
+            if (_cancellation == null || _cancellation.IsCancellationRequested)
+                await ReloadAsync();
         };
         SizeChanged += (_, _) => ApplyBodyLayout();
         // The inner grid can change width independently as NavigationView's pane
@@ -1225,8 +1226,9 @@ internal sealed class GamingHomeView : StackPanel
 
     /// <summary>Refresh once when the Gaming workspace returns, without forcing
     /// an expensive store rediscovery or duplicating a pending load.</summary>
-    internal Task RefreshWhenShownAsync() => _cancellation == null
-        ? ReloadAsync(refresh: false) : Task.CompletedTask;
+    internal Task RefreshWhenShownAsync() =>
+        _cancellation == null || _cancellation.IsCancellationRequested
+            ? ReloadAsync(refresh: false) : Task.CompletedTask;
 
     /// <summary>Stop pending title searches, typing debounce and delayed
     /// retry callbacks on workspace exit. Existing tiles remain intact until
