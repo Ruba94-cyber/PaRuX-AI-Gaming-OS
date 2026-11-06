@@ -430,7 +430,7 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         }
     }
 
-    private static void ValidateRequest(TrainingJobRequest request, string method)
+    internal static void ValidateRequest(TrainingJobRequest request, string method)
     {
         string precision = TrainingPrecision.Normalize(request.Precision);
         string targets = TrainingTargetPreset.Normalize(request.TargetPreset);
