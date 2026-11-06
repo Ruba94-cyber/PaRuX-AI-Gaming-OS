@@ -414,6 +414,35 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
             throw new InvalidDataException("Dataset is not compatible with " + method + ". " + shape.Summary);
         if (shape.MissingMediaFiles > 0 && method is TrainingMethod.VisionSft or TrainingMethod.TtsSft)
             throw new InvalidDataException(shape.MissingMediaFiles + " referenced media file(s) do not exist.");
+        // The shape inspector intentionally samples the first 2,000 lines. That is
+        // sufficient for a fast preview, NOT for admitting a new preference trainer:
+        // a malformed line after the sample must not waste hours of GPU training.
+        if (method == TrainingMethod.Orpo)
+        {
+            int lineNo = 0;
+            foreach (string raw in File.ReadLines(path))
+            {
+                lineNo++;
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                if (raw.Length > 1_000_000)
+                    throw new InvalidDataException("ORPO row " + lineNo + " exceeds the 1 MB record limit.");
+                JsonDocument document;
+                try { document = JsonDocument.Parse(raw); }
+                catch (JsonException exception)
+                {
+                    throw new InvalidDataException("Invalid ORPO JSONL at line " + lineNo + ".", exception);
+                }
+                using (document)
+                {
+                    JsonElement row = document.RootElement;
+                    if (!HasNonEmptyStringProperty(row, "prompt")
+                        || !HasNonEmptyStringProperty(row, "chosen")
+                        || !HasNonEmptyStringProperty(row, "rejected"))
+                        throw new InvalidDataException("ORPO row " + lineNo
+                            + " requires non-empty prompt, chosen and rejected strings.");
+                }
+            }
+        }
         if (method == TrainingMethod.Grpo)
         {
             string reward = GrpoRewardMode.Normalize(rewardMode);
