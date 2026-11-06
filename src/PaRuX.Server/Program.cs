@@ -3584,6 +3584,8 @@ app.MapPost("/api/v1/datasets/training-recipe", async (
     TrainingDatasetRecipeRequest request, DatasetCurationService curation,
     LocalRuntimeService runtime, CancellationToken ct) =>
 {
+    if (CorporateMode.IsActive)
+        return Results.Conflict(new { error = "Training recipes are not available in Corporate Lite." });
     if (runtime.GamingMode) return Results.Conflict(new { error = "Dataset recipes are disabled during Gaming." });
     using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, runtime.GamingCancellationToken);
     try
