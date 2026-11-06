@@ -1027,13 +1027,14 @@ Core / inference:
               [--precision qlora-4bit|lora-16bit] [--targets attention|all-linear]
               [--pack-sequences]
               KTO dataset: one JSON object per line with prompt, completion and boolean label;
-              include both true and false labels (at least four examples); GPU micro-batch >= 2.
+              include both true and false labels (at least four examples); physical GPU micro-batch >= 4,
+              effective batch >= 16. Suggested learning rate: 1e-6 at beta 0.1.
               [--grpo-reward exact-reference|contains-reference|xml-format|json-format]
               [--grpo-generations 2..16] [--text-field NAME] [--image-field NAME]
               [--audio-field NAME] [--plan-only]
 
 Training always runs Core preflight first. --plan-only prints compatibility, memory evidence,
-recommendations and blocking/warning findings without starting GPU work. All seven methods execute
+recommendations and blocking/warning findings without starting GPU work. All eight methods execute
 through the same PaRuX-managed uv/Python Training Lab; no system-Python fallback is used.
 
 Agent command center:
