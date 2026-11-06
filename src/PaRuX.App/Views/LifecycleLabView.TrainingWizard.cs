@@ -104,7 +104,7 @@ namespace PaRuX.Views
             variants.Children.Add(_trainingPacking);
             variants.Children.Add(new TextBlock
             {
-                Text = "4-bit QLoRA uses less GPU memory. 16-bit LoRA loads full-precision base weights and requires significantly more VRAM. All-linear adds MLP adapters when the model supports those projection names.",
+                Text = "4-bit QLoRA uses less VRAM. For 16-bit LoRA, choose an unquantized Hugging Face model (not a *-bnb-4bit repository) and allow substantially more VRAM. Attention + MLP requires compatible projections in the base model.",
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.72
             });
             panel.Children.Add(variants);
