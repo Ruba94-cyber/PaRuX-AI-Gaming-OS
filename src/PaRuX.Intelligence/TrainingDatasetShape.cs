@@ -22,6 +22,10 @@ public static class TrainingDatasetShape
         bool Truncated,
         string Summary)
     {
+        public bool SupportsKto { get; init; }
+        public int ValidKtoRecords { get; init; }
+        public int DesirableKtoRecords { get; init; }
+        public int UndesirableKtoRecords { get; init; }
         public bool SupportsContinuedPretraining { get; init; }
         public bool SupportsGrpo { get; init; }
         public bool SupportsVisionFineTuning { get; init; }
@@ -55,7 +59,8 @@ public static class TrainingDatasetShape
     {
         if (lines == null) return Empty;
 
-        int read = 0, chat = 0, preference = 0, text = 0, grpo = 0, vision = 0, tts = 0;
+        int read = 0, chat = 0, preference = 0, kto = 0, desirable = 0, undesirable = 0;
+        int text = 0, grpo = 0, vision = 0, tts = 0;
         int unparseable = 0, missingMedia = 0;
         var problems = new List<int>();
         bool truncated = false;
@@ -81,12 +86,19 @@ public static class TrainingDatasetShape
 
             bool isChat = IsChatRecord(root);
             bool isPreference = IsPreferenceRecord(root);
+            bool isKto = IsKtoRecord(root);
             bool isText = HasNonEmptyString(root, "text");
             bool isGrpo = IsGrpoRecord(root);
             bool isVision = IsVisionRecord(root);
             bool isTts = IsTtsRecord(root);
             if (isChat) chat++;
             if (isPreference) preference++;
+            if (isKto)
+            {
+                kto++;
+                if (root.GetProperty("label").GetBoolean()) desirable++;
+                else undesirable++;
+            }
             if (isText) text++;
             if (isGrpo) grpo++;
             if (isVision)
@@ -99,7 +111,7 @@ public static class TrainingDatasetShape
                 tts++;
                 if (!MediaExists(root, "audio", mediaBaseDirectory)) missingMedia++;
             }
-            if (!isChat && !isPreference && !isText && !isGrpo && !isVision && !isTts && problems.Count < 10)
+            if (!isChat && !isPreference && !isKto && !isText && !isGrpo && !isVision && !isTts && problems.Count < 10)
                 problems.Add(read);
         }
 
@@ -107,15 +119,23 @@ public static class TrainingDatasetShape
         int required = (int)Math.Ceiling(read * 0.95);
         bool sft = chat > 0 && chat >= required;
         bool dpo = preference > 0 && preference >= required;
+        // The reference-loss KTO objective needs both binary classes; one-sided datasets
+        // cannot produce a meaningful comparison and are refused early rather than hidden.
+        bool ktoSupported = kto >= 2 && kto >= required && desirable > 0 && undesirable > 0;
         bool cpt = text > 0 && text >= required;
         bool grpoSupported = grpo > 0 && grpo >= required;
         bool visionSupported = vision > 0 && vision >= required && missingMedia == 0;
         bool ttsSupported = tts > 0 && tts >= required && missingMedia == 0;
 
-        string summary = Describe(read, chat, preference, text, grpo, vision, tts, unparseable,
+        string summary = Describe(read, chat, preference, kto, desirable, undesirable,
+            text, grpo, vision, tts, unparseable,
             missingMedia, sft, dpo, cpt, grpoSupported, visionSupported, ttsSupported, truncated);
         return new Shape(sft, dpo, read, chat, preference, unparseable, problems, truncated, summary)
         {
+            SupportsKto = ktoSupported,
+            ValidKtoRecords = kto,
+            DesirableKtoRecords = desirable,
+            UndesirableKtoRecords = undesirable,
             SupportsContinuedPretraining = cpt,
             SupportsGrpo = grpoSupported,
             SupportsVisionFineTuning = visionSupported,
@@ -144,6 +164,13 @@ public static class TrainingDatasetShape
 
     private static bool IsPreferenceRecord(JsonElement root) =>
         HasNonEmptyString(root, "prompt") && HasNonEmptyString(root, "chosen") && HasNonEmptyString(root, "rejected");
+
+    private static bool IsKtoRecord(JsonElement root) =>
+        HasNonEmptyString(root, "prompt")
+        && HasNonEmptyString(root, "completion")
+        && root.ValueKind == JsonValueKind.Object
+        && root.TryGetProperty("label", out JsonElement label)
+        && label.ValueKind is JsonValueKind.True or JsonValueKind.False;
 
     private static bool IsGrpoRecord(JsonElement root)
     {
@@ -180,14 +207,18 @@ public static class TrainingDatasetShape
     }
 
     private static string Describe(
-        int read, int chat, int preference, int text, int grpo, int vision, int tts, int unparseable,
+        int read, int chat, int preference, int kto, int desirable, int undesirable,
+        int text, int grpo, int vision, int tts, int unparseable,
         int missingMedia, bool sft, bool dpo, bool cpt, bool supportsGrpo, bool supportsVision,
         bool supportsTts, bool truncated)
     {
         string scope = truncated ? $"the first {read:N0} records" : $"all {read:N0} records";
         var supported = new List<string>();
         if (sft) supported.Add("supervised fine-tuning");
-        if (dpo) supported.Add("DPO preference tuning");
+        if (dpo) supported.Add("DPO/ORPO preference tuning");
+        if (kto > 0 && desirable > 0 && undesirable > 0
+            && kto >= (int)Math.Ceiling(read * 0.95))
+            supported.Add("KTO binary-feedback tuning");
         if (cpt) supported.Add("continued pretraining");
         if (supportsGrpo) supported.Add("GRPO");
         if (supportsVision) supported.Add("vision fine-tuning");
@@ -200,7 +231,7 @@ public static class TrainingDatasetShape
         if (unparseable == read)
             return $"None of {scope} is valid JSON. Training data must be JSONL - one JSON object per line.";
         return $"Inspected {scope}: chat={chat:N0}, preference={preference:N0}, text={text:N0}, "
-            + $"GRPO prompts={grpo:N0}, vision={vision:N0}, TTS={tts:N0}, invalid JSON={unparseable:N0}"
+            + $"KTO={kto:N0} (good={desirable:N0}, bad={undesirable:N0}), GRPO prompts={grpo:N0}, vision={vision:N0}, TTS={tts:N0}, invalid JSON={unparseable:N0}"
             + (missingMedia > 0 ? $", missing media={missingMedia:N0}" : string.Empty) + ".";
     }
 }
