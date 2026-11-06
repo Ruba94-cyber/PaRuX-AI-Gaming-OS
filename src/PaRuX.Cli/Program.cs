@@ -295,6 +295,9 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
     int loraRank = 16, maxSteps = 60, maxSequenceLength = 2048, grpoGenerations = 4;
     double learningRate = 0.0002, dpoBeta = 0.1;
     string grpoRewardMode = GrpoRewardMode.ExactReference;
+    string precision = TrainingPrecision.Qlora4Bit;
+    string targets = TrainingTargetPreset.Attention;
+    bool packSequences = false;
     string textField = "text", imageField = "image", audioField = "audio";
     bool planOnly = false;
     var positional = new List<string>();
@@ -311,6 +314,9 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
         {
             case "--base-model": baseModel = Next(option); break;
             case "--method": method = Next(option); break;
+            case "--precision": precision = Next(option); break;
+            case "--targets": targets = Next(option); break;
+            case "--pack-sequences": packSequences = true; break;
             case "--lora-rank": loraRank = ParseInt(Next(option), option); break;
             case "--max-steps": maxSteps = ParseInt(Next(option), option); break;
             case "--lr": learningRate = ParseDouble(Next(option), option); break;
@@ -332,7 +338,7 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
 
     if (positional.Count != 1)
     {
-        Fail("Usage: parux train <trainJsonlPath> [--method sft|dpo|continued-pretraining|grpo|vision-sft|tts-sft] [options]");
+        Fail("Usage: parux train <trainJsonlPath> [--method sft|dpo|orpo|continued-pretraining|grpo|vision-sft|tts-sft] [options]");
         return;
     }
 
@@ -340,6 +346,8 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
     {
         method = TrainingMethod.Normalize(method);
         grpoRewardMode = GrpoRewardMode.Normalize(grpoRewardMode);
+        precision = TrainingPrecision.Normalize(precision);
+        targets = TrainingTargetPreset.Normalize(targets);
     }
     catch (InvalidDataException ex) { Fail(ex.Message); return; }
 
@@ -358,7 +366,10 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
             MaxSteps = maxSteps,
             LearningRate = learningRate,
             MaxSequenceLength = maxSequenceLength,
-            GrpoRewardMode = grpoRewardMode
+            GrpoRewardMode = grpoRewardMode,
+            Precision = precision,
+            TargetPreset = targets,
+            PackSequences = packSequences
         };
         TrainingPlanResult? plan = await SendJsonAsync<TrainingPlanResult>(client, HttpMethod.Post,
             "/api/v1/training/plan", planRequest, ct);
@@ -388,6 +399,9 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
                 MaxSequenceLength = maxSequenceLength,
                 GrpoRewardMode = grpoRewardMode,
                 GrpoGenerations = grpoGenerations,
+                Precision = precision,
+                TargetPreset = targets,
+                PackSequences = packSequences,
                 TextField = textField,
                 ImageField = imageField,
                 AudioField = audioField
@@ -1006,15 +1020,17 @@ Core / inference:
   parux benchmark <modelPath> [--label <name>]
   parux eval <datasetId> [--role <name>]
   parux train <trainJsonlPath>
-              [--method sft|dpo|continued-pretraining|grpo|vision-sft|tts-sft]
+              [--method sft|dpo|orpo|continued-pretraining|grpo|vision-sft|tts-sft]
               [--base-model <hfId>] [--lora-rank N] [--max-steps N] [--lr RATE]
               [--max-sequence N] [--dpo-beta BETA]
+              [--precision qlora-4bit|lora-16bit] [--targets attention|all-linear]
+              [--pack-sequences]
               [--grpo-reward exact-reference|contains-reference|xml-format|json-format]
               [--grpo-generations 2..16] [--text-field NAME] [--image-field NAME]
               [--audio-field NAME] [--plan-only]
 
 Training always runs Core preflight first. --plan-only prints compatibility, memory evidence,
-recommendations and blocking/warning findings without starting GPU work. All six methods execute
+recommendations and blocking/warning findings without starting GPU work. All seven methods execute
 through the same PaRuX-managed uv/Python Training Lab; no system-Python fallback is used.
 
 Agent command center:
