@@ -52,11 +52,20 @@ public sealed class QuickTrainingPolicyTests
     [InlineData(true, 20, 0, true)]
     public void Quick_mode_does_not_skip_preflight_blockers_or_invalid_rows(
         bool canStart, int examples, int invalidLines, bool truncated) =>
-        Assert.NotNull(QuickTrainingPolicy.Refusal(canStart, examples, invalidLines, truncated));
+        Assert.NotNull(QuickTrainingPolicy.Refusal(canStart, examples, examples, invalidLines, truncated));
 
     [Fact]
     public void Clean_complete_checked_dataset_passes_quick_gate() =>
-        Assert.Null(QuickTrainingPolicy.Refusal(true, 150, 0, false));
+        Assert.Null(QuickTrainingPolicy.Refusal(true, 150, 150, 0, false));
+
+    [Theory]
+    [InlineData(200, 199)]
+    [InlineData(200, 190)]
+    [InlineData(3, 0)]
+    public void Quick_mode_rejects_schema_mismatches_even_when_general_planner_allows_ninety_five_percent(
+        int examples, int validRecords) =>
+        Assert.Contains("every nonblank record", QuickTrainingPolicy.Refusal(
+            true, examples, validRecords, 0, false)!);
 
     [Fact]
     public void Unsupported_multimodal_methods_require_advanced_training() =>
