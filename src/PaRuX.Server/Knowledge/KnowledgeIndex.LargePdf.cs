@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using UglyToad.PdfPig;
@@ -174,7 +175,15 @@ WHERE source_id=$s AND path=$p;";
         // to at most 16 pages and a documented timeout. No 30k-page list or
         // per-page bitmap is ever retained in managed memory.
         IOcrEngine? ocr = limits.Ocr;
-        if (ocr != null && !ocr.CheckAvailability().Available) ocr = null;
+        try
+        {
+            if (ocr != null && !ocr.CheckAvailability().Available) ocr = null;
+        }
+        catch (Exception) { ocr = null; } // Bad OCR availability cannot block readable PDF text.
+        KnowledgeResourcePlan? resourcePlan = _options.Plan;
+        var memoryBudget = resourcePlan == null ? null
+            : new MemoryBudgetGuard(resourcePlan.ManagedMemoryBudgetBytes);
+        long batchStarted = Stopwatch.GetTimestamp();
 
         void FlushCheckpoint()
         {
@@ -220,6 +229,18 @@ WHERE source_id=$s AND path=$p;";
             progress?.Report(snap(control?.IsPaused == true ? "paused" : "running",
                 Path.GetFileName(path) + " · PDF page " + currentPage + "/" + totalPages)
                 with { CurrentPage = currentPage, TotalPages = totalPages });
+            // A 30k-page PDF is effectively thousands of small jobs. Apply the
+            // Corporate Eco/Balanced duty cycle AND memory headroom between
+            // checkpoints, not merely between different filenames.
+            if (resourcePlan is { DutyCycle: > 0 and < 1 })
+            {
+                double usedMs = Stopwatch.GetElapsedTime(batchStarted).TotalMilliseconds;
+                int restMs = (int)Math.Min(2000,
+                    usedMs * (1.0 / resourcePlan.DutyCycle - 1.0));
+                if (restMs > 0) Task.Delay(restMs, ct).GetAwaiter().GetResult();
+            }
+            memoryBudget?.WaitForHeadroomAsync(ct).GetAwaiter().GetResult();
+            batchStarted = Stopwatch.GetTimestamp();
         }
 
         foreach (var page in pdf.GetPages())
