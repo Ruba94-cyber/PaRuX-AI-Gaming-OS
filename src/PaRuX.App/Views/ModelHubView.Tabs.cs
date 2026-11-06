@@ -40,6 +40,7 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_tabBar, "ModelHub_Tabs");
             foreach (ModelHubTab tab in ModelHubTabs.All)
             {
+                if (CorporateMode.IsActive && tab == ModelHubTab.Media) continue;
                 var item = new SelectorBarItem { Text = ModelHubTabs.Label(tab, StartItalian) };
                 AutomationProperties.SetAutomationId(item, ModelHubTabs.AutomationId(tab));
                 _tabBar.Items.Add(item);
@@ -85,6 +86,7 @@ namespace PaRuX.Views
 
         private void SelectHubTab(ModelHubTab tab)
         {
+            if (CorporateMode.IsActive && tab == ModelHubTab.Media) tab = ModelHubTab.Text;
             _activeTab = tab;
             foreach (KeyValuePair<ModelHubTab, UIElement> pair in _tabPanels)
                 pair.Value.Visibility = pair.Key == tab ? Visibility.Visible : Visibility.Collapsed;
