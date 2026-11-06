@@ -2215,7 +2215,8 @@ app.MapPost("/api/v1/training/engine/install", async (TrainingLabService trainin
 // failure through as advice, both turn a wizard into something users click past.
 
 app.MapPost("/api/v1/training/plan", async (
-    TrainingPlanRequest request, RuntimeManagerService runtimeManager, CancellationToken ct) =>
+    TrainingPlanRequest request, RuntimeManagerService runtimeManager,
+    LocalRuntimeService runtime, CancellationToken ct) =>
 {
     if (request == null || string.IsNullOrWhiteSpace(request.TrainJsonlPath))
         return Results.BadRequest(new { error = "A training file is required." });
@@ -2243,13 +2244,19 @@ app.MapPost("/api/v1/training/plan", async (
     QuickTrainingDatasetValidator.VerifiedDataset? verified = null;
     if (request.ValidateEntireDataset && plan.CanStart)
     {
+        if (runtime.GamingMode)
+            return Results.Conflict(new { error = "Full training dataset verification is unavailable during Gaming." });
+        using var hardOff = CancellationTokenSource.CreateLinkedTokenSource(
+            ct, runtime.GamingCancellationToken);
         try
         {
             // The initial 2,000-row estimate is cheap. Explicit Quick approval
             // replaces sampled counts with exact verified counts, so recommended
             // steps and warnings describe the whole dataset, not only its preview.
             verified = await QuickTrainingDatasetValidator.ValidateAsync(
-                request.TrainJsonlPath, request.Method, ct);
+                request.TrainJsonlPath, request.Method, hardOff.Token);
+            if (runtime.GamingMode)
+                return Results.Conflict(new { error = "Gaming interrupted full training dataset verification." });
             shape = shape with
             {
                 LinesRead = verified.Records,
@@ -2265,6 +2272,10 @@ app.MapPost("/api/v1/training/plan", async (
             plan = TrainingRunPlanner.Plan(shape, request.Method, request.BaseModel,
                 request.LoraRank, request.MaxSteps, request.LearningRate,
                 availableGib, request.Precision, request.TargetPreset, request.MaxSequenceLength);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return Results.Conflict(new { error = "Gaming interrupted full training dataset verification." });
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException
             or UnauthorizedAccessException or System.Text.DecoderFallbackException)
