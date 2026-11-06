@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PaRuX.Contracts;
 
 namespace PaRuX.Server;
 
