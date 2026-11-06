@@ -26,6 +26,13 @@ namespace PaRuX.Views
             foreach (UIElement child in SettingsContentPanel.Children)
             {
                 if (child is not StackPanel section || section.Tag is not string category) continue;
+                // The two compact Corporate replacements deliberately share the
+                // original category Tags so navigation/search can find them.
+                // Exempt by stable AutomationId, not language-dependent headings:
+                // the source models/privacy cards remain hidden separately.
+                string id = Microsoft.UI.Xaml.Automation.AutomationProperties.GetAutomationId(section);
+                if (corporate && (id == "Settings_CorporateModels_Panel"
+                    || id == "Settings_CorporatePrivacy_Panel")) continue;
                 string heading = section.Children.OfType<TextBlock>().FirstOrDefault()?.Text ?? string.Empty;
                 if (!SettingsSectionVisibilityPolicy.IsVisible(category, heading, profile, corporate))
                     _profileHiddenSettingsSections.Add(section);
