@@ -321,6 +321,9 @@ namespace PaRuX.Views
         /// <summary>Called by MainWindow each time the settings page is shown.</summary>
         public void OnShown()
         {
+            // Category layout may change after setup switches, but its selection must
+            // not trigger a second round of remote Core refreshes on every Settings open.
+            _settingsCategoryRefreshEnabled = false;
             ApplyProfileSettingsSections();
             RefreshSettingsCategoriesForProfile();
             SelectSettingsCategory(_selectedSettingsCategory);
