@@ -490,7 +490,8 @@ namespace PaRuX.Shell
         // ------------------------------------------------------------------
 
         private static bool AiBubbleAllowedForSetup =>
-            SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) != SetupProfile.GamingOnly;
+            !PaRuX.Contracts.CorporateMode.IsActive
+            && SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) != SetupProfile.GamingOnly;
 
         public void ApplyVisibilityMode()
         {
