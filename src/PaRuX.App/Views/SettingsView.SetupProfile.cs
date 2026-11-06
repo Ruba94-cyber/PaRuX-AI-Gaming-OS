@@ -19,7 +19,13 @@ namespace PaRuX.Views
         private void LoadSetupProfile()
         {
             bool it = SetupProfileItalian;
-            SetupProfileTitle.Text = it ? "A cosa serve PaRuX" : "What PaRuX is for";
+            SetupProfileTitle.Text = PaRuX.Contracts.CorporateMode.IsActive
+                ? (it ? "Corporate Lite · Chat AI e documenti" : "Corporate Lite · AI Chat and documents")
+                : (it ? "A cosa serve PaRuX" : "What PaRuX is for");
+            // The Corporate package is intrinsically AI-only. Showing an editable
+            // Both/Gaming picker that silently snaps back is misleading UX.
+            SetupProfileCombo.Visibility = PaRuX.Contracts.CorporateMode.IsActive
+                ? Visibility.Collapsed : Visibility.Visible;
             foreach (object entry in SetupProfileCombo.Items)
                 if (entry is ComboBoxItem item) item.Content = SetupProfilePolicy.Label(ProfileOfItem(item), it);
 
@@ -33,16 +39,21 @@ namespace PaRuX.Views
 
         private void UpdateSetupProfileHint(SetupProfile profile)
         {
-            RoleProfileHost.Visibility = SetupProfilePolicy.Plan(profile).ShowAiWorkspaces ? Visibility.Visible : Visibility.Collapsed;
+            RoleProfileHost.Visibility = SetupProfilePolicy.Plan(profile).ShowAiWorkspaces
+                ? Visibility.Visible : Visibility.Collapsed;
             UpdateSetupProfileHintText(profile);
         }
 
         private void UpdateSetupProfileHintText(SetupProfile profile) =>
-            SetupProfileHint.Text = SetupProfilePolicy.Description(profile, SetupProfileItalian)
-                + " " + SetupProfilePolicy.SwitchNote(SetupProfileItalian)
-                + (SetupProfileItalian
-                    ? " Il cambio vale subito, senza riavviare."
-                    : " The change applies right away, no restart needed.");
+            SetupProfileHint.Text = PaRuX.Contracts.CorporateMode.IsActive
+                ? (SetupProfileItalian
+                    ? "Solo Chat AI e ricerca documenti. Il motore CPU è già incluso. Aggiungi o cambia modello da Chat o Model Hub, senza modificare la modalità di installazione."
+                    : "AI Chat and document search only. The CPU engine is already included. Add or switch models from Chat or Model Hub without changing the installation mode.")
+                : SetupProfilePolicy.Description(profile, SetupProfileItalian)
+                    + " " + SetupProfilePolicy.SwitchNote(SetupProfileItalian)
+                    + (SetupProfileItalian
+                        ? " Il cambio vale subito, senza riavviare."
+                        : " The change applies right away, no restart needed.");
 
         private async void SetupProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -77,6 +88,7 @@ namespace PaRuX.Views
                 finally { _loading = false; }
             }
             UpdateSetupProfileHint(effective);
+            RefreshSettingsCategoriesForProfile();
             if (!result.Success) SetupProfileHint.Text = result.Message + " " + SetupProfileHint.Text;
             else if (effective != profile)
                 SetupProfileHint.Text = SetupProfilePolicy.CorporateKeptNote(SetupProfileItalian) + " " + SetupProfileHint.Text;   // no silent snap-back
