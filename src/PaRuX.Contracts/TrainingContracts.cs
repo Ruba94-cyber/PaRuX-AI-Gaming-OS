@@ -65,6 +65,38 @@ public static class TrainingMethod
     }
 }
 
+/// <summary>
+/// PaRuX's supported LLM base loading modes. Full-model and FP8 training are deliberately
+/// not advertised until the native runner, hardware admission and benchmarks exist.
+/// </summary>
+public static class TrainingPrecision
+{
+    public const string Qlora4Bit = "qlora-4bit";
+    public const string Lora16Bit = "lora-16bit";
+    public static readonly string[] All = { Qlora4Bit, Lora16Bit };
+    public static string Normalize(string? value)
+    {
+        string precision = string.IsNullOrWhiteSpace(value) ? Qlora4Bit : value.Trim().ToLowerInvariant();
+        if (!All.Contains(precision, StringComparer.Ordinal))
+            throw new InvalidDataException("Unsupported training precision: " + precision + ".");
+        return precision;
+    }
+}
+
+public static class TrainingTargetPreset
+{
+    public const string Attention = "attention";
+    public const string AllLinear = "all-linear";
+    public static readonly string[] All = { Attention, AllLinear };
+    public static string Normalize(string? value)
+    {
+        string preset = string.IsNullOrWhiteSpace(value) ? Attention : value.Trim().ToLowerInvariant();
+        if (!All.Contains(preset, StringComparer.Ordinal))
+            throw new InvalidDataException("Unsupported LoRA target preset: " + preset + ".");
+        return preset;
+    }
+}
+
 public static class GrpoRewardMode
 {
     public const string ExactReference = "exact-reference";
@@ -98,6 +130,12 @@ public sealed class TrainingJobRequest
     public string Method { get; set; } = TrainingMethod.Sft;
     public double DpoBeta { get; set; } = 0.1;
     public int MaxSequenceLength { get; set; } = 2048;
+    /// <summary>4-bit QLoRA by default; 16-bit LoRA uses more memory and is opt-in.</summary>
+    public string Precision { get; set; } = TrainingPrecision.Qlora4Bit;
+    /// <summary>Attention projection adapters or all MLP + attention projections.</summary>
+    public string TargetPreset { get; set; } = TrainingTargetPreset.Attention;
+    /// <summary>Optional SFT-only sequence packing; continued pretraining always packs.</summary>
+    public bool PackSequences { get; set; }
 
     // GRPO is deliberately restricted to built-in deterministic reward functions. Training data may
     // not inject Python/code into the managed runner.
@@ -147,6 +185,12 @@ public sealed class TrainingPlanRequest
     public int MaxSteps { get; set; } = 60;
     public double LearningRate { get; set; } = 0.0002;
     public int MaxSequenceLength { get; set; } = 2048;
+    /// <summary>4-bit QLoRA by default; 16-bit LoRA uses more memory and is opt-in.</summary>
+    public string Precision { get; set; } = TrainingPrecision.Qlora4Bit;
+    /// <summary>Attention projection adapters or all MLP + attention projections.</summary>
+    public string TargetPreset { get; set; } = TrainingTargetPreset.Attention;
+    /// <summary>Optional SFT-only sequence packing; continued pretraining always packs.</summary>
+    public bool PackSequences { get; set; }
     public string GrpoRewardMode { get; set; } = Contracts.GrpoRewardMode.ExactReference;
 }
 
