@@ -164,7 +164,10 @@ namespace PaRuX
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Visible;
 
             ShowStudioWorkspace(StudioWorkspace.ModelHub);
-            ModelHubPage.OnShownSearching(repoId, OnboardingPage.SuggestedQuantHintForHandoff);
+            if (CorporateMode.IsActive && string.IsNullOrWhiteSpace(repoId))
+                ModelHubPage.OnShown(); // Corporate's local model management, not an HF search
+            else
+                ModelHubPage.OnShownSearching(repoId, OnboardingPage.SuggestedQuantHintForHandoff);
             GuidedTourDecision tourDecision = GuidedTourTriggerPolicy.EvaluateHandoff(
                 SettingsStore.Current.Data.GuidedTourCompleted,
                 "ModelHub");
