@@ -886,12 +886,22 @@ namespace PaRuX.Views
                 Task<List<RecommendedModel>> recommendedTask = ModelDownloadClient.Current.GetRecommendedAsync(ct);
                 Task<List<ModelDownloadStatus>> downloadsTask = ModelDownloadClient.Current.ListDownloadsAsync(ct);
                 Task<List<ManagedModelInfo>> installedTask = ModelDownloadClient.Current.ListManagedModelsAsync(ct);
-                Task<List<MediaCheckpointStatus>> mediaTask = ModelDownloadClient.Current.ListMediaCheckpointsAsync(ct);
-                Task<List<RecommendedCheckpoint>> mediaRecommendedTask = ModelDownloadClient.Current.GetRecommendedMediaCheckpointsAsync(ct);
-                Task<MediaCatalogueResponse?> mediaCatalogueTask = TryGetMediaCatalogueAsync(ct);
+                // Corporate Lite has no media engines: don't fetch/check them merely
+                // because the user opened the AI model library.
+                Task<List<MediaCheckpointStatus>> mediaTask = CorporateMode.IsActive
+                    ? Task.FromResult(new List<MediaCheckpointStatus>())
+                    : ModelDownloadClient.Current.ListMediaCheckpointsAsync(ct);
+                Task<List<RecommendedCheckpoint>> mediaRecommendedTask = CorporateMode.IsActive
+                    ? Task.FromResult(new List<RecommendedCheckpoint>())
+                    : ModelDownloadClient.Current.GetRecommendedMediaCheckpointsAsync(ct);
+                Task<MediaCatalogueResponse?> mediaCatalogueTask = CorporateMode.IsActive
+                    ? Task.FromResult<MediaCatalogueResponse?>(null)
+                    : TryGetMediaCatalogueAsync(ct);
                 Task<RuntimeManagerHardwareStatus?> hardwareTask = TryGetHardwareAsync(ct);
                 Task<AiStorageBudgetStatus?> storageBudgetTask = TryGetStorageBudgetAsync(ct);
-                Task<ModelDiscoveryCatalog?> discoveryTask = TryGetDiscoveryCatalogAsync(ct);
+                Task<ModelDiscoveryCatalog?> discoveryTask = CorporateMode.IsActive
+                    ? Task.FromResult<ModelDiscoveryCatalog?>(null)
+                    : TryGetDiscoveryCatalogAsync(ct);
                 Task<List<CandidateEvaluationJobStatus>?> candidateJobHistoryTask = _isAdvancedMode
                     ? TryGetCandidateJobHistoryAsync(ct)
                     : Task.FromResult<List<CandidateEvaluationJobStatus>?>(null);
@@ -902,7 +912,9 @@ namespace PaRuX.Views
                     ? TryGetRecommendationStatusAsync(ct)
                     : Task.FromResult<CandidateRecommendationStatusResponse?>(null);
                 Task<List<ManagedModelInfo>?> incompleteSetsTask = TryGetIncompleteSplitSetsAsync(ct);
-                Task<SuggestionFeedStatusDto?> maintenanceTask = TryGetMaintenanceStatusAsync(ct);
+                Task<SuggestionFeedStatusDto?> maintenanceTask = CorporateMode.IsActive
+                    ? Task.FromResult<SuggestionFeedStatusDto?>(null)
+                    : TryGetMaintenanceStatusAsync(ct);
                 await Task.WhenAll(maintenanceTask, recommendedTask, downloadsTask, installedTask, mediaTask, mediaRecommendedTask, mediaCatalogueTask,
                     hardwareTask, storageBudgetTask, discoveryTask, candidateJobHistoryTask, candidateUtilityPolicyTask,
                     recommendationStatusTask, incompleteSetsTask);
