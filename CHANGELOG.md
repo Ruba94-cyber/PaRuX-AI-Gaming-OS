@@ -1,3 +1,10 @@
+### Setup-specific UX and Corporate Chat-first shell (unreleased; Windows validation pending)
+
+- Workspace navigation, deep links, keyboard focus and shortcuts now follow the chosen AI-only/Gaming-only/Both setup. Gaming-only hides AI Chat, media, model hub, history/search, New Chat and Quick Chat bubble; AI-only hides Gaming/Console without removing saved data.
+- Corporate gets a minimal Chat + Document search + Settings + Help sidebar. Model Hub remains one step away from Chat or a compact Settings > Models panel; local GGUF import, model selection and optional IT-approved downloads are retained. Removed nonfunctional Corporate Media/voice/coding tools and fixed the setup-picker illusion.
+- Settings category lists, search, compact picker and mixed category contents now hide unrelated features. Corporate gets a simple bundled-CPU model panel and local/privacy explanation, and starts no separate coding/binary/desktop agent workers.
+- Added source-contract/xUnit/FlaUI coverage for filtered navigation and Corporate entry points. **No Windows build, UI screenshot validation or native CPU inference was performed in the source session.**
+
 - Improved large GGUF local import safety: stage into a non-model temporary file, verify copied size, publish atomically, and clean up on ordinary failures. Added duplicate/no-partial regression assertions; not run on Windows.
 
 ### Corporate Lite flexible models (unreleased; Windows build/inference pending)
