@@ -2221,6 +2221,11 @@ app.MapPost("/api/v1/training/plan", async (
         return Results.BadRequest(new { error = "A training file is required." });
     if (!TrainingMethod.All.Contains(request.Method))
         return Results.BadRequest(new { error = "Unknown training method \"" + request.Method + "\"." });
+    if (!TrainingPrecision.All.Contains(request.Precision, StringComparer.Ordinal)
+        || !TrainingTargetPreset.All.Contains(request.TargetPreset, StringComparer.Ordinal))
+        return Results.BadRequest(new { error = "Unsupported training precision or LoRA target preset." });
+    if (request.PackSequences && request.Method is not TrainingMethod.Sft and not TrainingMethod.ContinuedPretraining)
+        return Results.BadRequest(new { error = "Sequence packing requires text SFT or continued pretraining." });
 
     TrainingDatasetShape.Shape shape = TrainingDatasetShape.Inspect(request.TrainJsonlPath);
 
@@ -2233,7 +2238,7 @@ app.MapPost("/api/v1/training/plan", async (
 
     TrainingRunPlanner.RunPlan plan = TrainingRunPlanner.Plan(
         shape, request.Method, request.BaseModel,
-        request.LoraRank, request.MaxSteps, request.LearningRate, availableGib);
+        request.LoraRank, request.MaxSteps, request.LearningRate, availableGib, request.Precision);
 
     return Results.Ok(ToTrainingPlanResult(plan));
 }).RequireDesktopOwner();
@@ -2264,7 +2269,7 @@ app.MapPost("/api/v1/training/jobs", async (
 
         TrainingRunPlanner.RunPlan plan = TrainingRunPlanner.Plan(
             shape, request.Method, request.BaseModel,
-            request.LoraRank, request.MaxSteps, request.LearningRate, availableGib);
+            request.LoraRank, request.MaxSteps, request.LearningRate, availableGib, request.Precision);
 
         if (!plan.CanStart)
         {
