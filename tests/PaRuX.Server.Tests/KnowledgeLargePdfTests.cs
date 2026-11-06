@@ -21,13 +21,25 @@ public sealed class KnowledgeLargePdfTests : IDisposable
 
     public KnowledgeLargePdfTests() => Directory.CreateDirectory(Docs);
 
-    private KnowledgeIndex Index() => new(Database, new KnowledgeIndexOptions
+    private KnowledgeIndex Index(IOcrEngine? ocr = null) => new(Database, new KnowledgeIndexOptions
     {
         LargePdfPageThreshold = 2,
         MaxFileBytes = 256, // Even a tiny Eco file cap must not silently truncate a big PDF.
-        Limits = ExtractionLimits.Default with { MaxCharacters = 100 },
+        Limits = ExtractionLimits.Default with { MaxCharacters = 100, Ocr = ocr },
         EmbedChunks = false
     });
+
+    private sealed class ControlledOcr : IOcrEngine
+    {
+        public string Name => "synthetic-offline-ocr";
+        public OcrAvailability CheckAvailability() =>
+            new(true, null, Array.Empty<string>());
+        public OcrPageResult RecognizeImage(string path, string? languageTag, CancellationToken ct) =>
+            new(1, "SIMULATED_OCR", true);
+        public IReadOnlyList<OcrPageResult> RecognizePdfPages(
+            string path, IReadOnlyList<int> pages, string? languageTag, CancellationToken ct) =>
+            pages.Select(p => new OcrPageResult(p, "OCR_SERVICE_PAGE_" + p.ToString("D4"), true)).ToArray();
+    }
 
     private string MakePdf(string name, int pages, string prefix, int? blankPage = null)
     {
@@ -102,6 +114,49 @@ public sealed class KnowledgeLargePdfTests : IDisposable
         IndexProgress resumed = await index.IndexFolderAsync("corporate", Docs);
         Assert.Equal(1, resumed.Indexed);
         Assert.Equal(35, Assert.Single(index.Search("CONTROL_OLD_PAGE_0035")).Position.Page);
+        Assert.Equal(0, StagedRows(Database, "kn_pdf_progress"));
+    }
+
+    [Fact]
+    public async Task Enabling_opt_in_OCR_reindexes_only_missing_pages_with_exact_source_positions()
+    {
+        string path = MakePdf("mixed.pdf", 35, "MIXED_ECU", blankPage: 7);
+        using (KnowledgeIndex initial = Index())
+        {
+            await initial.IndexFolderAsync("corporate", Docs);
+            Assert.Empty(initial.Search("OCR_SERVICE_PAGE_0007"));
+            Assert.Contains(initial.Problems("corporate"),
+                p => p.Kind == "partial" && p.Reason.Contains("1 PDF page(s)"));
+        }
+        using KnowledgeIndex withOcr = Index(new ControlledOcr());
+        IndexProgress updated = await withOcr.IndexFolderAsync("corporate", Docs);
+        Assert.Equal(1, updated.Indexed);
+        KnowledgeHit citation = Assert.Single(
+            withOcr.Search("OCR_SERVICE_PAGE_0007", KnowledgeSearchMode.Exact));
+        Assert.Equal(7, citation.Position.Page);
+        Assert.DoesNotContain(withOcr.Problems("corporate"),
+            p => p.Kind == "partial");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task Changing_OCR_setting_discards_incompatible_incomplete_pdf_checkpoint()
+    {
+        MakePdf("mixed-pending.pdf", 35, "MIXED_ECU", blankPage: 7);
+        using var cancel = new CancellationTokenSource();
+        using (KnowledgeIndex initial = Index())
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                initial.IndexFolderAsync("corporate", Docs, new ImmediateProgress(p =>
+                {
+                    if (p.CurrentPage == 16) cancel.Cancel();
+                }), null, cancel.Token));
+        }
+        Assert.Equal(1, StagedRows(Database, "kn_pdf_progress"));
+        using KnowledgeIndex reconfigured = Index(new ControlledOcr());
+        await reconfigured.IndexFolderAsync("corporate", Docs);
+        Assert.Equal(7, Assert.Single(reconfigured.Search(
+            "OCR_SERVICE_PAGE_0007", KnowledgeSearchMode.Exact)).Position.Page);
         Assert.Equal(0, StagedRows(Database, "kn_pdf_progress"));
     }
 
