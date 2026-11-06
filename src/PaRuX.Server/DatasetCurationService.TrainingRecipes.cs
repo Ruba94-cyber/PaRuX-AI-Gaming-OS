@@ -17,6 +17,10 @@ public sealed partial class DatasetCurationService
     private const long RecipeMaximumOutputBytes = 32L * 1024 * 1024;
     private sealed record TrainingRecipeTurn(string role, string content);
 
+    // Hermetic tests must not write their synthetic training files into the user's
+    // actual PaRuXDataRoot. Production always uses the managed data directory.
+    internal string? TrainingRecipeTestOutputRoot { get; set; }
+
     public async Task<TrainingDatasetRecipeResult> CreateTrainingRecipeAsync(
         TrainingDatasetRecipeRequest request, CancellationToken ct)
     {
@@ -111,7 +115,8 @@ public sealed partial class DatasetCurationService
 
         // The explicit, reviewed result is created inside PaRuX-owned storage, never
         // beside the user's document. A partial write is not a successful recipe.
-        string root = Path.Combine(PaRuXDataRoot.Path, "datasets", "training-recipes");
+        string root = TrainingRecipeTestOutputRoot
+            ?? Path.Combine(PaRuXDataRoot.Path, "datasets", "training-recipes");
         Directory.CreateDirectory(root);
         string name = Guid.NewGuid().ToString("N");
         string destination = Path.Combine(root, name + "." + method + ".jsonl");
