@@ -110,6 +110,19 @@ public static class DocumentSkills
             return new(DocumentChatKind.Deterministic, "A and B have the same content hash (" + a.ShortHash + "): the files are identical, nothing changed.\nA = " + Label(a) + "\nB = " + Label(b),
                 Array.Empty<string>(), Array.Empty<KnowledgeHit>());
 
+        // Whole-document diff materializes passages from BOTH versions.
+        // A 30,000-page Corporate manual must not make the local CPU process
+        // allocate gigabytes simply because the user selected /diff.
+        // Never compare only the first N chunks while claiming a complete diff.
+        const int MaxWholeDocumentDiffChunks = 12_000;
+        int firstChunks = index.PassageChunkCount(a.Id);
+        int secondChunks = index.PassageChunkCount(b.Id);
+        if (firstChunks > MaxWholeDocumentDiffChunks || secondChunks > MaxWholeDocumentDiffChunks)
+            return NotEnough("These manuals are too large for a safe complete in-memory diff (A: "
+                + firstChunks.ToString("N0") + " chunks; B: " + secondChunks.ToString("N0")
+                + "). Nothing was compared or silently truncated. Use precise identifiers, page references,"
+                + " or scoped section searches; streaming large-document diff is a separate feature.");
+
         List<Unit> ua = Units(index.GetPassages(a.Id)), ub = Units(index.GetPassages(b.Id));
         if (ua.Count == 0 || ub.Count == 0)
             return NotEnough((ua.Count == 0 ? Label(a) : Label(b)) + " has no readable text in the index (metadata-only or empty), so its content cannot be compared.");
