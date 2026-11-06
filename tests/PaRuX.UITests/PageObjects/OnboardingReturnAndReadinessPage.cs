@@ -49,7 +49,8 @@ internal sealed class OnboardingReturnAndReadinessPage
             UiWait.For(() =>
             {
                 button = _app.FindRawDescendant(_window, el =>
-                    el.Properties.AutomationId.ValueOrDefault == "GetStartedButton"
+                    el.Properties.AutomationId.ValueOrDefault == "Onboarding_GetStarted_Button"
+                    || el.Properties.AutomationId.ValueOrDefault == "GetStartedButton"
                     || (el.Properties.ControlType.ValueOrDefault == ControlType.Button
                         && string.Equals(el.Properties.Name.ValueOrDefault, "Get Started", StringComparison.Ordinal)));
                 return button != null;
