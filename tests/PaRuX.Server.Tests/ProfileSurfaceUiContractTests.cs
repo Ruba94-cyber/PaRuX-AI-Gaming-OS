@@ -66,6 +66,45 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("Settings_CorporatePrivacy_Panel", mixed, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Corporate_home_is_generic_and_does_not_override_the_local_only_message_on_load()
+    {
+        string home = Read("src", "PaRuX.App", "Views", "ChatView.HomeLocalization.cs");
+        Assert.Contains("bool corporate = PaRuX.Contracts.CorporateMode.IsActive;", home, StringComparison.Ordinal);
+        Assert.Contains("Ask a question or work with approved documents.", home, StringComparison.Ordinal);
+        Assert.Contains("distinguishing facts, assumptions and missing information", home, StringComparison.Ordinal);
+        Assert.Contains("key facts, deadlines and items to verify", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Document_workspaces_are_responsive_scoped_and_draft_safe()
+    {
+        string search = Read("src", "PaRuX.App", "Views", "DocumentSearchView.cs");
+        string chat = Read("src", "PaRuX.App", "Views", "ChatView.Documents.cs");
+        string client = Read("src", "PaRuX.App", "Services", "KnowledgeClient.cs");
+        Assert.Contains("DocSearch_SearchActions_Panel", search, StringComparison.Ordinal);
+        Assert.Contains("SemaphoreSlim(4)", search, StringComparison.Ordinal);
+        Assert.Contains("if (row.ActionState == st.State) return;", search, StringComparison.Ordinal);
+        Assert.Contains("DocSearch_RemoveConfirm_Dialog", search, StringComparison.Ordinal);
+        Assert.Contains("DocSearch_FolderProgress_", search, StringComparison.Ordinal);
+        Assert.Contains("int? CurrentPage = null, int? TotalPages = null", client, StringComparison.Ordinal);
+        Assert.Contains("Chat_Documents_Sources_Scroll", chat, StringComparison.Ordinal);
+        Assert.Contains("If none is selected, ALL enabled folders", chat, StringComparison.Ordinal);
+        Assert.Contains("!string.IsNullOrWhiteSpace(InputBox.Text)", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_Documents_Skill_Summary", chat, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Android_chat_only_discards_draft_after_successful_local_submission_admission()
+    {
+        string screen = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatScreen.kt");
+        string model = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatViewModel.kt");
+        Assert.Contains("if (accepted)", screen, StringComparison.Ordinal);
+        Assert.Contains("fun sendMessage(text: String, image: PendingImage? = null, oneShotSkillId: String? = null): Boolean", model, StringComparison.Ordinal);
+        Assert.Contains("if (_state.value.gamingMode)", model, StringComparison.Ordinal);
+        Assert.Contains("if (container.client.value == null)", model, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
