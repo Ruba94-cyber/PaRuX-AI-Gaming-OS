@@ -90,6 +90,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     /// Never scan stores periodically or while the game owns the PC.</summary>
     internal Task RefreshTitlesAfterGameAsync() => _home.RefreshAfterGameAsync();
     internal Task RefreshVisibleTitlesAsync() => _home.RefreshWhenShownAsync();
+    internal void ApplySetupProfilePresentation() => _home.ApplySetupProfilePresentation();
     internal void CancelPendingQueries() => _home.CancelPendingQueries();
 
     /// <summary>Console Menu button: jump to the Gaming home search field.</summary>
