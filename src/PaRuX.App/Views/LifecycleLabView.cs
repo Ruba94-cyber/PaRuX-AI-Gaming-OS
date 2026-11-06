@@ -42,6 +42,10 @@ namespace PaRuX.Views
         private readonly ComboBox _recipeExtraColumn = new()
         { PlaceholderText = "Rejected / boolean label column", MinWidth = 210, IsEnabled = false };
         private readonly TextBlock _recipeSummary = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.76 };
+        private readonly Button _createTrainingRecipeButton = new()
+        { Content = "Create training JSONL from mapped columns", MinHeight = 40 };
+        private bool _recipeInProgress;
+        private CancellationTokenSource? _recipeCts;
 
         private readonly ComboBox _evalDataset = new() { PlaceholderText = "Eval dataset", MinWidth = 260, IsEnabled = false };
         private readonly TextBox _newEvalName = new() { PlaceholderText = "New Eval dataset name", MinWidth = 260 };
@@ -96,7 +100,11 @@ namespace PaRuX.Views
             AssignAutomationIds();
             Content = BuildUi();
             Loaded += async (_, _) => { if (Visibility == Visibility.Visible) await RefreshAllAsync(); };
-            Unloaded += (_, _) => _refreshCts?.Cancel();
+            Unloaded += (_, _) =>
+            {
+                _refreshCts?.Cancel();
+                _recipeCts?.Cancel();
+            };
         }
 
         private static void Id(DependencyObject element, string id, string? name = null)
@@ -241,10 +249,9 @@ namespace PaRuX.Views
             recipeRow.Children.Add(_recipeMethod);
             recipeRow.Children.Add(_recipeExtraColumn);
             content.Children.Add(recipeRow);
-            var buildRecipe = new Button { Content = "Create training JSONL from mapped columns", MinHeight = 40 };
-            Id(buildRecipe, "LifecycleLab_CreateTrainingRecipe_Button");
-            buildRecipe.Click += async (_, _) => await CreateTrainingRecipeFromColumnsAsync();
-            content.Children.Add(buildRecipe);
+            Id(_createTrainingRecipeButton, "LifecycleLab_CreateTrainingRecipe_Button");
+            _createTrainingRecipeButton.Click += async (_, _) => await CreateTrainingRecipeFromColumnsAsync();
+            content.Children.Add(_createTrainingRecipeButton);
             content.Children.Add(_recipeSummary);
             content.Children.Add(new TextBlock
             {
@@ -574,6 +581,7 @@ namespace PaRuX.Views
 
         private async Task CreateTrainingRecipeFromColumnsAsync()
         {
+            if (_recipeInProgress) return;
             string path = (_sourcePath.Text ?? string.Empty).Trim();
             string? prompt = SelectedTag(_promptColumn);
             string? response = SelectedTag(_expectedColumn);
@@ -585,6 +593,10 @@ namespace PaRuX.Views
                 _recipeSummary.Text = "Inspect the source dataset first, then choose prompt and answer columns. DPO also needs rejected; KTO needs a true/false label column.";
                 return;
             }
+            _recipeInProgress = true;
+            _createTrainingRecipeButton.IsEnabled = false;
+            var cts = new CancellationTokenSource();
+            _recipeCts = cts;
             SetBusy(true, "Building a local training recipe…");
             try
             {
@@ -595,7 +607,7 @@ namespace PaRuX.Views
                         PromptColumn = prompt, ResponseColumn = response,
                         ExtraColumn = method == TrainingMethod.Sft ? null : extra,
                         SystemColumn = method == TrainingMethod.Sft ? SelectedTag(_systemColumn) : null
-                    }, CancellationToken.None);
+                    }, cts.Token);
                 _recipeSummary.Text = "Created " + result.WrittenRows.ToString("N0") + " " + method.ToUpperInvariant()
                     + " example(s); skipped " + result.SkippedRows + ". Local only. SHA-256: "
                     + result.Sha256[..Math.Min(result.Sha256.Length, 16)] + "…";
@@ -611,11 +623,22 @@ namespace PaRuX.Views
                 }
                 _status.Text = "Training dataset is ready for preflight in section 3. No GPU job was started.";
             }
+            catch (OperationCanceledException)
+            {
+                _recipeSummary.Text = "Recipe creation was cancelled. No GPU training started.";
+            }
             catch (Exception ex)
             {
                 _recipeSummary.Text = "Training recipe refused: " + ex.Message;
             }
-            finally { SetBusy(false); }
+            finally
+            {
+                if (ReferenceEquals(_recipeCts, cts)) _recipeCts = null;
+                cts.Dispose();
+                _recipeInProgress = false;
+                _createTrainingRecipeButton.IsEnabled = true;
+                SetBusy(false);
+            }
         }
 
         private async Task ImportIntoEvalAsync()
