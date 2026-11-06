@@ -27,6 +27,15 @@ namespace PaRuX.Views
         private bool _componentsBusy;
         private bool _modelDownloadRefreshBusy;
         private bool _modelDownloadViewLoaded;
+        private sealed class DownloadRowVisual
+        {
+            public required StackPanel Row { get; init; }
+            public required TextBlock Summary { get; init; }
+            public required TextBlock Details { get; init; }
+            public ProgressBar? Bar { get; init; }
+            public required string Phase { get; init; }
+        }
+        private readonly Dictionary<string, DownloadRowVisual> _downloadRowsById = new(StringComparer.Ordinal);
         private bool _unprovenWarningShown;
         private CancellationTokenSource? _verifyLocalChatCts;
         private IReadOnlyList<ComponentStatus>? _lastComponents;
@@ -120,24 +129,49 @@ namespace PaRuX.Views
 
         private void RenderModelDownloads(IReadOnlyList<ModelDownloadStatus> jobs)
         {
-            FirstModelDownloadRows.Children.Clear();
-            foreach (ModelDownloadStatus job in jobs.OrderByDescending(j => j.CreatedUtc).Take(10))
+            var ordered = jobs.OrderByDescending(j => j.CreatedUtc).Take(10).ToList();
+            var keep = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < ordered.Count; index++)
             {
-                var row = new StackPanel { Spacing = 4 };
+                ModelDownloadStatus job = ordered[index];
+                keep.Add(job.Id);
+                string phase = Convert.ToString(job.Status) ?? string.Empty;
                 string state = ModelDownloadPresentationPolicy.DescribeStatus(job);
                 string progress = job.TotalBytes > 0
                     ? " · " + FormatBytes(job.BytesDownloaded) + " / " + FormatBytes(job.TotalBytes)
                     : " · " + FormatBytes(job.BytesDownloaded) + " downloaded";
-                row.Children.Add(new TextBlock
+                string summaryText = job.FileName + " · " + state + progress;
+                string details = ModelDownloadPresentationPolicy.FormatDetails(job);
+                bool active = ModelDownloadStatusPolicy.IsActive(job.Status);
+                if (_downloadRowsById.TryGetValue(job.Id, out DownloadRowVisual? previous)
+                    && previous.Phase == phase)
                 {
-                    Text = job.FileName + " · " + state + progress,
-                    TextWrapping = TextWrapping.Wrap,
+                    // 2s polling must not discard focused buttons or rebuild WinUI
+                    // controls when only the download byte count changed.
+                    if (previous.Summary.Text != summaryText) previous.Summary.Text = summaryText;
+                    if (previous.Details.Text != details) previous.Details.Text = details;
+                    previous.Details.Visibility = details.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                    if (previous.Bar != null)
+                    {
+                        previous.Bar.Value = job.TotalBytes > 0
+                            ? Math.Clamp(100d * Math.Max(0, job.BytesDownloaded) / job.TotalBytes, 0, 100) : 0;
+                        previous.Bar.IsIndeterminate = job.TotalBytes <= 0 && active;
+                    }
+                    PositionDownloadRow(previous.Row, index);
+                    continue;
+                }
+
+                var row = new StackPanel { Spacing = 4 };
+                var summary = new TextBlock
+                {
+                    Text = summaryText, TextWrapping = TextWrapping.Wrap,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-                });
+                };
+                row.Children.Add(summary);
 
                 // A progress bar is quicker to scan than a changing byte count; unknown-length
                 // transfers explicitly remain indeterminate rather than showing invented percentages.
-                bool active = ModelDownloadStatusPolicy.IsActive(job.Status);
+                ProgressBar? progressBar = null;
                 if (job.TotalBytes > 0 || active)
                 {
                     var bar = new ProgressBar
@@ -156,11 +190,16 @@ namespace PaRuX.Views
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(bar,
                         job.FileName + " download progress");
                     row.Children.Add(bar);
+                    progressBar = bar;
                 }
 
-                string details = ModelDownloadPresentationPolicy.FormatDetails(job);
-                if (details.Length > 0)
-                    row.Children.Add(new TextBlock { Text = details, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.78 });
+                var detailsText = new TextBlock
+                {
+                    Text = details, TextWrapping = TextWrapping.Wrap, FontSize = 12,
+                    Opacity = 0.78,
+                    Visibility = details.Length > 0 ? Visibility.Visible : Visibility.Collapsed
+                };
+                row.Children.Add(detailsText);
 
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 if (ModelDownloadStatusPolicy.CanPause(job.Status))
@@ -228,10 +267,30 @@ namespace PaRuX.Views
                 }
 
                 if (actions.Children.Count > 0) row.Children.Add(actions);
-                FirstModelDownloadRows.Children.Add(row);
+                _downloadRowsById[job.Id] = new DownloadRowVisual
+                {
+                    Row = row, Summary = summary, Details = detailsText,
+                    Bar = progressBar, Phase = phase
+                };
+                PositionDownloadRow(row, index);
             }
-            if (jobs.Count == 0)
+
+            // Remove only stale rows (including the previous empty-state placeholder).
+            while (FirstModelDownloadRows.Children.Count > ordered.Count)
+                FirstModelDownloadRows.Children.RemoveAt(FirstModelDownloadRows.Children.Count - 1);
+            foreach (string id in _downloadRowsById.Keys.Where(id => !keep.Contains(id)).ToArray())
+                _downloadRowsById.Remove(id);
+            if (ordered.Count == 0 && FirstModelDownloadRows.Children.Count == 0)
                 FirstModelDownloadRows.Children.Add(new TextBlock { Text = "No downloads yet.", Opacity = 0.75 });
+        }
+
+        private void PositionDownloadRow(StackPanel row, int index)
+        {
+            if (index < FirstModelDownloadRows.Children.Count
+                && ReferenceEquals(FirstModelDownloadRows.Children[index], row)) return;
+            int existing = FirstModelDownloadRows.Children.IndexOf(row);
+            if (existing >= 0) FirstModelDownloadRows.Children.RemoveAt(existing);
+            FirstModelDownloadRows.Children.Insert(index, row);
         }
 
         private async Task RefreshLocalAiRootAsync()
