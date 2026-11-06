@@ -50,9 +50,9 @@ public static class TrainingRunPlanner
             bool supported = Supports(dataset, normalizedMethod);
             if (!supported)
             {
-                string alternative = (normalizedMethod is "dpo" or "orpo") && dataset.SupportsSupervisedFineTuning
+                string alternative = (normalizedMethod is "dpo" or "orpo" or "kto") && dataset.SupportsSupervisedFineTuning
                     ? " This file is chat-shaped, so supervised fine-tuning would accept it."
-                    : normalizedMethod != "dpo" && dataset.SupportsPreferenceTuning
+                    : normalizedMethod is not ("dpo" or "orpo" or "kto") && dataset.SupportsPreferenceTuning
                         ? " This file is preference-shaped, so DPO preference tuning would accept it."
                         : string.Empty;
                 findings.Add(new Finding(Severity.Blocking, "dataset",
@@ -74,6 +74,24 @@ public static class TrainingRunPlanner
                 findings.Add(new Finding(Severity.Warning, "dataset",
                     $"Only {dataset.LinesRead:N0} examples were observed. The run can fit them, but it may memorise them rather than generalise; treat quality evidence as weak."));
             }
+        }
+
+        if (normalizedMethod == "kto" && dataset.ValidKtoRecords > 0)
+        {
+            if (dataset.DesirableKtoRecords == 0 || dataset.UndesirableKtoRecords == 0)
+                findings.Add(new Finding(Severity.Blocking, "dataset",
+                    "KTO needs at least one positive and one negative binary label."));
+            else
+            {
+                double ratio = (double)Math.Max(dataset.DesirableKtoRecords, dataset.UndesirableKtoRecords)
+                    / dataset.ValidKtoRecords;
+                if (ratio > 0.9)
+                    findings.Add(new Finding(Severity.Warning, "dataset",
+                        "More than 90% of KTO examples have the same label. Rebalance before tuning for reliable results."));
+            }
+            if (dataset.ValidKtoRecords < 4)
+                findings.Add(new Finding(Severity.Blocking, "dataset",
+                    "KTO requires at least four well-formed labelled examples to construct informative batches."));
         }
 
         ValidateModelFamily(baseModelId, normalizedMethod, findings);
@@ -110,6 +128,7 @@ public static class TrainingRunPlanner
             "tts-sft" => 1.70,
             "dpo" => 1.15,
             "orpo" => 1.15,
+            "kto" => 1.30,
             _ => 1.0
         };
         double estimatedGib = parameters.HasValue
@@ -155,7 +174,7 @@ public static class TrainingRunPlanner
         {
             double warningThreshold = normalizedMethod switch
             {
-                "grpo" or "dpo" or "orpo" => 1e-4,
+                "grpo" or "dpo" or "orpo" or "kto" => 1e-4,
                 "tts-sft" => 2e-4,
                 _ => 1e-3
             };
@@ -179,6 +198,7 @@ public static class TrainingRunPlanner
         {
             "dpo" => examples < 2_000 ? 5e-6 : 2e-6,
             "orpo" => examples < 2_000 ? 1e-5 : 5e-6,
+            "kto" => examples < 2_000 ? 5e-6 : 2e-6,
             "grpo" => examples < 2_000 ? 5e-6 : 2e-6,
             "continued-pretraining" => examples < 2_000 ? 5e-5 : 2e-5,
             "vision-sft" => examples < 2_000 ? 1e-4 : 5e-5,
@@ -194,6 +214,7 @@ public static class TrainingRunPlanner
     public static bool Supports(TrainingDatasetShape.Shape dataset, string method) => NormalizeMethod(method) switch
     {
         "dpo" or "orpo" => dataset.SupportsPreferenceTuning,
+        "kto" => dataset.SupportsKto,
         "continued-pretraining" => dataset.SupportsContinuedPretraining,
         "grpo" => dataset.SupportsGrpo,
         "vision-sft" => dataset.SupportsVisionFineTuning,
@@ -232,6 +253,7 @@ public static class TrainingRunPlanner
     private static string RequiredShape(string method) => method switch
     {
         "dpo" or "orpo" => "JSONL objects with prompt, chosen and rejected strings.",
+        "kto" => "JSONL objects with prompt, completion strings and a boolean label (true/false); at least one of each class.",
         "continued-pretraining" => "JSONL objects with a non-empty text string.",
         "grpo" => "JSONL objects with prompt and, for reference rewards, reference strings.",
         "vision-sft" => "JSONL objects with image plus messages, or image + prompt + response.",
@@ -243,6 +265,7 @@ public static class TrainingRunPlanner
     {
         "dpo" => "DPO",
         "orpo" => "ORPO",
+        "kto" => "KTO",
         "continued-pretraining" => "continued pretraining",
         "grpo" => "GRPO",
         "vision-sft" => "Vision SFT",
@@ -253,7 +276,7 @@ public static class TrainingRunPlanner
     private static string NormalizeMethod(string? method)
     {
         string value = string.IsNullOrWhiteSpace(method) ? "sft" : method.Trim().ToLowerInvariant();
-        return value is "sft" or "dpo" or "orpo" or "continued-pretraining" or "grpo" or "vision-sft" or "tts-sft" ? value : "sft";
+        return value is "sft" or "dpo" or "orpo" or "kto" or "continued-pretraining" or "grpo" or "vision-sft" or "tts-sft" ? value : "sft";
     }
 
     public static double? ParameterBillionsFrom(string? modelId)
