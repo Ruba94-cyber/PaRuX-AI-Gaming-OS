@@ -160,17 +160,24 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         // sources, redirect hosts, model sizes, licences and download destinations).
         // No general Internet/cloud inference capability is enabled by this change.
         bool corporateModelNetwork = PaRuX.Contracts.CorporateMode.ModelDownloadsAllowed;
+        System.Net.IWebProxy? approvedProxy = corporateModelNetwork
+            ? PaRuX.Contracts.CorporateNetworkGuard.ApprovedModelProxy : null;
         _http = httpClient ?? new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
-            UseProxy = !corporateModelNetwork,
+            // The original OS/enterprise proxy, not an unconditional direct bypass.
+            // For ordinary installs use the system default. For Corporate use the
+            // proxy captured before the dead-loopback guard was applied.
+            UseProxy = !corporateModelNetwork || approvedProxy != null,
+            Proxy = approvedProxy,
             ConnectTimeout = ModelDownloadTransferPolicy.Default.ConnectTimeout
         });
         _http.Timeout = Timeout.InfiniteTimeSpan;
         _metadataProbe = metadataProbe ?? new HttpClient(new HttpClientHandler
         {
             AllowAutoRedirect = false,
-            UseProxy = !corporateModelNetwork
+            UseProxy = !corporateModelNetwork || approvedProxy != null,
+            Proxy = approvedProxy
         })
         {
             Timeout = TimeSpan.FromSeconds(30)
