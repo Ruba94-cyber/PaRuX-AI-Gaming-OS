@@ -391,7 +391,29 @@ The portable reuses `stage-msi-runtime.ps1 -ArtifactIds llama.cpp-vulkan`: the u
 
 Use `PaRuX.exe` for the current PC user profile or `PaRuX (portable data).cmd` for an isolated `PaRuXData` folder beside the executable. The isolated mode must not inherit a pre-existing `Documents\LocalAI` directory. The shipped Vulkan baseline is verified and bootstrapped to the selected data root on first Core launch; no CUDA hardware probe runs for the Vulkan-only package. Copying the folder preserves any downloaded data, but **models are not embedded in the initial Standard ZIP**.
 
-Corporate Lite is a separate CPU-only/offline package built using `build-portable.ps1 -WithoutVulkan` as its lean application shell and then adding its curated CPU runtime, one quantized model, and embedding model. Neither a Vulkan payload nor the optional CLI should leak into its final ZIP.
+Corporate Lite is a separate CPU-only/offline-by-default package built using `build-portable.ps1 -WithoutVulkan` as its lean application shell, then adding its **preinstalled CPU llama.cpp runtime, one initial quantized GGUF and an embedding model**. Neither Vulkan nor the optional CLI should leak into its ZIP. This runtime does not have to be downloaded again on the target PC.
+
+### Corporate Lite: manage models after deployment
+
+Build on the trusted Windows release workstation with explicit local approved artifacts, or use `-Fetch` to obtain official build-time assets (review upstream licence and hashes; never bundle company data). Runtime and model hashes are recorded in `MANIFEST.json` and checked against the **final ZIP**; `-Smoke` also exercises the extracted CPU `llama-server.exe --help` native loader before launching Core. These checks do not prove real inference until a Windows CPU chat is run.
+
+```powershell
+.\scripts\build-corporate-lite.ps1 -RuntimeDir "D:\approved\llama-cpu" `
+  -ModelPath "D:\approved\starter.gguf" -EmbeddingDir "D:\approved\embeddings" -Smoke
+```
+
+Unzip to a user-writable location; do not run it directly from inside the ZIP. The package contains two explicit launchers:
+
+- **`Start PaRuX Corporate Lite.cmd`** — default **offline**; local GGUF file import and already-installed model selection work without any network.
+- **`Start PaRuX Corporate Model Downloads.cmd`** — use **only with IT approval** and after closing the offline instance. Enables GGUF Model Hub search/download with licence review and the existing size/hash checks. The server keeps its dead-loopback guard for every other HTTP client; the model transfer client uses the original machine/enterprise proxy rather than overriding IT restrictions.
+
+In Model Hub > Start, **Import GGUF file** copies a selected compatible model to `PaRuXData/models` after explicit confirmation. The user can select **Import and use for Chat**, or import without changing Chat. The same screen exposes the existing Ollama/LM Studio import path. Additional downloads and imports do **not** replace or delete the shipped runtime or starter model. A package-pinned `.corporate-default-model` marker keeps the original fallback stable; a user-selected Standard/Chat role takes precedence. Downloaded GGUFs can be selected via the existing **Use for** model roles.
+
+Double-clicking **`PaRuX.exe`** within the extracted marked Corporate folder also recognizes its sibling `PaRuXData` automatically and starts in default offline mode. The CMD files are still the recommended explicit way to select the network permission.
+
+**Remaining restrictions:** CPU-only runtime, AI/documents only, no gaming, no media runtime, no cloud inference, no automatic updates, no automatic runtime downloads and no broad web access. Text GGUF only; projectors/safetensors are rejected from the Corporate download lane. The Internet switch for web tools remains off. Copying a large model requires enough local free disk space. Corporate features do not bypass Defender, SmartScreen, enterprise proxies, firewalls, or policy. Keep `PaRuXData` when replacing the app directory during an upgrade.
+
+**Required Windows checks before signing/release:** offline ZIP/CPU loader/hash smoke, real first chat on a weak CPU without Internet; import a local GGUF and change the active Chat role, restart and confirm role/fallback persistence; verify offline 403 for model download and no outbound traffic; with explicit IT-approved test network start the online launcher, download a pinned licensed GGUF and confirm the saved file/role, then close and restart offline; run xUnit, FlaUI and compare RSS/TTFT/disk size against the prior Corporate ZIP. Source changes do not establish these runtime results.
 
 **Windows verification (not established by source edits):**
 1. Fresh build + ZIP inspection: no missing native DLL, no unexpected CUDA/uv/CLI, no developer models or indexes, SHA-256 verification succeeds.
