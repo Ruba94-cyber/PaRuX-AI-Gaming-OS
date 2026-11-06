@@ -91,14 +91,14 @@ namespace PaRuX.Views
 
             // A user cannot replace the running AI setup profile halfway through a model download
             // or runtime verification. Revert the visual choice instead of silently switching workers.
-            if (_autoSetupCts != null)
+            if (_autoSetupCts != null || _verifyLocalChatCts != null || _componentsBusy)
             {
                 _setupProfileInitialising = true;
                 try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == previous); }
                 finally { _setupProfileInitialising = false; }
                 SetupProfileDescription.Text = SetupProfileItalian
-                    ? "Completa o annulla la configurazione automatica prima di cambiare modalità."
-                    : "Finish or cancel automatic setup before changing mode.";
+                    ? "Completa la verifica o annulla la configurazione in corso prima di cambiare modalità."
+                    : "Finish the current check or cancel setup before changing mode.";
                 return;
             }
 
