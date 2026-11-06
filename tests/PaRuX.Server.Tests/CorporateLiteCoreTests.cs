@@ -106,6 +106,37 @@ public sealed class CorporateLiteCoreTests : IDisposable
     }
 
     [Fact]
+    public void Corporate_saved_chat_model_recovers_to_starter_only_when_preference_is_unavailable()
+    {
+        Func<string, bool> usable = path => path is "starter.gguf" or "chat.gguf";
+
+        var preferred = CorporateTextModelChoicePolicy.Resolve(
+            null, "chat.gguf", "starter.gguf", usable);
+        Assert.Equal("chat.gguf", preferred.Path);
+        Assert.False(preferred.RecoveredFromSavedChoice);
+
+        var recovered = CorporateTextModelChoicePolicy.Resolve(
+            null, "missing.gguf", "starter.gguf", usable);
+        Assert.Equal("starter.gguf", recovered.Path);
+        Assert.True(recovered.RecoveredFromSavedChoice);
+
+        // An explicitly selected but invalid model is NOT silently replaced.
+        var explicitMissing = CorporateTextModelChoicePolicy.Resolve(
+            "requested.gguf", "chat.gguf", "starter.gguf", usable);
+        Assert.Equal("requested.gguf", explicitMissing.Path);
+        Assert.False(explicitMissing.RecoveredFromSavedChoice);
+
+        // If the starter is missing too, report the actual missing role rather
+        // than claiming recovery succeeded.
+        var noFallback = CorporateTextModelChoicePolicy.Resolve(
+            null, "missing.gguf", "missing-starter.gguf", usable);
+        Assert.Equal("missing.gguf", noFallback.Path);
+        Assert.False(noFallback.RecoveredFromSavedChoice);
+        Assert.Equal("starter.gguf",
+            CorporateTextModelChoicePolicy.Resolve(null, null, "starter.gguf", usable).Path);
+    }
+
+    [Fact]
     public void Cpu_launch_is_loopback_only_bounded_and_unloads_when_idle()
     {
         List<string> a = LocalAiProcessManager.BuildCorporateCpuArguments(@"C:\m\x.gguf", 8123, 16);
