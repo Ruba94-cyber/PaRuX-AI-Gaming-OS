@@ -21,6 +21,9 @@ namespace PaRuX.Services
         public double LearningRate { get; init; } = 0.0002;
         public double DpoBeta { get; init; } = 0.1;
         public int MaxSequenceLength { get; init; } = 2048;
+        public string Precision { get; init; } = TrainingPrecision.Qlora4Bit;
+        public string TargetPreset { get; init; } = TrainingTargetPreset.Attention;
+        public bool PackSequences { get; init; }
         public string GrpoRewardMode { get; init; } = PaRuX.Contracts.GrpoRewardMode.ExactReference;
         public int GrpoGenerations { get; init; } = 4;
         public string TextField { get; init; } = "text";
@@ -77,6 +80,9 @@ namespace PaRuX.Services
                 LearningRate = options.LearningRate,
                 DpoBeta = options.DpoBeta,
                 MaxSequenceLength = options.MaxSequenceLength,
+                Precision = TrainingPrecision.Normalize(options.Precision),
+                TargetPreset = TrainingTargetPreset.Normalize(options.TargetPreset),
+                PackSequences = options.PackSequences,
                 GrpoRewardMode = PaRuX.Contracts.GrpoRewardMode.Normalize(options.GrpoRewardMode),
                 GrpoGenerations = options.GrpoGenerations,
                 TextField = NormalizeField(options.TextField, "text"),
@@ -99,6 +105,9 @@ namespace PaRuX.Services
                 request.LearningRate = options.LearningRate;
                 request.DpoBeta = options.DpoBeta;
                 request.MaxSequenceLength = options.MaxSequenceLength;
+                request.Precision = options.Precision;
+                request.TargetPreset = options.TargetPreset;
+                request.PackSequences = options.PackSequences;
                 request.GrpoRewardMode = options.GrpoRewardMode;
                 request.GrpoGenerations = options.GrpoGenerations;
                 request.TextField = options.TextField;
