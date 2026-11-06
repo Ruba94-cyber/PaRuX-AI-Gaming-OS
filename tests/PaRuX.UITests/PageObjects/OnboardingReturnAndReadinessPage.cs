@@ -30,8 +30,16 @@ internal sealed class OnboardingReturnAndReadinessPage
             el.Properties.AutomationId.ValueOrDefault == "MainWindow_ReturnToOnboarding_Button"
             && !el.Properties.IsOffscreen.ValueOrDefault);
 
-    internal AutomationElement FirstModelInstallButton =>
-        UiWait.ById(_window, "FirstModelInstallButton", ControlType.Button);
+    internal AutomationElement FirstModelInstallButton
+    {
+        get
+        {
+            // Guided first run intentionally keeps manual model options behind an
+            // explicit expander; UIA cannot find unrealized collapsed descendants.
+            UiWait.ExpandById(_window, "Onboarding_ManualSetup_Expander");
+            return UiWait.ById(_window, "FirstModelInstallButton", ControlType.Button);
+        }
+    }
 
     internal AutomationElement GetStartedButton
     {
