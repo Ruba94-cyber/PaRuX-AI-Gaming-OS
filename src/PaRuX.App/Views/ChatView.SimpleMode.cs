@@ -143,7 +143,11 @@ namespace PaRuX.Views
             ModelRouteExplanationButton.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             QuickModelCompareButton.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             SimpleModeAnsweringModelPanel.Visibility = advanced ? Visibility.Collapsed : Visibility.Visible;
-            SimpleModeRuntimeHealthPanel.Visibility = advanced ? Visibility.Collapsed : Visibility.Visible;
+            // The Corporate CPU engine is shipped beside the executable and need not
+            // appear as a Runtime Manager installation. Do not show a false
+            // "runtime missing" badge derived from the standard runtime inventory.
+            SimpleModeRuntimeHealthPanel.Visibility = corporate || advanced
+                ? Visibility.Collapsed : Visibility.Visible;
             SkillSelector.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             if (!_simpleModeFolderEventsAttached)
             {
@@ -247,7 +251,8 @@ namespace PaRuX.Views
 
         public async void RefreshSimpleModeRuntimeHealth()
         {
-            if (SimpleModeRuntimeHealthPanel == null) return;
+            if (PaRuX.Contracts.CorporateMode.IsActive
+                || SimpleModeRuntimeHealthPanel == null) return;
             try
             {
                 var components = await RuntimeManagerClient.Current.GetComponentsAsync(System.Threading.CancellationToken.None);
