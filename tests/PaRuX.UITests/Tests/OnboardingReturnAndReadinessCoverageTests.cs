@@ -26,6 +26,47 @@ public sealed class OnboardingReturnAndReadinessCoverageTests
         return testRoot;
     }
 
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Corporate"), Trait("Category", "Onboarding")]
+    public void Corporate_first_run_verifies_local_chat_without_showing_model_or_runtime_installers()
+    {
+        const string testName = nameof(Corporate_first_run_verifies_local_chat_without_showing_model_or_runtime_installers);
+        string freshRoot = CreateIsolatedFreshSettingsRoot();
+        using var app = new UiTestApplication(testName,
+            enableFirstModelStorageFixture: true, restartDataRoot: freshRoot,
+            extraEnvironment: new Dictionary<string, string>
+            {
+                ["PARUX_CORPORATE"] = "1",
+                ["PARUX_CORPORATE_MODEL_DOWNLOADS"] = "0"
+            });
+        try
+        {
+            var page = new OnboardingReturnAndReadinessPage(app);
+            var verify = UiWait.ById(app.MainWindow, "Onboarding_VerifyLocalChat_Button", ControlType.Button);
+            Assert.NotNull(verify);
+            var models = UiWait.ById(app.MainWindow, "Onboarding_Corporate_ManageModels_Button", ControlType.Button);
+            Assert.False(models.Properties.IsOffscreen.ValueOrDefault);
+            foreach (string id in new[] {
+                "Onboarding_AutoSetup_Start_Button",
+                "Onboarding_SetupProfile_Choice",
+                "FirstModelInstallButton"
+            })
+            {
+                var hidden = app.FindRawDescendant(app.MainWindow,
+                    element => element.Properties.AutomationId.ValueOrDefault == id);
+                Assert.True(hidden == null || hidden.Properties.IsOffscreen.ValueOrDefault,
+                    "The Corporate first-run path should not expose " + id);
+            }
+
+            page.InvokeButton(models);
+            UiWait.For(() => page.ReturnToSetupButton != null, "Corporate model handoff return button");
+            UiWait.ById(app.MainWindow, "ModelHub_Corporate_ImportGguf_Button", ControlType.Button);
+            page.ClickReturnToSetup();
+            Assert.NotNull(UiWait.ById(app.MainWindow,
+                "Onboarding_Corporate_ManageModels_Button", ControlType.Button));
+        }
+        catch (Exception ex) { app.CaptureFailure(testName, ex); throw; }
+    }
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "Onboarding")]
     public void Return_banner_appears_only_during_model_hub_handoff_and_is_absent_initially()
     {
