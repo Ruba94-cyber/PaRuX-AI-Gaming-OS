@@ -56,7 +56,8 @@ public sealed class SetupProfileTransitionTests
         var plan = SetupProfileTransition.Plan(Running(SetupProfile.Both), SetupProfile.GamingOnly, true, false);
         Assert.Equal(SetupProfile.AiOnly, plan.Target);
         Assert.True(plan.ForcedToAiOnly);
-        Assert.Equal("-Gaming", Describe(plan));
+        // Corporate is a lean CPU Chat shell; stop advanced agents too, not just Gaming.
+        Assert.Equal("-Gaming,-AgentWorkers", Describe(plan));
     }
 
     [Fact]
