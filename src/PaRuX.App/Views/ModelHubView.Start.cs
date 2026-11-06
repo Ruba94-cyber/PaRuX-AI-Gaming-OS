@@ -71,6 +71,13 @@ namespace PaRuX.Views
                 Opacity = 0.82
             });
             panel.Children.Add(intro);
+            if (CorporateMode.IsActive)
+            {
+                // Corporate is AI/documents on a pre-installed CPU runtime; hide irrelevant
+                // image/video/music setup tiles, not the installed-model/role controls.
+                panel.Children.Add(BuildCorporateModelCard());
+                _startCards.Visibility = Visibility.Collapsed;
+            }
 
             AutomationProperties.SetAutomationId(_startSummary, "ModelHub_Start_Summary");
             AutomationProperties.SetAutomationId(_startHardware, "ModelHub_Start_Hardware");
@@ -95,6 +102,7 @@ namespace PaRuX.Views
                 (ModelHubTab.Downloads, "Downloads", "Download")
             })
             {
+                if (CorporateMode.IsActive && tab == ModelHubTab.Media) continue;
                 ModelHubTab target = tab;
                 var button = new Button { Content = it ? itLabel : en };
                 AutomationProperties.SetAutomationId(button, "ModelHub_Start_Browse_" + tab);
@@ -129,6 +137,12 @@ namespace PaRuX.Views
 
         private void RefreshStart(bool all)
         {
+            if (CorporateMode.IsActive)
+            {
+                // No media service/network requests in the CPU-only corporate profile.
+                _ = RefreshStartTextAsync();
+                return;
+            }
             foreach (MediaEngineDefinition engine in MediaEngineHubPresenter.Engines)
             {
                 bool needsLook = all
