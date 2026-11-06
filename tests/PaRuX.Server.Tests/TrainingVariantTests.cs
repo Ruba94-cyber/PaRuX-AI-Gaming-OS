@@ -17,7 +17,7 @@ public sealed class TrainingVariantTests
     {
         TrainJsonlPath = "synthetic.jsonl",
         Method = method,
-        BaseModel = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
+        BaseModel = "Qwen/Qwen2.5-7B-Instruct"
     };
 
     private static TrainingDatasetShape.Shape ChatDataset =>
@@ -94,6 +94,16 @@ public sealed class TrainingVariantTests
         request.Precision = precision;
         request.TargetPreset = target;
         Assert.Throws<InvalidDataException>(() => TrainingLabService.ValidateRequest(request, method));
+    }
+
+    [Fact]
+    public void Sixteen_bit_loading_must_refuse_a_prequantized_model_identifier()
+    {
+        TrainingJobRequest request = Request();
+        request.Precision = TrainingPrecision.Lora16Bit;
+        request.BaseModel = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit";
+        Assert.Contains("unquantized", Assert.Throws<InvalidDataException>(
+            () => TrainingLabService.ValidateRequest(request, TrainingMethod.Sft)).Message);
     }
 
     [Fact]
