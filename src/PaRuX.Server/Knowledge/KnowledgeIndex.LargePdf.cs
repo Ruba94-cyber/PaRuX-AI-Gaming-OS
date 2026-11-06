@@ -280,6 +280,11 @@ WHERE source_id=$s AND path=$p;";
                 throw new InvalidDataException("PDF changed during indexing. Restart to discard stale page checkpoints.");
         }
         ct.ThrowIfCancellationRequested();
+        // The document is read, but SQLite FTS/trigram publication can still
+        // take time for millions of chunks. A 100% page bar is NOT the same
+        // as a fully searchable index: show a truthful indeterminate phase.
+        progress?.Report(snap("running", Path.GetFileName(path)
+            + " · publishing verified search index (previous complete version remains searchable)"));
         PromotePdf(sourceId, path, info, ticks, hash, duplicateOf, existingId, state, totalPages, ocrMode, ct);
         return new LargePdfIndexResult(totalPages, state.EmptyPages);
     }
