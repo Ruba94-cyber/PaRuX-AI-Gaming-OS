@@ -404,7 +404,26 @@ public static class LocalAiPaths
     /// if the overridden file has since gone missing - RuntimeResult failing loudly with a real
     /// path is more honest than silently falling back to a model the user deliberately moved away
     /// from.</summary>
-    public static string StandardModel => GetRoleOverride("standard") ?? DefaultStandardModel;
+    public static string StandardModel => CorporateMode.IsActive
+        ? CorporateStandardModelPath()
+        : GetRoleOverride("standard") ?? DefaultStandardModel;
+
+    private static string CorporateStandardModelPath()
+    {
+        string? preferred = GetRoleOverride("standard");
+        CorporateTextModelChoice selected = CorporateTextModelChoicePolicy.Resolve(
+            null, preferred, FindBundledCorporateModel(), path =>
+            {
+                try
+                {
+                    return File.Exists(path) && CorporateModelImportPolicy.IsAcceptableModel(
+                        Path.GetFileName(path), new FileInfo(path).Length);
+                }
+                catch (IOException) { return false; }
+                catch (UnauthorizedAccessException) { return false; }
+            });
+        return selected.Path ?? DefaultStandardModel;
+    }
     public static string UncensoredModel => GetRoleOverride("uncensored") ?? DefaultUncensoredModel;
 
     /// <summary>Null whenever the role is overridden: an arbitrary user-picked GGUF has no known
@@ -562,7 +581,7 @@ public static class LocalAiPaths
         if (normalized == null) return null;
         if (!LoadOverrides(RoleOverridesPath).TryGetValue(normalized, out string? path) || string.IsNullOrWhiteSpace(path))
             return null;
-        return normalized == "standard" && IsFallbackOnlyModel(path) ? null : path;
+        return normalized == "standard" && !CorporateMode.IsActive && IsFallbackOnlyModel(path) ? null : path;
     }
 
     /// <summary>The file currently backing a role, or null if unassigned. Unlike
@@ -605,7 +624,7 @@ public static class LocalAiPaths
             throw new InvalidDataException("The selected model file does not exist.");
         if (!string.Equals(Path.GetExtension(modelPath), ".gguf", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Only .gguf model files can be assigned to a role.");
-        if (normalized == "standard" && IsFallbackOnlyModel(modelPath))
+        if (normalized == "standard" && !CorporateMode.IsActive && IsFallbackOnlyModel(modelPath))
             throw new InvalidDataException("Qwen3.5-4B is a fallback-only model and cannot replace the Qwen3.8-27B Standard profile.");
 
         using (ManualSelectionGate.WriteLease writeLease = ManualSelectionGate.AcquireWrite())
