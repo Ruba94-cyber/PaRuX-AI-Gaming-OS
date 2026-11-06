@@ -154,13 +154,24 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         // No total deadline: a large model may legitimately take hours on an ordinary link. Liveness is
         // enforced per phase instead - a connect timeout on response headers and a stall timeout between
         // body reads (see ModelDownloadTransferPolicy). Redirects are followed by hand, host by host.
+        // Corporate retains the dead-loopback proxy for ALL other HTTP clients.
+        // Only an explicitly consented model-download session may bypass it, and only
+        // through this existing Hugging Face model service (which validates pinned
+        // sources, redirect hosts, model sizes, licences and download destinations).
+        // No general Internet/cloud inference capability is enabled by this change.
+        bool corporateModelNetwork = PaRuX.Contracts.CorporateMode.ModelDownloadsAllowed;
         _http = httpClient ?? new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
+            UseProxy = !corporateModelNetwork,
             ConnectTimeout = ModelDownloadTransferPolicy.Default.ConnectTimeout
         });
         _http.Timeout = Timeout.InfiniteTimeSpan;
-        _metadataProbe = metadataProbe ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        _metadataProbe = metadataProbe ?? new HttpClient(new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseProxy = !corporateModelNetwork
+        })
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
