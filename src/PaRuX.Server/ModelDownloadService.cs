@@ -698,6 +698,14 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         if (!PaRuXPathSafety.IsSimpleFileName(safeName)
             || !safeName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The destination must be a simple .gguf file name.");
+        if (CorporateMode.IsActive)
+        {
+            long bytes = new FileInfo(sourcePath).Length;
+            if (!CorporateModelImportPolicy.IsAcceptableModel(safeName, bytes)
+                || !CorporateModelImportPolicy.HasGgufHeader(sourcePath))
+                throw new InvalidDataException(
+                    "This file is not a valid text GGUF candidate (name, size or GGUF signature). Choose a different model.");
+        }
         Directory.CreateDirectory(ModelsDirectory);
         string destination = Path.GetFullPath(Path.Combine(ModelsDirectory, safeName));
         if (!PaRuXPathSafety.IsWithin(ModelsDirectory, destination))
