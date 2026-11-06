@@ -106,6 +106,21 @@ public sealed class TrainingVariantTests
             () => TrainingLabService.ValidateRequest(request, TrainingMethod.Sft)).Message);
     }
 
+    [Theory]
+    [InlineData(TrainingMethod.Sft, TrainingPrecision.Qlora4Bit, "QLoRA")]
+    [InlineData(TrainingMethod.Dpo, TrainingPrecision.Qlora4Bit, "QLoRA-DPO")]
+    [InlineData(TrainingMethod.Orpo, TrainingPrecision.Qlora4Bit, "QLoRA-ORPO")]
+    [InlineData(TrainingMethod.Sft, TrainingPrecision.Lora16Bit, "LoRA-16bit")]
+    [InlineData(TrainingMethod.Orpo, TrainingPrecision.Lora16Bit, "LoRA-16bit-ORPO")]
+    [InlineData(TrainingMethod.TtsSft, TrainingPrecision.Qlora4Bit, "LoRA-TTS-SFT")]
+    public void Completed_adapter_registry_describes_real_base_precision_and_objective(
+        string method, string precision, string expected)
+    {
+        TrainingJobRequest request = Request(method);
+        request.Precision = precision;
+        Assert.Equal(expected, AdapterManagerService.TrainingAdapterMethodLabel(request));
+    }
+
     [Fact]
     public void Sequence_packing_cannot_silently_affect_preference_training()
     {
