@@ -1,3 +1,10 @@
+## 2026-11-06 — Portable-first UX improvements on main (SOURCE WIP, NOT WINDOWS TESTED)
+
+- Guided first run is now shorter: manual components/first-model/downloads behind `Onboarding_ManualSetup_Expander` (auto-expanded for failure/recovery and Model Hub handoff), primary CTA/readiness stay visible, narrower padding, no horizontal scrolling. Setup mode switches are locked during active auto setup; Gaming-only completion requires successful real service transition, not merely a click.
+- Download rows show determinate/indeterminate ProgressBars with 40px actions and mapped refresh errors. Model Hub text search uses a full-width entry and a responsive action row, Enter-to-search, deferred Advanced-only candidate evaluation calls. Media Hugging Face checkpoint form no longer assumes >900px width.
+- Updated `AdaptiveWorkspaceUiContractTests`, `AutoSetupCoverageTests`, `OnboardingReturnAndReadinessPage` to reflect progressive disclosure and stable button identifiers.
+- **Not run:** Windows WinUI build, xUnit, FlaUI, real portable GPU/CPU, 13-inch/4K/TV visual review, RAM/startup/performance benchmarks. The already published signed 4.0.1 assets are unchanged. On Windows: take exclusive FlaUI desktop lease before UI run; run source/build checks, xUnit focused/full, isolated FlaUI + onboarding/ModelHub responsive, native Vulkan bootstrap/chat and CPU fallback, compare cold/warm timings to MSI; then resolve visual/product defects before proposing release.
+
 ## 2026-11-06 — Portable Vulkan slimming and startup fix (MAIN SOURCE WIP, NOT RELEASED)
 
 - Owner reported the 4.0.1 portable missing Vulkan dependencies and including unnecessary payload. On main, Standard portable now stages only the pinned llama.cpp b10549 Vulkan engine + native DLLs through the MSI's verified archive/cache policy, excludes CUDA/uv/Python/media packs and self-contained CLI by default (-IncludeCli is opt-in). It inventories/hashes the actual finished ZIP, including ggml-vulkan.dll, and the extracted Windows -Smoke must bootstrap the runtime and pass the native --help loader test.
