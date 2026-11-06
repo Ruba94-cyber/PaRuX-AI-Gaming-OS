@@ -435,11 +435,12 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         string precision = TrainingPrecision.Normalize(request.Precision);
         string targets = TrainingTargetPreset.Normalize(request.TargetPreset);
         if (precision == TrainingPrecision.Lora16Bit
-            && method is TrainingMethod.VisionSft or TrainingMethod.TtsSft)
+            && (method is TrainingMethod.VisionSft or TrainingMethod.TtsSft))
             throw new InvalidDataException(
                 "16-bit LoRA is not validated for Vision/TTS. Use 4-bit QLoRA or a supported text method.");
-        if (targets != TrainingTargetPreset.Attention && method == TrainingMethod.TtsSft)
-            throw new InvalidDataException("SpeechT5 TTS uses its own fixed LoRA targets; select attention.");
+        if (targets != TrainingTargetPreset.Attention
+            && (method is TrainingMethod.VisionSft or TrainingMethod.TtsSft))
+            throw new InvalidDataException("Vision/TTS trainers use fixed LoRA targets; select attention.");
         if (request.PackSequences && method != TrainingMethod.Sft && method != TrainingMethod.ContinuedPretraining)
             throw new InvalidDataException("Sequence packing is currently available only for text SFT and continued pretraining.");
         if (request.LoraRank is < 1 or > 256) throw new InvalidDataException("loraRank must be between 1 and 256.");
