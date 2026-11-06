@@ -83,7 +83,7 @@ public static class DocumentChatPlanner
         // Do not infer a missing invoice, revision, part or DID from the
         // existence of another exact match in the same source collection.
         if (exact.Count > 1 && exact.Any(term => !hits.Any(h =>
-                h.Match == "exact" && h.Text.Contains(term, StringComparison.OrdinalIgnoreCase))))
+                h.Match == "exact" && ContainsWholeExactTerm(h.Text, term))))
             return false;
         if (exact.Count > 0 && hits.Any(h => h.Match == "exact")) return true;
         IReadOnlyList<string> terms = ContentTerms(query);
@@ -97,6 +97,24 @@ public static class DocumentChatPlanner
         }
         return best >= 0.5;
     }
+
+    private static bool ContainsWholeExactTerm(string text, string term)
+    {
+        if (string.IsNullOrEmpty(term)) return false;
+        int index = 0;
+        while ((index = text.IndexOf(term, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            int end = index + term.Length;
+            bool leftBoundary = index == 0 || !IsExactIdentifierChar(text[index - 1]);
+            bool rightBoundary = end == text.Length || !IsExactIdentifierChar(text[end]);
+            if (leftBoundary && rightBoundary) return true;
+            index++;
+        }
+        return false;
+    }
+
+    private static bool IsExactIdentifierChar(char ch) =>
+        char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.';
 
     private static bool IsSourceEvidence(KnowledgeHit hit)
     {
