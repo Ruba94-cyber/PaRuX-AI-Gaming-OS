@@ -48,7 +48,7 @@ public sealed partial class MainWindow
         accelerator.Invoked += (_, args) =>
         {
             args.Handled = true;
-            if (App.IsShuttingDown || NavView.IsPaneVisible == false) return;
+            if (App.IsShuttingDown || NavView.IsPaneVisible == false || !CurrentSetupPlan.ShowModeTabs) return;
             SelectModeTab(tab, navigate: true);
             (tab == ModeKeyAi ? ModeTabAiItem : ModeTabGamingItem).Focus(FocusState.Keyboard);
         };
@@ -96,12 +96,15 @@ public sealed partial class MainWindow
     {
         SetupProfilePlan setup = CurrentSetupPlan;
         ModeTabsHost.Visibility = setup.ShowModeTabs ? Visibility.Visible : Visibility.Collapsed;
-        if (setup.ShowModeTabs) return;
-
-        string forced = setup.StartInGamingTab ? ModeKeyGaming : ModeKeyAi;
-        bool settledShell = SettingsStore.Current.Data.OnboardingCompleted && OnboardingPage.Visibility != Visibility.Visible;
-        if (!string.Equals(_modeTab, forced, StringComparison.Ordinal)) SelectModeTab(forced, navigate: settledShell);
-        else ApplyModeTabVisibility();
+        if (!setup.ShowModeTabs)
+        {
+            string forced = setup.StartInGamingTab ? ModeKeyGaming : ModeKeyAi;
+            bool settledShell = SettingsStore.Current.Data.OnboardingCompleted && OnboardingPage.Visibility != Visibility.Visible;
+            if (!string.Equals(_modeTab, forced, StringComparison.Ordinal))
+                SelectModeTab(forced, navigate: settledShell);
+        }
+        ApplyModeTabVisibility();
+        EnsureWorkspaceFitsSetupProfile();
     }
 
     /// <summary>Selects a tab; optionally opens its default page (AI = Chat, Gaming = Games library).</summary>
@@ -126,6 +129,9 @@ public sealed partial class MainWindow
 
     private void SetModeTabState(string tab)
     {
+        SetupProfilePlan setup = CurrentSetupPlan;
+        if (!setup.ShowModeTabs)
+            tab = setup.StartInGamingTab ? ModeKeyGaming : ModeKeyAi;
         bool changed = !string.Equals(_modeTab, tab, StringComparison.Ordinal);
         _modeTab = tab;
         _applyingModeTab = true;
@@ -143,7 +149,7 @@ public sealed partial class MainWindow
 
     private void ModeTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
-        if (_applyingModeTab) return;
+        if (_applyingModeTab || !CurrentSetupPlan.ShowModeTabs) return;
         string tab = ReferenceEquals(sender.SelectedItem, ModeTabGamingItem) ? ModeKeyGaming : ModeKeyAi;
         if (string.Equals(tab, _modeTab, StringComparison.Ordinal)) return;
         SelectModeTab(tab, navigate: true);
@@ -151,7 +157,7 @@ public sealed partial class MainWindow
 
     private void ModeTabs_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Left && e.Key != VirtualKey.Right) return;
+        if (!CurrentSetupPlan.ShowModeTabs || (e.Key != VirtualKey.Left && e.Key != VirtualKey.Right)) return;
         // Arrow keys inside the selector switch tabs; Home/End are not needed for two tabs.
         string target = e.Key == VirtualKey.Left ? ModeKeyAi : ModeKeyGaming;
         e.Handled = true;
@@ -167,39 +173,46 @@ public sealed partial class MainWindow
     /// </summary>
     private void ApplyModeTabVisibility()
     {
-        bool ai = !IsGamingModeTab;
+        bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+        SetupProfile selected = SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId);
+        bool gaming = !corporate && (selected == SetupProfile.GamingOnly
+            || (selected == SetupProfile.Both && IsGamingModeTab));
+        bool ai = !gaming;
         bool studio = StudioModeToggle.IsOn;
-        Visibility aiVisible = ai ? Visibility.Visible : Visibility.Collapsed;
-        Visibility advancedVisible = ai && studio ? Visibility.Visible : Visibility.Collapsed;
+        var visibleIds = WorkspaceNavigationOrder
+            .GetOrderedAutomationIds(studio, gaming, selected, corporate)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (NavigationViewItem item in WorkspaceNavigationItems())
+        {
+            string id = Microsoft.UI.Xaml.Automation.AutomationProperties.GetAutomationId(item);
+            item.Visibility = visibleIds.Contains(id) ? Visibility.Visible : Visibility.Collapsed;
+        }
 
-        ChatNavItem.Visibility = aiVisible;
-        CreateNavItem.Visibility = aiVisible;
-        ProjectsNavItem.Visibility = aiVisible;
-        ModelHubNavItem.Visibility = aiVisible;
-        ModelRoutingNavItem.Visibility = advancedVisible;
-        LifecycleNavItem.Visibility = advancedVisible;
-        WorkflowNavItem.Visibility = advancedVisible;
-        ToolsNavItem.Visibility = advancedVisible;
-        ObservabilityNavItem.Visibility = advancedVisible;
-        UpdatesNavItem.Visibility = advancedVisible;
-        RuntimeNavItem.Visibility = advancedVisible;
-        GameLibraryNavItem.Visibility = ai ? Visibility.Collapsed : Visibility.Visible;
-        // Document search belongs to the Corporate Lite edition only; the standard app keeps its navigation unchanged.
-        DocumentSearchNavItem.Visibility = PaRuX.Contracts.CorporateMode.IsActive ? aiVisible : Visibility.Collapsed;
-        // Settings and Help stay visible in both tabs.
-        SettingsNavItem.Visibility = Visibility.Visible;
-        HelpNavItem.Visibility = Visibility.Visible;
+        // Corporate is intentionally Chat + documents + Settings/Help. Model Hub stays
+        // reachable from Chat model selection/Settings, but not as sidebar clutter.
+        WorkspaceSectionHeader.Content = corporate
+            ? ModeTabText("Assistant", "Assistente")
+            : gaming ? ModeTabText("Gaming", "Giochi")
+                : ModeTabText("Workspaces", "Aree di lavoro");
+        StudioModeToggle.Visibility = !corporate && !gaming
+            ? Visibility.Visible : Visibility.Collapsed;
+        UpdateContentStudioModeControlsVisibility(NavView.IsPaneOpen);
+        ConsoleModeButton.Visibility = _consoleModeActive || gaming
+            ? Visibility.Visible : Visibility.Collapsed;
 
-        // Chat-only chrome (search, new chat buttons) and the conversation history belong to AI.
-        SearchBox.Visibility = aiVisible;
-        if (NewChatButton.Parent is FrameworkElement chatButtons) chatButtons.Visibility = aiVisible;
+        // Only AI profiles have conversations. Gaming-only must not expose a chat
+        // search box, new-chat action, history, nor a shortcut to those controls.
+        SearchBox.Visibility = ai ? Visibility.Visible : Visibility.Collapsed;
+        if (NewChatButton.Parent is FrameworkElement chatButtons)
+            chatButtons.Visibility = ai ? Visibility.Visible : Visibility.Collapsed;
 
         var workspaceItems = WorkspaceNavigationItems();
         foreach (object menuItem in NavView.MenuItems)
         {
             if (ReferenceEquals(menuItem, WorkspaceSectionHeader)) continue;
-            if (menuItem is NavigationViewItemBase element && !workspaceItems.Any(w => ReferenceEquals(w, menuItem)))
-                element.Visibility = aiVisible; // "Recent" header and conversation rows
+            if (menuItem is NavigationViewItemBase element
+                && !workspaceItems.Any(w => ReferenceEquals(w, menuItem)))
+                element.Visibility = ai ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }
