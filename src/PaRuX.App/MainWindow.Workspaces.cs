@@ -143,6 +143,8 @@ namespace PaRuX
             if (ModelHubPage.Visibility == Visibility.Visible)
                 ModelHubPage.OnHidden();
             ModelHubPage.Visibility = Visibility.Collapsed;
+            if (DocumentSearchPage.Visibility == Visibility.Visible)
+                DocumentSearchPage.OnHidden();
             DocumentSearchPage.Visibility = Visibility.Collapsed;
             ModelRoutingPage.Visibility = Visibility.Collapsed;
             LifecycleLabPage.Visibility = Visibility.Collapsed;
