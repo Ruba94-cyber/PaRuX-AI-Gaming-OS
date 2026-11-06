@@ -37,6 +37,7 @@ namespace PaRuX.Views
         private bool _refreshingFolders;
         private bool _folderRefreshRequestedByAction;
         private bool _searching;
+        private bool _shown;
 
         private sealed class FolderRowUi
         {
@@ -102,10 +103,14 @@ namespace PaRuX.Views
 
             Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             _poll.Tick += async (_, _) => await RefreshFoldersAsync(false);
-            Unloaded += (_, _) => _poll.Stop();
+            Unloaded += (_, _) => { _shown = false; _poll.Stop(); };
         }
 
-        public async void OnShown() => await RefreshFoldersAsync(true);
+        public async void OnShown()
+        {
+            _shown = true;
+            await RefreshFoldersAsync(true);
+        }
 
         private async Task RefreshFoldersAsync(bool reload, bool retryIfBusy = false)
         {
@@ -157,7 +162,7 @@ namespace PaRuX.Views
                     UpdateFolderRow(_rows[item.Source.Id], item.Source, item.Status);
                     running |= item.Status.State == "running";
                 }
-                if (running) _poll.Start(); else _poll.Stop();
+                if (running && _shown) _poll.Start(); else _poll.Stop();
             }
             catch (Exception ex)
             {
