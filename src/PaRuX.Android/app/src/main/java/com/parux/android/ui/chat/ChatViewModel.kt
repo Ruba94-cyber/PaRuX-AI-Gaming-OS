@@ -178,12 +178,26 @@ class ChatViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun sendMessage(text: String, image: PendingImage? = null, oneShotSkillId: String? = null) {
-        if (text.isBlank() && image == null) return
+    /**
+     * Returns whether the turn was admitted to the local queue. The Compose
+     * composer must retain the draft if there is no connected Core, Gaming
+     * has suspended AI, or another answer is already streaming.
+     */
+    fun sendMessage(text: String, image: PendingImage? = null, oneShotSkillId: String? = null): Boolean {
+        if (text.isBlank() && image == null) return false
+        if (_state.value.isStreaming) return false
+        if (_state.value.gamingMode) {
+            _state.value = _state.value.copy(errorMessage = "Gaming Mode — PaRuX AI is suspended. Your draft is preserved.")
+            return false
+        }
+        if (container.client.value == null) {
+            _state.value = _state.value.copy(errorMessage = "Connect to the local PaRuX PC to send a message. Your draft is preserved.")
+            return false
+        }
         if (_state.value.voiceModeEnabled) stopVoiceMode()
-        if (_state.value.isStreaming) return
         chatJob?.cancel()
         chatJob = viewModelScope.launch { runChatTurn(text, image, oneShotSkillId) }
+        return true
     }
 
     fun startVoiceMode() {
