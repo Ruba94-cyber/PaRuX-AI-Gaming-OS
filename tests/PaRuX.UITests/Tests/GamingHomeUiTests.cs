@@ -78,6 +78,23 @@ public sealed class GamingHomeUiTests
     private static void Press(UiTestApplication app, AutomationElement element) => new InstallProgressPage(app).Invoke(element);
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Cached_library_health_is_visible_without_scanning_or_opening_games()
+    {
+        const string name = nameof(Cached_library_health_is_visible_without_scanning_or_opening_games);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            AutomationElement health = ById(app, "GameHome_HealthSummary_Text");
+            UiWait.For(() => !string.IsNullOrWhiteSpace(health.Name),
+                "cached library health summary loaded");
+            Assert.NotNull(TryById(app, "GameTitles_Refresh_Button"));
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Cross_game_AI_mod_studio_opens_and_cancels_without_generating_assets()
     {
         const string name = nameof(Cross_game_AI_mod_studio_opens_and_cancels_without_generating_assets);
