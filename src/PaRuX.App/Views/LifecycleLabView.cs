@@ -269,6 +269,10 @@ namespace PaRuX.Views
             runtimeActions.Children.Add(remove);
             content.Children.Add(runtimeActions);
             content.Children.Add(_trainingPath);
+            var browseJsonl = new Button { Content = "Choose local JSONL…", MinHeight = 40 };
+            Id(browseJsonl, "LifecycleLab_BrowseTrainingDataset_Button");
+            browseJsonl.Click += async (_, _) => await PickTrainingDatasetAsync();
+            content.Children.Add(browseJsonl);
             content.Children.Add(_baseModel);
             content.Children.Add(new TextBlock
             {
