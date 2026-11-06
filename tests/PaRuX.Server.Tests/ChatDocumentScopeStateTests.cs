@@ -38,4 +38,40 @@ public sealed class ChatDocumentScopeStateTests
         }
         finally { ChatDocumentScopeState.SetEnabled(false); }
     }
+    [Fact]
+    public void Unchecking_final_explicit_folder_never_silently_expands_to_all_sources()
+    {
+        try
+        {
+            ChatDocumentScopeState.SetEnabled(false);
+            Assert.True(ChatDocumentScopeState.TryUseExplicitSources(new[] { "invoice-folder" }));
+            Assert.True(ChatDocumentScopeState.Enabled);
+            ChatDocumentScopeState.SetSource("invoice-folder", false);
+            Assert.False(ChatDocumentScopeState.Enabled);
+            Assert.Null(ChatDocumentScopeState.ToRequest());
+
+            // The user can still explicitly turn document mode back on to use
+            // all enabled sources, retaining the original intentional UX.
+            ChatDocumentScopeState.SetEnabled(true);
+            Assert.Empty(ChatDocumentScopeState.ToRequest()!.SourceIds);
+        }
+        finally { ChatDocumentScopeState.SetEnabled(false); }
+    }
+
+    [Fact]
+    public void Removing_or_disabling_selected_folder_fails_closed_but_surviving_selection_stays_scoped()
+    {
+        try
+        {
+            ChatDocumentScopeState.SetEnabled(false);
+            Assert.True(ChatDocumentScopeState.TryUseExplicitSources(new[] { "finance", "legal" }));
+            Assert.False(ChatDocumentScopeState.Prune(new[] { "legal", "other" }));
+            Assert.Equal(new[] { "legal" }, ChatDocumentScopeState.ToRequest()!.SourceIds);
+            Assert.True(ChatDocumentScopeState.Prune(new[] { "other" }));
+            Assert.False(ChatDocumentScopeState.Enabled);
+            Assert.Null(ChatDocumentScopeState.ToRequest());
+        }
+        finally { ChatDocumentScopeState.SetEnabled(false); }
+    }
+
 }
