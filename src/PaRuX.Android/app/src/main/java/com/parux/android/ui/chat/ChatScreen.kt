@@ -452,7 +452,8 @@ private fun HistorySheet(conversations: List<ConversationSummary>, onDismiss: ()
 
 private const val MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024
 
-private fun uriToPendingImage(resolver: ContentResolver, uri: Uri): PendingImage? = try {
+private fun uriToPendingImage(resolver: ContentResolver, uri: Uri): PendingImage? {
+    return try {
     val mimeType = resolver.getType(uri) ?: return null
     if (!mimeType.startsWith("image/")) return null
     // Content providers may not supply a trustworthy length. Bound the
@@ -476,4 +477,7 @@ private fun uriToPendingImage(resolver: ContentResolver, uri: Uri): PendingImage
         mediaType = mimeType,
         base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
     )
-} catch (_: Exception) { null }
+    } catch (_: Exception) {
+        null
+    }
+}
