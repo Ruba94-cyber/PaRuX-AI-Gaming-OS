@@ -65,6 +65,22 @@ public sealed class SetupProfilePolicyTests
         Assert.False(plan.StartInGamingTab);
     }
 
+    [Theory]
+    [InlineData(SetupProfile.Both)]
+    [InlineData(SetupProfile.AiOnly)]
+    [InlineData(SetupProfile.GamingOnly)]
+    public void Corporate_starts_only_local_chat_and_no_advanced_workers(SetupProfile requested)
+    {
+        SetupProfilePlan plan = SetupProfilePolicy.Plan(requested, corporateMode: true);
+        Assert.True(plan.StartLocalAi);
+        Assert.True(plan.RequireLanguageModel);
+        Assert.True(plan.ShowAiWorkspaces);
+        Assert.False(plan.StartGaming);
+        Assert.False(plan.StartAgentWorkers);
+        Assert.False(plan.ShowGamingWorkspace);
+        Assert.False(plan.ShowModeTabs);
+    }
+
     [Fact]
     public void Ai_only_does_not_start_or_show_gaming()
     {
