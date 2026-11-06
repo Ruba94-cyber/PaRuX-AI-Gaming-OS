@@ -29,7 +29,7 @@ namespace PaRuX.Server;
 /// closes is "I downloaded a Parquet HF dataset, now curate/split it for training," and every
 /// existing Training Lab/Eval Lab consumer already expects JSON Lines or CSV, never Parquet.
 /// </summary>
-public sealed class DatasetCurationService
+public sealed partial class DatasetCurationService
 {
     // A sane bound so a multi-GB file doesn't get fully materialized in memory - large enough for
     // any real curation/training-prep workflow this feature targets, small enough to stay honest
