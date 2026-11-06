@@ -89,6 +89,8 @@ internal sealed class UniversalLibraryPanel : StackPanel
     /// <summary>One-shot catalog refresh after a foreground return from Gaming.
     /// Never scan stores periodically or while the game owns the PC.</summary>
     internal Task RefreshTitlesAfterGameAsync() => _home.RefreshAfterGameAsync();
+    internal Task RefreshVisibleTitlesAsync() => _home.RefreshWhenShownAsync();
+    internal void CancelPendingQueries() => _home.CancelPendingQueries();
 
     /// <summary>Console Menu button: jump to the Gaming home search field.</summary>
     internal bool FocusSearch() => _home.FocusSearch();
