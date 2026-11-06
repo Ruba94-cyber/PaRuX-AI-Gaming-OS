@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS kn_problems (source_id TEXT NOT NULL, rel_path TEXT N
 CREATE TABLE IF NOT EXISTS kn_pdf_progress (
     source_id TEXT NOT NULL, path TEXT NOT NULL, hash TEXT NOT NULL, total_pages INTEGER NOT NULL,
     next_page INTEGER NOT NULL, next_ord INTEGER NOT NULL, empty_pages INTEGER NOT NULL,
+    ocr_mode INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(source_id,path));
 CREATE TABLE IF NOT EXISTS kn_pdf_staging (
     source_id TEXT NOT NULL, path TEXT NOT NULL, ord INTEGER NOT NULL, text TEXT NOT NULL,
@@ -142,6 +143,8 @@ CREATE INDEX IF NOT EXISTS ix_kn_pdf_stage_source ON kn_pdf_staging(source_id,pa
             // Upgrade databases created by earlier Corporate versions without
             // discarding any indexed passages, citations or user documents.
             try { Exec(c, "ALTER TABLE kn_files ADD COLUMN ocr_mode INTEGER NOT NULL DEFAULT 0;"); }
+            catch (SqliteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase)) { }
+            try { Exec(c, "ALTER TABLE kn_pdf_progress ADD COLUMN ocr_mode INTEGER NOT NULL DEFAULT 0;"); }
             catch (SqliteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase)) { }
             try
             {
