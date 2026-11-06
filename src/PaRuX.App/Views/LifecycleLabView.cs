@@ -121,6 +121,9 @@ namespace PaRuX.Views
             Id(_planRecommendation, "LifecycleLab_PlanRecommendation_Text", "Training plan recommendation");
             Id(_planFindings, "LifecycleLab_PlanFindings_List");
             Id(_applyRecommended, "LifecycleLab_UseRecommended_Button");
+            Id(_trainingPrecision, "LifecycleLab_Precision_ComboBox", "Training base precision");
+            Id(_trainingTargets, "LifecycleLab_Targets_ComboBox", "LoRA target layers");
+            Id(_trainingPacking, "LifecycleLab_Packing_CheckBox", "Pack short SFT sequences");
             Id(_learningRate, "LifecycleLab_LearningRate_NumberBox", "Learning rate");
             Id(_maxSequenceLength, "LifecycleLab_MaxSequence_NumberBox", "Max sequence length");
             Id(_dpoBeta, "LifecycleLab_DpoBeta_NumberBox", "DPO beta");
@@ -828,6 +831,9 @@ namespace PaRuX.Views
                 LoraRank = SafeWholeNumber(_rank.Value, 16),
                 LearningRate = SafeDouble(_learningRate.Value, 0.0002),
                 MaxSequenceLength = SafeWholeNumber(_maxSequenceLength.Value, 2048),
+                Precision = SelectedTag(_trainingPrecision) ?? TrainingPrecision.Qlora4Bit,
+                TargetPreset = SelectedTag(_trainingTargets) ?? TrainingTargetPreset.Attention,
+                PackSequences = _trainingPacking.IsChecked == true,
                 DpoBeta = SafeDouble(_dpoBeta.Value, 0.1),
                 GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference,
                 GrpoGenerations = SafeWholeNumber(_grpoGenerations.Value, 4),
@@ -847,6 +853,8 @@ namespace PaRuX.Views
                     TrainJsonlPath = request.TrainJsonlPath, BaseModel = request.BaseModel, Method = request.Method,
                     MaxSteps = request.MaxSteps, LoraRank = request.LoraRank,
                     LearningRate = request.LearningRate, MaxSequenceLength = request.MaxSequenceLength,
+                    Precision = request.Precision, TargetPreset = request.TargetPreset,
+                    PackSequences = request.PackSequences,
                     GrpoRewardMode = request.GrpoRewardMode
                 }, CancellationToken.None);
                 _lastPlan = plan;
