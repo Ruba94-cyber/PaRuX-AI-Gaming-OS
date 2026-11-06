@@ -1,3 +1,9 @@
+### UX recovery source changes (unreleased; Windows validation pending)
+
+- Condensed the first-run welcome flow around guided setup and readiness; manual components/models/download controls are progressively disclosed with explicit recovery paths. Mode switching is serialized, and Gaming-only setup no longer claims success after a failed service change.
+- Model downloads now have real progress bars and larger controls. Model Hub search supports Enter, a responsive compact layout, and defers Advanced-only queries during Simple use. The Media Hugging Face checkpoint form has a narrow-screen-safe layout.
+- Regression contracts and FlaUI coverage updated. No Windows build/visual review/inference benchmark has been executed for this source slice.
+
 ## Unreleased (post-4.0.1, source only)
 
 - Portable Standard now stages a complete SHA-256-locked llama.cpp Vulkan engine/DLL payload while omitting the heavyweight CUDA/uv/media/model assets and optional standalone CLI. The ZIP is inspected and its native files hashed; optional Windows smoke launches the isolated Core and native binary loader.
