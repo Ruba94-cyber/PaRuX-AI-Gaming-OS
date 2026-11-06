@@ -290,7 +290,9 @@
                     <Button x:Name="GetStartedButton" AutomationProperties.AutomationId="Onboarding_GetStarted_Button" Content="Get Started"
                         Style="{StaticResource AccentButtonStyle}" MinWidth="140"
                         HorizontalAlignment="Right" Click="GetStarted_Click" />
-                    <TextBlock Text="Manual setup is optional. You can revisit models and runtimes later without losing your data."
+                    <TextBlock x:Name="SetupFooterHintText"
+                        Text="Manual setup is optional. You can revisit models and runtimes later without losing your data."
+                        TextWrapping="Wrap" MaxWidth="460"
                         Style="{StaticResource PaRuXMicroTextStyle}" HorizontalAlignment="Right" />
                 </StackPanel>
 
