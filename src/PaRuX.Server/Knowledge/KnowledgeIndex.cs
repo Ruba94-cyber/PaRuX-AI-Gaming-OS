@@ -17,7 +17,12 @@ public sealed record KnowledgeHit(long ChunkId, string FilePath, string FileName
 
 public sealed record IndexProgress(
     string State, int FilesSeen, int Indexed, int Unchanged, int MetadataOnly, int Failed, int Skipped,
-    int Removed, int Renamed, int Duplicates, string? Current);
+    int Removed, int Renamed, int Duplicates, string? Current)
+{
+    /// <summary>Only populated while an out-of-core PDF is being processed; no fake folder-wide ETA.</summary>
+    public int? CurrentPage { get; init; }
+    public int? TotalPages { get; init; }
+}
 
 /// <summary>A file that could not be indexed. Holds a relative path and a reason, never document content.</summary>
 public sealed record IndexFileProblem(string RelativePath, string Kind, string Reason);
