@@ -89,7 +89,12 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("DocSearch_FolderProgress_", search, StringComparison.Ordinal);
         Assert.Contains("int? CurrentPage = null, int? TotalPages = null", client, StringComparison.Ordinal);
         Assert.Contains("Chat_Documents_Sources_Scroll", chat, StringComparison.Ordinal);
-        Assert.Contains("If none is selected, ALL enabled folders", chat, StringComparison.Ordinal);
+        Assert.Contains("Turning Documents on with no selection uses all enabled folders.", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_Documents_SourceFilter_TextBox", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_Documents_NextPage_Button", chat, StringComparison.Ordinal);
+        Assert.Contains("DocumentSourcePicker.Filter(", chat, StringComparison.Ordinal);
+        Assert.Contains("ChatDocumentScopeState.Prune(", chat, StringComparison.Ordinal);
+        Assert.Contains("DocumentSearchPage.OnHidden()", Read("src", "PaRuX.App", "MainWindow.Workspaces.cs"), StringComparison.Ordinal);
         Assert.Contains("!string.IsNullOrWhiteSpace(InputBox.Text)", chat, StringComparison.Ordinal);
         Assert.Contains("Chat_Documents_Skill_Summary", chat, StringComparison.Ordinal);
     }
