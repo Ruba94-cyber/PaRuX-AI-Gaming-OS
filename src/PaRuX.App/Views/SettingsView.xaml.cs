@@ -799,17 +799,24 @@ namespace PaRuX.Views
 
         private async Task ReindexRagSourceAsync(RagSourceDto source)
         {
-            if (RagIndexStatus != null) RagIndexStatus.Text = "Indexing " + source.FolderPath + "… this can take a while for large folders.";
+            if (RagIndexStatus != null)
+                RagIndexStatus.Text = KT("Indexing ", "Indicizzazione di ") + source.FolderPath
+                    + KT("… large technical archives can take time. Follow progress below.",
+                        "… archivi tecnici molto grandi possono richiedere tempo. Segui l'avanzamento qui sotto.");
             try
             {
                 (int documents, int chunks, bool runningInBackground) =
                     await RagClient.Current.ReindexAsync(source.Id, CancellationToken.None);
                 if (RagIndexStatus != null)
                     RagIndexStatus.Text = runningInBackground
-                        ? "Corporate indexing started. Documents already searchable: " + documents
-                            + "; passages: " + chunks + ". Open Document Settings to see actual PDF page progress, pause or resume."
-                        : "Finished indexing " + source.FolderPath + ": " + documents
-                            + " documents, " + chunks + " chunks.";
+                        ? KT("Corporate indexing started. Already searchable: ",
+                             "Indicizzazione Corporate avviata. Già ricercabili: ") + documents
+                            + KT(" document(s), ", " documenti, ") + chunks
+                            + KT(" passages. Open Document Settings to view PDF pages, pause or resume.",
+                                " passaggi. Apri le impostazioni documenti per vedere le pagine PDF, mettere in pausa o riprendere.")
+                        : KT("Finished indexing ", "Indicizzazione completata: ") + source.FolderPath
+                            + ": " + documents + KT(" documents, ", " documenti, ")
+                            + chunks + KT(" passages.", " passaggi.");
             }
             catch (Exception ex)
             {
