@@ -1013,7 +1013,23 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
     if (source == null) return Results.NotFound(new { error = "RAG source not found" });
     try
     {
-        app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>().Start(id);
+        var knowledge = app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>();
+        // Corporate must NEVER index giant PDFs twice in competing engines:
+        // the historical RagStore extractor can allocate the entire document.
+        // The page-checkpointed Knowledge Index is the authoritative store.
+        if (CorporateMode.IsActive)
+        {
+            if (!knowledge.Start(id))
+                return Results.Conflict(new { error = "The document source cannot be indexed." });
+            (int files, int passages) = knowledge.Index.Stats(id);
+            return Results.Ok(new
+            {
+                documentCount = files, chunkCount = passages,
+                backgroundIndexing = true,
+                message = "Indexing started locally. Check page-by-page progress in Document Settings."
+            });
+        }
+        knowledge.Start(id);
         (int documents, int chunks) = await rag.IndexSourceAsync(id, source.FolderPath, null, ct);
         return Results.Ok(new { documentCount = documents, chunkCount = chunks });
     }
@@ -1021,7 +1037,7 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
-});
+}).RequireDesktopOwner();
 
 PaRuX.Server.Knowledge.KnowledgeEndpoints.MapKnowledgeEndpoints(app);
 PaRuX.Server.Knowledge.KnowledgeContextProvider.Current = app.Services.GetRequiredService<PaRuX.Server.Knowledge.KnowledgeJobService>();
