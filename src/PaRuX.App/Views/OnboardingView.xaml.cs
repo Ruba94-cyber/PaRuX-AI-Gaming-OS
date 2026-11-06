@@ -487,7 +487,9 @@ namespace PaRuX.Views
                 if (!busy) ComponentsProgress.IsIndeterminate = true;
             }
             if (ComponentsStatusText != null && !string.IsNullOrWhiteSpace(message)) ComponentsStatusText.Text = message;
-            if (GetStartedButton != null) GetStartedButton.IsEnabled = !busy;
+            if (GetStartedButton != null)
+                GetStartedButton.IsEnabled = !busy && !_setupProfileSwitchBusy
+                    && _autoSetupCts == null && _verifyLocalChatCts == null;
         }
 
         private void UpdateReadySummary(IReadOnlyList<ComponentStatus> components)
@@ -587,7 +589,8 @@ namespace PaRuX.Views
                 if (GetStartedButton != null)
                 {
                     GetStartedButton.Content = "Start Chatting";
-                    GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null;
+                    GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null
+                        && !_setupProfileSwitchBusy && _autoSetupCts == null;
                 }
             }
             else
@@ -597,7 +600,8 @@ namespace PaRuX.Views
                 if (GetStartedButton != null)
                 {
                     GetStartedButton.Content = "Get Started";
-                    GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null;
+                    GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null
+                        && !_setupProfileSwitchBusy && _autoSetupCts == null;
                 }
             }
         }
@@ -724,7 +728,8 @@ namespace PaRuX.Views
                 if (ReferenceEquals(_verifyLocalChatCts, operation))
                     _verifyLocalChatCts = null;
                 VerifyLocalChatButton.Content = "Verify local chat";
-                if (GetStartedButton != null) GetStartedButton.IsEnabled = !_componentsBusy;
+                if (GetStartedButton != null)
+                    GetStartedButton.IsEnabled = !_componentsBusy && !_setupProfileSwitchBusy && _autoSetupCts == null;
             }
         }
 
@@ -866,7 +871,7 @@ namespace PaRuX.Views
 
         private async void GetStarted_Click(object sender, RoutedEventArgs e)
         {
-            if (_verifyLocalChatCts != null) return;
+            if (_verifyLocalChatCts != null || _autoSetupCts != null || _setupProfileSwitchBusy || _componentsBusy) return;
             // Browsing to a folder only fills the box; applying it is a separate button. Someone who
             // picks a folder and then presses Get Started has plainly chosen that folder, so finish
             // the job rather than dropping the choice on the floor and starting on a different root
@@ -904,6 +909,8 @@ namespace PaRuX.Views
 
             if (UnprovenReadinessText != null)
                 UnprovenReadinessText.Text = unprovenList;
+            // Expose the manual recovery controls after an unverified setup attempt.
+            if (ManualSetupExpander != null) ManualSetupExpander.IsExpanded = true;
             if (UnprovenReadinessCard != null)
             {
                 UnprovenReadinessCard.Visibility = Visibility.Visible;
