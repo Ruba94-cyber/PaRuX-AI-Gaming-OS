@@ -69,6 +69,7 @@ namespace PaRuX.Views
         };
         private readonly Button _startTrainingButton = new() { Content = "Start local training" };
         private bool _trainingSubmissionInProgress;
+        private CancellationTokenSource? _quickPreflightCts;
         private TrainingPlanResult? _lastPlan;
         private string? _previousTrainingMethod;
 
@@ -386,13 +387,15 @@ namespace PaRuX.Views
             }
 
             _trainingSubmissionInProgress = true;
+            var preflight = new CancellationTokenSource();
+            _quickPreflightCts = preflight;
             _quickTrainButton.IsEnabled = false;
             _startTrainingButton.IsEnabled = false;
             try
             {
                 _status.Text = "Quick training: checking runtime, every dataset row and SHA-256 identity…";
                 TrainingEngineStatus engine = await TrainingLabClient.Current
-                    .GetEngineStatusAsync(CancellationToken.None);
+                    .GetEngineStatusAsync(preflight.Token);
                 if (!engine.Ready)
                 {
                     _status.Text = "Quick training unavailable: " + engine.Detail
@@ -406,7 +409,7 @@ namespace PaRuX.Views
                     TrainJsonlPath = path, BaseModel = model, Method = TrainingMethod.Sft,
                     LoraRank = 16, MaxSteps = 60, LearningRate = 0.0002,
                     MaxSequenceLength = 2048
-                }, CancellationToken.None);
+                }, preflight.Token);
                 string? method = QuickTrainingPolicy.ChooseMethod(
                     sample.DatasetSupportsSupervised, sample.DatasetSupportsPreference);
                 if (method == null)
@@ -430,7 +433,7 @@ namespace PaRuX.Views
                         TrainJsonlPath = path, BaseModel = model, Method = TrainingMethod.Dpo,
                         LoraRank = 16, MaxSteps = 60, LearningRate = 5e-6,
                         MaxSequenceLength = 2048
-                    }, CancellationToken.None);
+                    }, preflight.Token);
 
                 var profile = QuickTrainingPolicy.Create(method,
                     sample.RecommendedLoraRank, sample.RecommendedMaxSteps,
@@ -443,7 +446,7 @@ namespace PaRuX.Views
                     LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
                     LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength,
                     ValidateEntireDataset = true
-                }, CancellationToken.None);
+                }, preflight.Token);
                 _lastPlan = checkedRun;
                 RenderPlan(checkedRun);
                 string? refusal = QuickTrainingPolicy.RefusalAfterFullVerification(
@@ -492,6 +495,7 @@ namespace PaRuX.Views
 
                 // Bypass the shared Advanced-draft override: the request sent must match the
                 // exact settings approved by the preflight and any warning confirmation.
+                preflight.Token.ThrowIfCancellationRequested();
                 TrainingJobStatus job = await TrainingLabClient.Current.CreateJobExplicitAsync(
                     new TrainingJobRequest
                     {
@@ -505,12 +509,18 @@ namespace PaRuX.Views
                     + profile.LoraRank + ". Track progress below; the completed adapter is registered locally.";
                 await RefreshTrainingAsync(CancellationToken.None);
             }
+            catch (OperationCanceledException)
+            {
+                _status.Text = "Quick dataset verification was cancelled; no new GPU job was requested.";
+            }
             catch (Exception ex)
             {
                 _status.Text = "Quick training failed before or during submission: " + ex.Message;
             }
             finally
             {
+                if (ReferenceEquals(_quickPreflightCts, preflight)) _quickPreflightCts = null;
+                preflight.Dispose();
                 _trainingSubmissionInProgress = false;
                 _quickTrainButton.IsEnabled = true;
                 _startTrainingButton.IsEnabled = true;
