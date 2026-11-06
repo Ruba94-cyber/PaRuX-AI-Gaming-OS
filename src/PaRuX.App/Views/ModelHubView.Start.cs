@@ -70,13 +70,18 @@ namespace PaRuX.Views
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.82
             });
-            panel.Children.Add(intro);
             if (CorporateMode.IsActive)
             {
-                // Corporate is AI/documents on a pre-installed CPU runtime; hide irrelevant
-                // image/video/music setup tiles, not the installed-model/role controls.
+                // No generic multi-engine dashboard, duplicated headers, media checks or
+                // hardware/benchmark detail in the CPU-only corporate model manager.
                 panel.Children.Add(BuildCorporateModelCard());
                 _startCards.Visibility = Visibility.Collapsed;
+                _startSummary.Visibility = Visibility.Collapsed;
+                _startHardware.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                panel.Children.Add(intro);
             }
 
             AutomationProperties.SetAutomationId(_startSummary, "ModelHub_Start_Summary");
@@ -91,7 +96,9 @@ namespace PaRuX.Views
             var more = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
             more.Children.Add(new TextBlock
             {
-                Text = it ? "Cerca altri modelli:" : "Browse more models:",
+                Text = CorporateMode.IsActive
+                    ? (it ? "Libreria:" : "Library:")
+                    : it ? "Cerca altri modelli:" : "Browse more models:",
                 VerticalAlignment = VerticalAlignment.Center,
                 Opacity = 0.78
             });
@@ -102,7 +109,8 @@ namespace PaRuX.Views
                 (ModelHubTab.Downloads, "Downloads", "Download")
             })
             {
-                if (CorporateMode.IsActive && tab == ModelHubTab.Media) continue;
+                if (CorporateMode.IsActive && (tab == ModelHubTab.Media
+                    || (tab == ModelHubTab.Downloads && !CorporateMode.ModelDownloadsAllowed))) continue;
                 ModelHubTab target = tab;
                 var button = new Button { Content = it ? itLabel : en };
                 AutomationProperties.SetAutomationId(button, "ModelHub_Start_Browse_" + tab);
