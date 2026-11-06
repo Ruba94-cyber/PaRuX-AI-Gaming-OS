@@ -360,7 +360,7 @@ namespace PaRuX.Views
                 case "Chat Behavior":
                     _ = RefreshAutoFallbackAsync();
                     _ = RefreshPersonasAsync();
-                    _ = RefreshGroupChatModelsAsync();
+                    if (!CorporateMode.IsActive) _ = RefreshGroupChatModelsAsync();
                     _ = RefreshRagSourcesAsync();           // the RAG card lives in this category
                     _ = RefreshEmbeddingEngineStatusAsync();
                     break;
@@ -396,6 +396,7 @@ namespace PaRuX.Views
                 case "PaRuX Platform":
                     break;
                 case "Privacy & Network":
+                    if (CorporateMode.IsActive) break; // Compact privacy information only; no network controllers.
                     _ = RefreshRemoteAccessAsync();
                     _ = RefreshInternetStatusAsync();
                     _ = RefreshWebAccessAsync();
