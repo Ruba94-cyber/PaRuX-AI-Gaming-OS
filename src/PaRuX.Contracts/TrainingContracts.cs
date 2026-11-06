@@ -169,6 +169,8 @@ public sealed class TrainingPlanResult
     public bool DatasetSupportsVision { get; set; }
     public bool DatasetSupportsTts { get; set; }
     public int DatasetExamples { get; set; }
+    public int DatasetValidChatRecords { get; set; }
+    public int DatasetValidPreferenceRecords { get; set; }
     public int DatasetUnparseableLines { get; set; }
     public bool DatasetSampleTruncated { get; set; }
     public string DatasetSummary { get; set; } = string.Empty;
