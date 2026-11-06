@@ -58,7 +58,7 @@ namespace PaRuX.Views
 
         private readonly Button _quickTrainButton = new()
         {
-            Content = "Quick train · Recommended LoRA/QLoRA",
+            Content = "Quick train · 4-bit QLoRA",
             MinHeight = 42
         };
         private readonly Button _startTrainingButton = new() { Content = "Start local training" };
