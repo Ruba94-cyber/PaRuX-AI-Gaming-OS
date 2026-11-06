@@ -1,3 +1,9 @@
+## 2026-11-06 — Portable Vulkan slimming and startup fix (MAIN SOURCE WIP, NOT RELEASED)
+
+- Owner reported the 4.0.1 portable missing Vulkan dependencies and including unnecessary payload. On main, Standard portable now stages only the pinned llama.cpp b10549 Vulkan engine + native DLLs through the MSI's verified archive/cache policy, excludes CUDA/uv/Python/media packs and self-contained CLI by default (-IncludeCli is opt-in). It inventories/hashes the actual finished ZIP, including ggml-vulkan.dll, and the extracted Windows -Smoke must bootstrap the runtime and pass the native --help loader test.
+- Corporate Lite now builds a separate -WithoutVulkan shell and refuses accidentally reused Vulkan stages. Explicit PARUX_DATA_ROOT no longer silently inherits host Documents/LocalAI; one shared, pure fallback policy plus xUnit regressions cover this. Portable Vulkan-only bootstrap skips the NVIDIA telemetry probe entirely (which otherwise can wait up to 8 seconds).
+- **NOT RUN HERE:** no Windows/.NET/PowerShell build, archive download, xUnit, FlaUI, real Vulkan ICD/device selection, real GGUF inference or size/startup/RAM benchmarks. These edits are not included in already published v4.0.1. Do not tag or republish without local validation/signing. Next: source build, exact ZIP -Smoke, test Vulkan --list-devices, real model chat and unsupported-GPU fallback, full regression gates and compare portable vs 4.0.1 MSI on the same hardware. The lack of a bundled GGUF and universal CPU-only inference is explicitly open.
+
 ## 2026-11-06 — 4.0.1 built, signed and published
 
 - Patch over 4.0.0 (3 UI-verified product fixes). Signed MSI (Authenticode + manifest envelope), portable ZIP, Corporate Lite (Qwen3-4B Q4_K_M, split .001/.002), signed APK (versionCode 21); `verify-release-assets` PASS; tag v4.0.1 at 893a43c; GitHub release v4.0.1. Still NOT verified: elevated MSI lifecycle, physical Android, Corporate Lite on 8 GB, physical HW.
