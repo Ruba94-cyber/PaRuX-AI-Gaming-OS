@@ -336,19 +336,30 @@ StartupTrace.Mark("services-registered");
 StartupTrace.WrapHostedServices(builder.Services);
 WebApplication app = builder.Build();
 
-// Corporate Lite Offline: the same Core, but anything that downloads, installs, generates heavy media or touches Gaming is refused.
+// Corporate Lite remains AI/documents-only. Local GGUF import is always allowed (desktop owner);
+// model downloads are the sole optionally enabled online operation, explicitly opted in at launch.
+// Runtime installers, media and Gaming remain unavailable regardless of that permission.
 if (PaRuX.Contracts.CorporateMode.IsActive)
 {
-    string[] blockedPrefixes = { "/api/v1/models/download", "/api/v1/runtime/install", "/api/v1/media/", "/api/v1/gaming/" };
     app.Use(async (context, next) =>
     {
         string path = context.Request.Path.Value ?? string.Empty;
         bool write = !HttpMethods.IsGet(context.Request.Method);
         bool gaming = path.StartsWith("/api/v1/gaming/", StringComparison.OrdinalIgnoreCase);
-        if (blockedPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) && (write || gaming))
+        bool restricted = path.StartsWith("/api/v1/runtime/install", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/media/", StringComparison.OrdinalIgnoreCase)
+            || gaming;
+        bool modelDownload = path.StartsWith("/api/v1/models/download", StringComparison.OrdinalIgnoreCase);
+        if ((restricted && (write || gaming))
+            || (modelDownload && write && !PaRuX.Contracts.CorporateMode.ModelDownloadsAllowed))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = "Disabled in PaRuX Corporate Lite (offline edition)." });
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = modelDownload
+                    ? "Corporate model downloads are disabled. Use the IT-approved model-download launcher or import a local GGUF."
+                    : "This feature is disabled in PaRuX Corporate Lite."
+            });
             return;
         }
         await next();
@@ -2825,6 +2836,9 @@ app.MapGet("/api/v1/models/downloads/{id}", (string id, ModelDownloadService mod
 
 app.MapPost("/api/v1/models/downloads", async (ModelDownloadRequest request, ModelDownloadService models, CancellationToken ct) =>
 {
+    if (PaRuX.Contracts.CorporateMode.IsActive
+        && !CorporateModelDownloadPolicy.IsTextGgufRequest(request))
+        return Results.BadRequest(new { error = "Corporate Lite accepts only explicitly selected GGUF text model downloads." });
     try { return Results.Ok(await models.CreateDownloadAsync(request, ct)); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
