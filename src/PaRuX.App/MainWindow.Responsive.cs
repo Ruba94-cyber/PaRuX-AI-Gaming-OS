@@ -61,7 +61,14 @@ namespace PaRuX
 
         private void UpdateContentStudioModeControlsVisibility(bool isPaneOpen)
         {
-            Visibility visibility = isPaneOpen ? Visibility.Collapsed : Visibility.Visible;
+            // The top-of-content Advanced switch was a second doorway into
+            // unrelated AI controls when Corporate or Gaming-only hid the pane
+            // switch. Both copies must obey the same setup-profile policy.
+            bool allowAdvanced = !PaRuX.Contracts.CorporateMode.IsActive
+                && SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) != SetupProfile.GamingOnly
+                && !IsGamingModeTab;
+            Visibility visibility = !isPaneOpen && allowAdvanced
+                ? Visibility.Visible : Visibility.Collapsed;
             if (ContentStudioModeToggle != null) ContentStudioModeToggle.Visibility = visibility;
         }
 
