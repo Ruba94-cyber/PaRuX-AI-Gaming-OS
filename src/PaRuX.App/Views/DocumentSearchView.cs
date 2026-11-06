@@ -112,6 +112,13 @@ namespace PaRuX.Views
             await RefreshFoldersAsync(true);
         }
 
+        /// <summary>Explicit lifecycle hook: Collapsed WinUI pages may stay loaded.</summary>
+        public void OnHidden()
+        {
+            _shown = false;
+            _poll.Stop();
+        }
+
         private async Task RefreshFoldersAsync(bool reload, bool retryIfBusy = false)
         {
             // Timer ticks and user actions can overlap. Keep the existing folder
