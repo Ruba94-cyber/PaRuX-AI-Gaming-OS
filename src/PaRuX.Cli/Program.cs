@@ -321,6 +321,7 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
             case "--max-steps": maxSteps = ParseInt(Next(option), option); break;
             case "--lr": learningRate = ParseDouble(Next(option), option); break;
             case "--dpo-beta": dpoBeta = ParseDouble(Next(option), option); break;
+            case "--preference-beta": dpoBeta = ParseDouble(Next(option), option); break;
             case "--max-sequence": maxSequenceLength = ParseInt(Next(option), option); break;
             case "--grpo-reward": grpoRewardMode = Next(option); break;
             case "--grpo-generations": grpoGenerations = ParseInt(Next(option), option); break;
@@ -1022,7 +1023,7 @@ Core / inference:
   parux train <trainJsonlPath>
               [--method sft|dpo|orpo|continued-pretraining|grpo|vision-sft|tts-sft]
               [--base-model <hfId>] [--lora-rank N] [--max-steps N] [--lr RATE]
-              [--max-sequence N] [--dpo-beta BETA]
+              [--max-sequence N] [--preference-beta BETA] (also --dpo-beta)
               [--precision qlora-4bit|lora-16bit] [--targets attention|all-linear]
               [--pack-sequences]
               [--grpo-reward exact-reference|contains-reference|xml-format|json-format]
