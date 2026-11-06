@@ -12,7 +12,9 @@ namespace PaRuX.Views
     {
         private static bool SetupProfileItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
 
-        private static SetupProfile ProfileOfItem(ComboBoxItem item) => SetupProfilePolicy.Parse(item.Tag as string);
+        // The profile the item NAMES, not the one in force: in Corporate Lite Parse() maps everything to AI only, which made all
+        // three items look the same (the last one, "Gaming only", showed as selected and the other two did nothing).
+        private static SetupProfile ProfileOfItem(ComboBoxItem item) => SetupProfilePolicy.ParseChoice(item.Tag as string);
 
         private void LoadSetupProfile()
         {
@@ -76,6 +78,8 @@ namespace PaRuX.Views
             }
             UpdateSetupProfileHint(effective);
             if (!result.Success) SetupProfileHint.Text = result.Message + " " + SetupProfileHint.Text;
+            else if (effective != profile)
+                SetupProfileHint.Text = SetupProfilePolicy.CorporateKeptNote(SetupProfileItalian) + " " + SetupProfileHint.Text;   // no silent snap-back
             App.MainWin?.ApplySetupProfile();
         }
     }

@@ -46,7 +46,7 @@ namespace PaRuX.Views
             panel.Children.Add(_documentsSources);
             panel.Children.Add(_documentsNote);
             panel.Children.Add(new TextBlock { Text = DT("Document skills", "Competenze sui documenti"), FontSize = 12, Opacity = 0.8 });
-            panel.Children.Add(SkillButton(DT("Compare two versions", "Confronta due versioni"), "Chat_Documents_Skill_Diff", "/diff  |  "));
+            panel.Children.Add(SkillButton(DT("Compare two versions", "Confronta due versioni"), "Chat_Documents_Skill_Diff", "/diff  |  ", caret: "/diff ".Length));
             panel.Children.Add(SkillButton(DT("Check for contradictions", "Cerca contraddizioni"), "Chat_Documents_Skill_Contradictions", "/contradictions "));
             var flyout = new Flyout { Content = panel };
             flyout.Opening += async (s, e) => await LoadDocumentSourcesAsync();
@@ -55,7 +55,7 @@ namespace PaRuX.Views
         }
 
         /// <summary>Quick action: turns Documents on and puts the command template in the composer for the person to complete and send.</summary>
-        private Button SkillButton(string label, string automationId, string template)
+        private Button SkillButton(string label, string automationId, string template, int? caret = null)
         {
             var button = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch };
             AutomationProperties.SetAutomationId(button, automationId);
@@ -64,7 +64,7 @@ namespace PaRuX.Views
                 ChatDocumentScopeState.SetEnabled(true);
                 if (_documentsSwitch != null) _documentsSwitch.IsOn = true;
                 UpdateDocumentsButtonVisual();
-                if (InputBox != null) { InputBox.Text = template; InputBox.Focus(FocusState.Programmatic); InputBox.SelectionStart = template.Length; }
+                if (InputBox != null) { InputBox.Text = template; InputBox.Focus(FocusState.Programmatic); InputBox.SelectionStart = Math.Clamp(caret ?? template.Length, 0, template.Length); }
                 DocumentsButton?.Flyout?.Hide();
             };
             return button;

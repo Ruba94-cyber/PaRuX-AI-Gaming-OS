@@ -17,6 +17,8 @@ internal sealed class BootstrapAuthStubServer : IDisposable
     private readonly bool _redirectConversationPush;
     private readonly bool _explicitDiscoveryFixture;
     private readonly bool _speechCancellationFixture;
+    private readonly bool _runtimeActionRefusalFixture;
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _runtimeActions = new();
     private readonly int _explicitDiscoveryStatus;
     private readonly int _explicitDiscoveryDelayMs;
     private int _failDiscoveryCatalog;
@@ -57,6 +59,8 @@ internal sealed class BootstrapAuthStubServer : IDisposable
     internal bool SpeechFirstWasCancelled => Volatile.Read(ref _speechFirstCancelled) == 1;
     internal bool SpeechFollowupWasCompleted => Volatile.Read(ref _speechFollowupCompleted) == 1;
     internal string[] SpeechRequestIds => _speechRequestIds.ToArray();
+    /// <summary>Names of the runtime actions the desktop asked this refusing stub Core to run, in order.</summary>
+    internal string[] RuntimeActions => _runtimeActions.ToArray();
     internal int[] SpeechSequences(string requestId) => _speechSequences.TryGetValue(requestId, out var values)
         ? values.ToArray() : Array.Empty<int>();
     /// <summary>Makes later catalog GETs fail (HTTP 500) so tests can observe stale-catalog handling.</summary>
@@ -65,8 +69,9 @@ internal sealed class BootstrapAuthStubServer : IDisposable
     internal BootstrapAuthStubServer(bool acceptCredentials = false, bool redirectBootstrapProbe = false,
         bool redirectConversationPush = false, bool explicitDiscoveryFixture = false,
         int explicitDiscoveryStatus = 200, int explicitDiscoveryDelayMs = 0,
-        bool speechCancellationFixture = false)
+        bool speechCancellationFixture = false, bool runtimeActionRefusalFixture = false)
     {
+        _runtimeActionRefusalFixture = runtimeActionRefusalFixture;
         _explicitDiscoveryDelayMs = Math.Clamp(explicitDiscoveryDelayMs, 0, 15000);
         _acceptCredentials = acceptCredentials;
         _redirectBootstrapProbe = redirectBootstrapProbe;
@@ -151,6 +156,31 @@ internal sealed class BootstrapAuthStubServer : IDisposable
                     + "Content-Length: 0\r\n"
                     + "Connection: close\r\n\r\n");
                 await stream.WriteAsync(redirectHeader);
+                return;
+            }
+
+            if (!redirectTarget && _runtimeActionRefusalFixture)
+            {
+                // A Core that is reachable and authenticated but refuses every runtime action: the one honest way to make a
+                // profile-switch step fail deterministically without killing a process.
+                if (token != "stale-test-token") { await WriteJsonAsync(stream, 401, "{\"error\":\"Unauthorized\"}"); return; }
+                string actionPath = requestLine?.Split(' ').Skip(1).FirstOrDefault() ?? string.Empty;
+                if (identity) { await WriteJsonAsync(stream, 200, "{}"); return; }
+                if (requestLine?.StartsWith("POST ", StringComparison.Ordinal) == true && actionPath == "/api/v1/runtime/actions")
+                {
+                    string actionBody = await ReadBodyAsync(reader, contentLength, chunked);
+                    try
+                    {
+                        using JsonDocument parsed = JsonDocument.Parse(actionBody);
+                        if (parsed.RootElement.TryGetProperty("action", out JsonElement name) && name.GetString() is { } action)
+                            _runtimeActions.Enqueue(action);
+                    }
+                    catch (JsonException) { /* an unreadable body is simply not recorded */ }
+                    await WriteJsonAsync(stream, 200, "{\"success\":false,\"message\":\"The fixture Core refused this runtime action.\"}");
+                    return;
+                }
+                await WriteJsonAsync(stream, requestLine?.StartsWith("GET ", StringComparison.Ordinal) == true ? 200 : 404,
+                    requestLine?.StartsWith("GET ", StringComparison.Ordinal) == true ? "[]" : "{}");
                 return;
             }
 

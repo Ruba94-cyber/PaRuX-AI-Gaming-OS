@@ -46,6 +46,8 @@ internal sealed class UiTestApplication : IDisposable
     internal Task SpeechFirstCancellation => (_bootstrapAuthFixture ?? throw new InvalidOperationException("No speech fixture is active.")).SpeechFirstCancellation;
     internal Task SpeechFollowupDone => (_bootstrapAuthFixture ?? throw new InvalidOperationException("No speech fixture is active.")).SpeechFollowupDone;
     internal int SpeechArtifactCreateCount => _bootstrapAuthFixture?.SpeechArtifactCreateCount ?? 0;
+    /// <summary>Runtime actions a refusing stub Core was asked to run (empty when that fixture is not active).</summary>
+    internal string[] RefusedRuntimeActions => _bootstrapAuthFixture?.RuntimeActions ?? Array.Empty<string>();
     internal int SpeechArtifactStatusCount => _bootstrapAuthFixture?.SpeechArtifactStatusCount ?? 0;
     internal bool SpeechFirstWasCancelled => _bootstrapAuthFixture?.SpeechFirstWasCancelled ?? false;
     internal bool SpeechFollowupWasCompleted => _bootstrapAuthFixture?.SpeechFollowupWasCompleted ?? false;
@@ -81,7 +83,8 @@ internal sealed class UiTestApplication : IDisposable
         bool enableCompletedCodingTaskApplyFixture = false,
         bool enableSpeechCancellationFixture = false,
         string? restartDataRoot = null,
-        IReadOnlyDictionary<string, string>? extraEnvironment = null)
+        IReadOnlyDictionary<string, string>? extraEnvironment = null,
+        bool enableRuntimeActionRefusalFixture = false)
     {
         string isolatedRoot = Path.Combine(Repository.Root, ".ai", "artifacts", "ui-data");
         // Keep Git object/worktree paths below the Windows legacy path limit; the artifact
@@ -110,7 +113,7 @@ internal sealed class UiTestApplication : IDisposable
         }
         bool bootstrapUsesFixtureServerIdentity = enableBootstrapAuthenticationFixture
             || enableBootstrapRedirectFixture || enableConversationSyncRedirectFixture
-            || enableExplicitDiscoveryHttpFixture || enableSpeechCancellationFixture;
+            || enableExplicitDiscoveryHttpFixture || enableSpeechCancellationFixture || enableRuntimeActionRefusalFixture;
         if (bootstrapUsesFixtureServerIdentity || enableBootstrapIdentityMismatchFixture
             || enableStaleBootstrapRecoveryFixture || enableConversationSyncRedirectFixture)
         {
@@ -122,7 +125,8 @@ internal sealed class UiTestApplication : IDisposable
                 explicitDiscoveryFixture: enableExplicitDiscoveryHttpFixture,
                 explicitDiscoveryStatus: explicitDiscoveryHttpStatus,
                 explicitDiscoveryDelayMs: explicitDiscoveryHttpDelayMs,
-                speechCancellationFixture: enableSpeechCancellationFixture);
+                speechCancellationFixture: enableSpeechCancellationFixture,
+                runtimeActionRefusalFixture: enableRuntimeActionRefusalFixture);
             string bootstrapDirectory = Path.Combine(_testRoot, "server");
             Directory.CreateDirectory(bootstrapDirectory);
             int bootstrapProcessId = bootstrapUsesFixtureServerIdentity || enableBootstrapIdentityMismatchFixture

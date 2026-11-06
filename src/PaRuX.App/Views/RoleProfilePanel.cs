@@ -184,7 +184,14 @@ namespace PaRuX.Views
                 var combo = new ComboBox { MinWidth = 280, PlaceholderText = it ? "Scegli un modello…" : "Choose a model…" };
                 AutomationProperties.SetAutomationId(combo, row.AutomationPrefix + "_Override");
                 AutomationProperties.SetName(combo, (it ? "Modello per " : "Model for ") + row.Title);
-                foreach (RoleOverrideChoice choice in row.AdvancedChoices) combo.Items.Add(new ComboBoxItem { Content = choice.Name, Tag = choice.Path });
+                foreach (RoleOverrideChoice choice in row.AdvancedChoices)
+                {
+                    var option = new ComboBoxItem { Content = choice.Name, Tag = choice.Path };
+                    // Stable id from the file name (not the localized label): RoleProfile_Coding_Override_<file>_Item.
+                    string fileId = new string(Path.GetFileName(choice.Path).Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
+                    AutomationProperties.SetAutomationId(option, row.AutomationPrefix + "_Override_" + fileId + "_Item");
+                    combo.Items.Add(option);
+                }
                 combo.SelectionChanged += async (_, _) =>
                 {
                     if (combo.SelectedItem is not ComboBoxItem item) return;

@@ -127,16 +127,16 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
                                 <TextBlock x:Name="SetupProfileTitle" Text="What PaRuX is for" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
-                                <TextBlock x:Name="SetupProfileHint" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
+                                <TextBlock x:Name="SetupProfileHint" AutomationProperties.AutomationId="Settings_SetupProfile_Hint" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                             </StackPanel>
                             <ComboBox x:Name="SetupProfileCombo" AutomationProperties.AutomationId="Settings_SetupProfile_ComboBox"
                                       AutomationProperties.Name="What PaRuX is for" AutomationProperties.AccessibilityView="Control"
                                       Grid.Column="1" VerticalAlignment="Center" MinWidth="160"
                                       CornerRadius="{StaticResource PaRuXRadiusSmall}"
                                       SelectionChanged="SetupProfileCombo_SelectionChanged">
-                                <ComboBoxItem Tag="both" />
-                                <ComboBoxItem Tag="ai" />
-                                <ComboBoxItem Tag="gaming" />
+                                <ComboBoxItem Tag="both" AutomationProperties.AutomationId="Settings_SetupProfile_Both_Item" />
+                                <ComboBoxItem Tag="ai" AutomationProperties.AutomationId="Settings_SetupProfile_Ai_Item" />
+                                <ComboBoxItem Tag="gaming" AutomationProperties.AutomationId="Settings_SetupProfile_Gaming_Item" />
                             </ComboBox>
                         </Grid>
 

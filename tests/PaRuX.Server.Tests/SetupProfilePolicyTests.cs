@@ -22,6 +22,32 @@ public sealed class SetupProfilePolicyTests
     public void Stored_values_parse_case_and_whitespace_insensitively(string stored, SetupProfile expected) =>
         Assert.Equal(expected, SetupProfilePolicy.Parse(stored));
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("both")]
+    [InlineData("ai")]
+    [InlineData("gaming")]
+    public void Corporate_lite_means_ai_only_for_every_stored_value(string? stored) =>
+        Assert.Equal(SetupProfile.AiOnly, SetupProfilePolicy.Parse(stored, corporateMode: true));
+
+    // Regression (found with FlaUI): the Settings picker mapped its three items with the edition-aware Parse, so in Corporate Lite all
+    // three items meant "AI only", the last one showed as selected and the other two did nothing. A choice names its own profile.
+    [Theory]
+    [InlineData("both", SetupProfile.Both)]
+    [InlineData("ai", SetupProfile.AiOnly)]
+    [InlineData("gaming", SetupProfile.GamingOnly)]
+    [InlineData("nonsense", SetupProfile.Both)]
+    public void A_picker_choice_names_its_own_profile_whatever_the_edition(string value, SetupProfile expected) =>
+        Assert.Equal(expected, SetupProfilePolicy.ParseChoice(value));
+
+    [Fact]
+    public void The_corporate_note_names_the_edition_in_both_languages()
+    {
+        Assert.Contains("Corporate", SetupProfilePolicy.CorporateKeptNote(false));
+        Assert.Contains("Corporate", SetupProfilePolicy.CorporateKeptNote(true));
+        Assert.NotEqual(SetupProfilePolicy.CorporateKeptNote(false), SetupProfilePolicy.CorporateKeptNote(true));
+    }
+
     [Fact]
     public void Storage_round_trips_every_profile()
     {

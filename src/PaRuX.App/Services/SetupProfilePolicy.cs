@@ -29,9 +29,15 @@ public static class SetupProfilePolicy
     public const string GamingOnlyId = "gaming";
 
     /// <summary>Empty, missing or unknown values mean Both: an existing installation keeps everything it has.</summary>
-    public static SetupProfile Parse(string? stored) =>
-        PaRuX.Contracts.CorporateMode.IsActive ? SetupProfile.AiOnly     // Corporate Lite is AI/documents only
-        : ParseStored(stored);
+    public static SetupProfile Parse(string? stored) => Parse(stored, PaRuX.Contracts.CorporateMode.IsActive);
+
+    /// <summary>The profile in force: Corporate Lite is AI/documents only, so every stored value means AI only there.</summary>
+    public static SetupProfile Parse(string? stored, bool corporateMode) =>
+        corporateMode ? SetupProfile.AiOnly : ParseStored(stored);
+
+    /// <summary>The profile a picker item or request NAMES, whatever the edition. Use this to map a choice (never <see cref="Parse(string?)"/>:
+    /// in Corporate Lite that returns AI only for every value, so all three picker items would look identical).</summary>
+    public static SetupProfile ParseChoice(string? value) => ParseStored(value);
 
     private static SetupProfile ParseStored(string? stored) => (stored ?? string.Empty).Trim().ToLowerInvariant() switch
     {
@@ -79,6 +85,11 @@ public static class SetupProfilePolicy
             ? "IA e giochi insieme, con le risorse del PC condivise: l'IA si fa da parte mentre giochi."
             : "AI and games together, sharing the PC's resources: the AI steps aside while you play."
     };
+
+    /// <summary>Shown when a wider choice was not kept because the edition only offers AI only (Corporate Lite).</summary>
+    public static string CorporateKeptNote(bool italian) => italian
+        ? "Corporate Lite è solo IA e documenti, quindi è rimasto Solo IA."
+        : "Corporate Lite is AI and documents only, so AI only was kept.";
 
     /// <summary>The reassurance shown next to the profile switch in Settings.</summary>
     public static string SwitchNote(bool italian) => italian

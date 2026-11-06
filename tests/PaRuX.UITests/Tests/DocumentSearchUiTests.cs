@@ -20,7 +20,7 @@ public sealed class DocumentSearchUiTests
 {
     private static readonly IReadOnlyDictionary<string, string> Corporate = new Dictionary<string, string> { ["PARUX_CORPORATE"] = "1" };
 
-    private sealed class Core : IDisposable
+    internal sealed class Core : IDisposable
     {
         private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
         private readonly string _endpoint;
@@ -56,6 +56,12 @@ public sealed class DocumentSearchUiTests
                 using JsonDocument doc = JsonDocument.Parse(_http.GetStringAsync(_endpoint + "/api/v1/knowledge/sources/" + id + "/status").GetAwaiter().GetResult());
                 return doc.RootElement.TryGetProperty("job", out JsonElement job) && job.ValueKind == JsonValueKind.Object && job.GetProperty("state").GetString() == "done";
             }, "the index job", TimeSpan.FromSeconds(60));
+        }
+        /// <summary>Ids of the folders the Core currently lists (what the wipe must empty).</summary>
+        public string[] SourceIds()
+        {
+            using JsonDocument doc = JsonDocument.Parse(_http.GetStringAsync(_endpoint + "/api/v1/rag/sources").GetAwaiter().GetResult());
+            return doc.RootElement.EnumerateArray().Select(e => e.GetProperty("id").GetString()!).ToArray();
         }
         public void Dispose() => _http.Dispose();
     }
