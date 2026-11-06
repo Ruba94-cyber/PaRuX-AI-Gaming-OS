@@ -489,8 +489,16 @@ namespace PaRuX.Shell
         // Visibility
         // ------------------------------------------------------------------
 
+        private static bool AiBubbleAllowedForSetup =>
+            SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) != SetupProfile.GamingOnly;
+
         public void ApplyVisibilityMode()
         {
+            if (!AiBubbleAllowedForSetup)
+            {
+                HideBubble();
+                return;
+            }
             if (LocalAiController.Current.IsGameActive())
             {
                 SetBubbleVisualState(BubbleVisualState.Sleep);
@@ -522,7 +530,7 @@ namespace PaRuX.Shell
 
         public void ShowCollapsed()
         {
-            if (LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
+            if (!AiBubbleAllowedForSetup || LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
             SetCollapsedGeometry();
             AppWindow.Show();
             _visible = true;
@@ -536,7 +544,7 @@ namespace PaRuX.Shell
 
         public void ShowExpanded()
         {
-            if (LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
+            if (!AiBubbleAllowedForSetup || LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
             if (SettingsStore.Current.Data.BubbleMode == "Disabled")
             {
                 App.ShowMainWindow();
@@ -566,7 +574,7 @@ namespace PaRuX.Shell
         /// <summary>Hotkey behaviour: expand if it isn't already, otherwise put it away.</summary>
         public void ToggleFromHotkey()
         {
-            if (LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
+            if (!AiBubbleAllowedForSetup || LocalAiController.Current.IsGameActive()) { HideBubble(); return; }
             string mode = SettingsStore.Current.Data.BubbleMode ?? "AlwaysVisible";
 
             if (mode == "Disabled")
