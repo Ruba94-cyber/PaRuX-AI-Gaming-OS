@@ -1,3 +1,5 @@
+**Follow-up UI/performance audit:** Corporate Model Hub Start no longer renders the generic multi-engine introduction, duplicate readiness/hardware summaries or an irrelevant offline Downloads shortcut. Corporate Settings avoids redundant double-refresh on repeat opens and keeps its replacement Models/Privacy sections scoped to the Corporate marker. Added Corporate Chat FlaUI assertions for Documents present and Media/Voice/Coding absent. Static cross-file source checks passed; real Windows WinUI compilation, layout/focus checks and FlaUI remain explicitly **unrun**.
+
 ## 2026-11-06 — Profile-aware UI & Corporate Chat-first UX on main (SOURCE ONLY)
 
 - Fixed mismatch between chosen setup and actual navigation: centrally filtered workspace list and keyboard traversal with explicitly evaluated edition and AI-only/Gaming-only/Both. Disallowed sidebar, shortcut and programmatic pages do not open by hidden nav access; incompatible active view switches to the correct home after a successful profile change.
