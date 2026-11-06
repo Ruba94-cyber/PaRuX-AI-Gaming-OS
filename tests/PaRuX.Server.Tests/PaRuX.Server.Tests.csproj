@@ -274,6 +274,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\InAppHelpCatalog.cs" Link="Help\InAppHelpCatalog.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ChatHomeNavigationPolicy.cs" Link="Navigation\ChatHomeNavigationPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\WorkspaceNavigationOrder.cs" Link="Navigation\WorkspaceNavigationOrder.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\SettingsCategoryPolicy.cs" Link="Settings\SettingsCategoryPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ChatDraftCoordinator.cs" Link="Chat\ChatDraftCoordinator.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingTaskSandboxWorkspacePolicy.cs" Link="CodingAgent\CodingTaskSandboxWorkspacePolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingHunkReviewPlanner.cs" Link="CodingAgent\CodingHunkReviewPlanner.cs" />
