@@ -743,6 +743,55 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Corporate_cpu_is_a_real_text_runtime_and_health_wakeup_preserves_chat_proof()
+        {
+            var sm = new OnboardingStateMachine();
+            sm.SetComponents(new[]
+            {
+                new ComponentState
+                {
+                    Id = "llama-server-cpu", Detected = true,
+                    Ownership = "PARUX_MANAGED", Path = @"C:\Portable\llama-server.exe",
+                    Health = "installed"
+                }
+            });
+            Assert.True(sm.HasBundledTextRuntime);
+            Assert.True(sm.Components[0].IsTextRuntime);
+            sm.ObserveTextModelConfiguration(new[]
+            {
+                ("standard", @"C:\Portable\starter.gguf", true, false)
+            });
+            sm.RecordVerifiedChatAnswer();
+            int before = sm.ConfigurationRevision;
+
+            sm.SetComponents(new[]
+            {
+                new ComponentState
+                {
+                    Id = "llama-server-cpu", Detected = true,
+                    Ownership = "PARUX_MANAGED", Path = @"C:\Portable\llama-server.exe",
+                    Health = "healthy"
+                }
+            });
+
+            Assert.Equal(before, sm.ConfigurationRevision);
+            Assert.True(sm.ChatAnswerVerified);
+            Assert.Equal("healthy", sm.Components[0].Health);
+        }
+
+        [Fact]
+        public void Corporate_cpu_real_installation_change_revokes_old_proof()
+        {
+            var sm = new OnboardingStateMachine();
+            sm.SetComponents(new[] { new ComponentState { Id = "llama-server-cpu", Detected = true } });
+            sm.RecordVerifiedChatAnswer();
+            int before = sm.ConfigurationRevision;
+            sm.SetComponents(new[] { new ComponentState { Id = "llama-server-cpu", Detected = false } });
+            Assert.Equal(before + 1, sm.ConfigurationRevision);
+            Assert.False(sm.ChatAnswerVerified);
+        }
+
+        [Fact]
         public void Complete_WhenUnready_FailsAndDoesNotCompleteSilently()
         {
             var sm = new OnboardingStateMachine();
