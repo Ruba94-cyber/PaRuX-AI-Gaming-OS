@@ -108,6 +108,18 @@ namespace PaRuX.Services
             return SendAsync<TrainingJobStatus>(HttpMethod.Post, "/api/v2/training/jobs", request, ct);
         }
 
+        /// <summary>
+        /// Explicit job submission for the bounded Quick Training flow. Unlike the advanced
+        /// interactive wizard, these already-reviewed settings must not be overwritten by a
+        /// mutable process-local draft when a different method or field changes in the UI.
+        /// The Core still validates the complete request and runtime independently.
+        /// </summary>
+        public Task<TrainingJobStatus> CreateJobExplicitAsync(TrainingJobRequest request, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            return SendAsync<TrainingJobStatus>(HttpMethod.Post, "/api/v2/training/jobs", request, ct);
+        }
+
         public Task CancelJobAsync(string id, CancellationToken ct) =>
             SendNoContentOrJsonAsync(HttpMethod.Post,
                 "/api/v1/training/jobs/" + Uri.EscapeDataString(id) + "/cancel", null, ct);
