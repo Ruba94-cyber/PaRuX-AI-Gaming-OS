@@ -6,6 +6,25 @@ namespace PaRuX.Contracts;
 /// a valid or hardware-compatible model.</summary>
 public static class CorporateModelImportPolicy
 {
+    /// <summary>Checks only the four-byte GGUF signature without reading a
+    /// potentially multi-GB model into memory. This is a cheap preflight, not a
+    /// full model validation; llama.cpp still verifies its contents at load.</summary>
+    public static bool HasGgufHeader(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try
+        {
+            using FileStream stream = new(path, FileMode.Open, FileAccess.Read,
+                FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan);
+            Span<byte> header = stackalloc byte[4];
+            return stream.Read(header) == 4
+                && header[0] == (byte)'G' && header[1] == (byte)'G'
+                && header[2] == (byte)'U' && header[3] == (byte)'F';
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
     public static bool IsAcceptableModel(string? fileName, long bytes)
     {
         if (bytes < 64 * 1024 || string.IsNullOrWhiteSpace(fileName)) return false;
