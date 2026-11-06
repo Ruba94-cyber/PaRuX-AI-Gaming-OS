@@ -37,6 +37,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _displayRefresh = new();
     private readonly Button _controllerRefresh = new();
     private readonly Button _returnToAi = new();
+    private readonly TextBlock _sessionHeading = new();
     private readonly StackPanel _installerSection = new() { Spacing = 8 };
     private readonly Button _inspectInstaller = new();
     private readonly TextBox _expectedPublisherSha = new();
@@ -112,12 +113,10 @@ public sealed class ManualGameLibraryView : UserControl
 
         // Real resource/session status lives on the same Games home in both TV and
         // desktop presentations. No background polling or controller worker.
-        root.Children.Add(new TextBlock
-        {
-            Text = T("AI / Gaming session", "Sessione AI / Gaming"),
-            FontSize = 20,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-        });
+        _sessionHeading.Text = T("AI / Gaming session", "Sessione AI / Gaming");
+        _sessionHeading.FontSize = 20;
+        _sessionHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        root.Children.Add(_sessionHeading);
         _gamingStatus.Text = T("Check the Gaming status to begin.", "Controlla lo stato Gaming per iniziare.");
         AutomationProperties.SetAutomationId(_gamingStatus, "GameLibrary_Gaming_Status_Text");
         AutomationProperties.SetLiveSetting(_gamingStatus, AutomationLiveSetting.Polite);
@@ -507,8 +506,22 @@ public sealed class ManualGameLibraryView : UserControl
         _universal?.CancelPendingQueries();
     }
 
+    private bool GamingOnlySetup =>
+        SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId) == SetupProfile.GamingOnly;
+
+    private void ApplySetupProfilePresentation()
+    {
+        bool gamingOnly = GamingOnlySetup;
+        _returnToAi.Visibility = gamingOnly ? Visibility.Collapsed : Visibility.Visible;
+        _sessionHeading.Text = gamingOnly
+            ? T("Gaming session", "Sessione Gaming")
+            : T("AI / Gaming session", "Sessione AI / Gaming");
+        _universal?.ApplySetupProfilePresentation();
+    }
+
     public async void OnShown()
     {
+        ApplySetupProfilePresentation();
         if (_universal is not null)
             await _universal.RefreshVisibleTitlesAsync();
         await RefreshAsync();
@@ -616,7 +629,7 @@ public sealed class ManualGameLibraryView : UserControl
 
     private async Task ReturnToAiAsync()
     {
-        if (_busy || !_returnToAiAvailable) return;
+        if (GamingOnlySetup || _busy || !_returnToAiAvailable) return;
         SetBusy(true);
         try
         {
