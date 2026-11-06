@@ -148,7 +148,7 @@ public static class TrainingDatasetShape
         };
     }
 
-    private static bool IsChatRecord(JsonElement root)
+    internal static bool IsChatRecord(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object) return false;
         if (!root.TryGetProperty("messages", out JsonElement messages)) return false;
@@ -170,7 +170,7 @@ public static class TrainingDatasetShape
         return hasTrainableAssistantAnswer;
     }
 
-    private static bool IsPreferenceRecord(JsonElement root) =>
+    internal static bool IsPreferenceRecord(JsonElement root) =>
         HasNonEmptyString(root, "prompt") && HasNonEmptyString(root, "chosen") && HasNonEmptyString(root, "rejected");
 
     private static bool IsKtoRecord(JsonElement root) =>
