@@ -159,6 +159,37 @@ public sealed class RuntimeManagerService
     {
         var issues = new List<RuntimeDiagnosticIssue>();
         RuntimeManagerStatus status = await GetStatusAsync(ct).ConfigureAwait(false);
+        if (CorporateMode.IsActive)
+        {
+            // A CPU-only package must not warn that CUDA, Vulkan, ComfyUI,
+            // Uncensored or its absent Gaming services need installing.
+            RuntimeBackendStatus? cpu = status.Backends.FirstOrDefault(b => b.Backend == "text-cpu");
+            if (cpu?.Installed != true)
+                issues.Add(new RuntimeDiagnosticIssue
+                {
+                    Severity = "warning",
+                    Message = "Bundled Corporate CPU runtime missing. Re-extract the signed portable package."
+                });
+            string model = LocalAiPaths.StandardModel;
+            if (!File.Exists(model))
+                issues.Add(new RuntimeDiagnosticIssue
+                {
+                    Severity = "warning",
+                    Message = "No local Corporate Chat GGUF is available. Import a model in Model Hub."
+                });
+            else
+            {
+                string? selected = LocalAiPaths.GetRoleOverride("standard");
+                if (selected != null && !File.Exists(selected))
+                    issues.Add(new RuntimeDiagnosticIssue
+                    {
+                        Severity = "info",
+                        Message = "The saved Chat model is unavailable; PaRuX is using the bundled starter. Choose a replacement in Model Hub."
+                    });
+            }
+            return new RuntimeDiagnosticsReport { Issues = issues, CheckedUtc = DateTime.UtcNow };
+        }
+
         RuntimeBackendStatus? cuda = status.Backends.FirstOrDefault(b => b.Backend == "text-cuda");
         RuntimeBackendStatus? vulkan = status.Backends.FirstOrDefault(b => b.Backend == "text-vulkan");
         RuntimeBackendStatus? media = status.Backends.FirstOrDefault(b => b.Backend == "media-comfyui");
