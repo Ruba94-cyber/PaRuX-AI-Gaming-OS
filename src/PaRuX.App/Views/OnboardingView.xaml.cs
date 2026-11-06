@@ -64,12 +64,26 @@ namespace PaRuX.Views
 
         private void StartAiRefreshes()
         {
+            if (PaRuX.Contracts.CorporateMode.IsActive)
+            {
+                // No installer probing, component discovery, automatic downloads or
+                // remote model-catalog advice for the preloaded Corporate CPU package.
+                // The only first-run question is whether its local Chat can answer.
+                _ = RefreshReadyCheckAsync();
+                return;
+            }
             _ = RefreshModelDownloadsAsync();
             _ = RefreshLocalAiRootAsync();
             _ = RefreshComponentsAsync();
             _ = RefreshFirstModelAdviceAsync();
             _ = RefreshReadyCheckAsync();
             _ = InitializeAutoSetupAsync();
+        }
+
+        private void CorporateManageModels_Click(object sender, RoutedEventArgs e)
+        {
+            if (!PaRuX.Contracts.CorporateMode.IsActive) return;
+            FindModelRequested?.Invoke(string.Empty);
         }
 
         private DispatcherTimer CreateModelDownloadPoll()
