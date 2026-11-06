@@ -50,6 +50,14 @@ Across **standard desktop/MSI, portable, Corporate, Android and Console/TV**, ve
 
 Add local folder with permission, see a single “Indexing · PDF page 512/30,000” progress indicator, ability to pause/resume/cancel, counts of unreadable pages and clear warnings. Chat asks a short question and cites exact file/page; open original through local action if authorized; no hidden network, no remote backup, no automatic destructive edits, no invented green “all read” state. If the scanned page cannot be decoded, say so. Standard non-Corporate RAG behavior must not regress.
 
+### New fail-closed / scale acceptance cases (2026-11-06)
+
+- In Chat, explicitly select a Finance folder, then uncheck it or remove/disable it in the source registry; verify document mode becomes **off**, not empty=all. Re-enabling the switch with no selected folders must be an explicit owner action and must visibly say that all enabled folders will be searched. A removed source must never be implicitly replaced by another folder.
+- Register at least 145 (preferably 1,000) synthetic enabled sources with similar names. Filter by a late folder, navigate every 40-item page and back, and verify selected IDs persist and disabled folders never appear. Check keyboard/reader announcements and 13-inch/high-DPI flyout clipping.
+- With 100 finished folders and one actively indexing PDF, record HTTP calls/CPU during 2-second progress polling: after initial snapshot, completed folders must not be polled on every tick. Navigating away must stop requests without relying only on WinUI Unloaded.
+- Ask about two exact identifiers from different documents with one absent; refuse a complete comparison. Test overlapping identifiers (e.g., `INV_2026_88` vs `INV_2026_884`) to prevent substring false proof. Do not imply a cited passage proves all PDFs, OCR pages, tables and drawings were examined.
+- On Android, send an image without text; verify the Send button admits it. An oversized image must be rejected before unbounded memory allocation with an inline error, and an unsent image/text draft must survive no-local-Core and Gaming-off refusals.
+
 ## Tests to execute on Windows
 
 `dotnet test tests/PaRuX.Server.Tests --filter "FullyQualifiedName~KnowledgeLargePdfTests|FullyQualifiedName~KnowledgeIndexTests|FullyQualifiedName~KnowledgeLksTests|FullyQualifiedName~StructuredDocumentExtractorTests|FullyQualifiedName~CorporateLiteCoreTests"`
