@@ -236,7 +236,7 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
     /// </summary>
     /// <summary>Samples per optimizer step. Kept constant while the split between real batching and
     /// accumulation changes, so tuning for the GPU never alters training dynamics.</summary>
-    private const int EffectiveBatchSize = 4;
+    private const int EffectiveBatchSize = TrainingBatchShapePolicy.DefaultEffectiveBatch;
 
     /// <summary>
     /// Splits the effective batch between the GPU and gradient accumulation.
@@ -253,21 +253,7 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         long? availableVramBytesOverride = null)
     {
         long vram = availableVramBytesOverride ?? LargestGpuVideoMemoryBytes();
-        if (vram <= 0) return (1, EffectiveBatchSize);
-
-        // Both halves of the cost are measured, not modelled. On an RTX 5080 at 1,024 tokens the run
-        // held 0.557 GB at one sequence and 0.928 GB at four: roughly 0.6 GB of base footprint that
-        // exists whatever the batch, plus about 128 MB for each concurrent sequence. Only the second
-        // part scales with sequence length. Staying inside a quarter of the card leaves room for a
-        // resident chat model or a second job rather than evicting them to train.
-        const double BaseFootprintBytes = 640d * 1024 * 1024;
-        double perSequenceBytes = 128d * 1024 * 1024 * Math.Max(1, maxSequenceLength) / 1024d;
-        double usableBytes = vram * 0.25 - BaseFootprintBytes;
-        int affordable = usableBytes <= 0 ? 1 : (int)Math.Floor(usableBytes / perSequenceBytes);
-
-        int microBatch = Math.Clamp(affordable, 1, EffectiveBatchSize);
-        while (microBatch > 1 && EffectiveBatchSize % microBatch != 0) microBatch--;
-        return (microBatch, EffectiveBatchSize / microBatch);
+        return TrainingBatchShapePolicy.Plan(maxSequenceLength, vram);
     }
 
     private static long LargestGpuVideoMemoryBytes()
