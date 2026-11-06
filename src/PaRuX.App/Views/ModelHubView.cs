@@ -902,7 +902,9 @@ namespace PaRuX.Views
             SetBusy(true, "Refreshing Model Hub…");
             try
             {
-                Task<List<RecommendedModel>> recommendedTask = ModelDownloadClient.Current.GetRecommendedAsync(ct);
+                Task<List<RecommendedModel>> recommendedTask = CorporateMode.IsActive
+                    ? Task.FromResult(new List<RecommendedModel>())
+                    : ModelDownloadClient.Current.GetRecommendedAsync(ct);
                 Task<List<ModelDownloadStatus>> downloadsTask = ModelDownloadClient.Current.ListDownloadsAsync(ct);
                 Task<List<ManagedModelInfo>> installedTask = ModelDownloadClient.Current.ListManagedModelsAsync(ct);
                 // Corporate Lite has no media engines: don't fetch/check them merely
@@ -916,7 +918,9 @@ namespace PaRuX.Views
                 Task<MediaCatalogueResponse?> mediaCatalogueTask = CorporateMode.IsActive
                     ? Task.FromResult<MediaCatalogueResponse?>(null)
                     : TryGetMediaCatalogueAsync(ct);
-                Task<RuntimeManagerHardwareStatus?> hardwareTask = TryGetHardwareAsync(ct);
+                Task<RuntimeManagerHardwareStatus?> hardwareTask = CorporateMode.IsActive
+                    ? Task.FromResult<RuntimeManagerHardwareStatus?>(null)
+                    : TryGetHardwareAsync(ct);
                 Task<AiStorageBudgetStatus?> storageBudgetTask = TryGetStorageBudgetAsync(ct);
                 Task<ModelDiscoveryCatalog?> discoveryTask = CorporateMode.IsActive
                     ? Task.FromResult<ModelDiscoveryCatalog?>(null)
@@ -930,7 +934,9 @@ namespace PaRuX.Views
                 Task<CandidateRecommendationStatusResponse?> recommendationStatusTask = _isAdvancedMode
                     ? TryGetRecommendationStatusAsync(ct)
                     : Task.FromResult<CandidateRecommendationStatusResponse?>(null);
-                Task<List<ManagedModelInfo>?> incompleteSetsTask = TryGetIncompleteSplitSetsAsync(ct);
+                Task<List<ManagedModelInfo>?> incompleteSetsTask = CorporateMode.IsActive
+                    ? Task.FromResult<List<ManagedModelInfo>?>(null)
+                    : TryGetIncompleteSplitSetsAsync(ct);
                 Task<SuggestionFeedStatusDto?> maintenanceTask = CorporateMode.IsActive
                     ? Task.FromResult<SuggestionFeedStatusDto?>(null)
                     : TryGetMaintenanceStatusAsync(ct);
