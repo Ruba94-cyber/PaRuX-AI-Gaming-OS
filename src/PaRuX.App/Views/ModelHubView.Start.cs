@@ -373,6 +373,11 @@ namespace PaRuX.Views
 
         private void UpdateStartPolling(IReadOnlyList<StartCard> cards)
         {
+            if (CorporateMode.IsActive)
+            {
+                _startPoll?.Stop();
+                return; // No media-install/check loops in the CPU-only Corporate Home.
+            }
             bool installing = cards.Any(c => c.Readiness == StartReadiness.Installing);
             bool checking = cards.Any(c => c.Readiness == StartReadiness.Checking);
             if (!checking) _startCheckingRetries = 0;
@@ -401,6 +406,14 @@ namespace PaRuX.Views
 
         private void RenderStart(IReadOnlyList<StartCard> cards)
         {
+            if (CorporateMode.IsActive)
+            {
+                _startSummary.Text = StartItalian
+                    ? "Motore CPU incluso · importa o seleziona un modello GGUF per Chat e documenti."
+                    : "CPU runtime included · import or select a GGUF model for Chat and documents.";
+                _startCards.Children.Clear();
+                return;
+            }
             _startSummary.Text = ModelHubStartPresenter.Summarize(cards, StartItalian).Line;
             _startCards.Children.Clear();
             foreach (StartCard card in cards) _startCards.Children.Add(BuildStartCard(card));
