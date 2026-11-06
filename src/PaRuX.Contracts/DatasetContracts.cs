@@ -142,3 +142,30 @@ public sealed class ImportDatasetAsEvalCasesResult
     /// <summary>Rows where required mapped cells were empty/whitespace.</summary>
     public int RowsSkipped { get; set; }
 }
+
+
+/// <summary>
+/// Explicit, never inferred training recipe from an existing CSV/JSON/JSONL/Parquet dataset.
+/// SFT uses prompt + answer; DPO uses prompt + chosen + rejected;
+/// KTO uses prompt + completion + a literal true/false label.
+/// </summary>
+public sealed class TrainingDatasetRecipeRequest
+{
+    public string SourcePath { get; set; } = string.Empty;
+    public string Method { get; set; } = TrainingMethod.Sft;
+    public string PromptColumn { get; set; } = string.Empty;
+    public string ResponseColumn { get; set; } = string.Empty;
+    public string? ExtraColumn { get; set; }
+    public string? SystemColumn { get; set; }
+}
+
+public sealed class TrainingDatasetRecipeResult
+{
+    public string TrainJsonlPath { get; set; } = string.Empty;
+    public string Method { get; set; } = TrainingMethod.Sft;
+    public int SourceRows { get; set; }
+    public int WrittenRows { get; set; }
+    public int SkippedRows { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public string Note { get; set; } = string.Empty;
+}
