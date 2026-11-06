@@ -250,7 +250,11 @@ namespace PaRuX.Views
         private UIElement BuildUi()
         {
             var root = new Grid();
-            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var scroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
             // The page is three tab panels under one header: Text models (everything that was here before), Media, Downloads.
             // "body" stays the Text panel so the existing section ordering code keeps working unchanged.
             var outer = new StackPanel
@@ -294,9 +298,23 @@ namespace PaRuX.Views
             };
             searchRow.Children.Add(_search);
 
-            var searchActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var searchActions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            // A compact NavigationView can still leave <400 DIP of content space.
+            // In that case the actions stack instead of clipping the Search/Refresh buttons.
+            searchRow.SizeChanged += (_, args) =>
+            {
+                bool compact = args.NewSize.Width < 410;
+                searchActions.Orientation = compact ? Orientation.Vertical : Orientation.Horizontal;
+            };
             _category.MinWidth = 132;
+            _category.MaxWidth = 200;
             _category.MinHeight = 44;
+            _category.HorizontalAlignment = HorizontalAlignment.Stretch;
             AutomationProperties.SetAutomationId(_category, "ModelHub_Category_ComboBox");
             AutomationProperties.SetName(_category, "Model category");
             searchActions.Children.Add(_category);
