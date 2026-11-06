@@ -375,6 +375,11 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         ValidateRequest(request, method);
 
         TrainingRuntimeStatus runtimeStatus = TrainingRuntimeJobGate.GetVerifiedStatus(RuntimeRoot, VenvRoot, method);
+        if (method == TrainingMethod.Kto)
+        {
+            var batchShape = PlanBatchShape(request.MaxSequenceLength);
+            ValidateKtoMicroBatch(batchShape.MicroBatch);
+        }
         TrainingJobRequest requestSnapshot = CloneRequest(request);
         string datasetSha256 = TrainingJobDurability.ComputeFileSha256(requestSnapshot.TrainJsonlPath);
         string runtimeFingerprint = TrainingJobDurability.ComputeRuntimeFingerprint(runtimeStatus);
@@ -397,6 +402,16 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         return Snapshot(entry);
     }
 
+    internal static void ValidateKtoMicroBatch(int microBatch)
+    {
+        // TRL KTO's default KL estimator rotates completions inside the physical batch:
+        // gradient accumulation does NOT substitute for two concurrent samples.
+        if (microBatch < 2)
+            throw new InvalidOperationException(
+                "KTO requires a physical micro-batch of at least two examples for the KL reference. "
+                + "Reduce maximum sequence length or use an accelerator with more free VRAM.");
+    }
+
     internal static int ResolveWallClockMinutes(ModelExecutionProfile? profile) =>
         Math.Clamp(profile?.Budget?.MaxWallClockMinutes ?? 60, 1, 1_440);
 
@@ -417,6 +432,38 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         // The shape inspector intentionally samples the first 2,000 lines. That is
         // sufficient for a fast preview, NOT for admitting a new preference trainer:
         // a malformed line after the sample must not waste hours of GPU training.
+        if (method == TrainingMethod.Kto)
+        {
+            int lineNo = 0, valid = 0, desirable = 0, undesirable = 0;
+            foreach (string raw in File.ReadLines(path))
+            {
+                lineNo++;
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                if (raw.Length > 1_000_000)
+                    throw new InvalidDataException("KTO row " + lineNo + " exceeds the 1 MB record limit.");
+                JsonDocument document;
+                try { document = JsonDocument.Parse(raw); }
+                catch (JsonException exception)
+                {
+                    throw new InvalidDataException("Invalid KTO JSONL at line " + lineNo + ".", exception);
+                }
+                using (document)
+                {
+                    JsonElement record = document.RootElement;
+                    if (!HasNonEmptyStringProperty(record, "prompt")
+                        || !HasNonEmptyStringProperty(record, "completion")
+                        || !record.TryGetProperty("label", out JsonElement label)
+                        || label.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                        throw new InvalidDataException("KTO row " + lineNo
+                            + " needs prompt and completion strings and a boolean label (true/false).");
+                    valid++;
+                    if (label.ValueKind == JsonValueKind.True) desirable++;
+                    else undesirable++;
+                }
+            }
+            if (valid < 4 || desirable == 0 || undesirable == 0)
+                throw new InvalidDataException("KTO needs at least four records, including both true and false labels.");
+        }
         if (method == TrainingMethod.Orpo)
         {
             int lineNo = 0;
@@ -483,8 +530,8 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
             throw new InvalidDataException("learningRate must be finite, > 0 and <= 0.01.");
         if (request.MaxSequenceLength is < 128 or > 1_048_576)
             throw new InvalidDataException("maxSequenceLength must be between 128 and 1,048,576.");
-        if ((method is TrainingMethod.Dpo or TrainingMethod.Orpo) && request.DpoBeta is <= 0 or > 10)
-            throw new InvalidDataException("dpoBeta must be > 0 and <= 10.");
+        if ((method is TrainingMethod.Dpo or TrainingMethod.Orpo or TrainingMethod.Kto) && request.DpoBeta is <= 0 or > 10)
+            throw new InvalidDataException("Preference beta must be > 0 and <= 10.");
         if (method == TrainingMethod.Grpo)
         {
             _ = GrpoRewardMode.Normalize(request.GrpoRewardMode);
@@ -727,6 +774,8 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         }
 
         (int microBatch, int gradientAccumulation) = PlanBatchShape(request.MaxSequenceLength);
+        if (entry.Status.Method == TrainingMethod.Kto)
+            ValidateKtoMicroBatch(microBatch);
 
         var config = new
         {
@@ -1205,7 +1254,29 @@ else:
             lora_alpha=cfg["lora_rank"] * 2, lora_dropout=0, bias="none",
             use_gradient_checkpointing="unsloth", random_state=3407)
 
-        if method == "orpo":
+        if method == "kto":
+            # KTO learns from independent binary judgements instead of paired ranked
+            # completions. The pinned TRL estimator needs physical batches of >= 2
+            # (gradient accumulation alone cannot create its mismatched KL pairs).
+            if cfg.get("batch_size", 1) < 2:
+                raise ValueError("KTO needs a physical training batch of at least two")
+            data = [{"prompt": r["prompt"], "completion": r["completion"], "label": r["label"]} for r in rows()]
+            dataset = Dataset.from_list(data)
+            from trl import KTOTrainer, KTOConfig
+            trainer = KTOTrainer(
+                model=model, train_dataset=dataset, processing_class=tokenizer,
+                args=KTOConfig(
+                    per_device_train_batch_size=cfg["batch_size"],
+                    gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 4),
+                    max_steps=cfg["max_steps"], learning_rate=cfg["learning_rate"],
+                    max_length=cfg["max_seq_length"],
+                    max_prompt_length=max(64, cfg["max_seq_length"] // 2),
+                    beta=cfg.get("dpo_beta", .1), loss_type="kto",
+                    logging_steps=1, save_strategy="steps", save_steps=checkpoint_steps,
+                    save_total_limit=2, output_dir=out_dir, report_to=[],
+                    fp16=not torch.cuda.is_bf16_supported(), bf16=torch.cuda.is_bf16_supported()))
+            trainer.train(resume_from_checkpoint=resume_checkpoint)
+        elif method == "orpo":
             # ORPO uses the same genuine paired preference schema as DPO, but it
             # optimizes chosen likelihood + an odds-ratio penalty without a reference model.
             data = [{"prompt": r["prompt"], "chosen": r["chosen"], "rejected": r["rejected"]} for r in rows()]
