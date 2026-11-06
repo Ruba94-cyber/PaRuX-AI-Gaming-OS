@@ -52,7 +52,7 @@ namespace PaRuX.Views
             _applyAll.Content = RoleProfilePresenter.ApplyAllLabel(it);
             _applyAll.Click += async (_, _) => await ApplyAllAsync();
             _suppress = true;
-            _advanced.IsOn = startAdvanced;
+            _advanced.IsOn = startAdvanced || CorporateMode.IsActive;
             _suppress = false;
             _advanced.Toggled += (_, _) => { if (!_suppress) Render(); };
 
@@ -66,8 +66,11 @@ namespace PaRuX.Views
 
             var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             footer.Children.Add(_applyAll);
-            footer.Children.Add(new TextBlock { Text = RoleProfilePresenter.AdvancedLabel(it), VerticalAlignment = VerticalAlignment.Center });
-            footer.Children.Add(_advanced);
+            if (!CorporateMode.IsActive)
+            {
+                footer.Children.Add(new TextBlock { Text = RoleProfilePresenter.AdvancedLabel(it), VerticalAlignment = VerticalAlignment.Center });
+                footer.Children.Add(_advanced);
+            }
             root.Children.Add(footer);
             root.Children.Add(_status);
             Content = root;
@@ -83,7 +86,9 @@ namespace PaRuX.Views
             {
                 Task<List<ManagedModelInfo>> modelsTask = ModelDownloadClient.Current.ListManagedModelsAsync(CancellationToken.None);
                 Task<List<ModelRoleStatus>> rolesTask = ModelRolesClient.Current.GetRolesAsync(CancellationToken.None);
-                Task<RuntimeManagerHardwareStatus?> hardwareTask = TryHardwareAsync();
+                Task<RuntimeManagerHardwareStatus?> hardwareTask = CorporateMode.IsActive
+                    ? Task.FromResult<RuntimeManagerHardwareStatus?>(null)
+                    : TryHardwareAsync();
                 await Task.WhenAll(modelsTask, rolesTask, hardwareTask);
                 if (generation != _generation) return;
 
@@ -128,6 +133,19 @@ namespace PaRuX.Views
             bool it = Italian;
             IReadOnlyList<RoleRecommendation> recs = RoleProfilePolicy.Recommend(_installed, _hardware, it);
             _board = RoleProfilePresenter.Build(recs, _current, _installed, _advanced.IsOn, it);
+            if (CorporateMode.IsActive)
+            {
+                // Corporate runs one CPU text model. Vision/Coding/Reasoning slots
+                // do not correspond to separate engines, so do not clutter the UI
+                // or accidentally apply recommendations to unavailable roles.
+                var relevant = _board.Rows
+                    .Where(r => r.Profile is RoleProfile.Chat or RoleProfile.Documents)
+                    .ToList();
+                _board = new RoleProfileBoard(relevant,
+                    it ? "La Chat utilizza un modello locale; i documenti usano la stessa Chat."
+                       : "Chat uses one local model; documents use the same Chat model.",
+                    relevant.Any(r => r.State == RoleRowState.CanApply), true);
+            }
             _summary.Text = _board.Summary;
             _applyAll.IsEnabled = _board.CanApplyAll && !_busy;
             _rows.Children.Clear();
