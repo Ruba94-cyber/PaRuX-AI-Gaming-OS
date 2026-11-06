@@ -338,6 +338,10 @@ namespace PaRuX
 
         private void SelectWorkspaceNavigationItem(NavigationViewItem? selected)
         {
+            // Corporate Model Hub can open from Chat's model picker while absent
+            // from the compact sidebar. Never focus a collapsed navigation item.
+            if (selected != null && selected.Visibility != Visibility.Visible)
+                selected = ChatNavItem.Visibility == Visibility.Visible ? ChatNavItem : null;
             NavView.SelectedItem = selected;
             selected?.Focus(FocusState.Programmatic);
         }
