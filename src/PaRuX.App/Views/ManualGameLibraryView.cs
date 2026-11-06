@@ -501,10 +501,16 @@ public sealed class ManualGameLibraryView : UserControl
 
     /// <summary>Leaving the Games workspace cancels any expensive local hash
     /// before the next workspace resumes interactive AI activity.</summary>
-    public void CancelExpensiveWork() => _inspectionCancellation?.Cancel();
+    public void CancelExpensiveWork()
+    {
+        _inspectionCancellation?.Cancel();
+        _universal?.CancelPendingQueries();
+    }
 
     public async void OnShown()
     {
+        if (_universal is not null)
+            await _universal.RefreshVisibleTitlesAsync();
         await RefreshAsync();
         await UpdateGamingStatusAsync();
         // The initial catalog load briefly disables buttons; restore a useful
