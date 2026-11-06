@@ -22,6 +22,14 @@ namespace PaRuX.Views
         private ToggleSwitch? _documentsSwitch;
         private StackPanel? _documentsSources;
         private TextBlock? _documentsNote;
+        private TextBox? _documentsSourceFilter;
+        private TextBlock? _documentsSourcePageLabel;
+        private Button? _documentsPreviousPage;
+        private Button? _documentsNextPage;
+        private List<RagSourceDto> _documentsAvailableSources = new List<RagSourceDto>();
+        private int _documentsPageIndex;
+        private int _documentsSourceLoadGeneration;
+        private bool _documentsScopeRevoked;
 
         private static string DT(string en, string it) =>
             System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? it : en;
@@ -34,7 +42,9 @@ namespace PaRuX.Views
             _documentsSwitch.Toggled += (s, e) =>
             {
                 ChatDocumentScopeState.SetEnabled(_documentsSwitch.IsOn);
+                if (_documentsSwitch.IsOn) _documentsScopeRevoked = false;
                 UpdateDocumentsButtonVisual();
+                UpdateDocumentScopeSummary();
             };
             _documentsNote = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.75, FontSize = 12, MaxWidth = 320 };
             AutomationProperties.SetAutomationId(_documentsNote, "Chat_Documents_Note");
@@ -44,10 +54,22 @@ namespace PaRuX.Views
             panel.Children.Add(_documentsSwitch);
             panel.Children.Add(new TextBlock
             {
-                Text = DT("Select specific folders below. If none is selected, ALL enabled folders can be used.",
-                    "Seleziona cartelle specifiche qui sotto. Se non ne selezioni nessuna, possono essere usate TUTTE le cartelle attive."),
+                Text = DT("Select folders to restrict the answer. Turning Documents on with no selection uses all enabled folders.",
+                    "Seleziona le cartelle per limitare la risposta. Attivare Documenti senza selezione usa tutte le cartelle attive."),
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.8
             });
+            _documentsSourceFilter = new TextBox
+            {
+                PlaceholderText = DT("Find a folder by name or path", "Trova una cartella per nome o percorso"),
+                MinWidth = 0, MinHeight = 40, HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            AutomationProperties.SetAutomationId(_documentsSourceFilter, "Chat_Documents_SourceFilter_TextBox");
+            _documentsSourceFilter.TextChanged += (_, _) =>
+            {
+                _documentsPageIndex = 0;
+                RenderDocumentSourcePage();
+            };
+            panel.Children.Add(_documentsSourceFilter);
             var sourceScroll = new ScrollViewer
             {
                 Content = _documentsSources, MaxHeight = 220,
@@ -55,6 +77,19 @@ namespace PaRuX.Views
             };
             AutomationProperties.SetAutomationId(sourceScroll, "Chat_Documents_Sources_Scroll");
             panel.Children.Add(sourceScroll);
+            var pagination = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            _documentsPreviousPage = new Button { Content = DT("Previous", "Precedente"), MinHeight = 40 };
+            _documentsNextPage = new Button { Content = DT("Next", "Successiva"), MinHeight = 40 };
+            _documentsSourcePageLabel = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Opacity = 0.8 };
+            AutomationProperties.SetAutomationId(_documentsPreviousPage, "Chat_Documents_PrevPage_Button");
+            AutomationProperties.SetAutomationId(_documentsNextPage, "Chat_Documents_NextPage_Button");
+            AutomationProperties.SetAutomationId(_documentsSourcePageLabel, "Chat_Documents_Page_Text");
+            _documentsPreviousPage.Click += (_, _) => { _documentsPageIndex--; RenderDocumentSourcePage(); };
+            _documentsNextPage.Click += (_, _) => { _documentsPageIndex++; RenderDocumentSourcePage(); };
+            pagination.Children.Add(_documentsPreviousPage);
+            pagination.Children.Add(_documentsSourcePageLabel);
+            pagination.Children.Add(_documentsNextPage);
+            panel.Children.Add(pagination);
             panel.Children.Add(_documentsNote);
             panel.Children.Add(new TextBlock { Text = DT("Work with evidence", "Lavora con le fonti"), FontSize = 12, Opacity = 0.8 });
             panel.Children.Add(SkillButton(DT("Summarize with sources", "Riassumi con le fonti"),
@@ -114,27 +149,99 @@ namespace PaRuX.Views
         private async Task LoadDocumentSourcesAsync()
         {
             if (_documentsSources == null || _documentsNote == null) return;
+            int generation = ++_documentsSourceLoadGeneration;
+            _documentsNote.Text = DT("Loading local folders…", "Caricamento delle cartelle locali…");
             try
             {
-                List<RagSourceDto> sources = (await RagClient.Current.ListSourcesAsync(CancellationToken.None)).Where(x => x.Enabled).ToList();
-                ChatDocumentScopeState.Prune(sources.Select(x => x.Id));
-                _documentsSources.Children.Clear();
-                foreach (RagSourceDto source in sources)
+                List<RagSourceDto> sources = (await RagClient.Current.ListSourcesAsync(CancellationToken.None))
+                    .Where(x => x.Enabled).ToList();
+                if (generation != _documentsSourceLoadGeneration) return;
+                _documentsAvailableSources = sources;
+                // A removed last selected source cannot silently become the
+                // wire protocol's empty=all scope.
+                if (ChatDocumentScopeState.Prune(sources.Select(x => x.Id)))
                 {
-                    var box = new CheckBox { Content = System.IO.Path.GetFileName(source.FolderPath.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : source.FolderPath, IsChecked = ChatDocumentScopeState.IsSelected(source.Id) };
-                    ToolTipService.SetToolTip(box, source.FolderPath);
-                    AutomationProperties.SetAutomationId(box, "Chat_Documents_Source_" + source.Id);
-                    string id = source.Id;
-                    box.Checked += (s, e) => ChatDocumentScopeState.SetSource(id, true);
-                    box.Unchecked += (s, e) => ChatDocumentScopeState.SetSource(id, false);
-                    _documentsSources.Children.Add(box);
+                    _documentsScopeRevoked = true;
+                    RefreshGuideDocumentScopeVisual();
                 }
-                _documentsNote.Text = sources.Count == 0
-                    ? DT("No folder is indexed yet. Add one in Document search or Settings > RAG.", "Nessuna cartella indicizzata. Aggiungine una in Ricerca documenti o in Impostazioni > RAG.")
-                    : DT("Answers cite the file and page, sheet or slide. If the documents do not contain the answer, the chat says so.",
-                        "Le risposte citano file e pagina, foglio o slide. Se i documenti non contengono la risposta, la chat lo dice.");
+                RenderDocumentSourcePage();
             }
-            catch (Exception ex) { _documentsNote.Text = DT("Could not read the folder list: ", "Impossibile leggere l'elenco cartelle: ") + ex.Message; }
+            catch (Exception ex)
+            {
+                if (generation == _documentsSourceLoadGeneration)
+                    _documentsNote.Text = DT("Could not read the folder list: ", "Impossibile leggere l'elenco cartelle: ") + ex.Message;
+            }
+        }
+
+        private void RenderDocumentSourcePage()
+        {
+            if (_documentsSources == null || _documentsSourcePageLabel == null) return;
+            DocumentSourcePage page = DocumentSourcePicker.Filter(
+                _documentsAvailableSources, _documentsSourceFilter?.Text, _documentsPageIndex);
+            _documentsPageIndex = page.PageIndex;
+            _documentsSources.Children.Clear();
+            foreach (RagSourceDto source in page.Visible)
+            {
+                string path = source.FolderPath;
+                string label = System.IO.Path.GetFileName(path.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : path;
+                var box = new CheckBox { Content = label, IsChecked = ChatDocumentScopeState.IsSelected(source.Id), MinHeight = 36 };
+                ToolTipService.SetToolTip(box, path);
+                AutomationProperties.SetName(box, path);
+                AutomationProperties.SetAutomationId(box, "Chat_Documents_Source_" + source.Id);
+                string id = source.Id;
+                box.Checked += (_, _) =>
+                {
+                    ChatDocumentScopeState.SetSource(id, true);
+                    _documentsScopeRevoked = false;
+                    UpdateDocumentScopeSummary();
+                };
+                box.Unchecked += (_, _) =>
+                {
+                    bool wasEnabled = ChatDocumentScopeState.Enabled;
+                    ChatDocumentScopeState.SetSource(id, false);
+                    if (wasEnabled && !ChatDocumentScopeState.Enabled)
+                    {
+                        _documentsScopeRevoked = true;
+                        RefreshGuideDocumentScopeVisual();
+                    }
+                    UpdateDocumentScopeSummary();
+                };
+                _documentsSources.Children.Add(box);
+            }
+            if (page.TotalMatches == 0)
+                _documentsSources.Children.Add(new TextBlock
+                {
+                    Text = DT("No matching folder.", "Nessuna cartella corrispondente."),
+                    Opacity = 0.8, TextWrapping = TextWrapping.Wrap
+                });
+            if (_documentsPreviousPage != null) _documentsPreviousPage.IsEnabled = page.PageIndex > 0;
+            if (_documentsNextPage != null) _documentsNextPage.IsEnabled = page.PageIndex + 1 < page.PageCount;
+            _documentsSourcePageLabel.Text = page.TotalMatches + " · "
+                + (page.PageIndex + 1) + "/" + page.PageCount;
+            UpdateDocumentScopeSummary();
+        }
+
+        private void UpdateDocumentScopeSummary()
+        {
+            if (_documentsNote == null) return;
+            int selected = ChatDocumentScopeState.SelectedCount;
+            if (_documentsScopeRevoked)
+                _documentsNote.Text = DT(
+                    "The last selected folder is no longer in scope. Documents were turned off to prevent searching all folders. Choose a folder and turn Documents on again.",
+                    "L'ultima cartella selezionata non è più nell'ambito. Documenti è stato disattivato per evitare di cercare in tutte le cartelle. Scegli una cartella e riattiva Documenti.");
+            else if (_documentsAvailableSources.Count == 0)
+                _documentsNote.Text = DT("No enabled folder yet. Add one in Document search.",
+                    "Nessuna cartella attiva. Aggiungine una in Ricerca documenti.");
+            else if (!ChatDocumentScopeState.Enabled)
+                _documentsNote.Text = DT("Document answers are off. Turn on the switch to use these sources.",
+                    "Le risposte dai documenti sono disattivate. Attiva l'interruttore per usare queste fonti.");
+            else if (selected == 0)
+                _documentsNote.Text = DT("Using ALL ", "Usando TUTTE le ") + _documentsAvailableSources.Count
+                    + DT(" enabled folders. Choose one or more to restrict the scope.",
+                        " cartelle attive. Selezionane una o più per limitare l'ambito.");
+            else
+                _documentsNote.Text = selected + DT(" selected folder(s). Answers must cite the supporting source.",
+                    " cartelle selezionate. Le risposte devono citare la fonte.");
         }
     }
 }
