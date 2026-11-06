@@ -3,9 +3,10 @@
     Builds the PaRuX portable ZIP (same product as the MSI, no separate app) and verifies it.
 
 .DESCRIPTION
-    The ZIP contains the essential program files only: PaRuX.exe, the PaRuX.Server Core, the CLI and the licence
-    notices. Models, runtimes (llama.cpp, ComfyUI ...), indexes and documents are NOT included: they are optional
-    downloads that the person chooses, exactly as with the MSI.
+    Default ZIP: Desktop, Core, legal notices, and the hash-locked llama.cpp Vulkan baseline with its native DLLs.
+    No models, CUDA/cuBLAS, ComfyUI, Python/uv, Gaming downloads, indexes or user documents are embedded.
+    The CLI is an optional separate self-contained publish (-IncludeCli), not part of the minimal default.
+    Corporate Lite uses -WithoutVulkan and supplies its own CPU runtime and one model.
 
     Where data lives (no fixed paths, no duplication of the storage system):
       * PaRuX.exe                         -> the normal per-user profile, %LOCALAPPDATA%\PaRuX, one profile per PC.
@@ -17,18 +18,24 @@
     The ZIP is not signed by this script and does nothing to bypass Windows SmartScreen, Defender or IT policy.
     The MSI-only protected update helper is not part of the portable package: update by downloading the new ZIP.
 
-    -Verify (default) re-opens the finished ZIP, checks the required files, refuses forbidden payload (models, indexes,
-    bootstrap tokens) and prints the SHA-256. -Smoke additionally starts the extracted app against a throw-away data
-    root and waits for the Core to come up, then stops it.
+    Verification (always on) re-opens the ZIP, checks the runtime selection and required files, refuses forbidden payload
+    (models, indexes, bootstrap tokens), and prints SHA-256. -Smoke additionally starts an extracted app against a
+    throw-away data root and waits for Core plus the bootstrapped Vulkan runtime, then stops it.
+    This does NOT claim that a particular GPU, ICD/driver, or model has successfully completed inference.
 
 .EXAMPLE
     ./scripts/build-portable.ps1
-    ./scripts/build-portable.ps1 -SkipPublish -Smoke       # reuse artifacts\portable\stage from a previous run
+    ./scripts/build-portable.ps1 -Smoke
+    ./scripts/build-portable.ps1 -IncludeCli                 # additionally ship terminal CLI
+    ./scripts/build-portable.ps1 -WithoutVulkan              # only for Corporate Lite's separate CPU pack
+    ./scripts/build-portable.ps1 -SkipPublish -Smoke         # reuse an already staged matching variant
 #>
 [CmdletBinding()]
 param(
     [string]$Version = "",
     [switch]$SkipPublish,
+    [switch]$WithoutVulkan,
+    [switch]$IncludeCli,
     [switch]$Smoke,
     [int]$SmokeTimeoutSeconds = 120
 )
@@ -76,9 +83,17 @@ if (-not $SkipPublish) {
     Write-Host "Publishing PaRuX Server (Core)..."
     & dotnet publish $coreProject -c Release -r win-x64 --self-contained true -o (Join-Path $stageDir "PaRuX.Server") $common
     if ($LASTEXITCODE -ne 0) { throw "Server publish failed ($LASTEXITCODE)." }
-    Write-Host "Publishing PaRuX CLI..."
-    & dotnet publish $cliProject -c Release -r win-x64 --self-contained true -o (Join-Path $stageDir "Cli") $common
-    if ($LASTEXITCODE -ne 0) { throw "CLI publish failed ($LASTEXITCODE)." }
+    if ($IncludeCli) {
+        Write-Host "Publishing optional PaRuX CLI..."
+        & dotnet publish $cliProject -c Release -r win-x64 --self-contained true -o (Join-Path $stageDir "Cli") $common
+        if ($LASTEXITCODE -ne 0) { throw "CLI publish failed ($LASTEXITCODE)." }
+    }
+    if (-not $WithoutVulkan) {
+        # Reuse the MSI's pinned upstream ZIP, archive SHA/size gate, safe staging and
+        # complete per-file payload manifest. No CUDA/cuBLAS/uv/Python is fetched.
+        & (Join-Path $PSScriptRoot "stage-msi-runtime.ps1") -PublishDir $stageDir -ArtifactIds @("llama.cpp-vulkan")
+        if (-not $?) { throw "Locked Vulkan runtime staging failed." }
+    }
 }
 if (-not (Test-Path -LiteralPath (Join-Path $stageDir "PaRuX.exe"))) { throw "Nothing staged at $stageDir. Run without -SkipPublish first." }
 
@@ -108,14 +123,16 @@ Unzip anywhere you are allowed to run programs, then start PaRuX.exe.
                                  models, history, document folders and indexes. Nothing is copied between PCs.
 * PaRuX (portable data).cmd      Keeps everything in the PaRuXData folder next to the program (settings, models, history,
                                  document folders, indexes). Copying the folder to another PC copies that data too.
-Models, runtimes and indexes are not part of this package. PaRuX offers the downloads you choose on first start.
+$(if ($WithoutVulkan) { 'This CPU-only shell carries no Vulkan runtime; it must be completed by the Corporate Lite builder.' } else { 'A verified llama.cpp Vulkan runtime is bundled. Models are not included: choose a model on first launch. CUDA, Python and media engines install only on demand.' })
+The optional CLI is $(if ($IncludeCli) { 'included' } else { 'not included' }); build with -IncludeCli if needed.
 This package does not bypass Windows SmartScreen, antivirus or IT policy; if your policy blocks unsigned programs, use your
 organisation's approved install route. To update, download the new portable ZIP (the MSI-only updater is not included).
 
 PaRuX - pacchetto portable
 Estrai in una cartella da cui puoi eseguire programmi e avvia PaRuX.exe (profilo personale di questo PC) oppure
-"PaRuX (portable data).cmd" (tutti i dati nella cartella PaRuXData accanto al programma). Modelli, runtime e indici non
-sono inclusi. Il pacchetto non aggira SmartScreen, antivirus o policy IT.
+"PaRuX (portable data).cmd" (tutti i dati nella cartella PaRuXData accanto al programma). Il runtime Vulkan
+e incluso nella portable standard; modelli, CUDA, ComfyUI, Python e indici non sono inclusi. Il profilo Corporate Lite
+include invece il proprio runtime CPU e un modello. Il pacchetto non aggira SmartScreen, antivirus o policy IT.
 "@
 Set-Content -LiteralPath (Join-Path $stageDir "README-portable.txt") -Value $readme -Encoding UTF8
 
@@ -147,8 +164,18 @@ Write-Host "ZIP: $zipPath ($sizeMb MB)`nSHA-256: $sha"
 
 # ---- Verify the finished ZIP -------------------------------------------------------------------------------------------
 Write-Host "Verifying the ZIP..."
-$required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.Server/PaRuX.Server.dll", "Cli/parux.exe",
+$required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.Server/PaRuX.Server.dll",
     "LICENSE.txt", "README-portable.txt", "PaRuX (portable data).cmd")
+if ($IncludeCli) { $required += "Cli/parux.exe" }
+$baselineRelative = "PaRuX.Server/runtime-baseline"
+$vulkanRelative = "$baselineRelative/llama.cpp-b10549-vulkan"
+if (-not $WithoutVulkan) {
+    $required += "$baselineRelative/baseline-lock.json"
+    $required += "$baselineRelative/staging-manifest.json"
+    $required += "$vulkanRelative/llama-server.exe"
+}
+$unwanted = @("PaRuX.Server/runtime-baseline/llama.cpp-b11871-cuda13.4/llama-server.exe",
+    "PaRuX.Server/runtime-tools/uv/uv.exe")
 $forbiddenPattern = '(?i)\.(gguf|safetensors|onnx|ckpt|pt|pth|bin\.gz)$|(^|/)rag\.db$|(^|/)bootstrap\.json$|^(models|LocalAI|PaRuXData)/'
 $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
@@ -158,6 +185,23 @@ try {
     if ($backslashed.Count -gt 0) { throw "Portable ZIP has $($backslashed.Count) entries with '\' separators (invalid ZIP): $($backslashed[0].FullName)" }
     $names = @($zip.Entries | ForEach-Object { if ($_.FullName.StartsWith($prefix)) { $_.FullName.Substring($prefix.Length) } else { $_.FullName } })
     foreach ($file in $required) { if ($names -notcontains $file) { throw "Portable ZIP is missing required file: $file" } }
+    if (-not $IncludeCli -and @($names | Where-Object { $_ -like "Cli/*" }).Count -gt 0) {
+        throw "Minimal portable ZIP unexpectedly contains the optional CLI."
+    }
+    if ($WithoutVulkan -and @($names | Where-Object { $_ -like "$baselineRelative/*" }).Count -gt 0) {
+        throw "CPU-only shell unexpectedly contains a Vulkan/MSI runtime baseline."
+    }
+    foreach ($file in $unwanted) { if ($names -contains $file) { throw "Minimal portable ZIP contains an unwanted heavyweight runtime: $file" } }
+    if (-not $WithoutVulkan) {
+        # A manifest alone is insufficient: ensure it describes the actual staged Vulkan payload.
+        $manifest = Get-Content -LiteralPath (Join-Path $stageDir "PaRuX.Server\runtime-baseline\staging-manifest.json") -Raw | ConvertFrom-Json
+        $entries = @($manifest.files | Where-Object { ([string]$_.path).StartsWith("runtime-baseline/llama.cpp-b10549-vulkan/") })
+        if ($entries.Count -lt 2) { throw "Vulkan baseline manifest is missing the native payload/dependency inventory." }
+        foreach ($entry in $entries) {
+            $entryName = "PaRuX.Server/" + [string]$entry.path
+            if ($names -notcontains $entryName) { throw "Manifested Vulkan payload missing from ZIP: $entryName" }
+        }
+    }
     $bad = @($names | Where-Object { $_ -match $forbiddenPattern -and $_ -notmatch '(?i)(^|/)(Microsoft\.|System\.|onnxruntime|DirectML)' })
     if ($bad.Count -gt 0) { throw "Portable ZIP contains payload that must not ship (models/indexes/tokens): $($bad | Select-Object -First 5 | Out-String)" }
     Write-Host "ZIP check OK: $($names.Count) entries, required files present, no models, indexes or tokens."
@@ -181,7 +225,15 @@ if ($Smoke) {
             Start-Sleep -Seconds 2
         }
         if (-not (Test-Path -LiteralPath $bootstrap)) { throw "Core did not publish bootstrap.json within $SmokeTimeoutSeconds s." }
-        Write-Host "Smoke OK: the extracted portable app started its Core with an isolated data root."
+        if (-not $WithoutVulkan) {
+            $managedVulkan = Join-Path $data "LocalAI\runtime\llama.cpp-b10549-vulkan\llama-server.exe"
+            if (-not (Test-Path -LiteralPath $managedVulkan -PathType Leaf)) {
+                $errorPath = Join-Path $data "baseline-bootstrap.error.txt"
+                $detail = if (Test-Path -LiteralPath $errorPath) { Get-Content -LiteralPath $errorPath -Raw } else { 'No bootstrap error file.' }
+                throw "Portable Core started but did not bootstrap the bundled Vulkan runtime into its isolated data root. $detail"
+            }
+        }
+        Write-Host "Smoke OK: extracted portable Core started$(if ($WithoutVulkan) { '' } else { ' and Vulkan baseline bootstrapped' }). GPU inference still needs a real model/driver test."
     }
     finally {
         Get-Process -Name PaRuX, PaRuX.Server -ErrorAction SilentlyContinue |
