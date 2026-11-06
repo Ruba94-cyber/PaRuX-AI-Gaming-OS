@@ -802,8 +802,14 @@ namespace PaRuX.Views
             if (RagIndexStatus != null) RagIndexStatus.Text = "Indexing " + source.FolderPath + "… this can take a while for large folders.";
             try
             {
-                (int documents, int chunks) = await RagClient.Current.ReindexAsync(source.Id, CancellationToken.None);
-                if (RagIndexStatus != null) RagIndexStatus.Text = "Finished indexing " + source.FolderPath + ": " + documents + " documents, " + chunks + " chunks.";
+                (int documents, int chunks, bool runningInBackground) =
+                    await RagClient.Current.ReindexAsync(source.Id, CancellationToken.None);
+                if (RagIndexStatus != null)
+                    RagIndexStatus.Text = runningInBackground
+                        ? "Corporate indexing started. Documents already searchable: " + documents
+                            + "; passages: " + chunks + ". Open Document Settings to see actual PDF page progress, pause or resume."
+                        : "Finished indexing " + source.FolderPath + ": " + documents
+                            + " documents, " + chunks + " chunks.";
             }
             catch (Exception ex)
             {
