@@ -45,6 +45,18 @@ internal static class BundledBaselineRuntimeBootstrap
             AppContext.BaseDirectory, ManifestRelative.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(manifestPath)) return;
 
+        // The portable ships only Vulkan. Avoid the expensive NVIDIA telemetry/driver
+        // probe (up to 8 seconds) if no CUDA payload is packaged: it cannot be selected.
+        string cudaExecutable = Path.Combine(
+            AppContext.BaseDirectory,
+            CudaPayloadRelative.Replace('/', Path.DirectorySeparatorChar),
+            LocalAiPaths.LlamaServerExecutable);
+        if (!File.Exists(cudaExecutable))
+        {
+            InstallBaseline(BundledBaselineRuntimeKind.Vulkan);
+            return;
+        }
+
         BundledBaselineRuntimeKind target;
         try { target = DetectRuntimeTarget(); }
         catch { target = BundledBaselineRuntimeKind.None; }
