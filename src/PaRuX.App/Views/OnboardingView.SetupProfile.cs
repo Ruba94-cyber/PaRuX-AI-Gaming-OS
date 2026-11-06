@@ -64,6 +64,12 @@ namespace PaRuX.Views
                 VerifyLocalChatButton.Content = it ? "Verifica la Chat locale" : "Verify local Chat";
                 CorporateManageModelsButton.Content = it ? "Scegli o importa un altro modello" : "Choose or import another model";
                 GetStartedButton.Content = it ? "Apri Chat" : "Open Chat";
+                VerifyLocalChatStatusText.Text = it
+                    ? "Il modello iniziale è già presente. Verifica che il motore CPU riesca a rispondere prima di iniziare. Le risposte cloud non contano."
+                    : "The starter model is already included. Verify that the CPU engine can answer before continuing. Cloud responses do not count.";
+                SetupFooterHintText.Text = it
+                    ? "Puoi aggiungere o cambiare modelli in seguito, senza reinstallare il motore CPU o perdere i documenti."
+                    : "You can add or change models later without reinstalling the CPU engine or losing documents.";
                 OnboardingWelcomeSubtitle.Text = it
                     ? "Corporate Lite: Chat AI e documenti sul PC. Il motore CPU è già incluso; puoi importare altri modelli quando vuoi."
                     : "Corporate Lite: AI Chat and documents on this PC. The CPU engine is already included; add more models whenever you need.";
