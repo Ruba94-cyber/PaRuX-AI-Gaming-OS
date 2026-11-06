@@ -28,6 +28,51 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Corporate_navigation_is_chat_documents_settings_and_help_only()
+        {
+            string[] wanted =
+            {
+                WorkspaceNavigationOrder.ChatAutomationId,
+                WorkspaceNavigationOrder.DocumentSearchAutomationId,
+                WorkspaceNavigationOrder.SettingsAutomationId,
+                WorkspaceNavigationOrder.HelpAutomationId
+            };
+            foreach (bool advanced in new[] { false, true })
+            foreach (bool gamingTab in new[] { false, true })
+            {
+                Assert.Equal(wanted, WorkspaceNavigationOrder.GetOrderedAutomationIds(
+                    advanced, gamingTab, SetupProfile.AiOnly, corporateMode: true));
+            }
+            Assert.True(WorkspaceNavigationOrder.CanOpenWorkspace("__modelhub__", SetupProfile.AiOnly, corporateMode: true));
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__create__", SetupProfile.AiOnly, corporateMode: true));
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__games__", SetupProfile.AiOnly, corporateMode: true));
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__workflows__", SetupProfile.AiOnly, corporateMode: true));
+        }
+
+        [Fact]
+        public void Ai_only_and_gaming_only_profiles_never_show_each_others_workspaces()
+        {
+            IReadOnlyList<string> ai = WorkspaceNavigationOrder.GetOrderedAutomationIds(
+                true, isGamingMode: true, SetupProfile.AiOnly, corporateMode: false);
+            Assert.Contains(WorkspaceNavigationOrder.ChatAutomationId, ai);
+            Assert.Contains(WorkspaceNavigationOrder.CreateAutomationId, ai);
+            Assert.DoesNotContain(WorkspaceNavigationOrder.GameLibraryAutomationId, ai);
+
+            IReadOnlyList<string> games = WorkspaceNavigationOrder.GetOrderedAutomationIds(
+                true, isGamingMode: false, SetupProfile.GamingOnly, corporateMode: false);
+            Assert.Equal(new[]
+            {
+                WorkspaceNavigationOrder.GameLibraryAutomationId,
+                WorkspaceNavigationOrder.SettingsAutomationId,
+                WorkspaceNavigationOrder.HelpAutomationId
+            }, games);
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__chat__", SetupProfile.GamingOnly, false));
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__modelhub__", SetupProfile.GamingOnly, false));
+            Assert.True(WorkspaceNavigationOrder.CanOpenWorkspace("__games__", SetupProfile.GamingOnly, false));
+            Assert.False(WorkspaceNavigationOrder.CanOpenWorkspace("__games__", SetupProfile.AiOnly, false));
+        }
+
+        [Fact]
         public void CanonicalOrder_Equals_NavigationViewItem_Order_In_MainWindowXaml()
         {
             // Acceptance (1): the canonical order equals the NavigationViewItem order in MainWindow.xaml
