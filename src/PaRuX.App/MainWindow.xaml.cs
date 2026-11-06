@@ -922,6 +922,7 @@ namespace PaRuX
 
         private void NewChat_Click(object sender, RoutedEventArgs e)
         {
+            if (!CurrentSetupPlan.ShowAiWorkspaces) return;
             ChatSession.Current.NewConversation();
             // A brand-new empty chat has no history item to select. Select the Chat home item.
             NavView.SelectedItem = ChatNavItem;
@@ -930,6 +931,7 @@ namespace PaRuX
 
         private void NewIncognitoChat_Click(object sender, RoutedEventArgs e)
         {
+            if (!CurrentSetupPlan.ShowAiWorkspaces) return;
             // This button doubles as a toggle: pressed once it opens a fresh incognito
             // conversation; pressed again while already inside one it should leave incognito
             // mode rather than just replace it with yet another incognito conversation.
