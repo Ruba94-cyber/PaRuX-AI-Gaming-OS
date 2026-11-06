@@ -123,6 +123,34 @@ public sealed class KnowledgeIndexTests : IDisposable
     }
 
     [Fact]
+    public async Task Corporate_selected_source_scopes_FTS_before_topK_even_with_thousands_of_other_matches()
+    {
+        // The old query applied source scope AFTER the global LIMIT.
+        // A large unselected corpus could suppress an exact result in source B.
+        for (int i = 0; i < 80; i++)
+            W("unselected-" + i + ".txt",
+                "DID_AB45 diagnostic identifier found in unrelated source A, item " + i);
+        await _index.IndexFolderAsync("source-A", _docs);
+        string selectedFolder = Path.Combine(_root, "chosen");
+        Directory.CreateDirectory(selectedFolder);
+        File.WriteAllText(Path.Combine(selectedFolder, "approved-spec.txt"),
+            "DID_AB45: selected ECU response is a 2-byte positive confirmation.");
+        await _index.IndexFolderAsync("source-B", selectedFolder);
+
+        IReadOnlyList<KnowledgeHit> exact = _index.Search("DID_AB45",
+            KnowledgeSearchMode.Exact, 1, new[] { "source-B" });
+        KnowledgeHit selected = Assert.Single(exact);
+        Assert.Equal("approved-spec.txt", selected.FileName);
+        Assert.Contains("2-byte", selected.Text);
+
+        IReadOnlyList<KnowledgeHit> lexical = _index.Search("DID_AB45",
+            KnowledgeSearchMode.Lexical, 1, new[] { "source-B" });
+        Assert.All(lexical, h => Assert.Equal("approved-spec.txt", h.FileName));
+        Assert.Empty(_index.Search("DID_AB45", KnowledgeSearchMode.Exact,
+            5, Array.Empty<string>()));
+    }
+
+    [Fact]
     public async Task Positions_survive_into_citations()
     {
         W("long.txt", new string('x', 2000) + " NEEDLE_77 " + new string('y', 500));
