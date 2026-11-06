@@ -20,7 +20,7 @@ namespace PaRuX.Views
             foreach (UIElement child in SettingsContentPanel.Children)
             {
                 if (child is FrameworkElement section && section.Tag is string tag
-                    && tag is "Models" or "Privacy & Network")
+                    && (tag == "Models" || tag == "Privacy & Network"))
                     _corporateHiddenSettingsSections.Add(section);
             }
 
