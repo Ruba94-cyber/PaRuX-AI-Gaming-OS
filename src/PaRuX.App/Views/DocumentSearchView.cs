@@ -26,12 +26,25 @@ namespace PaRuX.Views
         private static string T(string en, string it) => It ? it : en;
 
         private readonly StackPanel _folders = new StackPanel { Spacing = 8 };
-        private readonly TextBox _query = new TextBox { MinWidth = 320 };
-        private readonly ComboBox _mode = new ComboBox { MinWidth = 160 };
+        private readonly TextBox _query = new TextBox { MinWidth = 0, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch };
+        private readonly ComboBox _mode = new ComboBox { MinWidth = 0, Width = 205, MinHeight = 44 };
         private readonly StackPanel _results = new StackPanel { Spacing = 10 };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
         private readonly DispatcherTimer _poll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         private List<RagSourceDto> _sources = new List<RagSourceDto>();
+        private readonly Dictionary<string, FolderRowUi> _rows = new Dictionary<string, FolderRowUi>();
+        private readonly List<string> _rowOrder = new List<string>();
+        private bool _refreshingFolders;
+        private bool _searching;
+
+        private sealed class FolderRowUi
+        {
+            public Border Container = null!;
+            public TextBlock Status = null!;
+            public ProgressBar Progress = null!;
+            public StackPanel Actions = null!;
+            public string ActionState = string.Empty;
+        }
 
         public DocumentSearchView()
         {
@@ -63,11 +76,16 @@ namespace PaRuX.Views
             _mode.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_mode, "DocSearch_Mode_ComboBox");
             AutomationProperties.SetName(_mode, T("Search mode", "Modalità di ricerca"));
-            var go = new Button { Content = T("Search", "Cerca"), Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+            var go = new Button { Content = T("Search", "Cerca"), Style = (Style)Application.Current.Resources["AccentButtonStyle"], MinHeight = 44 };
             AutomationProperties.SetAutomationId(go, "DocSearch_Search_Button");
             go.Click += async (_, _) => await SearchAsync();
+            // Keep the search entry full width and the actions below it: a 13-inch
+            // laptop or a high-DPI window must never need horizontal scrolling.
+            root.Children.Add(_query);
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            row.Children.Add(_query); row.Children.Add(_mode); row.Children.Add(go);
+            AutomationProperties.SetAutomationId(row, "DocSearch_SearchActions_Panel");
+            row.Children.Add(_mode);
+            row.Children.Add(go);
             root.Children.Add(row);
             AutomationProperties.SetAutomationId(_status, "DocSearch_Status_Text");
             root.Children.Add(_status);
@@ -90,58 +108,164 @@ namespace PaRuX.Views
 
         private async Task RefreshFoldersAsync(bool reload)
         {
+            // Timer ticks and user actions can overlap. Keep the existing folder
+            // rows and keyboard focus; only refresh their text and progress.
+            if (_refreshingFolders) return;
+            _refreshingFolders = true;
             try
             {
                 if (reload) _sources = await RagClient.Current.ListSourcesAsync(CancellationToken.None);
-                _folders.Children.Clear();
-                bool running = false;
-                foreach (RagSourceDto source in _sources)
+                using var limiter = new SemaphoreSlim(4);
+                var states = await Task.WhenAll(_sources.Select(async source =>
                 {
-                    KnowledgeSourceStatus st = await KnowledgeClient.Current.StatusAsync(source.Id, CancellationToken.None);
-                    running |= st.State is "running" or "paused";
-                    _folders.Children.Add(FolderRow(source, st));
+                    await limiter.WaitAsync().ConfigureAwait(false);
+                    try
+                    {
+                        KnowledgeSourceStatus status = await KnowledgeClient.Current.StatusAsync(source.Id, CancellationToken.None).ConfigureAwait(false);
+                        return (Source: source, Status: status);
+                    }
+                    finally { limiter.Release(); }
+                }));
+                string[] newOrder = states.Select(item => item.Source.Id).ToArray();
+                if (!_rowOrder.SequenceEqual(newOrder))
+                {
+                    _folders.Children.Clear();
+                    _rows.Clear();
+                    _rowOrder.Clear();
+                    foreach (var item in states)
+                    {
+                        FolderRowUi row = FolderRow(item.Source);
+                        _rows.Add(item.Source.Id, row);
+                        _rowOrder.Add(item.Source.Id);
+                        _folders.Children.Add(row.Container);
+                    }
                 }
-                if (_sources.Count == 0)
-                    _folders.Children.Add(new TextBlock { Text = T("No folder yet. Add one to start.", "Nessuna cartella. Aggiungine una per iniziare."), Opacity = 0.75 });
+                if (states.Length == 0 && _folders.Children.Count == 0)
+                    _folders.Children.Add(new TextBlock
+                    {
+                        Text = T("No folder yet. Add one to start.", "Nessuna cartella. Aggiungine una per iniziare."),
+                        Opacity = 0.75
+                    });
+                bool running = false;
+                foreach (var item in states)
+                {
+                    UpdateFolderRow(_rows[item.Source.Id], item.Source, item.Status);
+                    running |= item.Status.State == "running";
+                }
                 if (running) _poll.Start(); else _poll.Stop();
             }
-            catch (Exception ex) { _status.Text = T("Could not reach the PaRuX Core: ", "Impossibile raggiungere il Core PaRuX: ") + ex.Message; }
+            catch (Exception ex)
+            {
+                _status.Text = T("Could not reach the PaRuX Core: ", "Impossibile raggiungere il Core PaRuX: ") + ex.Message;
+            }
+            finally { _refreshingFolders = false; }
         }
 
-        private UIElement FolderRow(RagSourceDto source, KnowledgeSourceStatus st)
+        private FolderRowUi FolderRow(RagSourceDto source)
         {
-            var panel = new StackPanel { Spacing = 4 };
-            panel.Children.Add(new TextBlock { Text = source.FolderPath, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+            var row = new FolderRowUi();
+            var panel = new StackPanel { Spacing = 6 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = source.FolderPath,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.Wrap
+            });
+            row.Status = new TextBlock { FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
+            AutomationProperties.SetAutomationId(row.Status, "DocSearch_FolderStatus_" + source.Id);
+            row.Progress = new ProgressBar { Visibility = Visibility.Collapsed, Height = 4, Maximum = 1 };
+            AutomationProperties.SetAutomationId(row.Progress, "DocSearch_FolderProgress_" + source.Id);
+            row.Actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            panel.Children.Add(row.Status);
+            panel.Children.Add(row.Progress);
+            panel.Children.Add(row.Actions);
+            row.Container = new Border { Padding = new Thickness(12), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Child = panel };
+            return row;
+        }
+
+        private void UpdateFolderRow(FolderRowUi row, RagSourceDto source, KnowledgeSourceStatus st)
+        {
             string state = st.State switch
             {
-                "running" => T("Indexing… ", "Indicizzazione… ") + (st.Current ?? string.Empty),
+                "running" => T("Indexing", "Indicizzazione"),
                 "paused" => T("Paused", "In pausa"),
                 "done" => T("Up to date", "Aggiornata"),
                 "cancelled" => T("Stopped", "Interrotta"),
                 "failed" => T("Failed", "Non riuscita"),
                 _ => T("Not indexed yet", "Non ancora indicizzata")
             };
-            panel.Children.Add(new TextBlock
+            string page = st.CurrentPage is > 0 && st.TotalPages is > 0
+                ? T(" · PDF page ", " · PDF pagina ") + st.CurrentPage.Value.ToString("N0")
+                    + "/" + st.TotalPages.Value.ToString("N0")
+                : st.State == "running" && !string.IsNullOrWhiteSpace(st.Current)
+                    ? " · " + st.Current : string.Empty;
+            row.Status.Text = state + " · " + st.Files + T(" documents", " documenti")
+                + " · " + st.Chunks + T(" passages", " passaggi")
+                + (st.Problems > 0 ? " · " + st.Problems + T(" need attention", " da controllare") : string.Empty)
+                + page;
+            row.Progress.Visibility = st.State == "running" ? Visibility.Visible : Visibility.Collapsed;
+            bool hasPages = st.CurrentPage is > 0 && st.TotalPages is > 0;
+            row.Progress.IsIndeterminate = !hasPages;
+            if (hasPages)
             {
-                Text = state + " · " + st.Files + T(" documents", " documenti") + " · " + st.Chunks + T(" passages", " passaggi")
-                    + (st.Problems > 0 ? " · " + st.Problems + T(" need attention", " da controllare") : string.Empty),
-                FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
-            });
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            string id = source.Id;
-            Button B(string text, string autoId, Func<Task> act)
-            {
-                var b = new Button { Content = text };
-                AutomationProperties.SetAutomationId(b, autoId + "_" + id);
-                b.Click += async (_, _) => { try { await act(); } catch (Exception ex) { _status.Text = ex.Message; } await RefreshFoldersAsync(false); };
-                return b;
+                row.Progress.Maximum = st.TotalPages!.Value;
+                row.Progress.Value = Math.Min(st.CurrentPage!.Value, st.TotalPages.Value);
             }
-            if (st.State == "running") { buttons.Children.Add(B(T("Pause", "Pausa"), "DocSearch_Pause", () => KnowledgeClient.Current.PauseAsync(id, CancellationToken.None))); buttons.Children.Add(B(T("Stop", "Ferma"), "DocSearch_Cancel", () => KnowledgeClient.Current.CancelAsync(id, CancellationToken.None))); }
-            else if (st.State == "paused") buttons.Children.Add(B(T("Resume", "Riprendi"), "DocSearch_Resume", () => KnowledgeClient.Current.ResumeAsync(id, CancellationToken.None)));
-            else buttons.Children.Add(B(st.Files == 0 ? T("Index now", "Indicizza ora") : T("Update", "Aggiorna"), "DocSearch_Index", () => KnowledgeClient.Current.StartAsync(id, CancellationToken.None)));
-            buttons.Children.Add(B(T("Remove", "Rimuovi"), "DocSearch_Remove", async () => { await RagClient.Current.RemoveSourceAsync(id, CancellationToken.None); _sources = await RagClient.Current.ListSourcesAsync(CancellationToken.None); }));
-            panel.Children.Add(buttons);
-            return new Border { Padding = new Thickness(12), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Child = panel };
+
+            // Avoid destroying/recreating focused buttons on each polling tick.
+            if (row.ActionState == st.State) return;
+            row.ActionState = st.State;
+            row.Actions.Children.Clear();
+            string id = source.Id;
+            Button B(string text, string autoId, Func<Task> action)
+            {
+                var button = new Button { Content = text, MinHeight = 40 };
+                AutomationProperties.SetAutomationId(button, autoId + "_" + id);
+                button.Click += async (_, _) =>
+                {
+                    button.IsEnabled = false;
+                    try { await action(); }
+                    catch (Exception ex) { _status.Text = ex.Message; }
+                    finally
+                    {
+                        button.IsEnabled = true;
+                        await RefreshFoldersAsync(false);
+                    }
+                };
+                return button;
+            }
+            if (st.State == "running")
+            {
+                row.Actions.Children.Add(B(T("Pause", "Pausa"), "DocSearch_Pause", () => KnowledgeClient.Current.PauseAsync(id, CancellationToken.None)));
+                row.Actions.Children.Add(B(T("Stop", "Ferma"), "DocSearch_Cancel", () => KnowledgeClient.Current.CancelAsync(id, CancellationToken.None)));
+            }
+            else if (st.State == "paused")
+                row.Actions.Children.Add(B(T("Resume", "Riprendi"), "DocSearch_Resume", () => KnowledgeClient.Current.ResumeAsync(id, CancellationToken.None)));
+            else
+                row.Actions.Children.Add(B(st.Files == 0 ? T("Index now", "Indicizza ora") : T("Update", "Aggiorna"), "DocSearch_Index",
+                    () => KnowledgeClient.Current.StartAsync(id, CancellationToken.None)));
+            row.Actions.Children.Add(B(T("Remove", "Rimuovi"), "DocSearch_Remove", async () =>
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = T("Remove this indexed folder?", "Rimuovere questa cartella dall'indice?"),
+                    Content = new TextBlock
+                    {
+                        Text = source.FolderPath + "\\n\\n" + T("PaRuX will stop searching this folder and remove its indexed data. Original files will not be deleted.",
+                            "PaRuX smetterà di cercare in questa cartella e ne rimuoverà i dati indicizzati. I file originali non verranno eliminati."),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    PrimaryButtonText = T("Remove from index", "Rimuovi dall'indice"),
+                    CloseButtonText = T("Cancel", "Annulla"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+                AutomationProperties.SetAutomationId(dialog, "DocSearch_RemoveConfirm_Dialog");
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                await RagClient.Current.RemoveSourceAsync(id, CancellationToken.None);
+                _sources = await RagClient.Current.ListSourcesAsync(CancellationToken.None);
+            }));
         }
 
         private async Task AddFolderAsync()
@@ -181,7 +305,8 @@ namespace PaRuX.Views
         private async Task SearchAsync()
         {
             string q = _query.Text.Trim();
-            if (q.Length == 0) return;
+            if (q.Length == 0 || _searching) return;
+            _searching = true;
             _results.Children.Clear();
             _status.Text = T("Searching…", "Ricerca…");
             try
@@ -212,6 +337,7 @@ namespace PaRuX.Views
                 }
             }
             catch (Exception ex) { _status.Text = T("Search failed: ", "Ricerca non riuscita: ") + ex.Message; }
+            finally { _searching = false; }
         }
     }
 }
