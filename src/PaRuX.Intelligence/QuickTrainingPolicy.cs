@@ -32,10 +32,13 @@ public static class QuickTrainingPolicy
     /// Quick mode must not silently drop malformed data or treat a small preview as full validation.
     /// Longer or partially malformed datasets can still be reviewed in Advanced mode.
     /// </summary>
-    public static string? Refusal(bool canStart, int examples, int unparseableLines, bool truncated)
+    public static string? Refusal(bool canStart, int examples, int validMethodRecords, int unparseableLines, bool truncated)
     {
         if (!canStart) return "Training preflight found blocking issues. Review the findings in Advanced training.";
         if (examples <= 0) return "The training dataset has no usable examples.";
+        if (validMethodRecords != examples)
+            return "Quick training requires every nonblank record to match the selected SFT/DPO schema. "
+                + "Fix or separate incompatible rows before starting.";
         if (unparseableLines > 0) return "Malformed JSONL records were found. Fix them or review the dataset in Advanced training.";
         if (truncated) return "Only a sample of the file was inspected. Review the full dataset before starting in Advanced training.";
         return null;
