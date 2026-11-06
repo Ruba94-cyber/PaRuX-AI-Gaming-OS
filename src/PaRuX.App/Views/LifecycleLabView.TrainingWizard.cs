@@ -363,8 +363,11 @@ namespace PaRuX.Views
                 }, CancellationToken.None);
                 _lastPlan = checkedRun;
                 RenderPlan(checkedRun);
+                int validMethodRecords = profile.Method == TrainingMethod.Dpo
+                    ? checkedRun.DatasetValidPreferenceRecords
+                    : checkedRun.DatasetValidChatRecords;
                 string? refusal = QuickTrainingPolicy.Refusal(
-                    checkedRun.CanStart, checkedRun.DatasetExamples,
+                    checkedRun.CanStart, checkedRun.DatasetExamples, validMethodRecords,
                     checkedRun.DatasetUnparseableLines, checkedRun.DatasetSampleTruncated);
                 if (refusal != null)
                 {
