@@ -47,11 +47,20 @@ namespace PaRuX.Views
             AutoSetupHeadlineText.Text = vm.Headline;
             AutoSetupDetailText.Text = vm.Detail;
             AutoSetupStartButton.Content = vm.PrimaryLabel;
-            AutoSetupStartButton.IsEnabled = vm.PrimaryEnabled;
+            AutoSetupStartButton.IsEnabled = vm.PrimaryEnabled && !_setupProfileSwitchBusy;
             AutoSetupStartButton.Visibility = vm.ShowRetry ? Visibility.Collapsed : Visibility.Visible;
             AutoSetupCancelButton.Visibility = vm.ShowCancel ? Visibility.Visible : Visibility.Collapsed;
             AutoSetupRetryButton.Visibility = vm.ShowRetry ? Visibility.Visible : Visibility.Collapsed;
             AutoSetupSkipButton.Visibility = vm.ShowSkip ? Visibility.Visible : Visibility.Collapsed;
+
+            bool running = vm.ShowCancel && _autoSetupCts != null;
+            SetupProfileChoice.IsEnabled = !running && !_setupProfileSwitchBusy;
+            GetStartedButton.IsEnabled = !running && !_setupProfileSwitchBusy
+                && !_componentsBusy && _verifyLocalChatCts == null;
+            // When guidance cannot complete, surface the recovery path without requiring
+            // users to discover a second technical workspace or a hidden settings option.
+            if (snapshot.State.Phase is AutoSetupPhase.Failed or AutoSetupPhase.NoModelFits)
+                ManualSetupExpander.IsExpanded = true;
 
             AutoSetupProgress.Visibility = vm.ShowProgress ? Visibility.Visible : Visibility.Collapsed;
             AutoSetupProgressText.Visibility = vm.ShowProgress && snapshot.Progress != null
