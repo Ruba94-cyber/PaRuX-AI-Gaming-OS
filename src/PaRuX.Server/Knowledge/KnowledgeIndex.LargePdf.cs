@@ -140,7 +140,7 @@ WHERE source_id=$s AND path=$p;";
         string sourceId, string path, FileInfo info, long ticks, string hash,
         long? duplicateOf, long? existingId, IndexControl? control,
         IProgress<IndexProgress>? progress, Func<string, string?, IndexProgress> snap,
-        CancellationToken ct)
+        ExtractionLimits limits, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using PdfDocument pdf = PdfDocument.Open(path);
@@ -149,7 +149,62 @@ WHERE source_id=$s AND path=$p;";
             throw new InvalidDataException("Large PDF contains no pages.");
         PdfCheckpoint state = GetOrCreatePdfCheckpoint(sourceId, path, hash, totalPages);
         var pending = new List<(int page, long offset, string text)>();
-        int empty = 0, processed = 0, currentPage = state.NextPage - 1;
+        var blankPages = new List<int>();
+        int processed = 0, currentPage = state.NextPage - 1;
+
+        // OCR stays strictly opt-in. Only pages whose embedded text layer is
+        // empty are rendered and recognised; each Windows OCR call is bounded
+        // to at most 16 pages and a documented timeout. No 30k-page list or
+        // per-page bitmap is ever retained in managed memory.
+        IOcrEngine? ocr = limits.Ocr;
+        if (ocr != null && !ocr.CheckAvailability().Available) ocr = null;
+
+        void FlushCheckpoint()
+        {
+            ct.ThrowIfCancellationRequested();
+            int stillBlank = blankPages.Count;
+            if (ocr != null && blankPages.Count > 0)
+            {
+                try
+                {
+                    IReadOnlyList<OcrPageResult> recognized = ocr.RecognizePdfPages(
+                        path, blankPages, limits.OcrLanguage, ct);
+                    var byPage = recognized.GroupBy(r => r.Page)
+                        .ToDictionary(g => g.Key, g => g.First());
+                    foreach (int number in blankPages)
+                    {
+                        if (!byPage.TryGetValue(number, out OcrPageResult? result) || !result.Ok
+                            || string.IsNullOrWhiteSpace(result.Text)) continue;
+                        string text = result.Text.Trim();
+                        if (text.Length > PdfMaximumCharactersPerPage)
+                            throw new InvalidDataException("OCR text of PDF page " + number
+                                + " is larger than the per-page memory limit.");
+                        foreach ((string chunk, long offset) in Split(text))
+                            pending.Add((number, offset, chunk));
+                        stillBlank--;
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (InvalidDataException) { throw; }
+                catch (Exception)
+                {
+                    // The index must never invent OCR content or report a page
+                    // as covered if Windows OCR crashed or timed out. Every
+                    // affected page contributes to the documented gap count.
+                    stillBlank = blankPages.Count;
+                }
+            }
+            pending.Sort((a, b) => a.page != b.page
+                ? a.page.CompareTo(b.page) : a.offset.CompareTo(b.offset));
+            state = StagePdfPages(sourceId, path, state, currentPage + 1, stillBlank, pending);
+            pending.Clear();
+            blankPages.Clear();
+            processed = 0;
+            progress?.Report(snap(control?.IsPaused == true ? "paused" : "running",
+                Path.GetFileName(path) + " · PDF page " + currentPage + "/" + totalPages)
+                with { CurrentPage = currentPage, TotalPages = totalPages });
+        }
+
         foreach (var page in pdf.GetPages())
         {
             ct.ThrowIfCancellationRequested();
@@ -166,26 +221,14 @@ WHERE source_id=$s AND path=$p;";
             if (extracted.Length > PdfMaximumCharactersPerPage)
                 throw new InvalidDataException("PDF page " + currentPage
                     + " has more than 250,000 extracted characters. Content was not silently truncated.");
-            if (extracted.Length == 0) empty++;
+            if (extracted.Length == 0) blankPages.Add(currentPage);
             else
                 foreach ((string text, long offset) in Split(extracted))
                     pending.Add((currentPage, offset, text));
             processed++;
-            if (processed == PdfPagesPerCheckpoint)
-            {
-                ct.ThrowIfCancellationRequested();
-                state = StagePdfPages(sourceId, path, state, currentPage + 1, empty, pending);
-                pending.Clear(); empty = 0; processed = 0;
-                progress?.Report(snap(control?.IsPaused == true ? "paused" : "running",
-                    Path.GetFileName(path) + " · PDF page " + currentPage + "/" + totalPages)
-                    with { CurrentPage = currentPage, TotalPages = totalPages });
-            }
+            if (processed == PdfPagesPerCheckpoint) FlushCheckpoint();
         }
-        if (processed > 0)
-        {
-            ct.ThrowIfCancellationRequested();
-            state = StagePdfPages(sourceId, path, state, currentPage + 1, empty, pending);
-        }
+        if (processed > 0) FlushCheckpoint();
         if (state.NextPage != totalPages + 1)
             throw new InvalidDataException("PDF page extraction stopped before the final page. The checkpoint was retained.");
         ct.ThrowIfCancellationRequested();
@@ -222,9 +265,11 @@ WHERE source_id=$s AND path=$p;";
                 del.Parameters.AddWithValue("$i", existingId.Value);
                 del.ExecuteNonQuery();
             }
-            string note = state.EmptyPages == 0 ? "Complete text-layer PDF, " + totalPages + " pages."
+            string note = state.EmptyPages == 0
+                ? "All " + totalPages + " page(s) have an extracted text layer or verified local OCR text."
                 : "PDF indexed across " + totalPages + " pages, but " + state.EmptyPages
-                    + " page(s) had no extracted text; scanned pages require opt-in OCR.";
+                    + " page(s) have no readable text even after available opt-in OCR."
+                    + " Those pages are NOT searchable; no technical conclusion is inferred from them.";
             using SqliteCommand insertFile = db.CreateCommand();
             insertFile.Transaction = tx;
             insertFile.CommandText = @"INSERT INTO kn_files
