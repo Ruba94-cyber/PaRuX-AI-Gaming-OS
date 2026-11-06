@@ -206,12 +206,18 @@ namespace PaRuX.Views
                 }
             };
 #endif
-            Unloaded += (_, _) =>
-            {
-                InvalidatePendingRefresh();
-                _downloadPoll?.Stop();
-                _candidateEvaluationPoll?.Stop();
-            };
+            Unloaded += (_, _) => OnHidden();
+        }
+
+        /// <summary>Visibility.Collapsed does not reliably raise Unloaded in every
+        /// WinUI tree. Explicitly stop background polling as soon as the user leaves
+        /// the Model Hub, especially on a battery-powered Corporate laptop.</summary>
+        public void OnHidden()
+        {
+            InvalidatePendingRefresh();
+            _downloadPoll?.Stop();
+            _candidateEvaluationPoll?.Stop();
+            _startPoll?.Stop();
         }
 
         public async void OnShown()
@@ -1078,6 +1084,11 @@ namespace PaRuX.Views
 
         private void UpdateDownloadPolling(IReadOnlyList<ModelDownloadStatus> jobs)
         {
+            if (Visibility != Visibility.Visible)
+            {
+                _downloadPoll?.Stop();
+                return;
+            }
             if (!jobs.Any(IsActive))
             {
                 _downloadPoll?.Stop();
@@ -1096,6 +1107,11 @@ namespace PaRuX.Views
         /// transfer can be watched without the whole workspace flickering every two seconds.</summary>
         private async Task PollDownloadsAsync()
         {
+            if (Visibility != Visibility.Visible)
+            {
+                _downloadPoll?.Stop();
+                return;
+            }
             if (_pollInFlight) return;
             _pollInFlight = true;
             try
