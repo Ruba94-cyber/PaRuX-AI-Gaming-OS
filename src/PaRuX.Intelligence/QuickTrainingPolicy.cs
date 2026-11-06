@@ -29,6 +29,22 @@ public static class QuickTrainingPolicy
     }
 
     /// <summary>
+    /// A complete (possibly > 2,000-record) JSONL file has been checked by Core.
+    /// The checksum is required so the frozen training request cannot silently
+    /// use different bytes after preflight or a confirmation dialog.
+    /// </summary>
+    public static string? RefusalAfterFullVerification(
+        bool canStart, bool fullyValidated, int verifiedRecords, string? sha256)
+    {
+        if (!canStart) return "Training preflight has blocking issues.";
+        if (!fullyValidated || verifiedRecords < 1)
+            return "The entire Quick Training dataset must be validated before GPU work.";
+        if (sha256 is not { Length: 64 } || !sha256.All(Uri.IsHexDigit))
+            return "The dataset verification did not produce a valid SHA-256 identity.";
+        return null;
+    }
+
+    /// <summary>
     /// Quick mode must not silently drop malformed data or treat a small preview as full validation.
     /// Longer or partially malformed datasets can still be reviewed in Advanced mode.
     /// </summary>
