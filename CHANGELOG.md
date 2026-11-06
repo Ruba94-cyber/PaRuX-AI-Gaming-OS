@@ -1,3 +1,11 @@
+### UX, performance and Corporate local-AI reliability (unreleased; Windows tests pending)
+
+- Corporate first-run now verifies included CPU Chat directly instead of displaying unrelated automatic runtime installs, Vulkan components or misleading model-download guidance. Optional import/select GGUF opens the local Model Hub with a return route.
+- Reused onboarding transfer rows and progress controls during polling to reduce flicker/focus loss. Prevented switching setup during readiness verification.
+- Reduced Corporate Model Hub startup work, duplicate refresh, and invisible background timers; stopped Gaming library queries/retries when navigating away. Improved profile-specific settings search.
+- Filtered unsupported projectors from Corporate Chat model choice and removed standard runtime health badge that could incorrectly show a missing engine. Recover a missing saved Chat model via the pinned starter with explicit runtime status while preserving explicit per-request model requests.
+- Extended source-level and FlaUI test cases. Windows compilation, real CPU inference and signed release remain pending.
+
 ### Setup-specific UX and Corporate Chat-first shell (unreleased; Windows validation pending)
 
 - Workspace navigation, deep links, keyboard focus and shortcuts now follow the chosen AI-only/Gaming-only/Both setup. Gaming-only hides AI Chat, media, model hub, history/search, New Chat and Quick Chat bubble; AI-only hides Gaming/Console without removing saved data.
