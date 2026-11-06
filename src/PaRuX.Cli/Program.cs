@@ -339,7 +339,7 @@ async Task RunTrainAsync(string[] rest, CancellationToken ct)
 
     if (positional.Count != 1)
     {
-        Fail("Usage: parux train <trainJsonlPath> [--method sft|dpo|orpo|continued-pretraining|grpo|vision-sft|tts-sft] [options]");
+        Fail("Usage: parux train <trainJsonlPath> [--method sft|dpo|orpo|kto|continued-pretraining|grpo|vision-sft|tts-sft] [options]");
         return;
     }
 
@@ -1021,11 +1021,13 @@ Core / inference:
   parux benchmark <modelPath> [--label <name>]
   parux eval <datasetId> [--role <name>]
   parux train <trainJsonlPath>
-              [--method sft|dpo|orpo|continued-pretraining|grpo|vision-sft|tts-sft]
+              [--method sft|dpo|orpo|kto|continued-pretraining|grpo|vision-sft|tts-sft]
               [--base-model <hfId>] [--lora-rank N] [--max-steps N] [--lr RATE]
               [--max-sequence N] [--preference-beta BETA] (also --dpo-beta)
               [--precision qlora-4bit|lora-16bit] [--targets attention|all-linear]
               [--pack-sequences]
+              KTO dataset: one JSON object per line with prompt, completion and boolean label;
+              include both true and false labels (at least four examples); GPU micro-batch >= 2.
               [--grpo-reward exact-reference|contains-reference|xml-format|json-format]
               [--grpo-generations 2..16] [--text-field NAME] [--image-field NAME]
               [--audio-field NAME] [--plan-only]
