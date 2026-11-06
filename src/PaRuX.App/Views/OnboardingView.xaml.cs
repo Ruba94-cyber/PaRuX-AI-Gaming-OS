@@ -733,8 +733,11 @@ namespace PaRuX.Views
             // A cold-started runtime may not be running until the first chat request.
             // Do not require a healthy running process before exercising Core's managed
             // start-on-demand path; the post-request check below still requires it.
-            if (initial == null || !initial.RuntimeHealthy || !initial.ModelAvailable)
+            if (initial == null || !initial.RuntimeHealthy)
                 return OnboardingTextReadinessPolicy.MissingRuntimeMessage(
+                    PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian);
+            if (!initial.ModelAvailable)
+                return OnboardingTextReadinessPolicy.MissingModelMessage(
                     PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian);
 
             token.ThrowIfCancellationRequested();
@@ -801,8 +804,11 @@ namespace PaRuX.Views
 
             using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
             _verifyLocalChatCts = operation;
-            VerifyLocalChatButton.Content = "Cancel verification";
-            VerifyLocalChatStatusText.Text = "Checking the local runtime and downloaded model…";
+            VerifyLocalChatButton.Content = SetupProfileItalian ? "Annulla verifica" : "Cancel verification";
+            VerifyLocalChatStatusText.Text = PaRuX.Contracts.CorporateMode.IsActive
+                ? (SetupProfileItalian ? "Verifico il motore CPU e il modello locale…"
+                    : "Checking the bundled CPU engine and local model…")
+                : "Checking the local runtime and downloaded model…";
             if (GetStartedButton != null) GetStartedButton.IsEnabled = false;
 
             try
@@ -814,7 +820,9 @@ namespace PaRuX.Views
                     return;
                 }
 
-                VerifyLocalChatStatusText.Text = "Verified: a local model answered the one-time code. You can start chatting.";
+                VerifyLocalChatStatusText.Text = SetupProfileItalian
+                    ? "Verificato: il modello locale ha risposto correttamente. Puoi iniziare a chattare."
+                    : "Verified: a local model answered the one-time code. You can start chatting.";
             }
             catch (OperationCanceledException)
             {
@@ -830,7 +838,8 @@ namespace PaRuX.Views
             {
                 if (ReferenceEquals(_verifyLocalChatCts, operation))
                     _verifyLocalChatCts = null;
-                VerifyLocalChatButton.Content = "Verify local chat";
+                VerifyLocalChatButton.Content = SetupProfileItalian
+                    ? "Verifica la Chat locale" : "Verify local chat";
                 if (GetStartedButton != null)
                     GetStartedButton.IsEnabled = !_componentsBusy && !_setupProfileSwitchBusy && _autoSetupCts == null;
             }
