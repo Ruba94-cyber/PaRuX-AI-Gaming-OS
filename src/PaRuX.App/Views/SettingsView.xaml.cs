@@ -42,6 +42,7 @@ namespace PaRuX.Views
         {
             InitializeComponent();
             InitializeCorporateSettingsLayout();
+            ApplyProfileSettingsSections();
 
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
@@ -149,7 +150,7 @@ namespace PaRuX.Views
                 foreach (object child in SettingsContentPanel.Children)
                 {
                     if (child is not FrameworkElement section || section.Tag is not string category
-                        || _corporateHiddenSettingsSections.Contains(section))
+                        || IsSettingsSectionHidden(section))
                         continue;
                     var labels = new List<string> { category };
                     AppendSearchLabels(section, labels, 0);
@@ -279,7 +280,7 @@ namespace PaRuX.Views
             {
                 if (child is not FrameworkElement element) continue;
                 string? tag = element.Tag as string;
-                element.Visibility = !_corporateHiddenSettingsSections.Contains(element)
+                element.Visibility = !IsSettingsSectionHidden(element)
                     && (tag == null || tag == category)
                     ? Visibility.Visible : Visibility.Collapsed;
             }
@@ -320,7 +321,9 @@ namespace PaRuX.Views
         /// <summary>Called by MainWindow each time the settings page is shown.</summary>
         public void OnShown()
         {
+            ApplyProfileSettingsSections();
             RefreshSettingsCategoriesForProfile();
+            SelectSettingsCategory(_selectedSettingsCategory);
             LoadFromSettings();
             _settingsCategoryRefreshEnabled = true;
             // Only the selected category queries Core. The previous implementation launched
