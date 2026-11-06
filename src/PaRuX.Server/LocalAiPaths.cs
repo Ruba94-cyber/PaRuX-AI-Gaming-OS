@@ -1247,18 +1247,14 @@ public static class LocalAiPaths
         }
         catch { /* fall through to auto-detect */ }
 
-        // An explicit portable data-root must never silently bind to the host PC's
-        // legacy Documents\\LocalAI models or runtime. Keep Locate/SetRoot explicit.
-        string? portableDataRoot = Environment.GetEnvironmentVariable("PARUX_DATA_ROOT");
-        if (!string.IsNullOrWhiteSpace(portableDataRoot) && Path.IsPathFullyQualified(portableDataRoot))
-            return Path.Combine(PaRuX.Contracts.PaRuXDataRoot.Path, "LocalAI");
-
-        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        string legacyCandidate = Path.Combine(documents, "LocalAI");
-        if (Directory.Exists(Path.Combine(legacyCandidate, "runtime")) || Directory.Exists(Path.Combine(legacyCandidate, "models")))
-            return legacyCandidate;
-
-        return Path.Combine(PaRuX.Contracts.PaRuXDataRoot.Path, "LocalAI");
+        string legacyCandidate = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LocalAI");
+        return PortableLocalAiRootPolicy.Resolve(
+            PaRuX.Contracts.PaRuXDataRoot.Path,
+            Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"),
+            legacyCandidate,
+            Directory.Exists(Path.Combine(legacyCandidate, "runtime")) ||
+            Directory.Exists(Path.Combine(legacyCandidate, "models")));
     }
 
     private sealed class PathsConfig
