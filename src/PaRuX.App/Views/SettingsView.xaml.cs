@@ -94,6 +94,10 @@ namespace PaRuX.Views
 
         private void RefreshSettingsCategoriesForProfile()
         {
+            // The search index includes labels from category sections. Rebuild it
+            // after every profile change; otherwise a hidden Gaming/Media setting
+            // can remain searchable in an otherwise allowed category.
+            _settingsSearchIndex.Clear();
             IReadOnlyList<string> categories = AvailableSettingsCategories;
             if (_categoryButtons.Keys.SequenceEqual(categories, StringComparer.Ordinal)) return;
             bool wasRefreshing = _settingsCategoryRefreshEnabled;
@@ -150,7 +154,8 @@ namespace PaRuX.Views
                 foreach (object child in SettingsContentPanel.Children)
                 {
                     if (child is not FrameworkElement section || section.Tag is not string category
-                        || IsSettingsSectionHidden(section))
+                        || IsSettingsSectionHidden(section)
+                        || !AvailableSettingsCategories.Contains(category, StringComparer.Ordinal))
                         continue;
                     var labels = new List<string> { category };
                     AppendSearchLabels(section, labels, 0);
