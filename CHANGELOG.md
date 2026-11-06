@@ -1,3 +1,5 @@
+- Improved large GGUF local import safety: stage into a non-model temporary file, verify copied size, publish atomically, and clean up on ordinary failures. Added duplicate/no-partial regression assertions; not run on Windows.
+
 ### Corporate Lite flexible models (unreleased; Windows build/inference pending)
 
 - The Corporate portable still pre-bundles a CPU `llama.cpp` engine, one starter GGUF and offline embeddings; the build now checks native executable packaging and SHA-256 in the final ZIP. The starter remains a stable fallback when users add models.
