@@ -211,7 +211,24 @@ try {
     if ($offlineText -notmatch 'PARUX_CORPORATE_MODEL_DOWNLOADS=0' -or $onlineText -notmatch 'PARUX_CORPORATE_MODEL_DOWNLOADS=1') {
         throw "Corporate model-download consent was not staged correctly."
     }
-    Write-Host "ZIP check OK: $($names.Count) entries."
+    # Verify native CPU engine and starter model bytes from the FINISHED archive, not just the stage.
+    $nativePath = @($rel | Where-Object { $_ -match '(?i)^PaRuXData/LocalAI/runtime/llama\.cpp-[^/]+-cpu/llama-server\.exe$' })[0]
+    $modelPathInZip = @($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' })[0]
+    $shaTool = [Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($check in @(
+            @{ entry = $nativePath; expected = $manifest.nativeRuntimeSha256; title = "CPU runtime" },
+            @{ entry = $modelPathInZip; expected = $manifest.modelSha256; title = "Starter GGUF" }
+        )) {
+            $zipEntry = $z.GetEntry("PaRuX-Corporate-Lite/" + $check.entry)
+            if ($null -eq $zipEntry) { throw "Missing $($check.title) archive entry." }
+            $stream = $zipEntry.Open()
+            try { $actual = [Convert]::ToHexString($shaTool.ComputeHash($stream)).ToLowerInvariant() }
+            finally { $stream.Dispose() }
+            if ($actual -ne $check.expected) { throw "$($check.title) SHA-256 mismatch in finished ZIP." }
+        }
+    } finally { $shaTool.Dispose() }
+    Write-Host "ZIP check OK: $($names.Count) entries; CPU runtime and starter GGUF hashes verified."
 } finally { $z.Dispose() }
 
 # --- 7. Smoke: extracted package starts offline, Core is up, downloads are refused, document search answers -------------------
@@ -219,7 +236,18 @@ if ($Smoke) {
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("corp-smoke-" + [Guid]::NewGuid().ToString("N"))
     [IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $tmp)
     $app = Join-Path $tmp "PaRuX-Corporate-Lite"
-    $env:PARUX_CORPORATE = "1"; $env:PARUX_DATA_ROOT = Join-Path $app "PaRuXData"; $env:PARUX_LOCALAI_STATE_DIR = $env:PARUX_DATA_ROOT
+    $env:PARUX_CORPORATE = "1"; $env:PARUX_CORPORATE_MODEL_DOWNLOADS = "0"
+    $env:PARUX_DATA_ROOT = Join-Path $app "PaRuXData"; $env:PARUX_LOCALAI_STATE_DIR = $env:PARUX_DATA_ROOT
+    # A staged file is not enough: exercise the executable's Windows native DLL loader.
+    $nativeExe = @(Get-ChildItem (Join-Path $app "PaRuXData/LocalAI/runtime") -Filter "llama-server.exe" -Recurse -File)
+    if ($nativeExe.Count -ne 1) { throw "Offline smoke: expected one bundled CPU llama-server.exe." }
+    $stdout = Join-Path $tmp "cpu-help-out.txt"; $stderr = Join-Path $tmp "cpu-help-err.txt"
+    $nativeProc = Start-Process $nativeExe[0].FullName -WorkingDirectory $nativeExe[0].DirectoryName -ArgumentList "--help" -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    if (-not $nativeProc.WaitForExit(15000)) {
+        $nativeProc.Kill()
+        throw "Offline smoke: native CPU loader timed out."
+    }
+    if ($nativeProc.ExitCode -ne 0) { throw "Offline smoke: native CPU loader failed (exit $($nativeProc.ExitCode))." }
     $proc = Start-Process (Join-Path $app "PaRuX.exe") -PassThru
     try {
         $boot = Join-Path $env:PARUX_DATA_ROOT "server\bootstrap.json"
@@ -235,7 +263,7 @@ if ($Smoke) {
         Write-Host "Smoke OK: offline start, downloads refused (403), document search answers without any model."
     } finally {
         Get-Process PaRuX, PaRuX.Server -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($tmp, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
-        Remove-Item Env:PARUX_CORPORATE, Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
+        Remove-Item Env:PARUX_CORPORATE, Env:PARUX_CORPORATE_MODEL_DOWNLOADS, Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
         Start-Sleep 2; Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
