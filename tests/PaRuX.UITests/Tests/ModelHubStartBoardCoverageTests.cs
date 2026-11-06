@@ -29,14 +29,14 @@ public sealed class ModelHubStartBoardCoverageTests
 
             // A StackPanel is not an accessibility element; the summary line is the board's own, stable text.
             AutomationElement summary = UiWait.ById(app.MainWindow, "ModelHub_Start_Summary", ControlType.Text);
-            Assert.False(string.IsNullOrWhiteSpace(summary.Name));
+            Assert.False(string.IsNullOrWhiteSpace(summary.Properties.Name.ValueOrDefault));
 
             foreach (string capability in new[] { "chat", "image", "edit", "video", "speech", "music", "3d" })
             {
                 string id = "ModelHub_Start_" + capability;
                 UiWait.For(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id)) != null, "tile " + id);
                 AutomationElement tile = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))!;
-                Assert.Contains(":", tile.Name);   // "<title>: <status>" - the state is part of the accessible name
+                Assert.Contains(":", tile.Properties.Name.ValueOrDefault ?? string.Empty);   // "<title>: <status>" - the state is part of the accessible name
             }
         });
 

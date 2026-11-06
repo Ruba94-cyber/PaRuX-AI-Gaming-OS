@@ -1,3 +1,8 @@
+## 4.0.0 (release candidate, unsigned, unpublished)
+
+- Major release: Gaming engine (library, torrents, mods/asset studio, suspend/controller policies), Local Knowledge & Search, Corporate Lite portable, Codex-class selective per-hunk coding review, run-time AI/Gaming/Both transitions.
+- Verified on Windows 2026-11-06: Server xUnit (chunked), FlaUI Smoke 35/35 and Regression 283/283 (chunked), Android unit tests + lint, MSI/Portable/Corporate Lite/APK built. See docs/RELEASE_CANDIDATE_4.0.0.md for what is NOT verified.
+
 ### 2026-11-05 — Coding agent selective hunk transaction foundation (SOURCE WIP)
 
 - Added `CodingSelectiveHunkApplyService`: a one-file, existing-UTF-8-text-only application path for exact approved hunk decisions. Before any mutation it checks explicit approval, the reviewed diff, source/candidate SHA-256, path containment, encoding and size.
