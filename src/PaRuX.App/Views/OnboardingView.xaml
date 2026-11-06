@@ -283,7 +283,7 @@
                 </Border>
 
                 <StackPanel Spacing="{StaticResource PaRuXSpaceXS}" HorizontalAlignment="Right">
-                    <Button x:Name="GetStartedButton" Content="Get Started"
+                    <Button x:Name="GetStartedButton" AutomationProperties.AutomationId="Onboarding_GetStarted_Button" Content="Get Started"
                         Style="{StaticResource AccentButtonStyle}" MinWidth="140"
                         HorizontalAlignment="Right" Click="GetStarted_Click" />
                     <TextBlock Text="Manual setup is optional. You can revisit models and runtimes later without losing your data."
