@@ -558,6 +558,7 @@ internal sealed class GamingHomeView : StackPanel
             AutomationProperties.SetAutomationId(sourceSummary, "GameHome_LocalGuide_SourceSummary");
             var chosenSources = new StackPanel { Spacing = 4 };
             AutomationProperties.SetAutomationId(chosenSources, "GameHome_LocalGuide_Sources");
+            AutomationProperties.SetName(chosenSources, T("Indexed folders", "Cartelle indicizzate"));
 
             // Only 64 checkboxes are realised at once, but every indexed folder
             // remains discoverable and selected IDs survive changes to the filter.
@@ -599,6 +600,13 @@ internal sealed class GamingHomeView : StackPanel
                     };
                     chosenSources.Children.Add(box);
                 }
+                if (page.Visible.Count == 0)
+                    chosenSources.Children.Add(new TextBlock
+                    {
+                        Text = T("No indexed folders match. Add and index a document folder first.",
+                            "Nessuna cartella indicizzata corrispondente. Aggiungi e indicizza prima una cartella."),
+                        TextWrapping = TextWrapping.Wrap
+                    });
                 UpdateSourceSummary();
 
                 void UpdateSourceSummary()

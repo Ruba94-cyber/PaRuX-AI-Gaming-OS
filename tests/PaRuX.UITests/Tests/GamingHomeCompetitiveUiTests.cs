@@ -78,7 +78,7 @@ public sealed class GamingHomeCompetitiveUiTests
         UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle before adding");
         add.Patterns.Invoke.Pattern.Invoke();
         string library = Path.Combine(app.DataRoot, "server", "manual-games.json");
-        UiWait.For(() => File.Exists(library) && File.ReadAllText(library).Contains(name, StringComparison.Ordinal), name + " persisted");
+        UiWait.For(() => File.Exists(library) && SharedFile.ReadAllText(library).Contains(name, StringComparison.Ordinal), name + " persisted");
         UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after adding");
         return marker;
     }

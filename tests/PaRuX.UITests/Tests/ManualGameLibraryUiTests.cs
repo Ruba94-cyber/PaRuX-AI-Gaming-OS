@@ -41,8 +41,8 @@ public sealed class ManualGameLibraryUiTests
             UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library finished loading");
             add.Patterns.Invoke.Pattern.Invoke();
             string library = Path.Combine(app.DataRoot, "server", "manual-games.json");
-            UiWait.For(() => File.Exists(library) && File.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry persisted");
-            using var libraryDocument = JsonDocument.Parse(File.ReadAllText(library));
+            UiWait.For(() => File.Exists(library) && SharedFile.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry persisted");
+            using var libraryDocument = JsonDocument.Parse(SharedFile.ReadAllText(library));
             // Adding keeps the panel busy until the Gaming tile grid refreshed; a launch click before that is ignored by design.
             UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after adding the entry");
             string gameId = libraryDocument.RootElement.GetProperty("Games")[0].GetProperty("Id").GetString()!;
@@ -72,7 +72,7 @@ public sealed class ManualGameLibraryUiTests
             remove.Patterns.Invoke.Pattern.Invoke();
             var confirm = Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton").And(cf.ByControlType(ControlType.Button))), "remove confirmation");
             confirm.Patterns.Invoke.Pattern.Invoke();
-            UiWait.For(() => !File.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry removed");
+            UiWait.For(() => !SharedFile.ReadAllText(library).Contains("FlaUI fixture game", StringComparison.Ordinal), "fixture entry removed");
             Assert.Equal("fixture, not executable", File.ReadAllText(marker));
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Manual_library_adds_and_removes_entry_without_removing_game_file), ex); throw; }

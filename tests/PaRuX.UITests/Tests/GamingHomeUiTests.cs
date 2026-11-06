@@ -61,7 +61,7 @@ public sealed class GamingHomeUiTests
         UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle before adding");
         add.Patterns.Invoke.Pattern.Invoke();
         string library = Path.Combine(app.DataRoot, "server", "manual-games.json");
-        UiWait.For(() => File.Exists(library) && File.ReadAllText(library).Contains(name, StringComparison.Ordinal), name + " persisted");
+        UiWait.For(() => File.Exists(library) && SharedFile.ReadAllText(library).Contains(name, StringComparison.Ordinal), name + " persisted");
         UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after adding");
         return marker;
     }
@@ -69,7 +69,7 @@ public sealed class GamingHomeUiTests
     private static string EntryId(UiTestApplication app, string name)
     {
         string library = Path.Combine(app.DataRoot, "server", "manual-games.json");
-        using var document = JsonDocument.Parse(File.ReadAllText(library));
+        using var document = JsonDocument.Parse(SharedFile.ReadAllText(library));
         foreach (var game in document.RootElement.GetProperty("Games").EnumerateArray())
             if (game.GetProperty("Name").GetString() == name) return game.GetProperty("Id").GetString()!;
         throw new InvalidOperationException("Entry not found: " + name);
@@ -318,12 +318,12 @@ public sealed class GamingHomeUiTests
             Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton")), "remove confirmation");
             Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")), "remove cancel")
                 .Patterns.Invoke.Pattern.Invoke();
-            Assert.Contains(name, File.ReadAllText(Path.Combine(app.DataRoot, "server", "manual-games.json")));
+            Assert.Contains(name, SharedFile.ReadAllText(Path.Combine(app.DataRoot, "server", "manual-games.json")));
 
             Press(app, ById(app, "GameDetail_Remove_" + id));
             Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton")), "remove confirmation")
                 .Patterns.Invoke.Pattern.Invoke();
-            UiWait.For(() => !File.ReadAllText(Path.Combine(app.DataRoot, "server", "manual-games.json")).Contains(name, StringComparison.Ordinal),
+            UiWait.For(() => !SharedFile.ReadAllText(Path.Combine(app.DataRoot, "server", "manual-games.json")).Contains(name, StringComparison.Ordinal),
                 "entry removed from the library");
             UiWait.For(() => TryById(app, "GameTile_" + key) == null, "tile removed");
             Assert.Equal("fixture, not executable", File.ReadAllText(marker));
