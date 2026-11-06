@@ -52,12 +52,14 @@ namespace PaRuX.Services
                 new RagEnabledRequest { Enabled = enabled }, ct);
 
         /// <summary>Blocks until indexing finishes; the server does not stream per-file progress over this endpoint.</summary>
-        public async Task<(int documents, int chunks)> ReindexAsync(string id, CancellationToken ct)
+        public async Task<(int documents, int chunks, bool backgroundIndexing)> ReindexAsync(string id, CancellationToken ct)
         {
             JsonElement result = await SendAsync<JsonElement>(HttpMethod.Post, "/api/v1/rag/sources/" + Uri.EscapeDataString(id) + "/reindex", null, ct).ConfigureAwait(false);
             int documents = result.TryGetProperty("documentCount", out JsonElement d) ? d.GetInt32() : 0;
             int chunks = result.TryGetProperty("chunkCount", out JsonElement c) ? c.GetInt32() : 0;
-            return (documents, chunks);
+            bool backgroundIndexing = result.TryGetProperty("backgroundIndexing", out JsonElement indexed)
+                && indexed.ValueKind == JsonValueKind.True;
+            return (documents, chunks, backgroundIndexing);
         }
 
         public Task RemoveSourceAsync(string id, CancellationToken ct) =>
