@@ -28,7 +28,8 @@ namespace PaRuX.Services
         public SensitiveFolderException(string code, string message) : base(message) { Code = code; }
     }
 
-    public sealed record KnowledgeSourceStatus(string State, int Files, int Chunks, int Indexed, int Failed, int Problems, string? Current);
+    public sealed record KnowledgeSourceStatus(string State, int Files, int Chunks, int Indexed, int Failed, int Problems,
+        string? Current, int? CurrentPage = null, int? TotalPages = null);
 
     /// <summary>Client of the Core's local knowledge index (search, per-folder index jobs). Local loopback only.</summary>
     public sealed class KnowledgeClient
@@ -57,17 +58,18 @@ namespace PaRuX.Services
         public async Task<KnowledgeSourceStatus> StatusAsync(string id, CancellationToken ct)
         {
             JsonElement e = await SendAsync(HttpMethod.Get, "/api/v1/knowledge/sources/" + Uri.EscapeDataString(id) + "/status", ct).ConfigureAwait(false);
-            string state = "idle"; int indexed = 0, failed = 0; string? current = null;
+            string state = "idle"; int indexed = 0, failed = 0; string? current = null; int? currentPage = null, totalPages = null;
             if (e.TryGetProperty("job", out JsonElement job) && job.ValueKind == JsonValueKind.Object)
             {
                 state = Str(job, "state");
                 if (job.TryGetProperty("progress", out JsonElement p) && p.ValueKind == JsonValueKind.Object)
                 {
                     indexed = Int(p, "indexed"); failed = Int(p, "failed"); current = Str(p, "current");
+                    currentPage = NullableInt(p, "currentPage"); totalPages = NullableInt(p, "totalPages");
                 }
             }
             int problems = e.TryGetProperty("problems", out JsonElement pr) && pr.ValueKind == JsonValueKind.Array ? pr.GetArrayLength() : 0;
-            return new KnowledgeSourceStatus(state, Int(e, "files"), Int(e, "chunks"), indexed, failed, problems, current);
+            return new KnowledgeSourceStatus(state, Int(e, "files"), Int(e, "chunks"), indexed, failed, problems, current, currentPage, totalPages);
         }
 
         public async Task<KnowledgeFullStatus> FullStatusAsync(string id, CancellationToken ct)
