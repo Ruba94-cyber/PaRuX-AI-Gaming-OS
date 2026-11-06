@@ -690,7 +690,8 @@ namespace PaRuX.Views
                 SetupSummaryText.Text = assessment.Summary;
                 if (GetStartedButton != null)
                 {
-                    GetStartedButton.Content = "Start Chatting";
+                    GetStartedButton.Content = PaRuX.Contracts.CorporateMode.IsActive
+                        ? (SetupProfileItalian ? "Apri Chat" : "Open Chat") : "Start Chatting";
                     GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null
                         && !_setupProfileSwitchBusy && _autoSetupCts == null;
                 }
@@ -701,7 +702,8 @@ namespace PaRuX.Views
                     + (string.IsNullOrWhiteSpace(assessment.NextAction) ? string.Empty : "\n\nNext step: " + assessment.NextAction);
                 if (GetStartedButton != null)
                 {
-                    GetStartedButton.Content = "Get Started";
+                    GetStartedButton.Content = PaRuX.Contracts.CorporateMode.IsActive
+                        ? (SetupProfileItalian ? "Apri Chat" : "Open Chat") : "Get Started";
                     GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null
                         && !_setupProfileSwitchBusy && _autoSetupCts == null;
                 }
@@ -961,7 +963,8 @@ namespace PaRuX.Views
             _unprovenWarningShown = false;
             _verifyLocalChatCts?.Cancel();
             _stateMachine.ReturnFromModelHub();
-            if (ManualSetupExpander != null) ManualSetupExpander.IsExpanded = true;
+            if (!PaRuX.Contracts.CorporateMode.IsActive && ManualSetupExpander != null)
+                ManualSetupExpander.IsExpanded = true;
             await RefreshComponentsAsync();
             await RefreshFirstModelAdviceAsync();
             await RefreshReadyCheckAsync();
@@ -995,7 +998,9 @@ namespace PaRuX.Views
             // the job rather than dropping the choice on the floor and starting on a different root
             // than the one still displayed on screen.
             string shown = (LocalAiRootBox?.Text ?? string.Empty).Trim();
-            if (shown.Length > 0
+            // Corporate's storage panel is hidden and its portable data path is
+            // fixed by the package. Never apply an old invisible text-box value.
+            if (!PaRuX.Contracts.CorporateMode.IsActive && shown.Length > 0
                 && !string.Equals(shown, _effectiveRoot, StringComparison.OrdinalIgnoreCase))
             {
                 try
