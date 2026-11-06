@@ -104,7 +104,8 @@ namespace PaRuX.Views
                 // never be offered by the manual Chat model selector.
                 _installed = modelsTask.Result
                     .Where(m => !CorporateMode.IsActive
-                        || CorporateModelImportPolicy.IsAcceptableModel(m.FileName, m.SizeBytes))
+                        || (CorporateModelImportPolicy.IsAcceptableModel(m.FileName, m.SizeBytes)
+                            && CorporateModelImportPolicy.HasGgufHeader(m.FilePath)))
                     .Select(ToCandidate).ToList();
                 _hardware = hardwareTask.Result;
                 _current = rolesTask.Result
