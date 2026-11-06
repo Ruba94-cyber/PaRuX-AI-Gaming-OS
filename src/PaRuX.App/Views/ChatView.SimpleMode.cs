@@ -117,8 +117,27 @@ namespace PaRuX.Views
 
         public void ApplyInterfaceMode(bool advanced)
         {
+            bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+            if (corporate) advanced = false; // Chat stays usable even with a legacy Advanced setting.
             _isSimpleMode = !advanced;
-            CodeFolderButton.Visibility = advanced ? Visibility.Collapsed : Visibility.Visible;
+            CodeFolderButton.Visibility = corporate || advanced ? Visibility.Collapsed : Visibility.Visible;
+            if (corporate)
+            {
+                HomeCodeSuggestion.Visibility = Visibility.Collapsed;
+                HomeImageSuggestion.Visibility = Visibility.Collapsed;
+                HomeHeadline.Text = ChatItalian ? "Come posso aiutarti?" : "How can I help?";
+                HomeDescription.Text = ChatItalian
+                    ? "Fai una domanda oppure usa i tuoi documenti. Tutto viene elaborato in locale sul PC."
+                    : "Ask a question or work with your documents. Everything runs locally on this PC.";
+                // Corporate ZIP ships text llama.cpp, not media/voice/coding engines.
+                AttachButton.Visibility = Visibility.Collapsed;
+                AttachAudioButton.Visibility = Visibility.Collapsed;
+                MicButton.Visibility = Visibility.Collapsed;
+                VoiceModeButton.Visibility = Visibility.Collapsed;
+                TuningStatusHost.Visibility = Visibility.Collapsed;
+                CodeFolderClearButton.Visibility = Visibility.Collapsed;
+                ProfileSelectorScrollViewer.Visibility = Visibility.Collapsed;
+            }
             ProfileSelectorPanel.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             ModelSelector.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
             ModelRouteExplanationButton.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
