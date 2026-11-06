@@ -812,6 +812,9 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
 
         // The projector travels with the model as a second file, so it is planned and admitted like a part.
         var files = plan.Parts.Concat(plan.Projector != null ? new[] { plan.Projector } : Array.Empty<ModelDownloadPlanFile>()).ToList();
+        if (CorporateMode.IsActive && (!CorporateMode.ModelDownloadsAllowed
+            || files.Any(file => !CorporateModelDownloadPolicy.IsTextGgufFileName(file.FileName))))
+            throw new InvalidDataException("Corporate Lite can download text GGUF models only when the model-download launcher is enabled. Vision projectors/media are not supported.");
         string planKey = CreatePlanDownloadKey(plan, files);
         PlanStartSlot startSlot = AcquirePlanStartSlot(planKey);
         try
@@ -1130,6 +1133,10 @@ public sealed class ModelDownloadService : PaRuX.Server.Orchestration.Gaming.IGa
         string? requiredSha256 = null,
         bool loraLane = false)
     {
+        if (CorporateMode.IsActive && (!CorporateMode.ModelDownloadsAllowed
+            || loraLane || !CorporateModelDownloadPolicy.IsTextGgufFileName(request?.FileName)
+            || !string.IsNullOrWhiteSpace(request.MediaCheckpointType)))
+            throw new InvalidDataException("Corporate Lite allows only consented text GGUF downloads.");
         request = loraLane
             ? ValidateLoraRequest(request)
             : ValidateDownloadRequest(ResolveDownloadRequest(request, out _), allowUnclassifiedSafetensors);
