@@ -35,7 +35,8 @@ public static class TrainingRunPlanner
         double learningRate,
         double availableGib,
         string precision = "qlora-4bit",
-        string targetPreset = "attention")
+        string targetPreset = "attention",
+        int maxSequenceLength = 2048)
     {
         var findings = new List<Finding>();
         string normalizedMethod = NormalizeMethod(method);
@@ -92,6 +93,19 @@ public static class TrainingRunPlanner
             if (dataset.ValidKtoRecords < 4)
                 findings.Add(new Finding(Severity.Blocking, "dataset",
                     "KTO requires at least four well-formed labelled examples to construct informative batches."));
+        }
+
+        if (normalizedMethod == "kto")
+        {
+            long vramBytes = availableGib > 0 && double.IsFinite(availableGib)
+                ? (long)Math.Min(availableGib * 1024d * 1024 * 1024, long.MaxValue)
+                : 0;
+            var batch = TrainingBatchShapePolicy.Plan(maxSequenceLength, vramBytes);
+            if (batch.MicroBatch < 4)
+                findings.Add(new Finding(Severity.Blocking, "maxSequenceLength",
+                    "KTO needs four physical GPU samples (effective batch 16), but the selected sequence length "
+                    + "and reported VRAM allow only " + batch.MicroBatch
+                    + ". Reduce the context length or select a larger GPU."));
         }
 
         ValidateModelFamily(baseModelId, normalizedMethod, findings);
