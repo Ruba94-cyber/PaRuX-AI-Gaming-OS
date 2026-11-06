@@ -33,6 +33,7 @@ namespace PaRuX.Views
         private readonly DispatcherTimer _poll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         private List<RagSourceDto> _sources = new List<RagSourceDto>();
         private readonly Dictionary<string, FolderRowUi> _rows = new Dictionary<string, FolderRowUi>();
+        private readonly Dictionary<string, KnowledgeSourceStatus> _statusCache = new Dictionary<string, KnowledgeSourceStatus>();
         private readonly List<string> _rowOrder = new List<string>();
         private bool _refreshingFolders;
         private bool _folderRefreshRequestedByAction;
@@ -131,9 +132,22 @@ namespace PaRuX.Views
             _refreshingFolders = true;
             try
             {
-                if (reload) _sources = await RagClient.Current.ListSourcesAsync(CancellationToken.None);
+                if (reload)
+                {
+                    _sources = await RagClient.Current.ListSourcesAsync(CancellationToken.None);
+                    var valid = new HashSet<string>(_sources.Select(x => x.Id), StringComparer.Ordinal);
+                    foreach (string obsolete in _statusCache.Keys.Where(x => !valid.Contains(x)).ToArray())
+                        _statusCache.Remove(obsolete);
+                }
+                // The first open checks every source. Subsequent 2-second ticks
+                // ask only for ACTIVE jobs, not 100+ already completed folders.
+                // This avoids continuous bursts of local HTTP/SQLite work on
+                // 8 GB Corporate machines with large source collections.
+                var pending = _sources.Where(source => reload
+                    || !_statusCache.TryGetValue(source.Id, out KnowledgeSourceStatus? cached)
+                    || cached.State is "running" or "paused").ToArray();
                 using var limiter = new SemaphoreSlim(4);
-                var states = await Task.WhenAll(_sources.Select(async source =>
+                var updated = await Task.WhenAll(pending.Select(async source =>
                 {
                     await limiter.WaitAsync().ConfigureAwait(false);
                     try
@@ -143,6 +157,10 @@ namespace PaRuX.Views
                     }
                     finally { limiter.Release(); }
                 }));
+                foreach (var item in updated)
+                    _statusCache[item.Source.Id] = item.Status;
+                var states = _sources.Where(source => _statusCache.ContainsKey(source.Id))
+                    .Select(source => (Source: source, Status: _statusCache[source.Id])).ToArray();
                 string[] newOrder = states.Select(item => item.Source.Id).ToArray();
                 if (!_rowOrder.SequenceEqual(newOrder))
                 {
@@ -255,7 +273,7 @@ namespace PaRuX.Views
                     finally
                     {
                         button.IsEnabled = true;
-                        await RefreshFoldersAsync(false, retryIfBusy: true);
+                        await RefreshFoldersAsync(true, retryIfBusy: true);
                     }
                 };
                 return button;
