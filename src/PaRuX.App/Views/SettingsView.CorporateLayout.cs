@@ -19,7 +19,8 @@ namespace PaRuX.Views
 
             foreach (UIElement child in SettingsContentPanel.Children)
             {
-                if (child is FrameworkElement section && section.Tag is string tag && tag == "Models")
+                if (child is FrameworkElement section && section.Tag is string tag
+                    && tag is "Models" or "Privacy & Network")
                     _corporateHiddenSettingsSections.Add(section);
             }
 
@@ -57,6 +58,31 @@ namespace PaRuX.Views
             manage.Click += (_, _) => App.MainWin?.ShowModelHub();
             panel.Children.Add(manage);
             SettingsContentPanel.Children.Add(panel);
+
+            var privacy = new StackPanel { Tag = "Privacy & Network", Spacing = 12, MaxWidth = 720 };
+            AutomationProperties.SetAutomationId(privacy, "Settings_CorporatePrivacy_Panel");
+            privacy.Children.Add(new TextBlock
+            {
+                Text = it ? "Privacy aziendale" : "Corporate privacy",
+                FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            privacy.Children.Add(new TextBlock
+            {
+                Text = it
+                    ? "Le risposte e l'analisi dei documenti vengono eseguite in locale. L'accesso al Web e ai servizi cloud resta disattivato; non vengono installati nuovi runtime dal PC aziendale."
+                    : "Chat answers and document analysis run locally. General web and cloud services stay disabled; the company PC never installs a new runtime online.",
+                TextWrapping = TextWrapping.Wrap
+            });
+            privacy.Children.Add(new TextBlock
+            {
+                Text = CorporateMode.ModelDownloadsAllowed
+                    ? (it ? "Questa sessione consente soltanto il download di modelli GGUF da fonti approvate, nel rispetto delle regole IT."
+                          : "This session only allows approved GGUF model downloads under IT network policy.")
+                    : (it ? "Questa sessione è offline. Puoi usare e importare modelli senza rete."
+                          : "This session is offline. You can use and import models without a network."),
+                TextWrapping = TextWrapping.Wrap, Opacity = 0.8
+            });
+            SettingsContentPanel.Children.Add(privacy);
         }
     }
 }
