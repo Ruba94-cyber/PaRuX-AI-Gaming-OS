@@ -27,7 +27,7 @@ namespace PaRuX.Views
 
         private readonly StackPanel _folders = new StackPanel { Spacing = 8 };
         private readonly TextBox _query = new TextBox { MinWidth = 0, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch };
-        private readonly ComboBox _mode = new ComboBox { MinWidth = 0, Width = 205, MinHeight = 44 };
+        private readonly ComboBox _mode = new ComboBox { MinWidth = 0, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch };
         private readonly StackPanel _results = new StackPanel { Spacing = 10 };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
         private readonly DispatcherTimer _poll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -51,7 +51,8 @@ namespace PaRuX.Views
 
         public DocumentSearchView()
         {
-            var root = new StackPanel { Spacing = 16, Margin = new Thickness(24), MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Center };
+            var root = new StackPanel { Spacing = 16, Margin = new Thickness(24), MaxWidth = 1000,
+                MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
             var title = new TextBlock { Text = T("Document search", "Ricerca documenti"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
             AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
             root.Children.Add(title);
@@ -85,8 +86,12 @@ namespace PaRuX.Views
             // Keep the search entry full width and the actions below it: a 13-inch
             // laptop or a high-DPI window must never need horizontal scrolling.
             root.Children.Add(_query);
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var row = new Grid { ColumnSpacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             AutomationProperties.SetAutomationId(row, "DocSearch_SearchActions_Panel");
+            Grid.SetColumn(_mode, 0);
+            Grid.SetColumn(go, 1);
             row.Children.Add(_mode);
             row.Children.Add(go);
             root.Children.Add(row);
