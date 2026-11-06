@@ -35,6 +35,7 @@ namespace PaRuX.Views
         private readonly Dictionary<string, FolderRowUi> _rows = new Dictionary<string, FolderRowUi>();
         private readonly List<string> _rowOrder = new List<string>();
         private bool _refreshingFolders;
+        private bool _folderRefreshRequestedByAction;
         private bool _searching;
 
         private sealed class FolderRowUi
@@ -106,11 +107,15 @@ namespace PaRuX.Views
 
         public async void OnShown() => await RefreshFoldersAsync(true);
 
-        private async Task RefreshFoldersAsync(bool reload)
+        private async Task RefreshFoldersAsync(bool reload, bool retryIfBusy = false)
         {
             // Timer ticks and user actions can overlap. Keep the existing folder
             // rows and keyboard focus; only refresh their text and progress.
-            if (_refreshingFolders) return;
+            if (_refreshingFolders)
+            {
+                if (retryIfBusy) _folderRefreshRequestedByAction = true;
+                return;
+            }
             _refreshingFolders = true;
             try
             {
@@ -158,7 +163,15 @@ namespace PaRuX.Views
             {
                 _status.Text = T("Could not reach the PaRuX Core: ", "Impossibile raggiungere il Core PaRuX: ") + ex.Message;
             }
-            finally { _refreshingFolders = false; }
+            finally
+            {
+                _refreshingFolders = false;
+                if (_folderRefreshRequestedByAction)
+                {
+                    _folderRefreshRequestedByAction = false;
+                    _ = RefreshFoldersAsync(true);
+                }
+            }
         }
 
         private FolderRowUi FolderRow(RagSourceDto source)
@@ -230,7 +243,7 @@ namespace PaRuX.Views
                     finally
                     {
                         button.IsEnabled = true;
-                        await RefreshFoldersAsync(false);
+                        await RefreshFoldersAsync(false, retryIfBusy: true);
                     }
                 };
                 return button;
@@ -253,7 +266,7 @@ namespace PaRuX.Views
                     Title = T("Remove this indexed folder?", "Rimuovere questa cartella dall'indice?"),
                     Content = new TextBlock
                     {
-                        Text = source.FolderPath + "\\n\\n" + T("PaRuX will stop searching this folder and remove its indexed data. Original files will not be deleted.",
+                        Text = source.FolderPath + "\n\n" + T("PaRuX will stop searching this folder and remove its indexed data. Original files will not be deleted.",
                             "PaRuX smetterà di cercare in questa cartella e ne rimuoverà i dati indicizzati. I file originali non verranno eliminati."),
                         TextWrapping = TextWrapping.Wrap
                     },
@@ -297,7 +310,7 @@ namespace PaRuX.Views
                     source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None, consentSensitive: true);
                 }
                 await KnowledgeClient.Current.StartAsync(source.Id, CancellationToken.None);
-                await RefreshFoldersAsync(true);
+                await RefreshFoldersAsync(true, retryIfBusy: true);
             }
             catch (Exception ex) { _status.Text = T("Could not add the folder: ", "Impossibile aggiungere la cartella: ") + ex.Message; }
         }
