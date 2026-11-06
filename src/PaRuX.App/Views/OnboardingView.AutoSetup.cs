@@ -53,7 +53,8 @@ namespace PaRuX.Views
             AutoSetupRetryButton.Visibility = vm.ShowRetry ? Visibility.Visible : Visibility.Collapsed;
             AutoSetupSkipButton.Visibility = vm.ShowSkip ? Visibility.Visible : Visibility.Collapsed;
 
-            bool running = vm.ShowCancel && _autoSetupCts != null;
+            // A restored in-progress setup is busy even before its CTS is recreated.
+            bool running = vm.ShowCancel;
             SetupProfileChoice.IsEnabled = !running && !_setupProfileSwitchBusy;
             GetStartedButton.IsEnabled = !running && !_setupProfileSwitchBusy
                 && !_componentsBusy && _verifyLocalChatCts == null;
