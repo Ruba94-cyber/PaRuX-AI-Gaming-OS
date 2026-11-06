@@ -50,6 +50,19 @@ namespace PaRuX.Views
             try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == current); }
             finally { _setupProfileInitialising = false; }
             ApplySetupProfileToLayout(current);
+            if (PaRuX.Contracts.CorporateMode.IsActive)
+            {
+                // Corporate is delivered preconfigured for local Chat and documents.
+                // Its setup profile cannot be changed: don't show choices the user
+                // cannot actually select or unrelated Gaming/Media onboarding.
+                SetupProfileSection.Visibility = Visibility.Collapsed;
+                OnboardingWelcomeSubtitle.Text = it
+                    ? "Corporate Lite: Chat AI e documenti sul PC. Il motore CPU è già incluso; puoi importare altri modelli quando vuoi."
+                    : "Corporate Lite: AI Chat and documents on this PC. The CPU engine is already included; add more models whenever you need.";
+                ManualSetupExpander.Header = it
+                    ? "Modelli e opzioni locali (facoltative)"
+                    : "Models and local options (optional)";
+            }
         }
 
         private IEnumerable<(RadioButton Button, SetupProfile Profile)> OptionButtons()
@@ -61,7 +74,8 @@ namespace PaRuX.Views
 
         private async void SetupProfileChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_setupProfileInitialising || _setupProfileSwitchBusy) return;
+            if (_setupProfileInitialising || _setupProfileSwitchBusy
+                || PaRuX.Contracts.CorporateMode.IsActive) return;
             if (SetupProfileChoice.SelectedItem is not RadioButton chosen) return;
             SetupProfile requested = OptionButtons().First(o => ReferenceEquals(o.Button, chosen)).Profile;
             SetupProfile previous = StoredSetupProfile;
