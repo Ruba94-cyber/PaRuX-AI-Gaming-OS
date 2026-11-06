@@ -86,9 +86,25 @@ public sealed class AdvancedTrainingMethodsTests : IDisposable
         Assert.True(supported.CanStart);
     }
 
+    [Fact]
+    public void Orpo_uses_real_preference_pairs_and_has_its_own_training_plan()
+    {
+        string dataset = WriteJsonl("orpo.jsonl", Enumerable.Range(0, 80)
+            .Select(i => "{\"prompt\":\"question " + i
+                + "\",\"chosen\":\"good\",\"rejected\":\"bad\"}"));
+        TrainingLabService.ValidateDatasetForMethod(dataset, TrainingMethod.Orpo, null);
+        TrainingDatasetShape.Shape shape = TrainingDatasetShape.Inspect(dataset);
+        TrainingRunPlanner.RunPlan plan = TrainingRunPlanner.Plan(shape, TrainingMethod.Orpo,
+            "Qwen/Qwen2.5-0.5B-Instruct", 16, 60, 5e-6, 16);
+        Assert.True(plan.CanStart);
+        Assert.True(shape.SupportsPreferenceTuning);
+        Assert.Equal(5e-6, plan.Recommended.LearningRate, 8);
+    }
+
     [Theory]
     [InlineData("sft")]
     [InlineData("dpo")]
+    [InlineData("orpo")]
     [InlineData("continued-pretraining")]
     [InlineData("grpo")]
     [InlineData("vision-sft")]
