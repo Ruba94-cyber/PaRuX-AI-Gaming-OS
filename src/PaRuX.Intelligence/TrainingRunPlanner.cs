@@ -174,7 +174,8 @@ public static class TrainingRunPlanner
         {
             double warningThreshold = normalizedMethod switch
             {
-                "grpo" or "dpo" or "orpo" or "kto" => 1e-4,
+                "kto" => 1e-6,
+                "grpo" or "dpo" or "orpo" => 1e-4,
                 "tts-sft" => 2e-4,
                 _ => 1e-3
             };
@@ -198,7 +199,7 @@ public static class TrainingRunPlanner
         {
             "dpo" => examples < 2_000 ? 5e-6 : 2e-6,
             "orpo" => examples < 2_000 ? 1e-5 : 5e-6,
-            "kto" => examples < 2_000 ? 5e-6 : 2e-6,
+            "kto" => examples < 2_000 ? 1e-6 : 5e-7,
             "grpo" => examples < 2_000 ? 5e-6 : 2e-6,
             "continued-pretraining" => examples < 2_000 ? 5e-5 : 2e-5,
             "vision-sft" => examples < 2_000 ? 1e-4 : 5e-5,
