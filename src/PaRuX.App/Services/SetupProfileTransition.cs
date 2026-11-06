@@ -73,7 +73,7 @@ public static class SetupProfileTransition
     {
         SetupProfile target = Resolve(requested, corporateMode);
         bool forced = corporateMode && requested != SetupProfile.AiOnly;
-        SetupProfilePlan wanted = SetupProfilePolicy.Plan(target);
+        SetupProfilePlan wanted = SetupProfilePolicy.Plan(target, corporateMode);
         var desired = SetupRunningServices.Of(wanted);
 
         var stops = new List<SetupTransitionStep>();
