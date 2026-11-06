@@ -94,8 +94,8 @@ namespace PaRuX.Views
             panel.Children.Add(new TextBlock { Text = DT("Work with evidence", "Lavora con le fonti"), FontSize = 12, Opacity = 0.8 });
             panel.Children.Add(SkillButton(DT("Summarize with sources", "Riassumi con le fonti"),
                 "Chat_Documents_Skill_Summary",
-                DT("Summarize the selected documents, separating key facts from uncertainties and citing the source for each point.",
-                   "Riassumi i documenti selezionati, distinguendo fatti e incertezze e citando la fonte per ogni punto.")));
+                DT("Summarize only the retrieved passages relevant to this topic. Cite each key point, explain missing coverage, and do not claim to have read every file. Topic: ",
+                   "Riassumi solo i passaggi recuperati pertinenti a questo argomento. Cita ogni punto, indica le parti non coperte e non affermare di aver letto tutti i file. Argomento: ")));
             panel.Children.Add(SkillButton(DT("Compare two versions", "Confronta due versioni"), "Chat_Documents_Skill_Diff", "/diff  |  ", caret: "/diff ".Length));
             panel.Children.Add(SkillButton(DT("Check for contradictions", "Cerca contraddizioni"), "Chat_Documents_Skill_Contradictions", "/contradictions "));
             var flyout = new Flyout { Content = panel };
