@@ -123,6 +123,8 @@ public sealed class TrainingVariantTests
         string script = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("load_in_4bit=(precision == \"qlora-4bit\")", script);
         Assert.Contains("target_modules=targets", script);
+        Assert.Contains("from trl import ORPOTrainer, ORPOConfig", script);
+        Assert.Contains("trainer = ORPOTrainer(", script);
         Assert.Contains("cfg.get(\"pack_sequences\", False)", script);
         Assert.Contains("missing \" + \", \".join(missing)", script);
     }
