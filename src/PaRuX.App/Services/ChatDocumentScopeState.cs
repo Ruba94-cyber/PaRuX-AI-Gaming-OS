@@ -14,19 +14,46 @@ namespace PaRuX.Services
         private static readonly HashSet<string> Selected = new HashSet<string>();
         public static bool Enabled { get; private set; }
 
+        public static int SelectedCount { get { lock (Gate) return Selected.Count; } }
+
         public static void SetEnabled(bool enabled) { lock (Gate) Enabled = enabled; }
 
         public static void SetSource(string id, bool on)
         {
-            lock (Gate) { if (on) Selected.Add(id); else Selected.Remove(id); }
+            if (string.IsNullOrWhiteSpace(id) || id.Length > 200 || id.Any(char.IsControl)) return;
+            lock (Gate)
+            {
+                if (on) Selected.Add(id);
+                else
+                {
+                    bool hadExplicitSelection = Selected.Count > 0;
+                    Selected.Remove(id);
+                    // Empty is a wire-level alias for ALL enabled folders.
+                    // Never let unchecking the final explicitly scoped folder
+                    // silently broaden the user's knowledge exposure.
+                    if (hadExplicitSelection && Selected.Count == 0) Enabled = false;
+                }
+            }
         }
 
         public static bool IsSelected(string id) { lock (Gate) return Selected.Contains(id); }
 
-        /// <summary>Drops folders that no longer exist; an empty selection means every enabled folder.</summary>
-        public static void Prune(IEnumerable<string> existingIds)
+        /// <summary>
+        /// Drops removed/disabled folders. Returns true if an explicit source
+        /// selection became empty and document mode was disabled fail-closed.
+        /// An intentional empty/all scope remains unchanged.
+        /// </summary>
+        public static bool Prune(IEnumerable<string> existingIds)
         {
-            lock (Gate) Selected.RemoveWhere(id => !existingIds.Contains(id));
+            var existing = new HashSet<string>(existingIds, StringComparer.Ordinal);
+            lock (Gate)
+            {
+                bool hadExplicitSelection = Selected.Count > 0;
+                Selected.RemoveWhere(id => !existing.Contains(id));
+                bool revoked = hadExplicitSelection && Selected.Count == 0;
+                if (revoked) Enabled = false;
+                return revoked;
+            }
         }
 
         /// <summary>
