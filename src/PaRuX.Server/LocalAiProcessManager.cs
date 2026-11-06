@@ -1438,16 +1438,23 @@ public sealed class LocalAiProcessManager
     {
         string? runtime = LocalAiPaths.FindBundledCpuRuntime();
         if (runtime == null) return new RuntimeResult(false, "The bundled CPU runtime (llama.cpp-*-cpu) was not found in " + LocalAiPaths.RuntimeRoot + ".");
-        // The user's Chat model choice wins. The packaged starter is only a fallback,
-        // not a hardwired permanent limit of Corporate Lite.
-        string? model = modelPathOverride ?? LocalAiPaths.GetRoleOverride("standard")
-            ?? LocalAiPaths.FindBundledCorporateModel();
-        if (model == null || !File.Exists(model))
-            return new RuntimeResult(false, "The selected Corporate GGUF model is missing. Import or choose an installed text model in Model Hub.");
+        // A live explicit request never silently falls back. A previously saved
+        // Chat role that was moved/deleted (or points to a projector) may use the
+        // package-pinned starter, with a visible warning in the result message.
+        CorporateTextModelChoice choice = CorporateTextModelChoicePolicy.Resolve(
+            modelPathOverride, LocalAiPaths.GetRoleOverride("standard"),
+            LocalAiPaths.FindBundledCorporateModel(), IsUsableCorporateTextGguf);
+        string? model = choice.Path;
+        if (model == null || !IsUsableCorporateTextGguf(model))
+            return new RuntimeResult(false,
+                "The selected Corporate text GGUF model is missing or incompatible. Import or choose an installed text model in Model Hub.");
+        string fallbackNotice = choice.RecoveredFromSavedChoice
+            ? " Saved Chat model was unavailable; the bundled starter is in use. Choose a new model in Model Hub."
+            : string.Empty;
         string profile = Path.GetFileNameWithoutExtension(model) + " CPU (Corporate Lite)";
         if ((ReadTrimmed(LocalAiPaths.ActiveProfileFile) == profile || PathsEqual(GetActiveTextModelPath(), model))
             && await IsTextHealthyAsync(ct).ConfigureAwait(false))
-            return new RuntimeResult(true, "Already running: " + profile);
+            return new RuntimeResult(true, "Already running: " + profile + fallbackNotice);
         if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
             return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
         string? portRefusal = ChooseTextPortForLaunch();
@@ -1457,7 +1464,21 @@ public sealed class LocalAiProcessManager
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
         if (result.Success) _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null);
-        return result;
+        return result.Success && choice.RecoveredFromSavedChoice
+            ? new RuntimeResult(true, result.Message + fallbackNotice)
+            : result;
+    }
+
+    private static bool IsUsableCorporateTextGguf(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            return CorporateModelImportPolicy.IsAcceptableModel(
+                Path.GetFileName(path), new FileInfo(path).Length);
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
     }
 
     public Task<RuntimeResult> StartMediaAssistantAsync(CancellationToken ct) => StartMediaAssistantAsync(ct, null);
