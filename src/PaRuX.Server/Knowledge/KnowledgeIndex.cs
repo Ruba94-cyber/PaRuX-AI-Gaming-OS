@@ -122,7 +122,8 @@ PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS kn_files (
     id INTEGER PRIMARY KEY AUTOINCREMENT, source_id TEXT NOT NULL, path TEXT NOT NULL, name TEXT NOT NULL,
     size INTEGER NOT NULL, mtime_ticks INTEGER NOT NULL, hash TEXT NOT NULL, tier TEXT NOT NULL, extractor TEXT,
-    note TEXT, duplicate_of INTEGER, indexed_utc TEXT NOT NULL, UNIQUE(source_id, path));
+    note TEXT, duplicate_of INTEGER, indexed_utc TEXT NOT NULL, ocr_mode INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(source_id, path));
 CREATE INDEX IF NOT EXISTS ix_kn_files_hash ON kn_files(source_id, hash);
 CREATE TABLE IF NOT EXISTS kn_chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT, file_id INTEGER NOT NULL, ord INTEGER NOT NULL, text TEXT NOT NULL, heading TEXT,
@@ -138,6 +139,10 @@ CREATE TABLE IF NOT EXISTS kn_pdf_staging (
     page INTEGER NOT NULL, char_offset INTEGER NOT NULL, embedding BLOB,
     PRIMARY KEY(source_id,path,ord));
 CREATE INDEX IF NOT EXISTS ix_kn_pdf_stage_source ON kn_pdf_staging(source_id,path);");
+            // Upgrade databases created by earlier Corporate versions without
+            // discarding any indexed passages, citations or user documents.
+            try { Exec(c, "ALTER TABLE kn_files ADD COLUMN ocr_mode INTEGER NOT NULL DEFAULT 0;"); }
+            catch (SqliteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase)) { }
             try
             {
                 Exec(c, @"
@@ -216,15 +221,24 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             if (info.Length > admittedFileBytes) { skipped++; AddProblem(sourceId, Rel(root, file), "skipped", "Larger than the configured size limit."); continue; }
 
             long ticks = info.LastWriteTimeUtc.Ticks;
-            (long id, long size, long mtime, string hash)? existing = Lookup(sourceId, file);
-            if (existing is { } e && e.size == info.Length && e.mtime == ticks) { unchanged++; continue; }
+            (long id, long size, long mtime, string hash, bool ocrMode, string extractor)? existing = Lookup(sourceId, file);
+            bool ocrMode = limits.Ocr != null
+                && (Path.GetExtension(file).Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(file).Equals(".png", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(file).Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(file).Equals(".tiff", StringComparison.OrdinalIgnoreCase));
+            bool refreshParser = existing is { } old
+                && (ocrMode != old.ocrMode || (largePdf && old.extractor != "pdf-paged"));
+            if (existing is { } e && e.size == info.Length && e.mtime == ticks && !refreshParser)
+            { unchanged++; continue; }
 
             string hash;
             try { hash = await HashAsync(file, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { throw; }
             catch (Exception) { failed++; AddProblem(sourceId, Rel(root, file), "access", "File could not be read (in use or no permission)."); continue; }
 
-            if (existing is { } same && same.hash == hash) { Touch(same.id, info.Length, ticks); unchanged++; continue; }
+            if (existing is { } same && same.hash == hash && !refreshParser)
+            { Touch(same.id, info.Length, ticks); unchanged++; continue; }
 
             // Same bytes under another path: a rename if the old path is gone, a duplicate otherwise.
             (long id, string path)? twin = FindByHash(sourceId, hash, file);
@@ -247,7 +261,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
                 {
                     LargePdfIndexResult result = await LowPriorityRunner.Run(
                         () => IndexLargePdf(sourceId, file, info, ticks, hash, duplicateOf, existing?.id,
-                            control, progress, Snap, limits, ct), priority, ct).ConfigureAwait(false);
+                            control, progress, Snap, limits, ocrMode, ct), priority, ct).ConfigureAwait(false);
                     indexed++;
                     if (result.EmptyPages > 0)
                         AddProblem(sourceId, Rel(root, file), "partial",
@@ -270,7 +284,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
             else { indexed++; if (doc.Note != null) AddProblem(sourceId, Rel(root, file), "partial", doc.Note); }
             if (doc.Truncated) AddProblem(sourceId, Rel(root, file), "truncated", "Read up to the configured limit; the rest is not indexed.");
 
-            Store(sourceId, file, info, ticks, hash, doc, duplicateOf, existing?.id);
+            Store(sourceId, file, info, ticks, hash, doc, duplicateOf, existing?.id, ocrMode);
             // Duty cycle: after real work, rest for (1/duty - 1) times as long, so a light PC stays responsive.
             if (plan is { DutyCycle: > 0 and < 1 })
             {
@@ -331,16 +345,17 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
         lock (_gate) { using SqliteConnection c = Open(); Exec(c, "INSERT INTO kn_problems VALUES($s,$p,$k,$r);", ("$s", sourceId), ("$p", rel), ("$k", kind), ("$r", reason)); }
     }
 
-    private (long id, long size, long mtime, string hash)? Lookup(string sourceId, string path)
+    private (long id, long size, long mtime, string hash, bool ocrMode, string extractor)? Lookup(string sourceId, string path)
     {
         lock (_gate)
         {
             using SqliteConnection c = Open();
             using SqliteCommand cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,size,mtime_ticks,hash FROM kn_files WHERE source_id=$s AND path=$p;";
+            cmd.CommandText = "SELECT id,size,mtime_ticks,hash,ocr_mode,extractor FROM kn_files WHERE source_id=$s AND path=$p;";
             cmd.Parameters.AddWithValue("$s", sourceId); cmd.Parameters.AddWithValue("$p", path);
             using SqliteDataReader r = cmd.ExecuteReader();
-            return r.Read() ? (r.GetInt64(0), r.GetInt64(1), r.GetInt64(2), r.GetString(3)) : null;
+            return r.Read() ? (r.GetInt64(0), r.GetInt64(1), r.GetInt64(2), r.GetString(3), r.GetInt32(4) != 0,
+                r.IsDBNull(5) ? string.Empty : r.GetString(5)) : null;
         }
     }
 
@@ -456,7 +471,7 @@ WHERE file_id=$f AND id>$after ORDER BY id LIMIT 256;";
         del.ExecuteNonQuery();
     }
 
-    private void Store(string sourceId, string path, FileInfo info, long ticks, string hash, ExtractedDocument doc, long? duplicateOf, long? existingId)
+    private void Store(string sourceId, string path, FileInfo info, long ticks, string hash, ExtractedDocument doc, long? duplicateOf, long? existingId, bool ocrMode)
     {
         var chunks = new List<(string text, DocumentPosition pos)>();
         foreach (DocumentSegment segment in doc.Segments)
@@ -473,13 +488,14 @@ WHERE file_id=$f AND id>$after ORDER BY id LIMIT 256;";
             using (SqliteCommand ins = c.CreateCommand())
             {
                 ins.Transaction = tx;
-                ins.CommandText = @"INSERT INTO kn_files(source_id,path,name,size,mtime_ticks,hash,tier,extractor,note,duplicate_of,indexed_utc)
-VALUES($s,$p,$n,$z,$m,$h,$t,$e,$o,$d,$u); SELECT last_insert_rowid();";
+                ins.CommandText = @"INSERT INTO kn_files(source_id,path,name,size,mtime_ticks,hash,tier,extractor,note,duplicate_of,indexed_utc,ocr_mode)
+VALUES($s,$p,$n,$z,$m,$h,$t,$e,$o,$d,$u,$ocr); SELECT last_insert_rowid();";
                 ins.Parameters.AddWithValue("$s", sourceId); ins.Parameters.AddWithValue("$p", path); ins.Parameters.AddWithValue("$n", Path.GetFileName(path));
                 ins.Parameters.AddWithValue("$z", info.Length); ins.Parameters.AddWithValue("$m", ticks); ins.Parameters.AddWithValue("$h", hash);
                 ins.Parameters.AddWithValue("$t", doc.Tier.ToString()); ins.Parameters.AddWithValue("$e", (object?)doc.Extractor ?? DBNull.Value);
                 ins.Parameters.AddWithValue("$o", (object?)doc.Note ?? DBNull.Value); ins.Parameters.AddWithValue("$d", (object?)duplicateOf ?? DBNull.Value);
                 ins.Parameters.AddWithValue("$u", DateTime.UtcNow.ToString("O"));
+                ins.Parameters.AddWithValue("$ocr", ocrMode ? 1 : 0);
                 fileId = (long)ins.ExecuteScalar()!;
             }
             // File name is searchable even for metadata-only files: it is stored as its own first chunk.
