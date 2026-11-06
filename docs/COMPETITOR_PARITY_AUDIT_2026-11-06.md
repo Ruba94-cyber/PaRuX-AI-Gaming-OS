@@ -6,6 +6,8 @@
 
 - [Unsloth source](https://github.com/unslothai/unsloth), [docs](https://unsloth.ai/docs): SFT/RL/DPO/GRPO, FP8/full fine-tuning, many modalities and families, dataset recipes from CSV/PDF/DOCX, real-time loss/GPU, merged weights and GGUF.
 - [LM Studio server settings](https://lmstudio.ai/docs/developer/core/server/settings): authenticated local/LAN OpenAI-compatible API, JIT loading and auto-unloading, MCP access controls; server feature existence does not prove PaRuX parity.
+- [Locally Uncensored 3.0.9 / 2026-11-05 roadmap](https://github.com/PurpleDoubleD/locally-uncensored): all-in-one local chat/code/image/video, group chat, model fit hints, pose/style training beta, video previews, Android APK and beginner-friendly no-terminal setup. Real Windows installer/regression acceptance is a different gate from PaRuX code existence.
+- [Sunshine](https://github.com/LizardByte/Sunshine) / [Moonlight](https://github.com/moonlight-stream/moonlight-qt): Windows HDR/codec streaming plus gamepad and touch support; PaRuX Display/Streaming Manager requires a real host/client/HDR controller regression, not an invented native streaming engine.
 - [Playnite](https://playnite.link/): imported multi-store libraries, emulators, portable + fast library, couch/fullscreen gamepad, tags/plugins, playtime.
 - [Heroic](https://heroicgameslauncher.com/faq): Epic/GOG/Amazon login and installations, updates, repair, move, imports, queue, cloud save sync.
 - [Hydra changelog 2026-11-05](https://hydra.workwonders.app/changelog): native recomp projects, leaderboards, RPCS3/RetroArch cloud saves; [source](https://github.com/hydra-launcher/hydra) includes embedded BitTorrent. Do not copy copyright/DRM-distribution services.
@@ -22,6 +24,8 @@
 | PDF/DOCX synthetic recipe authoring | Generic document extractors exist; no end-to-end reviewed training dataset authoring | **P1 MISSING**: safe extraction, explicit reviewed prompt/answer pairs, no unattended hallucinated targets |
 | Full model/FP8/embedding fine-tuning + GSPO | No verified integrated training path compared with Unsloth | **P1 MISSING**, hardware/runtime compatibility gates |
 | Train metrics GPU / VRAM / charts & export merged model | `TrainingJobStatus.History`, Adapter Manager conversion; complete family coverage not proven | **P1 PARTIAL**: live metrics, test true merge + GGUF/FP8 against model families |
+| Locally Uncensored-style no-terminal creation + coding + video preview | Existing media generation, coding workflows, AI models and onboarding exist; unified single-window usability and performance not acceptance-tested | **P1 UX/PERF**: beginner flow, model fit, privacy, permissions, failure recovery; compare to v3.0.9 |
+| Local 4K HDR streaming and controller forwarding | Existing Display/Streaming Manager + Sunshine/Moonlight conceptual wiring | **P1 HW GATE**: real HDR/VRR, codec fallback, controller forwarding and full restoration of Windows display mode |
 | JIT unload / remote API / MCP permissions | Local API and runtime manager exist; scoped review for exact LM Studio behaviors absent | **P1 AUDIT**: auth, idle resource release, JIT, per-request MCP, model selection |
 | General model-family auto-configuration | Unsloth runner hardcoded q/k/v/o + optional MLP; pinned runtime | **P1 PARTIAL**: adaptive target inspection, save/restore, model-specific templates |
 | Parallel source of truth and user safety | Single owned runtime, no GitHub Actions, Game AI hard-off, Corporate restrictions | SOURCE; integration QA + regression |
