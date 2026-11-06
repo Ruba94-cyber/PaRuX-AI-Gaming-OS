@@ -140,6 +140,8 @@ namespace PaRuX
         {
             CreatePage.Visibility = Visibility.Collapsed;
             ProjectsPage.Visibility = Visibility.Collapsed;
+            if (ModelHubPage.Visibility == Visibility.Visible)
+                ModelHubPage.OnHidden();
             ModelHubPage.Visibility = Visibility.Collapsed;
             DocumentSearchPage.Visibility = Visibility.Collapsed;
             ModelRoutingPage.Visibility = Visibility.Collapsed;
