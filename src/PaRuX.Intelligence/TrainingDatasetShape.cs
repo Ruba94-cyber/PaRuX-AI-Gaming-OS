@@ -153,13 +153,21 @@ public static class TrainingDatasetShape
         if (root.ValueKind != JsonValueKind.Object) return false;
         if (!root.TryGetProperty("messages", out JsonElement messages)) return false;
         if (messages.ValueKind != JsonValueKind.Array || messages.GetArrayLength() == 0) return false;
+        bool hasUserContext = false, hasTrainableAssistantAnswer = false;
         foreach (JsonElement message in messages.EnumerateArray())
         {
             if (message.ValueKind != JsonValueKind.Object) return false;
             if (!message.TryGetProperty("role", out JsonElement role) || role.ValueKind != JsonValueKind.String) return false;
             if (!message.TryGetProperty("content", out JsonElement content) || content.ValueKind != JsonValueKind.String) return false;
+            string? speaker = role.GetString();
+            if (speaker == "user" && !string.IsNullOrWhiteSpace(content.GetString()))
+                hasUserContext = true;
+            if (speaker == "assistant" && hasUserContext && !string.IsNullOrWhiteSpace(content.GetString()))
+                hasTrainableAssistantAnswer = true;
         }
-        return true;
+        // SFT emits one conversational prompt/completion pair for every assistant
+        // response after a real user turn. User-only logs are not training examples.
+        return hasTrainableAssistantAnswer;
     }
 
     private static bool IsPreferenceRecord(JsonElement root) =>
