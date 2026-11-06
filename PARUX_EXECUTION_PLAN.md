@@ -6,6 +6,8 @@
 
 **Android UX:** the existing mobile Chat can send an image without text, has an 8 MiB streaming content-provider limit before base64 allocation, reports invalid/oversize selections in the composer and only clears pending attachment/draft after the local turn was admitted. These are source changes, not actual device results.
 
+**Additional quality gate on main:** multi-identifier document questions now require full, boundary-correct textual evidence for *every* exact code before returning a supported comparison; one present invoice must not satisfy a missing second invoice. Document-answer grounding and the summary shortcut explicitly warn that retrieval is a subset of indexed text, not proof all files, tables, OCR pages or images were examined. New synthetic xUnit negative comparison cases and broader QA protocol were authored. **Source only, untested on Windows.**
+
 **Remaining (BLOCKED-EXTERNAL):** Windows Contracts/App/Server builds, focused + full xUnit, FlaUI exclusive desktop (`DocumentSearchUiTests` incl. folder filtering/revocation, high DPI and controller focus), Android Kotlin build and device/UI tests, source-change race/error recovery, Corporate 8/16 GiB offline index + 30k-page/10k-file benchmarks, cross-domain evidence/abstention validation. No release, installer, signature, GitHub Actions or runtime performance claims. Preserve full suite edition parity and security policies.
 
 ## 2026-11-06 — General-purpose Corporate UX + edition consistency (P0/P1, SOURCE PARTIAL / WINDOWS UNVERIFIED)
