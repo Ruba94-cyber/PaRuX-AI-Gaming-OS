@@ -1386,15 +1386,34 @@ else:
             trainer.train(resume_from_checkpoint=resume_checkpoint)
         else:
             if method == "continued-pretraining":
+                # Continued pretraining is language modelling on all corpus tokens.
                 data = [{"text": r[cfg["text_field"]]} for r in rows()]
             else:
-                data = [{"text": tokenizer.apply_chat_template(r["messages"], tokenize=False, add_generation_prompt=False)} for r in rows()]
+                # SFT should predict assistant COMPLETIONS, not memorize user and
+                # system prompts. TRL's conversational prompt/completion pipeline
+                # applies the tokenizer's own chat template and masks the prompt.
+                # Emit one target per assistant reply, keeping full preceding turns
+                # as context; this supports multi-turn teaching without requiring
+                # a tokenizer-specific {% generation %} marker.
+                data = []
+                for record in rows():
+                    history = []
+                    for turn in record["messages"]:
+                        if (turn["role"] == "assistant"
+                                and isinstance(turn["content"], str)
+                                and turn["content"].strip()
+                                and any(previous["role"] == "user" for previous in history)):
+                            data.append({"prompt": list(history), "completion": [turn]})
+                        history.append(turn)
+                if not data:
+                    raise ValueError("SFT training has no assistant response after a real user message")
             dataset = Dataset.from_list(data)
             from trl import SFTTrainer, SFTConfig
             trainer = SFTTrainer(
                 model=model, train_dataset=dataset, processing_class=tokenizer,
                 args=sft_config(
                     dataset_text_field="text", max_seq_length=cfg["max_seq_length"],
+                    completion_only_loss=(method == "sft"),
                     packing=(method == "continued-pretraining" or bool(cfg.get("pack_sequences", False))),
                     per_device_train_batch_size=cfg.get("batch_size", 1), gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 4),
                     max_steps=cfg["max_steps"], learning_rate=cfg["learning_rate"], logging_steps=1,
