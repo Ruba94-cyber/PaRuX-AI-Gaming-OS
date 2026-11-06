@@ -2240,7 +2240,30 @@ app.MapPost("/api/v1/training/plan", async (
         shape, request.Method, request.BaseModel,
         request.LoraRank, request.MaxSteps, request.LearningRate, availableGib, request.Precision, request.TargetPreset, request.MaxSequenceLength);
 
-    return Results.Ok(ToTrainingPlanResult(plan));
+    TrainingPlanResult result = ToTrainingPlanResult(plan);
+    if (request.ValidateEntireDataset && plan.CanStart)
+    {
+        try
+        {
+            // The normal planner stays fast and bounded. The explicit Quick
+            // path scans every row and binds its SHA to the future job request.
+            QuickTrainingDatasetValidator.VerifiedDataset verified =
+                await QuickTrainingDatasetValidator.ValidateAsync(
+                    request.TrainJsonlPath, request.Method, ct);
+            result.DatasetFullyValidated = true;
+            result.DatasetVerifiedRecords = verified.Records;
+            result.DatasetSha256 = verified.Sha256;
+            result.DatasetSummary += " Full file verified: "
+                + verified.Records.ToString("N0") + " records, SHA-256 "
+                + verified.Sha256[..12] + "…";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException
+            or UnauthorizedAccessException or System.Text.DecoderFallbackException)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    }
+    return Results.Ok(result);
 }).RequireDesktopOwner();
 
 app.MapGet("/api/v1/training/jobs", (TrainingLabService training) => Results.Ok(training.List()));
