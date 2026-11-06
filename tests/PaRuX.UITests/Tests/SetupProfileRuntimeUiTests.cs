@@ -43,6 +43,10 @@ public sealed class SetupProfileRuntimeUiTests
             UiWait.For(() => page.SavedProfile() == "gaming", "Gaming only saved");
             UiWait.For(() => page.ModeTabsHidden && page.IsShown(GamesNav) && !page.IsShown(ChatNav), "the Gaming-only shell");
             UiWait.For(() => page.Exists("GameLibrary_Add_Button"), "the Games library opened");
+            UiWait.For(() => !page.IsShown("GameLibrary_ReturnToAi_Button")
+                && !page.IsShown("GameHome_LocalGuide_Button")
+                && !page.IsShown("GameHome_AssetStudio_Open"),
+                "Gaming-only hides AI-dependent actions inside the Games page");
             UiWait.For(() => page.LogContains("Setup profile switch ai -> gaming: success=True, steps=3"),
                 "the runtime stopping AI and agent services and starting the gaming service");
 
