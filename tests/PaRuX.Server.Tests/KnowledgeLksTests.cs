@@ -494,6 +494,29 @@ public sealed class KnowledgeLksTests : IDisposable
     }
 
     [Fact]
+    public void Multi_identifier_queries_require_each_requested_code_not_just_a_substring()
+    {
+        var first = new KnowledgeHit(101, "C:/Finance/invoices.pdf", "invoices.pdf",
+            "Invoice INV_2026_884: EUR 420.00 due 30 November 2026.",
+            new DocumentPosition(Page: 4), 3.0, "exact");
+        var second = new KnowledgeHit(102, "C:/Finance/invoices.pdf", "invoices.pdf",
+            "Invoice INV_2026_885: EUR 125.00 due 15 December 2026.",
+            new DocumentPosition(Page: 9), 2.0, "exact");
+
+        string question = "Compare INV_2026_884 and INV_2026_885";
+        Assert.Equal(DocumentChatKind.NotEnoughInformation,
+            DocumentChatPlanner.Plan(question, new[] { first }).Kind);
+        DocumentChatPlan complete = DocumentChatPlanner.Plan(question, new[] { first, second });
+        Assert.Equal(DocumentChatKind.NeedsModel, complete.Kind);
+        Assert.Equal(2, complete.Citations.Count);
+
+        // A shorter overlapping code is not proven by the longer code.
+        Assert.Equal(DocumentChatKind.NotEnoughInformation,
+            DocumentChatPlanner.Plan("Compare INV_2026_88 and INV_2026_884",
+                new[] { first }).Kind);
+    }
+
+    [Fact]
     public void Real_cited_technical_passage_survives_metadata_exclusion()
     {
         var metadata = new KnowledgeHit(101, "C:/manual.pdf", "manual.pdf",
