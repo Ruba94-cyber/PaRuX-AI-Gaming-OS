@@ -46,6 +46,12 @@ namespace PaRuX.Views
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact, MinWidth = 120
         };
         private readonly ComboBox _grpoReward = new() { MinWidth = 190 };
+        private readonly ComboBox _trainingPrecision = new() { MinWidth = 155 };
+        private readonly ComboBox _trainingTargets = new() { MinWidth = 160 };
+        private readonly CheckBox _trainingPacking = new()
+        {
+            Content = "Pack short SFT samples (better token utilization)"
+        };
         private readonly NumberBox _grpoGenerations = new()
         {
             Value = 4, Minimum = 2, Maximum = 16,
@@ -69,6 +75,7 @@ namespace PaRuX.Views
         {
             EnsureAllTrainingMethods();
             EnsureGrpoRewards();
+            EnsureTrainingVariants();
             _trainingPath.PlaceholderText = "JSONL: messages | prompt/chosen/rejected | text | prompt/reference | image+messages | audio+text";
 
             var panel = new StackPanel { Spacing = 10 };
@@ -86,6 +93,21 @@ namespace PaRuX.Views
             general.Children.Add(Caption("Max sequence"));
             general.Children.Add(_maxSequenceLength);
             panel.Children.Add(general);
+
+            var variants = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
+            var precisionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            precisionRow.Children.Add(Caption("Base precision"));
+            precisionRow.Children.Add(_trainingPrecision);
+            precisionRow.Children.Add(Caption("LoRA layers"));
+            precisionRow.Children.Add(_trainingTargets);
+            variants.Children.Add(precisionRow);
+            variants.Children.Add(_trainingPacking);
+            variants.Children.Add(new TextBlock
+            {
+                Text = "4-bit QLoRA uses less GPU memory. 16-bit LoRA loads full-precision base weights and requires significantly more VRAM. All-linear adds MLP adapters when the model supports those projection names.",
+                FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.72
+            });
+            panel.Children.Add(variants);
 
             var preference = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             preference.Children.Add(Caption("DPO beta"));
@@ -118,6 +140,10 @@ namespace PaRuX.Views
             panel.Children.Add(_planFindings);
 
             _trainingMethod.SelectionChanged += (_, _) => RefreshMethodControlsAndDraft();
+            _trainingPrecision.SelectionChanged += (_, _) => SyncInteractiveDraft();
+            _trainingTargets.SelectionChanged += (_, _) => SyncInteractiveDraft();
+            _trainingPacking.Checked += (_, _) => SyncInteractiveDraft();
+            _trainingPacking.Unchecked += (_, _) => SyncInteractiveDraft();
             _learningRate.ValueChanged += (_, _) => SyncInteractiveDraft();
             _maxSequenceLength.ValueChanged += (_, _) => SyncInteractiveDraft();
             _dpoBeta.ValueChanged += (_, _) => SyncInteractiveDraft();
@@ -171,9 +197,46 @@ namespace PaRuX.Views
             _grpoReward.SelectedIndex = 0;
         }
 
+        private void EnsureTrainingVariants()
+        {
+            if (_trainingPrecision.Items.Count == 0)
+            {
+                _trainingPrecision.Items.Add(new ComboBoxItem
+                {
+                    Content = "QLoRA · 4-bit (less VRAM)", Tag = TrainingPrecision.Qlora4Bit
+                });
+                _trainingPrecision.Items.Add(new ComboBoxItem
+                {
+                    Content = "LoRA · 16-bit", Tag = TrainingPrecision.Lora16Bit
+                });
+                _trainingPrecision.SelectedIndex = 0;
+            }
+            if (_trainingTargets.Items.Count == 0)
+            {
+                _trainingTargets.Items.Add(new ComboBoxItem
+                {
+                    Content = "Attention", Tag = TrainingTargetPreset.Attention
+                });
+                _trainingTargets.Items.Add(new ComboBoxItem
+                {
+                    Content = "Attention + MLP", Tag = TrainingTargetPreset.AllLinear
+                });
+                _trainingTargets.SelectedIndex = 0;
+            }
+        }
+
         private void RefreshMethodControlsAndDraft()
         {
             string method = SelectedTag(_trainingMethod) ?? TrainingMethod.Sft;
+            bool textOnly = method is not TrainingMethod.VisionSft and not TrainingMethod.TtsSft;
+            if (!textOnly && SelectedTag(_trainingPrecision) == TrainingPrecision.Lora16Bit)
+                _trainingPrecision.SelectedIndex = 0;
+            if (!textOnly && SelectedTag(_trainingTargets) == TrainingTargetPreset.AllLinear)
+                _trainingTargets.SelectedIndex = 0;
+            _trainingPrecision.IsEnabled = textOnly;
+            _trainingTargets.IsEnabled = textOnly;
+            _trainingPacking.IsEnabled = method is TrainingMethod.Sft or TrainingMethod.ContinuedPretraining;
+            if (!_trainingPacking.IsEnabled) _trainingPacking.IsChecked = false;
             _dpoBeta.IsEnabled = method == TrainingMethod.Dpo;
             _grpoReward.IsEnabled = method == TrainingMethod.Grpo;
             _grpoGenerations.IsEnabled = method == TrainingMethod.Grpo;
@@ -203,8 +266,14 @@ namespace PaRuX.Views
                     LearningRate = SafeDouble(_learningRate.Value, 0.0002),
                     DpoBeta = SafeDouble(_dpoBeta.Value, 0.1),
                     MaxSequenceLength = SafeWholeNumber(_maxSequenceLength.Value, 2048),
+                    Precision = SelectedTag(_trainingPrecision) ?? TrainingPrecision.Qlora4Bit,
+                    TargetPreset = SelectedTag(_trainingTargets) ?? TrainingTargetPreset.Attention,
+                    PackSequences = _trainingPacking.IsChecked == true,
                     GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference,
                     GrpoGenerations = SafeWholeNumber(_grpoGenerations.Value, 4),
+                    Precision = SelectedTag(_trainingPrecision) ?? TrainingPrecision.Qlora4Bit,
+                    TargetPreset = SelectedTag(_trainingTargets) ?? TrainingTargetPreset.Attention,
+                    PackSequences = _trainingPacking.IsChecked == true,
                     TextField = (_textField.Text ?? "text").Trim(),
                     ImageField = (_imageField.Text ?? "image").Trim(),
                     AudioField = (_audioField.Text ?? "audio").Trim()
