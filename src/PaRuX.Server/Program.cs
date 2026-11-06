@@ -3998,6 +3998,8 @@ static TrainingPlanResult ToTrainingPlanResult(TrainingRunPlanner.RunPlan plan) 
     DatasetSupportsSupervised = plan.Dataset.SupportsSupervisedFineTuning,
     DatasetSupportsPreference = plan.Dataset.SupportsPreferenceTuning,
     DatasetExamples = plan.Dataset.LinesRead,
+    DatasetValidChatRecords = plan.Dataset.ValidChatRecords,
+    DatasetValidPreferenceRecords = plan.Dataset.ValidPreferenceRecords,
     DatasetUnparseableLines = plan.Dataset.UnparseableLines,
     DatasetSampleTruncated = plan.Dataset.Truncated,
     DatasetSummary = plan.Dataset.Summary,
