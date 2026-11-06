@@ -31,6 +31,15 @@ public static class OnboardingTextReadinessPolicy
             : b.Backend is "text-cuda" or "text-vulkan"));
     }
 
+    public static string MissingModelMessage(bool corporateMode, bool italian) =>
+        corporateMode
+            ? italian
+                ? "Non è disponibile un modello GGUF locale. Controlla il pacchetto Corporate oppure importa un modello dalla libreria."
+                : "No local Chat GGUF is available. Check the Corporate package or import a model from the library."
+            : italian
+                ? "Non è disponibile un modello Chat. Seleziona o importa un modello dal Model Hub."
+                : "No Chat model is available. Select or import one from Model Hub.";
+
     public static string MissingRuntimeMessage(bool corporateMode, bool italian) =>
         corporateMode
             ? italian
