@@ -86,6 +86,20 @@ namespace PaRuX.Views
         private bool _syncingCompactSettingsCategory;
         private bool _settingsCategoryRefreshEnabled;
 
+        private IReadOnlyList<string> AvailableSettingsCategories => SettingsCategoryPolicy.VisibleCategories(
+            SettingsCategories, SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId),
+            CorporateMode.IsActive);
+
+        private void RefreshSettingsCategoriesForProfile()
+        {
+            IReadOnlyList<string> categories = AvailableSettingsCategories;
+            if (_categoryButtons.Keys.SequenceEqual(categories, StringComparer.Ordinal)) return;
+            bool wasRefreshing = _settingsCategoryRefreshEnabled;
+            _settingsCategoryRefreshEnabled = false;
+            try { BuildSettingsCategoryRail(); }
+            finally { _settingsCategoryRefreshEnabled = wasRefreshing; }
+        }
+
         private void BuildSettingsCategoryRail()
         {
             if (SettingsCategoryRail == null) return;
@@ -93,7 +107,10 @@ namespace PaRuX.Views
             _categoryButtons.Clear();
             SettingsCompactCategoryPicker.Items.Clear();
 
-            foreach (string category in SettingsCategories)
+            IReadOnlyList<string> categories = AvailableSettingsCategories;
+            if (!categories.Contains(_selectedSettingsCategory, StringComparer.Ordinal))
+                _selectedSettingsCategory = categories.FirstOrDefault() ?? "General";
+            foreach (string category in categories)
             {
                 var button = new Button
                 {
@@ -125,7 +142,7 @@ namespace PaRuX.Views
         {
             string[] terms = (query ?? string.Empty)
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (terms.Length == 0) return SettingsCategories;
+            if (terms.Length == 0) return AvailableSettingsCategories;
             if (_settingsSearchIndex.Count == 0 && SettingsContentPanel != null)
             {
                 foreach (object child in SettingsContentPanel.Children)
@@ -141,7 +158,7 @@ namespace PaRuX.Views
                 }
             }
 
-            return SettingsCategories
+            return AvailableSettingsCategories
                 .Where(category =>
                 {
                     string searchable = category + " "
@@ -222,7 +239,7 @@ namespace PaRuX.Views
 
         private void OpenSettingsSearchResult(string category)
         {
-            if (!SettingsCategories.Contains(category, StringComparer.Ordinal)) return;
+            if (!_categoryButtons.ContainsKey(category)) return;
             SettingsSearchBox.Text = string.Empty;
             SettingsSearchBox.ItemsSource = null;
             foreach (Button button in _categoryButtons.Values)
@@ -232,12 +249,12 @@ namespace PaRuX.Views
 
         private void SelectSettingsCategory(string category)
         {
-            if (!SettingsCategories.Contains(category, StringComparer.Ordinal)) return;
+            if (!_categoryButtons.ContainsKey(category)) return;
             _selectedSettingsCategory = category;
 
             if (SettingsCompactCategoryPicker != null)
             {
-                int selectedIndex = Array.IndexOf(SettingsCategories, category);
+                int selectedIndex = _categoryButtons.Keys.ToList().IndexOf(category);
                 if (SettingsCompactCategoryPicker.SelectedIndex != selectedIndex)
                 {
                     _syncingCompactSettingsCategory = true;
@@ -299,6 +316,7 @@ namespace PaRuX.Views
         /// <summary>Called by MainWindow each time the settings page is shown.</summary>
         public void OnShown()
         {
+            RefreshSettingsCategoriesForProfile();
             LoadFromSettings();
             _settingsCategoryRefreshEnabled = true;
             // Only the selected category queries Core. The previous implementation launched
