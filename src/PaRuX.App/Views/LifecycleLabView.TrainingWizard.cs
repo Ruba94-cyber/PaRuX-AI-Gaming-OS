@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PaRuX.Contracts;
+using PaRuX.Intelligence;
 using PaRuX.Services;
 
 namespace PaRuX.Views
@@ -54,6 +55,13 @@ namespace PaRuX.Views
         private readonly TextBox _audioField = new() { Text = "audio", Header = "Audio field", MinWidth = 150 };
         private readonly TextBlock _methodRequirements = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.72 };
 
+        private readonly Button _quickTrainButton = new()
+        {
+            Content = "Quick train · Recommended LoRA/QLoRA",
+            MinHeight = 42
+        };
+        private readonly Button _startTrainingButton = new() { Content = "Start local training" };
+        private bool _trainingSubmissionInProgress;
         private TrainingPlanResult? _lastPlan;
 
         private UIElement BuildTrainingWizardControls()
@@ -243,6 +251,149 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 _planSummary.Text = "Could not check this run: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Real, owner-triggered quick fine-tune. The Core's planner and runtime admission
+        /// are authoritative. This is not a second training engine and never installs
+        /// dependencies or starts GPU work when the page opens.
+        /// </summary>
+        private async Task StartQuickTrainingAsync()
+        {
+            if (_trainingSubmissionInProgress) return;
+            string path = (_trainingPath.Text ?? string.Empty).Trim();
+            string model = (_baseModel.Text ?? string.Empty).Trim();
+            if (path.Length == 0 || model.Length == 0)
+            {
+                _status.Text = "Quick training: choose a JSONL dataset and a trainable base model first.";
+                return;
+            }
+
+            _trainingSubmissionInProgress = true;
+            _quickTrainButton.IsEnabled = false;
+            _startTrainingButton.IsEnabled = false;
+            try
+            {
+                _status.Text = "Quick training: checking the local training runtime and dataset…";
+                TrainingEngineStatus engine = await TrainingLabClient.Current
+                    .GetEngineStatusAsync(CancellationToken.None);
+                if (!engine.Ready)
+                {
+                    _status.Text = "Quick training unavailable: " + engine.Detail
+                        + " Use Install/repair managed Training runtime above.";
+                    return;
+                }
+
+                // SFT first: do not infer or manufacture rejected answers to force DPO.
+                TrainingPlanResult sample = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
+                {
+                    TrainJsonlPath = path, BaseModel = model, Method = TrainingMethod.Sft,
+                    LoraRank = 16, MaxSteps = 60, LearningRate = 0.0002,
+                    MaxSequenceLength = 2048
+                }, CancellationToken.None);
+                string? method = QuickTrainingPolicy.ChooseMethod(
+                    sample.DatasetSupportsSupervised, sample.DatasetSupportsPreference);
+                if (method == null)
+                {
+                    _lastPlan = sample;
+                    RenderPlan(sample);
+                    _status.Text = "Quick training requires valid SFT messages[] or genuine DPO preference pairs. "
+                        + "For other dataset types, expand Advanced training.";
+                    return;
+                }
+                if (!engine.AvailableMethods.Contains(method, StringComparer.Ordinal))
+                {
+                    _status.Text = "Quick training: this managed runtime does not support "
+                        + method.ToUpperInvariant() + " on the detected hardware. " + engine.Detail;
+                    return;
+                }
+
+                if (method == TrainingMethod.Dpo)
+                    sample = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
+                    {
+                        TrainJsonlPath = path, BaseModel = model, Method = TrainingMethod.Dpo,
+                        LoraRank = 16, MaxSteps = 60, LearningRate = 5e-6,
+                        MaxSequenceLength = 2048
+                    }, CancellationToken.None);
+
+                var profile = QuickTrainingPolicy.Create(method,
+                    sample.RecommendedLoraRank, sample.RecommendedMaxSteps,
+                    sample.RecommendedLearningRate, sample.RecommendedMaxSequenceLength);
+
+                // Check the ACTUAL capped job settings, not merely the recommendation.
+                TrainingPlanResult checkedRun = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
+                {
+                    TrainJsonlPath = path, BaseModel = model, Method = profile.Method,
+                    LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
+                    LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength
+                }, CancellationToken.None);
+                _lastPlan = checkedRun;
+                RenderPlan(checkedRun);
+                string? refusal = QuickTrainingPolicy.Refusal(
+                    checkedRun.CanStart, checkedRun.DatasetExamples,
+                    checkedRun.DatasetUnparseableLines, checkedRun.DatasetSampleTruncated);
+                if (refusal != null)
+                {
+                    _status.Text = "Quick training blocked: " + refusal;
+                    return;
+                }
+
+                var warnings = checkedRun.Findings
+                    .Where(finding => string.Equals(finding.Severity, "Warning", StringComparison.OrdinalIgnoreCase))
+                    .Take(5)
+                    .Select(finding => "• " + finding.Message)
+                    .ToArray();
+                if (warnings.Length > 0)
+                {
+                    var confirmation = new ContentDialog
+                    {
+                        Title = "Review quick fine-tune warnings",
+                        Content = new TextBlock
+                        {
+                            Text = "Method " + profile.Method.ToUpperInvariant()
+                                + " · rank " + profile.LoraRank
+                                + " · " + profile.MaxSteps + " steps"
+                                + " · sequence " + profile.MaxSequenceLength
+                                + "\n\n" + string.Join("\n", warnings)
+                                + "\n\nStart this local GPU job anyway?",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        PrimaryButtonText = "Start local training",
+                        CloseButtonText = "Cancel",
+                        DefaultButton = ContentDialogButton.Close,
+                        XamlRoot = XamlRoot
+                    };
+                    if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+                    {
+                        _status.Text = "Quick training cancelled. No training job was submitted.";
+                        return;
+                    }
+                }
+
+                // Bypass the shared Advanced-draft override: the request sent must match the
+                // exact settings approved by the preflight and any warning confirmation.
+                TrainingJobStatus job = await TrainingLabClient.Current.CreateJobExplicitAsync(
+                    new TrainingJobRequest
+                    {
+                        TrainJsonlPath = path, BaseModel = model, Method = profile.Method,
+                        LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
+                        LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength
+                    }, CancellationToken.None);
+                _status.Text = "Quick " + profile.Method.ToUpperInvariant() + " job " + job.Id
+                    + " queued with " + profile.MaxSteps + " steps and rank "
+                    + profile.LoraRank + ". Track progress below; the completed adapter is registered locally.";
+                await RefreshTrainingAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "Quick training failed before or during submission: " + ex.Message;
+            }
+            finally
+            {
+                _trainingSubmissionInProgress = false;
+                _quickTrainButton.IsEnabled = true;
+                _startTrainingButton.IsEnabled = true;
             }
         }
 
