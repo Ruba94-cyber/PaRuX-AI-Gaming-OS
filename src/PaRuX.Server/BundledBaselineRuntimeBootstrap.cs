@@ -265,17 +265,13 @@ internal static class BundledBaselineRuntimeBootstrap
         }
         catch { }
 
-        // Portable-data mode cannot inherit Documents\\LocalAI from the build/test PC.
-        // This selection must agree with LocalAiPaths.ResolveRoot before bootstrapping.
-        string? portableDataRoot = Environment.GetEnvironmentVariable("PARUX_DATA_ROOT");
-        if (!string.IsNullOrWhiteSpace(portableDataRoot) && Path.IsPathFullyQualified(portableDataRoot))
-            return PaRuX.Contracts.PaRuXDataRoot.Combine("LocalAI");
-
-        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        string legacy = Path.Combine(documents, "LocalAI");
-        if (Directory.Exists(Path.Combine(legacy, "runtime")) || Directory.Exists(Path.Combine(legacy, "models")))
-            return legacy;
-
-        return PaRuX.Contracts.PaRuXDataRoot.Combine("LocalAI");
+        string legacy = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LocalAI");
+        return PortableLocalAiRootPolicy.Resolve(
+            PaRuX.Contracts.PaRuXDataRoot.Path,
+            Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"),
+            legacy,
+            Directory.Exists(Path.Combine(legacy, "runtime")) ||
+            Directory.Exists(Path.Combine(legacy, "models")));
     }
 }
