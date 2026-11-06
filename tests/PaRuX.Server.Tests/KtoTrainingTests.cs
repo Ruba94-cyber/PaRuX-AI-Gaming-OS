@@ -94,6 +94,31 @@ public sealed class KtoTrainingTests : IDisposable
     }
 
     [Fact]
+    public void Preview_and_worker_share_the_same_physical_batch_fit_policy()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var supported = TrainingBatchShapePolicy.Plan(2048, 16 * gib);
+        var constrained = TrainingBatchShapePolicy.Plan(2048, 4 * gib);
+        Assert.Equal(4, supported.MicroBatch);
+        Assert.True(constrained.MicroBatch < 4);
+        Assert.Equal(supported,
+            TrainingLabService.PlanBatchShape(2048, availableVramBytesOverride: 16 * gib));
+
+        string path = Save("batch-plan.jsonl",
+            Enumerable.Range(0, 100).Select(i => Record(i, i % 2 == 0)));
+        TrainingDatasetShape.Shape shape = TrainingDatasetShape.Inspect(path);
+        TrainingRunPlanner.RunPlan ready = TrainingRunPlanner.Plan(
+            shape, TrainingMethod.Kto, "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit",
+            16, 80, 1e-6, 16, maxSequenceLength: 2048);
+        TrainingRunPlanner.RunPlan blocked = TrainingRunPlanner.Plan(
+            shape, TrainingMethod.Kto, "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit",
+            16, 80, 1e-6, 4, maxSequenceLength: 2048);
+        Assert.True(ready.CanStart);
+        Assert.False(blocked.CanStart);
+        Assert.Contains(blocked.Blocking, x => x.Field == "maxSequenceLength");
+    }
+
+    [Fact]
     public void KTO_is_accelerated_only_and_uses_the_pinned_TRL_runner()
     {
         Assert.Contains(TrainingMethod.Kto,
