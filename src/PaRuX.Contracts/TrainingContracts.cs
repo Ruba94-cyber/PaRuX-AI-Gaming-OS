@@ -51,11 +51,12 @@ public static class TrainingMethod
     public const string Sft = "sft";
     public const string Dpo = "dpo";
     public const string Orpo = "orpo";
+    public const string Kto = "kto";
     public const string ContinuedPretraining = "continued-pretraining";
     public const string Grpo = "grpo";
     public const string VisionSft = "vision-sft";
     public const string TtsSft = "tts-sft";
-    public static readonly string[] All = { Sft, Dpo, Orpo, ContinuedPretraining, Grpo, VisionSft, TtsSft };
+    public static readonly string[] All = { Sft, Dpo, Orpo, Kto, ContinuedPretraining, Grpo, VisionSft, TtsSft };
 
     public static string Normalize(string? value)
     {
@@ -118,7 +119,8 @@ public static class GrpoRewardMode
 public sealed class TrainingJobRequest
 {
     /// <summary>
-    /// JSONL dataset. SFT: {messages:[...]}; DPO: {prompt,chosen,rejected}; continued pretraining:
+    /// JSONL dataset. SFT: {messages:[...]}; DPO/ORPO: {prompt,chosen,rejected};
+    /// KTO: {prompt,completion,label:true|false}; continued pretraining:
     /// {text}; GRPO: {prompt,reference} for reference rewards (format rewards need prompt only);
     /// Vision SFT: {image,messages:[...]}; TTS SFT: {audio,text}.
     /// Relative media paths are resolved from the JSONL directory.
@@ -129,7 +131,7 @@ public sealed class TrainingJobRequest
     public int MaxSteps { get; set; } = 60;
     public double LearningRate { get; set; } = 0.0002;
     public string Method { get; set; } = TrainingMethod.Sft;
-    /// <summary>Preference objective strength for DPO and ORPO.</summary>
+    /// <summary>Preference objective strength for DPO, ORPO and KTO.</summary>
     public double DpoBeta { get; set; } = 0.1;
     public int MaxSequenceLength { get; set; } = 2048;
     /// <summary>4-bit QLoRA by default; 16-bit LoRA uses more memory and is opt-in.</summary>
@@ -210,6 +212,7 @@ public sealed class TrainingPlanResult
 
     public bool DatasetSupportsSupervised { get; set; }
     public bool DatasetSupportsPreference { get; set; }
+    public bool DatasetSupportsKto { get; set; }
     public bool DatasetSupportsContinuedPretraining { get; set; }
     public bool DatasetSupportsGrpo { get; set; }
     public bool DatasetSupportsVision { get; set; }
@@ -217,6 +220,9 @@ public sealed class TrainingPlanResult
     public int DatasetExamples { get; set; }
     public int DatasetValidChatRecords { get; set; }
     public int DatasetValidPreferenceRecords { get; set; }
+    public int DatasetValidKtoRecords { get; set; }
+    public int DatasetDesirableKtoRecords { get; set; }
+    public int DatasetUndesirableKtoRecords { get; set; }
     public int DatasetUnparseableLines { get; set; }
     public bool DatasetSampleTruncated { get; set; }
     public string DatasetSummary { get; set; } = string.Empty;
