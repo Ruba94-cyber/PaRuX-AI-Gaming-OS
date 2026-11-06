@@ -84,6 +84,8 @@ public sealed class ProfileSurfaceUiContractTests
         string client = Read("src", "PaRuX.App", "Services", "KnowledgeClient.cs");
         Assert.Contains("DocSearch_SearchActions_Panel", search, StringComparison.Ordinal);
         Assert.Contains("SemaphoreSlim(4)", search, StringComparison.Ordinal);
+        Assert.Contains("cached.State is \"running\" or \"paused\"", search, StringComparison.Ordinal);
+        Assert.Contains("GridUnitType.Star", search, StringComparison.Ordinal);
         Assert.Contains("if (row.ActionState == st.State) return;", search, StringComparison.Ordinal);
         Assert.Contains("DocSearch_RemoveConfirm_Dialog", search, StringComparison.Ordinal);
         Assert.Contains("DocSearch_FolderProgress_", search, StringComparison.Ordinal);
@@ -105,6 +107,9 @@ public sealed class ProfileSurfaceUiContractTests
         string screen = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatScreen.kt");
         string model = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatViewModel.kt");
         Assert.Contains("if (accepted)", screen, StringComparison.Ordinal);
+        Assert.Contains("enabled = text.isNotBlank() || hasAttachment", screen, StringComparison.Ordinal);
+        Assert.Contains("MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024", screen, StringComparison.Ordinal);
+        Assert.Contains("ByteArrayOutputStream()", screen, StringComparison.Ordinal);
         Assert.Contains("fun sendMessage(text: String, image: PendingImage? = null, oneShotSkillId: String? = null): Boolean", model, StringComparison.Ordinal);
         Assert.Contains("if (_state.value.gamingMode)", model, StringComparison.Ordinal);
         Assert.Contains("if (container.client.value == null)", model, StringComparison.Ordinal);
