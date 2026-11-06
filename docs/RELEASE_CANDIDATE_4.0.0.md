@@ -14,7 +14,7 @@ Built and verified on the Windows development PC (no GitHub Actions). Artifacts 
 - Server xUnit, run in alphabetical chunks: all chunks green after fixes (MonoTorrent notice row, ps1-shim support in
   `tools/test-agent-platform-v2.ps1`, suspend theory typing, duplicate-mod test, read-only git fixture cleanup).
   Known flake: some chunks occasionally lose the test host (exit code -1, no managed exception, no dump); every chunk had a clean pass on re-run. Cause not identified.
-- FlaUI Smoke 35/35. FlaUI Regression 287/290; the 3 failures were fixed (guide-dialog empty state is now exposed to UIA, shared-read of `manual-games.json`, Quick Resume scrolling/assertions) and re-run green individually. A final full Regression re-run is still advised.
+- Final 4.0.0 source: Server xUnit all chunks green (no host exits this run); FlaUI Smoke 35/35; FlaUI Regression run in chunks 283/283 green (one earlier full run: 287/290 -> 3 fixed; hosts occasionally hang/exit at teardown with the app orphaned - tests had passed). Earlier note: FlaUI Smoke 35/35. FlaUI Regression 287/290; the 3 failures were fixed (guide-dialog empty state is now exposed to UIA, shared-read of `manual-games.json`, Quick Resume scrolling/assertions) and re-run green individually. A final full Regression re-run is still advised.
 - FlaUI is serialised machine-wide with `tools/Invoke-ExclusiveDesktop.ps1` (open-handle lock in
   `%LOCALAPPDATA%\PaRuX\TestCoordination`, refuses to start while another UI test runner is active, never kills anything).
 
@@ -32,3 +32,8 @@ Built and verified on the Windows development PC (no GitHub Actions). Artifacts 
 4. Rebuild portable + Corporate Lite from the same commit; sign the executables inside if required.
 5. `git tag v4.0.0`; Android: `PARUX_ANDROID_KEYSTORE` + passwords, `scripts/publish-android-apk.ps1 -Tag v4.0.0` (or `-LocalOnly`).
 6. `scripts/verify-release-assets.ps1`; generate SHA-256; `gh release create v4.0.0` with honest status labels.
+
+## Plan items NOT implemented (need external credentials, hardware, or multi-session design)
+- UAI-08..12 Microsoft 365 / Google connectors and cross-app work (OAuth client registrations and real accounts required), UAI-19 connector ecosystem.
+- L1 local tuning runtime; L6/L7 OS-event/sensor and controller driver wiring (physical hardware); UAI-14/15/18 depth and independent competitive evaluation.
+- Many P1/P2 items remain PARTIAL in PARUX_EXECUTION_PLAN.md; none were declared DONE by this validation pass.
