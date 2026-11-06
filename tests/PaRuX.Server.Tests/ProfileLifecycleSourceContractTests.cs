@@ -29,6 +29,20 @@ public sealed class ProfileLifecycleSourceContractTests
     }
 
     [Fact]
+    public void Gaming_only_hides_every_ai_dependent_command_inside_the_gaming_workspace()
+    {
+        string home = Read("src", "PaRuX.App", "Views", "GamingHomeView.cs");
+        string page = Read("src", "PaRuX.App", "Views", "ManualGameLibraryView.cs");
+        string wrapper = Read("src", "PaRuX.App", "Views", "UniversalLibraryPanel.cs");
+        Assert.Contains("_localGuide.Visibility = aiEnabled", home, StringComparison.Ordinal);
+        Assert.Contains("_gameAssetStudio.Visibility = aiEnabled", home, StringComparison.Ordinal);
+        Assert.Contains("_returnToAi.Visibility = gamingOnly", page, StringComparison.Ordinal);
+        Assert.Contains("if (GamingOnlySetup || _busy || !_returnToAiAvailable)", page, StringComparison.Ordinal);
+        Assert.Contains("_universal?.ApplySetupProfilePresentation()", page, StringComparison.Ordinal);
+        Assert.Contains("_home.ApplySetupProfilePresentation()", wrapper, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Model_hub_cancels_background_polls_before_hide_and_only_starts_one_initial_refresh()
     {
         string hub = Read("src", "PaRuX.App", "Views", "ModelHubView.cs");
