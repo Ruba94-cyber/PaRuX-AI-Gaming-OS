@@ -80,23 +80,52 @@ namespace PaRuX.Services
         /// <summary>
         /// Gets the ordered workspace entries filtered by interface mode (Simple vs Advanced).
         /// </summary>
-        public static IReadOnlyList<WorkspaceNavigationEntry> GetEntries(bool isAdvancedMode, bool isGamingMode = false)
+        public static IReadOnlyList<WorkspaceNavigationEntry> GetEntries(
+            bool isAdvancedMode, bool isGamingMode = false,
+            SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null)
         {
-            bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+            bool corporate = corporateMode ?? PaRuX.Contracts.CorporateMode.IsActive;
+            // Only the installed purpose decides the usable surface. The AI/Gaming tab is
+            // a selector when BOTH was chosen, not an override of an AI-only setup.
+            bool gaming = !corporate && (setupProfile == SetupProfile.GamingOnly
+                || (setupProfile == SetupProfile.Both && isGamingMode));
             return AllEntries
-                .Where(e => (corporate || !e.IsCorporateOnly) && (isGamingMode
-                    ? e.IsGamingOnly || IsSharedAcrossModes(e)
-                    : !e.IsGamingOnly && (isAdvancedMode || !e.IsAdvancedOnly)))
+                .Where(e => corporate
+                    ? e.AutomationId is ChatAutomationId or DocumentSearchAutomationId
+                        or SettingsAutomationId or HelpAutomationId
+                    : gaming
+                        ? e.IsGamingOnly || IsSharedAcrossModes(e)
+                        : !e.IsGamingOnly && !e.IsCorporateOnly
+                            && (isAdvancedMode || !e.IsAdvancedOnly))
                 .ToList()
                 .AsReadOnly();
+        }
+
+        /// <summary>Navigation permission for in-app links, keyboard actions and hidden workspaces.
+        /// Corporate Model Hub is a secondary, reachable model-management flow from Chat/Settings,
+        /// but it is intentionally not a permanent sidebar tab. Hiding a nav item by itself
+        /// must not make unsupported Create/Gaming/Advanced pages accessible by deep link.</summary>
+        public static bool CanOpenWorkspace(string? tag, SetupProfile profile, bool corporateMode)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) return false;
+            if (tag is "__settings__" or "__help__") return true;
+            if (corporateMode)
+                return tag is "__chat__" or "__documents__" or "__modelhub__";
+            if (profile == SetupProfile.GamingOnly) return tag == GamesWorkspaceTag;
+            if (tag == DocumentSearchWorkspaceTag) return false;
+            if (tag == GamesWorkspaceTag) return profile == SetupProfile.Both;
+            return AllEntries.Any(e => string.Equals(e.Tag, tag, StringComparison.Ordinal)
+                && !e.IsGamingOnly && !e.IsCorporateOnly);
         }
 
         /// <summary>
         /// Gets the ordered AutomationIds filtered by interface mode.
         /// </summary>
-        public static IReadOnlyList<string> GetOrderedAutomationIds(bool isAdvancedMode, bool isGamingMode = false)
+        public static IReadOnlyList<string> GetOrderedAutomationIds(
+            bool isAdvancedMode, bool isGamingMode = false,
+            SetupProfile setupProfile = SetupProfile.Both, bool? corporateMode = null)
         {
-            return GetEntries(isAdvancedMode, isGamingMode)
+            return GetEntries(isAdvancedMode, isGamingMode, setupProfile, corporateMode)
                 .Select(e => e.AutomationId)
                 .ToList()
                 .AsReadOnly();
