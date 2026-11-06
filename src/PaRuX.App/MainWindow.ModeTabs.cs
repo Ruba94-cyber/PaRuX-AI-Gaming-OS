@@ -105,6 +105,9 @@ public sealed partial class MainWindow
         }
         ApplyModeTabVisibility();
         EnsureWorkspaceFitsSetupProfile();
+        // The bubble is another AI navigation surface. Gaming-only must hide it
+        // immediately rather than waiting for the next game/watchdog event.
+        App.BubbleWin?.ApplyVisibilityMode();
     }
 
     /// <summary>Selects a tab; optionally opens its default page (AI = Chat, Gaming = Games library).</summary>
