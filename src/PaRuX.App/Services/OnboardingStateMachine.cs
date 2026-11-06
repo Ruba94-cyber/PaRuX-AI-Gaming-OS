@@ -37,7 +37,8 @@ namespace PaRuX.Services
 
         public bool IsTextRuntime =>
             string.Equals(Id, "llama-server-cuda", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Id, "llama-server-vulkan", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(Id, "llama-server-vulkan", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Id, "llama-server-cpu", StringComparison.OrdinalIgnoreCase);
 
         public bool IsMediaRuntime =>
             string.Equals(Id, "comfyui", StringComparison.OrdinalIgnoreCase);
@@ -137,7 +138,8 @@ namespace PaRuX.Services
         /// True if the bundled baseline Vulkan text runtime is detected, providing a working text path with 0 B runtime download.
         /// </summary>
         public bool HasBundledTextRuntime =>
-            _components.Any(c => string.Equals(c.Id, "llama-server-vulkan", StringComparison.OrdinalIgnoreCase) && c.Detected);
+            _components.Any(c => (string.Equals(c.Id, "llama-server-vulkan", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.Id, "llama-server-cpu", StringComparison.OrdinalIgnoreCase)) && c.Detected);
 
         public void ConfigureRoot(string path)
         {
@@ -211,8 +213,10 @@ namespace PaRuX.Services
             && a.Detected == b.Detected
             && a.Skipped == b.Skipped
             && string.Equals(a.Version, b.Version, StringComparison.Ordinal)
-            && string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(a.Health, b.Health, StringComparison.Ordinal);
+            && string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase);
+            // Health changes from installed -> healthy when an idle runtime wakes.
+            // That is NOT a configuration change and must not invalidate the
+            // one-time Chat challenge while its first CPU process is starting.
 
         public void ApplyComponentAction(string componentId, ComponentSetupAction action, string? path = null)
         {
