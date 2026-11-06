@@ -435,6 +435,11 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         string precision = TrainingPrecision.Normalize(request.Precision);
         string targets = TrainingTargetPreset.Normalize(request.TargetPreset);
         if (precision == TrainingPrecision.Lora16Bit
+            && (request.BaseModel.Contains("4bit", StringComparison.OrdinalIgnoreCase)
+                || request.BaseModel.Contains("bnb-4bit", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException(
+                "16-bit LoRA needs a true unquantized Hugging Face checkpoint, not a prequantized 4-bit model.");
+        if (precision == TrainingPrecision.Lora16Bit
             && (method is TrainingMethod.VisionSft or TrainingMethod.TtsSft))
             throw new InvalidDataException(
                 "16-bit LoRA is not validated for Vision/TTS. Use 4-bit QLoRA or a supported text method.");
@@ -1155,6 +1160,8 @@ else:
         targets = ["q_proj", "k_proj", "v_proj", "o_proj"]
         if preset == "all-linear":
             targets += ["gate_proj", "up_proj", "down_proj"]
+        if precision == "lora-16bit" and "4bit" in base_model.lower():
+            raise ValueError("16-bit LoRA requires an unquantized base model, not a bnb-4bit checkpoint")
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=base_model, max_seq_length=cfg["max_seq_length"], dtype=None,
             load_in_4bit=(precision == "qlora-4bit"))
