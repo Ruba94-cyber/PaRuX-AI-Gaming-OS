@@ -53,8 +53,21 @@ public static class SetupProfilePolicy
         _ => BothId
     };
 
-    public static SetupProfilePlan Plan(SetupProfile profile) => profile switch
+    public static SetupProfilePlan Plan(SetupProfile profile) =>
+        Plan(profile, PaRuX.Contracts.CorporateMode.IsActive);
+
+    /// <summary>Corporate is a true lightweight chat-only runtime profile, not
+    /// merely an AI-only navigation filter. No Gaming or heavy coding/binary/desktop
+    /// agent workers are started for the preloaded CPU chat/document experience.</summary>
+    public static SetupProfilePlan Plan(SetupProfile profile, bool corporateMode)
     {
+        if (corporateMode)
+            return new SetupProfilePlan(
+                StartLocalAi: true, StartGaming: false, StartAgentWorkers: false,
+                RequireLanguageModel: true, ShowAiWorkspaces: true,
+                ShowGamingWorkspace: false, ShowModeTabs: false, StartInGamingTab: false);
+        return profile switch
+        {
         SetupProfile.AiOnly => new SetupProfilePlan(
             StartLocalAi: true, StartGaming: false, StartAgentWorkers: true, RequireLanguageModel: true,
             ShowAiWorkspaces: true, ShowGamingWorkspace: false, ShowModeTabs: false, StartInGamingTab: false),
@@ -64,7 +77,8 @@ public static class SetupProfilePolicy
         _ => new SetupProfilePlan(
             StartLocalAi: true, StartGaming: true, StartAgentWorkers: true, RequireLanguageModel: true,
             ShowAiWorkspaces: true, ShowGamingWorkspace: true, ShowModeTabs: true, StartInGamingTab: false)
-    };
+        };
+    }
 
     public static string Label(SetupProfile profile, bool italian) => profile switch
     {
