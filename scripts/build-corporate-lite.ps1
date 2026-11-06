@@ -43,10 +43,14 @@ New-Item -ItemType Directory -Force $outRoot, $assets | Out-Null
 $portableStage = Join-Path $repoRoot "artifacts\portable\stage\PaRuX"
 if (-not $SkipPublish) {
     $pv = @{}; if ($Version) { $pv["Version"] = $Version }
-    & (Join-Path $PSScriptRoot "build-portable.ps1") @pv
+    # Corporate Lite has its own CPU engine and must not inherit the Standard portable Vulkan pack.
+    & (Join-Path $PSScriptRoot "build-portable.ps1") @pv -WithoutVulkan
     if ($LASTEXITCODE -ne 0) { throw "Portable build failed." }
 }
 if (-not (Test-Path (Join-Path $portableStage "PaRuX.exe"))) { throw "Portable stage not found. Run without -SkipPublish." }
+if (Test-Path (Join-Path $portableStage "PaRuX.Server\\runtime-baseline")) {
+    throw "Corporate Lite requires a CPU-only portable stage. Rebuild without -SkipPublish using -WithoutVulkan."
+}
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force $stage | Out-Null
 Copy-Item -Path (Join-Path $portableStage "*") -Destination $stage -Recurse -Force
