@@ -177,7 +177,8 @@ WHERE source_id=$s AND path=$p;";
                 state = StagePdfPages(sourceId, path, state, currentPage + 1, empty, pending);
                 pending.Clear(); empty = 0; processed = 0;
                 progress?.Report(snap(control?.IsPaused == true ? "paused" : "running",
-                    Path.GetFileName(path) + " · PDF page " + currentPage + "/" + totalPages));
+                    Path.GetFileName(path) + " · PDF page " + currentPage + "/" + totalPages)
+                    with { CurrentPage = currentPage, TotalPages = totalPages });
             }
         }
         if (processed > 0)
