@@ -223,7 +223,7 @@ try {
             $zipEntry = $z.GetEntry("PaRuX-Corporate-Lite/" + $check.entry)
             if ($null -eq $zipEntry) { throw "Missing $($check.title) archive entry." }
             $stream = $zipEntry.Open()
-            try { $actual = [Convert]::ToHexString($shaTool.ComputeHash($stream)).ToLowerInvariant() }
+            try { $actual = [BitConverter]::ToString($shaTool.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
             finally { $stream.Dispose() }
             if ($actual -ne $check.expected) { throw "$($check.title) SHA-256 mismatch in finished ZIP." }
         }
