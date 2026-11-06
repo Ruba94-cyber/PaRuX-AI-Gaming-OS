@@ -777,6 +777,12 @@ namespace PaRuX.Server.Tests
             Assert.Equal(before, sm.ConfigurationRevision);
             Assert.True(sm.ChatAnswerVerified);
             Assert.Equal("healthy", sm.Components[0].Health);
+            var result = sm.EvaluateReadiness(ChatReadinessEvidence.Create(
+                runtimeHealthy: true, runtimeSummary: "Bundled CPU engine",
+                modelAvailable: true, modelSummary: "starter.gguf",
+                probeSucceeded: true, probeSummary: "Healthy"));
+            Assert.True(result.IsReady);
+            Assert.Contains("CPU text runtime", result.Summary);
         }
 
         [Fact]
