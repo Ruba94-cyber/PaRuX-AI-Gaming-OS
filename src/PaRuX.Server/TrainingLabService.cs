@@ -449,7 +449,7 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
             throw new InvalidDataException("learningRate must be finite, > 0 and <= 0.01.");
         if (request.MaxSequenceLength is < 128 or > 1_048_576)
             throw new InvalidDataException("maxSequenceLength must be between 128 and 1,048,576.");
-        if (method == TrainingMethod.Dpo && request.DpoBeta is <= 0 or > 10)
+        if ((method is TrainingMethod.Dpo or TrainingMethod.Orpo) && request.DpoBeta is <= 0 or > 10)
             throw new InvalidDataException("dpoBeta must be > 0 and <= 10.");
         if (method == TrainingMethod.Grpo)
         {
@@ -1169,7 +1169,26 @@ else:
             lora_alpha=cfg["lora_rank"] * 2, lora_dropout=0, bias="none",
             use_gradient_checkpointing="unsloth", random_state=3407)
 
-        if method == "dpo":
+        if method == "orpo":
+            # ORPO uses the same genuine paired preference schema as DPO, but it
+            # optimizes chosen likelihood + an odds-ratio penalty without a reference model.
+            data = [{"prompt": r["prompt"], "chosen": r["chosen"], "rejected": r["rejected"]} for r in rows()]
+            dataset = Dataset.from_list(data)
+            from trl import ORPOTrainer, ORPOConfig
+            trainer = ORPOTrainer(
+                model=model, train_dataset=dataset, processing_class=tokenizer,
+                args=ORPOConfig(
+                    per_device_train_batch_size=cfg.get("batch_size", 1),
+                    gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 4),
+                    max_steps=cfg["max_steps"], learning_rate=cfg["learning_rate"],
+                    max_length=cfg["max_seq_length"],
+                    max_prompt_length=max(64, cfg["max_seq_length"] // 2),
+                    beta=cfg.get("dpo_beta", .1), logging_steps=1,
+                    save_strategy="steps", save_steps=checkpoint_steps, save_total_limit=2,
+                    output_dir=out_dir, report_to=[],
+                    fp16=not torch.cuda.is_bf16_supported(), bf16=torch.cuda.is_bf16_supported()))
+            trainer.train(resume_from_checkpoint=resume_checkpoint)
+        elif method == "dpo":
             data = [{"prompt": r["prompt"], "chosen": r["chosen"], "rejected": r["rejected"]} for r in rows()]
             dataset = Dataset.from_list(data)
             from trl import DPOTrainer, DPOConfig
