@@ -247,11 +247,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
                 {
                     LargePdfIndexResult result = await LowPriorityRunner.Run(
                         () => IndexLargePdf(sourceId, file, info, ticks, hash, duplicateOf, existing?.id,
-                            control, progress, Snap, ct), priority, ct).ConfigureAwait(false);
+                            control, progress, Snap, limits, ct), priority, ct).ConfigureAwait(false);
                     indexed++;
                     if (result.EmptyPages > 0)
                         AddProblem(sourceId, Rel(root, file), "partial",
-                            result.EmptyPages + " page(s) have no extracted text; large-PDF OCR is not yet indexed. Do not infer data from these pages.");
+                            result.EmptyPages + " PDF page(s) have no extracted or successfully recognised OCR text."
+                            + " They are NOT searchable; review OCR configuration and source scans.");
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
