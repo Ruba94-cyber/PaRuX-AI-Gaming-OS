@@ -1,3 +1,11 @@
+### Corporate CPU readiness, profile-aware inner pages and GGUF validation (unreleased; Windows validation required)
+
+- Fixed first-run Corporate falsely requiring CUDA/Vulkan and missing its bundled CPU engine: CPU-only runtime status, inventory, diagnostics, Chat role and readiness now agree; startup ignores stale Gaming-only UI preferences and does not mutate hidden storage settings.
+- Fixed verification racing the CPU process start and rejecting a healthy component as a configuration change; real streaming still requires healthy local backend and exact local answer. Added bounded CPU cold-start allowance and clearer localized recovery instructions.
+- Hide Gaming-only actions requiring AI Chat or inference. Preserve standalone library/installed-mod tools; improve Corporate Settings category-section relevance without hiding compact replacement panels. Disable legacy Corporate floating bubble.
+- Prevent obviously invalid renamed `.gguf` files from being imported/selected/launched in Corporate by checking the first four bytes before expensive work. Existing managed import staging remains atomic.
+- Added regression contracts and test cases, not executed in this source-only session. No release published.
+
 ### UX, performance and Corporate local-AI reliability (unreleased; Windows tests pending)
 
 - Corporate first-run now verifies included CPU Chat directly instead of displaying unrelated automatic runtime installs, Vulkan components or misleading model-download guidance. Optional import/select GGUF opens the local Model Hub with a return route.
