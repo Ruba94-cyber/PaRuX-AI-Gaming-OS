@@ -13,7 +13,8 @@ namespace PaRuX.Services
 
     public sealed record KnowledgeProblem(string RelativePath, string Kind, string Reason);
 
-    public sealed record KnowledgeProgress(int FilesSeen, int Indexed, int Unchanged, int MetadataOnly, int Failed, int Skipped, int Removed, int Renamed, int Duplicates);
+    public sealed record KnowledgeProgress(int FilesSeen, int Indexed, int Unchanged, int MetadataOnly, int Failed, int Skipped, int Removed, int Renamed, int Duplicates,
+        string? Current = null, int? CurrentPage = null, int? TotalPages = null);
 
     public sealed record KnowledgeFullStatus(string State, KnowledgeProgress? Progress, int Files, int Chunks, IReadOnlyList<KnowledgeProblem> Problems, string? Error);
 
@@ -78,7 +79,8 @@ namespace PaRuX.Services
                 state = Str(job, "state"); error = NullableStr(job, "error");
                 if (job.TryGetProperty("progress", out JsonElement p) && p.ValueKind == JsonValueKind.Object)
                     progress = new KnowledgeProgress(Int(p, "filesSeen"), Int(p, "indexed"), Int(p, "unchanged"), Int(p, "metadataOnly"), Int(p, "failed"),
-                        Int(p, "skipped"), Int(p, "removed"), Int(p, "renamed"), Int(p, "duplicates"));
+                        Int(p, "skipped"), Int(p, "removed"), Int(p, "renamed"), Int(p, "duplicates"),
+                        NullableStr(p, "current"), NullableInt(p, "currentPage"), NullableInt(p, "totalPages"));
             }
             var problems = new List<KnowledgeProblem>();
             if (e.TryGetProperty("problems", out JsonElement pr) && pr.ValueKind == JsonValueKind.Array)
