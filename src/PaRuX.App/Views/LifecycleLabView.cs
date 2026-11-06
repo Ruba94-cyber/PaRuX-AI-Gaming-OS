@@ -104,6 +104,7 @@ namespace PaRuX.Views
             {
                 _refreshCts?.Cancel();
                 _recipeCts?.Cancel();
+                _quickPreflightCts?.Cancel();
             };
         }
 
