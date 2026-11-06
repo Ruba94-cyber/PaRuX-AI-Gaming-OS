@@ -819,21 +819,35 @@ namespace PaRuX.Views
                 return;
             }
 
+            // Freeze the exact reviewed settings while the HTTP preflight is in flight.
+            // Do not let an editable UI draft change the job after approval.
+            var request = new TrainingJobRequest
+            {
+                TrainJsonlPath = path, BaseModel = model, Method = method,
+                MaxSteps = SafeWholeNumber(_steps.Value, 60),
+                LoraRank = SafeWholeNumber(_rank.Value, 16),
+                LearningRate = SafeDouble(_learningRate.Value, 0.0002),
+                MaxSequenceLength = SafeWholeNumber(_maxSequenceLength.Value, 2048),
+                DpoBeta = SafeDouble(_dpoBeta.Value, 0.1),
+                GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference,
+                GrpoGenerations = SafeWholeNumber(_grpoGenerations.Value, 4),
+                TextField = string.IsNullOrWhiteSpace(_textField.Text) ? "text" : _textField.Text.Trim(),
+                ImageField = string.IsNullOrWhiteSpace(_imageField.Text) ? "image" : _imageField.Text.Trim(),
+                AudioField = string.IsNullOrWhiteSpace(_audioField.Text) ? "audio" : _audioField.Text.Trim()
+            };
+
             _trainingSubmissionInProgress = true;
             _quickTrainButton.IsEnabled = false;
             _startTrainingButton.IsEnabled = false;
             try
             {
-                SyncInteractiveDraft();
                 _status.Text = "Validating advanced training settings…";
                 TrainingPlanResult plan = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
                 {
-                    TrainJsonlPath = path, BaseModel = model, Method = method,
-                    MaxSteps = SafeWholeNumber(_steps.Value, 60),
-                    LoraRank = SafeWholeNumber(_rank.Value, 16),
-                    LearningRate = SafeDouble(_learningRate.Value, 0.0002),
-                    MaxSequenceLength = SafeWholeNumber(_maxSequenceLength.Value, 2048),
-                    GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference
+                    TrainJsonlPath = request.TrainJsonlPath, BaseModel = request.BaseModel, Method = request.Method,
+                    MaxSteps = request.MaxSteps, LoraRank = request.LoraRank,
+                    LearningRate = request.LearningRate, MaxSequenceLength = request.MaxSequenceLength,
+                    GrpoRewardMode = request.GrpoRewardMode
                 }, CancellationToken.None);
                 _lastPlan = plan;
                 RenderPlan(plan);
@@ -843,12 +857,8 @@ namespace PaRuX.Views
                     return;
                 }
 
-                TrainingJobStatus job = await TrainingLabClient.Current.CreateJobAsync(new TrainingJobRequest
-                {
-                    TrainJsonlPath = path, BaseModel = model, Method = method,
-                    MaxSteps = SafeWholeNumber(_steps.Value, 60),
-                    LoraRank = SafeWholeNumber(_rank.Value, 16)
-                }, CancellationToken.None);
+                TrainingJobStatus job = await TrainingLabClient.Current
+                    .CreateJobExplicitAsync(request, CancellationToken.None);
                 _status.Text = "Training job " + job.Id
                     + " queued. Successful output auto-registers in Adapter Manager with provenance.";
                 await RefreshTrainingAsync(CancellationToken.None);
