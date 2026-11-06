@@ -407,27 +407,40 @@ CREATE VIRTUAL TABLE IF NOT EXISTS kn_tri USING fts5(text, content='kn_chunks', 
     {
         if (_hasFts5)
         {
-            var rows = new List<(long id, string text, string? heading)>();
-            using (SqliteCommand read = c.CreateCommand())
+            // Never load millions of FTS rows from a 30,000-page manual into RAM
+            // just to retire its previous version. Pages are read and deleted in
+            // small bounded slices, while the containing transaction is atomic.
+            long lastId = 0;
+            while (true)
             {
-                read.Transaction = tx;
-                read.CommandText = "SELECT id,text,heading FROM kn_chunks WHERE file_id=$f;";
-                read.Parameters.AddWithValue("$f", fileId);
-                using SqliteDataReader r = read.ExecuteReader();
-                while (r.Read()) rows.Add((r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2)));
-            }
-            foreach ((long id, string text, string? heading) in rows)
-            {
-                using SqliteCommand d1 = c.CreateCommand();
-                d1.Transaction = tx;
-                d1.CommandText = "INSERT INTO kn_fts(kn_fts,rowid,text,heading) VALUES('delete',$i,$t,$h);";
-                d1.Parameters.AddWithValue("$i", id); d1.Parameters.AddWithValue("$t", text); d1.Parameters.AddWithValue("$h", (object?)heading ?? DBNull.Value);
-                d1.ExecuteNonQuery();
-                using SqliteCommand d2 = c.CreateCommand();
-                d2.Transaction = tx;
-                d2.CommandText = "INSERT INTO kn_tri(kn_tri,rowid,text) VALUES('delete',$i,$t);";
-                d2.Parameters.AddWithValue("$i", id); d2.Parameters.AddWithValue("$t", text);
-                d2.ExecuteNonQuery();
+                var rows = new List<(long id, string text, string? heading)>(256);
+                using (SqliteCommand read = c.CreateCommand())
+                {
+                    read.Transaction = tx;
+                    read.CommandText = @"SELECT id,text,heading FROM kn_chunks
+WHERE file_id=$f AND id>$after ORDER BY id LIMIT 256;";
+                    read.Parameters.AddWithValue("$f", fileId);
+                    read.Parameters.AddWithValue("$after", lastId);
+                    using SqliteDataReader r = read.ExecuteReader();
+                    while (r.Read()) rows.Add((r.GetInt64(0), r.GetString(1),
+                        r.IsDBNull(2) ? null : r.GetString(2)));
+                }
+                if (rows.Count == 0) break;
+                foreach ((long id, string text, string? heading) in rows)
+                {
+                    using SqliteCommand d1 = c.CreateCommand();
+                    d1.Transaction = tx;
+                    d1.CommandText = "INSERT INTO kn_fts(kn_fts,rowid,text,heading) VALUES('delete',$i,$t,$h);";
+                    d1.Parameters.AddWithValue("$i", id); d1.Parameters.AddWithValue("$t", text);
+                    d1.Parameters.AddWithValue("$h", (object?)heading ?? DBNull.Value);
+                    d1.ExecuteNonQuery();
+                    using SqliteCommand d2 = c.CreateCommand();
+                    d2.Transaction = tx;
+                    d2.CommandText = "INSERT INTO kn_tri(kn_tri,rowid,text) VALUES('delete',$i,$t);";
+                    d2.Parameters.AddWithValue("$i", id); d2.Parameters.AddWithValue("$t", text);
+                    d2.ExecuteNonQuery();
+                    lastId = id;
+                }
             }
         }
         using SqliteCommand del = c.CreateCommand();
