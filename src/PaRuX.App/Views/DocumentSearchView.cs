@@ -144,7 +144,7 @@ namespace PaRuX.Views
                 // This avoids continuous bursts of local HTTP/SQLite work on
                 // 8 GB Corporate machines with large source collections.
                 var pending = _sources.Where(source => reload
-                    || !_statusCache.TryGetValue(source.Id, out KnowledgeSourceStatus? cached)
+                    || !_statusCache.TryGetValue(source.Id, out var cached)
                     || cached.State is "running" or "paused").ToArray();
                 using var limiter = new SemaphoreSlim(4);
                 var updated = await Task.WhenAll(pending.Select(async source =>
