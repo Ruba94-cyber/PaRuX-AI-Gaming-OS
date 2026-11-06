@@ -126,6 +126,9 @@ public sealed class TrainingJobRequest
     /// Relative media paths are resolved from the JSONL directory.
     /// </summary>
     public string TrainJsonlPath { get; set; } = string.Empty;
+    /// <summary>Optional SHA-256 from a complete Quick dataset preflight. If supplied,
+    /// job admission fails if the file changed, rather than silently training new bytes.</summary>
+    public string? ExpectedDatasetSha256 { get; set; }
     public string BaseModel { get; set; } = "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit";
     public int LoraRank { get; set; } = 16;
     public int MaxSteps { get; set; } = 60;
@@ -195,6 +198,9 @@ public sealed class TrainingPlanRequest
     public string TargetPreset { get; set; } = TrainingTargetPreset.Attention;
     /// <summary>Optional SFT-only sequence packing; continued pretraining always packs.</summary>
     public bool PackSequences { get; set; }
+    /// <summary>Opt in to a bounded full-file SFT/DPO scan instead of only 2,000 rows.
+    /// Intended for Quick Training; Advanced can continue using sampled previews.</summary>
+    public bool ValidateEntireDataset { get; set; }
     public string GrpoRewardMode { get; set; } = Contracts.GrpoRewardMode.ExactReference;
 }
 
@@ -225,6 +231,10 @@ public sealed class TrainingPlanResult
     public int DatasetUndesirableKtoRecords { get; set; }
     public int DatasetUnparseableLines { get; set; }
     public bool DatasetSampleTruncated { get; set; }
+    /// <summary>True only after all nonblank SFT/DPO JSONL rows passed strict validation.</summary>
+    public bool DatasetFullyValidated { get; set; }
+    public int DatasetVerifiedRecords { get; set; }
+    public string? DatasetSha256 { get; set; }
     public string DatasetSummary { get; set; } = string.Empty;
 
     public int RecommendedLoraRank { get; set; }
