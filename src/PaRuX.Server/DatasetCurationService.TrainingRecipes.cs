@@ -43,7 +43,7 @@ public sealed partial class DatasetCurationService
             throw new InvalidDataException("Choose two different, explicit prompt and response columns.");
         if (method != TrainingMethod.Sft && systemColumn.Length > 0)
             throw new InvalidDataException("System messages are supported only by the chat SFT recipe.");
-        if (method is TrainingMethod.Dpo or TrainingMethod.Kto
+        if ((method is TrainingMethod.Dpo or TrainingMethod.Kto)
             && (extraColumn.Length == 0 || extraColumn == promptColumn || extraColumn == responseColumn))
             throw new InvalidDataException("DPO/KTO needs a separate, explicitly mapped rejected/label column.");
 
@@ -120,6 +120,10 @@ public sealed partial class DatasetCurationService
         {
             await File.WriteAllLinesAsync(staging, lines, new UTF8Encoding(false), ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
+            string hash;
+            await using (FileStream stream = File.OpenRead(staging))
+                hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct).ConfigureAwait(false)).ToLowerInvariant();
+            ct.ThrowIfCancellationRequested();
             File.Move(staging, destination);
             return new TrainingDatasetRecipeResult
             {
@@ -128,7 +132,7 @@ public sealed partial class DatasetCurationService
                 SourceRows = rows.Count,
                 WrittenRows = lines.Count,
                 SkippedRows = skipped,
-                Sha256 = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(destination, ct).ConfigureAwait(false))).ToLowerInvariant(),
+                Sha256 = hash,
                 Note = "PaRuX-owned local JSONL. No labels, answers or rejected completions were synthesized."
             };
         }
