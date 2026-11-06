@@ -432,6 +432,16 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
 
     private static void ValidateRequest(TrainingJobRequest request, string method)
     {
+        string precision = TrainingPrecision.Normalize(request.Precision);
+        string targets = TrainingTargetPreset.Normalize(request.TargetPreset);
+        if (precision == TrainingPrecision.Lora16Bit
+            && method is TrainingMethod.VisionSft or TrainingMethod.TtsSft)
+            throw new InvalidDataException(
+                "16-bit LoRA is not validated for Vision/TTS. Use 4-bit QLoRA or a supported text method.");
+        if (targets != TrainingTargetPreset.Attention && method == TrainingMethod.TtsSft)
+            throw new InvalidDataException("SpeechT5 TTS uses its own fixed LoRA targets; select attention.");
+        if (request.PackSequences && method != TrainingMethod.Sft && method != TrainingMethod.ContinuedPretraining)
+            throw new InvalidDataException("Sequence packing is currently available only for text SFT and continued pretraining.");
         if (request.LoraRank is < 1 or > 256) throw new InvalidDataException("loraRank must be between 1 and 256.");
         if (request.MaxSteps is < 1 or > 1_000_000) throw new InvalidDataException("maxSteps must be between 1 and 1,000,000.");
         if (request.LearningRate is <= 0 or > 0.01 || double.IsNaN(request.LearningRate) || double.IsInfinity(request.LearningRate))
@@ -697,6 +707,9 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
             method = entry.Status.Method,
             dpo_beta = request.DpoBeta,
             max_seq_length = request.MaxSequenceLength,
+            precision = TrainingPrecision.Normalize(request.Precision),
+            target_preset = TrainingTargetPreset.Normalize(request.TargetPreset),
+            pack_sequences = request.PackSequences,
             grpo_reward_mode = GrpoRewardMode.Normalize(request.GrpoRewardMode),
             grpo_generations = request.GrpoGenerations,
             text_field = request.TextField,
@@ -1132,10 +1145,26 @@ else:
         trainer.train(resume_from_checkpoint=resume_checkpoint)
     else:
         from unsloth import FastLanguageModel
+        precision = cfg.get("precision", "qlora-4bit")
+        if precision not in ("qlora-4bit", "lora-16bit"):
+            raise ValueError("Unrecognized training precision")
+        preset = cfg.get("target_preset", "attention")
+        if preset not in ("attention", "all-linear"):
+            raise ValueError("Unrecognized LoRA target preset")
+        targets = ["q_proj", "k_proj", "v_proj", "o_proj"]
+        if preset == "all-linear":
+            targets += ["gate_proj", "up_proj", "down_proj"]
         model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=base_model, max_seq_length=cfg["max_seq_length"], dtype=None, load_in_4bit=True)
+            model_name=base_model, max_seq_length=cfg["max_seq_length"], dtype=None,
+            load_in_4bit=(precision == "qlora-4bit"))
+        # Fail with a useful explanation instead of letting PEFT silently skip
+        # missing layers in a model family that uses different projection names.
+        names = tuple(name for name, _ in model.named_modules())
+        missing = [t for t in targets if not any(n == t or n.endswith("." + t) for n in names)]
+        if missing:
+            raise ValueError("Selected LoRA target preset is incompatible with this model: missing " + ", ".join(missing))
         model = FastLanguageModel.get_peft_model(
-            model, r=cfg["lora_rank"], target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            model, r=cfg["lora_rank"], target_modules=targets,
             lora_alpha=cfg["lora_rank"] * 2, lora_dropout=0, bias="none",
             use_gradient_checkpointing="unsloth", random_state=3407)
 
@@ -1205,7 +1234,8 @@ else:
             trainer = SFTTrainer(
                 model=model, train_dataset=dataset, processing_class=tokenizer,
                 args=sft_config(
-                    dataset_text_field="text", max_seq_length=cfg["max_seq_length"], packing=method == "continued-pretraining",
+                    dataset_text_field="text", max_seq_length=cfg["max_seq_length"],
+                    packing=(method == "continued-pretraining" or bool(cfg.get("pack_sequences", False))),
                     per_device_train_batch_size=cfg.get("batch_size", 1), gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 4),
                     max_steps=cfg["max_steps"], learning_rate=cfg["learning_rate"], logging_steps=1,
                     save_strategy="steps", save_steps=checkpoint_steps, save_total_limit=2,
