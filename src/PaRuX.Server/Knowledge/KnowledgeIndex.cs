@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Security.Cryptography;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
@@ -942,9 +943,11 @@ JOIN kn_files f ON f.id=k.file_id WHERE k.embedding IS NOT NULL"
             using SqliteDataReader r = cmd.ExecuteReader();
             while (r.Read())
             {
-                float[] v = FromBlob((byte[])r.GetValue(1));
-                if (v.Length != q.Length) continue;
-                double s = Dot(q, v);
+                // On million-chunk corpora, avoid allocating a second float[]
+                // for every SQLite embedding blob during a semantic query.
+                byte[] bytes = (byte[])r.GetValue(1);
+                if (bytes.Length != q.Length * sizeof(float)) continue;
+                double s = Dot(q, MemoryMarshal.Cast<byte, float>(bytes.AsSpan()));
                 if (s < _embedder.RelevanceThreshold) continue;
                 best.Add((r.GetInt64(0), s));
                 if (best.Count > topK * 20) { best.Sort((a, b) => b.score.CompareTo(a.score)); best.RemoveRange(topK * 10, best.Count - topK * 10); }
@@ -957,11 +960,12 @@ JOIN kn_files f ON f.id=k.file_id WHERE k.embedding IS NOT NULL"
         }
     }
 
-    private static double Dot(float[] a, float[] b)
+    private static double Dot(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
-        int n = a.Length, i = 0, w = Vector<float>.Count;
+        int n = a.Length, i = 0, width = Vector<float>.Count;
         var acc = Vector<float>.Zero;
-        for (; i <= n - w; i += w) acc += new Vector<float>(a, i) * new Vector<float>(b, i);
+        for (; i <= n - width; i += width)
+            acc += new Vector<float>(a.Slice(i, width)) * new Vector<float>(b.Slice(i, width));
         double sum = Vector.Dot(acc, Vector<float>.One);
         for (; i < n; i++) sum += a[i] * b[i];
         return sum;
