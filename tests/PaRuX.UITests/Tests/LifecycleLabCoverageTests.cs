@@ -55,6 +55,7 @@ public sealed class LifecycleLabCoverageTests
 
             UiWait.ById(app.MainWindow, "LifecycleLab_InstallRuntime_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "LifecycleLab_TrainingPath_TextBox", ControlType.Edit);
+            UiWait.ById(app.MainWindow, "LifecycleLab_BrowseTrainingDataset_Button", ControlType.Button);
             UiWait.ById(app.MainWindow, "LifecycleLab_BaseModel_TextBox", ControlType.Edit);
             UiWait.ById(app.MainWindow, "LifecycleLab_QuickTrain_Button", ControlType.Button);
             // Advanced options are intentionally hidden until requested, without auto-starting
