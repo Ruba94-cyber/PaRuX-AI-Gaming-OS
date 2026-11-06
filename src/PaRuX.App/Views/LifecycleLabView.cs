@@ -255,9 +255,8 @@ namespace PaRuX.Views
         {
             var content = new StackPanel { Spacing = 10 };
             content.Children.Add(_trainingEngine);
-            // Install and remove sit together: provisioning ~5 GB of managed Python should be as
-            // reversible as it is optional, and a user deciding whether to install it deserves to
-            // see the way back in the same place.
+            // Training dependencies are always optional and removable. Neither portable nor
+            // Corporate editions silently install a multi-GB GPU/Python stack.
             var runtimeActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             var install = new Button { Content = "Install/repair managed Training runtime" };
             Id(install, "LifecycleLab_InstallRuntime_Button");
@@ -271,28 +270,43 @@ namespace PaRuX.Views
             content.Children.Add(runtimeActions);
             content.Children.Add(_trainingPath);
             content.Children.Add(_baseModel);
+            content.Children.Add(new TextBlock
+            {
+                Text = "QUICK TRAINING · Select a local JSONL dataset and a trainable Hugging Face base model. PaRuX checks the data and GPU, chooses SFT or DPO from actual records, and proposes a capped LoRA/QLoRA run. No training begins without your click.",
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12, Opacity = 0.78
+            });
+            Id(_quickTrainButton, "LifecycleLab_QuickTrain_Button", "Quick fine-tune using checked settings");
+            _quickTrainButton.Click += async (_, _) => await StartQuickTrainingAsync();
+            content.Children.Add(_quickTrainButton);
 
+            var advanced = new StackPanel { Spacing = 10 };
             var options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             options.Children.Add(_trainingMethod);
             options.Children.Add(new TextBlock { Text = "Steps", VerticalAlignment = VerticalAlignment.Center });
             options.Children.Add(_steps);
             options.Children.Add(new TextBlock { Text = "LoRA rank", VerticalAlignment = VerticalAlignment.Center });
             options.Children.Add(_rank);
-            content.Children.Add(options);
+            advanced.Children.Add(options);
+            advanced.Children.Add(BuildTrainingWizardControls());
 
-            content.Children.Add(BuildTrainingWizardControls());
-
-            var start = new Button { Content = "Start local training" };
-            Id(start, "LifecycleLab_StartTraining_Button");
-            start.Click += async (_, _) => await StartTrainingAsync();
-            content.Children.Add(start);
-            content.Children.Add(new TextBlock
+            Id(_startTrainingButton, "LifecycleLab_StartTraining_Button");
+            _startTrainingButton.Click += async (_, _) => await StartTrainingAsync();
+            advanced.Children.Add(_startTrainingButton);
+            advanced.Children.Add(new TextBlock
             {
-                Text = "SFT requires messages[] JSONL; use the Eval→SFT handoff above after explicit dataset mapping. DPO requires a genuine prompt/chosen/rejected JSONL and is never synthesized from Eval cases.",
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.7
+                Text = "Advanced: SFT uses messages[] JSONL; DPO uses genuine prompt/chosen/rejected pairs. Preference examples are never fabricated from Eval cases. Vision/TTS and GRPO require their method-specific data.",
+                FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7
             });
+
+            var advancedExpander = new Expander
+            {
+                Header = "Advanced training · methods, hyperparameters and detailed preflight",
+                IsExpanded = false,
+                Content = advanced
+            };
+            Id(advancedExpander, "LifecycleLab_AdvancedTraining_Expander");
+            content.Children.Add(advancedExpander);
             content.Children.Add(Label("JOBS"));
             content.Children.Add(_trainingJobs);
             return Section("3 · TRAINING LAB", content);
