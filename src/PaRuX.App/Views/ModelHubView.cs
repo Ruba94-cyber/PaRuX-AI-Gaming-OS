@@ -177,10 +177,16 @@ namespace PaRuX.Views
             _category.SelectionChanged += (_, _) => RenderSearch(FilterSearch());
             _candidateFilter.TextChanged += (_, _) => RenderCandidates();
 
-            _isAdvancedMode = SettingsStore.Current.Data.StudioModeEnabled;
+            _isAdvancedMode = !CorporateMode.IsActive && SettingsStore.Current.Data.StudioModeEnabled;
             Content = BuildUi();
             ApplyInterfaceMode(_isAdvancedMode);
-            Loaded += async (_, _) => { if (Visibility == Visibility.Visible) await RefreshAllAsync(); };
+            Loaded += async (_, _) =>
+            {
+                // OnShown already starts the first fetch. Do not issue the same
+                // 15-request refresh twice on initial navigation.
+                if (Visibility == Visibility.Visible && !_refreshBusy && !_startHubLoaded)
+                    await RefreshAllAsync();
+            };
 #if DEBUG
             Loaded += (_, _) =>
             {
@@ -268,18 +274,28 @@ namespace PaRuX.Views
             scroll.Content = outer;
             root.Children.Add(scroll);
 
-            outer.Children.Add(new TextBlock { Text = "Model Hub", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             outer.Children.Add(new TextBlock
             {
-                Text = StartItalian
-                    ? "Tutto ciò che PaRuX può fare sul tuo PC, cosa serve e dove trovare i modelli."
-                    : "Everything PaRuX can do on your PC, what it needs, and where to get models.",
+                Text = CorporateMode.IsActive
+                    ? (StartItalian ? "Modelli Chat" : "Chat models") : "Model Hub",
+                FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            outer.Children.Add(new TextBlock
+            {
+                Text = CorporateMode.IsActive
+                    ? (StartItalian
+                        ? "Scegli i modelli GGUF locali per la Chat. Il motore CPU è già incluso."
+                        : "Choose local GGUF models for Chat. The CPU engine is already included.")
+                    : (StartItalian
+                        ? "Tutto ciò che PaRuX può fare sul tuo PC, cosa serve e dove trovare i modelli."
+                        : "Everything PaRuX can do on your PC, what it needs, and where to get models."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
 
             // Non-modal "Tuning for your PC" status: the running job, or the latest result for a few minutes (text and media).
-            outer.Children.Add(new ModelTuningStatusControl(ModelTuningStatusControl.Mode.Hub));
+            if (!CorporateMode.IsActive)
+                outer.Children.Add(new ModelTuningStatusControl(ModelTuningStatusControl.Mode.Hub));
 
             // Keep search readable on 13-inch screens, at 150/200% scaling and with the sidebar
             // open: a full-width input followed by a compact actions row, never four cramped columns.
@@ -763,6 +779,9 @@ namespace PaRuX.Views
 
         public void ApplyInterfaceMode(bool advanced)
         {
+            // The Corporate package has only local text GGUFs. A previously saved
+            // Advanced preference must never resurrect candidate/media tools here.
+            if (CorporateMode.IsActive) advanced = false;
             bool becameAdvanced = advanced && !_isAdvancedMode;
             _isAdvancedMode = advanced;
             RenderSuggestions();
