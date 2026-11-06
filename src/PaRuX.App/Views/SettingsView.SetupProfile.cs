@@ -88,7 +88,9 @@ namespace PaRuX.Views
                 finally { _loading = false; }
             }
             UpdateSetupProfileHint(effective);
+            ApplyProfileSettingsSections();
             RefreshSettingsCategoriesForProfile();
+            SelectSettingsCategory(_selectedSettingsCategory);
             if (!result.Success) SetupProfileHint.Text = result.Message + " " + SetupProfileHint.Text;
             else if (effective != profile)
                 SetupProfileHint.Text = SetupProfilePolicy.CorporateKeptNote(SetupProfileItalian) + " " + SetupProfileHint.Text;   // no silent snap-back
