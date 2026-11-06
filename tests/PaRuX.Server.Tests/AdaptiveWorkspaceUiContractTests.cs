@@ -73,6 +73,45 @@ public sealed class AdaptiveWorkspaceUiContractTests
         Assert.Single(doc.Descendants(ui + "Button").Where(element => (string?)element.Attribute(x + "Name") == "AutoSetupStartButton"));
         Assert.Single(doc.Descendants(ui + "Button").Where(element => (string?)element.Attribute(x + "Name") == "FirstModelInstallButton"));
         Assert.Single(doc.Descendants(ui + "Button").Where(element => (string?)element.Attribute(x + "Name") == "VerifyLocalChatButton"));
+
+        // The short guided path is visible without scrolling through native runtime inventory.
+        var manual = Assert.Single(expanders.Where(element =>
+            (string?)element.Attribute(x + "Name") == "ManualSetupExpander"));
+        Assert.Equal("False", (string?)manual.Attribute("IsExpanded"));
+        var components = Assert.Single(doc.Descendants(ui + "StackPanel").Where(element =>
+            (string?)element.Attribute(x + "Name") == "ComponentsList"));
+        var modelButton = Assert.Single(doc.Descendants(ui + "Button").Where(element =>
+            (string?)element.Attribute(x + "Name") == "FirstModelInstallButton"));
+        var ready = Assert.Single(doc.Descendants(ui + "Button").Where(element =>
+            (string?)element.Attribute(x + "Name") == "VerifyLocalChatButton"));
+        Assert.Contains(manual, components.Ancestors());
+        Assert.Contains(manual, modelButton.Ancestors());
+        Assert.DoesNotContain(manual, ready.Ancestors());
+        var scroll = Assert.Single(doc.Descendants(ui + "ScrollViewer"));
+        Assert.Equal("Disabled", (string?)scroll.Attribute("HorizontalScrollBarVisibility"));
+    }
+
+    [Fact]
+    public void Model_hub_keeps_responsive_search_and_only_loads_advanced_evaluation_on_demand()
+    {
+        string source = File.ReadAllText(SourcePath("ModelHubView.cs"));
+        Assert.Contains("var searchRow = new StackPanel { Spacing = 8 };", source, StringComparison.Ordinal);
+        Assert.Contains("_search.KeyDown += async", source, StringComparison.Ordinal);
+        Assert.Contains("Windows.System.VirtualKey.Enter", source, StringComparison.Ordinal);
+        Assert.Contains("bool becameAdvanced = advanced && !_isAdvancedMode;", source, StringComparison.Ordinal);
+        Assert.Contains("Task.FromResult<CandidateUtilityPolicyStatus?>(null)", source, StringComparison.Ordinal);
+        Assert.Contains("Task.FromResult<CandidateRecommendationStatusResponse?>(null)", source, StringComparison.Ordinal);
+        Assert.Contains("Task.FromResult<List<CandidateEvaluationJobStatus>?>(null)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Onboarding_never_completes_gaming_mode_after_a_failed_service_switch()
+    {
+        string source = File.ReadAllText(SourcePath("OnboardingView.SetupProfile.cs"));
+        Assert.Contains("if (!result.Success || result.EffectiveProfile != SetupProfile.GamingOnly)", source, StringComparison.Ordinal);
+        Assert.Contains("if (_setupProfileInitialising || _setupProfileSwitchBusy) return;", source, StringComparison.Ordinal);
+        Assert.Contains("SetupProfileChoice.IsEnabled = false;", source, StringComparison.Ordinal);
+        Assert.Contains("Mode change failed; previous mode retained.", source, StringComparison.Ordinal);
     }
 
     [Fact]
