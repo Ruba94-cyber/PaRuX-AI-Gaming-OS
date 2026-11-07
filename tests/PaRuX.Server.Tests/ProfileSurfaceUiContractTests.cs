@@ -202,6 +202,15 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("while (true)", phone, StringComparison.Ordinal);
         Assert.Contains("imageError = e.message", phone, StringComparison.Ordinal);
         Assert.Contains("coerceIn(0f, 1f)", phone, StringComparison.Ordinal);
+        Assert.Contains("onAccepted = { showCreateDialog = false }", phone, StringComparison.Ordinal);
+        Assert.Contains("onDispose { viewModel.stopPolling() }", phone, StringComparison.Ordinal);
+        Assert.Contains("if (localCore == null)", phone, StringComparison.Ordinal);
+        string jobsModel = Read("src", "PaRuX.Android", "app", "src", "main", "java",
+            "com", "parux", "android", "ui", "jobs", "JobsViewModel.kt");
+        Assert.Contains("val isSubmitting: Boolean", jobsModel, StringComparison.Ordinal);
+        Assert.Contains("completionNotifications.newlyCompleted(jobs)", jobsModel, StringComparison.Ordinal);
+        Assert.Contains("fun stopPolling()", jobsModel, StringComparison.Ordinal);
+        Assert.Contains("onAccepted()", jobsModel, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
