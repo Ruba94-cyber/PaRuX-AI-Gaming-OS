@@ -155,15 +155,15 @@ public sealed class DocumentSearchUiTests
         }
         OpenDocumentSearch(app);
         var page = UiWait.ById(app.MainWindow, "DocSearch_FolderPage_Text", ControlType.Text);
-        UiWait.For(() => page.Name.Contains("1/2", StringComparison.Ordinal),
+        UiWait.For(() => page.Name?.Contains("1/2", StringComparison.Ordinal) == true,
             "first bounded folder page");
         var next = UiWait.ById(app.MainWindow, "DocSearch_NextFolderPage_Button", ControlType.Button).AsButton();
         next.Invoke();
-        UiWait.For(() => page.Name.Contains("2/2", StringComparison.Ordinal),
+        UiWait.For(() => page.Name?.Contains("2/2", StringComparison.Ordinal) == true,
             "second folder page");
         var filter = UiWait.ById(app.MainWindow, "DocSearch_FolderFilter_TextBox", ControlType.Edit).AsTextBox();
         filter.Text = "Department-042";
-        UiWait.For(() => page.Name.Contains("1/1", StringComparison.Ordinal),
+        UiWait.For(() => page.Name?.Contains("1/1", StringComparison.Ordinal) == true,
             "filtered folder view");
         UiWait.For(() => AllText(app).Any(t => t.Contains("Department-042")),
             "late folder visible after filtering");
