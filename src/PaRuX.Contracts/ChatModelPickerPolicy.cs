@@ -9,6 +9,11 @@ namespace PaRuX.Contracts;
 /// small and the full catalogue stays reachable through a searchable,
 /// paged picker. No model is downloaded, loaded or switched by this policy.
 /// </summary>
+/// <summary>Explicit browsing order, not an automatic routing preference.
+/// Benchmark measurements are historical observations on this PC, never
+/// a guarantee of speed or quality for the next inference.</summary>
+public enum ChatModelBrowseSort { Name, SmallestFileFirst, MeasuredSpeedFirst }
+
 public static class ChatModelPickerPolicy
 {
     public const int QuickChoices = 12;
@@ -17,7 +22,8 @@ public static class ChatModelPickerPolicy
     public sealed record Page(IReadOnlyList<ManagedModelInfo> Visible, int TotalMatches,
         int PageIndex, int TotalPages);
 
-    public static Page Browse(IEnumerable<ManagedModelInfo>? catalogue, string? query, int requestedPage)
+    public static Page Browse(IEnumerable<ManagedModelInfo>? catalogue, string? query, int requestedPage,
+        ChatModelBrowseSort sort = ChatModelBrowseSort.Name)
     {
         string search = (query ?? string.Empty).Trim();
         List<ManagedModelInfo> matching = (catalogue ?? Enumerable.Empty<ManagedModelInfo>())
@@ -28,10 +34,26 @@ public static class ChatModelPickerPolicy
                 m.FileName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                 (m.Alias?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (m.Quantization?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))
-            .OrderBy(m => string.IsNullOrWhiteSpace(m.Alias) ? m.FileName : m.Alias,
-                StringComparer.OrdinalIgnoreCase)
-            .ThenBy(m => m.FileName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        static string LabelOf(ManagedModelInfo model) =>
+            string.IsNullOrWhiteSpace(model.Alias) ? model.FileName : model.Alias;
+        // Missing sizes and absent local benchmarks sort last. Unknown speed
+        // must not be presented as zero or as an unmeasured promise.
+        IEnumerable<ManagedModelInfo> ordered = sort switch
+        {
+            ChatModelBrowseSort.SmallestFileFirst => matching
+                .OrderBy(m => m.SizeBytes <= 0 ? 1 : 0)
+                .ThenBy(m => m.SizeBytes <= 0 ? long.MaxValue : m.SizeBytes)
+                .ThenBy(LabelOf, StringComparer.OrdinalIgnoreCase),
+            ChatModelBrowseSort.MeasuredSpeedFirst => matching
+                .OrderBy(m => m.LastBenchmarkTokensPerSecond is > 0 ? 0 : 1)
+                .ThenByDescending(m => m.LastBenchmarkTokensPerSecond is > 0
+                    ? m.LastBenchmarkTokensPerSecond.Value : 0)
+                .ThenBy(LabelOf, StringComparer.OrdinalIgnoreCase),
+            _ => matching.OrderBy(LabelOf, StringComparer.OrdinalIgnoreCase)
+        };
+        matching = ordered.ThenBy(m => m.FileName, StringComparer.OrdinalIgnoreCase).ToList();
         int pages = Math.Max(1, (matching.Count + BrowsePageSize - 1) / BrowsePageSize);
         int page = Math.Clamp(requestedPage, 0, pages - 1);
         return new Page(matching.Skip(page * BrowsePageSize).Take(BrowsePageSize).ToList(),
