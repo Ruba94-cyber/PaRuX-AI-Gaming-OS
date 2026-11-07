@@ -278,7 +278,7 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("PresentItalian(state)", presenter, StringComparison.Ordinal);
         Assert.Contains("RuntimeRecoveryGuidance.Describe(message, italian: true)", presenter, StringComparison.Ordinal);
         Assert.Contains("AutoSetupPhase.NoModelFits => new AutoSetupViewModel(", presenter, StringComparison.Ordinal);
-        Assert.Contains("Nessun download è stato avviato", presenter, StringComparison.Ordinal);
+        Assert.Contains("PaRuX non forzerà il download", presenter, StringComparison.Ordinal);
     }
 
     [Fact]
