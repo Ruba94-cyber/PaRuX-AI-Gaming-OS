@@ -1808,6 +1808,15 @@
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
                             Text="2-4 local models take turns replying to one prompt, each seeing what the others already said - one model loaded at a time, in order (this GPU can't hold more than one large model at once)." />
                         <TextBox x:Name="GroupChatPromptBox" PlaceholderText="Prompt for the group…" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="120" />
+                        <TextBox x:Name="GroupChatSharedContextBox"
+                            AutomationProperties.AutomationId="Settings_GroupChat_SharedContext_TextBox"
+                            AutomationProperties.Name="Optional context shared with every local model"
+                            Header="Shared notes or reference text (optional)"
+                            PlaceholderText="Paste only the relevant context you want each local model to see"
+                            AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
+                            MaxLength="12000" />
+                        <TextBlock Text="Only the text you paste above is shared with all selected local models. Other conversations, memory and files are not included automatically."
+                            TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                         <Grid ColumnSpacing="{StaticResource PaRuXSpaceS}" RowSpacing="{StaticResource PaRuXSpaceS}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
