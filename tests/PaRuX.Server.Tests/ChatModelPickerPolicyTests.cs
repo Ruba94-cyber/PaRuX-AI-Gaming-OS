@@ -61,6 +61,25 @@ public sealed class ChatModelPickerPolicyTests
     }
 
     [Fact]
+    public void Invalid_or_infinite_benchmark_results_are_not_presented_as_real_speed()
+    {
+        var models = new[]
+        {
+            new ManagedModelInfo { FileName = "no-data.gguf" },
+            new ManagedModelInfo { FileName = "infinite.gguf", LastBenchmarkTokensPerSecond = double.PositiveInfinity },
+            new ManagedModelInfo { FileName = "nan.gguf", LastBenchmarkTokensPerSecond = double.NaN },
+            new ManagedModelInfo { FileName = "measured.gguf", LastBenchmarkTokensPerSecond = 13.7 }
+        };
+        Assert.False(ChatModelPickerPolicy.HasMeasuredSpeed(models[0]));
+        Assert.False(ChatModelPickerPolicy.HasMeasuredSpeed(models[1]));
+        Assert.False(ChatModelPickerPolicy.HasMeasuredSpeed(models[2]));
+        Assert.True(ChatModelPickerPolicy.HasMeasuredSpeed(models[3]));
+        var sorted = ChatModelPickerPolicy.Browse(models, null, 0,
+            ChatModelBrowseSort.MeasuredSpeedFirst);
+        Assert.Equal("measured.gguf", sorted.Visible[0].FileName);
+    }
+
+    [Fact]
     public void Quick_compare_accepts_two_distinct_installed_models_from_distant_pages()
     {
         var models = Enumerable.Range(0, 125).Select(i => Model(i)).ToArray();
