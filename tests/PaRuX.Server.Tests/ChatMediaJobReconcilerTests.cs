@@ -41,6 +41,57 @@ public sealed class ChatMediaJobReconcilerTests
     }
 
     [Fact]
+    public void Cancelling_a_video_is_a_transient_state_not_an_unknown_failure()
+    {
+        var reply = Running(kind: "video");
+        var job = Job("cancelling");
+        job.Stage = "Stop pending confirmation";
+        Assert.Equal(ChatMediaReconcileAction.Reattach,
+            ChatMediaJobReconciler.Reconcile(reply, job, serverReachable: true));
+        Assert.Equal("running", reply.MediaJobState);
+        Assert.False(reply.IsError);
+        Assert.Contains("Stop pending confirmation", ChatMediaJobReconciler.Present(reply).ProgressText);
+        Assert.False(ChatMediaJobReconciler.Present(reply).ShowRetry);
+
+        Assert.Equal(ChatMediaReconcileAction.Settled,
+            ChatMediaJobReconciler.Reconcile(reply, Job("cancelled"), serverReachable: true));
+        Assert.Equal("cancelled", reply.MediaJobState);
+        Assert.True(ChatMediaJobReconciler.Present(reply).ShowRetry);
+    }
+
+    [Fact]
+    public void Only_engine_reported_plausible_eta_is_displayed_and_resets_between_steps()
+    {
+        var reply = Running(kind: "image");
+        var active = Job("running");
+        active.EtaSeconds = 93;
+        ChatMediaJobReconciler.ReportProgress(reply, active);
+        Assert.Equal(93, reply.MediaEtaSeconds);
+        Assert.Contains("approx. 1m 33s remaining", ChatMediaJobReconciler.Present(reply).ProgressText);
+
+        active.EtaSeconds = -4;
+        ChatMediaJobReconciler.ReportProgress(reply, active);
+        Assert.Null(reply.MediaEtaSeconds);
+        Assert.DoesNotContain("remaining", ChatMediaJobReconciler.Present(reply).ProgressText);
+
+        active.EtaSeconds = 90001;
+        ChatMediaJobReconciler.ReportProgress(reply, active);
+        Assert.Null(reply.MediaEtaSeconds);
+
+        active.EtaSeconds = 21;
+        active.Status = "queued";
+        ChatMediaJobReconciler.ReportProgress(reply, active);
+        Assert.Null(reply.MediaEtaSeconds);
+
+        active.Status = "running";
+        ChatMediaJobReconciler.ReportProgress(reply, active);
+        Assert.Equal(21, reply.MediaEtaSeconds);
+        ChatMediaJobReconciler.BeginStep(reply, "video", true);
+        Assert.Null(reply.MediaEtaSeconds);
+        Assert.Equal("running", reply.MediaJobState);
+    }
+
+    [Fact]
     public void UnreachableServerDefersWithoutLosingTheJob()
     {
         var m = Running();
