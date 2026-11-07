@@ -79,7 +79,7 @@ namespace PaRuX.Services
                     "Apri la chat", true, false, false, false, false),
                 AutoSetupPhase.NoModelFits => new AutoSetupViewModel(
                     "Nessun modello consigliato è adatto a questo PC",
-                    "Nessun download è stato avviato per forzare un modello troppo grande. "
+                    "PaRuX non forzerà il download di un modello troppo grande. "
                     + "Apri le opzioni manuali, valuta un modello più piccolo o verifica RAM, GPU e runtime.",
                     "Riprova", true, false, false, true, false),
                 AutoSetupPhase.Failed => new AutoSetupViewModel(
