@@ -170,24 +170,35 @@ namespace PaRuX.Views
 
         public async Task RefreshAsync()
         {
+            // The previous request owns its CTS until its own finally block.
+            // Disposing it while its HTTP/file operations are still active
+            // can race with cancellation registrations in those operations.
             _refreshCts?.Cancel();
-            _refreshCts?.Dispose();
-            _refreshCts = new CancellationTokenSource();
-            CancellationToken ct = _refreshCts.Token;
+            var request = new CancellationTokenSource();
+            _refreshCts = request;
+            CancellationToken ct = request.Token;
 
             try
             {
                 _status.Text = "Loading media outputs…";
                 List<MediaGalleryItem> discovered = await DiscoverMediaOutputsAsync(ct);
+                ct.ThrowIfCancellationRequested();
+                if (!ReferenceEquals(_refreshCts, request)) return;
                 _allItems.Clear();
                 _allItems.AddRange(discovered);
                 ApplyFilterAndSort();
                 _status.Text = $"Gallery updated: {_allItems.Count} media output(s) available.";
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)
             {
-                _status.Text = "Gallery refresh failed: " + ex.Message;
+                if (ReferenceEquals(_refreshCts, request) && !ct.IsCancellationRequested)
+                    _status.Text = "Gallery refresh failed: " + ex.Message;
+            }
+            finally
+            {
+                if (ReferenceEquals(_refreshCts, request)) _refreshCts = null;
+                request.Dispose();
             }
         }
 
@@ -212,13 +223,12 @@ namespace PaRuX.Views
                     && (string.Equals(a.ArtifactType, "image", StringComparison.OrdinalIgnoreCase)
                         || string.Equals(a.ArtifactType, "video", StringComparison.OrdinalIgnoreCase))).ToArray();
 
-                // Fetch version metadata with bounded concurrency: one HTTP
-                // request per artifact in sequence was slow for large local
-                // libraries. Four in flight keeps low-RAM machines responsive.
-                using var versionSlots = new SemaphoreSlim(4);
+                // Fixed-size batches (not one Task per archive item). This
+                // allocates at most four concurrent metadata requests even
+                // for a 10,000-output library, and cancellation is checked
+                // between batches. Keep local ordering stable for paging.
                 async Task<MediaGalleryItem> LoadArtifactAsync(ArtifactDto artifact)
                 {
-                    await versionSlots.WaitAsync(ct).ConfigureAwait(false);
                     try
                     {
                         ArtifactVersionListResponse versions = await ArtifactWorkspaceClient.Current
@@ -229,20 +239,22 @@ namespace PaRuX.Views
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        // A malformed/missing version must not hide the entire
-                        // gallery. Keep the item with honest sparse metadata.
                         return MediaGalleryItemMapper.FromArtifact(artifact, null);
                     }
-                    finally { versionSlots.Release(); }
                 }
 
-                MediaGalleryItem[] loaded = await Task.WhenAll(artifacts.Select(LoadArtifactAsync));
-                foreach (MediaGalleryItem item in loaded)
+                for (int offset = 0; offset < artifacts.Length; offset += 4)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (!string.IsNullOrWhiteSpace(item.FilePath))
-                        knownPaths.Add(Path.GetFullPath(item.FilePath));
-                    results.Add(item);
+                    ArtifactDto[] batch = artifacts.Skip(offset).Take(4).ToArray();
+                    MediaGalleryItem[] loaded = await Task.WhenAll(batch.Select(LoadArtifactAsync));
+                    ct.ThrowIfCancellationRequested();
+                    foreach (MediaGalleryItem item in loaded)
+                    {
+                        if (!string.IsNullOrWhiteSpace(item.FilePath))
+                            knownPaths.Add(Path.GetFullPath(item.FilePath));
+                        results.Add(item);
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
