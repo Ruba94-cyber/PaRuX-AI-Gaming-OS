@@ -133,6 +133,28 @@ namespace PaRuX.Views
                     MinHeight = 44
                 };
                 AutomationProperties.SetAutomationId(query, "Chat_ModelBrowser_Filter_TextBox");
+                var sortPicker = new ComboBox
+                {
+                    Header = L("Order models by", "Ordina modelli per"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinHeight = 40
+                };
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Name", "Nome"), Tag = ChatModelBrowseSort.Name
+                });
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Smallest download first (size only)", "File più piccolo prima (solo dimensione)"),
+                    Tag = ChatModelBrowseSort.SmallestFileFirst
+                });
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Previously measured speed first", "Velocità misurata in precedenza"),
+                    Tag = ChatModelBrowseSort.MeasuredSpeedFirst
+                });
+                sortPicker.SelectedIndex = 0;
+                AutomationProperties.SetAutomationId(sortPicker, "Chat_ModelBrowser_Sort_Combo");
                 var choices = new ListView
                 {
                     SelectionMode = ListViewSelectionMode.Single,
@@ -154,8 +176,10 @@ namespace PaRuX.Views
                 };
                 void Render()
                 {
+                    ChatModelBrowseSort sort = (sortPicker.SelectedItem as ComboBoxItem)?.Tag
+                        is ChatModelBrowseSort chosen ? chosen : ChatModelBrowseSort.Name;
                     ChatModelPickerPolicy.Page page =
-                        ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex);
+                        ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex, sort);
                     pageIndex = page.PageIndex;
                     choices.Items.Clear();
                     if (dialog != null) dialog.IsPrimaryButtonEnabled = false;
@@ -168,7 +192,11 @@ namespace PaRuX.Views
                         {
                             Content = new TextBlock
                             {
-                                Text = display + " · " + model.Quantization + " · " + size,
+                                Text = display + " · " + model.Quantization + " · " + size
+                                    + (model.LastBenchmarkTokensPerSecond is > 0
+                                        ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0")
+                                            + L(" tok/s previously measured", " tok/s misurati in precedenza")
+                                        : string.Empty),
                                 TextWrapping = TextWrapping.Wrap
                             },
                             Tag = model.FileName, MinHeight = 44
@@ -184,6 +212,7 @@ namespace PaRuX.Views
                         + (page.PageIndex + 1) + "/" + page.TotalPages;
                 }
                 query.TextChanged += (_, _) => { pageIndex = 0; Render(); };
+                sortPicker.SelectionChanged += (_, _) => { pageIndex = 0; Render(); };
                 previous.Click += (_, _) => { pageIndex--; Render(); };
                 next.Click += (_, _) => { pageIndex++; Render(); };
 
@@ -200,6 +229,7 @@ namespace PaRuX.Views
                     TextWrapping = TextWrapping.Wrap
                 });
                 content.Children.Add(query);
+                content.Children.Add(sortPicker);
                 content.Children.Add(choices);
                 content.Children.Add(pager);
                 Render();
