@@ -98,7 +98,41 @@ namespace PaRuX.Services
                     if (string.Equals(options[i].Choice.SetName, pinnedSetName, StringComparison.OrdinalIgnoreCase))
                         pinnedId = i.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-            QuantDecision decision = QuantLadderPolicy.Decide(candidates, BudgetFor(hardware), task, pinnedId);
+            QuantBudget budget = BudgetFor(hardware);
+            if (pinnedId == null && budget.GpuFreeBytes <= 0 && budget.RamFreeBytes <= 0)
+            {
+                // Distinguish "hardware unknown" from "this model is too large".
+                // A missing Core probe must never look like a measured failure.
+                var unknown = new QuantDecision(QuantDecisionStatus.NoUsableVariant, null,
+                    QuantPlacementPlan.Unknown,
+                    "Usable hardware memory is not measured yet. No variant is recommended; check Core hardware status or choose a file manually.",
+                    "La memoria hardware utilizzabile non è stata ancora rilevata. Nessuna variante viene consigliata; controlla il Core oppure scegli un file manualmente.",
+                    false, false);
+                return new Advice(null, italian ? unknown.ReasonIt : unknown.ReasonEn, unknown);
+            }
+
+            QuantDecision decision = QuantLadderPolicy.Decide(candidates, budget, task, pinnedId);
+            if (hardware.AcceleratorProfile is { AcceleratorEligible: true, SharedMemoryPrimary: true }
+                && decision.Placement == QuantPlacementPlan.CpuOnly)
+            {
+                // A UMA iGPU (Vulkan, etc.) can use shared RAM without CPU
+                // fallback. The quant chooser is only comparing bytes in a
+                // single host pool and cannot certify runtime GPU placement.
+                decision = decision with
+                {
+                    Placement = QuantPlacementPlan.Unknown,
+                    ReasonEn = decision.ReasonEn.Replace(
+                        "runs on the CPU from system RAM",
+                        "was sized against shared system RAM",
+                        StringComparison.OrdinalIgnoreCase)
+                        + " Shared-memory GPU: this estimate avoids counting the same RAM twice; GPU acceleration and speed must be verified at launch.",
+                    ReasonIt = decision.ReasonIt.Replace(
+                        "gira sulla CPU dalla RAM di sistema",
+                        "è dimensionato sulla RAM di sistema condivisa",
+                        StringComparison.OrdinalIgnoreCase)
+                        + " GPU a memoria condivisa: questa stima evita di contare due volte la RAM; accelerazione GPU e velocità vanno verificate all'avvio."
+                };
+            }
             int? index = decision.Selected != null && int.TryParse(decision.Selected.Id, out int parsed) ? parsed : null;
             string reason = italian ? decision.ReasonIt : decision.ReasonEn;
             string prefix = decision.Status == QuantDecisionStatus.Selected
