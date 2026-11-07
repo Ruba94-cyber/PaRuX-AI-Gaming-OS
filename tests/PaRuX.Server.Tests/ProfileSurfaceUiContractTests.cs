@@ -153,7 +153,7 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("HistoryBackupSafety.PromoteSnapshot(staging, backup)", history, StringComparison.Ordinal);
         Assert.Contains("CreateDailyBackup(connection)", history, StringComparison.Ordinal);
         Assert.Contains("if (IsUsableSnapshot(destination)) return false;", safety, StringComparison.Ordinal);
-        Assert.Contains("File.Move(destination, preserved)", safety, StringComparison.Ordinal);
+        Assert.Contains("File.Replace(staging, destination, preserved, ignoreMetadataErrors: true)", safety, StringComparison.Ordinal);
     }
 
     [Fact]
