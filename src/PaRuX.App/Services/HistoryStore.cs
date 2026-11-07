@@ -35,14 +35,14 @@ namespace PaRuX.Services
 
         private static SqliteConnection Open()
         {
-            try
+            try { return OpenCore(); }
+            catch (SqliteException ex) when (HistoryBackupSafety.IsCorruptionErrorCode(ex.SqliteErrorCode))
             {
-                return OpenCore();
-            }
-            catch (SqliteException ex)
-            {
-                Log.Write("HistoryStore detected an unreadable database: " + ex.Message);
-                RecoverDatabase();
+                // A locked, full, read-only or inaccessible database is NOT
+                // corrupt. For those failures we let the caller report the
+                // failure, rather than moving the user's live history.
+                Log.Write("HistoryStore: confirmed SQLite corruption, checking verified recovery copy: " + ex.Message);
+                if (!RecoverDatabase()) throw; // Fail closed; never replace with blank history.
                 return OpenCore();
             }
         }
@@ -51,41 +51,93 @@ namespace PaRuX.Services
         {
             AppPaths.EnsureCreated();
             var connection = new SqliteConnection("Data Source=" + AppPaths.DatabaseFile + ";Mode=ReadWriteCreate;Cache=Shared");
-            connection.Open();
-            EnsureSchema(connection);
-            CreateDailyBackup(connection);
-            return connection;
+            try
+            {
+                connection.Open();
+                EnsureSchema(connection);
+                CreateDailyBackup(connection);
+                return connection;
+            }
+            catch
+            {
+                connection.Dispose(); // Do not keep a failed SQLite handle on the WAL.
+                throw;
+            }
         }
 
-        private static void RecoverDatabase()
+        /// <summary>
+        /// No blank fallback. Only a verified, non-empty daily backup can
+        /// authorize recovery, and a failed quarantine/copy must restore the
+        /// prior filesystem state as far as possible.
+        /// </summary>
+        private static bool RecoverDatabase()
         {
             lock (Gate)
             {
-                _initialized = false;
-                _backupChecked = false;
-                string suffix = ".corrupt-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-                foreach (string path in new[] { AppPaths.DatabaseFile, AppPaths.DatabaseFile + "-wal", AppPaths.DatabaseFile + "-shm" })
-                {
-                    try { if (File.Exists(path)) File.Move(path, path + suffix, true); }
-                    catch (Exception ex) { Log.Write("HistoryStore quarantine failed: " + ex.Message); }
-                }
-
+                string? backup;
                 try
                 {
-                    string? backup = HistoryBackupSafety.MostRecentUsableSnapshot(
+                    backup = HistoryBackupSafety.MostRecentUsableSnapshot(
                         new DirectoryInfo(AppPaths.BackupsDir).GetFiles("history-*.db")
                             .Select(file => file.FullName));
-                    if (backup != null)
-                    {
-                        File.Copy(backup, AppPaths.DatabaseFile, true);
-                        Log.Write("HistoryStore restored the most recent verified non-empty daily backup.");
-                    }
-                    else
-                        Log.Write("HistoryStore recovery: no verified non-empty snapshot found; quarantined database was preserved.");
                 }
                 catch (Exception ex)
                 {
-                    Log.Write("HistoryStore restore failed: " + ex.Message);
+                    Log.Write("HistoryStore: cannot inspect recovery snapshots: " + ex.Message);
+                    return false;
+                }
+                if (backup == null)
+                {
+                    Log.Write("HistoryStore: no verified non-empty recovery archive. Original database remains unchanged.");
+                    return false;
+                }
+
+                string suffix = ".corrupt-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")
+                    + "-" + Guid.NewGuid().ToString("N");
+                var moved = new List<(string Original, string Quarantine)>();
+                bool startedCopy = false;
+                try
+                {
+                    // SQLite WAL and SHM belong to the original DB. Quarantine
+                    // all three, then restore the self-contained online backup.
+                    foreach (string path in new[]
+                    {
+                        AppPaths.DatabaseFile, AppPaths.DatabaseFile + "-wal", AppPaths.DatabaseFile + "-shm"
+                    })
+                    {
+                        if (!File.Exists(path)) continue;
+                        string quarantine = path + suffix;
+                        File.Move(path, quarantine);
+                        moved.Add((path, quarantine));
+                    }
+
+                    startedCopy = true;
+                    File.Copy(backup, AppPaths.DatabaseFile, overwrite: false);
+                    _initialized = false;
+                    _backupChecked = false;
+                    Log.Write("HistoryStore: recovered verified daily snapshot; original SQLite files are quarantined.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log.Write("HistoryStore: recovery failed; attempting rollback: " + ex.Message);
+                    try
+                    {
+                        if (startedCopy && File.Exists(AppPaths.DatabaseFile))
+                            File.Delete(AppPaths.DatabaseFile);
+                        for (int i = moved.Count - 1; i >= 0; i--)
+                        {
+                            var item = moved[i];
+                            if (!File.Exists(item.Original) && File.Exists(item.Quarantine))
+                                File.Move(item.Quarantine, item.Original);
+                        }
+                    }
+                    catch (Exception rollbackError)
+                    {
+                        Log.Write("HistoryStore: manual recovery required; quarantined original preserved: "
+                            + rollbackError.Message);
+                    }
+                    return false;
                 }
             }
         }
