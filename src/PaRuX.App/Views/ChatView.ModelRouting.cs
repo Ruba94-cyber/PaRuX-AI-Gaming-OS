@@ -239,7 +239,7 @@ namespace PaRuX.Views
                 void RenderModels()
                 {
                     ChatModelBrowseSort sort = (sortPicker.SelectedItem as ComboBoxItem)?.Tag
-                        is ChatModelBrowseSort chosen ? chosen : ChatModelBrowseSort.Name;
+                        is ChatModelBrowseSort order ? order : ChatModelBrowseSort.Name;
                     ChatModelPickerPolicy.Page page = ChatModelPickerPolicy.Browse(
                         models, search.Text, pageIndex, sort);
                     pageIndex = page.PageIndex;
