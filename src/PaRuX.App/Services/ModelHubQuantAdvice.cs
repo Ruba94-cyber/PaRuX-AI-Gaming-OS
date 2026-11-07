@@ -76,14 +76,6 @@ namespace PaRuX.Services
             RuntimeManagerHardwareStatus? hardware, QuantTask task, bool italian, string? pinnedSetName = null)
         {
             ArgumentNullException.ThrowIfNull(options);
-            if (hardware == null)
-            {
-                var none = new QuantDecision(QuantDecisionStatus.NoUsableVariant, null, QuantPlacementPlan.Unknown,
-                    "Hardware not detected yet, so no file is recommended. Pick one yourself.",
-                    "Hardware non ancora rilevato, quindi nessun file è consigliato. Scegline uno tu.", false, false);
-                return new Advice(null, italian ? none.ReasonIt : none.ReasonEn, none);
-            }
-
             var candidates = new List<QuantCandidate>(options.Count);
             for (int i = 0; i < options.Count; i++)
             {
@@ -97,6 +89,36 @@ namespace PaRuX.Services
                 for (int i = 0; i < options.Count; i++)
                     if (string.Equals(options[i].Choice.SetName, pinnedSetName, StringComparison.OrdinalIgnoreCase))
                         pinnedId = i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            // A manual selection is authoritative even while the hardware probe is unavailable.
+            // Never silently replace a stale selection with a different quantisation.
+            if (pinnedSetName != null && pinnedId == null)
+            {
+                var missing = new QuantDecision(QuantDecisionStatus.NoUsableVariant, null,
+                    QuantPlacementPlan.Unknown,
+                    "Your previously selected GGUF set is not listed. PaRuX will not replace it automatically; refresh the list or choose another variant manually.",
+                    "Il set GGUF selezionato non è più nell'elenco. PaRuX non lo sostituisce automaticamente; aggiorna l'elenco oppure scegli una variante manualmente.",
+                    false, false);
+                return new Advice(null, italian ? missing.ReasonIt : missing.ReasonEn, missing);
+            }
+            if (hardware == null)
+            {
+                if (pinnedId != null)
+                {
+                    int index = int.Parse(pinnedId, System.Globalization.CultureInfo.InvariantCulture);
+                    QuantCandidate selected = candidates[index];
+                    var manual = new QuantDecision(QuantDecisionStatus.UserChoice, selected,
+                        QuantPlacementPlan.Unknown,
+                        "Your selected GGUF file remains selected. Hardware has not been detected; memory fit, acceleration and speed cannot be verified yet. Review its size and licence before download.",
+                        "Il file GGUF scelto resta selezionato. L'hardware non è ancora stato rilevato; memoria, accelerazione e velocità non sono verificabili. Controlla dimensioni e licenza prima del download.",
+                        false, false);
+                    return new Advice(index, italian ? manual.ReasonIt : manual.ReasonEn, manual);
+                }
+                var none = new QuantDecision(QuantDecisionStatus.NoUsableVariant, null, QuantPlacementPlan.Unknown,
+                    "Hardware not detected yet, so no file is recommended. Pick one yourself.",
+                    "Hardware non ancora rilevato, quindi nessun file è consigliato. Scegline uno tu.", false, false);
+                return new Advice(null, italian ? none.ReasonIt : none.ReasonEn, none);
+            }
 
             QuantBudget budget = BudgetFor(hardware);
             if (pinnedId == null && budget.GpuFreeBytes <= 0 && budget.RamFreeBytes <= 0)
