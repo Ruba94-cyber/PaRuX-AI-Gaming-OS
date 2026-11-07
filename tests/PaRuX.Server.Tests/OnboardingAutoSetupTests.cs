@@ -584,6 +584,53 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Italian_setup_card_is_friendly_without_changing_existing_phase_permissions()
+        {
+            AutoSetupState[] phases =
+            {
+                new() { Phase = AutoSetupPhase.NotStarted },
+                new() { Phase = AutoSetupPhase.Ready },
+                new() { Phase = AutoSetupPhase.NoModelFits },
+                new() { Phase = AutoSetupPhase.Failed, Message = "Unknown reason" },
+                new() { Phase = AutoSetupPhase.Cancelled },
+                new() { Phase = AutoSetupPhase.Downloading, ModelTitle = "Qwen" },
+                new() { Phase = AutoSetupPhase.VerifyingChat }
+            };
+            foreach (AutoSetupState state in phases)
+            {
+                AutoSetupViewModel en = OnboardingAutoSetupPresenter.Present(state);
+                AutoSetupViewModel it = OnboardingAutoSetupPresenter.Present(state, italian: true);
+                Assert.Equal(en.PrimaryEnabled, it.PrimaryEnabled);
+                Assert.Equal(en.ShowRetry, it.ShowRetry);
+                Assert.Equal(en.ShowCancel, it.ShowCancel);
+                Assert.Equal(en.ShowSkip, it.ShowSkip);
+                Assert.Equal(en.ShowProgress, it.ShowProgress);
+                Assert.False(string.IsNullOrWhiteSpace(it.Headline));
+                Assert.False(string.IsNullOrWhiteSpace(it.Detail));
+            }
+            Assert.Contains("PaRuX è pronto", OnboardingAutoSetupPresenter.Present(
+                new AutoSetupState { Phase = AutoSetupPhase.Ready }, italian: true).Headline);
+            Assert.Contains("Nessun modello", OnboardingAutoSetupPresenter.Present(
+                new AutoSetupState { Phase = AutoSetupPhase.NoModelFits }, italian: true).Headline);
+        }
+
+        [Fact]
+        public void Italian_auto_setup_failure_uses_localized_runtime_recovery_without_private_model_path()
+        {
+            var state = new AutoSetupState
+            {
+                Phase = AutoSetupPhase.Failed,
+                Message = @"File not found: C:\private\Qwen3-Q4_K_M.gguf"
+            };
+            var vm = OnboardingAutoSetupPresenter.Present(state, italian: true);
+            Assert.True(vm.ShowRetry);
+            Assert.True(vm.ShowSkip);
+            Assert.Contains("Model Hub", vm.Detail);
+            Assert.DoesNotContain(@"C:\private", vm.Detail);
+            Assert.Contains("Configurazione", vm.Headline);
+        }
+
+        [Fact]
         public void Presenter_ShowsRetryAndSkipOnFailure_AndCancelWhileRunning()
         {
             AutoSetupViewModel failed = OnboardingAutoSetupPresenter.Present(
