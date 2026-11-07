@@ -4705,6 +4705,7 @@ namespace PaRuX.Views
                 GroupChatStatus status = await GroupChatClient.Current.StartAsync(new GroupChatRequest
                 {
                     Prompt = prompt,
+                    SharedContext = GroupChatSharedContextBox?.Text?.Trim() ?? string.Empty,
                     Participants = participants.Select(m => new ModelCompareCandidate { Kind = m.Kind, ModelPath = m.ModelPath, Label = m.Label }).ToList()
                 }, CancellationToken.None);
 
