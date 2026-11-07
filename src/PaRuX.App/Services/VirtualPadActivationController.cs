@@ -45,18 +45,37 @@ internal sealed class VirtualPadActivationController
     public async Task<VirtualPadServiceStatus> StartAsync(RawGamepadDeviceInfo device, bool consentToHide, string? gameId)
     {
         Subscribe();
-        VirtualPadServiceStatus status = await Service.StartAsync(IdentityFor(device), consentToHide, gameId).ConfigureAwait(false);
-        if (status.Phase is VirtualPadPhase.Idle or VirtualPadPhase.Failed) Unsubscribe();
-        Changed?.Invoke();
-        return status;
+        try
+        {
+            return await Service.StartAsync(IdentityFor(device), consentToHide, gameId).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Driver/mapping/isolation errors can throw before the service
+            // returns a status. Never leave a global WinRT hot-plug listener
+            // armed when forwarding isn't running or awaiting manual re-arm.
+            // Conversely, don't lose removal events if a real pad remains live.
+            if (Service.Status.Phase is not (VirtualPadPhase.Running or VirtualPadPhase.PausedRemoved))
+                Unsubscribe();
+            Changed?.Invoke();
+        }
     }
 
     public async Task<VirtualPadServiceStatus> StopAsync()
     {
-        VirtualPadServiceStatus status = await Service.StopAsync().ConfigureAwait(false);
-        Unsubscribe();
-        Changed?.Invoke();
-        return status;
+        try
+        {
+            return await Service.StopAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // A failed Stop can leave the virtual pad alive; retaining the
+            // removal listener in that state is safer than assuming cleanup
+            // succeeded. Only detach after confirmed non-running state.
+            if (Service.Status.Phase is not (VirtualPadPhase.Running or VirtualPadPhase.PausedRemoved))
+                Unsubscribe();
+            Changed?.Invoke();
+        }
     }
 
     public async Task<VirtualPadServiceStatus> RearmAsync()
