@@ -1807,7 +1807,7 @@
                     <StackPanel Spacing="{StaticResource PaRuXSpaceM}">
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
                             Text="2-4 local models take turns replying to one prompt, each seeing what the others already said - one model loaded at a time, in order (this GPU can't hold more than one large model at once)." />
-                        <TextBox x:Name="GroupChatPromptBox" PlaceholderText="Prompt for the group…" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="120" />
+                        <TextBox x:Name="GroupChatPromptBox" PlaceholderText="Prompt for the group…" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="120" MaxLength="12000" />
                         <TextBox x:Name="GroupChatSharedContextBox"
                             AutomationProperties.AutomationId="Settings_GroupChat_SharedContext_TextBox"
                             AutomationProperties.Name="Optional context shared with every local model"
