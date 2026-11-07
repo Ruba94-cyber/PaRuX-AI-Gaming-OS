@@ -179,6 +179,10 @@ public sealed class KnowledgeIndexTests : IDisposable
             .Select(i => "no-evidence-" + i).ToArray();
         string[] selected = unrelated.Append(approved).ToArray();
 
+        Assert.True(_index.HasAnyIndexedChunks(selected));
+        Assert.False(_index.HasAnyIndexedChunks(unrelated));
+        Assert.False(_index.HasAnyIndexedChunks(Array.Empty<string>()));
+
         IReadOnlyList<KnowledgeHit> exact = _index.Search("INV_2026_884",
             KnowledgeSearchMode.Exact, 5, selected);
         Assert.Single(exact);
