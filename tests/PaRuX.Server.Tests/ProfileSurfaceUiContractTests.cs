@@ -169,6 +169,11 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("NormalizeSharedContext(request.SharedContext)", service, StringComparison.Ordinal);
         Assert.Contains("BuildTurnPrompt(prompt, sharedContext, entry)", service, StringComparison.Ordinal);
         Assert.Contains("TryBuildVerdictAsync(prompt, sharedContext, turns, ct)", service, StringComparison.Ordinal);
+        Assert.Contains("ValidateGroupPrompt(request.Prompt)", service, StringComparison.Ordinal);
+        Assert.Contains("ValidateUniqueParticipants(resolved.Select(model => model.Path))", service, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"12000\" />", settings, StringComparison.Ordinal);
+        Assert.Contains("Scegli modelli diversi", code, StringComparison.Ordinal);
+        Assert.Contains("Truncate(turn.Response, MaxVerdictCharactersPerTurn)", service, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
