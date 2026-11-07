@@ -203,6 +203,44 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Gallery_renders_only_24_thumbnails_while_later_outputs_remain_searchable()
+        {
+            var items = Enumerable.Range(0, 105).Select(i => new MediaGalleryItem
+            {
+                Id = "media-" + i, Title = "Generation " + i,
+                ArtifactType = "image", MediaType = "image/png",
+                FilePath = "image-" + i + ".png", Prompt = "Prompt " + i,
+                Model = "Local", CreatedUtc = new DateTime(2026, 11, 7).AddMinutes(i),
+                Status = "final"
+            }).ToArray();
+
+            var sorted = MediaGalleryBrowser.FilterAndSort(items, MediaGalleryFilter.All,
+                MediaGallerySort.NewestFirst);
+            var first = MediaGalleryBrowser.Paginate(sorted, 0);
+            Assert.Equal(105, first.TotalMatches);
+            Assert.Equal(5, first.PageCount);
+            Assert.Equal(24, first.Visible.Count);
+            Assert.Equal("media-104", first.Visible[0].Id);
+
+            var last = MediaGalleryBrowser.Paginate(sorted, 300);
+            Assert.Equal(4, last.PageIndex);
+            Assert.Equal(9, last.Visible.Count);
+            Assert.Equal("media-0", last.Visible[^1].Id);
+
+            var searched = MediaGalleryBrowser.FilterAndSort(items, MediaGalleryFilter.All,
+                MediaGallerySort.NewestFirst, "Prompt 1");
+            var searchedPage = MediaGalleryBrowser.Paginate(searched, 4);
+            Assert.Equal(17, searchedPage.TotalMatches);
+            Assert.Equal(0, searchedPage.PageIndex);
+            Assert.All(searchedPage.Visible, item => Assert.Contains("Prompt 1", item.Prompt));
+
+            var empty = MediaGalleryBrowser.Paginate(Array.Empty<MediaGalleryItem>(), -9);
+            Assert.Equal(1, empty.PageCount);
+            Assert.Equal(0, empty.PageIndex);
+            Assert.Empty(empty.Visible);
+        }
+
+        [Fact]
         public void FilterAndSort_filters_by_kind_and_status()
         {
             var items = new List<MediaGalleryItem>
