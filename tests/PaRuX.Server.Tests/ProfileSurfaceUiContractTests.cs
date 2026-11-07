@@ -126,6 +126,32 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("if (container.client.value == null)", model, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Standard_and_portable_chat_has_a_bounded_local_model_menu_and_full_search_browser()
+    {
+        string chat = Read("src", "PaRuX.App", "Views", "ChatView.SimpleMode.cs");
+        Assert.Contains("ChatModelPickerPolicy.Quick(_chatModelCatalog, pinnedFile)", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_SimpleMode_ModelPicker_BrowseAll", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_ModelBrowser_Filter_TextBox", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_ModelBrowser_Choices_List", chat, StringComparison.Ordinal);
+        Assert.Contains("ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex)", chat, StringComparison.Ordinal);
+        Assert.Contains("await ApplyChatModelChoiceAsync(\"parux-manual:\" + file)", chat, StringComparison.Ordinal);
+        Assert.Contains("DefaultButton = ContentDialogButton.Close", chat, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Local_chat_daily_snapshots_are_verified_and_do_not_overwrite_existing_complete_data()
+    {
+        string history = Read("src", "PaRuX.App", "Services", "HistoryStore.cs");
+        string safety = Read("src", "PaRuX.App", "Services", "HistoryBackupSafety.cs");
+        Assert.Contains("HistoryBackupSafety.MostRecentUsableSnapshot(", history, StringComparison.Ordinal);
+        Assert.Contains("HistoryBackupSafety.CountRows(source) == 0", history, StringComparison.Ordinal);
+        Assert.Contains("HistoryBackupSafety.PromoteSnapshot(staging, backup)", history, StringComparison.Ordinal);
+        Assert.Contains("CreateDailyBackup(connection)", history, StringComparison.Ordinal);
+        Assert.Contains("if (IsUsableSnapshot(destination)) return false;", safety, StringComparison.Ordinal);
+        Assert.Contains("File.Move(destination, preserved)", safety, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
