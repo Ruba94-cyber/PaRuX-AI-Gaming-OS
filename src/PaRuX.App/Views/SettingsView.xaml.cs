@@ -4697,9 +4697,20 @@ namespace PaRuX.Views
             {
                 if ((combo?.SelectedItem as ComboBoxItem)?.Tag is ModelCompareAvailableModel model) participants.Add(model);
             }
+            bool italian = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
             if (prompt.Length == 0 || participants.Count < 2)
             {
-                GroupChatStageText.Text = "Pick a prompt and at least two participants first.";
+                GroupChatStageText.Text = italian
+                    ? "Inserisci una domanda e seleziona almeno due modelli."
+                    : "Enter a question and choose at least two models.";
+                return;
+            }
+            if (participants.Select(model => (model.Kind ?? string.Empty) + "|" + (model.ModelPath ?? string.Empty))
+                .Distinct(StringComparer.OrdinalIgnoreCase).Count() != participants.Count)
+            {
+                GroupChatStageText.Text = italian
+                    ? "Scegli modelli diversi: ripetere lo stesso modello non aggiunge un secondo parere."
+                    : "Choose different models: repeating the same model does not add a second opinion.";
                 return;
             }
 
