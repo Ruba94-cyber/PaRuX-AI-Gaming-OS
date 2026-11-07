@@ -43,7 +43,8 @@ namespace PaRuX.Views
         private void ApplyAutoSetup(AutoSetupSnapshot snapshot)
         {
             if (AutoSetupHeadlineText == null) return;
-            AutoSetupViewModel vm = OnboardingAutoSetupPresenter.Present(snapshot.State);
+            AutoSetupViewModel vm = OnboardingAutoSetupPresenter.Present(snapshot.State,
+                System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it");
             AutoSetupHeadlineText.Text = vm.Headline;
             AutoSetupDetailText.Text = vm.Detail;
             AutoSetupStartButton.Content = vm.PrimaryLabel;
