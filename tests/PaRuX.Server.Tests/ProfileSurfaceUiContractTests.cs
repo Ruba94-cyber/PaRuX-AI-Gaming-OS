@@ -180,6 +180,28 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("Truncate(turn.Response, MaxVerdictCharactersPerTurn)", service, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Standard_media_gallery_limits_thumbnail_memory_and_android_jobs_bound_inputs()
+    {
+        string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
+        string policy = Read("src", "PaRuX.App", "Services", "MediaGalleryBrowser.cs");
+        string media = Read("src", "PaRuX.App", "Services", "ChatMediaJobReconciler.cs");
+        string phone = Read("src", "PaRuX.Android", "app", "src", "main", "java",
+            "com", "parux", "android", "ui", "jobs", "JobsScreen.kt");
+
+        Assert.Contains("MediaGalleryBrowser.Paginate(filtered, _pageIndex)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_PreviousPage_Button", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_NextPage_Button", gallery, StringComparison.Ordinal);
+        Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
+        Assert.Contains("public const int PageSize = 24;", policy, StringComparison.Ordinal);
+        Assert.Contains("case \"cancelling\":", media, StringComparison.Ordinal);
+        Assert.Contains("job.EtaSeconds is > 0 and <= 86400", media, StringComparison.Ordinal);
+        Assert.Contains("MAX_JOB_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024", phone, StringComparison.Ordinal);
+        Assert.Contains("while (true)", phone, StringComparison.Ordinal);
+        Assert.Contains("imageError = e.message", phone, StringComparison.Ordinal);
+        Assert.Contains("coerceIn(0f, 1f)", phone, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
