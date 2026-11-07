@@ -262,13 +262,20 @@ namespace PaRuX.Views
                 _status.Text = "Artifact Workspace media query notice: " + ex.Message;
             }
 
-            // 2. Discover files in local generated output directories that might not be registered yet
+            // 2. Directory enumeration and FileInfo metadata may involve
+            // thousands of files (and slow drives). Scan off the UI thread,
+            // but return to the caller's synchronization context afterwards.
             try
             {
-                AppPaths.EnsureCreated();
-                ScanDirectory(AppPaths.GeneratedImagesDir, ".png", ".jpg", ".jpeg", ".webp");
-                ScanDirectory(AppPaths.GeneratedVideosDir, ".mp4", ".webm", ".mov");
+                await Task.Run(() =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    AppPaths.EnsureCreated();
+                    ScanDirectory(AppPaths.GeneratedImagesDir, ".png", ".jpg", ".jpeg", ".webp");
+                    ScanDirectory(AppPaths.GeneratedVideosDir, ".mp4", ".webm", ".mov");
+                }, ct);
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 Log.Write("Media directory scan warning: " + ex.Message);
