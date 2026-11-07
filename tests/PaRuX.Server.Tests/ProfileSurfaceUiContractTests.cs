@@ -269,6 +269,20 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void Local_ai_failure_recovery_is_shared_by_chat_settings_and_tray()
+    {
+        string runtime = Read("src", "PaRuX.App", "Services", "LocalAiController.cs");
+        string chat = Read("src", "PaRuX.App", "Views", "ChatView.xaml.cs");
+        string settings = Read("src", "PaRuX.App", "Views", "SettingsView.xaml.cs");
+        string main = Read("src", "PaRuX.App", "MainWindow.xaml.cs");
+        Assert.Contains("RuntimeRecoveryGuidance.Describe(r?.Message", runtime, StringComparison.Ordinal);
+        Assert.Contains("CurrentUICulture.TwoLetterISOLanguageName == \"it\"", runtime, StringComparison.Ordinal);
+        Assert.Contains("LocalAiController.FriendlyScriptError(result)", chat, StringComparison.Ordinal);
+        Assert.Contains("LocalAiController.FriendlyScriptError(result)", settings, StringComparison.Ordinal);
+        Assert.Contains("LocalAiController.FriendlyScriptError(result)", main, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Model_hub_search_does_not_promote_an_unverified_balanced_file_to_default()
     {
         string hub = Read("src", "PaRuX.App", "Views", "ModelHubView.cs");
