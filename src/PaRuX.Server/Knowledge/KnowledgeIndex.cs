@@ -910,7 +910,44 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
                 else CollectScan(c, term, topK * 3, sources, hits);
             }
         }
-        return hits.Values.OrderByDescending(h => h.Score).Take(topK).ToList();
+        var ranked = hits.Values.OrderByDescending(h => h.Score).ToList();
+        if (terms.Count > 1 && terms.Count <= topK)
+        {
+            // Corpus-frequency skew must not hide the less frequent second
+            // invoice/revision/code in a comparison. Each term had its own
+            // pre-LIMIT FTS query above; preserve its best evidenced passage
+            // before filling the remaining slots by normal ranking.
+            var balanced = new List<KnowledgeHit>();
+            var chosen = new HashSet<long>();
+            foreach (string term in terms)
+            {
+                KnowledgeHit? candidate = ranked.FirstOrDefault(h => TextContainsWholeExactTerm(h.Text, term));
+                if (candidate != null && chosen.Add(candidate.ChunkId))
+                    balanced.Add(candidate);
+            }
+            balanced.AddRange(ranked.Where(h => chosen.Add(h.ChunkId)));
+            return balanced.Take(topK).ToList();
+        }
+        return ranked.Take(topK).ToList();
+    }
+
+    /// <summary>Match a full code/quoted term in actual text, not a filename
+    /// or an overlapping identifier substring.</summary>
+    private static bool TextContainsWholeExactTerm(string text, string term)
+    {
+        if (string.IsNullOrWhiteSpace(term)) return false;
+        int offset = 0;
+        while ((offset = text.IndexOf(term, offset, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            int end = offset + term.Length;
+            static bool IdentifierChar(char ch) =>
+                char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.';
+            if ((offset == 0 || !IdentifierChar(text[offset - 1]))
+                && (end == text.Length || !IdentifierChar(text[end])))
+                return true;
+            offset++;
+        }
+        return false;
     }
 
     private IReadOnlyList<KnowledgeHit> SearchLexical(string query, int topK, IReadOnlyCollection<string>? sources, string label)
