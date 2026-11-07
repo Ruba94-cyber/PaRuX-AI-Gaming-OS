@@ -340,7 +340,13 @@ namespace PaRuX.Views
                 {
                     var image = new Image
                     {
-                        Source = new BitmapImage(new Uri(item.FilePath)),
+                        // Decode near thumbnail resolution rather than
+                        // materializing a full 4K/8K image for a 160x110 card.
+                        Source = new BitmapImage(new Uri(item.FilePath))
+                        {
+                            DecodePixelWidth = 320,
+                            DecodePixelHeight = 220
+                        },
                         Stretch = Stretch.UniformToFill
                     };
                     thumbBox.Child = image;
