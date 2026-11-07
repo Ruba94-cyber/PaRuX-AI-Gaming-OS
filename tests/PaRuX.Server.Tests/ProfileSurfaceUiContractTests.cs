@@ -152,6 +152,21 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("File.Move(destination, preserved)", safety, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Standard_group_chat_shares_only_explicitly_pasted_bounded_context()
+    {
+        string settings = Read("src", "PaRuX.App", "Views", "SettingsView.xaml");
+        string code = Read("src", "PaRuX.App", "Views", "SettingsView.xaml.cs");
+        string service = Read("src", "PaRuX.Server", "GroupChatService.cs");
+        Assert.Contains("x:Name=\"GroupChatSharedContextBox\"", settings, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"12000\"", settings, StringComparison.Ordinal);
+        Assert.Contains("GroupChatSharedContextHint", settings, StringComparison.Ordinal);
+        Assert.Contains("SharedContext = GroupChatSharedContextBox?.Text?.Trim()", code, StringComparison.Ordinal);
+        Assert.Contains("NormalizeSharedContext(request.SharedContext)", service, StringComparison.Ordinal);
+        Assert.Contains("BuildTurnPrompt(prompt, sharedContext, entry)", service, StringComparison.Ordinal);
+        Assert.Contains("TryBuildVerdictAsync(prompt, sharedContext, turns, ct)", service, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
