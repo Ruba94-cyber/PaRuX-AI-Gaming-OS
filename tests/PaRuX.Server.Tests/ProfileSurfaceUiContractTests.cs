@@ -195,6 +195,10 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("Content = \"Preview\"", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = MediaGalleryPreviewPolicy.PreviewDecodeWidth", gallery, StringComparison.Ordinal);
         Assert.Contains("AutoPlay = false", gallery, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive()", gallery, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.StateChanged += onGamingChange", gallery, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.StateChanged -= onGamingChange", gallery, StringComparison.Ordinal);
+        Assert.Contains("DispatcherQueue.TryEnqueue(ReleaseVideoPreview)", gallery, StringComparison.Ordinal);
         Assert.Contains("previewPlayer.MediaPlayer?.Pause()", gallery, StringComparison.Ordinal);
         Assert.Contains("previewPlayer.Source = null", gallery, StringComparison.Ordinal);
         Assert.Contains("Preview unavailable", gallery, StringComparison.Ordinal);
