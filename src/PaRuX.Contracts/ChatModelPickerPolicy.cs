@@ -18,6 +18,8 @@ public static class ChatModelPickerPolicy
 {
     public const int QuickChoices = 12;
     public const int BrowsePageSize = 24;
+    public static bool HasMeasuredSpeed(ManagedModelInfo model) =>
+        model.LastBenchmarkTokensPerSecond is double speed && double.IsFinite(speed) && speed > 0;
 
     public sealed record Page(IReadOnlyList<ManagedModelInfo> Visible, int TotalMatches,
         int PageIndex, int TotalPages);
@@ -47,9 +49,9 @@ public static class ChatModelPickerPolicy
                 .ThenBy(m => m.SizeBytes <= 0 ? long.MaxValue : m.SizeBytes)
                 .ThenBy(LabelOf, StringComparer.OrdinalIgnoreCase),
             ChatModelBrowseSort.MeasuredSpeedFirst => matching
-                .OrderBy(m => m.LastBenchmarkTokensPerSecond is > 0 ? 0 : 1)
-                .ThenByDescending(m => m.LastBenchmarkTokensPerSecond is > 0
-                    ? m.LastBenchmarkTokensPerSecond.Value : 0)
+                .OrderBy(m => HasMeasuredSpeed(m) ? 0 : 1)
+                .ThenByDescending(m => HasMeasuredSpeed(m)
+                    ? m.LastBenchmarkTokensPerSecond!.Value : 0)
                 .ThenBy(LabelOf, StringComparer.OrdinalIgnoreCase),
             _ => matching.OrderBy(LabelOf, StringComparer.OrdinalIgnoreCase)
         };
