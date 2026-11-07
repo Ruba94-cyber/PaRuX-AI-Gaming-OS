@@ -126,6 +126,44 @@ public sealed class VirtualPadActivationTests : IDisposable
     private static HidGamingDevice Hid(string path, ushort v = 0x054C, ushort p = 0x09CC) => new(path, v, p);
 
     [Fact]
+    public void Raw_controller_isolation_identity_checks_all_devices_not_just_the_ui_first_sixteen()
+    {
+        var observed = Enumerable.Range(0, 20)
+            .Select(n => new RawPadIdentitySnapshot(
+                "other-" + n, (ushort)0x045e, (ushort)n)).ToList();
+        observed[0] = new RawPadIdentitySnapshot("selected", 0x054c, 0x09cc);
+        Assert.Equal(1, PadBindingVerifier.CountMatchingRawControllers(
+            "selected", 0x054c, 0x09cc, observed));
+
+        // Identical second controller lies beyond the 16 entries shown in UI.
+        observed[19] = new RawPadIdentitySnapshot("duplicate-pad", 0x054c, 0x09cc);
+        Assert.Equal(2, PadBindingVerifier.CountMatchingRawControllers(
+            "selected", 0x054c, 0x09cc, observed));
+        Assert.False(PadBindingVerifier.Verify(0x054c, 0x09cc,
+            PadBindingVerifier.CountMatchingRawControllers("selected", 0x054c, 0x09cc, observed),
+            new[] { Hid(HidPath) }).Proven);
+    }
+
+    [Fact]
+    public void Stale_selected_raw_controller_fails_closed_even_when_an_identical_pad_remains()
+    {
+        var observed = new[]
+        {
+            new RawPadIdentitySnapshot("different-instance", 0x054c, 0x09cc)
+        };
+        Assert.Equal(0, PadBindingVerifier.CountMatchingRawControllers(
+            "disconnected-instance", 0x054c, 0x09cc, observed));
+        Assert.Equal(0, PadBindingVerifier.CountMatchingRawControllers(
+            null, 0x054c, 0x09cc, observed));
+        Assert.Equal(0, PadBindingVerifier.CountMatchingRawControllers(
+            "different-instance", 0, 0, observed));
+        Assert.Equal(0, PadBindingVerifier.CountMatchingRawControllers(
+            "different-instance", 0x054c, 0x09cc, null));
+        Assert.Equal(1, PadBindingVerifier.CountMatchingRawControllers(
+            "different-instance", 0x054c, 0x09cc, observed));
+    }
+
+    [Fact]
     public void Binding_is_proven_only_for_exactly_one_matching_hid_device()
     {
         var ok = PadBindingVerifier.Verify(0x054C, 0x09CC, 1, new[] { Hid(HidPath), Hid(@"HID\VID_057E&PID_2009\1", 0x057E, 0x2009) });
