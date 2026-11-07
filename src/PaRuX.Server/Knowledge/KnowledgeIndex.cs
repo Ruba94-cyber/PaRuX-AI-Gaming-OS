@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
@@ -1023,15 +1024,15 @@ JOIN kn_files f ON f.id=k.file_id WHERE k.embedding IS NOT NULL"
         string[] ids = sources.Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal).ToArray();
         if (ids.Length == 0) return " AND 1=0";
-        if (ids.Length > 900)
-            throw new InvalidDataException("More than 900 source folders were selected; narrow the scope.");
-        var placeholders = new string[ids.Length];
-        for (int i = 0; i < ids.Length; i++)
-        {
-            placeholders[i] = "$scope" + i;
-            command.Parameters.AddWithValue(placeholders[i], ids[i]);
-        }
-        return " AND " + fileAlias + ".source_id IN (" + string.Join(",", placeholders) + ")";
+        // SQLite's per-statement variable limit makes one-parameter-per-folder
+        // fail at scale (historically at >900 sources, even in all-sources mode).
+        // A single parameterized JSON array keeps arbitrary identifiers safe
+        // (quotes, backslashes, Unicode), and evaluates the scope INSIDE SQL
+        // before FTS LIMIT or semantic ranking, never after hydration.
+        // FTS5-capable bundled SQLite also includes the JSON table functions.
+        command.Parameters.AddWithValue("$allowedSourceIds", JsonSerializer.Serialize(ids));
+        return " AND " + fileAlias
+            + ".source_id IN (SELECT value FROM json_each($allowedSourceIds))";
     }
 
     private void Hydrate(SqliteConnection c, long chunkId, double score, string label, IReadOnlyCollection<string>? sources, Dictionary<long, KnowledgeHit> hits)
