@@ -83,6 +83,13 @@ public sealed class ProfileSurfaceUiContractTests
         string chat = Read("src", "PaRuX.App", "Views", "ChatView.Documents.cs");
         string client = Read("src", "PaRuX.App", "Services", "KnowledgeClient.cs");
         Assert.Contains("DocSearch_SearchActions_Panel", search, StringComparison.Ordinal);
+        Assert.Contains("DocSearch_FolderFilter_TextBox", search, StringComparison.Ordinal);
+        Assert.Contains("DocSearch_NextFolderPage_Button", search, StringComparison.Ordinal);
+        Assert.Contains("DocumentSourcePicker.Filter(", search, StringComparison.Ordinal);
+        Assert.Contains("includeDisabled: true", search, StringComparison.Ordinal);
+        Assert.Contains("page.Visible.Where(", search, StringComparison.Ordinal);
+        Assert.Contains("_folderFilterDelay.Stop()", search, StringComparison.Ordinal);
+        Assert.Contains("Disabled for Chat", search, StringComparison.Ordinal);
         Assert.Contains("SemaphoreSlim(4)", search, StringComparison.Ordinal);
         Assert.Contains("cached.State is \"running\" or \"paused\"", search, StringComparison.Ordinal);
         Assert.Contains("GridUnitType.Star", search, StringComparison.Ordinal);
