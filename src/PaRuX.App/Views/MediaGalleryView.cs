@@ -79,7 +79,7 @@ namespace PaRuX.Views
 
             var subtitle = new TextBlock
             {
-                Text = "Browse generated images and videos. Open Details for the full prompt, metadata and file location.",
+                Text = "Browse generated images and videos. Choose Preview for local playback, the full prompt and output details.",
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.75,
                 FontSize = 13
@@ -489,8 +489,9 @@ namespace PaRuX.Views
             };
             actions.Children.Add(openBtn);
 
-            var detailsBtn = new Button { Content = "Details" };
+            var detailsBtn = new Button { Content = "Preview" };
             AutomationProperties.SetAutomationId(detailsBtn, $"MediaGallery_ViewDetails_{item.Id}");
+            AutomationProperties.SetName(detailsBtn, "Preview media and show full output details");
             detailsBtn.Click += async (_, _) => await ShowDetailsAsync(item);
             actions.Children.Add(detailsBtn);
 
