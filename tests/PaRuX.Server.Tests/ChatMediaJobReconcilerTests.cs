@@ -248,10 +248,22 @@ public sealed class ChatMediaJobReconcilerTests
     public void ChatMessageRoundTripsAndOldJsonLoads()
     {
         var m = Running();
+        ChatMediaJobReconciler.ReportProgress(m, new MediaJobStatus
+        {
+            Id = "job-1", Status = "running", ProgressPercent = 17,
+            Stage = "Sampling", EtaSeconds = 82
+        });
         string json = System.Text.Json.JsonSerializer.Serialize(m);
         ChatMessage? back = System.Text.Json.JsonSerializer.Deserialize<ChatMessage>(json);
         Assert.Equal("job-1", back!.MediaJobId);
+        Assert.Equal(82, back.MediaEtaSeconds);
+        Assert.Contains("approx. 1m 22s remaining", ChatMediaJobReconciler.Present(back).ProgressText);
+
+        ChatMediaJobReconciler.ApplyCompleted(m, new ChatAttachment { MediaType = "image/png" },
+            "job-1", "Image saved");
+        Assert.Null(m.MediaEtaSeconds);
         ChatMessage? old = System.Text.Json.JsonSerializer.Deserialize<ChatMessage>("{\"Role\":\"assistant\",\"Content\":\"x\"}");
         Assert.Null(old!.MediaJobState);
+        Assert.Null(old.MediaEtaSeconds);
     }
 }
