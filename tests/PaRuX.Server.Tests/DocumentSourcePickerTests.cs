@@ -51,6 +51,21 @@ public sealed class DocumentSourcePickerTests
     }
 
     [Fact]
+    public void Management_view_can_find_disabled_folders_without_exposing_them_to_chat()
+    {
+        var folders = new[]
+        {
+            new RagSourceDto { Id = "legal", FolderPath = @"C:\Legal\Contracts", Enabled = true },
+            new RagSourceDto { Id = "disabled-hr", FolderPath = @"C:\HR\Payroll", Enabled = false }
+        };
+        Assert.Empty(DocumentSourcePicker.Filter(folders, "payroll", 0).Visible);
+        DocumentSourcePage management = DocumentSourcePicker.Filter(
+            folders, "PAYROLL", 0, includeDisabled: true);
+        Assert.Equal("disabled-hr", Assert.Single(management.Visible).Id);
+        Assert.Equal(1, management.TotalMatches);
+    }
+
+    [Fact]
     public void Changing_the_search_only_changes_visible_rows_not_the_approval_state()
     {
         var folders = Enumerable.Range(0, 100).Select(i => new RagSourceDto
