@@ -269,6 +269,19 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void First_run_automatic_setup_renders_Italian_recovery_without_changing_permissions()
+    {
+        string onboarding = Read("src", "PaRuX.App", "Views", "OnboardingView.AutoSetup.cs");
+        string presenter = Read("src", "PaRuX.App", "Services", "OnboardingAutoSetupPresenter.cs");
+        Assert.Contains("OnboardingAutoSetupPresenter.Present(snapshot.State,", onboarding, StringComparison.Ordinal);
+        Assert.Contains("CurrentUICulture.TwoLetterISOLanguageName == \"it\"", onboarding, StringComparison.Ordinal);
+        Assert.Contains("PresentItalian(state)", presenter, StringComparison.Ordinal);
+        Assert.Contains("RuntimeRecoveryGuidance.Describe(message, italian: true)", presenter, StringComparison.Ordinal);
+        Assert.Contains("AutoSetupPhase.NoModelFits => new AutoSetupViewModel(", presenter, StringComparison.Ordinal);
+        Assert.Contains("Nessun download è stato avviato", presenter, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Local_ai_failure_recovery_is_shared_by_chat_settings_and_tray()
     {
         string runtime = Read("src", "PaRuX.App", "Services", "LocalAiController.cs");
