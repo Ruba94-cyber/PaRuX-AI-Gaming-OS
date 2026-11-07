@@ -51,8 +51,7 @@ public sealed class GroupChatService
             throw new InvalidDataException("A prompt is required.");
         if (request.Participants == null || request.Participants.Count < 2 || request.Participants.Count > 4)
             throw new InvalidDataException("Group chat needs between 2 and 4 participants.");
-        if (request.SharedContext?.Length > MaxSharedContextCharacters)
-            throw new InvalidDataException("Shared context exceeds the 12,000-character local-only limit.");
+        string sharedContext = NormalizeSharedContext(request.SharedContext);
 
         var resolved = new List<(string Path, string Label)>();
         for (int i = 0; i < request.Participants.Count; i++)
@@ -71,9 +70,15 @@ public sealed class GroupChatService
         _runs[entry.Status.Id] = entry;
         // Capture only explicitly supplied context; do not silently collect
         // conversation history, project files, memory or cloud material.
-        string sharedContext = request.SharedContext?.Trim() ?? string.Empty;
         _ = Task.Run(() => RunAsync(entry, request.Prompt, sharedContext, resolved));
         return Snapshot(entry);
+    }
+
+    internal static string NormalizeSharedContext(string? context)
+    {
+        if (context?.Length > MaxSharedContextCharacters)
+            throw new InvalidDataException("Shared context exceeds the 12,000-character local-only limit.");
+        return context?.Trim() ?? string.Empty;
     }
 
     private static string ResolveModelPath(ModelCompareCandidate candidate, string which)
