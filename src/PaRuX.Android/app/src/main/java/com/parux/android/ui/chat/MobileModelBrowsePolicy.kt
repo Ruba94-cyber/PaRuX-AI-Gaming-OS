@@ -31,22 +31,24 @@ internal object MobileModelBrowsePolicy {
                     it.quantization.contains(term, ignoreCase = true)
             }
             .toList()
+        fun nameKey(model: ManagedChatModelInfo) =
+            (model.alias?.takeIf { it.isNotBlank() } ?: model.fileName).lowercase()
         val sorted = when (sort) {
             MobileModelSort.SmallestFile -> matching.sortedWith(
                 compareBy<ManagedChatModelInfo> { it.sizeBytes <= 0 }
                     .thenBy { if (it.sizeBytes > 0) it.sizeBytes else Long.MAX_VALUE }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.alias?.takeIf(String::isNotBlank) ?: it.fileName }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.fileName })
+                    .thenBy { nameKey(it) }
+                    .thenBy { it.fileName.lowercase() })
             MobileModelSort.MeasuredSpeed -> matching.sortedWith(
                 compareBy<ManagedChatModelInfo> {
                     it.lastBenchmarkTokensPerSecond?.takeIf { speed -> speed.isFinite() && speed > 0 } == null
                 }.thenByDescending {
                     it.lastBenchmarkTokensPerSecond?.takeIf { speed -> speed.isFinite() && speed > 0 } ?: 0.0
-                }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.alias?.takeIf(String::isNotBlank) ?: it.fileName }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.fileName })
+                }.thenBy { nameKey(it) }
+                    .thenBy { it.fileName.lowercase() })
             MobileModelSort.Name -> matching.sortedWith(
-                compareBy(String.CASE_INSENSITIVE_ORDER) { it.alias?.takeIf(String::isNotBlank) ?: it.fileName }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.fileName })
+                compareBy<ManagedChatModelInfo> { nameKey(it) }
+                    .thenBy { it.fileName.lowercase() })
         }
         val visible = sorted.take(LIMIT).toMutableList()
         if (term.isEmpty() && !pinnedManualFile.isNullOrBlank()) {
