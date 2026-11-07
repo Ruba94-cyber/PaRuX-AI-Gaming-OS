@@ -14,6 +14,11 @@ namespace PaRuX.Views
     /// open technical metadata and quantization choices only on demand.</summary>
     public sealed partial class ModelHubView
     {
+        // Session-only user intent. A manual choice must not be replaced by a
+        // later hardware recommendation or a refreshed catalogue.
+        private readonly Dictionary<string, string> _manuallyReviewedQuantByRepo =
+            new(StringComparer.OrdinalIgnoreCase);
+
         private async Task ShowModelDetailsAsync(
             string title, IEnumerable<(string Label, string? Value)> fields, Uri? modelCardUri = null)
         {
@@ -133,6 +138,9 @@ namespace PaRuX.Views
             dialog.IsPrimaryButtonEnabled = picker.SelectedItem is ComboBoxItem { Tag: ModelQuantChoice choice } && choice.Complete;
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             if (picker.SelectedItem is not ComboBoxItem { Tag: ModelQuantChoice selectedChoice } || !selectedChoice.Complete) return;
+            // The owner explicitly chose this exact set. Keep the choice only
+            // for this Model Hub session; do not auto-download or persist paths.
+            _manuallyReviewedQuantByRepo[repo.RepoId] = selectedChoice.SetName;
             try { await ChooseQuantChoiceAsync(repo.RepoId, selectedChoice); }
             catch (Exception ex) { _status.Text = "Could not review this variant: " + ex.Message; }
             finally { SetBusy(false, _status.Text); }
