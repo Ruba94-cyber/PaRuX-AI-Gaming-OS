@@ -57,6 +57,8 @@ public sealed class MediaGalleryPreviewPolicyTests
         Assert.Equal(MediaGalleryPreviewKind.Unavailable,
             MediaGalleryPreviewPolicy.KindFor(Item("media.png")));
         Assert.Equal(MediaGalleryPreviewKind.Unavailable,
+            MediaGalleryPreviewPolicy.KindFor(Item("invalid" + '\0' + ".png")));
+        Assert.Equal(MediaGalleryPreviewKind.Unavailable,
             MediaGalleryPreviewPolicy.KindFor(Item("https://example.org/clip.mp4", "video", "video/mp4")));
         Assert.Equal(MediaGalleryPreviewKind.Unavailable,
             MediaGalleryPreviewPolicy.KindFor(Item(@"\\server\share\clip.mp4", "video", "video/mp4")));
