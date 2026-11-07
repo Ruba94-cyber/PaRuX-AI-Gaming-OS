@@ -29,6 +29,36 @@ public sealed class ChatModelPickerPolicyTests
     }
 
     [Fact]
+    public void Quick_compare_accepts_two_distinct_installed_models_from_distant_pages()
+    {
+        var models = Enumerable.Range(0, 125).Select(Model).ToArray();
+        Assert.True(ChatModelPickerPolicy.CanCompare(
+            models, "MODEL-001.GGUF", "model-124.gguf"));
+        Assert.False(ChatModelPickerPolicy.CanCompare(
+            models, "model-001.gguf", "MODEL-001.GGUF"));
+        Assert.False(ChatModelPickerPolicy.CanCompare(
+            models, "model-001.gguf", "missing-model.gguf"));
+        Assert.False(ChatModelPickerPolicy.CanCompare(
+            models, null, "model-124.gguf"));
+        Assert.False(ChatModelPickerPolicy.CanCompare(
+            Array.Empty<ManagedModelInfo>(), "model-001.gguf", "model-124.gguf"));
+    }
+
+    [Fact]
+    public void Alias_is_never_a_model_identity_for_compare_execution()
+    {
+        ManagedModelInfo[] models =
+        {
+            Model(1, "Shared alias"),
+            Model(2, "Shared alias")
+        };
+        Assert.True(ChatModelPickerPolicy.CanCompare(
+            models, "model-001.gguf", "model-002.gguf"));
+        Assert.False(ChatModelPickerPolicy.CanCompare(
+            models, "Shared alias", "model-002.gguf"));
+    }
+
+    [Fact]
     public void Browse_can_find_the_last_of_125_models_without_rendering_all_rows()
     {
         var models = Enumerable.Range(0, 125).Select(n => Model(n)).ToArray();
