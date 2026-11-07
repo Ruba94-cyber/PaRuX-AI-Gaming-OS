@@ -193,8 +193,11 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("MediaGallery_PreviousPage_Button", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGallery_NextPage_Button", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
-        Assert.Contains("using var versionSlots = new SemaphoreSlim(4)", gallery, StringComparison.Ordinal);
-        Assert.Contains("await Task.WhenAll(artifacts.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
+        Assert.Contains("for (int offset = 0; offset < artifacts.Length; offset += 4)", gallery, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(batch.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
+        Assert.Contains("ct.ThrowIfCancellationRequested();", gallery, StringComparison.Ordinal);
+        Assert.Contains("if (!ReferenceEquals(_refreshCts, request)) return;", gallery, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll(artifacts.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
         Assert.Contains("public const int PageSize = 24;", policy, StringComparison.Ordinal);
         Assert.Contains("case \"cancelling\":", media, StringComparison.Ordinal);
         Assert.Contains("job.EtaSeconds is > 0 and <= 86400", media, StringComparison.Ordinal);
@@ -211,6 +214,21 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("completionNotifications.newlyCompleted(jobs)", jobsModel, StringComparison.Ordinal);
         Assert.Contains("fun stopPolling()", jobsModel, StringComparison.Ordinal);
         Assert.Contains("onAccepted()", jobsModel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Advanced_chat_compare_supports_large_local_catalogues_without_massive_combo_boxes()
+    {
+        string comparison = Read("src", "PaRuX.App", "Views", "ChatView.ModelRouting.cs");
+        Assert.Contains("ChatModelPickerPolicy.Browse(models, search.Text, pageIndex)", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_Search", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_Choices", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_PreviousPage", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_NextPage", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_SelectedModels", comparison, StringComparison.Ordinal);
+        Assert.Contains("ChatModelPickerPolicy.CanCompare(models, one, two)", comparison, StringComparison.Ordinal);
+        Assert.Contains("LastBenchmarkTokensPerSecond is > 0", comparison, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (ManagedModelInfo model in models)", comparison, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
