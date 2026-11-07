@@ -2,6 +2,23 @@
 
 > Source review against current `main` and suppliers' official documentation, not an executed binary comparison. Code > tests > real runtime > roadmap. **Source-present ≠ Windows-verified.** No claim of performance or functionality superiority without controlled acceptance. Status: `SOURCE` means code observed in repo, `PARTIAL` means incomplete or not validated; `MISSING` means no complete implementation observed; `HW GATE` needs Windows/controller/GPU verification.
 
+## 2026-11-07 — Locally Uncensored official-release delta / standard-first corrective batch
+
+**Evidence:** [Locally Uncensored official releases](https://github.com/PurpleDoubleD/locally-uncensored/releases) (3.0.10, 2026-11-05), [official repository](https://github.com/PurpleDoubleD/locally-uncensored). The 3.0.10 archive/chat-recovery fix increases the importance of protecting usable user data; the 3.0.9 multi-model-group workflow, small-model selection, creation preview and training surfaces raise the usability baseline. Feature-level descriptions are supplier claims, not measurements of PaRuX or the competitor. Review release versions on every future comparison; this is an as-of-date snapshot.
+
+| Comparison axis | Verified existing PaRuX code / this batch | Gap and required evidence |
+|---|---|---|
+| Everyday local model browsing | Standard/Portable default Chat already has Auto, fixed Manual, native model routing and Model Hub. This tranche adds `ChatModelPickerPolicy`: bounded 12-item default flyout, manual model preserved, search and 24-row paged browser with no side effects before user choice | **SOURCE PARTIAL:** compile, keyboard/FlaUI, 100+ GGUF, external/split model, and latency measurements. Does not imply model format parity with competitor |
+| Chat-history protection | Existing `HistoryStore` SQLite WAL, online snapshots, backup/restore predated this work. Added verified nonempty backup selection, staging and previous-file preservation for daily copies, snapshot of first durable chat. Does not automatically replace a healthy chat DB from a backup | **SOURCE PARTIAL:** failpoint testing on Windows power/locked/disk-full, user-intentional delete and rollback UX; do not claim to have reproduced a loss in PaRuX |
+| Multi-model group chat | Existing 2–4 sequential local participants, earlier replies, exclusive GPU residency, cancellation and verdict. Added optional *explicitly pasted* shared reference to all speakers and reconciliation, max 12k chars, IT/EN guidance, no automatic memory/file collection | **SOURCE PARTIAL:** native model handoff, selected speakers, context quality and default-model restoration. Per-speaker redo, reordering, editable multi-round conversation and full context routing still missing |
+| Small CPU/iGPU and resource awareness | Core runtime, GGUF fit/quantization estimates, model routing already present | **HW GATE:** compare actual tiny-model time-to-first-token, memory, token/s on low-spec machines before claiming any superiority |
+| Creation: image/video progress/preview | PaRuX Create media services and UI pre-exist; this batch does not implement new video preview or training models | **P1 GAP:** real generation progression/recovery, media preview cadence, high-DPI usability, precise VRAM budget, interrupted downloads |
+| Gaming/Console/controller | Modular gaming library, Input Hub and TV mode code exist | **P1 HW GATE:** physical controller-first workflows, HDR/VRR, emulators, save recovery, FPS/VRAM, no AI occupation while Gaming |
+| Android | Local authenticated PC client and Chat with draft safety; this batch does not add remote Create or an always-on Core service | **P1 GAP:** pairing/disconnect, retries, media task monitoring/preview, accessibility and low-memory device acceptance |
+| Corporate | General-purpose local document assistant, a restricted/offline CPU bundle; distinct from consumer standard edition | **HW GATE:** maintain strict local policies and 30k-page/10k-file tests while consumer UX evolves |
+
+**Priority:** (1) protect chat data and make local models effortless to find/use; (2) native compare Group Chat, model lifecycle, Create and Gaming rather than chasing feature counts; (3) improve previews, retry/recovery, controller/mobile flows; (4) benchmark same model/hardware/prompt and regression/safety tests. The user asked to improve *every edition*, not to make Corporate the default identity.
+
 ## Competitor evidence (official, checked 2026-11-06)
 
 - [Unsloth source](https://github.com/unslothai/unsloth), [docs](https://unsloth.ai/docs): SFT/RL/DPO/GRPO, FP8/full fine-tuning, many modalities and families, dataset recipes from CSV/PDF/DOCX, real-time loss/GPU, merged weights and GGUF.
