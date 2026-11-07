@@ -197,11 +197,10 @@ CREATE INDEX IF NOT EXISTS ix_conversations_updated
                                 destination.Open();
                                 source.BackupDatabase(destination);
                             }
-                            if (!HistoryBackupSafety.IsUsableSnapshot(staging))
-                                throw new IOException("The daily chat snapshot failed SQLite integrity or row validation.");
-                            // Only replace an unreadable/empty backup, never an
-                            // already validated nonempty snapshot from today.
-                            File.Move(staging, backup, overwrite: true);
+                            // Never overwrite the only copy of a chat,
+                            // even if the target looks unusable. Preserve the
+                            // old bytes before promoting this verified snapshot.
+                            HistoryBackupSafety.PromoteSnapshot(staging, backup);
                         }
                         finally
                         {
