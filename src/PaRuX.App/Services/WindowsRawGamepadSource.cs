@@ -52,6 +52,27 @@ public sealed class WindowsRawGamepadSource : IRawGamepadSource
         return list;
     }
 
+    /// <summary>One on-demand, complete RawGameControllers identity snapshot for
+    /// HID isolation. The visible device selector deliberately displays at
+    /// most 16 cards; that UI limit must NOT cap the safety check.</summary>
+    public static int CountMatchingLiveIdentity(RawGamepadDeviceInfo selected)
+    {
+        try
+        {
+            return PadBindingVerifier.CountMatchingRawControllers(
+                selected.Id, selected.VendorId, selected.ProductId,
+                RawGameController.RawGameControllers
+                    .Where(Valid)
+                    .Select(d => new RawPadIdentitySnapshot(
+                        d.NonRoamableId, d.HardwareVendorId, d.HardwareProductId)));
+        }
+        catch (Exception)
+        {
+            // No live proof -> never ask HidHide to hide a possibly different pad.
+            return 0;
+        }
+    }
+
     public static WindowsRawGamepadSource? TryOpen(string id)
     {
         if (string.IsNullOrWhiteSpace(id)) return null;
