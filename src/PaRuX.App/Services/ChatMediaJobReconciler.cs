@@ -45,6 +45,7 @@ namespace PaRuX.Services
             m.MediaJobId = null;
             m.MediaProgressPercent = 0;
             m.MediaProgressStage = null;
+            m.MediaEtaSeconds = null;
             m.MediaChainVideoPending = chainVideoPending;
             m.IsError = false;
         }
@@ -54,7 +55,13 @@ namespace PaRuX.Services
         public static void ReportProgress(ChatMessage m, MediaJobStatus job)
         {
             m.MediaProgressPercent = Math.Clamp(job.ProgressPercent, 0, 100);
-            m.MediaProgressStage = job.Stage;
+            m.MediaProgressStage = job.Status is "cancelling"
+                ? (string.IsNullOrWhiteSpace(job.Stage) ? "Cancelling" : job.Stage)
+                : job.Stage;
+            // The engine is authoritative. No ETA while queued/cancelling
+            // or for unreasonable/negative values; never extrapolate from %.
+            m.MediaEtaSeconds = job.Status == "running" && job.EtaSeconds is > 0 and <= 86400
+                ? job.EtaSeconds : null;
         }
 
         /// <summary>Decides what to do with a persisted running media message given the server's view.</summary>
@@ -74,6 +81,7 @@ namespace PaRuX.Services
             {
                 case "queued":
                 case "running":
+                case "cancelling":
                     ReportProgress(m, job);
                     return ChatMediaReconcileAction.Reattach;
                 case "completed":
@@ -117,6 +125,7 @@ namespace PaRuX.Services
             m.MediaJobState = Completed;
             m.MediaJobError = null;
             m.MediaProgressPercent = 100;
+            m.MediaEtaSeconds = null;
             m.IsError = false;
             if (IsVideo(m)) m.MediaChainVideoPending = false;
         }
@@ -128,6 +137,7 @@ namespace PaRuX.Services
         {
             m.MediaJobState = Failed;
             m.MediaJobError = error;
+            m.MediaEtaSeconds = null;
             bool partial = HasFinishedImage(m) && IsVideo(m);
             if (partial) m.MediaChainVideoPending = true;
             string head = partial ? "Image generated; the video step failed: " : "Media generation failed: ";
@@ -141,6 +151,7 @@ namespace PaRuX.Services
         {
             m.MediaJobState = Cancelled;
             m.MediaJobError = null;
+            m.MediaEtaSeconds = null;
             bool partial = HasFinishedImage(m) && IsVideo(m);
             if (partial) m.MediaChainVideoPending = true;
             m.Content = KeepFinishedSummary(m) + (partial ? "Image generated; video generation was cancelled." : CancelledText);
@@ -172,7 +183,12 @@ namespace PaRuX.Services
             {
                 case Running:
                     string stage = string.IsNullOrWhiteSpace(m.MediaProgressStage) ? "Generating" : m.MediaProgressStage!;
-                    return new ChatMediaPresentation(true, stage + " · " + m.MediaProgressPercent + "%", null, false, string.Empty);
+                    string estimate = m.MediaEtaSeconds is > 0 and <= 86400
+                        ? " · approx. " + FormatRemaining(m.MediaEtaSeconds.Value) + " remaining"
+                        : string.Empty;
+                    return new ChatMediaPresentation(true,
+                        stage + " · " + Math.Clamp(m.MediaProgressPercent, 0, 100) + "%" + estimate,
+                        null, false, string.Empty);
                 case Cancelled:
                     return new ChatMediaPresentation(false, null, CancelledText, true, RetryLabel(m));
                 case Failed:
@@ -182,6 +198,13 @@ namespace PaRuX.Services
                         ? new ChatMediaPresentation(false, null, null, true, "Retry video")
                         : ChatMediaPresentation.Hidden;
             }
+        }
+
+        private static string FormatRemaining(int seconds)
+        {
+            if (seconds < 60) return seconds + "s";
+            if (seconds < 3600) return (seconds / 60) + "m " + (seconds % 60) + "s";
+            return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
         }
 
         public static string RetryLabel(ChatMessage m) =>
