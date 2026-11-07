@@ -37,8 +37,7 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
     val localCoreConnection = container.client
 
     private var pollingStarted = false
-    private var hasLoadedInitialJobs = false
-    private val notifiedCompletedIds = LinkedHashSet<String>()
+    private val completionNotifications = JobCompletionNotificationPolicy()
 
     fun startPolling(context: Context) {
         if (pollingStarted) return
@@ -60,18 +59,8 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
         }
         try {
             val jobs = client.api.listJobs()
-            val completed = jobs.filter { it.status == "completed" }
-            // First sync is historical data, not new notifications. Otherwise
-            // reconnecting after weeks would notify for every old render.
-            val newlyCompleted = if (hasLoadedInitialJobs)
-                completed.filter { it.id !in notifiedCompletedIds }
-            else emptyList()
-            completed.forEach { notifiedCompletedIds.add(it.id) }
-            hasLoadedInitialJobs = true
-            newlyCompleted.forEach { notifyCompleted(appContext, it) }
-            // Bounded bookkeeping on phones that display many media jobs.
-            while (notifiedCompletedIds.size > 1024)
-                notifiedCompletedIds.remove(notifiedCompletedIds.first())
+            completionNotifications.newlyCompleted(jobs)
+                .forEach { notifyCompleted(appContext, it) }
             _state.value = _state.value.copy(jobs = jobs, isLoading = false, errorMessage = null)
         } catch (e: Exception) {
             // Preserve any previously fetched jobs, but do NOT show them as
