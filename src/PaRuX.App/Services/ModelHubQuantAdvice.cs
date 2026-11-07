@@ -27,13 +27,45 @@ namespace PaRuX.Services
         public static QuantBudget BudgetFor(RuntimeManagerHardwareStatus? hardware)
         {
             if (hardware == null) return new QuantBudget(0, 0, DefaultReserveBytes);
+
+            RuntimeAcceleratorProfile? profile = hardware.AcceleratorProfile;
             long gpuFree = 0;
-            if (hardware.GpuDetected && hardware.VramTotalMib > 0)
+
+            if (profile != null)
             {
-                long mib = hardware.VramFreeMib ?? (long)(hardware.VramTotalMib * AssumedFreeVramFraction);
-                gpuFree = Math.Max(0, mib) * MiB;
+                // Normalized Core backend eligibility is authoritative.
+                // Physical DXGI/NVIDIA VRAM alone does not prove that PaRuX
+                // has an installed, usable text accelerator.
+                if (profile.AcceleratorEligible && !profile.SharedMemoryPrimary)
+                {
+                    long capacity = Math.Max(0, profile.DedicatedVideoMemoryBytes);
+                    long measuredFree = hardware.VramFreeMib is >= 0
+                        ? Math.Min(capacity, (long)hardware.VramFreeMib.Value * MiB)
+                        : (long)(capacity * AssumedFreeVramFraction);
+                    gpuFree = Math.Clamp(measuredFree, 0, capacity);
+                }
+                // UMA: dedicated GPU budget must be zero because the shared
+                // aperture and model RAM are backed by the same physical RAM.
+                // QuantLadderPolicy must never count it twice. A conservative
+                // RAM-budget path is safer than a false "Full GPU" promise.
             }
-            long ramFree = hardware.RamTotalBytes > 0 ? (long)(hardware.RamTotalBytes * AssumedFreeRamFraction) : 0;
+            else if (hardware.GpuDetected && hardware.VramTotalMib > 0)
+            {
+                // Older Core without a normalized profile: legacy, provisional
+                // VRAM estimate. Preserve compatibility with existing installs.
+                long totalMib = hardware.VramTotalMib;
+                long freeMib = hardware.VramFreeMib.HasValue
+                    ? Math.Clamp((long)hardware.VramFreeMib.Value, 0, totalMib)
+                    : (long)(totalMib * AssumedFreeVramFraction);
+                gpuFree = freeMib * MiB;
+            }
+
+            long totalRam = Math.Max(0, hardware.RamTotalBytes);
+            long estimatedFreeRam = (long)(totalRam * AssumedFreeRamFraction);
+            long ramFree = profile?.UsableSystemRamBytes is long knownUsableRam
+                ? Math.Clamp(knownUsableRam, 0, totalRam > 0 ? totalRam : long.MaxValue)
+                : estimatedFreeRam;
+
             return new QuantBudget(gpuFree, ramFree, DefaultReserveBytes);
         }
 
