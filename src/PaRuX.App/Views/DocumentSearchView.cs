@@ -320,7 +320,9 @@ namespace PaRuX.Views
                     + "/" + st.TotalPages.Value.ToString("N0")
                 : st.State == "running" && !string.IsNullOrWhiteSpace(st.Current)
                     ? " · " + st.Current : string.Empty;
-            row.Status.Text = state + " · " + st.Files + T(" documents", " documenti")
+            row.Status.Text = state
+                + (!source.Enabled ? T(" · Disabled for Chat", " · Disattivata per la Chat") : string.Empty)
+                + " · " + st.Files + T(" documents", " documenti")
                 + " · " + st.Chunks + T(" passages", " passaggi")
                 + (st.Problems > 0 ? " · " + st.Problems + T(" need attention", " da controllare") : string.Empty)
                 + page;
