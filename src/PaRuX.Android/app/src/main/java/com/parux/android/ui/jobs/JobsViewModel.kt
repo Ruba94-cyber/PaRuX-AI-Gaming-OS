@@ -10,6 +10,8 @@ import com.parux.android.R
 import com.parux.android.core.AppContainer
 import com.parux.android.core.network.MediaJobRequest
 import com.parux.android.core.network.MediaJobStatus
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,18 +38,24 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
     val localCoreConnection = container.client
 
-    private var pollingStarted = false
+    private var pollingJob: Job? = null
     private val completionNotifications = JobCompletionNotificationPolicy()
 
     fun startPolling(context: Context) {
-        if (pollingStarted) return
-        pollingStarted = true
-        viewModelScope.launch {
+        if (pollingJob?.isActive == true) return
+        pollingJob = viewModelScope.launch {
             while (isActive) {
                 refreshOnce(context.applicationContext)
                 delay(3000)
             }
         }
+    }
+
+    /** The tab may be retained in memory after navigation. Stop network
+     * polling when the UI is not visible; the next visit refreshes again. */
+    fun stopPolling() {
+        pollingJob?.cancel()
+        pollingJob = null
     }
 
     private suspend fun refreshOnce(appContext: Context) {
@@ -62,6 +70,8 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
             completionNotifications.newlyCompleted(jobs)
                 .forEach { notifyCompleted(appContext, it) }
             _state.value = _state.value.copy(jobs = jobs, isLoading = false, errorMessage = null)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Preserve any previously fetched jobs, but do NOT show them as
             // live. A failed poll is not proof the job queue is empty.
