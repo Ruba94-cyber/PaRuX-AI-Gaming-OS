@@ -63,9 +63,14 @@ namespace PaRuX.Services
                 string preserved = destination + ".previous-"
                     + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff") + "-"
                     + Guid.NewGuid().ToString("N") + ".db";
-                File.Move(destination, preserved);
+                // Atomic same-volume replacement: a crash between two
+                // separate File.Move calls could otherwise leave no dated
+                // recovery file at all. File.Replace saves the old bytes in
+                // preserved while promoting the already-verified candidate.
+                File.Replace(staging, destination, preserved, ignoreMetadataErrors: true);
+                return true;
             }
-            File.Move(staging, destination);
+            File.Move(staging, destination); // no previous file exists
             return true;
         }
 
