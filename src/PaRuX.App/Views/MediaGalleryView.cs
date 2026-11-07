@@ -580,7 +580,16 @@ namespace PaRuX.Views
             var details = new StackPanel { Spacing = 8 };
             MediaPlayerElement? previewPlayer = null;
             MediaGalleryPreviewKind preview = MediaGalleryPreviewPolicy.KindFor(item);
-            if (preview != MediaGalleryPreviewKind.Unavailable)
+            bool gamingActive = GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive();
+            if (preview == MediaGalleryPreviewKind.Video && gamingActive)
+            {
+                details.Children.Add(new TextBlock
+                {
+                    Text = "Video preview is paused while Gaming owns the GPU. Leave Gaming before playing this output.",
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+            else if (preview != MediaGalleryPreviewKind.Unavailable)
             {
                 details.Children.Add(new TextBlock
                 {
@@ -671,21 +680,38 @@ namespace PaRuX.Views
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
+            void ReleaseVideoPreview()
+            {
+                if (previewPlayer == null) return;
+                try { previewPlayer.MediaPlayer?.Pause(); }
+                catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.GetType().Name); }
+                try { previewPlayer.Source = null; }
+                catch (Exception ex) { Log.Write("Media Gallery preview release: " + ex.GetType().Name); }
+            }
+
+            // Gaming can begin from another part of PaRuX while the dialog is open.
+            // End video decoding as soon as that mode takes ownership; do not resume
+            // automatically after the game exits.
+            EventHandler? onGamingChange = null;
+            if (previewPlayer != null)
+            {
+                onGamingChange = (_, _) =>
+                {
+                    if (!GamingManager.Current.IsActive && !LocalAiController.Current.IsGameActive()) return;
+                    DispatcherQueue.TryEnqueue(ReleaseVideoPreview);
+                };
+                GamingManager.Current.StateChanged += onGamingChange;
+            }
             try
             {
                 await dialog.ShowAsync();
             }
             finally
             {
+                if (onGamingChange != null) GamingManager.Current.StateChanged -= onGamingChange;
                 // A video preview must not keep playing or holding decoder/GPU
-                // resources after the dialog closes or the user leaves Create.
-                if (previewPlayer != null)
-                {
-                    try { previewPlayer.MediaPlayer?.Pause(); }
-                    catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.Message); }
-                    try { previewPlayer.Source = null; }
-                    catch (Exception ex) { Log.Write("Media Gallery preview release: " + ex.GetType().Name); }
-                }
+                // resources after the dialog closes.
+                ReleaseVideoPreview();
             }
         }
 
