@@ -105,6 +105,11 @@ namespace PaRuX.Models
 
         public string? MediaProgressStage { get; set; }
 
+        /// <summary>Optional seconds remaining reported by the local media engine.
+        /// Null means there is no estimate; never fabricate one from progress
+        /// percentages. Additive to old conversation JSON.</summary>
+        public int? MediaEtaSeconds { get; set; }
+
         /// <summary>True while an image-then-video chat request still owes its video step.</summary>
         public bool MediaChainVideoPending { get; set; }
     }
