@@ -40,7 +40,7 @@ public static class ChatModelPickerPolicy
             string.IsNullOrWhiteSpace(model.Alias) ? model.FileName : model.Alias;
         // Missing sizes and absent local benchmarks sort last. Unknown speed
         // must not be presented as zero or as an unmeasured promise.
-        IEnumerable<ManagedModelInfo> ordered = sort switch
+        IOrderedEnumerable<ManagedModelInfo> ordered = sort switch
         {
             ChatModelBrowseSort.SmallestFileFirst => matching
                 .OrderBy(m => m.SizeBytes <= 0 ? 1 : 0)
