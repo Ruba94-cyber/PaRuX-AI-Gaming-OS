@@ -57,6 +57,82 @@ public sealed class ModelHubQuantAdviceTests
     }
 
     [Fact]
+    public void Ineligible_physical_gpu_does_not_count_as_runnable_text_vram()
+    {
+        var hw = Hw(16 * 1024, 14 * 1024, 16);
+        hw.AcceleratorProfile = new RuntimeAcceleratorProfile
+        {
+            GpuPresent = true,
+            AcceleratorEligible = false,
+            DedicatedVideoMemoryBytes = 16 * Gib,
+            Backend = "cpu",
+            UsableSystemRamBytes = 8 * Gib
+        };
+
+        QuantBudget budget = ModelHubQuantAdvice.BudgetFor(hw);
+        Assert.Equal(0, budget.GpuFreeBytes);
+        Assert.Equal(8 * Gib, budget.RamFreeBytes);
+        var advice = ModelHubQuantAdvice.Build(Options(), hw, QuantTask.Technical, italian: false);
+        Assert.NotEqual(QuantPlacementPlan.FullGpu, advice.Decision.Placement);
+    }
+
+    [Fact]
+    public void Shared_memory_integrated_gpu_never_counts_ram_twice_or_claims_cpu_only()
+    {
+        var hw = Hw(16 * 1024, 14 * 1024, 16);
+        hw.AcceleratorProfile = new RuntimeAcceleratorProfile
+        {
+            GpuPresent = true,
+            AcceleratorEligible = true,
+            SharedMemoryPrimary = true,
+            Backend = "text-vulkan",
+            SharedSystemMemoryLimitBytes = 8 * Gib,
+            UsableSystemRamBytes = 12 * Gib
+        };
+
+        QuantBudget budget = ModelHubQuantAdvice.BudgetFor(hw);
+        Assert.Equal(0, budget.GpuFreeBytes);
+        Assert.Equal(12 * Gib, budget.RamFreeBytes);
+        var en = ModelHubQuantAdvice.Build(Options(), hw, QuantTask.Technical, italian: false);
+        var it = ModelHubQuantAdvice.Build(Options(), hw, QuantTask.Technical, italian: true);
+        Assert.NotNull(en.PreferredIndex);
+        Assert.Equal(QuantPlacementPlan.Unknown, en.Decision.Placement);
+        Assert.DoesNotContain("runs on the CPU", en.Text);
+        Assert.Contains("Shared-memory GPU", en.Text);
+        Assert.Contains("memoria condivisa", it.Text);
+        Assert.Equal(en.PreferredIndex, it.PreferredIndex);
+    }
+
+    [Fact]
+    public void Free_gpu_memory_telemetry_never_exceeds_normalized_adapter_capacity()
+    {
+        var hw = Hw(32 * 1024, 24 * 1024, 32);
+        hw.AcceleratorProfile = new RuntimeAcceleratorProfile
+        {
+            GpuPresent = true,
+            AcceleratorEligible = true,
+            Backend = "text-cuda",
+            DedicatedVideoMemoryBytes = 8 * Gib
+        };
+        Assert.Equal(8 * Gib, ModelHubQuantAdvice.BudgetFor(hw).GpuFreeBytes);
+        hw.VramFreeMib = -1;
+        Assert.InRange(ModelHubQuantAdvice.BudgetFor(hw).GpuFreeBytes,
+            0, 8 * Gib);
+        hw.VramFreeMib = 100;
+        Assert.Equal(100L * 1024 * 1024, ModelHubQuantAdvice.BudgetFor(hw).GpuFreeBytes);
+    }
+
+    [Fact]
+    public void Missing_hardware_memory_does_not_claim_a_model_will_not_fit()
+    {
+        var hw = Hw(0, null, 0);
+        var advice = ModelHubQuantAdvice.Build(Options(), hw, QuantTask.General, italian: false);
+        Assert.Null(advice.PreferredIndex);
+        Assert.Contains("not measured", advice.Text);
+        Assert.Equal(QuantDecisionStatus.NoUsableVariant, advice.Decision.Status);
+    }
+
+    [Fact]
     public void ManualPick_WinsAndIsNotReplacedByTheRecommendation()
     {
         var options = Options();
