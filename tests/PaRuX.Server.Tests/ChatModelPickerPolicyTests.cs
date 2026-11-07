@@ -31,7 +31,7 @@ public sealed class ChatModelPickerPolicyTests
     [Fact]
     public void Quick_compare_accepts_two_distinct_installed_models_from_distant_pages()
     {
-        var models = Enumerable.Range(0, 125).Select(Model).ToArray();
+        var models = Enumerable.Range(0, 125).Select(i => Model(i)).ToArray();
         Assert.True(ChatModelPickerPolicy.CanCompare(
             models, "MODEL-001.GGUF", "model-124.gguf"));
         Assert.False(ChatModelPickerPolicy.CanCompare(
