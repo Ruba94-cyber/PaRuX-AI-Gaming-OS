@@ -142,6 +142,35 @@ public sealed class DocumentSearchUiTests
     });
 
     [Fact, Trait("Category", "DocSearch")]
+    public void Corporate_document_management_filters_and_pages_more_than_40_folders() => Run(
+        nameof(Corporate_document_management_filters_and_pages_more_than_40_folders), (app, core, folder) =>
+    {
+        // Register without launching expensive index jobs. This is a
+        // management UI test, not the giant-PDF benchmarking acceptance gate.
+        for (int i = 0; i < 43; i++)
+        {
+            string child = Path.Combine(folder, "Department-" + i.ToString("D3"));
+            Directory.CreateDirectory(child);
+            core.AddFolder(child);
+        }
+        OpenDocumentSearch(app);
+        var page = UiWait.ById(app.MainWindow, "DocSearch_FolderPage_Text", ControlType.Text);
+        UiWait.For(() => page.Name.Contains("1/2", StringComparison.Ordinal),
+            "first bounded folder page");
+        var next = UiWait.ById(app.MainWindow, "DocSearch_NextFolderPage_Button", ControlType.Button).AsButton();
+        next.Invoke();
+        UiWait.For(() => page.Name.Contains("2/2", StringComparison.Ordinal),
+            "second folder page");
+        var filter = UiWait.ById(app.MainWindow, "DocSearch_FolderFilter_TextBox", ControlType.Edit).AsTextBox();
+        filter.Text = "Department-042";
+        UiWait.For(() => page.Name.Contains("1/1", StringComparison.Ordinal),
+            "filtered folder view");
+        UiWait.For(() => AllText(app).Any(t => t.Contains("Department-042")),
+            "late folder visible after filtering");
+        Assert.DoesNotContain(AllText(app), t => t.Contains("Department-001"));
+    });
+
+    [Fact, Trait("Category", "DocSearch")]
     public void Document_search_reports_nothing_found_instead_of_inventing_results() => Run(
         nameof(Document_search_reports_nothing_found_instead_of_inventing_results), (app, core, folder) =>
     {
