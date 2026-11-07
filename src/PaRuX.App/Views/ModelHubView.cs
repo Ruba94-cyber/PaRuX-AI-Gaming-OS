@@ -4193,9 +4193,13 @@ namespace PaRuX.Views
                     ModelHubSplitSetPresentation.BuildQuantChoiceOptions(repo.QuantChoices);
                 bool fromFirstModelSetup = string.Equals(
                     repo.RepoId, _firstModelHandoffRepoId, StringComparison.OrdinalIgnoreCase);
-                int preferred = ModelHubSplitSetPresentation.PreferredBalancedQuantChoiceIndex(
-                    choices, fromFirstModelSetup ? _firstModelHandoffQuantHint : null);
-                // Automatic, hardware-aware file choice (never below the quality floor); a setup hint or a manual pick wins.
+                // Preserve the explicit first-use handoff. Otherwise do not fall back to an
+                // arbitrary "balanced" quantisation when Core cannot establish a safe fit:
+                // the user can still review all variants manually.
+                int preferred = fromFirstModelSetup
+                    ? ModelHubSplitSetPresentation.PreferredBalancedQuantChoiceIndex(
+                        choices, _firstModelHandoffQuantHint)
+                    : -1;
                 ModelHubQuantAdvice.Advice quantAdvice = ModelHubQuantAdvice.Build(
                     choices, _hardware, PaRuX.Intelligence.QuantTask.Technical,
                     System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it");
@@ -4215,6 +4219,21 @@ namespace PaRuX.Views
                     Text = repo.Category + " · " + choices.Count + " GGUF option(s)",
                     FontSize = 12, Opacity = 0.78
                 });
+                if (!fromFirstModelSetup && !canReviewDefault && choices.Count > 0)
+                {
+                    // No auto-recommendation is better than implying an unsafe
+                    // full-GPU fit on a low-memory or unsupported backend.
+                    var why = new TextBlock
+                    {
+                        Text = quantAdvice.Text
+                            + (System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it"
+                                ? " Apri le opzioni di quantizzazione per scegliere manualmente."
+                                : " Open quantization options to choose a file manually."),
+                        FontSize = 12, Opacity = 0.82, TextWrapping = TextWrapping.Wrap
+                    };
+                    AutomationProperties.SetAutomationId(why, "ModelHub_QuantAdvice_Text");
+                    card.Children.Add(why);
+                }
                 if (canReviewDefault)
                 {
                     ModelHubSplitSetPresentation.QuantChoiceOption suggested = choices[preferred];
