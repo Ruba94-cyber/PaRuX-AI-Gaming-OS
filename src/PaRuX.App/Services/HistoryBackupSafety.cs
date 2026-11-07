@@ -81,8 +81,45 @@ namespace PaRuX.Services
             return Convert.ToInt64(command.ExecuteScalar());
         }
 
-        public static string? MostRecentUsableSnapshot(IEnumerable<string> candidates) =>
-            candidates.OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase)
+        /// <summary>
+        /// Prefer the newest canonical dated backup. If its promotion was
+        /// interrupted and only a preserved ".previous" copy remains, that
+        /// verified copy is still recoverable; never pick an unvalidated
+        /// ".pending" file or a misleading filename as a daily snapshot.
+        /// </summary>
+        public static string? MostRecentUsableSnapshot(IEnumerable<string> candidates)
+        {
+            return candidates
+                .Where(path => TryDateKey(path, out _))
+                .OrderByDescending(path =>
+                {
+                    TryDateKey(path, out string day);
+                    return day;
+                }, StringComparer.Ordinal)
+                .ThenBy(path => Path.GetFileName(path).Contains(".previous-", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+                .ThenByDescending(path => path, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(IsUsableSnapshot);
+        }
+
+        private static bool TryDateKey(string path, out string day)
+        {
+            day = string.Empty;
+            string name = Path.GetFileName(path) ?? string.Empty;
+            if (name.Length < 21 || !name.StartsWith("history-", StringComparison.OrdinalIgnoreCase))
+                return false;
+            string date = name.Substring(8, 10);
+            bool daily = name.Length == 21 &&
+                name.EndsWith(".db", StringComparison.OrdinalIgnoreCase);
+            bool preserved = name.Length > 22 &&
+                name.StartsWith("history-" + date + ".db.previous-", StringComparison.OrdinalIgnoreCase) &&
+                name.EndsWith(".db", StringComparison.OrdinalIgnoreCase);
+            if (!(daily || preserved) ||
+                !DateTime.TryParseExact(date, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out _))
+                return false;
+            day = date;
+            return true;
+        }
     }
 }
