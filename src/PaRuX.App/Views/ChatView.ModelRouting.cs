@@ -249,7 +249,7 @@ namespace PaRuX.Views
                         string label = ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName);
                         string size = model.SizeBytes > 0
                             ? ModelHubStartPresenter.FormatSize(model.SizeBytes) : "?";
-                        string benchmark = model.LastBenchmarkTokensPerSecond is > 0
+                        string benchmark = ChatModelPickerPolicy.HasMeasuredSpeed(model)
                             ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0")
                                 + L(" tok/s measured", " tok/s misurati")
                             : string.Empty;
