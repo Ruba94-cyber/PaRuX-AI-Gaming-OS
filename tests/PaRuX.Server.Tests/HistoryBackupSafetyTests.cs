@@ -80,6 +80,38 @@ public sealed class HistoryBackupSafetyTests : IDisposable
     }
 
     [Fact]
+    public void Promotion_never_overwrites_an_existing_healthy_chat_archive()
+    {
+        string healthy = Snapshot("history-2026-11-07.db", 3);
+        string staging = Snapshot("history-2026-11-07.db.pending-new", 1);
+        byte[] original = File.ReadAllBytes(healthy);
+
+        Assert.False(HistoryBackupSafety.PromoteSnapshot(staging, healthy));
+        Assert.Equal(original, File.ReadAllBytes(healthy));
+        Assert.True(File.Exists(staging)); // caller decides whether to discard
+    }
+
+    [Fact]
+    public void Promotion_preserves_the_invalid_prior_file_and_rejects_empty_candidates()
+    {
+        string daily = Snapshot("history-2026-11-07.db", 0);
+        byte[] previous = File.ReadAllBytes(daily);
+        string pending = Snapshot("history-2026-11-07.db.pending-good", 2);
+        Assert.True(HistoryBackupSafety.PromoteSnapshot(pending, daily));
+        Assert.True(HistoryBackupSafety.IsUsableSnapshot(daily));
+        Assert.False(File.Exists(pending));
+
+        string[] preserved = Directory.GetFiles(_root,
+            "history-2026-11-07.db.previous-*.db");
+        Assert.Single(preserved);
+        Assert.Equal(previous, File.ReadAllBytes(preserved[0]));
+
+        string invalid = Snapshot("history-2026-11-07.db.pending-empty", 0);
+        Assert.Throws<IOException>(() => HistoryBackupSafety.PromoteSnapshot(invalid, daily));
+        Assert.True(HistoryBackupSafety.IsUsableSnapshot(daily));
+    }
+
+    [Fact]
     public void A_newer_verified_nonempty_backup_wins_over_an_older_one()
     {
         string older = Snapshot("history-2026-10-31.db", 2);
