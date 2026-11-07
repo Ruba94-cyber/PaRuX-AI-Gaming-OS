@@ -9,6 +9,8 @@ namespace PaRuX.Server.Orchestration.Gaming.Providers.VirtualPad;
 /// <summary>A present HID gaming device as listed by the HidHide command-line tool.</summary>
 public sealed record HidGamingDevice(string InstancePath, ushort VendorId, ushort ProductId);
 
+public sealed record RawPadIdentitySnapshot(string DeviceId, ushort VendorId, ushort ProductId);
+
 public sealed record PadBindingResult(bool Proven, string? InstancePath, string Reason);
 
 /// <summary>
@@ -19,6 +21,31 @@ public sealed record PadBindingResult(bool Proven, string? InstancePath, string 
 /// </summary>
 public static class PadBindingVerifier
 {
+    /// <summary>
+    /// Count across the COMPLETE Windows RawGameControllers snapshot, not the
+    /// first 16 devices used for rendering the selector. A selected controller
+    /// removed during setup must not let another identical VID/PID pad be
+    /// mistaken for it. Zero or several matching devices fail the HID gate.
+    /// </summary>
+    public static int CountMatchingRawControllers(
+        string? selectedDeviceId, ushort vendorId, ushort productId,
+        IEnumerable<RawPadIdentitySnapshot>? observed)
+    {
+        if (string.IsNullOrWhiteSpace(selectedDeviceId) || selectedDeviceId.Length > 300
+            || (vendorId == 0 && productId == 0) || observed == null)
+            return 0;
+        int matches = 0;
+        bool selectedPresent = false;
+        foreach (RawPadIdentitySnapshot raw in observed)
+        {
+            if (raw == null || raw.VendorId != vendorId || raw.ProductId != productId) continue;
+            matches++;
+            if (string.Equals(raw.DeviceId, selectedDeviceId, StringComparison.Ordinal))
+                selectedPresent = true;
+        }
+        return selectedPresent ? matches : 0;
+    }
+
     public static PadBindingResult Verify(ushort vendorId, ushort productId, int sameIdentityControllers,
         IReadOnlyList<HidGamingDevice> hidDevices)
     {
