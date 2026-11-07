@@ -97,7 +97,10 @@ public sealed class KnowledgeJobService
     {
         IReadOnlyCollection<string> enabled = EnabledSourceIds();
         if (chosen == null || chosen.Count == 0) return enabled;
-        return enabled.Where(id => chosen.Contains(id)).ToList();
+        // A large explicit scope may hold thousands of IDs. A HashSet
+        // avoids a quadratic linear-list membership scan on every Chat turn.
+        var selected = new HashSet<string>(chosen, StringComparer.Ordinal);
+        return enabled.Where(selected.Contains).ToList();
     }
 
     public bool Start(string sourceId)
