@@ -2,6 +2,7 @@ package com.parux.android.ui.jobs
 
 import android.net.Uri
 import android.util.Base64
+import java.io.ByteArrayOutputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +88,8 @@ fun JobsScreen(viewModel: JobsViewModel) {
     }
 }
 
+private const val MAX_JOB_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, String?) -> Unit) {
@@ -94,16 +97,37 @@ private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, St
     var prompt by remember { mutableStateOf("") }
     var sourceImageBase64 by remember { mutableStateOf<String?>(null) }
     var sourceImageName by remember { mutableStateOf<String?>(null) }
+    var imageError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
+            // An arbitrary ContentProvider can stream a huge payload even
+            // when it reports a tiny size. Cap bytes while reading, *before*
+            // converting to a much larger base64 string in phone RAM.
+            sourceImageBase64 = null
+            sourceImageName = null
+            imageError = null
             try {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                if (bytes != null) {
-                    sourceImageBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    sourceImageName = "image"
-                }
-            } catch (_: Exception) { }
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    val out = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > MAX_JOB_SOURCE_IMAGE_BYTES)
+                            throw IllegalArgumentException("Image exceeds the 8 MiB local input limit")
+                        out.write(buffer, 0, count)
+                    }
+                    out.toByteArray()
+                } ?: throw IllegalArgumentException("Unable to read the selected image")
+                if (bytes.isEmpty()) throw IllegalArgumentException("Selected image is empty")
+                sourceImageBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                sourceImageName = "image"
+            } catch (e: Exception) {
+                imageError = e.message ?: "Unable to read image. Choose another file."
+            }
         }
     }
 
@@ -120,6 +144,10 @@ private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, St
                 if (type == "edit") {
                     TextButton(onClick = { imagePicker.launch("image/*") }, modifier = Modifier.padding(top = 8.dp)) {
                         Text(if (sourceImageName != null) "Image attached ✓ (tap to change)" else "Pick an image to edit…")
+                    }
+                    imageError?.let { issue ->
+                        Text(issue, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 OutlinedTextField(
@@ -150,11 +178,12 @@ private fun JobRow(job: MediaJobStatus, onCancel: () -> Unit) {
             }
             if (job.status == "running" || job.status == "cancelling") {
                 LinearProgressIndicator(
-                    progress = { job.progressPercent / 100f },
+                    progress = { (job.progressPercent / 100f).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
-                job.etaSeconds?.let {
-                    Text("ETA ~${it / 60}m ${it % 60}s", style = MaterialTheme.typography.labelSmall)
+                if (job.status == "running") job.etaSeconds?.takeIf { it in 1..86400 }?.let {
+                    Text("Engine ETA ~${it / 60}m ${it % 60}s",
+                        style = MaterialTheme.typography.labelSmall)
                 }
             }
             job.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
