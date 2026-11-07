@@ -238,6 +238,24 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.DoesNotContain("foreach (ManagedModelInfo model in models)", comparison, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Gaming_virtual_pad_identity_and_hotplug_require_live_complete_snapshot()
+    {
+        string host = Read("src", "PaRuX.App", "Services", "VirtualPadActivationController.cs");
+        string raw = Read("src", "PaRuX.App", "Services", "WindowsRawGamepadSource.cs");
+        string verifier = Read("src", "PaRuX.Server", "Orchestration", "Gaming",
+            "Providers", "VirtualPad", "PadBinding.cs");
+        Assert.Contains("WindowsRawGamepadSource.CountMatchingLiveIdentity(info)", host,
+            StringComparison.Ordinal);
+        Assert.Contains("RawGameController.RawGameControllers", raw, StringComparison.Ordinal);
+        Assert.Contains("PadBindingVerifier.CountMatchingRawControllers(", raw,
+            StringComparison.Ordinal);
+        Assert.Contains("selectedPresent ? matches : 0", verifier, StringComparison.Ordinal);
+        Assert.Contains("finally", host, StringComparison.Ordinal);
+        Assert.Contains("Service.Status.Phase is not (VirtualPadPhase.Running or VirtualPadPhase.PausedRemoved)",
+            host, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
