@@ -295,6 +295,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\MediaModelPickerPresenter.cs" Link="MediaGallery\MediaModelPickerPresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CloudFallbackMutationQueue.cs" Link="Settings\CloudFallbackMutationQueue.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryBrowser.cs" Link="MediaGallery\MediaGalleryBrowser.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryPreviewPolicy.cs" Link="MediaGallery\MediaGalleryPreviewPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryDeleteCoordinator.cs" Link="MediaGallery\MediaGalleryDeleteCoordinator.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaEditSourceBridge.cs" Link="MediaGallery\MediaEditSourceBridge.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\WindowResponsivenessPolicy.cs" Link="Responsive\WindowResponsivenessPolicy.cs" />
