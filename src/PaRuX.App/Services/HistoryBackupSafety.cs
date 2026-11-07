@@ -15,6 +15,15 @@ namespace PaRuX.Services
     /// </summary>
     public static class HistoryBackupSafety
     {
+        /// <summary>
+        /// Only proven SQLite corruption is eligible for automatic recovery.
+        /// BUSY/LOCKED (5/6), IOERR (10), FULL (13), READONLY (8), etc.
+        /// can be transient/environmental; quarantining a healthy live database
+        /// on those errors could lose the only current copy of a conversation.
+        /// </summary>
+        public static bool IsCorruptionErrorCode(int sqlitePrimaryErrorCode) =>
+            (sqlitePrimaryErrorCode & 0xff) is 11 or 26; // SQLITE_CORRUPT / SQLITE_NOTADB
+
         /// <summary>The on-disk backup has a usable conversation table and real
         /// rows. The fast SQLite integrity check rejects torn/corrupt snapshots
         /// before recovery. Uses a read-only handle and does not alter the file.</summary>
