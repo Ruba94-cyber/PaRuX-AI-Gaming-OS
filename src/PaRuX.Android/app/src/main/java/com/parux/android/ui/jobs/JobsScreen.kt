@@ -29,7 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +48,12 @@ fun JobsScreen(viewModel: JobsViewModel) {
     val localCore by viewModel.localCoreConnection.collectAsState()
     val context = LocalContext.current
     var showCreateDialog by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { viewModel.startPolling(context) }
+    // Stop HTTP polling when leaving this tab, including Gaming/TV mode.
+    // Compose disposal is separate from ViewModel lifetime and must own it.
+    DisposableEffect(viewModel) {
+        viewModel.startPolling(context.applicationContext)
+        onDispose { viewModel.stopPolling() }
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Jobs") }) },
