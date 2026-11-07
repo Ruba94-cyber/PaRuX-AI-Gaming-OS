@@ -200,6 +200,8 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("await Task.WhenAll(batch.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
         Assert.Contains("ct.ThrowIfCancellationRequested();", gallery, StringComparison.Ordinal);
         Assert.Contains("if (!ReferenceEquals(_refreshCts, request)) return;", gallery, StringComparison.Ordinal);
+        Assert.Contains("await Task.Run(() =>", gallery, StringComparison.Ordinal);
+        Assert.Contains("ScanDirectory(AppPaths.GeneratedImagesDir", gallery, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll(artifacts.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
         Assert.Contains("public const int PageSize = 24;", policy, StringComparison.Ordinal);
         Assert.Contains("case \"cancelling\":", media, StringComparison.Ordinal);
