@@ -602,7 +602,7 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
 
     /// <summary>
     /// Fast single-query readiness check across all currently registered
-    /// sources. An indexed *file* without searchable passages is not enough.
+    /// sources. An indexed *file* with zero chunks is not enough.
     /// Unlike calling Stats() once per folder, this stays practical for
     /// thousands of Corporate folders and uses the same bound SQL scope.
     /// </summary>
