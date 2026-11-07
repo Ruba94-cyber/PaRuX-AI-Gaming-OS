@@ -342,35 +342,9 @@ namespace PaRuX.Services
                 "The model is taking longer than expected to load. It may still be starting — give it a moment and try again.");
         }
 
-        public static string FriendlyScriptError(ActionResult r)
-        {
-            string raw = r == null ? string.Empty : (r.Message ?? string.Empty);
+        public static string FriendlyScriptError(ActionResult r) =>
+            RuntimeRecoveryGuidance.Describe(r?.Message,
+                System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it");
 
-            if (raw.IndexOf("game is currently active", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return "Gaming Mode is active — a game is running, so the AI stays unloaded. "
-                     + "Close the game and try again.";
-            }
-            if (raw.IndexOf("OFF mode", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return "Local AI is switched off. Turn it back on from the PaRuX tray menu and try again.";
-            }
-            if (raw.IndexOf("No sufficiently powerful GPU", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return "The configured discrete GPU isn't attached right now, and this profile needs it. "
-                     + "Connect the accelerator, or choose an available profile.";
-            }
-            if (raw.IndexOf("address already in use", StringComparison.OrdinalIgnoreCase) >= 0
-                || raw.IndexOf("bind", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return "Port 1234 is already in use by another process, so the model server can't start. " + raw;
-            }
-            if (raw.IndexOf("Timed out", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return "The model timed out while loading. It may still be starting — give it a moment and try again.";
-            }
-
-            return string.IsNullOrWhiteSpace(raw) ? "The local AI controller reported a failure." : raw;
-        }
     }
 }
