@@ -184,6 +184,25 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void Gallery_previews_are_local_on_demand_bounded_and_release_video_resources()
+    {
+        string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
+        string admission = Read("src", "PaRuX.App", "Services", "MediaGalleryPreviewPolicy.cs");
+        Assert.Contains("private async Task ShowDetailsAsync(MediaGalleryItem item)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryPreviewPolicy.KindFor(item)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_DetailImagePreview", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_DetailVideoPreview", gallery, StringComparison.Ordinal);
+        Assert.Contains("DecodePixelWidth = MediaGalleryPreviewPolicy.PreviewDecodeWidth", gallery, StringComparison.Ordinal);
+        Assert.Contains("AutoPlay = false", gallery, StringComparison.Ordinal);
+        Assert.Contains("previewPlayer.MediaPlayer?.Pause()", gallery, StringComparison.Ordinal);
+        Assert.Contains("previewPlayer.Source = null", gallery, StringComparison.Ordinal);
+        Assert.Contains("Preview unavailable", gallery, StringComparison.Ordinal);
+        Assert.Contains("!Path.IsPathFullyQualified(path)", admission, StringComparison.Ordinal);
+        Assert.Contains("uri.IsUnc", admission, StringComparison.Ordinal);
+        Assert.Contains("PreviewDecodeWidth = 960", admission, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Standard_media_gallery_limits_thumbnail_memory_and_android_jobs_bound_inputs()
     {
         string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
