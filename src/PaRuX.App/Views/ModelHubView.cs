@@ -4200,9 +4200,11 @@ namespace PaRuX.Views
                     ? ModelHubSplitSetPresentation.PreferredBalancedQuantChoiceIndex(
                         choices, _firstModelHandoffQuantHint)
                     : -1;
+                _manuallyReviewedQuantByRepo.TryGetValue(repo.RepoId, out string? manualSetName);
                 ModelHubQuantAdvice.Advice quantAdvice = ModelHubQuantAdvice.Build(
                     choices, _hardware, PaRuX.Intelligence.QuantTask.Technical,
-                    System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it");
+                    System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it",
+                    pinnedSetName: fromFirstModelSetup ? null : manualSetName);
                 if (!fromFirstModelSetup && quantAdvice.PreferredIndex is int advised
                     && advised >= 0 && advised < choices.Count && choices[advised].CanDownload)
                     preferred = advised;
