@@ -45,6 +45,7 @@ import com.parux.android.core.network.MediaJobStatus
 @Composable
 fun JobsScreen(viewModel: JobsViewModel) {
     val state by viewModel.state.collectAsState()
+    val localCore by viewModel.localCoreConnection.collectAsState()
     val context = LocalContext.current
     var showCreateDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.startPolling(context) }
@@ -52,37 +53,59 @@ fun JobsScreen(viewModel: JobsViewModel) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Jobs") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "New generation job")
+            if (localCore != null) {
+                FloatingActionButton(onClick = { showCreateDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "New generation job")
+                }
             }
         }
     ) { padding ->
-        if (state.jobs.isEmpty()) {
-            Column(
-                Modifier.padding(padding).fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text("No jobs yet", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Tap + to generate an image or video. It shows up here with progress and ETA.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (localCore == null) {
+                Text("PaRuX PC is disconnected. Pair in Settings; cached jobs are not live.",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall)
+            } else if (state.errorMessage != null) {
+                Text(state.errorMessage.orEmpty(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall)
             }
-        } else {
-            LazyColumn(Modifier.padding(padding).fillMaxSize().padding(12.dp)) {
-                items(state.jobs, key = { it.id }) { job -> JobRow(job, onCancel = { viewModel.cancelJob(job.id) }) }
+            if (state.jobs.isEmpty()) {
+                Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(if (localCore == null) "Connect to view local jobs" else
+                        if (state.errorMessage != null) "Jobs unavailable" else "No jobs yet",
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (localCore == null) "Pair with your PaRuX PC in Settings."
+                        else "Tap + to generate an image or video. Progress appears here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(Modifier.fillMaxSize().padding(12.dp)) {
+                    items(state.jobs, key = { it.id }) { job ->
+                        JobRow(job, onCancel = { viewModel.cancelJob(job.id) })
+                    }
+                }
             }
         }
     }
 
     if (showCreateDialog) {
         CreateJobDialog(
-            onDismiss = { showCreateDialog = false },
+            onDismiss = { if (!state.isSubmitting) showCreateDialog = false },
+            isSubmitting = state.isSubmitting,
+            submissionError = state.submissionError,
             onCreate = { type, prompt, sourceImageBase64 ->
-                viewModel.createJob(type, prompt, sourceImageBase64)
-                showCreateDialog = false
+                viewModel.createJob(type, prompt, sourceImageBase64,
+                    onAccepted = { showCreateDialog = false })
             }
         )
     }
@@ -92,7 +115,12 @@ private const val MAX_JOB_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, String?) -> Unit) {
+private fun CreateJobDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String, String?) -> Unit,
+    isSubmitting: Boolean,
+    submissionError: String?
+) {
     var type by remember { mutableStateOf("image") }
     var prompt by remember { mutableStateOf("") }
     var sourceImageBase64 by remember { mutableStateOf<String?>(null) }
@@ -150,6 +178,10 @@ private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, St
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
+                submissionError?.let { issue ->
+                    Text(issue, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
                 OutlinedTextField(
                     value = prompt,
                     onValueChange = { prompt = it },
@@ -161,8 +193,9 @@ private fun CreateJobDialog(onDismiss: () -> Unit, onCreate: (String, String, St
         confirmButton = {
             TextButton(
                 onClick = { onCreate(type, prompt, sourceImageBase64) },
-                enabled = prompt.isNotBlank() && (type != "edit" || sourceImageBase64 != null)
-            ) { Text("Generate") }
+                enabled = !isSubmitting && prompt.isNotBlank()
+                    && (type != "edit" || sourceImageBase64 != null)
+            ) { Text(if (isSubmitting) "Submitting..." else "Generate") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
