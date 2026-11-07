@@ -72,13 +72,16 @@ namespace PaRuX.Services
 
                 try
                 {
-                    FileInfo? latest = new DirectoryInfo(AppPaths.BackupsDir).GetFiles("history-*.db")
-                        .OrderByDescending(f => f.Name).FirstOrDefault();
-                    if (latest != null)
+                    string? backup = HistoryBackupSafety.MostRecentUsableSnapshot(
+                        new DirectoryInfo(AppPaths.BackupsDir).GetFiles("history-*.db")
+                            .Select(file => file.FullName));
+                    if (backup != null)
                     {
-                        File.Copy(latest.FullName, AppPaths.DatabaseFile, true);
-                        Log.Write("HistoryStore restored the latest daily backup.");
+                        File.Copy(backup, AppPaths.DatabaseFile, true);
+                        Log.Write("HistoryStore restored the most recent verified non-empty daily backup.");
                     }
+                    else
+                        Log.Write("HistoryStore recovery: no verified non-empty snapshot found; quarantined database was preserved.");
                 }
                 catch (Exception ex)
                 {
@@ -169,23 +172,55 @@ CREATE INDEX IF NOT EXISTS ix_conversations_updated
             lock (Gate)
             {
                 if (_backupChecked) return;
-                _backupChecked = true;
+                // A newly created, accidentally emptied or unreadable chat list
+                // must not replace a previously healthy archive. It can also be
+                // an intentional deletion: do NOT silently resurrect chats.
+                // Retry after a real Save so the first chat of a fresh install
+                // has a useful snapshot, rather than an empty startup copy.
                 try
                 {
-                    string backup = Path.Combine(AppPaths.BackupsDir, "history-" + DateTime.UtcNow.ToString("yyyy-MM-dd") + ".db");
-                    if (!File.Exists(backup))
+                    if (HistoryBackupSafety.CountRows(source) == 0) return;
+
+                    string backup = Path.Combine(AppPaths.BackupsDir,
+                        "history-" + DateTime.UtcNow.ToString("yyyy-MM-dd") + ".db");
+                    if (!HistoryBackupSafety.IsUsableSnapshot(backup))
                     {
-                        using var destination = new SqliteConnection("Data Source=" + backup + ";Mode=ReadWriteCreate");
-                        destination.Open();
-                        source.BackupDatabase(destination);
+                        string staging = backup + ".pending-" + Guid.NewGuid().ToString("N");
+                        try
+                        {
+                            using (var destination = new SqliteConnection(
+                                new SqliteConnectionStringBuilder
+                                {
+                                    DataSource = staging, Pooling = false
+                                }.ToString()))
+                            {
+                                destination.Open();
+                                source.BackupDatabase(destination);
+                            }
+                            if (!HistoryBackupSafety.IsUsableSnapshot(staging))
+                                throw new IOException("The daily chat snapshot failed SQLite integrity or row validation.");
+                            // Only replace an unreadable/empty backup, never an
+                            // already validated nonempty snapshot from today.
+                            File.Move(staging, backup, overwrite: true);
+                        }
+                        finally
+                        {
+                            try { if (File.Exists(staging)) File.Delete(staging); }
+                            catch (Exception ex) { Log.Write("HistoryStore pending snapshot cleanup: " + ex.Message); }
+                        }
                     }
+
+                    // Retain seven complete dated snapshots, not one empty
+                    // replacement that would push the last good history away.
                     foreach (FileInfo stale in new DirectoryInfo(AppPaths.BackupsDir)
-                        .GetFiles("history-*.db").OrderByDescending(f => f.Name).Skip(7))
+                        .GetFiles("history-????-??-??.db")
+                        .OrderByDescending(file => file.Name).Skip(7))
                         stale.Delete();
+                    _backupChecked = true;
                 }
                 catch (Exception ex)
                 {
-                    Log.Write("HistoryStore backup failed: " + ex.Message);
+                    Log.Write("HistoryStore backup failed (live history unchanged): " + ex.Message);
                 }
             }
         }
@@ -273,6 +308,11 @@ ON CONFLICT(id) DO UPDATE SET
                             command.Parameters.AddWithValue("$json", json);
                             command.ExecuteNonQuery();
                         }
+                        // Fresh installs skip their empty startup backup. Make
+                        // the first durable conversation eligible for a real
+                        // daily recovery snapshot without changing Save success
+                        // when backup I/O fails (best effort, not an archive API).
+                        CreateDailyBackup(connection);
                     }
                 }
             }
