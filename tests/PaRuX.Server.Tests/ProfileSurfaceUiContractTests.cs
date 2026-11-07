@@ -114,6 +114,10 @@ public sealed class ProfileSurfaceUiContractTests
         string screen = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatScreen.kt");
         string model = Read("src", "PaRuX.Android", "app", "src", "main", "java", "com", "parux", "android", "ui", "chat", "ChatViewModel.kt");
         Assert.Contains("if (accepted)", screen, StringComparison.Ordinal);
+        Assert.Contains("rememberSaveable { mutableStateOf(\"\") }", screen, StringComparison.Ordinal);
+        Assert.Contains("localCore == null", screen, StringComparison.Ordinal);
+        Assert.Contains("your unsent text stays here", screen, StringComparison.Ordinal);
+        Assert.Contains("val localCoreConnection = container.client", model, StringComparison.Ordinal);
         Assert.Contains("enabled = text.isNotBlank() || hasAttachment", screen, StringComparison.Ordinal);
         Assert.Contains("MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024", screen, StringComparison.Ordinal);
         Assert.Contains("ByteArrayOutputStream()", screen, StringComparison.Ordinal);
