@@ -150,6 +150,29 @@ namespace PaRuX.Views
                 };
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
                     search, "Chat_QuickCompare_Search");
+                var sortPicker = new ComboBox
+                {
+                    Header = L("Order models by", "Ordina modelli per"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinHeight = 40
+                };
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Name", "Nome"), Tag = ChatModelBrowseSort.Name
+                });
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Smallest file first", "File più piccolo prima"),
+                    Tag = ChatModelBrowseSort.SmallestFileFirst
+                });
+                sortPicker.Items.Add(new ComboBoxItem
+                {
+                    Content = L("Previously measured speed", "Velocità misurata prima"),
+                    Tag = ChatModelBrowseSort.MeasuredSpeedFirst
+                });
+                sortPicker.SelectedIndex = 0;
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    sortPicker, "Chat_QuickCompare_Sort");
                 var available = new ListView
                 {
                     Height = 220,
@@ -215,7 +238,10 @@ namespace PaRuX.Views
                 }
                 void RenderModels()
                 {
-                    ChatModelPickerPolicy.Page page = ChatModelPickerPolicy.Browse(models, search.Text, pageIndex);
+                    ChatModelBrowseSort sort = (sortPicker.SelectedItem as ComboBoxItem)?.Tag
+                        is ChatModelBrowseSort chosen ? chosen : ChatModelBrowseSort.Name;
+                    ChatModelPickerPolicy.Page page = ChatModelPickerPolicy.Browse(
+                        models, search.Text, pageIndex, sort);
                     pageIndex = page.PageIndex;
                     available.Items.Clear();
                     foreach (ManagedModelInfo model in page.Visible)
@@ -255,6 +281,7 @@ namespace PaRuX.Views
                     assignSecond.IsEnabled = hasSelection;
                 };
                 search.TextChanged += (_, _) => { pageIndex = 0; RenderModels(); };
+                sortPicker.SelectionChanged += (_, _) => { pageIndex = 0; RenderModels(); };
                 previous.Click += (_, _) => { pageIndex--; RenderModels(); };
                 next.Click += (_, _) => { pageIndex++; RenderModels(); };
                 assignFirst.Click += (_, _) =>
@@ -296,6 +323,7 @@ namespace PaRuX.Views
                     TextWrapping = TextWrapping.Wrap
                 });
                 controls.Children.Add(search);
+                controls.Children.Add(sortPicker);
                 controls.Children.Add(available);
                 controls.Children.Add(paging);
                 controls.Children.Add(assigning);
