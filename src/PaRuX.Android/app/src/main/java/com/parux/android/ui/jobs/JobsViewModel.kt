@@ -32,6 +32,7 @@ data class JobsUiState(
 class JobsViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(JobsUiState())
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
+    val localCoreConnection = container.client
 
     private var pollingStarted = false
     private val notifiedCompletedIds = mutableSetOf<String>()
@@ -48,7 +49,12 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private suspend fun refreshOnce(appContext: Context) {
-        val client = container.client.value ?: return
+        val client = container.client.value
+        if (client == null) {
+            _state.value = _state.value.copy(isLoading = false,
+                errorMessage = "PaRuX PC is not connected. Pair your PC in Settings.")
+            return
+        }
         try {
             val jobs = client.api.listJobs()
             val newlyCompleted = jobs.filter { it.status == "completed" && it.id !in notifiedCompletedIds }
@@ -58,12 +64,20 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
             }
             _state.value = _state.value.copy(jobs = jobs, isLoading = false, errorMessage = null)
         } catch (e: Exception) {
-            _state.value = _state.value.copy(isLoading = false)
+            // Preserve any previously fetched jobs, but do NOT show them as
+            // live. A failed poll is not proof the job queue is empty.
+            _state.value = _state.value.copy(isLoading = false,
+                errorMessage = "Can't refresh local jobs. Previously loaded results may be stale.")
         }
     }
 
     fun createJob(type: String, prompt: String, sourceImageBase64: String? = null) {
-        val client = container.client.value ?: return
+        val client = container.client.value
+        if (client == null) {
+            _state.value = _state.value.copy(errorMessage =
+                "PaRuX PC is not connected. Your generation was not submitted.")
+            return
+        }
         viewModelScope.launch {
             try {
                 client.api.createJob(MediaJobRequest(type = type, prompt = prompt, sourceImageBase64 = sourceImageBase64 ?: ""))
@@ -74,9 +88,18 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun cancelJob(id: String) {
-        val client = container.client.value ?: return
+        val client = container.client.value
+        if (client == null) {
+            _state.value = _state.value.copy(errorMessage =
+                "PaRuX PC is not connected. Cancellation was not sent.")
+            return
+        }
         viewModelScope.launch {
-            try { client.api.cancelJob(id) } catch (_: Exception) { }
+            try { client.api.cancelJob(id) }
+            catch (_: Exception) {
+                _state.value = _state.value.copy(errorMessage =
+                    "Cancellation could not be confirmed. Check the job on your PC.")
+            }
         }
     }
 
