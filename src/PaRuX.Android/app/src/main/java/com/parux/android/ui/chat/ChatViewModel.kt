@@ -54,6 +54,10 @@ data class ChatUiState(
 class ChatViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
+
+    /** Observable local-only connection for an honest, instantly updated
+     * offline banner. No authentication data is rendered by the UI. */
+    val localCoreConnection = container.client
     private val voiceEngine = LocalVoiceEngine(container.appContext)
     private var chatJob: Job? = null
     private var voiceJob: Job? = null
