@@ -46,6 +46,23 @@ public sealed class HistoryBackupSafetyTests : IDisposable
         return path;
     }
 
+    [Theory]
+    [InlineData(11, true)]    // SQLITE_CORRUPT
+    [InlineData(26, true)]    // SQLITE_NOTADB
+    [InlineData(267, true)]   // SQLITE_CORRUPT_VTAB (extended)
+    [InlineData(5, false)]    // SQLITE_BUSY: another writer is active
+    [InlineData(6, false)]    // SQLITE_LOCKED: wait/report, never quarantine
+    [InlineData(10, false)]   // SQLITE_IOERR: filesystem issue
+    [InlineData(13, false)]   // SQLITE_FULL: full disk
+    [InlineData(8, false)]    // SQLITE_READONLY
+    [InlineData(1, false)]    // SQLITE_ERROR: schema or query error
+    [InlineData(0, false)]
+    public void Auto_recovery_runs_only_for_real_corruption_not_transient_sqlite_failures(
+        int code, bool expected)
+    {
+        Assert.Equal(expected, HistoryBackupSafety.IsCorruptionErrorCode(code));
+    }
+
     [Fact]
     public void Empty_and_corrupt_daily_copies_are_never_selected_for_recovery()
     {
