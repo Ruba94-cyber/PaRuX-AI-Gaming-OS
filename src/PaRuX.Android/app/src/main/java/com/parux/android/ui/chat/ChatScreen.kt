@@ -223,6 +223,7 @@ private fun ModelSelectorRow(
     onManual: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf("") }
     val current = if (preference.mode == "manual") {
         val file = preference.manualModelFileName ?: "missing model"
         val alias = models.firstOrNull { it.fileName.equals(file, ignoreCase = true) }?.alias
@@ -236,9 +237,25 @@ private fun ModelSelectorRow(
         }
     }
 
+    // A long model catalogue must not create hundreds of Compose menu items
+    // whenever the picker is opened on a low-memory Android device.
+    val matching = models.filter { model ->
+        filter.isBlank() ||
+            model.fileName.contains(filter.trim(), ignoreCase = true) ||
+            (model.alias?.contains(filter.trim(), ignoreCase = true) == true)
+    }.distinctBy { it.fileName.lowercase() }
+    val visible = matching.take(20).toMutableList()
+    val pinned = if (filter.isBlank() && preference.mode == "manual")
+        models.firstOrNull { it.fileName.equals(preference.manualModelFileName, ignoreCase = true) }
+    else null
+    if (pinned != null && visible.none { it.fileName.equals(pinned.fileName, ignoreCase = true) }) {
+        if (visible.size >= 20) visible.removeAt(visible.lastIndex)
+        visible.add(0, pinned)
+    }
+
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
         Box {
-            TextButton(onClick = { expanded = true }) { Text("Model: $current") }
+            TextButton(onClick = { filter = ""; expanded = true }) { Text("Model: $current") }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 listOf(
                     "balanced" to "Auto · Balanced",
@@ -251,13 +268,34 @@ private fun ModelSelectorRow(
                         expanded = false
                     })
                 }
-                models.forEach { model ->
+                if (models.size > 10) {
+                    OutlinedTextField(
+                        value = filter,
+                        onValueChange = { filter = it },
+                        placeholder = { Text("Search installed models") },
+                        singleLine = true,
+                        modifier = Modifier.width(280.dp).padding(horizontal = 8.dp)
+                    )
+                }
+                if (matching.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("No installed models match this search") },
+                        onClick = {}, enabled = false
+                    )
+                }
+                visible.forEach { model ->
                     val display = model.alias?.takeIf { it.isNotBlank() }?.let { "$it · ${model.fileName}" } ?: model.fileName
                     val speed = model.lastBenchmarkTokensPerSecond?.let { " · ${"%.1f".format(it)} tok/s" } ?: ""
                     DropdownMenuItem(text = { Text("Manual · $display$speed") }, onClick = {
                         onManual(model.fileName)
                         expanded = false
                     })
+                }
+                if (matching.size > visible.size) {
+                    DropdownMenuItem(
+                        text = { Text("Showing ${visible.size} of ${matching.size} · refine search") },
+                        onClick = {}, enabled = false
+                    )
                 }
             }
         }
