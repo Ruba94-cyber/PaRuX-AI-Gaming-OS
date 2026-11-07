@@ -26,6 +26,19 @@ namespace PaRuX.Views
         private static string T(string en, string it) => It ? it : en;
 
         private readonly StackPanel _folders = new StackPanel { Spacing = 8 };
+        private readonly TextBox _folderFilter = new TextBox
+        {
+            MinWidth = 0, MinHeight = 40, HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        private readonly TextBlock _folderPageText = new TextBlock
+        {
+            FontSize = 12, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center
+        };
+        private readonly Button _previousFolderPage = new Button { MinHeight = 40 };
+        private readonly Button _nextFolderPage = new Button { MinHeight = 40 };
+        private readonly DispatcherTimer _folderFilterDelay =
+            new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
+        private int _folderPageIndex;
         private readonly TextBox _query = new TextBox { MinWidth = 0, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch };
         private readonly ComboBox _mode = new ComboBox { MinWidth = 0, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch };
         private readonly StackPanel _results = new StackPanel { Spacing = 10 };
@@ -64,7 +77,44 @@ namespace PaRuX.Views
             });
 
             root.Children.Add(new TextBlock { Text = T("FOLDERS", "CARTELLE"), FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Opacity = 0.72 });
+            // 1,000 registered folders must not create 1,000 focusable
+            // controls or fire a status HTTP call for each on every open.
+            _folderFilter.PlaceholderText = T("Filter indexed folders by name or path", "Filtra le cartelle per nome o percorso");
+            AutomationProperties.SetAutomationId(_folderFilter, "DocSearch_FolderFilter_TextBox");
+            AutomationProperties.SetName(_folderFilter, T("Filter folders", "Filtra cartelle"));
+            _folderFilter.TextChanged += (_, _) =>
+            {
+                _folderPageIndex = 0;
+                _folderFilterDelay.Stop();
+                if (_shown) _folderFilterDelay.Start();
+            };
+            root.Children.Add(_folderFilter);
             root.Children.Add(_folders);
+            var pager = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            _previousFolderPage.Content = T("Previous", "Precedente");
+            _nextFolderPage.Content = T("Next", "Successiva");
+            AutomationProperties.SetAutomationId(_previousFolderPage, "DocSearch_PrevFolderPage_Button");
+            AutomationProperties.SetAutomationId(_nextFolderPage, "DocSearch_NextFolderPage_Button");
+            AutomationProperties.SetAutomationId(_folderPageText, "DocSearch_FolderPage_Text");
+            _previousFolderPage.Click += async (_, _) =>
+            {
+                _folderPageIndex--;
+                await RefreshFoldersAsync(false, retryIfBusy: true);
+            };
+            _nextFolderPage.Click += async (_, _) =>
+            {
+                _folderPageIndex++;
+                await RefreshFoldersAsync(false, retryIfBusy: true);
+            };
+            pager.Children.Add(_previousFolderPage);
+            pager.Children.Add(_folderPageText);
+            pager.Children.Add(_nextFolderPage);
+            root.Children.Add(pager);
+            _folderFilterDelay.Tick += async (_, _) =>
+            {
+                _folderFilterDelay.Stop();
+                if (_shown) await RefreshFoldersAsync(false, retryIfBusy: true);
+            };
             var add = new Button { Content = T("Add folder…", "Aggiungi cartella…") };
             AutomationProperties.SetAutomationId(add, "DocSearch_AddFolder_Button");
             add.Click += async (_, _) => await AddFolderAsync();
@@ -109,7 +159,7 @@ namespace PaRuX.Views
 
             Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             _poll.Tick += async (_, _) => await RefreshFoldersAsync(false);
-            Unloaded += (_, _) => { _shown = false; _poll.Stop(); };
+            Unloaded += (_, _) => { _shown = false; _poll.Stop(); _folderFilterDelay.Stop(); };
         }
 
         public async void OnShown()
@@ -123,6 +173,7 @@ namespace PaRuX.Views
         {
             _shown = false;
             _poll.Stop();
+            _folderFilterDelay.Stop();
         }
 
         private async Task RefreshFoldersAsync(bool reload, bool retryIfBusy = false)
@@ -144,11 +195,20 @@ namespace PaRuX.Views
                     foreach (string obsolete in _statusCache.Keys.Where(x => !valid.Contains(x)).ToArray())
                         _statusCache.Remove(obsolete);
                 }
-                // The first open checks every source. Subsequent 2-second ticks
-                // ask only for ACTIVE jobs, not 100+ already completed folders.
-                // This avoids continuous bursts of local HTTP/SQLite work on
-                // 8 GB Corporate machines with large source collections.
-                var pending = _sources.Where(source => reload
+                // Source registry listing remains complete, but the management
+                // page builds no more than 40 folder controls. The full
+                // registry stays searchable by name/path and disabled sources
+                // remain reachable for management.
+                DocumentSourcePage page = DocumentSourcePicker.Filter(
+                    _sources, _folderFilter.Text, _folderPageIndex, includeDisabled: true);
+                _folderPageIndex = page.PageIndex;
+                _folderPageText.Text = page.TotalMatches.ToString("N0") + T(" folders · page ", " cartelle · pagina ")
+                    + (page.PageIndex + 1) + "/" + page.PageCount;
+                _previousFolderPage.IsEnabled = page.PageIndex > 0;
+                _nextFolderPage.IsEnabled = page.PageIndex + 1 < page.PageCount;
+                // Status is queried only for visible sources, and then only
+                // for running jobs until the next explicit refresh.
+                var pending = page.Visible.Where(source => reload
                     || !_statusCache.TryGetValue(source.Id, out var cached)
                     || cached.State is "running" or "paused").ToArray();
                 using var limiter = new SemaphoreSlim(4);
@@ -164,7 +224,7 @@ namespace PaRuX.Views
                 }));
                 foreach (var item in updated)
                     _statusCache[item.Source.Id] = item.Status;
-                var states = _sources.Where(source => _statusCache.ContainsKey(source.Id))
+                var states = page.Visible.Where(source => _statusCache.ContainsKey(source.Id))
                     .Select(source => (Source: source, Status: _statusCache[source.Id])).ToArray();
                 string[] newOrder = states.Select(item => item.Source.Id).ToArray();
                 bool rowsChanged = !_rowOrder.SequenceEqual(newOrder);
@@ -181,12 +241,18 @@ namespace PaRuX.Views
                         _folders.Children.Add(row.Container);
                     }
                 }
-                if (states.Length == 0 && _folders.Children.Count == 0)
+                if (states.Length == 0)
+                {
+                    _folders.Children.Clear();
                     _folders.Children.Add(new TextBlock
                     {
-                        Text = T("No folder yet. Add one to start.", "Nessuna cartella. Aggiungine una per iniziare."),
-                        Opacity = 0.75
+                        Text = _sources.Count == 0
+                            ? T("No folder yet. Add one to start.", "Nessuna cartella. Aggiungine una per iniziare.")
+                            : T("No matching folder. Try another name or clear the filter.",
+                                "Nessuna cartella corrispondente. Prova un altro nome o cancella il filtro."),
+                        Opacity = 0.75, TextWrapping = TextWrapping.Wrap
                     });
+                }
                 bool running = false;
                 var freshIds = new HashSet<string>(updated.Select(item => item.Source.Id), StringComparer.Ordinal);
                 foreach (var item in states)
