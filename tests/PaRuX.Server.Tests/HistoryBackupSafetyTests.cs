@@ -129,6 +129,34 @@ public sealed class HistoryBackupSafetyTests : IDisposable
     }
 
     [Fact]
+    public void Interrupted_daily_replacement_preserved_copy_can_be_recovered()
+    {
+        string prior = Snapshot("history-2026-11-06.db", 1);
+        string original = Snapshot("history-2026-11-07.db", 2);
+        string preserved = original + ".previous-20261107-120000-abc.db";
+        File.Move(original, preserved); // simulate power loss after quarantine
+        string newerUnverified = Snapshot("history-2026-11-08.db", 0);
+
+        Assert.Equal(preserved, HistoryBackupSafety.MostRecentUsableSnapshot(new[]
+        {
+            prior, preserved, newerUnverified
+        }));
+    }
+
+    [Fact]
+    public void Canonical_daily_backup_takes_precedence_over_preserved_copy_of_same_day()
+    {
+        string liveDay = Snapshot("history-2026-11-07.db", 1);
+        string preserved = Snapshot("history-2026-11-07.db.previous-20261107-090000-old.db", 3);
+        string pending = Snapshot("history-2026-11-09.db.pending-new.db", 4);
+        string badName = Snapshot("history-not-a-date.db", 5);
+        Assert.Equal(liveDay, HistoryBackupSafety.MostRecentUsableSnapshot(new[]
+        {
+            pending, badName, preserved, liveDay
+        }));
+    }
+
+    [Fact]
     public void A_newer_verified_nonempty_backup_wins_over_an_older_one()
     {
         string older = Snapshot("history-2026-10-31.db", 2);
