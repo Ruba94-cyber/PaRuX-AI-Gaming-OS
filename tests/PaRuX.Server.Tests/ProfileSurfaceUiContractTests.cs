@@ -149,6 +149,10 @@ public sealed class ProfileSurfaceUiContractTests
         string history = Read("src", "PaRuX.App", "Services", "HistoryStore.cs");
         string safety = Read("src", "PaRuX.App", "Services", "HistoryBackupSafety.cs");
         Assert.Contains("HistoryBackupSafety.MostRecentUsableSnapshot(", history, StringComparison.Ordinal);
+        Assert.Contains("catch (SqliteException ex) when (HistoryBackupSafety.IsCorruptionErrorCode(ex.SqliteErrorCode))", history, StringComparison.Ordinal);
+        Assert.Contains("if (!RecoverDatabase()) throw;", history, StringComparison.Ordinal);
+        Assert.Contains("File.Copy(backup, AppPaths.DatabaseFile, overwrite: false)", history, StringComparison.Ordinal);
+        Assert.Contains("modelMutationAttempted", Read("src", "PaRuX.Server", "GroupChatService.cs"), StringComparison.Ordinal);
         Assert.Contains("HistoryBackupSafety.CountRows(source) == 0", history, StringComparison.Ordinal);
         Assert.Contains("HistoryBackupSafety.PromoteSnapshot(staging, backup)", history, StringComparison.Ordinal);
         Assert.Contains("CreateDailyBackup(connection)", history, StringComparison.Ordinal);
