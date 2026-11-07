@@ -137,8 +137,11 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("ChatModelPickerPolicy.Quick(_chatModelCatalog, pinnedFile)", chat, StringComparison.Ordinal);
         Assert.Contains("Chat_SimpleMode_ModelPicker_BrowseAll", chat, StringComparison.Ordinal);
         Assert.Contains("Chat_ModelBrowser_Filter_TextBox", chat, StringComparison.Ordinal);
+        Assert.Contains("Chat_ModelBrowser_Sort_Combo", chat, StringComparison.Ordinal);
+        Assert.Contains("ChatModelBrowseSort.SmallestFileFirst", chat, StringComparison.Ordinal);
+        Assert.Contains("ChatModelBrowseSort.MeasuredSpeedFirst", chat, StringComparison.Ordinal);
         Assert.Contains("Chat_ModelBrowser_Choices_List", chat, StringComparison.Ordinal);
-        Assert.Contains("ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex)", chat, StringComparison.Ordinal);
+        Assert.Contains("ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex, sort)", chat, StringComparison.Ordinal);
         Assert.Contains("await ApplyChatModelChoiceAsync(\"parux-manual:\" + file)", chat, StringComparison.Ordinal);
         Assert.Contains("DefaultButton = ContentDialogButton.Close", chat, StringComparison.Ordinal);
     }
@@ -220,12 +223,14 @@ public sealed class ProfileSurfaceUiContractTests
     public void Advanced_chat_compare_supports_large_local_catalogues_without_massive_combo_boxes()
     {
         string comparison = Read("src", "PaRuX.App", "Views", "ChatView.ModelRouting.cs");
-        Assert.Contains("ChatModelPickerPolicy.Browse(models, search.Text, pageIndex)", comparison, StringComparison.Ordinal);
+        Assert.Contains("ChatModelPickerPolicy.Browse(", comparison, StringComparison.Ordinal);
         Assert.Contains("Chat_QuickCompare_Search", comparison, StringComparison.Ordinal);
         Assert.Contains("Chat_QuickCompare_Choices", comparison, StringComparison.Ordinal);
         Assert.Contains("Chat_QuickCompare_PreviousPage", comparison, StringComparison.Ordinal);
         Assert.Contains("Chat_QuickCompare_NextPage", comparison, StringComparison.Ordinal);
         Assert.Contains("Chat_QuickCompare_SelectedModels", comparison, StringComparison.Ordinal);
+        Assert.Contains("Chat_QuickCompare_Sort", comparison, StringComparison.Ordinal);
+        Assert.Contains("models, search.Text, pageIndex, sort", comparison, StringComparison.Ordinal);
         Assert.Contains("ChatModelPickerPolicy.CanCompare(models, one, two)", comparison, StringComparison.Ordinal);
         Assert.Contains("LastBenchmarkTokensPerSecond is > 0", comparison, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (ManagedModelInfo model in models)", comparison, StringComparison.Ordinal);
