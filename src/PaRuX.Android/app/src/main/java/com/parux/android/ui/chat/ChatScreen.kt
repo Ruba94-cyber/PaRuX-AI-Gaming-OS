@@ -55,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -69,8 +70,11 @@ import com.parux.android.core.network.ProjectDto
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val state by viewModel.state.collectAsState()
+    val localCore by viewModel.localCoreConnection.collectAsState()
     var showHistory by remember { mutableStateOf(false) }
-    var composerText by remember { mutableStateOf("") }
+    // Text is safe to preserve through Activity recreation. The base64 image
+    // is deliberately NOT stored in savedInstanceState (Android binder limit).
+    var composerText by rememberSaveable { mutableStateOf("") }
     var pendingImage by remember { mutableStateOf<PendingImage?>(null) }
     var attachmentError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -126,6 +130,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().imePadding()) {
             if (state.gamingMode) GamingBanner()
+            if (localCore == null) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text("Local PaRuX PC not connected. Pair in Settings; your unsent text stays here.",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             ProfileRow(current = state.aiProfile, onChange = viewModel::setAiProfile)
             ModelSelectorRow(
                 preference = state.modelRouting,
