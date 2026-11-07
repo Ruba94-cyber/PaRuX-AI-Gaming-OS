@@ -1815,7 +1815,8 @@
                             PlaceholderText="Paste only the relevant context you want each local model to see"
                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
                             MaxLength="12000" />
-                        <TextBlock Text="Only the text you paste above is shared with all selected local models. Other conversations, memory and files are not included automatically."
+                        <TextBlock x:Name="GroupChatSharedContextHint"
+                            Text="Only the text you paste above is shared with all selected local models. Other conversations, memory and files are not included automatically."
                             TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                         <Grid ColumnSpacing="{StaticResource PaRuXSpaceS}" RowSpacing="{StaticResource PaRuXSpaceS}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
