@@ -234,7 +234,7 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("Chat_QuickCompare_Sort", comparison, StringComparison.Ordinal);
         Assert.Contains("models, search.Text, pageIndex, sort", comparison, StringComparison.Ordinal);
         Assert.Contains("ChatModelPickerPolicy.CanCompare(models, one, two)", comparison, StringComparison.Ordinal);
-        Assert.Contains("LastBenchmarkTokensPerSecond is > 0", comparison, StringComparison.Ordinal);
+        Assert.Contains("ChatModelPickerPolicy.HasMeasuredSpeed(model)", comparison, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (ManagedModelInfo model in models)", comparison, StringComparison.Ordinal);
     }
 
