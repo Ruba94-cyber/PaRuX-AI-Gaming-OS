@@ -611,17 +611,20 @@ namespace PaRuX.Views
                             Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(item.FilePath)),
                             AreTransportControlsEnabled = true,
                             AutoPlay = false,
-                            Width = 520,
+                            MaxWidth = 520,
                             Height = 294,
-                            HorizontalAlignment = HorizontalAlignment.Left
+                            HorizontalAlignment = HorizontalAlignment.Stretch
                         };
                         AutomationProperties.SetAutomationId(previewPlayer, "MediaGallery_DetailVideoPreview");
                         AutomationProperties.SetName(previewPlayer, "Local video preview: " + item.Title);
                         details.Children.Add(previewPlayer);
                     }
                 }
-                catch (Exception ex) when (ex is UriFormatException or IOException or UnauthorizedAccessException)
+                catch (Exception ex)
                 {
+                    // Local decoders can also fail with WinRT/COM exceptions.
+                    // Keep metadata accessible without crashing the gallery.
+                    Log.Write("Media Gallery preview unavailable: " + ex.GetType().Name);
                     previewPlayer = null;
                     details.Children.Add(new TextBlock
                     {
@@ -679,7 +682,8 @@ namespace PaRuX.Views
                 {
                     try { previewPlayer.MediaPlayer?.Pause(); }
                     catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.Message); }
-                    previewPlayer.Source = null;
+                    try { previewPlayer.Source = null; }
+                    catch (Exception ex) { Log.Write("Media Gallery preview release: " + ex.GetType().Name); }
                 }
             }
         }
