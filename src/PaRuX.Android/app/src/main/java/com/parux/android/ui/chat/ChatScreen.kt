@@ -224,6 +224,7 @@ private fun ModelSelectorRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf(MobileModelSort.Name) }
     val current = if (preference.mode == "manual") {
         val file = preference.manualModelFileName ?: "missing model"
         val alias = models.firstOrNull { it.fileName.equals(file, ignoreCase = true) }?.alias
@@ -237,21 +238,13 @@ private fun ModelSelectorRow(
         }
     }
 
-    // A long model catalogue must not create hundreds of Compose menu items
-    // whenever the picker is opened on a low-memory Android device.
-    val matching = models.filter { model ->
-        filter.isBlank() ||
-            model.fileName.contains(filter.trim(), ignoreCase = true) ||
-            (model.alias?.contains(filter.trim(), ignoreCase = true) == true)
-    }.distinctBy { it.fileName.lowercase() }
-    val visible = matching.take(20).toMutableList()
-    val pinned = if (filter.isBlank() && preference.mode == "manual")
-        models.firstOrNull { it.fileName.equals(preference.manualModelFileName, ignoreCase = true) }
-    else null
-    if (pinned != null && visible.none { it.fileName.equals(pinned.fileName, ignoreCase = true) }) {
-        if (visible.size >= 20) visible.removeAt(visible.lastIndex)
-        visible.add(0, pinned)
-    }
+    // One pure bounded policy for selection, search and order. No GPU load or
+    // routing change occurs until the user taps an actual installed model.
+    val modelPage = MobileModelBrowsePolicy.browse(
+        models, filter, sort,
+        preference.manualModelFileName.takeIf { preference.mode == "manual" })
+    val visible = modelPage.visible
+    val matchingCount = modelPage.totalMatches
 
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
         Box {
@@ -277,7 +270,29 @@ private fun ModelSelectorRow(
                         modifier = Modifier.width(280.dp).padding(horizontal = 8.dp)
                     )
                 }
-                if (matching.isEmpty()) {
+                if (models.size > 1) {
+                    Row(
+                        Modifier.padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = sort == MobileModelSort.Name,
+                            onClick = { sort = MobileModelSort.Name },
+                            label = { Text("Name") }
+                        )
+                        FilterChip(
+                            selected = sort == MobileModelSort.SmallestFile,
+                            onClick = { sort = MobileModelSort.SmallestFile },
+                            label = { Text("Small") }
+                        )
+                        FilterChip(
+                            selected = sort == MobileModelSort.MeasuredSpeed,
+                            onClick = { sort = MobileModelSort.MeasuredSpeed },
+                            label = { Text("Speed") }
+                        )
+                    }
+                }
+                if (matchingCount == 0) {
                     DropdownMenuItem(
                         text = { Text("No installed models match this search") },
                         onClick = {}, enabled = false
@@ -285,15 +300,20 @@ private fun ModelSelectorRow(
                 }
                 visible.forEach { model ->
                     val display = model.alias?.takeIf { it.isNotBlank() }?.let { "$it · ${model.fileName}" } ?: model.fileName
-                    val speed = model.lastBenchmarkTokensPerSecond?.let { " · ${"%.1f".format(it)} tok/s" } ?: ""
-                    DropdownMenuItem(text = { Text("Manual · $display$speed") }, onClick = {
+                    val size = model.sizeBytes.takeIf { it > 0 }?.let {
+                        " · ${"%.1f".format(it / 1073741824.0)} GiB"
+                    } ?: ""
+                    val speed = model.lastBenchmarkTokensPerSecond?.takeIf { it.isFinite() && it > 0 }?.let {
+                        " · ${"%.1f".format(it)} last tok/s"
+                    } ?: ""
+                    DropdownMenuItem(text = { Text("Manual · $display$size$speed") }, onClick = {
                         onManual(model.fileName)
                         expanded = false
                     })
                 }
-                if (matching.size > visible.size) {
+                if (matchingCount > visible.size) {
                     DropdownMenuItem(
-                        text = { Text("Showing ${visible.size} of ${matching.size} · refine search") },
+                        text = { Text("Showing ${visible.size} of $matchingCount · refine search") },
                         onClick = {}, enabled = false
                     )
                 }
