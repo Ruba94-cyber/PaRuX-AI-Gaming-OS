@@ -87,7 +87,16 @@ public sealed class KnowledgeJobService
 
     public bool HasData
     {
-        get { try { return _sources.ListSources().Any(s => Index.Stats(s.Id).chunks > 0); } catch (Exception) { return false; } }
+        get
+        {
+            try
+            {
+                // One scoped, indexed SQLite EXISTS instead of two COUNT queries
+                // and a new connection for each folder in a large company corpus.
+                return Index.HasAnyIndexedChunks(_sources.ListSources().Select(s => s.Id).ToArray());
+            }
+            catch (Exception) { return false; }
+        }
     }
 
     public IReadOnlyCollection<string> EnabledSourceIds() => _sources.ListSources().Where(s => s.Enabled).Select(s => s.Id).ToList();
