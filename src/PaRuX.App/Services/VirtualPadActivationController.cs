@@ -40,7 +40,7 @@ internal sealed class VirtualPadActivationController
 
     public static PadDeviceIdentity IdentityFor(RawGamepadDeviceInfo info) => new(
         info.Id, info.Name, info.VendorId, info.ProductId,
-        WindowsRawGamepadSource.ListDevices().Count(d => d.VendorId == info.VendorId && d.ProductId == info.ProductId));
+        WindowsRawGamepadSource.CountMatchingLiveIdentity(info));
 
     public async Task<VirtualPadServiceStatus> StartAsync(RawGamepadDeviceInfo device, bool consentToHide, string? gameId)
     {
