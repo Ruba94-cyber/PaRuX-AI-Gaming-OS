@@ -42,6 +42,10 @@ namespace PaRuX.Views
             Margin = new Thickness(8, 12, 8, 12)
         };
         private readonly StackPanel _cardsPanel = new() { Spacing = 12 };
+        private readonly Button _previousPage = new() { Content = "Previous", MinHeight = 40 };
+        private readonly Button _nextPage = new() { Content = "Next", MinHeight = 40 };
+        private readonly TextBlock _pageStatus = new() { VerticalAlignment = VerticalAlignment.Center };
+        private int _pageIndex;
         private readonly MediaGalleryDeleteCoordinator _deleteCoordinator = new();
 
         private readonly List<MediaGalleryItem> _allItems = new();
@@ -97,7 +101,7 @@ namespace PaRuX.Views
             filterBar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             AutomationProperties.SetAutomationId(_searchBox, "MediaGallery_Search_Box");
-            _searchBox.TextChanged += (_, _) => ApplyFilterAndSort();
+            _searchBox.TextChanged += (_, _) => { _pageIndex = 0; ApplyFilterAndSort(); };
             _searchBox.MinWidth = 0;
             Grid.SetColumnSpan(_searchBox, 2);
             filterBar.Children.Add(_searchBox);
@@ -109,7 +113,7 @@ namespace PaRuX.Views
             _filterCombo.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_filterCombo, "MediaGallery_Filter_Combo");
             AutomationProperties.SetName(_filterCombo, "Filter media");
-            _filterCombo.SelectionChanged += (_, _) => ApplyFilterAndSort();
+            _filterCombo.SelectionChanged += (_, _) => { _pageIndex = 0; ApplyFilterAndSort(); };
             Grid.SetRow(_filterCombo, 1);
             _filterCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
             filterBar.Children.Add(_filterCombo);
@@ -121,7 +125,7 @@ namespace PaRuX.Views
             _sortCombo.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_sortCombo, "MediaGallery_Sort_Combo");
             AutomationProperties.SetName(_sortCombo, "Sort media");
-            _sortCombo.SelectionChanged += (_, _) => ApplyFilterAndSort();
+            _sortCombo.SelectionChanged += (_, _) => { _pageIndex = 0; ApplyFilterAndSort(); };
             Grid.SetRow(_sortCombo, 1);
             Grid.SetColumn(_sortCombo, 1);
             filterBar.Children.Add(_sortCombo);
@@ -141,6 +145,25 @@ namespace PaRuX.Views
 
             AutomationProperties.SetAutomationId(_cardsPanel, "MediaGallery_Cards_Panel");
             root.Children.Add(_cardsPanel);
+
+            // Avoid materializing every thumbnail into WinUI/decoded-image
+            // memory at once; one page of 24 stays fully keyboard accessible.
+            AutomationProperties.SetAutomationId(_previousPage, "MediaGallery_PreviousPage_Button");
+            AutomationProperties.SetAutomationId(_nextPage, "MediaGallery_NextPage_Button");
+            AutomationProperties.SetAutomationId(_pageStatus, "MediaGallery_PageStatus_Text");
+            AutomationProperties.SetName(_previousPage, "Previous media page");
+            AutomationProperties.SetName(_nextPage, "Next media page");
+            _previousPage.Click += (_, _) => { _pageIndex--; ApplyFilterAndSort(); };
+            _nextPage.Click += (_, _) => { _pageIndex++; ApplyFilterAndSort(); };
+            var pager = new StackPanel
+            {
+                Orientation = Orientation.Horizontal, Spacing = 12,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            pager.Children.Add(_previousPage);
+            pager.Children.Add(_pageStatus);
+            pager.Children.Add(_nextPage);
+            root.Children.Add(pager);
 
             return root;
         }
@@ -264,11 +287,18 @@ namespace PaRuX.Views
             string search = _searchBox.Text ?? string.Empty;
 
             IReadOnlyList<MediaGalleryItem> filtered = MediaGalleryBrowser.FilterAndSort(_allItems, filter, sort, search);
+            MediaGalleryBrowser.Page page = MediaGalleryBrowser.Paginate(filtered, _pageIndex);
+            _pageIndex = page.PageIndex;
+            _pageStatus.Text = page.TotalMatches + " results · page "
+                + (page.PageIndex + 1) + "/" + page.PageCount;
+            _previousPage.IsEnabled = page.PageIndex > 0;
+            _nextPage.IsEnabled = page.PageIndex + 1 < page.PageCount;
+            _pageStatus.Visibility = page.TotalMatches == 0 ? Visibility.Collapsed : Visibility.Visible;
 
             _cardsPanel.Children.Clear();
-            _emptyState.Visibility = filtered.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            _emptyState.Visibility = page.TotalMatches == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-            foreach (MediaGalleryItem item in filtered)
+            foreach (MediaGalleryItem item in page.Visible)
             {
                 _cardsPanel.Children.Add(BuildCard(item));
             }
