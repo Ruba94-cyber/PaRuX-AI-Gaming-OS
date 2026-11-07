@@ -20,7 +20,9 @@ import kotlinx.coroutines.launch
 data class JobsUiState(
     val jobs: List<MediaJobStatus> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isSubmitting: Boolean = false,
+    val submissionError: String? = null
 )
 
 /**
@@ -71,18 +73,29 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun createJob(type: String, prompt: String, sourceImageBase64: String? = null) {
+    fun createJob(type: String, prompt: String, sourceImageBase64: String? = null,
+                  onAccepted: () -> Unit = {}) {
+        if (_state.value.isSubmitting) return
         val client = container.client.value
         if (client == null) {
-            _state.value = _state.value.copy(errorMessage =
-                "PaRuX PC is not connected. Your generation was not submitted.")
+            _state.value = _state.value.copy(submissionError =
+                "PaRuX PC is not connected. The generation was not submitted.")
             return
         }
+        _state.value = _state.value.copy(isSubmitting = true, submissionError = null)
         viewModelScope.launch {
             try {
-                client.api.createJob(MediaJobRequest(type = type, prompt = prompt, sourceImageBase64 = sourceImageBase64 ?: ""))
+                client.api.createJob(MediaJobRequest(
+                    type = type, prompt = prompt, sourceImageBase64 = sourceImageBase64 ?: ""))
+                // Only a confirmed Core admission closes the Compose draft
+                // dialog. A network failure must leave the prompt and image
+                // selection available for a conscious retry.
+                onAccepted()
             } catch (e: Exception) {
-                _state.value = _state.value.copy(errorMessage = e.message ?: "Couldn't start the job.")
+                _state.value = _state.value.copy(submissionError =
+                    e.message ?: "Couldn't start the job. Your draft was kept.")
+            } finally {
+                _state.value = _state.value.copy(isSubmitting = false)
             }
         }
     }
