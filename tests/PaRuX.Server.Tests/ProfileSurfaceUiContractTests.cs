@@ -120,6 +120,10 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("val localCoreConnection = container.client", model, StringComparison.Ordinal);
         Assert.Contains("enabled = text.isNotBlank() || hasAttachment", screen, StringComparison.Ordinal);
         Assert.Contains("MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024", screen, StringComparison.Ordinal);
+        Assert.Contains("Search installed models", screen, StringComparison.Ordinal);
+        Assert.Contains("matching.take(20).toMutableList()", screen, StringComparison.Ordinal);
+        Assert.Contains("refine search", screen, StringComparison.Ordinal);
+        Assert.Contains("models.firstOrNull { it.fileName.equals(preference.manualModelFileName", screen, StringComparison.Ordinal);
         Assert.Contains("ByteArrayOutputStream()", screen, StringComparison.Ordinal);
         Assert.Contains("fun sendMessage(text: String, image: PendingImage? = null, oneShotSkillId: String? = null): Boolean", model, StringComparison.Ordinal);
         Assert.Contains("if (_state.value.gamingMode)", model, StringComparison.Ordinal);
