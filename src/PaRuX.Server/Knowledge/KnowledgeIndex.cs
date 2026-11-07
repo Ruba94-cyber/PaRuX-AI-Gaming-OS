@@ -601,6 +601,27 @@ VALUES($f,$o,$t,$h,$pg,$sh,$cr,$sl,$co,$e); SELECT last_insert_rowid();";
     }
 
     /// <summary>
+    /// Fast single-query readiness check across all currently registered
+    /// sources. An indexed *file* without searchable passages is not enough.
+    /// Unlike calling Stats() once per folder, this stays practical for
+    /// thousands of Corporate folders and uses the same bound SQL scope.
+    /// </summary>
+    public bool HasAnyIndexedChunks(IReadOnlyCollection<string> sourceIds)
+    {
+        if (sourceIds == null || sourceIds.Count == 0) return false;
+        EnsureSchema();
+        lock (_gate)
+        {
+            using SqliteConnection c = Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM kn_files f "
+                + "JOIN kn_chunks k ON k.file_id=f.id WHERE 1=1"
+                + AppendSourceRestriction(cmd, sourceIds, "f") + " LIMIT 1;";
+            return cmd.ExecuteScalar() != null;
+        }
+    }
+
+    /// <summary>
     /// Deletes everything indexed for a source (the documents themselves are never touched) and scrubs what SQLite would otherwise
     /// leave behind: rows, word/trigram index entries and vectors are removed with secure_delete on (freed pages are zeroed),
     /// the FTS segments are rebuilt without the removed text, the WAL is folded in and truncated, and the file is vacuumed.
