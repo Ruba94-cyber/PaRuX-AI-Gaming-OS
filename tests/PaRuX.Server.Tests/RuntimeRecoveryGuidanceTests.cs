@@ -52,7 +52,7 @@ public sealed class RuntimeRecoveryGuidanceTests
         var it = RuntimeRecoveryGuidance.Describe("CUDA_ERROR_OUT_OF_MEMORY", italian: true);
         Assert.Contains("RAM/VRAM", en);
         Assert.Contains("smaller model", en);
-        Assert.Contains("non verrà cambiata automaticamente", it);
+        Assert.Contains("nessuna impostazione verrà cambiata automaticamente", it);
         Assert.DoesNotContain("kill", en, StringComparison.OrdinalIgnoreCase);
     }
 
