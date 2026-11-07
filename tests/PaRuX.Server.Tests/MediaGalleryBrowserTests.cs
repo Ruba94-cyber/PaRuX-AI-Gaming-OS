@@ -352,6 +352,27 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Open_and_edit_actions_reject_a_local_executable_disguised_as_an_image()
+        {
+            string file = Path.Combine(Path.GetTempPath(), "parux-preview-executable-" + Guid.NewGuid().ToString("N") + ".exe");
+            File.WriteAllBytes(file, new byte[] { 1, 2, 3 });
+            try
+            {
+                var deceptive = new MediaGalleryItem
+                {
+                    Id = "disguised", Title = "Picture", ArtifactType = "image", MediaType = "image/png",
+                    FilePath = file, Prompt = "p", Model = "m", CreatedUtc = DateTime.UtcNow, Status = "final"
+                };
+                Assert.False(MediaGalleryBrowser.CanOpen(deceptive));
+                Assert.False(MediaGalleryBrowser.CanReuseAsEditSource(deceptive));
+            }
+            finally
+            {
+                if (File.Exists(file)) File.Delete(file);
+            }
+        }
+
+        [Fact]
         public void CanReuseAsEditSource_requires_valid_image_and_existing_file()
         {
             string tempImage = Path.Combine(Path.GetTempPath(), $"parux_reuse_{Guid.NewGuid():N}.png");
