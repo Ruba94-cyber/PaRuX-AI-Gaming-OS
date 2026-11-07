@@ -29,6 +29,38 @@ public sealed class ChatModelPickerPolicyTests
     }
 
     [Fact]
+    public void Low_ram_browse_can_put_known_small_files_first_without_guessing_unknown_sizes()
+    {
+        var models = new[]
+        {
+            new ManagedModelInfo { FileName = "large.gguf", SizeBytes = 8_000_000_000 },
+            new ManagedModelInfo { FileName = "unknown.gguf", SizeBytes = 0 },
+            new ManagedModelInfo { FileName = "tiny.gguf", SizeBytes = 900_000_000 }
+        };
+        var page = ChatModelPickerPolicy.Browse(
+            models, null, 0, ChatModelBrowseSort.SmallestFileFirst);
+        Assert.Equal(new[] { "tiny.gguf", "large.gguf", "unknown.gguf" },
+            page.Visible.Select(m => m.FileName));
+    }
+
+    [Fact]
+    public void Measured_speed_sort_distinguishes_observed_speed_from_unknown_not_benchmarking_automatically()
+    {
+        var models = new[]
+        {
+            new ManagedModelInfo { FileName = "slow.gguf", LastBenchmarkTokensPerSecond = 7.5 },
+            new ManagedModelInfo { FileName = "unknown.gguf" },
+            new ManagedModelInfo { FileName = "fast.gguf", LastBenchmarkTokensPerSecond = 35.5 },
+            new ManagedModelInfo { FileName = "invalid.gguf", LastBenchmarkTokensPerSecond = -10 }
+        };
+        var page = ChatModelPickerPolicy.Browse(
+            models, null, 0, ChatModelBrowseSort.MeasuredSpeedFirst);
+        Assert.Equal(new[] { "fast.gguf", "slow.gguf", "invalid.gguf", "unknown.gguf" },
+            page.Visible.Select(m => m.FileName));
+        Assert.Equal(4, page.TotalMatches);
+    }
+
+    [Fact]
     public void Quick_compare_accepts_two_distinct_installed_models_from_distant_pages()
     {
         var models = Enumerable.Range(0, 125).Select(i => Model(i)).ToArray();
