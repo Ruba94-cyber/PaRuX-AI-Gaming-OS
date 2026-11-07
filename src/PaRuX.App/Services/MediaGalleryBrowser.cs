@@ -89,7 +89,7 @@ namespace PaRuX.Services
         }
 
         public static bool CanOpen(MediaGalleryItem? item) =>
-            item != null && !string.IsNullOrWhiteSpace(item.FilePath) && File.Exists(item.FilePath);
+            MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable;
 
         public static bool CanReveal(MediaGalleryItem? item)
         {
@@ -103,8 +103,7 @@ namespace PaRuX.Services
             item != null
             && item.IsImage
             && !item.IsVideo
-            && !string.IsNullOrWhiteSpace(item.FilePath)
-            && File.Exists(item.FilePath);
+            && MediaGalleryPreviewPolicy.KindFor(item) == MediaGalleryPreviewKind.Image;
 
         public static bool CanDelete(MediaGalleryItem? item) =>
             item != null && !string.IsNullOrWhiteSpace(item.FilePath);
