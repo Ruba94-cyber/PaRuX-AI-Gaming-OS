@@ -151,6 +151,50 @@ public sealed class KnowledgeIndexTests : IDisposable
     }
 
     [Fact]
+    public void Bundled_sqlite_supports_parameterized_json_table_scopes()
+    {
+        // The knowledge filter uses a single bound JSON array rather than
+        // >900 SQL parameters. Explicitly gate the required bundled feature.
+        using var db = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        db.Open();
+        using var query = db.CreateCommand();
+        query.CommandText = "SELECT COUNT(*) FROM json_each($sourceIds)";
+        query.Parameters.AddWithValue("$sourceIds", "[\"s1\",\"s2\",\"s3\"]");
+        Assert.Equal(3L, (long)query.ExecuteScalar()!);
+    }
+
+    [Fact]
+    public async Task Corporate_scope_with_more_than_1200_folders_finds_only_approved_evidence()
+    {
+        // Only one folder needs a document; the other IDs model a large
+        // registry. The old >900-parameter guard made ALL-folder mode fail.
+        string finance = Path.Combine(_root, "finance");
+        Directory.CreateDirectory(finance);
+        File.WriteAllText(Path.Combine(finance, "invoice.md"),
+            "Invoice INV_2026_884 totals EUR 420.00 and is payable on 30 November 2026.");
+        const string approved = "finance/quoted\\path,\"東京\"";
+        await _index.IndexFolderAsync(approved, finance);
+
+        string[] unrelated = Enumerable.Range(0, 1250)
+            .Select(i => "no-evidence-" + i).ToArray();
+        string[] selected = unrelated.Append(approved).ToArray();
+
+        IReadOnlyList<KnowledgeHit> exact = _index.Search("INV_2026_884",
+            KnowledgeSearchMode.Exact, 5, selected);
+        Assert.Single(exact);
+        Assert.Contains("EUR 420.00", exact[0].Text);
+
+        IReadOnlyList<KnowledgeHit> lexical = _index.Search("invoice payable",
+            KnowledgeSearchMode.Lexical, 5, selected);
+        Assert.Contains(lexical, h => h.FileName == "invoice.md");
+
+        Assert.Empty(_index.Search("INV_2026_884",
+            KnowledgeSearchMode.Exact, 5, unrelated));
+        Assert.Empty(_index.Search("invoice payable",
+            KnowledgeSearchMode.Lexical, 5, unrelated));
+    }
+
+    [Fact]
     public async Task Positions_survive_into_citations()
     {
         W("long.txt", new string('x', 2000) + " NEEDLE_77 " + new string('y', 500));
