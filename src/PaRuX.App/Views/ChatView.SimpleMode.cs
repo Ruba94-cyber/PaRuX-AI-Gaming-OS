@@ -18,6 +18,7 @@ namespace PaRuX.Views
         private bool _simpleModeFolderEventsAttached;
         private bool _isSimpleMode;
         private List<ManagedModelInfo> _chatModelCatalog = new List<ManagedModelInfo>();
+        private bool _allModelsBrowserOpen;
 
         private static bool ChatItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
 
@@ -65,8 +66,12 @@ namespace PaRuX.Views
             else
             {
                 items.Add(new MenuFlyoutItem { Text = it ? "I tuoi modelli (usa sempre quello scelto)" : "Your models (always uses the one you pick)", IsEnabled = false });
-                foreach (ManagedModelInfo model in _chatModelCatalog.OrderBy(
-                    m => ModelHubRowPresentation.CompactManualLabel(m.Alias, m.FileName), StringComparer.OrdinalIgnoreCase))
+                // The default Chat picker must not become a 500-item flyout.
+                // Keep the exact manually chosen model visible even when it
+                // sorts outside the first twelve; the full list is searchable.
+                string pinnedFile = current.StartsWith("parux-manual:", StringComparison.OrdinalIgnoreCase)
+                    ? current.Substring("parux-manual:".Length) : string.Empty;
+                foreach (ManagedModelInfo model in ChatModelPickerPolicy.Quick(_chatModelCatalog, pinnedFile))
                 {
                     string selector = "parux-manual:" + model.FileName;
                     string size = model.SizeBytes > 0 ? " · " + ModelHubStartPresenter.FormatSize(model.SizeBytes) : string.Empty;
@@ -85,10 +90,124 @@ namespace PaRuX.Views
             }
 
             items.Add(new MenuFlyoutSeparator());
+            if (_chatModelCatalog.Count > ChatModelPickerPolicy.QuickChoices)
+            {
+                var browse = new MenuFlyoutItem
+                {
+                    Text = it ? "Cerca tra tutti i modelli installati…" : "Find any installed model…"
+                };
+                AutomationProperties.SetAutomationId(browse, "Chat_SimpleMode_ModelPicker_BrowseAll");
+                browse.Click += async (_, _) => await BrowseAllLocalModelsAsync();
+                items.Add(browse);
+            }
             var more = new MenuFlyoutItem { Text = it ? "Scarica altri modelli…" : "Get more models…", Icon = new FontIcon { Glyph = "" } };
             AutomationProperties.SetAutomationId(more, "Chat_SimpleMode_ModelPicker_GetMore");
             more.Click += (_, _) => App.MainWin?.ShowModelHub();
             items.Add(more);
+        }
+
+        /// <summary>
+        /// Bounded, searchable local model browser. Selecting a row changes
+        /// the same authoritative ModelSelector as the normal flyout;
+        /// Cancel, filtering and changing page have no side effects.
+        /// </summary>
+        private async Task BrowseAllLocalModelsAsync()
+        {
+            if (_allModelsBrowserOpen) return;
+            _allModelsBrowserOpen = true;
+            string L(string en, string it) => ChatItalian ? it : en;
+            try
+            {
+                var query = new TextBox
+                {
+                    PlaceholderText = L("Search name, filename or quantization",
+                        "Cerca per nome, file o quantizzazione"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinHeight = 44
+                };
+                AutomationProperties.SetAutomationId(query, "Chat_ModelBrowser_Filter_TextBox");
+                var choices = new ListView
+                {
+                    SelectionMode = ListViewSelectionMode.Single,
+                    Height = 290, HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                AutomationProperties.SetAutomationId(choices, "Chat_ModelBrowser_Choices_List");
+                var previous = new Button { Content = L("Previous", "Precedente"), MinHeight = 40 };
+                var next = new Button { Content = L("Next", "Successiva"), MinHeight = 40 };
+                var position = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                AutomationProperties.SetAutomationId(previous, "Chat_ModelBrowser_Previous_Button");
+                AutomationProperties.SetAutomationId(next, "Chat_ModelBrowser_Next_Button");
+                AutomationProperties.SetAutomationId(position, "Chat_ModelBrowser_Page_Text");
+                int pageIndex = 0;
+                void Render()
+                {
+                    ChatModelPickerPolicy.Page page =
+                        ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex);
+                    pageIndex = page.PageIndex;
+                    choices.Items.Clear();
+                    foreach (ManagedModelInfo model in page.Visible)
+                    {
+                        string display = ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName);
+                        string size = model.SizeBytes > 0
+                            ? ModelHubStartPresenter.FormatSize(model.SizeBytes) : "?";
+                        var item = new ListViewItem
+                        {
+                            Content = new TextBlock
+                            {
+                                Text = display + " · " + model.Quantization + " · " + size,
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            Tag = model.FileName, MinHeight = 44
+                        };
+                        ToolTipService.SetToolTip(item, model.FileName);
+                        choices.Items.Add(item);
+                    }
+                    previous.IsEnabled = page.PageIndex > 0;
+                    next.IsEnabled = page.PageIndex + 1 < page.TotalPages;
+                    position.Text = page.TotalMatches + L(" models · page ", " modelli · pagina ")
+                        + (page.PageIndex + 1) + "/" + page.TotalPages;
+                }
+                query.TextChanged += (_, _) => { pageIndex = 0; Render(); };
+                previous.Click += (_, _) => { pageIndex--; Render(); };
+                next.Click += (_, _) => { pageIndex++; Render(); };
+
+                var pager = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                pager.Children.Add(previous);
+                pager.Children.Add(position);
+                pager.Children.Add(next);
+
+                var content = new StackPanel { Spacing = 12, MaxWidth = 570 };
+                content.Children.Add(new TextBlock
+                {
+                    Text = L("Choose an installed local model. This does not download or start it until your next Chat turn.",
+                        "Scegli un modello locale installato. Non viene scaricato né avviato fino al prossimo messaggio."),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                content.Children.Add(query);
+                content.Children.Add(choices);
+                content.Children.Add(pager);
+                Render();
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = L("Your installed models", "I tuoi modelli installati"),
+                    Content = content,
+                    PrimaryButtonText = L("Use this model", "Usa questo modello"),
+                    CloseButtonText = L("Cancel", "Annulla"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+                AutomationProperties.SetAutomationId(dialog, "Chat_ModelBrowser_Dialog");
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                string? file = (choices.SelectedItem as ListViewItem)?.Tag as string;
+                if (string.IsNullOrWhiteSpace(file))
+                {
+                    ShowTransientStatus(L("Select a model before confirming.",
+                        "Seleziona un modello prima di confermare."));
+                    return;
+                }
+                await ApplyChatModelChoiceAsync("parux-manual:" + file);
+            }
+            finally { _allModelsBrowserOpen = false; }
         }
 
         private async Task ApplyChatModelChoiceAsync(string selector)
