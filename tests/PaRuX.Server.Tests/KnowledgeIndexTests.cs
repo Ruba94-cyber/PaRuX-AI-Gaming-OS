@@ -195,6 +195,24 @@ public sealed class KnowledgeIndexTests : IDisposable
     }
 
     [Fact]
+    public async Task Multi_invoice_search_reserves_a_result_for_a_rare_second_code()
+    {
+        for (int i = 0; i < 18; i++)
+            W("frequent-" + i + ".txt",
+                "Invoice INV_2026_884 is due in November. Reminder #" + i + ".");
+        W("rare.txt", "Invoice INV_2026_885 was paid in December and has zero balance.");
+        await Index();
+
+        // The exact router must not fill all three results with a frequent
+        // identifier and then tell Document Chat the rare one is missing.
+        var hits = _index.Search("Compare INV_2026_884 and INV_2026_885",
+            KnowledgeSearchMode.Auto, 3);
+        Assert.Contains(hits, h => h.Text.Contains("INV_2026_884"));
+        Assert.Contains(hits, h => h.Text.Contains("INV_2026_885"));
+        Assert.Equal(3, hits.Count);
+    }
+
+    [Fact]
     public async Task Positions_survive_into_citations()
     {
         W("long.txt", new string('x', 2000) + " NEEDLE_77 " + new string('y', 500));
