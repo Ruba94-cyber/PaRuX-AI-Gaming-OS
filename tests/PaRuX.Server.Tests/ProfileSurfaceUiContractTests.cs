@@ -193,6 +193,8 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("MediaGallery_PreviousPage_Button", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGallery_NextPage_Button", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
+        Assert.Contains("using var versionSlots = new SemaphoreSlim(4)", gallery, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(artifacts.Select(LoadArtifactAsync))", gallery, StringComparison.Ordinal);
         Assert.Contains("public const int PageSize = 24;", policy, StringComparison.Ordinal);
         Assert.Contains("case \"cancelling\":", media, StringComparison.Ordinal);
         Assert.Contains("job.EtaSeconds is > 0 and <= 86400", media, StringComparison.Ordinal);
