@@ -45,6 +45,11 @@ public sealed class GroupChatVerdictTests
     {
         Assert.Equal(12_000, GroupChatService.MaxSharedContextCharacters);
         Assert.Equal(string.Empty, new GroupChatRequest().SharedContext);
+        Assert.Equal(string.Empty, GroupChatService.NormalizeSharedContext(null));
+        Assert.Equal("short note", GroupChatService.NormalizeSharedContext("  short note  "));
+        Assert.Equal(12_000, GroupChatService.NormalizeSharedContext(new string('x', 12_000)).Length);
+        Assert.Throws<InvalidDataException>(() =>
+            GroupChatService.NormalizeSharedContext(new string('x', 12_001)));
     }
 
     [Fact]
