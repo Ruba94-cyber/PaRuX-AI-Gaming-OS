@@ -27,6 +27,25 @@ namespace PaRuX.Services
     /// </summary>
     public static class MediaGalleryBrowser
     {
+        public const int PageSize = 24;
+
+        /// <summary>Only this page should instantiate WinUI cards and image
+        /// thumbnails. All results remain searchable/sortable and deletion
+        /// clamps the page index to the last existing page.</summary>
+        public sealed record Page(
+            IReadOnlyList<MediaGalleryItem> Visible, int TotalMatches, int PageIndex, int PageCount);
+
+        public static Page Paginate(IReadOnlyList<MediaGalleryItem>? filtered, int requestedPage)
+        {
+            int total = filtered?.Count ?? 0;
+            int pageCount = Math.Max(1, (total + PageSize - 1) / PageSize);
+            int pageIndex = Math.Clamp(requestedPage, 0, pageCount - 1);
+            IReadOnlyList<MediaGalleryItem> visible = filtered == null
+                ? Array.Empty<MediaGalleryItem>()
+                : filtered.Skip(pageIndex * PageSize).Take(PageSize).ToArray();
+            return new Page(visible, total, pageIndex, pageCount);
+        }
+
         public static IReadOnlyList<MediaGalleryItem> FilterAndSort(
             IEnumerable<MediaGalleryItem> items,
             MediaGalleryFilter filter,
