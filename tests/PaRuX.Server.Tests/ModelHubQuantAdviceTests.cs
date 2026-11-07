@@ -141,4 +141,48 @@ public sealed class ModelHubQuantAdviceTests
         Assert.Equal("Q3_K_M", options[d.PreferredIndex!.Value].Choice.Quantization);
         Assert.True(d.Decision.BelowQualityFloor);
     }
+
+    [Fact]
+    public void Pinned_model_is_preserved_when_hardware_detection_is_unavailable()
+    {
+        var options = Options();
+        var en = ModelHubQuantAdvice.Build(options, null, QuantTask.Technical,
+            italian: false, pinnedSetName: "m-Q5_K_M");
+        var it = ModelHubQuantAdvice.Build(options, null, QuantTask.Technical,
+            italian: true, pinnedSetName: "m-q5_k_m");
+
+        Assert.Equal(QuantDecisionStatus.UserChoice, en.Decision.Status);
+        Assert.Equal(QuantPlacementPlan.Unknown, en.Decision.Placement);
+        Assert.Equal("Q5_K_M", options[en.PreferredIndex!.Value].Choice.Quantization);
+        Assert.Equal(en.PreferredIndex, it.PreferredIndex);
+        Assert.Contains("not been detected", en.Text);
+        Assert.Contains("non è ancora stato rilevato", it.Text);
+    }
+
+    [Fact]
+    public void A_stale_manual_set_is_never_silently_swapped_for_a_different_quantisation()
+    {
+        var options = Options();
+        var en = ModelHubQuantAdvice.Build(options, Hw(16384, 14000, 32),
+            QuantTask.Technical, italian: false, pinnedSetName: "removed-Q8");
+        var it = ModelHubQuantAdvice.Build(options, null,
+            QuantTask.Technical, italian: true, pinnedSetName: "removed-Q8");
+
+        Assert.Null(en.PreferredIndex);
+        Assert.Null(it.PreferredIndex);
+        Assert.Equal(QuantDecisionStatus.NoUsableVariant, en.Decision.Status);
+        Assert.Contains("will not replace it automatically", en.Text);
+        Assert.Contains("non lo sostituisce automaticamente", it.Text);
+    }
+
+    [Fact]
+    public void Low_memory_without_a_quality_floor_fit_has_no_automatic_quantisation()
+    {
+        var advice = ModelHubQuantAdvice.Build(Options(), Hw(0, null, 4),
+            QuantTask.Technical, italian: false);
+
+        Assert.Null(advice.PreferredIndex);
+        Assert.Equal(QuantDecisionStatus.NothingFitsAtFloor, advice.Decision.Status);
+        Assert.DoesNotContain("Recommended for this PC:", advice.Text);
+    }
 }
