@@ -71,6 +71,13 @@ namespace PaRuX.Views
                 // sorts outside the first twelve; the full list is searchable.
                 string pinnedFile = current.StartsWith("parux-manual:", StringComparison.OrdinalIgnoreCase)
                     ? current.Substring("parux-manual:".Length) : string.Empty;
+                if (!string.IsNullOrEmpty(pinnedFile) && !_chatModelCatalog.Any(m =>
+                        string.Equals(m.FileName, pinnedFile, StringComparison.OrdinalIgnoreCase)))
+                    items.Add(new MenuFlyoutItem
+                    {
+                        Text = it ? "Il modello fissato non è più disponibile" : "Pinned model is no longer available",
+                        IsEnabled = false
+                    });
                 foreach (ManagedModelInfo model in ChatModelPickerPolicy.Quick(_chatModelCatalog, pinnedFile))
                 {
                     string selector = "parux-manual:" + model.FileName;
@@ -139,12 +146,19 @@ namespace PaRuX.Views
                 AutomationProperties.SetAutomationId(next, "Chat_ModelBrowser_Next_Button");
                 AutomationProperties.SetAutomationId(position, "Chat_ModelBrowser_Page_Text");
                 int pageIndex = 0;
+                ContentDialog? dialog = null;
+                choices.SelectionChanged += (_, _) =>
+                {
+                    if (dialog != null)
+                        dialog.IsPrimaryButtonEnabled = choices.SelectedItem is ListViewItem;
+                };
                 void Render()
                 {
                     ChatModelPickerPolicy.Page page =
                         ChatModelPickerPolicy.Browse(_chatModelCatalog, query.Text, pageIndex);
                     pageIndex = page.PageIndex;
                     choices.Items.Clear();
+                    if (dialog != null) dialog.IsPrimaryButtonEnabled = false;
                     foreach (ManagedModelInfo model in page.Visible)
                     {
                         string display = ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName);
@@ -160,6 +174,8 @@ namespace PaRuX.Views
                             Tag = model.FileName, MinHeight = 44
                         };
                         ToolTipService.SetToolTip(item, model.FileName);
+                        AutomationProperties.SetName(item,
+                            L("Local model ", "Modello locale ") + display + " · " + model.Quantization);
                         choices.Items.Add(item);
                     }
                     previous.IsEnabled = page.PageIndex > 0;
@@ -187,10 +203,11 @@ namespace PaRuX.Views
                 content.Children.Add(choices);
                 content.Children.Add(pager);
                 Render();
-                var dialog = new ContentDialog
+                dialog = new ContentDialog
                 {
                     XamlRoot = XamlRoot,
                     Title = L("Your installed models", "I tuoi modelli installati"),
+                    IsPrimaryButtonEnabled = false,
                     Content = content,
                     PrimaryButtonText = L("Use this model", "Usa questo modello"),
                     CloseButtonText = L("Cancel", "Annulla"),
