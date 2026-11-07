@@ -279,6 +279,9 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("!fromFirstModelSetup && !canReviewDefault && choices.Count > 0", hub, StringComparison.Ordinal);
         Assert.Contains("ModelHub_QuantAdvice_Text", hub, StringComparison.Ordinal);
         Assert.Contains("ReviewSearchVariantsAsync(repo, choices, preferred)", hub, StringComparison.Ordinal);
+        Assert.Contains("_manuallyReviewedQuantByRepo.TryGetValue(repo.RepoId, out string? manualSetName)", hub, StringComparison.Ordinal);
+        Assert.Contains("pinnedSetName: fromFirstModelSetup ? null : manualSetName", hub, StringComparison.Ordinal);
+        Assert.Contains("_manuallyReviewedQuantByRepo[repo.RepoId] = selectedChoice.SetName", variants, StringComparison.Ordinal);
         Assert.Contains("if (preferredIndex >= 0 && preferredIndex < picker.Items.Count)", variants, StringComparison.Ordinal);
         Assert.Contains("dialog.IsPrimaryButtonEnabled = picker.SelectedItem", variants, StringComparison.Ordinal);
     }
