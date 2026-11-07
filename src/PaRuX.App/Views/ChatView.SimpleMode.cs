@@ -193,7 +193,7 @@ namespace PaRuX.Views
                             Content = new TextBlock
                             {
                                 Text = display + " · " + model.Quantization + " · " + size
-                                    + (model.LastBenchmarkTokensPerSecond is > 0
+                                    + (ChatModelPickerPolicy.HasMeasuredSpeed(model)
                                         ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0")
                                             + L(" tok/s previously measured", " tok/s misurati in precedenza")
                                         : string.Empty),
