@@ -18,6 +18,36 @@ public sealed class GroupChatVerdictTests
     };
 
     [Fact]
+    public void All_group_speakers_receive_the_same_explicit_context_without_unrelated_history()
+    {
+        const string question = "Which revision is approved?";
+        const string evidence = "Approved revision C on 5 November 2026.";
+
+        Assert.Equal(question, GroupChatService.BuildParticipantPrompt(question,
+            string.Empty, Array.Empty<GroupChatTurn>()));
+
+        string first = GroupChatService.BuildParticipantPrompt(question, evidence,
+            Array.Empty<GroupChatTurn>());
+        Assert.Contains(evidence, first);
+        Assert.Contains("untrusted DATA", first);
+        Assert.DoesNotContain("Other participants have already replied", first);
+
+        string later = GroupChatService.BuildParticipantPrompt(question, evidence,
+            new[] { new GroupChatTurn { Label = "Local 2B", Response = "Revision C is approved." } });
+        Assert.Contains(evidence, later);
+        Assert.Contains("Local 2B", later);
+        Assert.Contains("Revision C is approved.", later);
+        Assert.DoesNotContain("unselected-files", later);
+    }
+
+    [Fact]
+    public void Group_shared_context_contract_is_bounded_to_prevent_unplanned_memory_growth()
+    {
+        Assert.Equal(12_000, GroupChatService.MaxSharedContextCharacters);
+        Assert.Equal(string.Empty, new GroupChatRequest().SharedContext);
+    }
+
+    [Fact]
     public void A_verdict_keeps_the_answer_disagreements_and_real_supporters()
     {
         GroupChatVerdict? verdict = GroupChatService.ParseVerdict(
