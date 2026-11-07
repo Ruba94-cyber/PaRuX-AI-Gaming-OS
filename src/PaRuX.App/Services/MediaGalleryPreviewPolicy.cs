@@ -28,12 +28,15 @@ namespace PaRuX.Services
             // the preview must not accidentally fetch remote content or resolve
             // relative to the current working directory.
             if (path.StartsWith(@"\\", StringComparison.Ordinal)
-                || path.StartsWith("//", StringComparison.Ordinal)
-                || !Path.IsPathFullyQualified(path))
+                || path.StartsWith("//", StringComparison.Ordinal))
                 return MediaGalleryPreviewKind.Unavailable;
 
             try
             {
+                // Untrusted artifact paths may contain invalid characters:
+                // both qualification and canonicalization must be guarded.
+                if (!Path.IsPathFullyQualified(path))
+                    return MediaGalleryPreviewKind.Unavailable;
                 string full = Path.GetFullPath(path);
                 if (!Uri.TryCreate(full, UriKind.Absolute, out Uri? uri)
                     || !uri.IsFile || uri.IsUnc || !File.Exists(full))
