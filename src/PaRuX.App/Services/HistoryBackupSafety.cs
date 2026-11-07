@@ -38,6 +38,28 @@ namespace PaRuX.Services
             catch (Exception) { return false; }
         }
 
+        /// <summary>
+        /// Promotes a SQLite-validated .pending backup without ever destroying
+        /// a healthy existing snapshot. Even an invalid/empty existing file is
+        /// archived rather than silently overwritten; the owner can inspect
+        /// or discard it later. Caller creates staging in the same directory.
+        /// </summary>
+        public static bool PromoteSnapshot(string staging, string destination)
+        {
+            if (!IsUsableSnapshot(staging))
+                throw new IOException("The pending chat backup is unreadable or empty.");
+            if (IsUsableSnapshot(destination)) return false;
+            if (File.Exists(destination))
+            {
+                string preserved = destination + ".previous-"
+                    + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff") + "-"
+                    + Guid.NewGuid().ToString("N") + ".db";
+                File.Move(destination, preserved);
+            }
+            File.Move(staging, destination);
+            return true;
+        }
+
         public static long CountRows(SqliteConnection connection)
         {
             using var command = connection.CreateCommand();
