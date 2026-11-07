@@ -133,67 +133,191 @@ namespace PaRuX.Views
                     return;
                 }
 
-                ComboBox ModelPicker(string id)
+                // The old two ComboBoxes instantiated one UI element for
+                // every installed GGUF (twice). On 100+ models opening this
+                // dialog was unnecessarily expensive and hard to navigate.
+                // Reuse Chat's searchable bounded catalogue, with explicit
+                // assignment of two stable filenames instead of aliases.
+                var firstPage = ChatModelPickerPolicy.Browse(models, null, 0);
+                string one = firstPage.Visible[0].FileName;
+                string two = firstPage.Visible[1].FileName;
+                int pageIndex = 0;
+                var search = new TextBox
                 {
-                    var picker = new ComboBox
-                    {
-                        Header = L("Installed model", "Modello installato"),
-                        HorizontalAlignment = HorizontalAlignment.Stretch,
-                        MinWidth = 220
-                    };
-                    foreach (ManagedModelInfo model in models)
-                    {
-                        string title = string.IsNullOrWhiteSpace(model.Alias)
-                            ? model.FileName : model.Alias + " (" + model.FileName + ")";
-                        picker.Items.Add(new ComboBoxItem { Content = title, Tag = model.FileName });
-                    }
-                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(picker, id);
-                    return picker;
-                }
-
-                var first = ModelPicker("Chat_QuickCompare_FirstModel");
-                var second = ModelPicker("Chat_QuickCompare_SecondModel");
-                first.SelectedIndex = 0;
-                second.SelectedIndex = 1;
+                    Header = L("Find installed models", "Cerca modelli installati"),
+                    PlaceholderText = L("Alias, filename or quantization", "Alias, file o quantizzazione"),
+                    MinHeight = 40
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    search, "Chat_QuickCompare_Search");
+                var available = new ListView
+                {
+                    Height = 220,
+                    SelectionMode = ListViewSelectionMode.Single,
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    available, "Chat_QuickCompare_Choices");
+                var previous = new Button { Content = L("Previous", "Precedente"), MinHeight = 40 };
+                var next = new Button { Content = L("Next", "Successiva"), MinHeight = 40 };
+                var position = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    previous, "Chat_QuickCompare_PreviousPage");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    next, "Chat_QuickCompare_NextPage");
+                var assignFirst = new Button
+                {
+                    Content = L("Use as model A", "Usa come modello A"), MinHeight = 40,
+                    IsEnabled = false
+                };
+                var assignSecond = new Button
+                {
+                    Content = L("Use as model B", "Usa come modello B"), MinHeight = 40,
+                    IsEnabled = false
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    assignFirst, "Chat_QuickCompare_FirstModel");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    assignSecond, "Chat_QuickCompare_SecondModel");
+                var chosen = new TextBlock { TextWrapping = TextWrapping.Wrap };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    chosen, "Chat_QuickCompare_SelectedModels");
                 var prompt = new TextBox
                 {
                     Header = L("Same question for both models", "Stessa domanda per entrambi i modelli"),
                     PlaceholderText = L("Type a question to compare", "Scrivi una domanda da confrontare"),
                     AcceptsReturn = true,
                     TextWrapping = TextWrapping.Wrap,
-                    MinHeight = 100,
-                    MaxHeight = 200,
+                    MinHeight = 80,
+                    MaxHeight = 150,
                     MaxLength = 4000
                 };
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
                     prompt, "Chat_QuickCompare_Prompt");
 
-                var controls = new StackPanel { Spacing = 10, MaxWidth = 650 };
+                ContentDialog? choose = null;
+                void RefreshAssignments()
+                {
+                    string NameOf(string file)
+                    {
+                        ManagedModelInfo? model = models.FirstOrDefault(m =>
+                            string.Equals(m.FileName, file, StringComparison.OrdinalIgnoreCase));
+                        return model == null ? file : ModelHubRowPresentation.CompactManualLabel(
+                            model.Alias, model.FileName);
+                    }
+                    bool valid = ChatModelPickerPolicy.CanCompare(models, one, two);
+                    chosen.Text = L("Model A: ", "Modello A: ") + NameOf(one)
+                        + "\n" + L("Model B: ", "Modello B: ") + NameOf(two)
+                        + (valid ? string.Empty : "\n" +
+                            L("Choose two different installed models.", "Scegli due modelli installati diversi."));
+                    if (choose != null)
+                        choose.IsPrimaryButtonEnabled = valid && !string.IsNullOrWhiteSpace(prompt.Text);
+                }
+                void RenderModels()
+                {
+                    ChatModelPickerPolicy.Page page = ChatModelPickerPolicy.Browse(models, search.Text, pageIndex);
+                    pageIndex = page.PageIndex;
+                    available.Items.Clear();
+                    foreach (ManagedModelInfo model in page.Visible)
+                    {
+                        string label = ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName);
+                        string size = model.SizeBytes > 0
+                            ? ModelHubStartPresenter.FormatSize(model.SizeBytes) : "?";
+                        string benchmark = model.LastBenchmarkTokensPerSecond is > 0
+                            ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0")
+                                + L(" tok/s measured", " tok/s misurati")
+                            : string.Empty;
+                        var item = new ListViewItem
+                        {
+                            Content = new TextBlock
+                            {
+                                Text = label + " · " + model.Quantization + " · " + size + benchmark,
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            Tag = model.FileName,
+                            MinHeight = 40
+                        };
+                        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item,
+                            label + " · " + model.Quantization);
+                        available.Items.Add(item);
+                    }
+                    position.Text = page.TotalMatches + L(" models · page ", " modelli · pagina ")
+                        + (page.PageIndex + 1) + "/" + page.TotalPages;
+                    previous.IsEnabled = page.PageIndex > 0;
+                    next.IsEnabled = page.PageIndex + 1 < page.TotalPages;
+                    assignFirst.IsEnabled = false;
+                    assignSecond.IsEnabled = false;
+                }
+                available.SelectionChanged += (_, _) =>
+                {
+                    bool hasSelection = available.SelectedItem is ListViewItem;
+                    assignFirst.IsEnabled = hasSelection;
+                    assignSecond.IsEnabled = hasSelection;
+                };
+                search.TextChanged += (_, _) => { pageIndex = 0; RenderModels(); };
+                previous.Click += (_, _) => { pageIndex--; RenderModels(); };
+                next.Click += (_, _) => { pageIndex++; RenderModels(); };
+                assignFirst.Click += (_, _) =>
+                {
+                    if ((available.SelectedItem as ListViewItem)?.Tag is string file)
+                    {
+                        one = file;
+                        RefreshAssignments();
+                    }
+                };
+                assignSecond.Click += (_, _) =>
+                {
+                    if ((available.SelectedItem as ListViewItem)?.Tag is string file)
+                    {
+                        two = file;
+                        RefreshAssignments();
+                    }
+                };
+                prompt.TextChanged += (_, _) => RefreshAssignments();
+                var paging = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 8
+                };
+                paging.Children.Add(previous);
+                paging.Children.Add(position);
+                paging.Children.Add(next);
+                var assigning = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 8
+                };
+                assigning.Children.Add(assignFirst);
+                assigning.Children.Add(assignSecond);
+                var controls = new StackPanel { Spacing = 10, MaxWidth = 600 };
                 controls.Children.Add(new TextBlock
                 {
-                    Text = L("Runs two installed local models sequentially through Core. Your normal Chat model stays unchanged.",
-                        "Esegue due modelli locali in sequenza tramite il Core. Il modello della Chat rimane invariato."),
+                    Text = L(
+                        "Select a model below, assign it to A or B, and use the same question for both. Core runs them sequentially; the Chat model is unchanged. Speed shown only when previously benchmarked on this PC.",
+                        "Seleziona un modello, assegnalo ad A o B e confronta la stessa domanda. Il Core li esegue in sequenza; il modello della Chat non cambia. La velocità appare solo se già misurata su questo PC."),
                     TextWrapping = TextWrapping.Wrap
                 });
-                controls.Children.Add(first);
-                controls.Children.Add(second);
+                controls.Children.Add(search);
+                controls.Children.Add(available);
+                controls.Children.Add(paging);
+                controls.Children.Add(assigning);
+                controls.Children.Add(chosen);
                 controls.Children.Add(prompt);
-
-                var choose = new ContentDialog
+                RenderModels();
+                RefreshAssignments();
+                choose = new ContentDialog
                 {
                     XamlRoot = XamlRoot,
                     Title = L("Compare two local models", "Confronta due modelli locali"),
-                    Content = new ScrollViewer { Content = controls, MaxHeight = 450 },
+                    Content = new ScrollViewer { Content = controls, MaxHeight = 490 },
                     PrimaryButtonText = L("Start comparison", "Avvia confronto"),
                     CloseButtonText = L("Cancel", "Annulla"),
-                    DefaultButton = ContentDialogButton.Close
+                    DefaultButton = ContentDialogButton.Close,
+                    IsPrimaryButtonEnabled = false
                 };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
+                    choose, "Chat_QuickCompare_Dialog");
                 if (await choose.ShowAsync() != ContentDialogResult.Primary) return;
-
-                string one = (first.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
-                string two = (second.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
                 if (string.IsNullOrWhiteSpace(prompt.Text)
-                    || string.Equals(one, two, StringComparison.OrdinalIgnoreCase))
+                    || !ChatModelPickerPolicy.CanCompare(models, one, two))
                 {
                     ShowTransientStatus(L("Choose two different models and enter a question.",
                         "Scegli due modelli diversi e inserisci una domanda."));
