@@ -6,6 +6,19 @@
 
 Corporate Lite is a **general-purpose** local assistant for people in any field, including legal, finance, administration, HR, healthcare, research, education, engineering, marketing and everyday office work. Automotive (DBC/CDD/ODX/ARXML, DID, DTC) is **one optional document family**, never the default identity or a prerequisite. Support thousands of local manuals, contracts, invoices, policies, reports, specifications, spreadsheets, presentations and PDFs, with IT/EN questions, precise original page/sheet/section citations and explicit uncertainty. Never claim 100% correctness merely because RAG produced a citation. Models operate locally and may be wrong; the UI must not imply professional verification.
 
+## 2026-11-07 — Additional large-source / usability gates (source only)
+
+The latest source changes target **large registries with 1,000+ explicitly approved local folders**, without assuming any document belongs to automotive. Use synthetic legal, HR, finance, research, education and technical documents on the Windows test PC, not customer data.
+
+- Validate SQLite `json_each` support in the actual bundled runtime. Index at least one source whose ID contains Unicode, quotes and backslashes, then query using 1,250 unrelated IDs plus the allowed one. Exact and lexical results must contain **only** the approved source. A 1,250-ID scope with no indexed source must produce no hits, not an exception, silently missing answer or fallback to another store.
+- Verify `HasAnyIndexedChunks` returns correct readiness across 0, 1,250 and 1,251 approved IDs and after secure source removal; instrument SQL connection/query count against the previous two-per-source `Stats` readiness check. Do not infer semantic evidence quality from the presence of chunks.
+- Compare two invoices `INV_2026_884` / `INV_2026_885` when the first appears in 18 documents and the second in only one. A bounded top-3 **exact** query should retain an actual passage for each identifier. If either is absent, Chat must abstain instead of filling a comparison with unrelated top-ranked hits.
+- Register 43+ enabled/disabled folders and verify Document Search renders only the current 40-row management page, still permits locating disabled sources and displays that they are disabled for Chat; search a late path, use Next/Previous, test focus, 13-inch 150–200% display scaling and no change to the underlying RAG list. On opening or changing pages, only visible folder statuses should be fetched; during polling only active visible jobs should be re-fetched.
+- In Chat, the existing source selector continues to exclude disabled folders even though management includes them. Test source isolation with the *same* file name in an active and disabled source, with and without an explicit selection. Never silently broaden scope if a selection is deleted.
+- On Android, type a draft, rotate and disconnect the paired Core. The draft should remain after Activity recreation, and the connection banner should reflect pairing changes. Never put a large base64 image in Android saved instance state. Validate image-only requests and the 8 MiB stream read limit on a real phone.
+
+**No claim of achieved p95, correct screenreader announcements, complete file retrieval or enterprise readiness until native Windows/Android builds and these acceptance tests run.**
+
 ## Windows test environment
 
 Test both a typical 8–16 GiB RAM CPU-only corporate laptop and the NVIDIA development PC, with no cloud access, no credential write, no corporate network egress, no externally downloaded model at runtime, all folders explicitly selected. Establish baseline free RAM, CPU/GPU, idle index database size, elapsed time, document scope, local model, tokenizer, embedding provider. Use the same inputs and prompts across builds.
