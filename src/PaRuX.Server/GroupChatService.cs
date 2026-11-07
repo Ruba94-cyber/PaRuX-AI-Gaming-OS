@@ -218,6 +218,11 @@ public sealed class GroupChatService
         List<(string Path, string Label)> participants)
     {
         CancellationToken ct = entry.Cancellation.Token;
+        // Cancellation can happen while this run is still waiting for the
+        // exclusive GPU lease. In that case the group has not changed any
+        // runtime state: restoring the default model would disrupt the actual
+        // lease owner. Only restore after a model transition was attempted.
+        bool modelMutationAttempted = false;
         try
         {
             await using (MediaExecutionCoordinator.Lease exclusive = await MediaExecutionCoordinator.Current
@@ -226,6 +231,7 @@ public sealed class GroupChatService
                 foreach ((string path, string label) in participants)
                 {
                     Update(entry, "running", "Loading " + label + "…");
+                    modelMutationAttempted = true;
                     RuntimeLoadResult load = await _runtimeManager.StartArbitraryTextModelWithinLeaseAsync(
                         exclusive, path, label, "Compare: ", adapterPaths: null, role: null,
                         persistRoleAssignment: false, ct: ct).ConfigureAwait(false);
@@ -269,7 +275,8 @@ public sealed class GroupChatService
         }
         catch (OperationCanceledException)
         {
-            string? restoreError = await TryRestoreDefaultProfileAsync();
+            string? restoreError = modelMutationAttempted
+                ? await TryRestoreDefaultProfileAsync() : null;
             lock (entry.Gate)
             {
                 entry.Status.Status = "cancelled";
@@ -280,7 +287,8 @@ public sealed class GroupChatService
         }
         catch (Exception ex)
         {
-            string? restoreError = await TryRestoreDefaultProfileAsync();
+            string? restoreError = modelMutationAttempted
+                ? await TryRestoreDefaultProfileAsync() : null;
             lock (entry.Gate)
             {
                 entry.Status.Status = "failed";
