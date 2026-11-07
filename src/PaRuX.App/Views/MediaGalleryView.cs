@@ -573,8 +573,74 @@ namespace PaRuX.Views
 
         private async Task ShowDetailsAsync(MediaGalleryItem item)
         {
-            // Keep technical metadata out of the gallery rows, without hiding or truncating it.
+            // Instantiate a full preview only when the user asks for Details.
+            // The gallery itself keeps at most one page of tiny image thumbnails,
+            // and no video decoder resident while browsing.
             var details = new StackPanel { Spacing = 8 };
+            MediaPlayerElement? previewPlayer = null;
+            MediaGalleryPreviewKind preview = MediaGalleryPreviewPolicy.KindFor(item);
+            if (preview != MediaGalleryPreviewKind.Unavailable)
+            {
+                details.Children.Add(new TextBlock
+                {
+                    Text = "Preview", FontWeight = FontWeights.SemiBold
+                });
+                try
+                {
+                    if (preview == MediaGalleryPreviewKind.Image)
+                    {
+                        var imagePreview = new Image
+                        {
+                            Source = new BitmapImage(new Uri(item.FilePath))
+                            {
+                                DecodePixelWidth = MediaGalleryPreviewPolicy.PreviewDecodeWidth
+                            },
+                            Stretch = Stretch.Uniform,
+                            MaxHeight = 320,
+                            MaxWidth = 600,
+                            HorizontalAlignment = HorizontalAlignment.Left
+                        };
+                        AutomationProperties.SetAutomationId(imagePreview, "MediaGallery_DetailImagePreview");
+                        AutomationProperties.SetName(imagePreview, "Local image preview: " + item.Title);
+                        details.Children.Add(imagePreview);
+                    }
+                    else
+                    {
+                        previewPlayer = new MediaPlayerElement
+                        {
+                            Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(item.FilePath)),
+                            AreTransportControlsEnabled = true,
+                            AutoPlay = false,
+                            Width = 520,
+                            Height = 294,
+                            HorizontalAlignment = HorizontalAlignment.Left
+                        };
+                        AutomationProperties.SetAutomationId(previewPlayer, "MediaGallery_DetailVideoPreview");
+                        AutomationProperties.SetName(previewPlayer, "Local video preview: " + item.Title);
+                        details.Children.Add(previewPlayer);
+                    }
+                }
+                catch (Exception ex) when (ex is UriFormatException or IOException or UnauthorizedAccessException)
+                {
+                    previewPlayer = null;
+                    details.Children.Add(new TextBlock
+                    {
+                        Text = "Preview unavailable. You can still inspect the metadata and file location.",
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+            }
+            else
+            {
+                details.Children.Add(new TextBlock
+                {
+                    Text = "No local preview is available for this file. The original output is not changed.",
+                    TextWrapping = TextWrapping.Wrap,
+                    Opacity = 0.75
+                });
+            }
+
+            // Keep complete technical metadata inspectable and copyable.
             details.Children.Add(new TextBlock { Text = "Prompt", FontWeight = FontWeights.SemiBold });
             var prompt = new TextBox
             {
@@ -601,7 +667,21 @@ namespace PaRuX.Views
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
-            await dialog.ShowAsync();
+            try
+            {
+                await dialog.ShowAsync();
+            }
+            finally
+            {
+                // A video preview must not keep playing or holding decoder/GPU
+                // resources after the dialog closes or the user leaves Create.
+                if (previewPlayer != null)
+                {
+                    try { previewPlayer.MediaPlayer?.Pause(); }
+                    catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.Message); }
+                    previewPlayer.Source = null;
+                }
+            }
         }
 
         private async Task HandleDeleteWithConfirmationAsync(MediaGalleryItem item)
