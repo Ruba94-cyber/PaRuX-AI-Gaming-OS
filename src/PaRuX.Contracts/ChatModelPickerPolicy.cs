@@ -4,16 +4,16 @@ using System.Linq;
 
 namespace PaRuX.Contracts;
 
-/// <summary>
-/// Pure policy for the default Chat's model chooser. The quick flyout stays
-/// small and the full catalogue stays reachable through a searchable,
-/// paged picker. No model is downloaded, loaded or switched by this policy.
-/// </summary>
 /// <summary>Explicit browsing order, not an automatic routing preference.
 /// Benchmark measurements are historical observations on this PC, never
 /// a guarantee of speed or quality for the next inference.</summary>
 public enum ChatModelBrowseSort { Name, SmallestFileFirst, MeasuredSpeedFirst }
 
+/// <summary>
+/// Pure policy for the default Chat's model chooser. The quick flyout stays
+/// small and the full catalogue stays reachable through a searchable,
+/// paged picker. No model is downloaded, loaded or switched by this policy.
+/// </summary>
 public static class ChatModelPickerPolicy
 {
     public const int QuickChoices = 12;
