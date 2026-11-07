@@ -207,28 +207,42 @@ namespace PaRuX.Views
             try
             {
                 ArtifactListResponse response = await ArtifactWorkspaceClient.Current.ListAsync(null, ct);
-                foreach (ArtifactDto artifact in response.Artifacts.Where(a =>
+                ArtifactDto[] artifacts = response.Artifacts.Where(a =>
                     !string.Equals(a.Status, "deleted", StringComparison.OrdinalIgnoreCase)
                     && (string.Equals(a.ArtifactType, "image", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(a.ArtifactType, "video", StringComparison.OrdinalIgnoreCase))))
+                        || string.Equals(a.ArtifactType, "video", StringComparison.OrdinalIgnoreCase))).ToArray();
+
+                // Fetch version metadata with bounded concurrency: one HTTP
+                // request per artifact in sequence was slow for large local
+                // libraries. Four in flight keeps low-RAM machines responsive.
+                using var versionSlots = new SemaphoreSlim(4);
+                async Task<MediaGalleryItem> LoadArtifactAsync(ArtifactDto artifact)
                 {
-                    ct.ThrowIfCancellationRequested();
+                    await versionSlots.WaitAsync(ct).ConfigureAwait(false);
                     try
                     {
-                        ArtifactVersionListResponse versionResponse = await ArtifactWorkspaceClient.Current.ListVersionsAsync(artifact.Id, ct);
-                        ArtifactVersionDto? latest = versionResponse.Versions
-                            .OrderByDescending(v => v.VersionNumber)
-                            .FirstOrDefault();
-
-                        MediaGalleryItem item = MediaGalleryItemMapper.FromArtifact(artifact, latest);
-                        if (!string.IsNullOrWhiteSpace(item.FilePath))
-                            knownPaths.Add(Path.GetFullPath(item.FilePath));
-                        results.Add(item);
+                        ArtifactVersionListResponse versions = await ArtifactWorkspaceClient.Current
+                            .ListVersionsAsync(artifact.Id, ct).ConfigureAwait(false);
+                        ArtifactVersionDto? latest = versions.Versions
+                            .OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                        return MediaGalleryItemMapper.FromArtifact(artifact, latest);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        results.Add(MediaGalleryItemMapper.FromArtifact(artifact, null));
+                        // A malformed/missing version must not hide the entire
+                        // gallery. Keep the item with honest sparse metadata.
+                        return MediaGalleryItemMapper.FromArtifact(artifact, null);
                     }
+                    finally { versionSlots.Release(); }
+                }
+
+                MediaGalleryItem[] loaded = await Task.WhenAll(artifacts.Select(LoadArtifactAsync));
+                foreach (MediaGalleryItem item in loaded)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!string.IsNullOrWhiteSpace(item.FilePath))
+                        knownPaths.Add(Path.GetFullPath(item.FilePath));
+                    results.Add(item);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
