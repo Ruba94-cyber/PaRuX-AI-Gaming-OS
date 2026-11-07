@@ -267,4 +267,19 @@ public sealed class ProfileSurfaceUiContractTests
         if (directory == null) throw new DirectoryNotFoundException("PaRuX.sln missing.");
         return File.ReadAllText(Path.Combine(new[] { directory.FullName }.Concat(parts).ToArray()));
     }
+
+    [Fact]
+    public void Model_hub_search_does_not_promote_an_unverified_balanced_file_to_default()
+    {
+        string hub = Read("src", "PaRuX.App", "Views", "ModelHubView.cs");
+        string variants = Read("src", "PaRuX.App", "Views", "ModelHubView.Compact.cs");
+        Assert.Contains("int preferred = fromFirstModelSetup", hub, StringComparison.Ordinal);
+        Assert.Contains(": -1;", hub, StringComparison.Ordinal);
+        Assert.Contains("quantAdvice.PreferredIndex is int advised", hub, StringComparison.Ordinal);
+        Assert.Contains("!fromFirstModelSetup && !canReviewDefault && choices.Count > 0", hub, StringComparison.Ordinal);
+        Assert.Contains("ModelHub_QuantAdvice_Text", hub, StringComparison.Ordinal);
+        Assert.Contains("ReviewSearchVariantsAsync(repo, choices, preferred)", hub, StringComparison.Ordinal);
+        Assert.Contains("if (preferredIndex >= 0 && preferredIndex < picker.Items.Count)", variants, StringComparison.Ordinal);
+        Assert.Contains("dialog.IsPrimaryButtonEnabled = picker.SelectedItem", variants, StringComparison.Ordinal);
+    }
 }
