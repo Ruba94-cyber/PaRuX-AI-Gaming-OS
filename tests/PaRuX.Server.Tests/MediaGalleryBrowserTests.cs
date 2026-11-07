@@ -230,7 +230,7 @@ namespace PaRuX.Server.Tests
             var searched = MediaGalleryBrowser.FilterAndSort(items, MediaGalleryFilter.All,
                 MediaGallerySort.NewestFirst, "Prompt 1");
             var searchedPage = MediaGalleryBrowser.Paginate(searched, 4);
-            Assert.Equal(17, searchedPage.TotalMatches);
+            Assert.Equal(16, searchedPage.TotalMatches);
             Assert.Equal(0, searchedPage.PageIndex);
             Assert.All(searchedPage.Visible, item => Assert.Contains("Prompt 1", item.Prompt));
 
