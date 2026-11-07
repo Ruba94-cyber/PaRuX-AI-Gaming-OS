@@ -4655,6 +4655,15 @@ namespace PaRuX.Views
 
         private async Task RefreshGroupChatModelsAsync()
         {
+            bool it = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
+            GroupChatSharedContextBox.Header = it ? "Note o testo di riferimento condiviso (facoltativo)"
+                : "Shared notes or reference text (optional)";
+            GroupChatSharedContextBox.PlaceholderText = it
+                ? "Incolla solo il contesto che desideri mostrare a ogni modello locale"
+                : "Paste only the relevant context you want each local model to see";
+            GroupChatSharedContextHint.Text = it
+                ? "Solo il testo inserito qui viene condiviso con i modelli locali selezionati. Altre conversazioni, memoria e file non vengono inclusi automaticamente."
+                : "Only the text you paste above is shared with all selected local models. Other conversations, memory and files are not included automatically.";
             ComboBox[] combos = { GroupChatModel1Combo, GroupChatModel2Combo, GroupChatModel3Combo, GroupChatModel4Combo };
             if (combos.Any(c => c == null)) return;
             try
