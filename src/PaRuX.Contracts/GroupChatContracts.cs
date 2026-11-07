@@ -11,6 +11,9 @@ namespace PaRuX.Contracts;
 public sealed class GroupChatRequest
 {
     public string Prompt { get; set; } = string.Empty;
+    /// <summary>Optional text the owner explicitly pastes for all local
+    /// participants. No automatic conversation/project/memory harvesting.</summary>
+    public string SharedContext { get; set; } = string.Empty;
     /// <summary>2 to 4 entries, in speaking order.</summary>
     public List<ModelCompareCandidate> Participants { get; set; } = new();
 }
