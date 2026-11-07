@@ -38,6 +38,22 @@ public static class ChatModelPickerPolicy
             matching.Count, page, pages);
     }
 
+    /// <summary>Quick comparison is allowed only between two distinct,
+    /// still-installed local files. Aliases are display-only and must never
+    /// be used as a stable model identity.</summary>
+    public static bool CanCompare(
+        IEnumerable<ManagedModelInfo>? catalogue, string? firstFile, string? secondFile)
+    {
+        if (string.IsNullOrWhiteSpace(firstFile) || string.IsNullOrWhiteSpace(secondFile)
+            || string.Equals(firstFile, secondFile, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var installed = new HashSet<string>(
+            (catalogue ?? Enumerable.Empty<ManagedModelInfo>())
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.FileName))
+                .Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
+        return installed.Contains(firstFile) && installed.Contains(secondFile);
+    }
+
     public static IReadOnlyList<ManagedModelInfo> Quick(
         IEnumerable<ManagedModelInfo>? catalogue, string? currentManualFile)
     {
