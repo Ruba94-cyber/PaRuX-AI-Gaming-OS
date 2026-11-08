@@ -50,6 +50,8 @@ namespace PaRuX.Views
 
         private readonly List<MediaGalleryItem> _allItems = new();
         private CancellationTokenSource? _refreshCts;
+        private CancellationTokenSource? _thumbnailCts;
+        private readonly List<(MediaGalleryItem Item, Border Host)> _visibleVideoThumbnails = new();
 
         public event EventHandler<MediaGalleryItem>? ItemReusedAsEditSource;
         public event EventHandler<MediaGalleryItem>? ItemDeleted;
@@ -57,8 +59,17 @@ namespace PaRuX.Views
         public MediaGalleryView()
         {
             Content = BuildUi();
-            Loaded += async (_, _) => await RefreshAsync();
-            Unloaded += (_, _) => _refreshCts?.Cancel();
+            Loaded += async (_, _) =>
+            {
+                GamingManager.Current.StateChanged += OnThumbnailGamingStateChanged;
+                await RefreshAsync();
+            };
+            Unloaded += (_, _) =>
+            {
+                GamingManager.Current.StateChanged -= OnThumbnailGamingStateChanged;
+                _refreshCts?.Cancel();
+                _thumbnailCts?.Cancel();
+            };
         }
 
         private UIElement BuildUi()
@@ -314,6 +325,10 @@ namespace PaRuX.Views
 
         private void ApplyFilterAndSort()
         {
+            // A page/filter switch invalidates old thumbnail targets immediately.
+            // The in-flight request owns its CTS until its own finally block.
+            _thumbnailCts?.Cancel();
+            _visibleVideoThumbnails.Clear();
             var filter = MediaGalleryFilter.All;
             if (_filterCombo.SelectedItem is ComboBoxItem fItem && fItem.Tag is MediaGalleryFilter fVal)
                 filter = fVal;
@@ -339,6 +354,79 @@ namespace PaRuX.Views
             foreach (MediaGalleryItem item in page.Visible)
             {
                 _cardsPanel.Children.Add(BuildCard(item));
+            }
+
+            // No eager decoders for 10k results: only the current 24-card
+            // page, one Windows video thumbnail request at a time.
+            if (IsLoaded && _visibleVideoThumbnails.Count > 0
+                && !GamingManager.Current.IsActive
+                && !LocalAiController.Current.IsGameActive())
+            {
+                var request = new CancellationTokenSource();
+                _thumbnailCts = request;
+                _ = PopulateVideoThumbnailsAsync(_visibleVideoThumbnails.ToArray(), request);
+            }
+        }
+
+        private void OnThumbnailGamingStateChanged(object? sender, EventArgs e)
+        {
+            if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
+                _thumbnailCts?.Cancel();
+        }
+
+        private async Task PopulateVideoThumbnailsAsync(
+            (MediaGalleryItem Item, Border Host)[] targets,
+            CancellationTokenSource request)
+        {
+            CancellationToken ct = request.Token;
+            try
+            {
+                foreach ((MediaGalleryItem item, Border host) in targets)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!ReferenceEquals(_thumbnailCts, request)
+                        || !IsLoaded || GamingManager.Current.IsActive
+                        || LocalAiController.Current.IsGameActive()) return;
+
+                    string? imagePath = await MediaGalleryVideoThumbnailService.Current.GetOrCreateAsync(
+                        item,
+                        () => GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive(),
+                        ct);
+                    if (string.IsNullOrWhiteSpace(imagePath)) continue;
+                    ct.ThrowIfCancellationRequested();
+                    if (!ReferenceEquals(_thumbnailCts, request)
+                        || !IsLoaded || GamingManager.Current.IsActive
+                        || LocalAiController.Current.IsGameActive()) return;
+
+                    UIElement? fallback = host.Child;
+                    var thumbnail = new Image
+                    {
+                        Source = new BitmapImage(new Uri(imagePath))
+                        {
+                            DecodePixelWidth = 320,
+                            DecodePixelHeight = 220
+                        },
+                        Stretch = Stretch.UniformToFill
+                    };
+                    thumbnail.ImageFailed += (_, _) =>
+                    {
+                        if (ReferenceEquals(host.Child, thumbnail))
+                            host.Child = fallback;
+                    };
+                    AutomationProperties.SetName(thumbnail, "Cached local video frame: " + item.Title);
+                    host.Child = thumbnail;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                Log.Write("Gallery video thumbnails: " + ex.GetType().Name);
+            }
+            finally
+            {
+                if (ReferenceEquals(_thumbnailCts, request))
+                    _thumbnailCts = null;
+                request.Dispose();
             }
         }
 
@@ -426,6 +514,7 @@ namespace PaRuX.Views
                     });
                 }
                 thumbBox.Child = videoStack;
+                _visibleVideoThumbnails.Add((item, thumbBox));
             }
             else
             {
