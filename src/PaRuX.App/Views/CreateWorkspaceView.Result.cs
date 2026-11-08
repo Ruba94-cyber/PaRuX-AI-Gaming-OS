@@ -108,8 +108,22 @@ namespace PaRuX.Views
             bool image = IsImageFile(path) && File.Exists(path);
             _resultImage.Visibility = image ? Visibility.Visible : Visibility.Collapsed;
             if (!image) { _resultImage.Source = null; return; }
-            try { _resultImage.Source = new BitmapImage(new Uri(path)); }
-            catch (Exception ex) when (ex is UriFormatException or IOException) { _resultImage.Visibility = Visibility.Collapsed; }
+            try
+            {
+                // The Create result strip is a preview, not an export. Do not
+                // decode the full 4K/8K image into a permanently resident WinUI
+                // bitmap on low-memory PCs; Open still accesses the original.
+                _resultImage.Source = new BitmapImage(new Uri(path))
+                {
+                    DecodePixelWidth = 1280
+                };
+            }
+            catch (Exception ex) when (ex is UriFormatException or IOException or UnauthorizedAccessException)
+            {
+                _resultImage.Source = null;
+                _resultImage.Visibility = Visibility.Collapsed;
+                _status.Text = "Generated image preview is unavailable; the original output was not changed.";
+            }
         }
 
         private void LaunchResult(bool inFolder)
