@@ -228,6 +228,17 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("FileAttributes.ReparsePoint", recovery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = 1280", create, StringComparison.Ordinal);
         Assert.Contains("Generated image preview is unavailable", create, StringComparison.Ordinal);
+        Assert.Contains("Create_Result_PreviewVideo_Button", create, StringComparison.Ordinal);
+        Assert.Contains("Create_Result_VideoPreview", create, StringComparison.Ordinal);
+        Assert.Contains("_resultVideoPreviewButton.Click += (_, _) => OpenInlineVideoPreview()", create, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryPreviewPolicy.KindFor(candidate) != MediaGalleryPreviewKind.Video", create, StringComparison.Ordinal);
+        Assert.Contains("AutoPlay = false", create, StringComparison.Ordinal);
+        Assert.Contains("ReleaseInlineVideoPreview()", create, StringComparison.Ordinal);
+        Assert.Contains("_resultVideo.Source = null", create, StringComparison.Ordinal);
+        string createView = Read("src", "PaRuX.App", "Views", "CreateWorkspaceView.cs");
+        Assert.Contains("GamingManager.Current.StateChanged += OnCreateGamingStateChanged", createView, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.StateChanged -= OnCreateGamingStateChanged", createView, StringComparison.Ordinal);
+        Assert.Contains("ReleaseInlineVideoPreview();", createView, StringComparison.Ordinal);
     }
 
     [Fact]
