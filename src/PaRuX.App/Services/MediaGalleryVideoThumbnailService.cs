@@ -49,7 +49,7 @@ namespace PaRuX.Services
                 long size = fileInfo.Length;
                 long ticks = fileInfo.LastWriteTimeUtc.Ticks;
                 string? key = MediaGalleryVideoThumbnailPolicy.CacheKey(item, size, ticks);
-                if (key == null) return null;
+                if (key == null || !IsCacheDirectorySafe()) return null;
 
                 foreach (string ext in new[] { ".jpg", ".png" })
                 {
@@ -102,7 +102,9 @@ namespace PaRuX.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 if (gamingActive()) return null;
 
+                if (!IsCacheDirectorySafe()) return null;
                 Directory.CreateDirectory(CacheDirectory);
+                if (!IsCacheDirectorySafe()) return null;
                 string destination = Path.Combine(CacheDirectory, key + extension);
                 staging = Path.Combine(CacheDirectory, key + "-" + Guid.NewGuid().ToString("N") + ".tmp");
                 await File.WriteAllBytesAsync(staging, encoded, cancellationToken);
@@ -175,7 +177,7 @@ namespace PaRuX.Services
             await _decoderGate.WaitAsync();
             try
             {
-                if (gamingActive()) return;
+                if (gamingActive() || !IsCacheDirectorySafe()) return;
                 await Task.Run(() =>
                 {
                     try
@@ -196,6 +198,22 @@ namespace PaRuX.Services
             finally
             {
                 _decoderGate.Release();
+            }
+        }
+
+        private static bool IsCacheDirectorySafe()
+        {
+            try
+            {
+                // No cache writes or deletions through a directory junction
+                // or symbolic link to an owner-managed external location.
+                return !Directory.Exists(CacheDirectory)
+                    || (File.GetAttributes(CacheDirectory) & FileAttributes.ReparsePoint) == 0;
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException
+                or UnauthorizedAccessException or NotSupportedException)
+            {
+                return false;
             }
         }
 
@@ -229,10 +247,10 @@ namespace PaRuX.Services
 
         private static void TrimCache(Func<bool> gamingActive, CancellationToken ct)
         {
-            if (ct.IsCancellationRequested || gamingActive() || !Directory.Exists(CacheDirectory))
+            if (ct.IsCancellationRequested || gamingActive()
+                || !Directory.Exists(CacheDirectory) || !IsCacheDirectorySafe())
                 return;
             var directory = new DirectoryInfo(CacheDirectory);
-            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0) return;
 
             FileInfo[] all = directory.EnumerateFiles().ToArray();
             DateTime now = DateTime.UtcNow;
