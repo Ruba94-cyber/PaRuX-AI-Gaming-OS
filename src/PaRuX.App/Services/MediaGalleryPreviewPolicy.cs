@@ -60,12 +60,17 @@ namespace PaRuX.Services
             if (!TryGetLocalMediaPath(item, out string full))
                 return MediaGalleryPreviewKind.Unavailable;
 
+            if (MediaGalleryOutputRecovery.IsGenerating(item?.Status)
+                || MediaGalleryOutputRecovery.IsGenerationStopped(item?.Status))
+                return MediaGalleryPreviewKind.Unavailable;
+
             try
             {
                 // Only user-visible card/actions do disk admission. Never
-                // trust MIME labels or follow a link-file to another target.
+                // trust MIME labels, empty output placeholders or link-files.
                 FileAttributes attributes = File.GetAttributes(full);
-                if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+                if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0
+                    || new FileInfo(full).Length == 0)
                     return MediaGalleryPreviewKind.Unavailable;
 
                 return Path.GetExtension(full).ToLowerInvariant() switch
