@@ -182,9 +182,9 @@ namespace PaRuX.Services
                 {
                     try
                     {
-                        if (gamingActive() || !File.Exists(owned)
-                            || (new DirectoryInfo(CacheDirectory).Attributes & FileAttributes.ReparsePoint) != 0
-                            || (File.GetAttributes(owned) & FileAttributes.ReparsePoint) != 0)
+                        if (gamingActive() || !IsCacheDirectorySafe()
+                            || (File.GetAttributes(owned) & FileAttributes.ReparsePoint) != 0
+                            || !File.Exists(owned))
                             return;
                         File.Delete(owned);
                     }
@@ -268,8 +268,8 @@ namespace PaRuX.Services
             {
                 if (ct.IsCancellationRequested || gamingActive()) return;
                 if (!MediaGalleryVideoThumbnailPolicy.IsStagingFileName(item.Name)
-                    || !MediaGalleryVideoThumbnailPolicy.IsStaleStaging(item.LastWriteTimeUtc, now)
-                    || (item.Attributes & FileAttributes.ReparsePoint) != 0)
+                    || (item.Attributes & FileAttributes.ReparsePoint) != 0
+                    || !MediaGalleryVideoThumbnailPolicy.IsStaleStaging(item.LastWriteTimeUtc, now))
                     continue;
                 try { item.Delete(); }
                 catch (IOException) { }
@@ -277,7 +277,8 @@ namespace PaRuX.Services
             }
 
             FileInfo[] entries = all
-                .Where(f => MediaGalleryVideoThumbnailPolicy.IsCacheFileName(f.Name))
+                .Where(f => MediaGalleryVideoThumbnailPolicy.IsCacheFileName(f.Name)
+                    && (f.Attributes & FileAttributes.ReparsePoint) == 0)
                 .OrderByDescending(f => f.LastWriteTimeUtc)
                 .ToArray();
             long bytes = 0;
