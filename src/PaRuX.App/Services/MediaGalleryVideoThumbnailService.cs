@@ -148,9 +148,17 @@ namespace PaRuX.Services
                     || info.Length > MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes
                     || (info.Attributes & FileAttributes.ReparsePoint) != 0)
                     return false;
-                // Keep existing previews recently-used without changing the
-                // source file or recreating the cached JPEG/PNG.
-                return true;
+                // A corrupted or partially-written cache must not become
+                // a permanent broken image. Check the encoded signature on
+                // cache hit and regenerate from the video if it is invalid.
+                byte[] header = new byte[8];
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    if (stream.Read(header, 0, header.Length) != header.Length)
+                        return false;
+                }
+                return MediaGalleryVideoThumbnailPolicy.TryGetImageExtension(header, out string extension)
+                    && path.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or ArgumentException or NotSupportedException)
