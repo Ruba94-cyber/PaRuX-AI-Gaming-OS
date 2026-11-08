@@ -30,9 +30,9 @@ namespace PaRuX.Services
                     && kind != MediaGalleryPreviewKind.Image)
                 || (string.Equals(item.ArtifactType, "video", StringComparison.OrdinalIgnoreCase)
                     && kind != MediaGalleryPreviewKind.Video)
-                || (item.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                || (item.MediaType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true
                     && kind != MediaGalleryPreviewKind.Image)
-                || (item.MediaType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+                || (item.MediaType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true
                     && kind != MediaGalleryPreviewKind.Video))
                 return false;
 
