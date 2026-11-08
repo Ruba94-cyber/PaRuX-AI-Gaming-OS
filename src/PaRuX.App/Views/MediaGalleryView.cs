@@ -251,8 +251,13 @@ namespace PaRuX.Views
                     ct.ThrowIfCancellationRequested();
                     foreach (MediaGalleryItem item in loaded)
                     {
-                        if (!string.IsNullOrWhiteSpace(item.FilePath))
+                        // Artifact ContentRef is metadata, not a trustworthy
+                        // filesystem path. A malformed URL/path must not abort
+                        // the rest of a 10,000-item refresh.
+                        if (MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable)
                             knownPaths.Add(Path.GetFullPath(item.FilePath));
+                        // Keep missing or incomplete assets inspectable so
+                        // users can recover them; only exclude them from dedup.
                         results.Add(item);
                     }
                 }
@@ -367,7 +372,8 @@ namespace PaRuX.Views
                 Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, 160, 110) }
             };
 
-            if (item.IsImage && item.FileExists)
+            if (item.IsImage
+                && MediaGalleryPreviewPolicy.KindFor(item) == MediaGalleryPreviewKind.Image)
             {
                 try
                 {
