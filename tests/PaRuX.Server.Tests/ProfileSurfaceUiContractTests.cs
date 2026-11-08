@@ -248,7 +248,9 @@ public sealed class ProfileSurfaceUiContractTests
         string service = Read("src", "PaRuX.App", "Services", "MediaGalleryVideoThumbnailService.cs");
         string policy = Read("src", "PaRuX.App", "Services", "MediaGalleryVideoThumbnailPolicy.cs");
         Assert.Contains("foreach (MediaGalleryItem item in page.Visible)", gallery, StringComparison.Ordinal);
-        Assert.Contains("_visibleVideoThumbnails.Add((item, thumbBox))", gallery, StringComparison.Ordinal);
+        Assert.Contains("_visibleVideoThumbnails.Add((item, thumbBox, videoStack))", gallery, StringComparison.Ordinal);
+        Assert.Contains("image.Source = null", gallery, StringComparison.Ordinal);
+        Assert.Contains("target.Host.Child = target.Placeholder", gallery, StringComparison.Ordinal);
         Assert.Contains("_thumbnailCts?.Cancel()", gallery, StringComparison.Ordinal);
         Assert.Contains("PopulateVideoThumbnailsAsync(_visibleVideoThumbnails.ToArray(), request)", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailService.Current.GetOrCreateAsync(", gallery, StringComparison.Ordinal);
@@ -260,6 +262,8 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("new SemaphoreSlim(1, 1)", service, StringComparison.Ordinal);
         Assert.Contains("ThumbnailMode.VideosView", service, StringComparison.Ordinal);
         Assert.Contains("thumbnail.Type != ThumbnailType.Image", service, StringComparison.Ordinal);
+        Assert.Contains("stream.Read(header, 0, header.Length)", service, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailPolicy.TryGetImageExtension(header, out string extension)", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.CacheKey(item, size, ticks)", service, StringComparison.Ordinal);
         Assert.Contains("File.Move(staging, destination, overwrite: true)", service, StringComparison.Ordinal);
