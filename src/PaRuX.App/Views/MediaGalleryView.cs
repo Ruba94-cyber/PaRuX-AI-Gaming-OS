@@ -422,8 +422,16 @@ namespace PaRuX.Views
                     };
                     thumbnail.ImageFailed += (_, _) =>
                     {
-                        if (ReferenceEquals(host.Child, thumbnail))
-                            host.Child = fallback;
+                        if (!ReferenceEquals(host.Child, thumbnail)) return;
+                        // A cache file may have a valid magic header but
+                        // still contain a truncated/undecodable image. Keep
+                        // the fallback and invalidate only our disposable
+                        // cache copy, asynchronously, for the next visit.
+                        thumbnail.Source = null;
+                        host.Child = fallback;
+                        _ = MediaGalleryVideoThumbnailService.Current.InvalidateDecodeFailureAsync(
+                            imagePath,
+                            () => GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive());
                     };
                     AutomationProperties.SetName(thumbnail, "Cached local video frame: " + item.Title);
                     host.Child = thumbnail;
