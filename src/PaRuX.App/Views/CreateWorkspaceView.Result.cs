@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using PaRuX.Services;
 
 namespace PaRuX.Views
 {
@@ -18,6 +19,19 @@ namespace PaRuX.Views
         {
             AreTransportControlsEnabled = true, Height = 110, HorizontalAlignment = HorizontalAlignment.Stretch, MaxWidth = 720, Visibility = Visibility.Collapsed
         };
+        private readonly MediaPlayerElement _resultVideo = new MediaPlayerElement
+        {
+            AreTransportControlsEnabled = true,
+            AutoPlay = false,
+            Height = 320,
+            MaxWidth = 720,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Visibility = Visibility.Collapsed
+        };
+        private readonly Button _resultVideoPreviewButton = new Button
+        {
+            Content = "Preview video", Visibility = Visibility.Collapsed
+        };
         private readonly System.Collections.Generic.List<Button> _imageOnlyResultButtons = new();
         private string? _resultPath;
 
@@ -25,6 +39,12 @@ namespace PaRuX.Views
         {
             string ext = Path.GetExtension(path).ToLowerInvariant();
             return ext is ".flac" or ".mp3" or ".wav" or ".ogg" or ".opus" or ".m4a";
+        }
+
+        private static bool IsVideoFile(string path)
+        {
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext is ".mp4" or ".webm" or ".mov" or ".mkv";
         }
 
         private static bool IsImageFile(string path)
@@ -50,6 +70,13 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_resultAudio, "Create_Result_Audio");
             AutomationProperties.SetName(_resultAudio, "Generated audio player");
             panel.Children.Add(_resultAudio);
+            AutomationProperties.SetAutomationId(_resultVideo, "Create_Result_VideoPreview");
+            AutomationProperties.SetName(_resultVideo, "Generated local video preview");
+            panel.Children.Add(_resultVideo);
+            AutomationProperties.SetAutomationId(_resultVideoPreviewButton, "Create_Result_PreviewVideo_Button");
+            AutomationProperties.SetName(_resultVideoPreviewButton, "Preview generated video locally");
+            _resultVideoPreviewButton.Click += (_, _) => OpenInlineVideoPreview();
+            panel.Children.Add(_resultVideoPreviewButton);
             _resultActions.Children.Add(ResultButton("Open", "Create_Result_Open_Button", (_, _) => LaunchResult(false)));
             _resultActions.Children.Add(ResultButton("Show in folder", "Create_Result_Folder_Button", (_, _) => LaunchResult(true)));
             _imageOnlyResultButtons.Add(ResultButton("Edit this image", "Create_Result_Edit_Button", (_, _) =>
@@ -94,8 +121,11 @@ namespace PaRuX.Views
 
         private void ShowResult(string path)
         {
+            ReleaseInlineVideoPreview();
             _resultPath = path;
             _resultActions.Visibility = Visibility.Visible;
+            _resultVideoPreviewButton.Visibility = IsVideoFile(path)
+                ? Visibility.Visible : Visibility.Collapsed;
             bool audio = IsAudioFile(path) && File.Exists(path);
             _resultAudio.Visibility = audio ? Visibility.Visible : Visibility.Collapsed;
             if (audio)
@@ -124,6 +154,71 @@ namespace PaRuX.Views
                 _resultImage.Visibility = Visibility.Collapsed;
                 _status.Text = "Generated image preview is unavailable; the original output was not changed.";
             }
+        }
+
+        private void OpenInlineVideoPreview()
+        {
+            string? path = _resultPath;
+            if (string.IsNullOrWhiteSpace(path) || !IsVideoFile(path))
+                return;
+            ReleaseInlineVideoPreview();
+            if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
+            {
+                _status.Text = "Video preview is unavailable during Gaming. Leave the game first.";
+                return;
+            }
+
+            // Reuse Gallery's exact local file/link/empty-file admission rather
+            // than trusting a filename or triggering a new video job.
+            var candidate = new MediaGalleryItem
+            {
+                Id = "create-latest-video",
+                Title = Path.GetFileName(path),
+                ArtifactType = "video",
+                MediaType = "video/mp4",
+                FilePath = path,
+                Prompt = string.Empty,
+                Model = "Local Media Engine",
+                Status = "final",
+                CreatedUtc = DateTime.UtcNow
+            };
+            if (MediaGalleryPreviewPolicy.KindFor(candidate) != MediaGalleryPreviewKind.Video)
+            {
+                _status.Text = "This video output is missing, empty or not a supported local file. "
+                    + "Check the generation job or open the Gallery to recheck it.";
+                return;
+            }
+
+            try
+            {
+                _resultVideo.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(path));
+                _resultVideo.Visibility = Visibility.Visible;
+                _status.Text = "Local video preview is ready. Press Play to start; the original output is unchanged.";
+            }
+            catch (Exception ex)
+            {
+                ReleaseInlineVideoPreview();
+                _status.Text = "Video preview is unavailable: " + ex.GetType().Name
+                    + ". The original output is unchanged.";
+            }
+        }
+
+        private void ReleaseInlineVideoPreview()
+        {
+            try { _resultVideo.MediaPlayer?.Pause(); }
+            catch (Exception ex) { Log.Write("Create video pause: " + ex.GetType().Name); }
+            try { _resultVideo.Source = null; }
+            catch (Exception ex) { Log.Write("Create video release: " + ex.GetType().Name); }
+            _resultVideo.Visibility = Visibility.Collapsed;
+        }
+
+        private void OnCreateGamingStateChanged(object? sender, EventArgs e)
+        {
+            if (!GamingManager.Current.IsActive && !LocalAiController.Current.IsGameActive())
+                return;
+            ReleaseInlineVideoPreview();
+            if (_resultPath != null && IsVideoFile(_resultPath))
+                _status.Text = "Gaming started: the video preview was stopped to leave the GPU free.";
         }
 
         private void LaunchResult(bool inFolder)
