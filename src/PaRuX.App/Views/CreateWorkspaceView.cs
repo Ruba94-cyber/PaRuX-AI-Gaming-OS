@@ -74,7 +74,14 @@ namespace PaRuX.Views
             _dispatcher = DispatcherQueue.GetForCurrentThread();
             Content = BuildUi();
             _runButtons.Add(_editRunButton);
-            Unloaded += (_, _) => { _operations.CancelActive(); foreach (MediaSetupCard card in _setupCards) card.StopPolling(); };
+            Loaded += (_, _) => GamingManager.Current.StateChanged += OnCreateGamingStateChanged;
+            Unloaded += (_, _) =>
+            {
+                GamingManager.Current.StateChanged -= OnCreateGamingStateChanged;
+                ReleaseInlineVideoPreview();
+                _operations.CancelActive();
+                foreach (MediaSetupCard card in _setupCards) card.StopPolling();
+            };
         }
 
         public void OnShown()
