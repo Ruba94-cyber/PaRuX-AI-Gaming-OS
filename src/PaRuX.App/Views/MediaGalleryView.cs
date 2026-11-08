@@ -467,6 +467,28 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(detailsText, $"MediaGallery_Details_{item.Id}");
             contentPanel.Children.Add(detailsText);
 
+            // Evaluate only the 24 visible cards, not all indexed artifacts.
+            // Keep the true on-disk availability distinct from the artifact's
+            // recorded "final"/"draft" status; neither implies a valid codec.
+            MediaGalleryOutputState availability = MediaGalleryOutputRecovery.Inspect(item);
+            if (availability != MediaGalleryOutputState.Ready)
+            {
+                bool italian = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
+                string guidance = MediaGalleryOutputRecovery.Guidance(availability, italian);
+                var recoveryText = new TextBlock
+                {
+                    Text = guidance,
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxLines = 2,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    Opacity = 0.82
+                };
+                AutomationProperties.SetAutomationId(recoveryText, $"MediaGallery_OutputRecovery_{item.Id}");
+                ToolTipService.SetToolTip(recoveryText, guidance);
+                contentPanel.Children.Add(recoveryText);
+            }
+
             // Action Buttons
             var actions = new StackPanel
             {
