@@ -446,6 +446,23 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
+        public void Reveal_does_not_accept_untrusted_remote_relative_or_malformed_paths()
+        {
+            static MediaGalleryItem Item(string path) => new()
+            {
+                Id = "reveal", Title = "Output", ArtifactType = "image", MediaType = "image/png",
+                FilePath = path, Prompt = "p", Model = "m", CreatedUtc = DateTime.UtcNow,
+                Status = "final"
+            };
+
+            Assert.False(MediaGalleryBrowser.CanReveal(Item(@"\\server\share\image.png")));
+            Assert.False(MediaGalleryBrowser.CanReveal(Item("//server/share/image.png")));
+            Assert.False(MediaGalleryBrowser.CanReveal(Item("image.png")));
+            Assert.False(MediaGalleryBrowser.CanReveal(Item("https://example.org/image.png")));
+            Assert.False(MediaGalleryBrowser.CanReveal(Item("bad" + '\0' + ".png")));
+        }
+
+        [Fact]
         public void DeleteCoordinator_enforces_prior_confirmation_before_deletion()
         {
             var coordinator = new MediaGalleryDeleteCoordinator();
