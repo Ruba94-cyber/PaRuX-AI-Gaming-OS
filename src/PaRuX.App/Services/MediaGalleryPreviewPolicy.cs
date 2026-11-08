@@ -19,38 +19,55 @@ namespace PaRuX.Services
     {
         public const int PreviewDecodeWidth = 960;
 
-        public static MediaGalleryPreviewKind KindFor(MediaGalleryItem? item)
+        /// <summary>
+        /// Normalizes an Artifact ContentRef without probing the filesystem.
+        /// Safe to call for every result in a very large library; success says
+        /// only that the string is a local-looking supported-media path, NOT
+        /// that the file exists, is owned or is safe to open/delete.
+        /// </summary>
+        public static bool TryGetLocalMediaPath(MediaGalleryItem? item, out string fullPath)
         {
-            if (item == null || string.IsNullOrWhiteSpace(item.FilePath)) return MediaGalleryPreviewKind.Unavailable;
+            fullPath = string.Empty;
+            if (item == null || string.IsNullOrWhiteSpace(item.FilePath)) return false;
             string path = item.FilePath;
-
-            // Reject URLs, UNC shares, extended-device paths, and relative paths:
-            // the preview must not accidentally fetch remote content or resolve
-            // relative to the current working directory.
             if (path.StartsWith(@"\\", StringComparison.Ordinal)
                 || path.StartsWith("//", StringComparison.Ordinal))
+                return false;
+
+            try
+            {
+                if (!Path.IsPathFullyQualified(path)) return false;
+                string full = Path.GetFullPath(path);
+                if (!Uri.TryCreate(full, UriKind.Absolute, out Uri? uri)
+                    || !uri.IsFile || uri.IsUnc)
+                    return false;
+                string ext = Path.GetExtension(full).ToLowerInvariant();
+                if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".gif"
+                    or ".mp4" or ".webm" or ".mov" or ".mkv"))
+                    return false;
+                fullPath = full;
+                return true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException
+                or PathTooLongException or IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        public static MediaGalleryPreviewKind KindFor(MediaGalleryItem? item)
+        {
+            if (!TryGetLocalMediaPath(item, out string full))
                 return MediaGalleryPreviewKind.Unavailable;
 
             try
             {
-                // Untrusted artifact paths may contain invalid characters:
-                // both qualification and canonicalization must be guarded.
-                if (!Path.IsPathFullyQualified(path))
-                    return MediaGalleryPreviewKind.Unavailable;
-                string full = Path.GetFullPath(path);
-                if (!Uri.TryCreate(full, UriKind.Absolute, out Uri? uri)
-                    || !uri.IsFile || uri.IsUnc)
-                    return MediaGalleryPreviewKind.Unavailable;
-
-                // Reject link-file aliases before a decoder or shell opener can
-                // follow an unexpected target. File.GetAttributes also rejects
-                // missing/inaccessible and non-file paths.
+                // Only user-visible card/actions do disk admission. Never
+                // trust MIME labels or follow a link-file to another target.
                 FileAttributes attributes = File.GetAttributes(full);
                 if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
                     return MediaGalleryPreviewKind.Unavailable;
 
-                // Use the actual file extension, not untrusted Artifact metadata.
-                // Do not preview executable, script, HTML, or unknown types.
                 return Path.GetExtension(full).ToLowerInvariant() switch
                 {
                     ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" => MediaGalleryPreviewKind.Image,
@@ -64,5 +81,6 @@ namespace PaRuX.Services
                 return MediaGalleryPreviewKind.Unavailable;
             }
         }
+
     }
 }
