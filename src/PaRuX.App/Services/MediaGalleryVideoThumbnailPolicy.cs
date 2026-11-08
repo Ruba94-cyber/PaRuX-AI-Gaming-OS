@@ -49,6 +49,70 @@ namespace PaRuX.Services
             return false;
         }
 
+        // Staging files from an interrupted write are not counted by the
+        // ordinary JPEG/PNG cache eviction. Recognize only our own exact
+        // SHA256-GUID naming convention, never unrelated user files.
+        public const int StagingLifetimeHours = 24;
+
+        public static bool IsStagingFileName(string? name)
+        {
+            if (name == null || name.Length != 101
+                || !name.EndsWith(".tmp", StringComparison.Ordinal))
+                return false;
+            for (int i = 0; i < 96; i++)
+            {
+                if (i == 64)
+                {
+                    if (name[i] != '-') return false;
+                    continue;
+                }
+                char c = name[i];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+                    return false;
+            }
+            // 64 hex + separator + 32 hex + ".tmp" = 101 chars.
+            return name[97] == '.' && name[98] == 't'
+                && name[99] == 'm' && name[100] == 'p';
+        }
+
+        public static bool IsStaleStaging(DateTime writtenUtc, DateTime nowUtc) =>
+            writtenUtc.Kind == DateTimeKind.Utc && nowUtc.Kind == DateTimeKind.Utc
+            && writtenUtc <= nowUtc.AddHours(-StagingLifetimeHours);
+
+        /// <summary>Only a direct, named JPEG/PNG file in the managed cache can
+        /// be invalidated after an asynchronous WinUI decode failure.</summary>
+        public static bool TryGetOwnedCacheFile(
+            string? candidate, string? cacheDirectory, out string file)
+        {
+            file = string.Empty;
+            if (string.IsNullOrWhiteSpace(candidate)
+                || string.IsNullOrWhiteSpace(cacheDirectory))
+                return false;
+            try
+            {
+                if (!Path.IsPathFullyQualified(candidate)
+                    || !Path.IsPathFullyQualified(cacheDirectory)
+                    || !IsCacheFileName(Path.GetFileName(candidate)))
+                    return false;
+                string full = Path.GetFullPath(candidate);
+                string root = Path.GetFullPath(cacheDirectory);
+                string? parent = Path.GetDirectoryName(full);
+                if (parent == null || !string.Equals(
+                    Path.TrimEndingDirectorySeparator(parent),
+                    Path.TrimEndingDirectorySeparator(root),
+                    OperatingSystem.IsWindows()
+                        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    return false;
+                file = full;
+                return true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException
+                or UnauthorizedAccessException or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
         public static bool IsCacheFileName(string? name)
         {
             if (name == null || name.Length != 68) return false; // 64 hex + 4 extension
