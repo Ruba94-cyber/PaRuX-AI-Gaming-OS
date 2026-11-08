@@ -59,7 +59,7 @@ namespace PaRuX.Services
             if (name == null || name.Length != 101
                 || !name.EndsWith(".tmp", StringComparison.Ordinal))
                 return false;
-            for (int i = 0; i < 96; i++)
+            for (int i = 0; i < 97; i++)
             {
                 if (i == 64)
                 {
