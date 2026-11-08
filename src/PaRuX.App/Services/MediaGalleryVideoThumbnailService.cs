@@ -144,9 +144,9 @@ namespace PaRuX.Services
             try
             {
                 var info = new FileInfo(path);
-                if (!info.Exists || info.Length < 8
-                    || info.Length > MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes
-                    || (info.Attributes & FileAttributes.ReparsePoint) != 0)
+                if (!info.Exists || (info.Attributes & FileAttributes.ReparsePoint) != 0
+                    || info.Length < 8
+                    || info.Length > MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes)
                     return false;
                 // A corrupted or partially-written cache must not become
                 // a permanent broken image. Check the encoded signature on
@@ -181,6 +181,9 @@ namespace PaRuX.Services
             {
                 if (ct.IsCancellationRequested || gamingActive()) return;
                 FileInfo file = entries[i];
+                // Never dereference an unexpected linked cache entry.
+                if ((file.Attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
                 if (i < MediaGalleryVideoThumbnailPolicy.MaxCacheEntries
                     && bytes + file.Length <= MediaGalleryVideoThumbnailPolicy.MaxCacheBytes)
                 {
