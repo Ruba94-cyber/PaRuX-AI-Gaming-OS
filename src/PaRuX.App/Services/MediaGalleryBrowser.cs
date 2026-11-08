@@ -105,7 +105,9 @@ namespace PaRuX.Services
             && !item.IsVideo
             && MediaGalleryPreviewPolicy.KindFor(item) == MediaGalleryPreviewKind.Image;
 
-        public static bool CanDelete(MediaGalleryItem? item) =>
-            item != null && !string.IsNullOrWhiteSpace(item.FilePath);
+        /// <summary>The gallery must pass explicit output roots; a populated
+        /// ContentRef or an Artifact ID never establishes file ownership.</summary>
+        public static bool CanDelete(MediaGalleryItem? item, params string?[] generatedOutputFolders) =>
+            MediaGalleryDeletionPolicy.CanDelete(item, generatedOutputFolders);
     }
 }
