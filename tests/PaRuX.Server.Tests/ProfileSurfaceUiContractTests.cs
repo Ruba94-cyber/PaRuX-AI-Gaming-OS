@@ -259,6 +259,8 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("if (!ReferenceEquals(_thumbnailCts, request)", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
         Assert.Contains("thumbnail.ImageFailed", gallery, StringComparison.Ordinal);
+        Assert.Contains("InvalidateDecodeFailureAsync(", gallery, StringComparison.Ordinal);
+        Assert.Contains("thumbnail.Source = null", gallery, StringComparison.Ordinal);
         Assert.Contains("SemaphoreSlim _decoderGate = new(1, 1)", service, StringComparison.Ordinal);
         Assert.Contains("ThumbnailMode.VideosView", service, StringComparison.Ordinal);
         Assert.Contains("thumbnail.Type != ThumbnailType.Image", service, StringComparison.Ordinal);
@@ -272,6 +274,12 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheEntries", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheBytes", service, StringComparison.Ordinal);
         Assert.Contains("thumbnail-cache", service, StringComparison.Ordinal);
+        Assert.Contains("public async Task InvalidateDecodeFailureAsync(", service, StringComparison.Ordinal);
+        Assert.Contains("TryGetOwnedCacheFile(", service, StringComparison.Ordinal);
+        Assert.Contains("IsStagingFileName(item.Name)", service, StringComparison.Ordinal);
+        Assert.Contains("IsStaleStaging(item.LastWriteTimeUtc, now)", service, StringComparison.Ordinal);
+        Assert.Contains("item.Attributes & FileAttributes.ReparsePoint", service, StringComparison.Ordinal);
+        Assert.Contains("StagingLifetimeHours = 24", policy, StringComparison.Ordinal);
         Assert.Contains("MaxCacheEntries = 256", policy, StringComparison.Ordinal);
         Assert.Contains("MaxCacheBytes = 32L * 1024 * 1024", policy, StringComparison.Ordinal);
     }
