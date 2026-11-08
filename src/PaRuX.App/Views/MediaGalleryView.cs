@@ -254,8 +254,8 @@ namespace PaRuX.Views
                         // Artifact ContentRef is metadata, not a trustworthy
                         // filesystem path. A malformed URL/path must not abort
                         // the rest of a 10,000-item refresh.
-                        if (MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable)
-                            knownPaths.Add(Path.GetFullPath(item.FilePath));
+                        if (MediaGalleryPreviewPolicy.TryGetLocalMediaPath(item, out string canonicalPath))
+                            knownPaths.Add(canonicalPath);
                         // Keep missing or incomplete assets inspectable so
                         // users can recover them; only exclude them from dedup.
                         results.Add(item);
