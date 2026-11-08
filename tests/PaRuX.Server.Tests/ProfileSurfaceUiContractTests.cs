@@ -242,6 +242,37 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void Gallery_video_thumbnails_are_bounded_cached_cancelable_and_gaming_safe()
+    {
+        string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
+        string service = Read("src", "PaRuX.App", "Services", "MediaGalleryVideoThumbnailService.cs");
+        string policy = Read("src", "PaRuX.App", "Services", "MediaGalleryVideoThumbnailPolicy.cs");
+        Assert.Contains("foreach (MediaGalleryItem item in page.Visible)", gallery, StringComparison.Ordinal);
+        Assert.Contains("_visibleVideoThumbnails.Add((item, thumbBox))", gallery, StringComparison.Ordinal);
+        Assert.Contains("_thumbnailCts?.Cancel()", gallery, StringComparison.Ordinal);
+        Assert.Contains("PopulateVideoThumbnailsAsync(_visibleVideoThumbnails.ToArray(), request)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailService.Current.GetOrCreateAsync(", gallery, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.StateChanged += OnThumbnailGamingStateChanged", gallery, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.StateChanged -= OnThumbnailGamingStateChanged", gallery, StringComparison.Ordinal);
+        Assert.Contains("if (!ReferenceEquals(_thumbnailCts, request)", gallery, StringComparison.Ordinal);
+        Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
+        Assert.Contains("thumbnail.ImageFailed", gallery, StringComparison.Ordinal);
+        Assert.Contains("new SemaphoreSlim(1, 1)", service, StringComparison.Ordinal);
+        Assert.Contains("ThumbnailMode.VideosView", service, StringComparison.Ordinal);
+        Assert.Contains("thumbnail.Type != ThumbnailType.Image", service, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes", service, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailPolicy.CacheKey(item, size, ticks)", service, StringComparison.Ordinal);
+        Assert.Contains("File.Move(staging, destination, overwrite: true)", service, StringComparison.Ordinal);
+        Assert.Contains("await Task.Run(() => TrimCache(gamingActive, cancellationToken), cancellationToken)", service, StringComparison.Ordinal);
+        Assert.Contains("if (ct.IsCancellationRequested || gamingActive()) return;", service, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheEntries", service, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheBytes", service, StringComparison.Ordinal);
+        Assert.Contains("thumbnail-cache", service, StringComparison.Ordinal);
+        Assert.Contains("MaxCacheEntries = 256", policy, StringComparison.Ordinal);
+        Assert.Contains("MaxCacheBytes = 32L * 1024 * 1024", policy, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Gallery_previews_are_local_on_demand_bounded_and_release_video_resources()
     {
         string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
