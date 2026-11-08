@@ -197,7 +197,10 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("File.Delete(path)", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryDeletionPolicy.CanDelete(item, generatedOutputFolders)", browser, StringComparison.Ordinal);
         Assert.Contains("HasReparsePointInAncestry", policy, StringComparison.Ordinal);
-        Assert.Contains("if (MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable)", gallery, StringComparison.Ordinal);
+        string preview = Read("src", "PaRuX.App", "Services", "MediaGalleryPreviewPolicy.cs");
+        Assert.Contains("public static bool TryGetLocalMediaPath", preview, StringComparison.Ordinal);
+        Assert.Contains("if (!TryGetLocalMediaPath(item, out string full))", preview, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryPreviewPolicy.TryGetLocalMediaPath(item, out string canonicalPath)", gallery, StringComparison.Ordinal);
         Assert.Contains("results.Add(item)", gallery, StringComparison.Ordinal);
         Assert.Contains("Path.TrimEndingDirectorySeparator(root)", policy, StringComparison.Ordinal);
         Assert.Contains("Path.TrimEndingDirectorySeparator(parent)", policy, StringComparison.Ordinal);
