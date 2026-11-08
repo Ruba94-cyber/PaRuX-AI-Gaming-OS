@@ -259,7 +259,7 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("if (!ReferenceEquals(_thumbnailCts, request)", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = 320", gallery, StringComparison.Ordinal);
         Assert.Contains("thumbnail.ImageFailed", gallery, StringComparison.Ordinal);
-        Assert.Contains("new SemaphoreSlim(1, 1)", service, StringComparison.Ordinal);
+        Assert.Contains("SemaphoreSlim _decoderGate = new(1, 1)", service, StringComparison.Ordinal);
         Assert.Contains("ThumbnailMode.VideosView", service, StringComparison.Ordinal);
         Assert.Contains("thumbnail.Type != ThumbnailType.Image", service, StringComparison.Ordinal);
         Assert.Contains("stream.Read(header, 0, header.Length)", service, StringComparison.Ordinal);
