@@ -51,6 +51,32 @@ public sealed class MediaGalleryPreviewPolicyTests
     }
 
     [Fact]
+    public void Gallery_can_normalize_missing_local_file_without_probing_it_for_refresh()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
+        MediaGalleryItem item = Item(missing);
+        Assert.False(File.Exists(missing));
+        Assert.True(MediaGalleryPreviewPolicy.TryGetLocalMediaPath(item, out string full));
+        Assert.Equal(Path.GetFullPath(missing), full);
+        // Recognizing a path for deduplication never grants preview or
+        // deletion admission for a missing file.
+        Assert.Equal(MediaGalleryPreviewKind.Unavailable, MediaGalleryPreviewPolicy.KindFor(item));
+        Assert.False(MediaGalleryBrowser.CanDelete(item, Path.GetDirectoryName(missing)));
+    }
+
+    [Fact]
+    public void Path_only_normalizer_rejects_unsupported_remote_and_relative_refs()
+    {
+        Assert.False(MediaGalleryPreviewPolicy.TryGetLocalMediaPath(
+            Item("https://example.org/image.png"), out _));
+        Assert.False(MediaGalleryPreviewPolicy.TryGetLocalMediaPath(
+            Item(@"\\server\share\movie.mp4", "video", "video/mp4"), out _));
+        Assert.False(MediaGalleryPreviewPolicy.TryGetLocalMediaPath(Item("local.png"), out _));
+        Assert.False(MediaGalleryPreviewPolicy.TryGetLocalMediaPath(
+            Item(Path.Combine(Path.GetTempPath(), "script.ps1")), out _));
+    }
+
+    [Fact]
     public void Preview_rejects_missing_relative_and_remote_references()
     {
         Assert.Equal(MediaGalleryPreviewKind.Unavailable, MediaGalleryPreviewPolicy.KindFor(null));
