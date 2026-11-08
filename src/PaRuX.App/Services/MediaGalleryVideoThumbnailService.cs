@@ -139,6 +139,46 @@ namespace PaRuX.Services
             }
         }
 
+        /// <summary>
+        /// Called only when WinUI reports that a returned cached bitmap could
+        /// not be decoded asynchronously. Removing the cache copy permits a
+        /// fresh Windows thumbnail on a later visit; the original video is
+        /// never touched. UI handlers must not block on filesystem operations.
+        /// </summary>
+        public async Task InvalidateDecodeFailureAsync(
+            string? cachePath, Func<bool> gamingActive)
+        {
+            if (gamingActive == null || gamingActive()
+                || !MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+                    cachePath, CacheDirectory, out string owned))
+                return;
+            await _decoderGate.WaitAsync();
+            try
+            {
+                if (gamingActive()) return;
+                await Task.Run(() =>
+                {
+                    try
+                    {
+                        if (gamingActive() || !File.Exists(owned)
+                            || (new DirectoryInfo(CacheDirectory).Attributes & FileAttributes.ReparsePoint) != 0
+                            || (File.GetAttributes(owned) & FileAttributes.ReparsePoint) != 0)
+                            return;
+                        File.Delete(owned);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                        or ArgumentException or NotSupportedException)
+                    {
+                        Log.Write("Gallery rejected cache invalidation: " + ex.GetType().Name);
+                    }
+                });
+            }
+            finally
+            {
+                _decoderGate.Release();
+            }
+        }
+
         private static bool IsUsableCachedThumbnail(string path)
         {
             try
@@ -171,22 +211,43 @@ namespace PaRuX.Services
         {
             if (ct.IsCancellationRequested || gamingActive() || !Directory.Exists(CacheDirectory))
                 return;
-            FileInfo[] entries = new DirectoryInfo(CacheDirectory)
-                .EnumerateFiles()
+            var directory = new DirectoryInfo(CacheDirectory);
+            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0) return;
+
+            FileInfo[] all = directory.EnumerateFiles().ToArray();
+            DateTime now = DateTime.UtcNow;
+
+            // Interrupted writes can leave .tmp files that the ordinary
+            // PNG/JPEG cap does not count. Reap only our exact staging names,
+            // and only after a generous 24-hour grace period.
+            foreach (FileInfo item in all)
+            {
+                if (ct.IsCancellationRequested || gamingActive()) return;
+                if (!MediaGalleryVideoThumbnailPolicy.IsStagingFileName(item.Name)
+                    || !MediaGalleryVideoThumbnailPolicy.IsStaleStaging(item.LastWriteTimeUtc, now)
+                    || (item.Attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
+                try { item.Delete(); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+
+            FileInfo[] entries = all
                 .Where(f => MediaGalleryVideoThumbnailPolicy.IsCacheFileName(f.Name))
                 .OrderByDescending(f => f.LastWriteTimeUtc)
                 .ToArray();
             long bytes = 0;
-            for (int i = 0; i < entries.Length; i++)
+            int kept = 0;
+            foreach (FileInfo file in entries)
             {
                 if (ct.IsCancellationRequested || gamingActive()) return;
-                FileInfo file = entries[i];
-                // Never dereference an unexpected linked cache entry.
+                // Never dereference unexpected linked entries during trim.
                 if ((file.Attributes & FileAttributes.ReparsePoint) != 0)
                     continue;
-                if (i < MediaGalleryVideoThumbnailPolicy.MaxCacheEntries
+                if (kept < MediaGalleryVideoThumbnailPolicy.MaxCacheEntries
                     && bytes + file.Length <= MediaGalleryVideoThumbnailPolicy.MaxCacheBytes)
                 {
+                    kept++;
                     bytes += file.Length;
                     continue;
                 }
