@@ -207,6 +207,30 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void Gallery_recovers_missing_and_incomplete_outputs_without_autostarting_jobs()
+    {
+        string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
+        string preview = Read("src", "PaRuX.App", "Services", "MediaGalleryPreviewPolicy.cs");
+        string recovery = Read("src", "PaRuX.App", "Services", "MediaGalleryOutputRecovery.cs");
+        string create = Read("src", "PaRuX.App", "Views", "CreateWorkspaceView.Result.cs");
+
+        Assert.Contains("MediaGalleryOutputRecovery.Inspect(item)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryOutputRecovery.Guidance(availability, italian)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_OutputRecovery_", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGallery_PreviewRecheck_Button", gallery, StringComparison.Ordinal);
+        Assert.Contains("recheck.Click += (_, _) => RenderPreview()", gallery, StringComparison.Ordinal);
+        Assert.Contains("ReleaseVideoPreview();", gallery, StringComparison.Ordinal);
+        Assert.Contains("previewHost.Children.Clear()", gallery, StringComparison.Ordinal);
+        Assert.Contains("if (state != MediaGalleryOutputState.Ready)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryOutputRecovery.IsGenerating(item?.Status)", preview, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryOutputRecovery.IsGenerationStopped(item?.Status)", preview, StringComparison.Ordinal);
+        Assert.Contains("new FileInfo(full).Length == 0", preview, StringComparison.Ordinal);
+        Assert.Contains("FileAttributes.ReparsePoint", recovery, StringComparison.Ordinal);
+        Assert.Contains("DecodePixelWidth = 1280", create, StringComparison.Ordinal);
+        Assert.Contains("Generated image preview is unavailable", create, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Gallery_previews_are_local_on_demand_bounded_and_release_video_resources()
     {
         string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
