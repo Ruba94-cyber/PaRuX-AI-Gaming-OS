@@ -69,6 +69,67 @@ public sealed class MediaGalleryVideoThumbnailPolicyTests
         Assert.InRange(MediaGalleryVideoThumbnailPolicy.MaxCacheBytes, 1024L, 64L * 1024 * 1024);
     }
 
+    [Fact]
+    public void Stale_staging_cleanup_recognizes_only_owned_hash_and_guid_names()
+    {
+        string hash = new string('a', 64);
+        string guid = new string('b', 32);
+        string owned = hash + "-" + guid + ".tmp";
+        Assert.True(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(owned));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(hash + ".tmp"));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName("user-media.tmp"));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(hash + "-" + guid + ".png"));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(
+            hash + "-" + guid[..31] + "g.tmp"));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(
+            hash + "-" + guid[..31] + ".tmp"));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(
+            "../" + owned));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStagingFileName(null));
+    }
+
+    [Fact]
+    public void Staging_cleanup_waits_for_24_hours_and_never_reaps_future_files()
+    {
+        DateTime now = new(2026, 11, 8, 20, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(24, MediaGalleryVideoThumbnailPolicy.StagingLifetimeHours);
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStaleStaging(
+            now.AddHours(-23), now));
+        Assert.True(MediaGalleryVideoThumbnailPolicy.IsStaleStaging(
+            now.AddHours(-24), now));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStaleStaging(
+            now.AddHours(1), now));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.IsStaleStaging(
+            DateTime.SpecifyKind(now.AddDays(-2), DateTimeKind.Local), now));
+    }
+
+    [Fact]
+    public void Bad_image_invalidation_is_confined_to_direct_managed_cache_files()
+    {
+        string cache = Path.Combine(Path.GetTempPath(), "parux-cache-policy", "thumbnail-cache", "video");
+        string key = new string('c', 64);
+        string owned = Path.Combine(cache, key + ".jpg");
+
+        Assert.True(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            owned, cache, out string canonical));
+        Assert.Equal(Path.GetFullPath(owned), canonical);
+
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            Path.Combine(cache, key + ".exe"), cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            Path.Combine(cache, "nested", key + ".jpg"), cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            Path.Combine(cache + "-private", key + ".jpg"), cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            Path.Combine(Path.GetTempPath(), "user-photo.jpg"), cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            "https://example.org/" + key + ".png", cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            null, cache, out _));
+        Assert.False(MediaGalleryVideoThumbnailPolicy.TryGetOwnedCacheFile(
+            owned, null, out _));
+    }
+
     private static MediaGalleryItem Video(string path) => new()
     {
         Id = "clip", Title = "Clip", FilePath = path, ArtifactType = "video",
