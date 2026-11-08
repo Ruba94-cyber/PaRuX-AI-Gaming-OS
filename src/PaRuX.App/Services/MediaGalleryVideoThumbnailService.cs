@@ -19,6 +19,8 @@ namespace PaRuX.Services
     {
         public static MediaGalleryVideoThumbnailService Current { get; } = new();
         private readonly SemaphoreSlim _decoderGate = new(1, 1);
+        private DateTime _lastCacheMaintenanceUtc = DateTime.MinValue;
+        private static readonly TimeSpan CacheMaintenanceInterval = TimeSpan.FromMinutes(15);
         private static string CacheDirectory =>
             Path.Combine(AppPaths.PaRuXRoot, "thumbnail-cache", "video");
 
@@ -53,7 +55,14 @@ namespace PaRuX.Services
                 {
                     string hit = Path.Combine(CacheDirectory, key + ext);
                     if (IsUsableCachedThumbnail(hit))
-                        return hit;
+                    {
+                        // A restart can leave stale staging files even when
+                        // every card is served from a cache hit. Maintain
+                        // occasionally; never rescan the directory per card.
+                        await MaintainCacheIfDueAsync(gamingActive, cancellationToken);
+                        return !gamingActive() && !cancellationToken.IsCancellationRequested
+                            && IsUsableCachedThumbnail(hit) ? hit : null;
+                    }
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -104,15 +113,7 @@ namespace PaRuX.Services
 
                 // Cache trimming is best-effort; failure never affects the
                 // source output, and never claims a missing thumbnail exists.
-                try
-                {
-                    // Cache cleanup can traverse hundreds of files on slow
-                    // portable drives: keep it off the WinUI dispatcher and
-                    // stop on Gaming/cancellation rather than doing disk work.
-                    await Task.Run(() => TrimCache(gamingActive, cancellationToken), cancellationToken);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return null; }
-                catch (Exception ex) { Log.Write("Gallery thumbnail cache trim: " + ex.GetType().Name); }
+                await MaintainCacheIfDueAsync(gamingActive, cancellationToken);
                 return !gamingActive() && !cancellationToken.IsCancellationRequested
                     && IsUsableCachedThumbnail(destination) ? destination : null;
             }
@@ -136,6 +137,25 @@ namespace PaRuX.Services
                     catch (UnauthorizedAccessException) { }
                 }
                 _decoderGate.Release();
+            }
+        }
+
+        private async Task MaintainCacheIfDueAsync(
+            Func<bool> gamingActive, CancellationToken ct)
+        {
+            if (ct.IsCancellationRequested || gamingActive()
+                || DateTime.UtcNow - _lastCacheMaintenanceUtc < CacheMaintenanceInterval)
+                return;
+            try
+            {
+                await Task.Run(() => TrimCache(gamingActive, ct), ct);
+                if (!ct.IsCancellationRequested && !gamingActive())
+                    _lastCacheMaintenanceUtc = DateTime.UtcNow;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                Log.Write("Gallery thumbnail cache trim: " + ex.GetType().Name);
             }
         }
 
