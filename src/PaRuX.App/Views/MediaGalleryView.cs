@@ -595,27 +595,73 @@ namespace PaRuX.Views
 
         private async Task ShowDetailsAsync(MediaGalleryItem item)
         {
-            // Instantiate a full preview only when the user asks for Details.
-            // The gallery itself keeps at most one page of tiny image thumbnails,
-            // and no video decoder resident while browsing.
+            // The heavy preview is created only for a deliberate user action.
+            // Check the local file on demand; do not restart an incomplete job.
             var details = new StackPanel { Spacing = 8 };
+            var previewHost = new StackPanel { Spacing = 6 };
+            details.Children.Add(previewHost);
+            var previewStatus = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.80
+            };
+            AutomationProperties.SetAutomationId(previewStatus, "MediaGallery_PreviewStatus_Text");
+            details.Children.Add(previewStatus);
+
+            bool italian = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
+            var recheck = new Button
+            {
+                Content = italian ? "Ricontrolla il file" : "Recheck local file",
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            AutomationProperties.SetAutomationId(recheck, "MediaGallery_PreviewRecheck_Button");
+            AutomationProperties.SetName(recheck, italian
+                ? "Controlla di nuovo il file locale senza avviare una generazione"
+                : "Recheck the local file without starting a generation");
+            details.Children.Add(recheck);
+
             MediaPlayerElement? previewPlayer = null;
-            MediaGalleryPreviewKind preview = MediaGalleryPreviewPolicy.KindFor(item);
-            bool gamingActive = GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive();
-            if (preview == MediaGalleryPreviewKind.Video && gamingActive)
+            void ReleaseVideoPreview()
             {
-                details.Children.Add(new TextBlock
-                {
-                    Text = "Video preview is paused while Gaming owns the GPU. Leave Gaming before playing this output.",
-                    TextWrapping = TextWrapping.Wrap
-                });
+                if (previewPlayer == null) return;
+                try { previewPlayer.MediaPlayer?.Pause(); }
+                catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.GetType().Name); }
+                try { previewPlayer.Source = null; }
+                catch (Exception ex) { Log.Write("Media Gallery preview release: " + ex.GetType().Name); }
+                previewPlayer = null;
+                if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
+                    previewStatus.Text = italian
+                        ? "Gaming attivo: anteprima video sospesa per lasciare libera la GPU."
+                        : "Gaming is active: video preview stopped to leave the GPU free.";
             }
-            else if (preview != MediaGalleryPreviewKind.Unavailable)
+
+            void RenderPreview()
             {
-                details.Children.Add(new TextBlock
+                ReleaseVideoPreview();
+                previewHost.Children.Clear();
+                MediaGalleryOutputState state = MediaGalleryOutputRecovery.Inspect(item);
+                previewStatus.Text = MediaGalleryOutputRecovery.Guidance(state, italian);
+                if (state != MediaGalleryOutputState.Ready)
+                    return;
+
+                MediaGalleryPreviewKind preview = MediaGalleryPreviewPolicy.KindFor(item);
+                if (preview == MediaGalleryPreviewKind.Unavailable)
                 {
-                    Text = "Preview", FontWeight = FontWeights.SemiBold
-                });
+                    previewStatus.Text = italian
+                        ? "Anteprima non disponibile: il file potrebbe essere cambiato. Ricontrolla il percorso."
+                        : "Preview unavailable: the file may have changed. Recheck its location.";
+                    return;
+                }
+
+                if (preview == MediaGalleryPreviewKind.Video
+                    && (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive()))
+                {
+                    previewStatus.Text = italian
+                        ? "Gaming attivo: chiudi il gioco prima di riprodurre il video."
+                        : "Gaming is active: close the game before playing this video.";
+                    return;
+                }
+
                 try
                 {
                     if (preview == MediaGalleryPreviewKind.Image)
@@ -633,7 +679,14 @@ namespace PaRuX.Views
                         };
                         AutomationProperties.SetAutomationId(imagePreview, "MediaGallery_DetailImagePreview");
                         AutomationProperties.SetName(imagePreview, "Local image preview: " + item.Title);
-                        details.Children.Add(imagePreview);
+                        imagePreview.ImageFailed += (_, _) =>
+                        {
+                            imagePreview.Source = null;
+                            previewStatus.Text = italian
+                                ? "L'immagine non è decodificabile. Il file non verrà modificato."
+                                : "The image could not be decoded. The original file will not be modified.";
+                        };
+                        previewHost.Children.Add(imagePreview);
                     }
                     else
                     {
@@ -648,33 +701,25 @@ namespace PaRuX.Views
                         };
                         AutomationProperties.SetAutomationId(previewPlayer, "MediaGallery_DetailVideoPreview");
                         AutomationProperties.SetName(previewPlayer, "Local video preview: " + item.Title);
-                        details.Children.Add(previewPlayer);
+                        previewHost.Children.Add(previewPlayer);
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Local decoders can also fail with WinRT/COM exceptions.
-                    // Keep metadata accessible without crashing the gallery.
                     Log.Write("Media Gallery preview unavailable: " + ex.GetType().Name);
-                    previewPlayer = null;
-                    details.Children.Add(new TextBlock
-                    {
-                        Text = "Preview unavailable. You can still inspect the metadata and file location.",
-                        TextWrapping = TextWrapping.Wrap
-                    });
+                    ReleaseVideoPreview();
+                    previewHost.Children.Clear();
+                    previewStatus.Text = italian
+                        ? "Anteprima non disponibile. Restano accessibili metadati e percorso del file."
+                        : "Preview unavailable. You can still inspect metadata and the file location.";
                 }
             }
-            else
-            {
-                details.Children.Add(new TextBlock
-                {
-                    Text = "No local preview is available for this file. The original output is not changed.",
-                    TextWrapping = TextWrapping.Wrap,
-                    Opacity = 0.75
-                });
-            }
 
-            // Keep complete technical metadata inspectable and copyable.
+            recheck.Click += (_, _) => RenderPreview();
+            RenderPreview();
+
+            // Full metadata remains inspectable while preview is missing,
+            // generating, empty, interrupted or has an unsupported codec.
             details.Children.Add(new TextBlock { Text = "Prompt", FontWeight = FontWeights.SemiBold });
             var prompt = new TextBox
             {
@@ -697,41 +742,23 @@ namespace PaRuX.Views
             {
                 Title = string.IsNullOrWhiteSpace(item.Title) ? "Media details" : item.Title,
                 Content = new ScrollViewer { Content = details, MaxHeight = 420 },
-                CloseButtonText = "Close",
+                CloseButtonText = italian ? "Chiudi" : "Close",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
-            void ReleaseVideoPreview()
-            {
-                if (previewPlayer == null) return;
-                try { previewPlayer.MediaPlayer?.Pause(); }
-                catch (Exception ex) { Log.Write("Media Gallery preview pause: " + ex.GetType().Name); }
-                try { previewPlayer.Source = null; }
-                catch (Exception ex) { Log.Write("Media Gallery preview release: " + ex.GetType().Name); }
-            }
 
-            // Gaming can begin from another part of PaRuX while the dialog is open.
-            // End video decoding as soon as that mode takes ownership; do not resume
-            // automatically after the game exits.
-            EventHandler? onGamingChange = null;
-            if (previewPlayer != null)
+            // Gaming can begin in another workspace while the modal is open.
+            // Release existing decoder resources but never auto-resume playback.
+            EventHandler onGamingChange = (_, _) =>
             {
-                onGamingChange = (_, _) =>
-                {
-                    if (!GamingManager.Current.IsActive && !LocalAiController.Current.IsGameActive()) return;
-                    DispatcherQueue.TryEnqueue(ReleaseVideoPreview);
-                };
-                GamingManager.Current.StateChanged += onGamingChange;
-            }
-            try
-            {
-                await dialog.ShowAsync();
-            }
+                if (!GamingManager.Current.IsActive && !LocalAiController.Current.IsGameActive()) return;
+                DispatcherQueue.TryEnqueue(ReleaseVideoPreview);
+            };
+            GamingManager.Current.StateChanged += onGamingChange;
+            try { await dialog.ShowAsync(); }
             finally
             {
-                if (onGamingChange != null) GamingManager.Current.StateChanged -= onGamingChange;
-                // A video preview must not keep playing or holding decoder/GPU
-                // resources after the dialog closes.
+                GamingManager.Current.StateChanged -= onGamingChange;
                 ReleaseVideoPreview();
             }
         }
