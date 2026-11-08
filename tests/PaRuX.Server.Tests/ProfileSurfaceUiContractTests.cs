@@ -184,6 +184,24 @@ public sealed class ProfileSurfaceUiContractTests
     }
 
     [Fact]
+    public void Gallery_delete_is_constrained_to_explicit_output_folders_at_both_confirmation_steps()
+    {
+        string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
+        string browser = Read("src", "PaRuX.App", "Services", "MediaGalleryBrowser.cs");
+        string policy = Read("src", "PaRuX.App", "Services", "MediaGalleryDeletionPolicy.cs");
+        Assert.Contains("IsEnabled = CanPermanentlyDelete(item)", gallery, StringComparison.Ordinal);
+        Assert.Contains("AppPaths.GeneratedImagesDir, SettingsStore.Current.Data.GeneratedImagesFolder", gallery, StringComparison.Ordinal);
+        Assert.Contains("AppPaths.GeneratedVideosDir, SettingsStore.Current.Data.GeneratedVideosFolder", gallery, StringComparison.Ordinal);
+        Assert.Contains("if (!CanPermanentlyDelete(item))", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryDeleteCoordinator", gallery, StringComparison.Ordinal);
+        Assert.Contains("File.Delete(path)", gallery, StringComparison.Ordinal);
+        Assert.Contains("MediaGalleryDeletionPolicy.CanDelete(item, generatedOutputFolders)", browser, StringComparison.Ordinal);
+        Assert.Contains("HasReparsePointInAncestry", policy, StringComparison.Ordinal);
+        Assert.Contains("Path.TrimEndingDirectorySeparator(root)", policy, StringComparison.Ordinal);
+        Assert.Contains("Path.TrimEndingDirectorySeparator(parent)", policy, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Gallery_previews_are_local_on_demand_bounded_and_release_video_resources()
     {
         string gallery = Read("src", "PaRuX.App", "Views", "MediaGalleryView.cs");
