@@ -104,9 +104,17 @@ namespace PaRuX.Services
 
                 // Cache trimming is best-effort; failure never affects the
                 // source output, and never claims a missing thumbnail exists.
-                try { TrimCache(); }
+                try
+                {
+                    // Cache cleanup can traverse hundreds of files on slow
+                    // portable drives: keep it off the WinUI dispatcher and
+                    // stop on Gaming/cancellation rather than doing disk work.
+                    await Task.Run(() => TrimCache(gamingActive, cancellationToken), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return null; }
                 catch (Exception ex) { Log.Write("Gallery thumbnail cache trim: " + ex.GetType().Name); }
-                return IsUsableCachedThumbnail(destination) ? destination : null;
+                return !gamingActive() && !cancellationToken.IsCancellationRequested
+                    && IsUsableCachedThumbnail(destination) ? destination : null;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -151,9 +159,10 @@ namespace PaRuX.Services
             }
         }
 
-        private static void TrimCache()
+        private static void TrimCache(Func<bool> gamingActive, CancellationToken ct)
         {
-            if (!Directory.Exists(CacheDirectory)) return;
+            if (ct.IsCancellationRequested || gamingActive() || !Directory.Exists(CacheDirectory))
+                return;
             FileInfo[] entries = new DirectoryInfo(CacheDirectory)
                 .EnumerateFiles()
                 .Where(f => MediaGalleryVideoThumbnailPolicy.IsCacheFileName(f.Name))
@@ -162,6 +171,7 @@ namespace PaRuX.Services
             long bytes = 0;
             for (int i = 0; i < entries.Length; i++)
             {
+                if (ct.IsCancellationRequested || gamingActive()) return;
                 FileInfo file = entries[i];
                 if (i < MediaGalleryVideoThumbnailPolicy.MaxCacheEntries
                     && bytes + file.Length <= MediaGalleryVideoThumbnailPolicy.MaxCacheBytes)
