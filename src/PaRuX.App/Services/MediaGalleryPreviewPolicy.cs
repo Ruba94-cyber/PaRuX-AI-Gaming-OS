@@ -39,7 +39,14 @@ namespace PaRuX.Services
                     return MediaGalleryPreviewKind.Unavailable;
                 string full = Path.GetFullPath(path);
                 if (!Uri.TryCreate(full, UriKind.Absolute, out Uri? uri)
-                    || !uri.IsFile || uri.IsUnc || !File.Exists(full))
+                    || !uri.IsFile || uri.IsUnc)
+                    return MediaGalleryPreviewKind.Unavailable;
+
+                // Reject link-file aliases before a decoder or shell opener can
+                // follow an unexpected target. File.GetAttributes also rejects
+                // missing/inaccessible and non-file paths.
+                FileAttributes attributes = File.GetAttributes(full);
+                if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
                     return MediaGalleryPreviewKind.Unavailable;
 
                 // Use the actual file extension, not untrusted Artifact metadata.
