@@ -195,6 +195,12 @@ namespace PaRuX.Services
                     }
                 });
             }
+            catch (Exception ex)
+            {
+                // Invoked fire-and-forget by WinUI ImageFailed: do not let an
+                // I/O fault surface as an unobserved task exception.
+                Log.Write("Gallery failed thumbnail invalidation: " + ex.GetType().Name);
+            }
             finally
             {
                 _decoderGate.Release();
