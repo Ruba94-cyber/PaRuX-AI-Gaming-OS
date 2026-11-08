@@ -280,6 +280,9 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("TryGetOwnedCacheFile(", service, StringComparison.Ordinal);
         Assert.Contains("IsStagingFileName(item.Name)", service, StringComparison.Ordinal);
         Assert.Contains("IsStaleStaging(item.LastWriteTimeUtc, now)", service, StringComparison.Ordinal);
+        Assert.Contains("private static bool IsCacheDirectorySafe()", service, StringComparison.Ordinal);
+        Assert.Contains("File.GetAttributes(CacheDirectory) & FileAttributes.ReparsePoint", service, StringComparison.Ordinal);
+        Assert.Contains("if (!IsCacheDirectorySafe()) return null;", service, StringComparison.Ordinal);
         Assert.Contains("item.Attributes & FileAttributes.ReparsePoint", service, StringComparison.Ordinal);
         Assert.Contains("StagingLifetimeHours = 24", policy, StringComparison.Ordinal);
         Assert.Contains("MaxCacheEntries = 256", policy, StringComparison.Ordinal);
