@@ -70,10 +70,13 @@ public sealed class MediaGalleryDeletionPolicyTests
         {
             string html = Write(images, "not-media.html");
             string videoInImages = Write(images, "video.mp4");
+            string imageInImages = Write(images, "image.png");
             MediaGalleryItem disguised = Item(html, "image", "image/png");
             Assert.False(MediaGalleryBrowser.CanDelete(disguised, images));
             Assert.False(MediaGalleryBrowser.CanDelete(
                 Item(videoInImages, "image", "image/png"), images));
+            Assert.False(MediaGalleryBrowser.CanDelete(
+                Item(imageInImages, "image", "video/mp4"), images));
             Assert.False(MediaGalleryBrowser.CanDelete(
                 MediaGalleryItemMapper.FromFile(videoInImages), videos));
         });
