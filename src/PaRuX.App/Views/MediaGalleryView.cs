@@ -533,7 +533,7 @@ namespace PaRuX.Views
             var deleteBtn = new Button
             {
                 Content = "Delete",
-                IsEnabled = MediaGalleryBrowser.CanDelete(item)
+                IsEnabled = CanPermanentlyDelete(item)
             };
             AutomationProperties.SetAutomationId(deleteBtn, $"MediaGallery_Delete_{item.Id}");
             deleteBtn.Click += async (_, _) => await HandleDeleteWithConfirmationAsync(item);
@@ -715,8 +715,28 @@ namespace PaRuX.Views
             }
         }
 
+        private static bool CanPermanentlyDelete(MediaGalleryItem item)
+        {
+            // Only the app's generated folders or the owner's explicit output
+            // folders qualify. Imported or external Artifact ContentRefs are
+            // not owned merely because they are visible in this gallery.
+            if (item.IsVideo)
+                return MediaGalleryBrowser.CanDelete(item,
+                    AppPaths.GeneratedVideosDir, SettingsStore.Current.Data.GeneratedVideosFolder);
+            if (item.IsImage)
+                return MediaGalleryBrowser.CanDelete(item,
+                    AppPaths.GeneratedImagesDir, SettingsStore.Current.Data.GeneratedImagesFolder);
+            return false;
+        }
+
         private async Task HandleDeleteWithConfirmationAsync(MediaGalleryItem item)
         {
+            if (!CanPermanentlyDelete(item))
+            {
+                _status.Text = "This file is outside the verified generated-media folders or has changed. "
+                    + "PaRuX will not delete an external or linked file. Use your file manager if you own it.";
+                return;
+            }
             _deleteCoordinator.RequestDelete(item.Id, item.Title, item.FilePath);
 
             var confirmDialog = new ContentDialog
@@ -739,6 +759,12 @@ namespace PaRuX.Views
 
             DeleteConfirmationResult delResult = _deleteCoordinator.ConfirmDelete(item.Id, path =>
             {
+                // Re-check at the last possible moment: the configured output
+                // folder, file identity or a directory junction can change
+                // while the confirmation dialog is open.
+                if (!CanPermanentlyDelete(item))
+                    throw new InvalidOperationException(
+                        "The output is no longer within a verified generated-media folder.");
                 if (File.Exists(path))
                 {
                     File.Delete(path);
