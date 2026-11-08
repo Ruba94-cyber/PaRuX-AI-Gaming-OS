@@ -51,7 +51,7 @@ namespace PaRuX.Views
         private readonly List<MediaGalleryItem> _allItems = new();
         private CancellationTokenSource? _refreshCts;
         private CancellationTokenSource? _thumbnailCts;
-        private readonly List<(MediaGalleryItem Item, Border Host)> _visibleVideoThumbnails = new();
+        private readonly List<(MediaGalleryItem Item, Border Host, UIElement Placeholder)> _visibleVideoThumbnails = new();
 
         public event EventHandler<MediaGalleryItem>? ItemReusedAsEditSource;
         public event EventHandler<MediaGalleryItem>? ItemDeleted;
@@ -370,18 +370,30 @@ namespace PaRuX.Views
 
         private void OnThumbnailGamingStateChanged(object? sender, EventArgs e)
         {
-            if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
-                _thumbnailCts?.Cancel();
+            if (!GamingManager.Current.IsActive && !LocalAiController.Current.IsGameActive())
+                return;
+            _thumbnailCts?.Cancel();
+            // Remove even previously cached video bitmaps when the user enters
+            // Gaming: no late decode or retained video-frame image in the
+            // Gallery UI while another process owns display/GPU resources.
+            foreach (var target in _visibleVideoThumbnails)
+            {
+                if (target.Host.Child is Image image)
+                {
+                    image.Source = null;
+                    target.Host.Child = target.Placeholder;
+                }
+            }
         }
 
         private async Task PopulateVideoThumbnailsAsync(
-            (MediaGalleryItem Item, Border Host)[] targets,
+            (MediaGalleryItem Item, Border Host, UIElement Placeholder)[] targets,
             CancellationTokenSource request)
         {
             CancellationToken ct = request.Token;
             try
             {
-                foreach ((MediaGalleryItem item, Border host) in targets)
+                foreach ((MediaGalleryItem item, Border host, UIElement placeholder) in targets)
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!ReferenceEquals(_thumbnailCts, request)
@@ -398,7 +410,7 @@ namespace PaRuX.Views
                         || !IsLoaded || GamingManager.Current.IsActive
                         || LocalAiController.Current.IsGameActive()) return;
 
-                    UIElement? fallback = host.Child;
+                    UIElement fallback = placeholder;
                     var thumbnail = new Image
                     {
                         Source = new BitmapImage(new Uri(imagePath))
@@ -514,7 +526,7 @@ namespace PaRuX.Views
                     });
                 }
                 thumbBox.Child = videoStack;
-                _visibleVideoThumbnails.Add((item, thumbBox));
+                _visibleVideoThumbnails.Add((item, thumbBox, videoStack));
             }
             else
             {
