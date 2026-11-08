@@ -269,7 +269,9 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxEncodedBytes", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.CacheKey(item, size, ticks)", service, StringComparison.Ordinal);
         Assert.Contains("File.Move(staging, destination, overwrite: true)", service, StringComparison.Ordinal);
-        Assert.Contains("await Task.Run(() => TrimCache(gamingActive, cancellationToken), cancellationToken)", service, StringComparison.Ordinal);
+        Assert.Contains("await Task.Run(() => TrimCache(gamingActive, ct), ct)", service, StringComparison.Ordinal);
+        Assert.Contains("CacheMaintenanceInterval = TimeSpan.FromMinutes(15)", service, StringComparison.Ordinal);
+        Assert.Contains("await MaintainCacheIfDueAsync(gamingActive, cancellationToken)", service, StringComparison.Ordinal);
         Assert.Contains("if (ct.IsCancellationRequested || gamingActive()) return;", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheEntries", service, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryVideoThumbnailPolicy.MaxCacheBytes", service, StringComparison.Ordinal);
