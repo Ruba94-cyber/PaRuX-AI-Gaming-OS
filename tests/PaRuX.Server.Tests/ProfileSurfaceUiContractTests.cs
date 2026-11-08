@@ -197,6 +197,8 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("File.Delete(path)", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGalleryDeletionPolicy.CanDelete(item, generatedOutputFolders)", browser, StringComparison.Ordinal);
         Assert.Contains("HasReparsePointInAncestry", policy, StringComparison.Ordinal);
+        Assert.Contains("if (MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable)", gallery, StringComparison.Ordinal);
+        Assert.Contains("results.Add(item)", gallery, StringComparison.Ordinal);
         Assert.Contains("Path.TrimEndingDirectorySeparator(root)", policy, StringComparison.Ordinal);
         Assert.Contains("Path.TrimEndingDirectorySeparator(parent)", policy, StringComparison.Ordinal);
     }
