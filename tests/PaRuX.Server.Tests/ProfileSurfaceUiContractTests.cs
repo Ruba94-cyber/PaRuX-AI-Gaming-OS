@@ -284,6 +284,10 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("File.GetAttributes(CacheDirectory) & FileAttributes.ReparsePoint", service, StringComparison.Ordinal);
         Assert.Contains("if (!IsCacheDirectorySafe()) return null;", service, StringComparison.Ordinal);
         Assert.Contains("item.Attributes & FileAttributes.ReparsePoint", service, StringComparison.Ordinal);
+        string trim = service.Split("private static void TrimCache", StringSplitOptions.None)[1];
+        Assert.True(trim.IndexOf("(item.Attributes & FileAttributes.ReparsePoint)", StringComparison.Ordinal)
+            < trim.IndexOf("IsStaleStaging(item.LastWriteTimeUtc, now)", StringComparison.Ordinal));
+        Assert.Contains("&& (f.Attributes & FileAttributes.ReparsePoint) == 0", trim, StringComparison.Ordinal);
         Assert.Contains("StagingLifetimeHours = 24", policy, StringComparison.Ordinal);
         Assert.Contains("MaxCacheEntries = 256", policy, StringComparison.Ordinal);
         Assert.Contains("MaxCacheBytes = 32L * 1024 * 1024", policy, StringComparison.Ordinal);
