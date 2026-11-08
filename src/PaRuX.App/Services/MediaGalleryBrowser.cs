@@ -94,9 +94,33 @@ namespace PaRuX.Services
         public static bool CanReveal(MediaGalleryItem? item)
         {
             if (item == null || string.IsNullOrWhiteSpace(item.FilePath)) return false;
-            if (File.Exists(item.FilePath)) return true;
-            string? dir = Path.GetDirectoryName(item.FilePath);
-            return !string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir);
+            string path = item.FilePath;
+            // The Explorer action is explicit, but may still trigger an
+            // unexpected network connection if Artifact metadata supplies UNC
+            // or a relative path. Inspect local outputs only.
+            if (path.StartsWith(@"\\", StringComparison.Ordinal)
+                || path.StartsWith("//", StringComparison.Ordinal))
+                return false;
+            try
+            {
+                if (!Path.IsPathFullyQualified(path)) return false;
+                string full = Path.GetFullPath(path);
+                if (!Uri.TryCreate(full, UriKind.Absolute, out Uri? uri) || !uri.IsFile || uri.IsUnc)
+                    return false;
+
+                if (MediaGalleryPreviewPolicy.KindFor(item) != MediaGalleryPreviewKind.Unavailable)
+                    return true;
+
+                // An interrupted/missing output can still be located in its
+                // existing local parent directory, without opening the file.
+                string? dir = Path.GetDirectoryName(full);
+                return !string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException
+                or IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
         }
 
         public static bool CanReuseAsEditSource(MediaGalleryItem? item) =>
