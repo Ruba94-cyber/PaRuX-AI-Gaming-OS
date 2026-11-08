@@ -22,7 +22,18 @@ namespace PaRuX.Services
             if (kind == MediaGalleryPreviewKind.Unavailable
                 || (item.IsVideo && kind != MediaGalleryPreviewKind.Video)
                 || (item.IsImage && kind != MediaGalleryPreviewKind.Image)
-                || (!item.IsVideo && !item.IsImage))
+                || (!item.IsVideo && !item.IsImage)
+                // The file extension, ArtifactType and MIME label can disagree.
+                // For destructive actions they must not claim opposing media
+                // kinds; do not let a renamed clip masquerade as an image.
+                || (string.Equals(item.ArtifactType, "image", StringComparison.OrdinalIgnoreCase)
+                    && kind != MediaGalleryPreviewKind.Image)
+                || (string.Equals(item.ArtifactType, "video", StringComparison.OrdinalIgnoreCase)
+                    && kind != MediaGalleryPreviewKind.Video)
+                || (item.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    && kind != MediaGalleryPreviewKind.Image)
+                || (item.MediaType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+                    && kind != MediaGalleryPreviewKind.Video))
                 return false;
 
             try
