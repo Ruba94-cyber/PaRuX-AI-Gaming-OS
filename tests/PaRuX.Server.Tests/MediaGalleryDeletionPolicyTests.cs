@@ -110,6 +110,9 @@ public sealed class MediaGalleryDeletionPolicyTests
             }
 
             Assert.False(MediaGalleryBrowser.CanDelete(MediaGalleryItemMapper.FromFile(alias), images));
+            Assert.Equal(MediaGalleryPreviewKind.Unavailable,
+                MediaGalleryPreviewPolicy.KindFor(MediaGalleryItemMapper.FromFile(alias)));
+            Assert.False(MediaGalleryBrowser.CanOpen(MediaGalleryItemMapper.FromFile(alias)));
             Assert.True(File.Exists(personal));
         });
     }
