@@ -483,6 +483,11 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(openBtn, $"MediaGallery_Open_{item.Id}");
             openBtn.Click += (_, _) =>
             {
+                if (!MediaGalleryBrowser.CanOpen(item))
+                {
+                    _status.Text = "This local output is no longer available or its file type has changed. Refresh the gallery.";
+                    return;
+                }
                 try
                 {
                     Process.Start(new ProcessStartInfo(item.FilePath) { UseShellExecute = true });
@@ -509,6 +514,11 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(revealBtn, $"MediaGallery_Reveal_{item.Id}");
             revealBtn.Click += (_, _) =>
             {
+                if (!MediaGalleryBrowser.CanReveal(item))
+                {
+                    _status.Text = "Cannot reveal this path: it is missing, remote or no longer a local output.";
+                    return;
+                }
                 try
                 {
                     Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{item.FilePath}\"") { UseShellExecute = true });
@@ -529,6 +539,11 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(reuseBtn, $"MediaGallery_ReuseEdit_{item.Id}");
             reuseBtn.Click += (_, _) =>
             {
+                if (!MediaGalleryBrowser.CanReuseAsEditSource(item))
+                {
+                    _status.Text = "The image source is no longer available or has changed. Refresh before editing.";
+                    return;
+                }
                 SetEditSourceResult result = MediaEditSourceBridge.Current.SetEditSource(item.FilePath, item.Prompt);
                 _status.Text = result.Message;
                 if (result.Success)
