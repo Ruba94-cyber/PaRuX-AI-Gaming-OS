@@ -297,6 +297,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryBrowser.cs" Link="MediaGallery\MediaGalleryBrowser.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryPreviewPolicy.cs" Link="MediaGallery\MediaGalleryPreviewPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryOutputRecovery.cs" Link="MediaGallery\MediaGalleryOutputRecovery.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryVideoThumbnailPolicy.cs" Link="MediaGallery\MediaGalleryVideoThumbnailPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryDeleteCoordinator.cs" Link="MediaGallery\MediaGalleryDeleteCoordinator.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaGalleryDeletionPolicy.cs" Link="MediaGallery\MediaGalleryDeletionPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MediaEditSourceBridge.cs" Link="MediaGallery\MediaEditSourceBridge.cs" />
