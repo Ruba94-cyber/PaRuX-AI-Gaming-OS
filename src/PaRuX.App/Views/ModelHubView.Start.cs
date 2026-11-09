@@ -143,6 +143,8 @@ namespace PaRuX.Views
             return Task.CompletedTask;
         }
 
+        private int _startAutoAssignedModelCount = -1;
+
         private void RefreshStart(bool all)
         {
             if (CorporateMode.IsActive)
@@ -189,6 +191,17 @@ namespace PaRuX.Views
                 _startRuntime = runtimeTask.Result ?? _startRuntime;
                 if (jobsTask.Result is { } jobs) _downloadJobs = jobs;
                 if (modelsTask.Result is { } models) { _managedModels = models; _startModelsKnown = true; }
+
+                // A freshly downloaded model must be usable at once: without a role assignment Chat still points at the
+                // factory default file (not downloaded) and fails with HTTP 503 while this board says "Ready". The server
+                // only fills roles the person has not chosen; it never replaces a choice they made.
+                if (_startModelsKnown && _managedModels.Count > 0 && _managedModels.Count != _startAutoAssignedModelCount)
+                {
+                    _startAutoAssignedModelCount = _managedModels.Count;
+                    try { await ModelDownloadClient.Current.AutoAssignRolesAsync(CancellationToken.None); }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    { Log.Write("Model Hub Start: role auto-assign after model change failed: " + ex.Message); }
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -602,7 +615,8 @@ namespace PaRuX.Views
                         ShowHubTab(id == "chat" ? ModelHubTab.Text : ModelHubTab.Media);
                         break;
                     case StartActionKind.OpenRuntimeSettings:
-                        App.MainWin?.ShowSettings();
+                        // The chat engine is installed from the Runtime Manager, not from the general Settings page.
+                        App.MainWin?.ShowRuntimeManager();
                         break;
                 }
             }

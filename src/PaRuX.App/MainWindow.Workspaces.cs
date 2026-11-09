@@ -194,6 +194,9 @@ namespace PaRuX
             }
         }
 
+        /// <summary>Opens the Runtime Manager workspace (engine installs), whichever interface mode is active.</summary>
+        public void ShowRuntimeManager() => TryNavigateWorkspace("__runtime__");
+
         private bool TryNavigateWorkspace(string tag)
         {
             // A link, keyboard action or UIA invoke must obey the SAME profile as the

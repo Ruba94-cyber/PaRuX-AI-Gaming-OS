@@ -266,6 +266,10 @@ namespace PaRuX.Services
                 // Typed modality refusals (no engine, unverified tools, Gaming, consent) get plain-English text and a next action.
                 if (ModalityRefusalPresenter.TryParse(body) is { } refusal && ModalityRefusalPresenter.IsKnown(refusal.Code))
                     throw new ModalityRefusalException(refusal);
+                // A missing model file, port conflict, OOM, ... get plain guidance with the next step, not raw JSON.
+                if (RuntimeRecoveryGuidance.Classify(body) != RuntimeRecoveryGuidance.Reason.Unknown)
+                    throw new LocalAiException(RuntimeRecoveryGuidance.Describe(body,
+                        System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it"));
                 throw new LocalAiException(
                     "PaRuX Core rejected the request (HTTP " + (int)resp.StatusCode + "). " + Trim(body));
             }
