@@ -83,6 +83,10 @@ public sealed class SteamGameDiscoveryProvider
                         installFolder.Contains('/') || installFolder.Contains('\\'))
                         continue;
 
+                    // Steam keeps its own runtimes and redistributables in the same library folders. They are
+                    // not games and must never appear (or be launchable) in the user's library.
+                    if (IsSteamInfrastructure(id, name)) continue;
+
                     string location = Path.Combine(directory, "common", installFolder);
                     if (!Directory.Exists(location)) continue;
                     games.TryAdd(id, new DiscoveredGameDto("steam", id, name, location,
@@ -96,6 +100,23 @@ public sealed class SteamGameDiscoveryProvider
         }
         return games.Values.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
+
+    private static readonly HashSet<string> InfrastructureAppIds = new(StringComparer.Ordinal)
+    {
+        "228980",   // Steamworks Common Redistributables
+        "1070560",  // Steam Linux Runtime 1.0 (scout)
+        "1391110",  // Steam Linux Runtime 2.0 (soldier)
+        "1628350",  // Steam Linux Runtime 3.0 (sniper)
+        "1493710",  // Proton Experimental
+        "2180100",  // Proton Hotfix
+    };
+
+    /// <summary>True for Steam's own runtimes, Proton builds and redistributable packages (not games).</summary>
+    internal static bool IsSteamInfrastructure(string appId, string name) =>
+        InfrastructureAppIds.Contains(appId) ||
+        name.StartsWith("Steamworks Common Redistributables", StringComparison.OrdinalIgnoreCase) ||
+        name.StartsWith("Steam Linux Runtime", StringComparison.OrdinalIgnoreCase) ||
+        name.StartsWith("Proton ", StringComparison.OrdinalIgnoreCase) && !name.Contains(" - ", StringComparison.Ordinal);
 
     /// <summary>
     /// Valve's appmanifest StateFlags bit set: 1 uninstalled, 2 update required, 4 fully installed,

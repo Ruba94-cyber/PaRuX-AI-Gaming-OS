@@ -7,6 +7,8 @@ namespace PaRuX.Models
     {
         // New installations default to the approved dark graphite finish. Existing saved choices remain unchanged.
         public string Theme { get; set; } = "Dark";
+        /// <summary>Interface language: "en" (default, independent of the Windows display language) or "it".</summary>
+        public string UiLanguage { get; set; } = "en";
         public bool StartWithWindows { get; set; }
         public bool StudioModeEnabled { get; set; }
         /// <summary>Last top-level shell tab: "AI" (default, also used for any unknown value) or "Gaming".</summary>

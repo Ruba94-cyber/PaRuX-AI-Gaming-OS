@@ -31,6 +31,33 @@ public sealed class SteamGameDiscoveryTests
     }
 
     [Fact]
+    public void Steam_runtimes_and_redistributables_are_not_listed_as_games()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-steam-infra-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string steamapps = Path.Combine(root, "steamapps");
+            foreach ((string id, string name, string dir) in new[]
+            {
+                ("228980", "Steamworks Common Redistributables", "Steamworks Shared"),
+                ("1493710", "Proton Experimental", "Proton - Experimental"),
+                ("1628350", "Steam Linux Runtime 3.0 (sniper)", "SteamLinuxRuntime_sniper"),
+                ("42", "Demo Game", "Demo"),
+            })
+            {
+                Directory.CreateDirectory(Path.Combine(steamapps, "common", dir));
+                File.WriteAllText(Path.Combine(steamapps, "appmanifest_" + id + ".acf"),
+                    "\"AppState\"\n{\n\"appid\" \"" + id + "\"\n\"name\" \"" + name + "\"\n\"installdir\" \"" + dir + "\"\n}");
+            }
+
+            var games = new SteamGameDiscoveryProvider(root).Discover(CancellationToken.None);
+
+            Assert.Equal(new[] { "Demo Game" }, games.Select(g => g.Name));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void Ignores_uninstalled_and_traversal_manifests_without_scanning_other_directories()
     {
         string root = Path.Combine(Path.GetTempPath(), "parux-steam-discovery-" + Guid.NewGuid().ToString("N"));

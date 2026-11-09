@@ -219,6 +219,18 @@ internal sealed class GamingHomeView : StackPanel
 
     private void AddToolbar(FrameworkElement element) => _toolbar.Children.Add(element);
 
+    /// <summary>A vertical, scrollable menu holding the secondary library controls; they keep their AutomationIds.</summary>
+    private static Flyout BuildToolbarFlyout(IEnumerable<FrameworkElement> controls)
+    {
+        var panel = new StackPanel { Spacing = 8, MinWidth = 280, MaxWidth = 360 };
+        foreach (FrameworkElement control in controls)
+        {
+            control.HorizontalAlignment = HorizontalAlignment.Stretch;
+            panel.Children.Add(control);
+        }
+        return new Flyout { Content = new ScrollViewer { Content = panel, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
+    }
+
     private void BuildToolbar()
     {
         // Headers above every filter doubled the toolbar's height and repeated what the selected entry already says
@@ -397,10 +409,23 @@ internal sealed class GamingHomeView : StackPanel
         Track(_refresh, "GameTitles_Refresh_Button", T("Refresh the game list", "Aggiorna l'elenco dei giochi"));
         _refresh.Click += async (_, _) => await ReloadAsync(refresh: true);
 
+        // Playnite-style slim bar: search, sort, source, favourites, view and refresh stay in reach; the rest of the
+        // filters and the library tools open from two menus, so the cover grid is visible straight away.
+        var moreFilters = new Button { Content = T("Filters", "Filtri") + "  \u25BE" };
+        Track(moreFilters, "GameHome_MoreFilters_Button", T("More filters: platform, install state, tag, collection, saved filters",
+            "Altri filtri: piattaforma, installazione, tag, collezione, filtri salvati"));
+        moreFilters.Flyout = BuildToolbarFlyout(new FrameworkElement[]
+            { _platform, _installed, _tag, _collectionFilter, _collectionApply, _showHidden, _presets, _presetSave, _presetDelete });
+        var libraryTools = new Button { Content = T("More", "Altro") + "  \u25BE" };
+        Track(libraryTools, "GameHome_LibraryTools_Button", T("Library tools: covers, imports, game guide, wishlist, multi-select",
+            "Strumenti libreria: copertine, importazione, guida giochi, lista desideri, selezione multipla"));
+        libraryTools.Flyout = BuildToolbarFlyout(new FrameworkElement[]
+            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode });
+        VariableSizedWrapGrid.SetColumnSpan(_search, 2);
+        VariableSizedWrapGrid.SetColumnSpan(_sort, 2);
+        VariableSizedWrapGrid.SetColumnSpan(_source, 2);
         foreach (FrameworkElement element in new FrameworkElement[]
-                 { _search, _sort, _source, _platform, _installed, _tag, _collectionFilter, _collectionApply,
-                   _favoritesOnly, _showHidden, _layout, _presets, _presetSave, _presetDelete,
-                   _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _refresh })
+                 { _search, _sort, _source, _favoritesOnly, _layout, moreFilters, libraryTools, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -979,10 +1004,12 @@ internal sealed class GamingHomeView : StackPanel
         _titleHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         AutomationProperties.SetHeadingLevel(_titleHeading, AutomationHeadingLevel.Level2);
         AutomationProperties.SetAutomationId(_titleHeading, "GameHome_Heading");
+        _titleHeading.Visibility = Visibility.Collapsed;   // duplicates the page title; kept for older tests/automation
         Children.Add(_titleHeading);
         _introDescription.Text = T(
             "Every game once, however you start it: Steam, Epic, GOG, a local copy or an emulator.",
             "Ogni gioco una sola volta, comunque lo avvii: Steam, Epic, GOG, copia locale o emulatore.");
+        _introDescription.Visibility = Visibility.Collapsed;
         Children.Add(_introDescription);
 
         // Quick Resume status near the top: what is paused now and what the start-up recovery did. The full panel stays below.
@@ -992,7 +1019,7 @@ internal sealed class GamingHomeView : StackPanel
         Track(_quickResumeManage, "GameHome_QuickResume_Manage", T("Show Quick Resume: pause and resume open apps", "Mostra Quick Resume: metti in pausa e riprendi le app aperte"));
         _quickResumeManage.Click += (_, _) => { _quickResume.StartBringIntoView(); _ = _quickResume.RefreshAsync(); };
         // One wrapping action row (Quick Resume, AI mods) instead of two stacked rows: the library gets the screen.
-        var quickRow = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemHeight = 52 };
+        var quickRow = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemHeight = 52, ItemWidth = 210 };
         _quickResumeManage.Margin = new Thickness(0, 0, 8, 8);
         quickRow.Children.Add(_quickResumeManage);
         _gameAssetStudio.Content = T("AI Game Asset Mods", "Mod IA asset dei giochi");
@@ -1019,7 +1046,10 @@ internal sealed class GamingHomeView : StackPanel
         _installedMods.Margin = new Thickness(0, 0, 8, 8);
         quickRow.Children.Add(_gameAssetStudio);
         quickRow.Children.Add(_installedMods);
-        quickRow.Children.Add(new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 8) });
+        _quickResumeSummary.TextWrapping = TextWrapping.Wrap;
+        var summaryHost = new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 8) };
+        summaryHost.MaxWidth = 210;
+        quickRow.Children.Add(summaryHost);
 
         _hero.PlayRequested += async t => await PlayAsync(t);
         _hero.DetailsRequested += async t => await OpenAsync(t);
@@ -1146,6 +1176,12 @@ internal sealed class GamingHomeView : StackPanel
 
     private void ApplyBrushes()
     {
+        foreach (Control toggle in new Control[] { _favoritesOnly, _layout, _showHidden, _selectMode, _metadata })
+        {
+            toggle.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
+            toggle.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+            toggle.BorderThickness = new Thickness(1);
+        }
         _bulkBar.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush");
         _bulkBar.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush");
         // These are retained fields so a live Dark / Light / High Contrast switch
@@ -1228,7 +1264,7 @@ internal sealed class GamingHomeView : StackPanel
         _clearFilters.FontSize = size;
         _clearFilters.MinHeight = enabled ? 56 : 44;
         _bulkCount.FontSize = size;
-        _toolbar.ItemWidth = enabled ? 300 : 190;
+        _toolbar.ItemWidth = enabled ? 300 : 110;
         _toolbar.ItemHeight = enabled ? 100 : 56;
         foreach (FrameworkElement element in _toolbar.Children) { element.Margin = new Thickness(0, 0, 8, 8); element.VerticalAlignment = VerticalAlignment.Bottom; element.HorizontalAlignment = HorizontalAlignment.Stretch; }
         _bulkActions.ItemWidth = enabled ? 300 : 190;

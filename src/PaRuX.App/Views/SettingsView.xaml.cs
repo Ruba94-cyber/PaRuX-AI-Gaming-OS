@@ -2214,6 +2214,7 @@ namespace PaRuX.Views
                 AppSettings s = SettingsStore.Current.Data;
 
                 SelectByTag(ThemeCombo, s.Theme);
+                SelectByTag(LanguageCombo, PaRuX.Services.UiLanguage.Normalize(s.UiLanguage));
                 LoadSetupProfile();
                 SelectByTag(BubbleCombo, s.BubbleMode);
                 SelectByTag(ProfileCombo, s.DefaultProfile);
@@ -2290,6 +2291,22 @@ namespace PaRuX.Views
         {
             var item = combo.SelectedItem as ComboBoxItem;
             return item == null ? null : item.Tag as string;
+        }
+
+        private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            string? tag = SelectedTag(LanguageCombo);
+            if (tag == null) return;
+            string language = PaRuX.Services.UiLanguage.Normalize(tag);
+            if (language == PaRuX.Services.UiLanguage.Normalize(SettingsStore.Current.Data.UiLanguage)) return;
+
+            SettingsStore.Current.Data.UiLanguage = language;
+            SettingsStore.Current.Save();
+            PaRuX.Services.UiLanguage.Apply(language);
+            LanguageHint.Text = language == PaRuX.Services.UiLanguage.Italian
+                ? "Riavvia PaRuX per applicare la lingua a tutte le schermate."
+                : "Restart PaRuX to apply the language to every screen.";
         }
 
         private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
