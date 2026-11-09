@@ -19,6 +19,25 @@ Only results actually executed on the reference PC are recorded here. Anything n
 | QA-011 | New Gaming completion status/score unit tests | `d5822aaf` | pass | 76 related tests pass; first run found a real bug (state clone dropped the new fields), fixed | PASS | `GameCompletionStatusTests` |
 | QA-012 | FlaUI Regression 3 (fresh publish of `d5822aaf`) | in progress | - | - | NOT YET RECORDED | - |
 
+## Manual real-app session (2026-11-09, Debug build of `main`, isolated data root, 2560x1600 at 200%)
+
+Driven by hand through the real desktop UI (screenshots reviewed), not by automation. Results are what was observed, not a full pass.
+
+| ID | Flow | Observed | Result |
+|---|---|---|---|
+| MAN-001 | Default language | UI was a mix of Italian/English because it followed the Windows language; English is now the default, Italian selectable in Settings > Language (hint text switches both ways; full Italian rendering after restart not re-checked) | FIXED, partly checked |
+| MAN-002 | Gaming tab layout | One endless page with ~17 toolbar controls; library below the fold; filter rail stacked above the library below ~900 DIP. Now sections Library / Downloads / Add & import / Devices & session, slim toolbar with Filters/More menus, rail kept beside the library on laptop widths | FIXED, visually checked |
+| MAN-003 | Steam discovery | The only "game" found was "Steamworks Common Redistributables" | FIXED (unit test), library now correctly empty on this PC |
+| MAN-004 | Add a local game, Play | Manual entry added; launch needs explicit confirmation; Notepad launched; Return to AI removed the Gaming marker but the message said "could not be confirmed" when no AI model existed | message FIXED (not re-run) |
+| MAN-005 | Display/controller checks | "Inspect connected displays" and "Check controllers" run; no XInput controller detected (none connected) | OBSERVED |
+| MAN-006 | Cover art from the internet | Feature exists but was off by default and hidden in a menu | opt-in banner added, NOT yet exercised against the network |
+| MAN-007 | Model Hub "Set up the chat engine" | Led to generic Settings (dead end) | FIXED: opens Runtime Manager |
+| MAN-008 | Install llama.cpp CUDA (b12233, 569.6 MB) via Runtime Manager | Downloaded, extracted, RTX 5080 shown as `text-cuda` 15.6 GB | PASS |
+| MAN-009 | Download Qwen3-4B-Q4_K_M.gguf (2.3 GB) via Start board | Download plan reviewed (hardware fit "Excellent full-GPU fit"), completed | PASS |
+| MAN-010 | First chat after download | HTTP 503 "File not found Qwen3.8-27B-UD-IQ4_XS.gguf" while the Start board said Ready (role not assigned) | FAIL then FIXED (auto-assign) |
+| MAN-011 | Chat reply on the RTX 5080 | Header "Qwen 4B . Standard", streamed answer received. No latency or tokens/s measured | PASS (functional only) |
+| MAN-012 | Create > image setup (~24.2 GB) | Started, downloading ComfyUI | IN PROGRESS |
+
 ## Known open QA items (not resolved)
 
 - The 19 QA-010 failures: Console/TV (tests now select the Gaming tab first), Onboarding card/idle state, Chat history/resize, Gaming-only profile restart, Model Hub layout bounds at 560x560, Settings scroll, tile arrow-key navigation, manual library add/remove. To be triaged from QA-012.
