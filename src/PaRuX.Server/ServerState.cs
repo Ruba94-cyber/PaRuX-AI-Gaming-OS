@@ -10,7 +10,59 @@ public sealed class ServerState
 
     public const string DefaultEndpoint = "http://127.0.0.1:51123";
 
-    public string Endpoint { get; } = DefaultEndpoint;
+    public const int PreferredPort = 51123;
+
+    /// <summary>Port Core actually listens on. 51123 unless Windows reserved it (Hyper-V/WSL2/Docker excluded
+    /// port ranges) or another program owns it; then a free loopback port is used and published in the bootstrap file.</summary>
+    public static int CorePort { get; private set; } = PreferredPort;
+
+    public string Endpoint => "http://127.0.0.1:" + CorePort.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Picks the Core port by really binding it on both loopback families, which also detects
+    /// Windows excluded port ranges that an active-listener scan cannot see.</summary>
+    public static int ChooseCorePort()
+    {
+        CorePort = CanBindLoopback(PreferredPort) ? PreferredPort : FindFreeLoopbackPort();
+        return CorePort;
+    }
+
+    private static bool CanBindLoopback(int port)
+    {
+        foreach (System.Net.IPAddress address in new[] { System.Net.IPAddress.Loopback, System.Net.IPAddress.IPv6Loopback })
+        {
+            try
+            {
+                using var probe = new System.Net.Sockets.TcpListener(address, port);
+                probe.Start();
+                probe.Stop();
+            }
+            catch (System.Net.Sockets.SocketException e)
+                when (e.SocketErrorCode is System.Net.Sockets.SocketError.AddressFamilyNotSupported
+                    or System.Net.Sockets.SocketError.AddressNotAvailable
+                    or System.Net.Sockets.SocketError.ProtocolNotSupported)
+            {
+                // IPv6 loopback may be disabled; Kestrel's localhost binding tolerates that too.
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int FindFreeLoopbackPort()
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            int port = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            if (CanBindLoopback(port)) return port;
+        }
+        return PreferredPort;
+    }
     public string Token { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     public static string StateDirectory => Path.Combine(

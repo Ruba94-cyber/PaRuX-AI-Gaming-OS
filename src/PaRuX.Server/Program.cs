@@ -29,10 +29,11 @@ LocalApiServerService.VendorModelDefault = gatewaySettings.VendorModelDefault;
 // The gateway port is bound only when free: another program owning it must not stop PaRuX Core.
 int? gatewayPort = gatewaySettings.Enabled && PaRuX.Server.Gateway.GatewaySettings.IsPortFree(gatewaySettings.Port)
     ? gatewaySettings.Port : null;
+int corePort = ServerState.ChooseCorePort();
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 64L * 1024 * 1024;
-    options.ListenLocalhost(51123);
+    options.ListenLocalhost(corePort);
     if (gatewayPort is int port) options.ListenLocalhost(port);
     RemoteAccessService.RemoteAccessConfiguration remote = RemoteAccessService.LoadConfiguration();
     if (remote.Enabled && RemoteAccessService.IsPrivateAssignedAddress(remote.Address))
@@ -1375,7 +1376,7 @@ app.MapGet("/api/v1/web/access", (HttpContext context, WebAccessService web) =>
         Enabled = web.Enabled,
         PassphraseSet = web.PassphraseSet,
         ActiveSessions = web.ActiveSessionCount,
-        LocalUrl = "http://127.0.0.1:51123" + WebClientEndpoint.Path
+        LocalUrl = "http://127.0.0.1:" + ServerState.CorePort + WebClientEndpoint.Path
     });
 });
 
@@ -1393,7 +1394,7 @@ app.MapPost("/api/v1/web/access", (
             Enabled = web.Enabled,
             PassphraseSet = web.PassphraseSet,
             ActiveSessions = web.ActiveSessionCount,
-            LocalUrl = "http://127.0.0.1:51123" + WebClientEndpoint.Path
+            LocalUrl = "http://127.0.0.1:" + ServerState.CorePort + WebClientEndpoint.Path
         });
     }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }

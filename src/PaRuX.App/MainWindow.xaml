@@ -25,7 +25,7 @@
         <Border
             x:Name="ModeTabsHost"
             Grid.Row="0"
-            Padding="16,8,16,8"
+            Padding="16,4,16,4"
             Background="{ThemeResource PaRuXGrapheneHeaderBrush}"
             BorderBrush="{ThemeResource PaRuXStrokeBrush}"
             BorderThickness="0,0,0,1">
@@ -33,7 +33,7 @@
                     Background="{ThemeResource PaRuXSurfaceSubtleBrush}"
                     BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
                     BorderThickness="1"
-                    Padding="8,2" CornerRadius="{StaticResource PaRuXRadiusLarge}">
+                    Padding="4,0" CornerRadius="{StaticResource PaRuXRadiusLarge}">
                 <SelectorBar
                 x:Name="ModeTabs"
                 HorizontalAlignment="Left"
@@ -44,18 +44,18 @@
                 <SelectorBarItem
                     x:Name="ModeTabAiItem"
                     Text="AI"
-                    MinHeight="44"
-                    MinWidth="96"
-                    FontSize="{StaticResource PaRuXFontSizeSubtitle}"
+                    MinHeight="32"
+                    MinWidth="72"
+                    FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_AI"
                     AutomationProperties.Name="AI mode"
                     ToolTipService.ToolTip="AI (Ctrl+1)" />
                 <SelectorBarItem
                     x:Name="ModeTabGamingItem"
                     Text="Gaming"
-                    MinHeight="44"
-                    MinWidth="96"
-                    FontSize="{StaticResource PaRuXFontSizeSubtitle}"
+                    MinHeight="32"
+                    MinWidth="72"
+                    FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_Gaming"
                     AutomationProperties.Name="Gaming mode"
                     ToolTipService.ToolTip="Gaming (Ctrl+2)" />
