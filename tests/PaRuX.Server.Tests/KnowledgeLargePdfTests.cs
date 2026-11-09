@@ -90,7 +90,7 @@ public sealed class KnowledgeLargePdfTests : IDisposable
         Assert.Contains("p. 48", match.Citation);
         Assert.Contains(seen, p => p.CurrentPage == 16 && p.TotalPages == 48);
         Assert.Contains(seen, p => p.CurrentPage == 32);
-        Assert.Contains(index.Problems("corporate"), p => p.Kind == "partial" && p.Reason.Contains("1 page(s)"));
+        Assert.Contains(index.Problems("corporate"), p => p.Kind == "partial" && p.Reason.Contains("1 PDF page(s)"));
         Assert.Equal(0, StagedRows(Database, "kn_pdf_progress"));
         Assert.Equal(0, StagedRows(Database, "kn_pdf_staging"));
     }

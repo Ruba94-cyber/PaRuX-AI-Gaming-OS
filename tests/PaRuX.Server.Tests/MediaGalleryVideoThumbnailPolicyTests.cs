@@ -33,7 +33,7 @@ public sealed class MediaGalleryVideoThumbnailPolicyTests
         Assert.Null(MediaGalleryVideoThumbnailPolicy.CacheKey(Video(@"\\server\share\clip.mp4"), 12, 100));
         Assert.Null(MediaGalleryVideoThumbnailPolicy.CacheKey(Video("https://example.org/clip.mp4"), 12, 100));
         Assert.Null(MediaGalleryVideoThumbnailPolicy.CacheKey(Video("clip.mp4"), 12, 100));
-        Assert.Null(MediaGalleryVideoThumbnailPolicy.CacheKey(Image(path), 12, 100));
+        Assert.Null(MediaGalleryVideoThumbnailPolicy.CacheKey(Image(Path.Combine(Path.GetTempPath(), "test.png")), 12, 100));
     }
 
     [Fact]

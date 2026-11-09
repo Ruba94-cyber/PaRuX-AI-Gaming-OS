@@ -140,8 +140,8 @@ public sealed class TrainingRuntimeV2Tests
         string root = FindRepositoryRoot();
         string service = File.ReadAllText(Path.Combine(root, "src", "PaRuX.Server", "TrainingLabService.cs"));
 
-        Assert.Equal(5, CountOccurrences(service, "save_strategy=\"steps\""));
-        Assert.Equal(5, CountOccurrences(service, "trainer.train(resume_from_checkpoint=resume_checkpoint)"));
+        Assert.Equal(7, CountOccurrences(service, "save_strategy=\"steps\""));
+        Assert.Equal(7, CountOccurrences(service, "trainer.train(resume_from_checkpoint=resume_checkpoint)"));
         Assert.Contains("parux-training-complete", service, StringComparison.Ordinal);
         Assert.Contains("FindLatestCompleteCheckpoint", service, StringComparison.Ordinal);
         Assert.Contains("Recovery deferred by Gaming Mode", service, StringComparison.Ordinal);

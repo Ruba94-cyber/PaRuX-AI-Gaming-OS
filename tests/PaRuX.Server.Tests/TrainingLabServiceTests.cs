@@ -48,7 +48,6 @@ public sealed class TrainingLabServiceTests : IDisposable
 
     [Theory]
     [InlineData("ppo")]
-    [InlineData("orpo")]
     [InlineData("gibberish")]
     public void NormalizeMethod_rejects_an_unknown_method(string raw)
     {

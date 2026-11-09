@@ -98,7 +98,7 @@ public sealed class AdvancedTrainingMethodsTests : IDisposable
             "Qwen/Qwen2.5-0.5B-Instruct", 16, 60, 5e-6, 16);
         Assert.True(plan.CanStart);
         Assert.True(shape.SupportsPreferenceTuning);
-        Assert.Equal(5e-6, plan.Recommended.LearningRate, 8);
+        Assert.Equal(1e-5, plan.Recommended.LearningRate, 8);
     }
 
     [Fact]

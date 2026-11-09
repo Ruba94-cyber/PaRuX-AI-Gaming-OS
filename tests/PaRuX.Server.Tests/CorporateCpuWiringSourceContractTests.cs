@@ -58,6 +58,7 @@ public sealed class CorporateCpuWiringSourceContractTests
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "PaRuX.sln")))
             dir = dir.Parent;
         if (dir == null) throw new DirectoryNotFoundException("PaRuX.sln not found.");
-        return File.ReadAllText(Path.Combine(new[] { dir.FullName }.Concat(path).ToArray()));
+        return File.ReadAllText(Path.Combine(new[] { dir.FullName }.Concat(path).ToArray()))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 }

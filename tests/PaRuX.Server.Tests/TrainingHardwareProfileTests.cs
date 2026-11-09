@@ -23,14 +23,14 @@ public sealed class TrainingHardwareProfileTests
     }
 
     [Fact]
-    public void Cpu_only_machine_such_as_an_amd_igpu_records_five_unsupported_methods_with_reason()
+    public void Cpu_only_machine_such_as_an_amd_igpu_records_seven_unsupported_methods_with_reason()
     {
         IReadOnlyList<string> advertised = TrainingRuntimeCatalog.MethodsForProbe(
             new TrainingRuntimeProbe { ImportsValid = true, Backend = "cpu" });
         var unsupported = TrainingHardwareProfile.Unsupported(true, "cpu", advertised);
 
         Assert.Equal(new[] { TrainingMethod.TtsSft }, advertised);
-        Assert.Equal(5, unsupported.Count);
+        Assert.Equal(7, unsupported.Count);
         Assert.DoesNotContain(unsupported, u => u.Method == TrainingMethod.TtsSft);
         Assert.All(unsupported, u => Assert.Contains("CUDA", u.Reason));
         Assert.Contains("ROCm", unsupported[0].Reason);
@@ -59,7 +59,7 @@ public sealed class TrainingHardwareProfileTests
         TrainingEngineStatus dto = TrainingRuntimeV2Endpoints.ToContract(status);
 
         Assert.Equal("cpu-tts-only", dto.HardwareProfile);
-        Assert.Equal(5, dto.UnsupportedMethods.Count);
+        Assert.Equal(7, dto.UnsupportedMethods.Count);
         Assert.Equal(new[] { TrainingMethod.TtsSft }, dto.AvailableMethods);
     }
 }
