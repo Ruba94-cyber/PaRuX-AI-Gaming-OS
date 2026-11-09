@@ -5,9 +5,9 @@ Source of truth for this cycle: evidence in `docs/QA_EVIDENCE.md`, verdict in `d
 | ID | Component | Work | Depends on | Pri | Acceptance | Tests | Status |
 |---|---|---|---|---|---|---|---|
 | REL-001 | Whole solution | Merged `main` (646 source-only commits) compiles | - | P0 | 0 build errors | Release build | VERIFIED (QA-002) |
-| REL-002 | Server tests | Server xUnit green | REL-001 | P0 | all pass | full xUnit | TESTED (QA-003/004; the full suite was not re-run after the test fixes) |
+| REL-002 | Server tests | Server xUnit green | REL-001 | P0 | all pass | full xUnit | VERIFIED (QA-014: 13,036 pass / 0 fail / 9 skipped) |
 | REL-003 | Core server | Start when Windows reserves 51123 (Hyper-V/WSL2/Docker) | - | P0 | Core binds a free loopback port and publishes it in bootstrap.json | `CorePortSelectionTests`, FlaUI Smoke 35/35 | VERIFIED (QA-007/008/009) |
-| REL-004 | FlaUI Regression | All non-hardware UI tests pass | REL-003 | P0 | 0 failures | FlaUI Regression | PARTIAL (289/308; 19 to triage, QA-010/012) |
+| REL-004 | FlaUI Regression | All non-hardware UI tests pass | REL-003 | P0 | 0 failures | FlaUI Regression | PARTIAL (273/308 at `031baa84`, QA-015: 31 Gaming tests stale after the section split `15c1d6fc` + 4 assertion failures; fix in progress) |
 | REL-005 | Shell | AI/Gaming mode tab compact but >= 44 px touch target | - | P2 | ~half the previous height, test passes | FlaUI tab target test | IMPLEMENTED (visual check pending) |
 | GAM-001 | Gaming library | Per-game completion status + 0-10 score, sort by score | - | P1 | persists across restart, shown in details, sortable | `GameCompletionStatusTests` (unit) | TESTED (unit only; no FlaUI yet) |
 | GAM-002 | Gaming home | Compact toolbar/action rows so covers are above the fold | - | P2 | library tiles visible without scrolling at 1280x800 DIP | screenshot + FlaUI | IMPLEMENTED (not yet visually verified) |
@@ -18,7 +18,8 @@ Source of truth for this cycle: evidence in `docs/QA_EVIDENCE.md`, verdict in `d
 | GAM-007 | Gaming | Sunshine/Moonlight, HDR/VRR handling | - | P2 | documented limitation or working integration | hardware | NOT IMPLEMENTED |
 | PKG-001 | Packaging | MSI, Portable, Portable Corporate, APK built, installed on a clean profile, signed | REL-004 | P0 | all 4 verified | install tests, signature verification | NOT IMPLEMENTED (not run; signing material location unconfirmed) |
 | PERF-001 | Performance | TTFT, tokens/s, VRAM, startup, Gaming FPS (<2% regression) | - | P1 | measured, documented | benchmarks | NOT IMPLEMENTED (not run this cycle) |
-| SEC-001 | Security | Audit of credentials, processes, downloads, archives, plugins | - | P0 | no critical open | review | NOT IMPLEMENTED |
+| SEC-001 | Security | Audit of credentials, processes, downloads, archives, plugins | - | P0 | no critical open | review | PARTIAL (static review QA-017: 0 Critical / 0 High / 7 Medium in `docs/SECURITY_REVIEW.md`; remediation of SEC-F01..F06 and `dotnet list package --vulnerable` pending) |
+| REL-006 | Native verification | Real-app verification of the 17 SOURCE PARTIAL sections below | REL-004 | P1 | each section's automatable checks executed on the reference PC | per `.ai/artifacts/native-verification-matrix.md` | NOT IMPLEMENTED (unit level only: all 19 named xUnit classes pass in QA-014) |
 | UX-001 | UI | Scaling 100/125/150/200%, QHD/4K/TV, multi-monitor, WCAG AA pass | - | P2 | no clipping | visual FlaUI | PARTIAL (200% on 1280x800 DIP only) |
 
 ## 2026-11-08 — Video-thumbnail cache crash recovery, broken-image invalidation and junction guard (SOURCE PARTIAL)

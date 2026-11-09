@@ -17,7 +17,13 @@ Only results actually executed on the reference PC are recorded here. Anything n
 | QA-009 | FlaUI Smoke after fix | `3997fb3f` published app | 35/35 | 35 pass / 0 fail (2 m 9 s) | PASS | `.ai/flaui-smoke2.log` |
 | QA-010 | FlaUI Regression (`Category!=HardwareE2E`) after fix | `3997fb3f` | all pass | 289 pass / 19 fail of 308 (25 m 22 s) | PARTIAL | `.ai/flaui-regression2.log` |
 | QA-011 | New Gaming completion status/score unit tests | `d5822aaf` | pass | 76 related tests pass; first run found a real bug (state clone dropped the new fields), fixed | PASS | `GameCompletionStatusTests` |
-| QA-012 | FlaUI Regression 3 (fresh publish of `d5822aaf`) | in progress | - | - | NOT YET RECORDED | - |
+| QA-012 | FlaUI Regression 3 (fresh publish of `d5822aaf`) | `d5822aaf` | all pass | 297 pass / 11 fail of 308 (23 m 11 s) | PARTIAL | `.ai/flaui-regression3.log` |
+| QA-013 | `#folder` mention + Document search drag-and-drop: build and targeted xUnit | `f420f347` | 0 errors, all pass | Debug x64 build 0 errors; 34 targeted tests pass. Real-app drag-and-drop and a live `#mention` chat round trip NOT run | PASS (unit only) | `DocumentMentionPolicyTests` |
+| QA-014 | Full `PaRuX.Server.Tests` re-run after all test fixes | `f420f347` + working tree of `031baa84`, 27 m 18 s | all pass | 13,036 pass / 0 fail / 9 skipped of 13,045 | PASS | `.ai/testresults/server-rc1.trx` (local) |
+| QA-015 | FlaUI Regression on a fresh publish | working tree of `031baa84` | all pass | 273 pass / 35 fail of 308 (30 m 41 s). 31 failures are Gaming tests that still expect controls on the default section after the Library/Downloads/Add & import/Devices split (`15c1d6fc`); 4 assertion failures (Model Hub Start board, explicit discovery refresh, onboarding idle state, one Console test) | PARTIAL, triage in progress | `.ai/artifacts/flaui-regression-rc1.log` |
+| QA-016 | Onboarding: choose "Gaming only" while first-run component detection is running | `031baa84` | switch accepted | Was refused with "Finish the current check" (product bug: read-only detection set the busy flag); fixed, FlaUI test passes in QA-015 | FAIL then fixed | `SetupProfileCoverageTests` |
+| QA-017 | Static security review | `f420f347` | no Critical/High | 0 Critical / 0 High / 7 Medium / 10 Low / 3 Info; nothing remediated yet; static reading only, several areas not reviewed | REVIEWED, not remediated | [SECURITY_REVIEW.md](SECURITY_REVIEW.md) |
+| QA-018 | Agent worktree / branch reconciliation | `main` | no unmerged work lost | all 26 `worktree-agent-*` branches have 0 patches missing from `main` (`git cherry`); the `remote/l*` branches differ by commit identity (squash-merged per `BRANCH_RECONCILIATION_20261105.md`, not re-checked patch by patch) | CHECKED | `git cherry main <branch>` |
 
 ## Manual real-app session (2026-11-09, Debug build of `main`, isolated data root, 2560x1600 at 200%)
 
@@ -40,5 +46,6 @@ Driven by hand through the real desktop UI (screenshots reviewed), not by automa
 
 ## Known open QA items (not resolved)
 
-- The 19 QA-010 failures: Console/TV (tests now select the Gaming tab first), Onboarding card/idle state, Chat history/resize, Gaming-only profile restart, Model Hub layout bounds at 560x560, Settings scroll, tile arrow-key navigation, manual library add/remove. To be triaged from QA-012.
+- The 35 QA-015 FlaUI failures (see that row); the earlier QA-010/012 failures are superseded by it.
+- Security findings SEC-F01..F07 (Medium) in SECURITY_REVIEW.md are open.
 - Not run at all yet: Android Gradle build and tests, MSI/Portable/Portable Corporate packaging and clean-install tests, code signing verification, GPU/TTFT/tokens-per-second benchmarks, Gaming FPS regression, controller hardware tests, 4K/TV/multi-monitor and 100/125/150% scaling passes, Corporate low-spec profile test.
