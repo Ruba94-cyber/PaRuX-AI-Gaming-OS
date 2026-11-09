@@ -65,7 +65,7 @@ public sealed class ModeTabsUiTests
             UiWait.For(() => IsShown(app, GamesItem), "Games item visible in Gaming tab");
             UiWait.For(() => !IsShown(app, ChatItem) && !IsShown(app, CreateItem), "AI items hidden in Gaming tab");
             Assert.True(IsShown(app, SettingsItem));
-            UiWait.For(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameLibrary_Add_Button")) != null,
+            UiWait.For(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameLibrary_Sections")) != null,
                 "Gaming opens on the Games library");
 
             page.Invoke(ai);

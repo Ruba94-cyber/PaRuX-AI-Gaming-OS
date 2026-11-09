@@ -103,7 +103,8 @@ namespace PaRuX.Views
 
             // A user cannot replace the running AI setup profile halfway through a model download
             // or runtime verification. Revert the visual choice instead of silently switching workers.
-            if (_autoSetupCts != null || _verifyLocalChatCts != null || _componentsBusy)
+            if (_autoSetupCts != null || _verifyLocalChatCts != null
+                || (_componentsBusy && !_componentsDetectionOnly))
             {
                 _setupProfileInitialising = true;
                 try { SetupProfileChoice.SelectedIndex = OptionButtons().ToList().FindIndex(o => o.Profile == previous); }

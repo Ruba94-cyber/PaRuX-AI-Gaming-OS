@@ -37,13 +37,14 @@ internal sealed class SetupProfilePage
     internal bool ModeTabsShown => IsShown(AiTab) && IsShown(GamingTab);
     internal bool ModeTabsHidden => !IsShown(AiTab) && !IsShown(GamingTab);
 
-    /// <summary>Opens Settings on General, where the row lives, and waits for the combo box.</summary>
+    /// <summary>Opens Settings on General, where the row lives, and waits for the row's hint text. The combo box itself is not
+    /// awaited: Corporate deliberately collapses it (the profile is fixed), so callers that need it wait for it explicitly.</summary>
     internal AutomationElement OpenSettingsGeneral()
     {
         var main = new MainWindowPage(_app.MainWindow);
         main.OpenSettings();
         new SettingsCategoriesPage(_app.MainWindow).SelectCategory("General");
-        return UiWait.ById(_app.MainWindow, ComboId, ControlType.ComboBox);
+        return UiWait.ById(_app.MainWindow, HintId, ControlType.Text);
     }
 
     internal string? SelectedItemId => UiWait.SelectedItemId(

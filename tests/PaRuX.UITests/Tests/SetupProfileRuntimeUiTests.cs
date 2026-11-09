@@ -42,7 +42,7 @@ public sealed class SetupProfileRuntimeUiTests
             page.Choose(GamingItem);
             UiWait.For(() => page.SavedProfile() == "gaming", "Gaming only saved");
             UiWait.For(() => page.ModeTabsHidden && page.IsShown(GamesNav) && !page.IsShown(ChatNav), "the Gaming-only shell");
-            UiWait.For(() => page.Exists("GameLibrary_Add_Button"), "the Games library opened");
+            UiWait.For(() => page.Exists("GameLibrary_Sections"), "the Games library opened");
             UiWait.For(() => !page.IsShown("GameLibrary_ReturnToAi_Button")
                 && !page.IsShown("GameHome_LocalGuide_Button")
                 && !page.IsShown("GameHome_AssetStudio_Open"),
@@ -87,7 +87,7 @@ public sealed class SetupProfileRuntimeUiTests
         try
         {
             var page = new SetupProfilePage(restarted);
-            UiWait.For(() => page.Exists("GameLibrary_Add_Button"), "the Games library is the start page");
+            UiWait.For(() => page.Exists("GameLibrary_Sections"), "the Games library is the start page");
             Assert.True(page.ModeTabsHidden, "Gaming only has no AI | Gaming tabs");
             Assert.True(page.IsShown(GamesNav));
             Assert.False(page.IsShown(ChatNav), "AI workspaces stay hidden after the restart");

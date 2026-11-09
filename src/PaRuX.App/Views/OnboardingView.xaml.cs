@@ -25,6 +25,9 @@ namespace PaRuX.Views
         private CancellationTokenSource? _operationCts;
         private DispatcherTimer? _modelDownloadPoll;
         private bool _componentsBusy;
+        /// <summary>True while the busy flag only covers read-only component detection, which must not block a setup-profile switch
+        /// (first-run detection can wait on a cold Core start, and a person choosing Gaming only should not be refused for that).</summary>
+        private bool _componentsDetectionOnly;
         private bool _modelDownloadRefreshBusy;
         private bool _modelDownloadViewLoaded;
         private sealed class DownloadRowVisual
@@ -360,6 +363,7 @@ namespace PaRuX.Views
         {
             if (_componentsBusy || ComponentsList == null) return;
             SetComponentsBusy(true, "Detecting installed components…");
+            _componentsDetectionOnly = true;
             try
             {
                 List<ComponentStatus> components = await RuntimeManagerClient.Current.GetComponentsAsync(CancellationToken.None);
@@ -375,7 +379,7 @@ namespace PaRuX.Views
                 ComponentsList.Children.Clear();
                 ComponentsStatusText.Text = UserFailureRecoveryMapper.Map(ex, "Component discovery failed").FormatStatusLine();
             }
-            finally { SetComponentsBusy(false, ComponentsStatusText.Text); }
+            finally { _componentsDetectionOnly = false; SetComponentsBusy(false, ComponentsStatusText.Text); }
         }
 
         private void RenderComponents(IReadOnlyList<ComponentStatus> components)
