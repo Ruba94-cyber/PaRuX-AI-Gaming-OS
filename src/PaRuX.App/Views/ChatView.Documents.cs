@@ -157,6 +157,7 @@ namespace PaRuX.Views
                     .Where(x => x.Enabled).ToList();
                 if (generation != _documentsSourceLoadGeneration) return;
                 _documentsAvailableSources = sources;
+                ChatDocumentScopeState.SetKnownSources(sources.Select(x => (x.Id, x.FolderPath)));
                 // A removed last selected source cannot silently become the
                 // wire protocol's empty=all scope.
                 if (ChatDocumentScopeState.Prune(sources.Select(x => x.Id)))

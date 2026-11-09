@@ -235,6 +235,7 @@ namespace PaRuX.Services
                 ComputerUseConsent = computerUseConsent,
                 Documents = ChatDocumentScopeState.ToRequest()
             };
+            ApplyDocumentMention(payload, wire);
             if (!string.IsNullOrWhiteSpace(projectId))
                 payload.SkillParameters[ProjectScopeParameter] = projectId;
             if (structuredOutput != null)
@@ -607,6 +608,20 @@ namespace PaRuX.Services
             }
             catch (LocalAiException) { throw; }
             catch (JsonException) { return null; }
+        }
+
+        /// <summary>
+        /// "#folder-name question" asks only that document folder (a collection). The mention is removed from the text the
+        /// model sees and replaces the chat's folder selection for this one message; nothing else about the scope changes.
+        /// </summary>
+        private static void ApplyDocumentMention(ChatCompletionRequest payload, List<ChatCompletionMessage> wire)
+        {
+            ChatCompletionMessage? last = wire.LastOrDefault(m => string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase));
+            if (last == null || last.Content.IndexOf('#') < 0) return;
+            DocumentMentionPolicy.Result mention = DocumentMentionPolicy.Resolve(last.Content, ChatDocumentScopeState.KnownSources);
+            if (mention.SourceIds.Count == 0) return;
+            last.Content = mention.CleanText;
+            payload.Documents = new ChatDocumentScope { Enabled = true, SourceIds = mention.SourceIds.ToList() };
         }
 
         private static string Trim(string s)

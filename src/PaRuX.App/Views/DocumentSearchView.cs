@@ -64,6 +64,13 @@ namespace PaRuX.Views
 
         public DocumentSearchView()
         {
+            // Drag folders or files straight onto the page (like other document assistants). Transparent background so
+            // empty areas are hit-testable drop targets too.
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            AllowDrop = true;
+            DragOver += OnDocumentDragOver;
+            Drop += OnDocumentDrop;
+
             var root = new StackPanel { Spacing = 16, Margin = new Thickness(24), MaxWidth = 1000,
                 MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
             var title = new TextBlock { Text = T("Document search", "Ricerca documenti"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
@@ -399,8 +406,84 @@ namespace PaRuX.Views
                 WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
                 var folder = await picker.PickSingleFolderAsync();
                 if (folder == null) return;
+                await AddFolderPathAsync(folder.Path);
+            }
+            catch (Exception ex) { _status.Text = T("Could not add the folder: ", "Impossibile aggiungere la cartella: ") + ex.Message; }
+        }
+
+        private void OnDocumentDragOver(object sender, DragEventArgs e)
+        {
+            if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems)) return;
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = T("Add to my documents", "Aggiungi ai miei documenti");
+            e.DragUIOverride.IsGlyphVisible = false;
+        }
+
+        private async void OnDocumentDrop(object sender, DragEventArgs e)
+        {
+            var deferral = e.GetDeferral();
+            try
+            {
+                IReadOnlyList<Windows.Storage.IStorageItem> items = await e.DataView.GetStorageItemsAsync();
+                var files = new List<string>();
+                foreach (Windows.Storage.IStorageItem item in items)
+                {
+                    if (item is Windows.Storage.StorageFolder dropped) await AddFolderPathAsync(dropped.Path);
+                    else if (item is Windows.Storage.StorageFile file) files.Add(file.Path);
+                }
+                if (files.Count > 0) await AddDroppedFilesAsync(files);
+            }
+            catch (Exception ex) { _status.Text = T("Could not add the dropped items: ", "Impossibile aggiungere gli elementi trascinati: ") + ex.Message; }
+            finally { deferral.Complete(); }
+        }
+
+        /// <summary>Single files are copied (never moved) into one PaRuX-owned folder that becomes the "dropped-documents"
+        /// collection, so the original files are untouched and can be mentioned in chat as #dropped-documents.</summary>
+        private async Task AddDroppedFilesAsync(IReadOnlyList<string> paths)
+        {
+            string destination = System.IO.Path.Combine(AppPaths.PaRuXRoot, "knowledge", "dropped-documents");
+            System.IO.Directory.CreateDirectory(destination);
+            const long MaxFileBytes = 4L * 1024 * 1024 * 1024;
+            int copied = 0, skipped = 0;
+            foreach (string path in paths)
+            {
+                try
+                {
+                    var info = new System.IO.FileInfo(path);
+                    if (!info.Exists || info.Length > MaxFileBytes || (info.Attributes & System.IO.FileAttributes.ReparsePoint) != 0)
+                    { skipped++; continue; }
+                    string name = System.IO.Path.GetFileName(path);
+                    string target = System.IO.Path.Combine(destination, name);
+                    for (int n = 1; System.IO.File.Exists(target); n++)
+                        target = System.IO.Path.Combine(destination, System.IO.Path.GetFileNameWithoutExtension(name) + " (" + n + ")" + System.IO.Path.GetExtension(name));
+                    await Task.Run(() => System.IO.File.Copy(path, target, overwrite: false));
+                    copied++;
+                }
+                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { skipped++; }
+            }
+            if (copied == 0) { _status.Text = T("No file could be added.", "Nessun file aggiunto."); return; }
+
+            List<RagSourceDto> known = await RagClient.Current.ListSourcesAsync(CancellationToken.None);
+            RagSourceDto? existing = known.FirstOrDefault(s => string.Equals(
+                System.IO.Path.GetFullPath(s.FolderPath).TrimEnd('\\'), destination, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                await KnowledgeClient.Current.StartAsync(existing.Id, CancellationToken.None);
+                await RefreshFoldersAsync(true, retryIfBusy: true);
+            }
+            else await AddFolderPathAsync(destination);
+            _status.Text = T(copied + " file(s) copied into \u201cdropped-documents\u201d (originals unchanged) and indexing. Ask about them with #dropped-documents."
+                    + (skipped > 0 ? " " + skipped + " skipped." : string.Empty),
+                copied + " file copiati in \u201cdropped-documents\u201d (originali invariati) e in indicizzazione. Chiedi con #dropped-documents."
+                    + (skipped > 0 ? " " + skipped + " ignorati." : string.Empty));
+        }
+
+        private async Task AddFolderPathAsync(string folderPath)
+        {
+            try
+            {
                 RagSourceDto source;
-                try { source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None); }
+                try { source = await RagClient.Current.AddSourceAsync(folderPath, CancellationToken.None); }
                 catch (SensitiveFolderException blocked) when (blocked.Code == "sensitive_blocked")
                 {
                     _status.Text = T("This folder is not indexed: ", "Questa cartella non viene indicizzata: ") + blocked.Message;
@@ -411,12 +494,12 @@ namespace PaRuX.Views
                     var dialog = new ContentDialog
                     {
                         XamlRoot = XamlRoot, Title = T("Index this broad location?", "Indicizzare questa posizione ampia?"),
-                        Content = new TextBlock { Text = consent.Message + "\n\n" + folder.Path, TextWrapping = TextWrapping.Wrap },
+                        Content = new TextBlock { Text = consent.Message + "\n\n" + folderPath, TextWrapping = TextWrapping.Wrap },
                         PrimaryButtonText = T("Index it", "Indicizza"), CloseButtonText = T("Cancel", "Annulla"), DefaultButton = ContentDialogButton.Close
                     };
                     AutomationProperties.SetAutomationId(dialog, "DocSearch_Consent_Dialog");
                     if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-                    source = await RagClient.Current.AddSourceAsync(folder.Path, CancellationToken.None, consentSensitive: true);
+                    source = await RagClient.Current.AddSourceAsync(folderPath, CancellationToken.None, consentSensitive: true);
                 }
                 await KnowledgeClient.Current.StartAsync(source.Id, CancellationToken.None);
                 await RefreshFoldersAsync(true, retryIfBusy: true);

@@ -15,6 +15,17 @@ namespace PaRuX.Services
         private static readonly HashSet<string> Selected = new HashSet<string>();
         public static bool Enabled { get; private set; }
 
+        private static IReadOnlyList<(string Id, string FolderPath)> _known = System.Array.Empty<(string, string)>();
+
+        /// <summary>The enabled document folders last listed by Chat, used to resolve "#folder-name" mentions.</summary>
+        public static IReadOnlyList<(string Id, string FolderPath)> KnownSources { get { lock (Gate) return _known; } }
+
+        public static void SetKnownSources(IEnumerable<(string Id, string FolderPath)> sources)
+        {
+            var copy = sources.ToList();
+            lock (Gate) _known = copy;
+        }
+
         public static int SelectedCount { get { lock (Gate) return Selected.Count; } }
 
         public static void SetEnabled(bool enabled) { lock (Gate) Enabled = enabled; }
