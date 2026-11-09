@@ -113,6 +113,7 @@ public sealed class ManualGameLibraryView : UserControl
 
         // Real resource/session status lives on the same Games home in both TV and
         // desktop presentations. No background polling or controller worker.
+        int sessionStart = root.Children.Count;
         _sessionHeading.Text = T("AI / Gaming session", "Sessione AI / Gaming");
         _sessionHeading.FontSize = 20;
         _sessionHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
@@ -135,8 +136,10 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(sessionActions);
 
         // Explicit, desktop-only downloads; never create a polling workload in the TV/Console presentation.
+        int downloadsStart = root.Children.Count;
         root.Children.Add(_downloads);
 
+        int addStart = root.Children.Count;
         _manualAddIntro.Text = T("Add local games and launch them only after explicit confirmation. PaRuX never installs them here.",
             "Aggiungi giochi locali e avviali solo dopo una conferma esplicita. PaRuX non li installa da questa schermata.");
         root.Children.Add(_manualAddIntro);
@@ -272,6 +275,7 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(_detectedRange);
         root.Children.Add(detectedNavigation);
 
+        int displayStart = root.Children.Count;
         root.Children.Add(new TextBlock
         {
             Text = T("Display & streaming readiness", "Preparazione schermi e streaming"),
@@ -381,7 +385,45 @@ public sealed class ManualGameLibraryView : UserControl
         AutomationProperties.SetAutomationId(_installerStatus, "GameLibrary_Installer_Status_Text");
         AutomationProperties.SetLiveSetting(_installerStatus, AutomationLiveSetting.Polite);
         _installerSection.Children.Add(_installerStatus);
+        int displayEnd = root.Children.Count;
         root.Children.Add(_installerSection);
+
+        // One endless page was hard to use. The same controls (and AutomationIds) are grouped into four sections,
+        // like a launcher: Library first; downloads, adding/importing and devices one click away.
+        List<UIElement> all = root.Children.ToList();
+        root.Children.Clear();
+        root.Children.Add(all[0]);   // page title
+        var sections = new (string Id, string Title, List<UIElement> Items)[]
+        {
+            ("Library", T("Library", "Libreria"), all.Skip(1).Take(sessionStart - 1).ToList()),
+            ("Downloads", T("Downloads", "Download"), all.Skip(downloadsStart).Take(addStart - downloadsStart).ToList()),
+            ("Add", T("Add & import", "Aggiungi e importa"),
+                all.Skip(addStart).Take(displayStart - addStart).Concat(all.Skip(displayEnd)).ToList()),
+            ("Devices", T("Devices & session", "Dispositivi e sessione"),
+                all.Skip(sessionStart).Take(downloadsStart - sessionStart)
+                    .Concat(all.Skip(displayStart).Take(displayEnd - displayStart)).ToList()),
+        };
+        var bar = new SelectorBar { HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetAutomationId(bar, "GameLibrary_Sections");
+        AutomationProperties.SetName(bar, T("Game library sections", "Sezioni della libreria giochi"));
+        var panels = new Dictionary<string, StackPanel>();
+        foreach (var section in sections)
+        {
+            var item = new SelectorBarItem { Text = section.Title, Tag = section.Id, MinHeight = 44 };
+            AutomationProperties.SetAutomationId(item, "GameLibrary_Section_" + section.Id);
+            bar.Items.Add(item);
+            var panel = new StackPanel { Spacing = 16, Visibility = section.Id == "Library" ? Visibility.Visible : Visibility.Collapsed };
+            foreach (UIElement element in section.Items) panel.Children.Add(element);
+            panels[section.Id] = panel;
+        }
+        bar.SelectionChanged += (sender, _) =>
+        {
+            string? tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
+            foreach (var pair in panels) pair.Value.Visibility = pair.Key == tag ? Visibility.Visible : Visibility.Collapsed;
+        };
+        root.Children.Add(bar);
+        foreach (var panel in panels.Values) root.Children.Add(panel);
+        bar.SelectedItem = bar.Items[0];
 
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     }
@@ -649,7 +691,11 @@ public sealed class ManualGameLibraryView : UserControl
             GamingStatusDto? state = await UpdateGamingStatusAsync();
             // HTTP success alone is not a confirmed state transition. In particular,
             // a failed status read must never display "AI ready" after a gaming exit.
-            if (!result.Succeeded || !GameLibraryForegroundReturnPolicy.CanRefreshTitles(true, state))
+            if (state is { IsGamingActive: false } && !result.Succeeded)
+                // Gaming Mode is over, but nothing could be restored (typically: no chat engine/model installed yet).
+                _gamingStatus.Text = T("Gaming Mode ended. No AI model could be restored (none is ready yet): install or start one in Model Hub.",
+                    "Modalità Gaming terminata. Nessun modello IA da ripristinare (nessuno è pronto): installalo o avvialo da Model Hub.");
+            else if (!result.Succeeded || !GameLibraryForegroundReturnPolicy.CanRefreshTitles(true, state))
                 _gamingStatus.Text = T("Return to AI could not be confirmed. Inspect Gaming status and retry.",
                     "Ritorno all'AI non confermato. Controlla lo stato Gaming e riprova.");
             else

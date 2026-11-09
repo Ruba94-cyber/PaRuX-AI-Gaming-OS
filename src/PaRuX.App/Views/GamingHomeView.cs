@@ -1075,6 +1075,7 @@ internal sealed class GamingHomeView : StackPanel
         AutomationProperties.SetHeadingLevel(_libraryHeading, AutomationHeadingLevel.Level3);
         AutomationProperties.SetAutomationId(_libraryHeading, "GameHome_Library_Heading");
         _mainColumn.Children.Add(_libraryHeading);
+        _mainColumn.Children.Add(_coversPrompt);
         _mainColumn.Children.Add(_healthSummary);
         _mainColumn.Children.Add(_healthAttention);
         _mainColumn.Children.Add(_toolbar);
@@ -1172,6 +1173,7 @@ internal sealed class GamingHomeView : StackPanel
         _grid.SetSelectMode(_selectMode.IsChecked == true);
         _libraryColumn.Children.Add(_grid);
         _grid.Render(_titles, _selected, _openKey);
+        UpdateCoversPrompt();
     }
 
     private void ApplyBrushes()
@@ -1209,8 +1211,9 @@ internal sealed class GamingHomeView : StackPanel
     private void ApplyMainLayout()
     {
         double width = _main.ActualWidth > 0 ? _main.ActualWidth : ActualWidth;
-        bool rail = width >= 900;
-        _side.Width = rail ? (_console ? 300 : 230) : double.NaN;
+        // 13-inch laptops (about 1280 DIP) must keep the rail beside the library; stacking it above hid the covers.
+        bool rail = width >= 700;
+        _side.Width = rail ? (_console ? 300 : 210) : double.NaN;
         _side.VerticalAlignment = VerticalAlignment.Top;
         if (rail)
         {
@@ -1374,6 +1377,43 @@ internal sealed class GamingHomeView : StackPanel
     }
 
     /// <summary>Turning the option on needs an explicit consent (game names leave the PC); turning it off is immediate.</summary>
+    private readonly InfoBar _coversPrompt = new()
+    {
+        IsOpen = false, IsClosable = true, Severity = InfoBarSeverity.Informational,
+        Margin = new Thickness(0, 0, 0, 8)
+    };
+    private bool _coversPromptBuilt;
+
+    /// <summary>One clear, dismissible offer to turn on cover art (off by default; only game names are sent once agreed).</summary>
+    private void UpdateCoversPrompt()
+    {
+        AppSettings data = SettingsStore.Current.Data;
+        if (!_coversPromptBuilt)
+        {
+            _coversPromptBuilt = true;
+            _coversPrompt.Title = T("Show game covers?", "Mostrare le copertine dei giochi?");
+            _coversPrompt.Message = T(
+                "Cover art and descriptions are downloaded from the public Steam store and Wikipedia. Only game names are sent, and only after you agree.",
+                "Copertine e descrizioni vengono scaricate dallo store pubblico di Steam e da Wikipedia. Vengono inviati solo i nomi dei giochi, e solo dopo il tuo consenso.");
+            var turnOn = new Button { Content = T("Turn on", "Attiva") };
+            AutomationProperties.SetAutomationId(turnOn, "GameHome_CoversPrompt_TurnOn");
+            turnOn.Click += async (_, _) =>
+            {
+                _coversPrompt.IsOpen = false;
+                _metadata.IsChecked = true;
+                await OnMetadataToggledAsync();
+            };
+            _coversPrompt.ActionButton = turnOn;
+            AutomationProperties.SetAutomationId(_coversPrompt, "GameHome_CoversPrompt");
+            _coversPrompt.CloseButtonClick += (_, _) =>
+            {
+                SettingsStore.Current.Data.GameMetadataPromptDismissed = true;
+                SettingsStore.Current.Save();
+            };
+        }
+        _coversPrompt.IsOpen = !data.GameMetadataEnabled && !data.GameMetadataPromptDismissed && _titles.Count > 0;
+    }
+
     private async Task OnMetadataToggledAsync()
     {
         AppSettings data = SettingsStore.Current.Data;
@@ -1669,16 +1709,17 @@ internal sealed class GamingHomeView : StackPanel
         _emptyDescription.Text = filtered
             ? T("Clear the filters to see your complete library. Your games and settings will not be changed.",
                 "Cancella i filtri per vedere tutta la libreria. Giochi e impostazioni non verranno modificati.")
-            : T("Add a local game below, discover your installed stores, or import your own emulator games in Advanced Game Management.",
-                "Aggiungi un gioco locale qui sotto, rileva quelli degli store installati oppure importa i tuoi giochi per emulatore in Gestione giochi avanzata.");
+            : T("Open “Add & import” above to add a local game, find the games from your installed stores, or import emulator games.",
+                "Apri “Aggiungi e importa” qui sopra per aggiungere un gioco locale, trovare quelli degli store installati o importare giochi per emulatore.");
         _libraryHeading.Text = T("Library", "Libreria") + (_titles.Count > 0 ? $" · {_titles.Count}" : string.Empty);
         _status.Text = _titles.Count == 0
             ? FiltersActive
                 ? T("No games match these filters.", "Nessun gioco corrisponde ai filtri.")
-                : T("No games yet. Add one below, or use Advanced Game Management to import a folder or an emulator.",
-                    "Ancora nessun gioco. Aggiungine uno qui sotto, oppure usa Advanced Game Management per importare una cartella o un emulatore.")
+                : T("No games yet. Open “Add & import” to add a game, scan your stores or import an emulator folder.",
+                    "Ancora nessun gioco. Apri “Aggiungi e importa” per aggiungere un gioco, cercare negli store o importare una cartella di emulatore.")
             : T($"{_titles.Count} games", $"{_titles.Count} giochi");
         _grid.Render(_titles, _selected, _openKey);
+        UpdateCoversPrompt();
         UpdateBulkBar();
     }
 

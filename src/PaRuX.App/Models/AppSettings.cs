@@ -20,6 +20,8 @@ namespace PaRuX.Models
         public string GameLibraryLayout { get; set; } = "grid";
         /// <summary>Opt-in: look game covers and descriptions up by name on Steam and Wikipedia (off by default).</summary>
         public bool GameMetadataEnabled { get; set; }
+        /// <summary>True once the owner closed the "show covers?" banner in the Gaming library (it never returns).</summary>
+        public bool GameMetadataPromptDismissed { get; set; }
         /// <summary>Source filter: empty (all), "steam", "epic", "gog", "manual" or "emulator".</summary>
         public string GameLibrarySource { get; set; } = string.Empty;
         public string GameLibraryPlatform { get; set; } = string.Empty;
