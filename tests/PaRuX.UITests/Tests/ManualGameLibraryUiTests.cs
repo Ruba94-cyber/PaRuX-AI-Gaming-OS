@@ -31,7 +31,9 @@ public sealed class ManualGameLibraryUiTests
             var path = UiWait.ById(app.MainWindow, "GameLibrary_Path_TextBox", ControlType.Edit).AsTextBox();
             UiWait.For(() => File.Exists(Path.Combine(app.DataRoot, "server", "bootstrap.json")), "isolated core bootstrap");
             var bootstrap = JsonDocument.Parse(File.ReadAllText(Path.Combine(app.DataRoot, "server", "bootstrap.json")));
-            Assert.Equal("http://127.0.0.1:51123", bootstrap.RootElement.GetProperty("endpoint").GetString()?.TrimEnd('/'));
+            // Core uses 51123 unless Windows reserved it (Hyper-V/WSL2/Docker); then it publishes another free loopback port.
+            string? endpoint = bootstrap.RootElement.GetProperty("endpoint").GetString()?.TrimEnd('/');
+            Assert.Matches(@"^http://127\.0\.0\.1:\d{4,5}$", endpoint);
             int serverPid = bootstrap.RootElement.GetProperty("processId").GetInt32();
             using var server = Process.GetProcessById(serverPid);
             string expectedServer = Path.Combine(Path.GetDirectoryName(Repository.AppExecutable)!, "PaRuX.Server", "PaRuX.Server.exe");

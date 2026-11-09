@@ -199,6 +199,9 @@ namespace PaRuX
             // A link, keyboard action or UIA invoke must obey the SAME profile as the
             // sidebar. Visibility is not a sufficient access boundary: a hidden item
             // or old deep link could otherwise open a different product surface.
+            // Only "__name__" tags are workspaces. Anything else is a saved conversation id: the profile gate
+            // must not swallow it (it used to, so clicking a saved chat silently did nothing).
+            if (!tag.StartsWith("__", StringComparison.Ordinal)) return false;
             if (!IsWorkspaceAllowedForSetup(tag)) return true;
             switch (tag)
             {

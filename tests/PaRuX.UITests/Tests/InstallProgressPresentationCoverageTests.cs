@@ -22,7 +22,7 @@ public sealed class InstallProgressPresentationCoverageTests
             var page = new InstallProgressPage(app);
 
             Assert.NotNull(page.OnboardingDownloadHeader);
-            Assert.Equal("DOWNLOAD PROGRESS", page.OnboardingDownloadHeader!.Properties.Name.ValueOrDefault);
+            Assert.Equal("MODEL DOWNLOADS", page.OnboardingDownloadHeader!.Properties.Name.ValueOrDefault);
 
             Assert.NotNull(page.OnboardingDownloadStatus);
             UiWait.For(() =>

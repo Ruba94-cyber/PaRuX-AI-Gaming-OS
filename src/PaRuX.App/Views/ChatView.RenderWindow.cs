@@ -111,7 +111,14 @@ namespace PaRuX.Views
 
             int start = ChatRenderWindowPolicy.StartIndex(messages.Count, _renderedMessageBudget);
             for (int index = start; index < messages.Count; index++)
-                AppendMessageElement(messages[index], false);
+            {
+                // One message that cannot be drawn must not blank the whole conversation.
+                try { AppendMessageElement(messages[index], false); }
+                catch (Exception ex)
+                {
+                    Log.Write("Chat message " + index + " could not be rendered: " + ex);
+                }
+            }
 
             EmptyState.Visibility = messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             UpdateRouteLabel();
