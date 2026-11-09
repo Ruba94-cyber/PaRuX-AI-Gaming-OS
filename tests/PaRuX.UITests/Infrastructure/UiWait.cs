@@ -105,9 +105,11 @@ internal static class UiWait
     /// Before looking up a Navigation_* item, select the tab that owns it. Settings and Help are visible in both tabs.</summary>
     internal static void EnsureModeTabFor(AutomationElement root, string id)
     {
-        if (!id.StartsWith("Navigation_", StringComparison.Ordinal)) return;
+        // Console / TV is a gaming control: its footer button lives in the Gaming tab only.
+        bool gamingOnly = id == "MainWindow_ConsoleMode_Button";
+        if (!gamingOnly && !id.StartsWith("Navigation_", StringComparison.Ordinal)) return;
         if (id is "Navigation_Settings_Item" or "Navigation_Help_Item") return;
-        string tabId = id == "Navigation_GameLibrary_Item" ? "MainWindow_ModeTab_Gaming" : "MainWindow_ModeTab_AI";
+        string tabId = gamingOnly || id == "Navigation_GameLibrary_Item" ? "MainWindow_ModeTab_Gaming" : "MainWindow_ModeTab_AI";
         try
         {
             AutomationElement? tab = root.FindFirstDescendant(cf => cf.ByAutomationId(tabId));

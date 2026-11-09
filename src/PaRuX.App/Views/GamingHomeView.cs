@@ -147,7 +147,7 @@ internal sealed class GamingHomeView : StackPanel
 
     // ------------------------------------------------------------------ preferences
 
-    private static readonly string[] SortKeys = { GameTitleSorts.Name, GameTitleSorts.LastPlayed, GameTitleSorts.PlayTime, GameTitleSorts.RecentlyAdded };
+    private static readonly string[] SortKeys = { GameTitleSorts.Name, GameTitleSorts.LastPlayed, GameTitleSorts.PlayTime, GameTitleSorts.RecentlyAdded, GameTitleSorts.Score };
     private static readonly string[] SourceKeys = { "", GameInstallationSources.Steam, GameInstallationSources.Epic, GameInstallationSources.Gog, GameInstallationSources.Manual, GameInstallationSources.Emulator,
         GameInstallationSources.Ea, GameInstallationSources.BattleNet, GameInstallationSources.Ubisoft, GameInstallationSources.Xbox,
         GameInstallationSources.Playnite, GameInstallationSources.Heroic, GameInstallationSources.Lutris };
@@ -247,6 +247,7 @@ internal sealed class GamingHomeView : StackPanel
         _sort.Items.Add(Choice(T("Sort: Recently played", "Ordina: Giocati di recente"), GameTitleSorts.LastPlayed));
         _sort.Items.Add(Choice(T("Sort: Play time", "Ordina: Tempo di gioco"), GameTitleSorts.PlayTime));
         _sort.Items.Add(Choice(T("Sort: Recently added", "Ordina: Aggiunti di recente"), GameTitleSorts.RecentlyAdded));
+        _sort.Items.Add(Choice(T("Sort: Score", "Ordina: Voto"), GameTitleSorts.Score));
         _sort.SelectedIndex = 0;
         Track(_sort, "GameHome_Sort", T("Sort games by", "Ordina i giochi per"));
 
@@ -974,7 +975,7 @@ internal sealed class GamingHomeView : StackPanel
     private void BuildContent()
     {
         _titleHeading.Text = T("Your games", "I tuoi giochi");
-        _titleHeading.FontSize = 24;
+        _titleHeading.FontSize = 20;
         _titleHeading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         AutomationProperties.SetHeadingLevel(_titleHeading, AutomationHeadingLevel.Level2);
         AutomationProperties.SetAutomationId(_titleHeading, "GameHome_Heading");
@@ -990,9 +991,10 @@ internal sealed class GamingHomeView : StackPanel
         _quickResumeManage.Content = T("Quick Resume", "Quick Resume");
         Track(_quickResumeManage, "GameHome_QuickResume_Manage", T("Show Quick Resume: pause and resume open apps", "Mostra Quick Resume: metti in pausa e riprendi le app aperte"));
         _quickResumeManage.Click += (_, _) => { _quickResume.StartBringIntoView(); _ = _quickResume.RefreshAsync(); };
-        var quickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        // One wrapping action row (Quick Resume, AI mods) instead of two stacked rows: the library gets the screen.
+        var quickRow = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemHeight = 52 };
+        _quickResumeManage.Margin = new Thickness(0, 0, 8, 8);
         quickRow.Children.Add(_quickResumeManage);
-        quickRow.Children.Add(new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center });
         _gameAssetStudio.Content = T("AI Game Asset Mods", "Mod IA asset dei giochi");
         Track(_gameAssetStudio, "GameHome_AssetStudio_Open",
             T("Open local AI texture and asset mod studio for compatible games",
@@ -1013,10 +1015,11 @@ internal sealed class GamingHomeView : StackPanel
               "Controlla e rimuovi i pacchetti ZIP mod installati da PaRuX"));
         _installedMods.Click += async (_, _) =>
             await GameModDropInDialog.ShowInstalledAsync(XamlRoot);
-        var modRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        modRow.Children.Add(_gameAssetStudio);
-        modRow.Children.Add(_installedMods);
-        Children.Add(modRow);
+        _gameAssetStudio.Margin = new Thickness(0, 0, 8, 8);
+        _installedMods.Margin = new Thickness(0, 0, 8, 8);
+        quickRow.Children.Add(_gameAssetStudio);
+        quickRow.Children.Add(_installedMods);
+        quickRow.Children.Add(new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 8) });
 
         _hero.PlayRequested += async t => await PlayAsync(t);
         _hero.DetailsRequested += async t => await OpenAsync(t);
@@ -1225,11 +1228,11 @@ internal sealed class GamingHomeView : StackPanel
         _clearFilters.FontSize = size;
         _clearFilters.MinHeight = enabled ? 56 : 44;
         _bulkCount.FontSize = size;
-        _toolbar.ItemWidth = enabled ? 300 : 210;
-        _toolbar.ItemHeight = enabled ? 100 : 72;
+        _toolbar.ItemWidth = enabled ? 300 : 190;
+        _toolbar.ItemHeight = enabled ? 100 : 56;
         foreach (FrameworkElement element in _toolbar.Children) { element.Margin = new Thickness(0, 0, 8, 8); element.VerticalAlignment = VerticalAlignment.Bottom; element.HorizontalAlignment = HorizontalAlignment.Stretch; }
-        _bulkActions.ItemWidth = enabled ? 300 : 210;
-        _bulkActions.ItemHeight = enabled ? 100 : 72;
+        _bulkActions.ItemWidth = enabled ? 300 : 190;
+        _bulkActions.ItemHeight = enabled ? 100 : 56;
         foreach (FrameworkElement element in _bulkActions.Children) { element.Margin = new Thickness(0, 0, 8, 8); element.VerticalAlignment = VerticalAlignment.Bottom; element.HorizontalAlignment = HorizontalAlignment.Stretch; }
         _continueHeading.FontSize = enabled ? 26 : 18;
         _libraryHeading.FontSize = enabled ? 26 : 18;

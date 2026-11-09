@@ -25,7 +25,7 @@
         <Border
             x:Name="ModeTabsHost"
             Grid.Row="0"
-            Padding="16,4,16,4"
+            Padding="16,2,16,2"
             Background="{ThemeResource PaRuXGrapheneHeaderBrush}"
             BorderBrush="{ThemeResource PaRuXStrokeBrush}"
             BorderThickness="0,0,0,1">
@@ -44,8 +44,8 @@
                 <SelectorBarItem
                     x:Name="ModeTabAiItem"
                     Text="AI"
-                    MinHeight="32"
-                    MinWidth="72"
+                    MinHeight="44"
+                    MinWidth="64"
                     FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_AI"
                     AutomationProperties.Name="AI mode"
@@ -53,8 +53,8 @@
                 <SelectorBarItem
                     x:Name="ModeTabGamingItem"
                     Text="Gaming"
-                    MinHeight="32"
-                    MinWidth="72"
+                    MinHeight="44"
+                    MinWidth="64"
                     FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_Gaming"
                     AutomationProperties.Name="Gaming mode"

@@ -94,6 +94,7 @@ public static class GameLibraryHome
             GameTitleSorts.LastPlayed => q.OrderByDescending(t => t.LastPlayedUtc.HasValue).ThenByDescending(t => t.LastPlayedUtc),
             GameTitleSorts.PlayTime => q.OrderByDescending(t => t.PlaySeconds),
             GameTitleSorts.RecentlyAdded => q.OrderByDescending(t => t.AddedUtc.HasValue).ThenByDescending(t => t.AddedUtc),
+            GameTitleSorts.Score => q.OrderByDescending(t => t.Score),
             _ => q.OrderBy(t => 0),
         };
         return ordered.ThenBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(t => t.TitleKey, StringComparer.Ordinal).ToList();

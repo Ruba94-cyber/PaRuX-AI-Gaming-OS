@@ -110,6 +110,24 @@ public static class GameTitleEndpoints
             return Results.NoContent();
         }).RequireDesktopOwner();
 
+        app.MapPut("/api/v1/gaming/titles/{key}/status", (
+            string key, string? status, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key) || !GameCompletionStatuses.IsValid(status)) return Results.BadRequest() as IResult;
+            if (!store.SetStatus(key, status)) return Results.Problem("The state could not be saved.");
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/titles/{key}/score", (
+            string key, int score, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (!ValidTitleKey(key) || !GameCompletionStatuses.IsValidScore(score)) return Results.BadRequest() as IResult;
+            if (!store.SetScore(key, score)) return Results.Problem("The state could not be saved.");
+            UpdateCachedState(key, store, cache);
+            return Results.NoContent();
+        }).RequireDesktopOwner();
+
         // One atomic edit of up to 100 titles: all keys and values are validated first, one write persists them.
         app.MapPut("/api/v1/gaming/titles/bulk", (
             BulkGameTitleRequest request, GameTitleStore store, GameTitleReadCache cache) =>

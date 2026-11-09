@@ -93,6 +93,8 @@ public sealed class GameTitleReadCache
                 return title with
                 {
                     Favorite = state.Favorite,
+                    Status = state.Status ?? string.Empty,
+                    Score = state.Score,
                     Hidden = state.Hidden,
                     AddedUtc = state.AddedUtc,
                     Tags = state.Tags?.ToArray() ?? Array.Empty<string>(),

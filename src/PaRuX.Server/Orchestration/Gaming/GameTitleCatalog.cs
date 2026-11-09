@@ -76,6 +76,8 @@ public static class GameTitleCatalog
                     Collections = (IReadOnlyList<string>?)s?.Collections ?? Array.Empty<string>(),
                     Hidden = s?.Hidden ?? false,
                     AddedUtc = s?.AddedUtc,
+                    Status = s?.Status ?? string.Empty,
+                    Score = s?.Score ?? 0,
                 });
         }
         return titles.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(t => t.TitleKey, StringComparer.Ordinal).ToArray();
@@ -143,6 +145,8 @@ public static class GameTitleCatalog
                 return ByName(titles.OrderByDescending(t => t.PlaySeconds)).ToArray();
             case GameTitleSorts.RecentlyAdded:
                 return ByName(titles.OrderByDescending(t => t.AddedUtc.HasValue).ThenByDescending(t => t.AddedUtc)).ToArray();
+            case GameTitleSorts.Score:
+                return ByName(titles.OrderByDescending(t => t.Score)).ToArray();
             default:
                 return titles.ToList();
         }

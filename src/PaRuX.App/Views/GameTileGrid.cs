@@ -128,10 +128,23 @@ internal static class GameUi
         return platform.Length == 0 ? text : text + " · " + platform;
     }
 
+    internal static string StatusLabel(string? status) => (status ?? string.Empty) switch
+    {
+        GameCompletionStatuses.Backlog => T("Plan to play", "Da giocare"),
+        GameCompletionStatuses.Playing => T("Playing", "In corso"),
+        GameCompletionStatuses.Completed => T("Completed", "Completato"),
+        GameCompletionStatuses.OnHold => T("On hold", "In pausa"),
+        GameCompletionStatuses.Dropped => T("Dropped", "Abbandonato"),
+        _ => T("No status", "Nessuno stato"),
+    };
+
     internal static GameTitleDto WithState(GameTitleDto title, bool? favorite = null, bool? hidden = null,
-        IReadOnlyList<string>? tags = null, IReadOnlyList<string>? collections = null) =>
+        IReadOnlyList<string>? tags = null, IReadOnlyList<string>? collections = null,
+        string? status = null, int? score = null) =>
         title with
         {
+            Status = status ?? title.Status,
+            Score = score ?? title.Score,
             Favorite = favorite ?? title.Favorite,
             Hidden = hidden ?? title.Hidden,
             Tags = tags ?? title.Tags,
@@ -404,6 +417,8 @@ internal sealed class GameTileGrid : StackPanel
         var parts = new List<string> { title.Name };
         if (title.Favorite) parts.Add(GameUi.T("favorite", "preferito"));
         if (title.Hidden) parts.Add(GameUi.T("hidden", "nascosto"));
+        if (!string.IsNullOrEmpty(title.Status)) parts.Add(GameUi.StatusLabel(title.Status).ToLowerInvariant());
+        if (title.Score > 0) parts.Add(GameUi.T("score ", "voto ") + title.Score + "/10");
         if (title.PlaySeconds >= 60) parts.Add(GameUi.ShortPlayTime(title.PlaySeconds));
         if (_selectMode) parts.Add(selected ? GameUi.T("selected", "selezionato") : GameUi.T("not selected", "non selezionato"));
         else parts.Add(GameUi.T("open details", "apri i dettagli"));

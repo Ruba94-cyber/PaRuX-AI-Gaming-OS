@@ -333,6 +333,58 @@ internal sealed class GameDetailPanel : UserControl
         states.Children.Add(hidden);
         _body.Children.Add(states);
 
+        // personal progress: completion status and a 0-10 score (Playnite-style)
+        var progress = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var statusBox = new ComboBox { MinHeight = Target, FontSize = Body, MinWidth = 170 };
+        statusBox.Items.Add(new ComboBoxItem { Content = GameUi.StatusLabel(string.Empty), Tag = string.Empty });
+        foreach (string s in GameCompletionStatuses.All)
+            statusBox.Items.Add(new ComboBoxItem { Content = GameUi.StatusLabel(s), Tag = s });
+        statusBox.SelectedIndex = Math.Max(0, Array.IndexOf(GameCompletionStatuses.All, title.Status) + 1);
+        AutomationProperties.SetAutomationId(statusBox, "GameDetail_Status");
+        AutomationProperties.SetName(statusBox, T("Completion status: ", "Stato di completamento: ") + title.Name);
+        var scoreBox = new ComboBox { MinHeight = Target, FontSize = Body, MinWidth = 120 };
+        scoreBox.Items.Add(new ComboBoxItem { Content = T("Not rated", "Senza voto"), Tag = 0 });
+        for (int i = 1; i <= 10; i++) scoreBox.Items.Add(new ComboBoxItem { Content = i + " / 10", Tag = i });
+        scoreBox.SelectedIndex = Math.Clamp(title.Score, 0, 10);
+        AutomationProperties.SetAutomationId(scoreBox, "GameDetail_Score");
+        AutomationProperties.SetName(scoreBox, T("Score: ", "Voto: ") + title.Name);
+        bool progressLoading = true;
+        statusBox.SelectionChanged += async (_, _) =>
+        {
+            if (progressLoading || statusBox.SelectedItem is not ComboBoxItem item) return;
+            string wanted = item.Tag as string ?? string.Empty;
+            string previous = (_title ?? title).Status;
+            var result = await GamingLibraryClient.Current.SetTitleStatusAsync(key, wanted);
+            if (!result.Succeeded)
+            {
+                progressLoading = true;
+                statusBox.SelectedIndex = Math.Max(0, Array.IndexOf(GameCompletionStatuses.All, previous) + 1);
+                progressLoading = false;
+                StatusMessage?.Invoke(T("The status could not be saved.", "Impossibile salvare lo stato."));
+                return;
+            }
+            Apply(GameUi.WithState(_title ?? title, status: wanted));
+        };
+        scoreBox.SelectionChanged += async (_, _) =>
+        {
+            if (progressLoading || scoreBox.SelectedItem is not ComboBoxItem item || item.Tag is not int wanted) return;
+            int previous = (_title ?? title).Score;
+            var result = await GamingLibraryClient.Current.SetTitleScoreAsync(key, wanted);
+            if (!result.Succeeded)
+            {
+                progressLoading = true;
+                scoreBox.SelectedIndex = Math.Clamp(previous, 0, 10);
+                progressLoading = false;
+                StatusMessage?.Invoke(T("The score could not be saved.", "Impossibile salvare il voto."));
+                return;
+            }
+            Apply(GameUi.WithState(_title ?? title, score: wanted));
+        };
+        progressLoading = false;
+        progress.Children.Add(statusBox);
+        progress.Children.Add(scoreBox);
+        _body.Children.Add(progress);
+
         // facts
         _body.Children.Add(Label(GameUi.PlaySummary(title), Small, secondary: true));
         if (title.AddedUtc is { } added)

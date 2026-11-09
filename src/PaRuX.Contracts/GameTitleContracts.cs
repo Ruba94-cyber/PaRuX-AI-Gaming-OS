@@ -57,6 +57,31 @@ public sealed record GameTitleDto(
 
     // Optional additive property: when the title first received user state (null for older state).
     public DateTime? AddedUtc { get; init; }
+
+    // Optional additive properties: personal progress (one of GameCompletionStatuses, empty = not set)
+    // and a 0-10 score (0 = unrated). Older payloads omit both.
+    public string Status { get; init; } = string.Empty;
+    public int Score { get; init; }
+}
+
+/// <summary>Allowlisted personal progress labels (Playnite-style completion status). Empty means not set.</summary>
+public static class GameCompletionStatuses
+{
+    public const string Backlog = "backlog";
+    public const string Playing = "playing";
+    public const string Completed = "completed";
+    public const string OnHold = "onhold";
+    public const string Dropped = "dropped";
+
+    public static readonly string[] All = { Backlog, Playing, Completed, OnHold, Dropped };
+
+    public static bool IsValid(string? status) =>
+        string.IsNullOrEmpty(status) || All.Contains(status.Trim().ToLowerInvariant());
+
+    public static string Normalize(string? status) =>
+        string.IsNullOrWhiteSpace(status) ? string.Empty : status.Trim().ToLowerInvariant();
+
+    public static bool IsValidScore(int score) => score is >= 0 and <= 10;
 }
 
 /// <summary>
@@ -111,9 +136,10 @@ public static class GameTitleSorts
     public const string LastPlayed = "lastplayed";
     public const string PlayTime = "playtime";
     public const string RecentlyAdded = "recentlyadded";
+    public const string Score = "score";
 
     public static bool IsValid(string? sort) =>
-        string.IsNullOrEmpty(sort) || sort.Trim().ToLowerInvariant() is Name or LastPlayed or PlayTime or RecentlyAdded;
+        string.IsNullOrEmpty(sort) || sort.Trim().ToLowerInvariant() is Name or LastPlayed or PlayTime or RecentlyAdded or Score;
 }
 
 /// <summary>User state kept per title (the persisted overlay). Installations are never persisted: they are re-derived.</summary>
@@ -129,6 +155,10 @@ public sealed class GameTitleState
     public long PlaySeconds { get; set; }
     public DateTime? LastPlayedUtc { get; set; }
     public string? DefaultInstallationId { get; set; }
+    /// <summary>One of <see cref="GameCompletionStatuses"/>; absent in older files (not set).</summary>
+    public string Status { get; set; } = string.Empty;
+    /// <summary>0 = unrated, 1-10. Absent in older files.</summary>
+    public int Score { get; set; }
 }
 
 public sealed record SetGameTagsRequest(List<string> Tags);

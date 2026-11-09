@@ -70,6 +70,15 @@ public sealed class GameTitleStore
 
     public bool SetHidden(string titleKey, bool hidden) => Mutate(titleKey, s => s.Hidden = hidden);
 
+    /// <returns>False for an unknown status label (nothing is changed).</returns>
+    public bool SetStatus(string titleKey, string? status) =>
+        GameCompletionStatuses.IsValid(status) &&
+        Mutate(titleKey, s => s.Status = GameCompletionStatuses.Normalize(status));
+
+    /// <returns>False when the score is outside 0-10 (nothing is changed).</returns>
+    public bool SetScore(string titleKey, int score) =>
+        GameCompletionStatuses.IsValidScore(score) && Mutate(titleKey, s => s.Score = score);
+
     /// <summary>Trim, drop empties, de-duplicate case-insensitively; null when any item or the count is invalid.</summary>
     private static List<string>? CleanList(IEnumerable<string>? items, int maxLength, int maxCount)
     {
@@ -270,5 +279,7 @@ public sealed class GameTitleStore
         PlaySeconds = s.PlaySeconds,
         LastPlayedUtc = s.LastPlayedUtc,
         DefaultInstallationId = s.DefaultInstallationId,
+        Status = s.Status ?? string.Empty,
+        Score = s.Score,
     };
 }

@@ -73,6 +73,14 @@ namespace PaRuX.Services
             SendAsync<object>(HttpMethod.Put,
                 "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/hidden?hidden=" + (hidden ? "true" : "false"), null, ct);
 
+        public Task<GamingCallResult<object>> SetTitleStatusAsync(string key, string status, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put,
+                "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/status?status=" + Uri.EscapeDataString(status ?? string.Empty), null, ct);
+
+        public Task<GamingCallResult<object>> SetTitleScoreAsync(string key, int score, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put,
+                "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/score?score=" + score.ToString(System.Globalization.CultureInfo.InvariantCulture), null, ct);
+
         /// <summary>One atomic edit of 1 to 100 titles. Tags/Collections replace the full list for every key.</summary>
         public Task<GamingCallResult<BulkGameTitleResult>> BulkUpdateTitlesAsync(BulkGameTitleRequest request, CancellationToken ct = default) =>
             SendAsync<BulkGameTitleResult>(HttpMethod.Put, "/api/v1/gaming/titles/bulk", request, ct);
