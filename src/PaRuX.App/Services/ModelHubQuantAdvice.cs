@@ -105,14 +105,14 @@ namespace PaRuX.Services
             {
                 if (pinnedId != null)
                 {
-                    int index = int.Parse(pinnedId, System.Globalization.CultureInfo.InvariantCulture);
-                    QuantCandidate selected = candidates[index];
+                    int pinIndex = int.Parse(pinnedId, System.Globalization.CultureInfo.InvariantCulture);
+                    QuantCandidate selected = candidates[pinIndex];
                     var manual = new QuantDecision(QuantDecisionStatus.UserChoice, selected,
                         QuantPlacementPlan.Unknown,
                         "Your selected GGUF file remains selected. Hardware has not been detected; memory fit, acceleration and speed cannot be verified yet. Review its size and licence before download.",
                         "Il file GGUF scelto resta selezionato. L'hardware non è ancora stato rilevato; memoria, accelerazione e velocità non sono verificabili. Controlla dimensioni e licenza prima del download.",
                         false, false);
-                    return new Advice(index, italian ? manual.ReasonIt : manual.ReasonEn, manual);
+                    return new Advice(pinIndex, italian ? manual.ReasonIt : manual.ReasonEn, manual);
                 }
                 var none = new QuantDecision(QuantDecisionStatus.NoUsableVariant, null, QuantPlacementPlan.Unknown,
                     "Hardware not detected yet, so no file is recommended. Pick one yourself.",

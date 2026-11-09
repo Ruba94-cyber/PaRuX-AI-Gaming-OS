@@ -285,9 +285,6 @@ namespace PaRuX.Views
                     PackSequences = _trainingPacking.IsChecked == true,
                     GrpoRewardMode = SelectedTag(_grpoReward) ?? GrpoRewardMode.ExactReference,
                     GrpoGenerations = SafeWholeNumber(_grpoGenerations.Value, 4),
-                    Precision = SelectedTag(_trainingPrecision) ?? TrainingPrecision.Qlora4Bit,
-                    TargetPreset = SelectedTag(_trainingTargets) ?? TrainingTargetPreset.Attention,
-                    PackSequences = _trainingPacking.IsChecked == true,
                     TextField = (_textField.Text ?? "text").Trim(),
                     ImageField = (_imageField.Text ?? "image").Trim(),
                     AudioField = (_audioField.Text ?? "audio").Trim()

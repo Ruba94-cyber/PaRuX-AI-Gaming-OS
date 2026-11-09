@@ -77,6 +77,18 @@ internal static class UiWait
         return result!;
     }
 
+    internal static AutomationElement ById(AutomationElement root, string id)
+    {
+        AutomationElement? element = null;
+        For(() =>
+        {
+            EnsureModeTabFor(root, id);
+            element = root.FindFirstDescendant(cf => cf.ByAutomationId(id));
+            return element != null;
+        }, "UI element " + id);
+        return element ?? throw new InvalidOperationException("Missing UI element: " + id + ".");
+    }
+
     internal static AutomationElement ById(AutomationElement root, string id, ControlType type)
     {
         AutomationElement? element = null;

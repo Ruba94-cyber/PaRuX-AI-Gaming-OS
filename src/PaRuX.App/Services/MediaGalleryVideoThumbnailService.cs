@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
+using FileAttributes = System.IO.FileAttributes;
 
 namespace PaRuX.Services
 {

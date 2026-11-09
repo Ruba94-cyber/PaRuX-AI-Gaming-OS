@@ -84,7 +84,7 @@ public sealed class HistoryBackupSafetyTests : IDisposable
     public void Readiness_requires_real_rows_and_does_not_create_or_edit_a_snapshot()
     {
         string one = Snapshot("history-2026-11-01.db", 1);
-        string before = File.ReadAllBytes(one);
+        byte[] before = File.ReadAllBytes(one);
         using var conn = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = one, Mode = SqliteOpenMode.ReadOnly, Pooling = false
