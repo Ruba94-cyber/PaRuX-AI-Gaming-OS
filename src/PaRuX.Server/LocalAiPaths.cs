@@ -1278,6 +1278,12 @@ public static class LocalAiPaths
 
     private static string ResolveRoot()
     {
+        // An extracted Portable is a sealed storage boundary: do not reattach
+        // models or runtimes from the host's Documents folder or from a saved
+        // absolute localai-paths.json inherited from another PC.
+        string? portableData = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory);
+        if (portableData != null) return Path.Combine(portableData, "LocalAI");
+
         try
         {
             if (File.Exists(ConfigPath))
