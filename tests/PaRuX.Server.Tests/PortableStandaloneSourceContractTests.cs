@@ -18,9 +18,13 @@ public sealed class PortableStandaloneSourceContractTests
         string desktop = Read("src", "PaRuX.App", "Services", "AppPaths.cs");
         string core = Read("src", "PaRuX.Server", "LocalAiPaths.cs");
         Assert.Contains("public const string PortableMarkerFileName", data, StringComparison.Ordinal);
-        Assert.Contains("FindPortableDataRoot(AppContext.BaseDirectory)", data, StringComparison.Ordinal);
+        // The two Contracts resolvers take the executable folder through a pure, testable
+        // overload, so the literal is split across the entry point and the resolver.
+        Assert.Contains("AppContext.BaseDirectory", data, StringComparison.Ordinal);
+        Assert.Contains("FindPortableDataRoot(baseDirectory)", data, StringComparison.Ordinal);
         Assert.Contains("CorporateMode.MarkerFileName", data, StringComparison.Ordinal);
-        Assert.Contains("FindPortableDataRoot(AppContext.BaseDirectory)", state, StringComparison.Ordinal);
+        Assert.Contains("Resolve(AppContext.BaseDirectory", state, StringComparison.Ordinal);
+        Assert.Contains("FindPortableDataRoot(baseDirectory)", state, StringComparison.Ordinal);
         Assert.Contains("FindPortableDataRoot(AppContext.BaseDirectory)", desktop, StringComparison.Ordinal);
         Assert.Contains("FindPortableDataRoot(AppContext.BaseDirectory)", core, StringComparison.Ordinal);
         Assert.Contains("return Path.Combine(portableData, \"LocalAI\")", core, StringComparison.Ordinal);
