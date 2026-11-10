@@ -160,26 +160,59 @@ start "" "%~dp0PaRuX.exe"
 Set-Content -LiteralPath (Join-Path $stageDir "PaRuX (portable data).cmd") -Value $cmd -Encoding ASCII
 
 $readme = @"
-PaRuX $Version - portable package
-=================================
-Unzip anywhere you are allowed to run programs, then start PaRuX.exe.
+PaRuX $Version - Standard Portable for Windows x64
+=================================================
+Extract the ZIP on NTFS into a writable folder. Double-click PaRuX.exe.
+The `PaRuXData` folder, models, settings, history and knowledge index stay next to the EXE.
+This also works when moved to a different drive/USB path. The .cmd is optional.
+The EXE and Core include .NET/Windows App SDK; no separate SDK, Python, Ollama,
+LM Studio or Windows App Runtime installation is needed.
+$(if ($fullyStandalone) { 'INCLUDED: verified CPU llama.cpp, Vulkan llama.cpp, Qwen3-4B local text GGUF, ONNX embedding and reranker models. Basic offline Chat and document search have no model download dependency.' } elseif ($WithoutVulkan) { 'BUILD SHELL: CPU-only base for the Corporate pack builder; not a redistributable standalone application.' } else { 'INCOMPLETE DEVELOPMENT SHELL: no offline Chat weights; do not advertise or release as self-contained.' })
+Advanced image/video/training engines are optional and must be installed with PaRuX on demand.
+External games/store clients and your Windows graphics/audio drivers are NOT bundled.
+Windows SmartScreen, antivirus and IT restrictions still apply. No policy bypass.
+To upgrade, replace only application binaries and preserve the PaRuXData directory.
+Use the MSI for centrally administered installations, not for a portable USB run.
 
-* PaRuX.exe                      Personal profile for THIS PC (%LOCALAPPDATA%\PaRuX). Each computer keeps its own settings,
-                                 models, history, document folders and indexes. Nothing is copied between PCs.
-* PaRuX (portable data).cmd      Keeps everything in the PaRuXData folder next to the program (settings, models, history,
-                                 document folders, indexes). Copying the folder to another PC copies that data too.
-$(if ($WithoutVulkan) { 'This CPU-only shell carries no Vulkan runtime; it must be completed by the Corporate Lite builder.' } else { 'A verified llama.cpp Vulkan runtime is bundled. Models are not included: choose a model on first launch. CUDA, Python and media engines install only on demand.' })
-The optional CLI is $(if ($IncludeCli) { 'included' } else { 'not included' }); build with -IncludeCli if needed.
-This package does not bypass Windows SmartScreen, antivirus or IT policy; if your policy blocks unsigned programs, use your
-organisation's approved install route. To update, download the new portable ZIP (the MSI-only updater is not included).
-
-PaRuX - pacchetto portable
-Estrai in una cartella da cui puoi eseguire programmi e avvia PaRuX.exe (profilo personale di questo PC) oppure
-"PaRuX (portable data).cmd" (tutti i dati nella cartella PaRuXData accanto al programma). Il runtime Vulkan
-e incluso nella portable standard; modelli, CUDA, ComfyUI, Python e indici non sono inclusi. Il profilo Corporate Lite
-include invece il proprio runtime CPU e un modello. Il pacchetto non aggira SmartScreen, antivirus o policy IT.
+PaRuX - Standard Portable
+==========================
+Estrai lo ZIP in una cartella NTFS scrivibile e avvia direttamente PaRuX.exe.
+Modelli, Chat, impostazioni, documenti indicizzati e runtime risiedono in PaRuXData
+accanto al programma: la cartella puo' essere spostata su un'altra unita'.
+Il file .cmd non e' necessario. .NET e Windows App SDK sono inclusi.
+$(if ($fullyStandalone) { 'INCLUSI: motori CPU e Vulkan, modello Chat GGUF, embedding e reranker ONNX. Chat e ricerca locale sono utilizzabili senza scaricare modelli aggiuntivi.' } else { 'ATTENZIONE: pacchetto shell per sviluppo; non e completo per la Chat offline.' })
+Le funzioni avanzate che richiedono modelli aggiuntivi possono scaricarli su richiesta.
+Non sono inclusi driver Windows, giochi e client degli store. Nessuna elusione delle policy IT.
 "@
 Set-Content -LiteralPath (Join-Path $stageDir "README-portable.txt") -Value $readme -Encoding UTF8
+
+# Full packages get a per-file inventory. The final ZIP verifier re-hashes
+# every archive member, not merely the executable. The manifest excludes
+# itself; it is generated from strictly staged build assets, never real user data.
+if ($fullyStandalone) {
+    $fileManifest = @(Get-ChildItem -LiteralPath $stageDir -Recurse -File | ForEach-Object {
+        [ordered]@{
+            path = $_.FullName.Substring($stageDir.Length + 1).Replace('\', '/')
+            size = $_.Length
+            sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    })
+    $manifest = [ordered]@{
+        product = "PaRuX Standard Portable Offline"
+        version = $Version
+        sourceCommit = $sourceCommit
+        modelIncluded = $true
+        nativeCpuIncluded = $true
+        vulkanIncluded = $true
+        embeddingsIncluded = $true
+        rerankerIncluded = $true
+        runtimeTag = $offline.RuntimeTag
+        files = $fileManifest
+        fileCount = $fileManifest.Count
+    }
+    $manifest | ConvertTo-Json -Depth 8 |
+        Set-Content -LiteralPath (Join-Path $stageDir "MANIFEST-portable.json") -Encoding UTF8
+}
 
 New-Item -ItemType Directory -Path $portableRoot -Force | Out-Null
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
