@@ -79,7 +79,8 @@ public sealed class ServerState
         // On volumes without per-user ACLs (e.g. FAT/exFAT), Corporate refuses
         // startup with an actionable message instead of leaking the Core credential.
         if (CorporateMode.IsActive && OperatingSystem.IsWindows() &&
-            !LocalFileProtection.RestrictToCurrentUser(StateDirectory))
+            (!LocalFileProtection.RestrictToCurrentUser(PaRuXDataRoot.Path)
+                || !LocalFileProtection.RestrictToCurrentUser(StateDirectory)))
         {
             throw new UnauthorizedAccessException(
                 "Corporate cannot protect its local server data. Move the extracted PaRuX folder " +
