@@ -435,7 +435,16 @@ if ($Smoke) {
                     try { $native.Kill() } catch { }
                     throw "Portable Vulkan loader timed out."
                 }
-                if ($native.ExitCode -ne 0) { throw "Portable Vulkan native DLL loader failed (exit $($native.ExitCode))." }
+                if ($native.ExitCode -ne 0) {
+                    if ($fullyStandalone) {
+                        # A CPU-only Windows machine may not have a Vulkan ICD/loader.
+                        # Its included CPU llama.cpp is the guaranteed no-driver path;
+                        # do not fail a complete Portable just for optional GPU speed.
+                        Write-Warning "Vulkan native loader unavailable on this host (exit $($native.ExitCode)); checking bundled CPU fallback instead."
+                    } else {
+                        throw "Portable Vulkan native DLL loader failed (exit $($native.ExitCode))."
+                    }
+                }
             } finally { $native.Dispose() }
         }
         if ($fullyStandalone) {
