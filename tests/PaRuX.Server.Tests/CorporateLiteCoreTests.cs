@@ -52,6 +52,24 @@ public sealed class CorporateLiteCoreTests : IDisposable
     }
 
     [Fact]
+    public void Standard_portable_starter_marker_does_not_change_corporate_default_or_host_roles()
+    {
+        string dir = Path.Combine(_root, "portable-models");
+        Directory.CreateDirectory(dir);
+        string starter = Path.Combine(dir, "z-starter.gguf");
+        string other = Path.Combine(dir, "a-other.gguf");
+        File.WriteAllText(starter, "synthetic-model-bytes");
+        File.WriteAllText(other, "synthetic-model-bytes");
+        File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "z-starter.gguf");
+        Assert.Equal(starter, LocalAiPaths.FindBundledPortableModel(dir));
+        Assert.Equal(other, LocalAiPaths.FindBundledCorporateModel(dir));
+
+        // A malformed portable marker cannot resolve outside this package.
+        File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "../outside.gguf");
+        Assert.Equal(other, LocalAiPaths.FindBundledPortableModel(dir));
+    }
+
+    [Fact]
     public void Corporate_model_downloads_are_opt_in_and_never_enable_standard_installations()
     {
         Assert.False(CorporateMode.AreModelDownloadsAllowed(true, null));
