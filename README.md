@@ -38,6 +38,12 @@
 
 Available features depend on your installed models, runtimes and hardware. **Not every feature or model will work on every PC during beta.**
 
+## Standard Portable: standalone offline packaging (source only)
+
+The current **unreleased** Standard Portable builder now requires a bundled CPU `llama.cpp` runtime, Vulkan runtime, Qwen3-4B GGUF starter, ONNX embeddings and reranker, plus self-contained Desktop/Core binaries. The ZIP includes a `parux.portable` marker and adjacent `PaRuXData`: launching `PaRuX.exe` directly or relocating the extracted directory is designed to preserve Chat history, model files, indexing and settings **without referencing the host PC's `Documents/LocalAI` or installed models**. The dedicated Corporate CPU shell and diagnostic shell are marked INTERNAL and use separate staging paths/output names, so they cannot overwrite the full Standard package.
+
+On the **Windows BUILD PC**, use `scripts/build-portable.ps1 -FetchAssets -Smoke` to prepare and verify the local assets before delivery; the target user should not need to install .NET, the Windows App Runtime, Python, Ollama or LM Studio for **base Chat and document retrieval**. The built ZIP has not yet passed fresh-machine native Windows/FlaUI, actual text inference, RAG quality or relocation tests. Advanced generation/training, system drivers, game launchers and their optional dependencies are **not** promised fully prebundled. The code is not part of the published 4.1.0 beta. Enterprise Corporate portability may require NTFS ACL support and IT approval; removable FAT/exFAT drives are not certified.
+
 ## Corporate Lite: fully offline requires the right package
 
 The **Corporate Lite with Qwen3-4B** package includes a CPU `llama.cpp` runtime and the starter GGUF for offline text chat. The separately distributed **NoModel** variant does **not** contain a chat model; installing it alone is not a complete standalone chat setup. Neither variant is enterprise-certified. For a verified document-search build, the local embedding ONNX model is required, and a cross-encoder ONNX reranker can now be bundled using `-RerankerDir` / `-Fetch` plus `-RequireReranker` during packaging. Files, runtime and model licences must be reviewed before distribution.
