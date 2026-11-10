@@ -168,6 +168,68 @@ public sealed class CorporateLiteCoreTests : IDisposable
     }
 
     [Fact]
+    public void Offline_readiness_distinguishes_missing_model_from_missing_retrieval_assets()
+    {
+        string root = Path.Combine(_root, "readiness");
+        Directory.CreateDirectory(root);
+        var missing = CorporateOfflineReadiness.Inspect(root);
+        Assert.False(missing.HasChatAssets);
+        Assert.False(missing.HasDocumentAssets);
+        Assert.Contains("MISSING", missing.ToStatusText(false));
+
+        string cpu = Path.Combine(root, "LocalAI", "runtime", "llama.cpp-b123-cpu");
+        Directory.CreateDirectory(cpu);
+        File.WriteAllBytes(Path.Combine(cpu, "llama-server.exe"), new byte[8192]);
+        string models = Path.Combine(root, "models");
+        Directory.CreateDirectory(models);
+        string gguf = Path.Combine(models, "starter.gguf");
+        File.WriteAllBytes(gguf, new byte[70_000]);
+        var withInvalidHeader = CorporateOfflineReadiness.Inspect(root);
+        Assert.True(withInvalidHeader.CpuRuntimePresent);
+        Assert.False(withInvalidHeader.ChatModelPresent);
+
+        using (var f = new FileStream(gguf, FileMode.Open, FileAccess.Write))
+            f.Write(new byte[] { (byte)'G', (byte)'G', (byte)'U', (byte)'F' });
+        File.WriteAllText(Path.Combine(models, ".corporate-default-model"), "starter.gguf");
+
+        var withChat = CorporateOfflineReadiness.Inspect(root);
+        Assert.True(withChat.HasChatAssets);
+        Assert.False(withChat.HasDocumentAssets);
+        Assert.Equal("starter.gguf", withChat.StarterModelName);
+
+        string emb = Path.Combine(root, "ai-runtimes", "embeddings");
+        Directory.CreateDirectory(emb);
+        File.WriteAllBytes(Path.Combine(emb, "model.onnx"), new byte[180_000]);
+        File.WriteAllBytes(Path.Combine(emb, "vocab.txt"), new byte[2_000]);
+        File.WriteAllText(Path.Combine(emb, "config.json"), "{}");
+        File.WriteAllText(Path.Combine(emb, "tokenizer_config.json"), "{}");
+        var withDocuments = CorporateOfflineReadiness.Inspect(root);
+        Assert.True(withDocuments.HasDocumentAssets);
+        Assert.False(withDocuments.RerankerPresent);
+        Assert.Contains("MANCANTE", withDocuments.ToStatusText(true));
+
+        string rer = Path.Combine(root, "ai-runtimes", "reranker");
+        Directory.CreateDirectory(rer);
+        File.WriteAllBytes(Path.Combine(rer, "model.onnx"), new byte[180_000]);
+        File.WriteAllBytes(Path.Combine(rer, "vocab.txt"), new byte[2_000]);
+        var complete = CorporateOfflineReadiness.Inspect(root);
+        Assert.True(complete.HasDocumentAssets);
+        Assert.True(complete.RerankerPresent);
+        Assert.Contains("not a functional test", complete.ToStatusText(false));
+    }
+
+    [Fact]
+    public void Offline_readiness_does_not_follow_a_traversal_default_model_marker()
+    {
+        string root = Path.Combine(_root, "malformed-corp-readiness");
+        string models = Path.Combine(root, "models");
+        Directory.CreateDirectory(models);
+        File.WriteAllText(Path.Combine(models, ".corporate-default-model"), "..\\outside.gguf");
+        Assert.False(CorporateOfflineReadiness.Inspect(root).ChatModelPresent);
+        Assert.False(CorporateOfflineReadiness.Inspect(null).HasDocumentAssets);
+    }
+
+    [Fact]
     public void Network_guard_points_proxies_at_a_dead_loopback_port_and_keeps_loopback_direct()
     {
         Assert.StartsWith("http://127.0.0.1:", CorporateNetworkGuard.Variables["HTTPS_PROXY"]);
