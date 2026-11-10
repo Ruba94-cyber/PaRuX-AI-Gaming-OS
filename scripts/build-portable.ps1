@@ -3,8 +3,11 @@
     Builds the PaRuX portable ZIP (same product as the MSI, no separate app) and verifies it.
 
 .DESCRIPTION
-    Default ZIP: Desktop, Core, legal notices, and the hash-locked llama.cpp Vulkan baseline with its native DLLs.
-    No models, CUDA/cuBLAS, ComfyUI, Python/uv, Gaming downloads, indexes or user documents are embedded.
+    Default ZIP: Desktop, Core, legal notices, the verified Vulkan engine, a standalone native CPU engine,
+    local GGUF starter Chat model and local ONNX embeddings/reranker. No installed .NET, Windows App Runtime,
+    Python, Ollama, LM Studio or external model directory is required for base offline Chat and document search.
+    Build assets can be supplied by path or fetched ON THE BUILD MACHINE with -FetchAssets.
+    Advanced media/training models remain optional; this does not bundle games, store clients or graphics drivers.
     The CLI is an optional separate self-contained publish (-IncludeCli), not part of the minimal default.
     Corporate Lite uses -WithoutVulkan and supplies its own CPU runtime and one model.
 
@@ -36,12 +39,23 @@ param(
     [switch]$SkipPublish,
     [switch]$WithoutVulkan,
     [switch]$IncludeCli,
+    [switch]$ShellOnly,
+    [switch]$FetchAssets,
+    [string]$ModelPath = "",
+    [string]$CpuRuntimeDir = "",
+    [string]$EmbeddingDir = "",
+    [string]$RerankerDir = "",
+    [string]$RuntimeTag = "",
     [switch]$Smoke,
     [int]$SmokeTimeoutSeconds = 120
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+# Standard Portable always carries a working local AI baseline. -ShellOnly is
+# for internal diagnostics; -WithoutVulkan is the Corporate builder's CPU shell.
+$fullyStandalone = -not $WithoutVulkan -and -not $ShellOnly
+if ($WithoutVulkan -and $FetchAssets) { throw "-FetchAssets is for the full Standard Portable, not the Corporate CPU shell." }
 
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw "The PaRuX portable package must be built on Windows." }
 
@@ -102,7 +116,38 @@ foreach ($notice in @("LICENSE:LICENSE.txt", "NVIDIA_CUDA_NOTICE.txt:NVIDIA_CUDA
     if (Test-Path -LiteralPath (Join-Path $repoRoot $src)) { Copy-Item -LiteralPath (Join-Path $repoRoot $src) -Destination (Join-Path $stageDir $dst) -Force }
 }
 
-# The second launcher keeps every piece of user data beside the program. It only sets the documented PARUX_DATA_ROOT.
+# A REAL portable package carries ALL durable state beside its own EXE. This
+# applies to double-clicking PaRuX.exe, not merely a special batch-file launch.
+if (-not $WithoutVulkan) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $stageDir "PaRuXData") | Out-Null
+    Set-Content -LiteralPath (Join-Path $stageDir "parux.portable") -Value "PaRuX Standard Portable" -Encoding ASCII
+}
+if ($fullyStandalone) {
+    . (Join-Path $PSScriptRoot "portable-offline-assets.ps1")
+    $offline = Resolve-PaRuXPortableOfflineAssets -AssetsRoot (Join-Path $repoRoot "artifacts\corporate-lite\assets") `
+        -ModelPath $ModelPath -CpuRuntimeDir $CpuRuntimeDir -EmbeddingDir $EmbeddingDir `
+        -RerankerDir $RerankerDir -RuntimeTag $RuntimeTag -Fetch:$FetchAssets
+    $data = Join-Path $stageDir "PaRuXData"
+    $cpuDest = Join-Path $data ("LocalAI\runtime\llama.cpp-" + $offline.RuntimeTag + "-cpu")
+    New-Item -ItemType Directory -Force -Path $cpuDest | Out-Null
+    Copy-Item -Path (Join-Path $offline.CpuRuntimeDir "*") -Destination $cpuDest -Recurse -Force
+    $modelDest = Join-Path $data "models"
+    New-Item -ItemType Directory -Force -Path $modelDest | Out-Null
+    Copy-Item -LiteralPath $offline.ModelPath -Destination $modelDest -Force
+    Set-Content -LiteralPath (Join-Path $modelDest ".portable-default-model") `
+        -Value ([IO.Path]::GetFileName($offline.ModelPath)) -Encoding UTF8
+    foreach ($assetType in @("embeddings", "reranker")) {
+        $source = if ($assetType -eq "embeddings") { $offline.EmbeddingDir } else { $offline.RerankerDir }
+        $destination = Join-Path $data ("ai-runtimes\" + $assetType)
+        New-Item -ItemType Directory -Force -Path $destination | Out-Null
+        Copy-Item -Path (Join-Path $source "*") -Destination $destination -Recurse -Force
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $cpuDest "llama-server.exe") -PathType Leaf)) {
+        throw "Full Portable package is missing the actual native CPU llama-server.exe."
+    }
+}
+# The batch file is only a convenient alternate entry point. Direct PaRuX.exe
+# reads the same nearby PaRuXData directory from the explicit marker.
 $cmd = @'
 @echo off
 rem Starts PaRuX with ALL of its data (settings, models, history, RAG folders, indexes) inside the "PaRuXData" folder
