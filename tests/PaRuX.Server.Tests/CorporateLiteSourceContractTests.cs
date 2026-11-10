@@ -128,6 +128,9 @@ public sealed class CorporateLiteSourceContractTests
     {
         string source = Read("src", "PaRuX.Server", "ServerState.cs");
         Assert.Contains("CorporateMode.IsActive && OperatingSystem.IsWindows()", source, StringComparison.Ordinal);
+        Assert.Contains("LocalFileProtection.RestrictToCurrentUser(PaRuXDataRoot.Path)", source, StringComparison.Ordinal);
+        Assert.Contains("FileAttributes.ReparsePoint", source, StringComparison.Ordinal);
+        Assert.Contains("Corporate local data and bootstrap token cannot be stored", source, StringComparison.Ordinal);
         Assert.Contains("LocalFileProtection.RestrictToCurrentUser(StateDirectory)", source, StringComparison.Ordinal);
         Assert.Contains("LocalFileProtection.RestrictToCurrentUser(BootstrapPath)", source, StringComparison.Ordinal);
         Assert.Contains("Move the extracted PaRuX folder", source, StringComparison.Ordinal);
