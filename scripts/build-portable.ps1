@@ -69,9 +69,9 @@ $portableRoot = Join-Path $repoRoot "artifacts\portable"
 # Different editions must NEVER share a mutable stage directory.
 # In particular, Corporate's CPU-only staging must not overwrite the signed
 # Standard ZIP or its verified publish tree during a multi-package release.
-$stageDir = if ($WithoutVulkan) { Join-Path $portableRoot "cpu-shell-stage\PaRuX" }
-    elseif ($ShellOnly) { Join-Path $portableRoot "diagnostic-shell-stage\PaRuX" }
-    else { Join-Path $portableRoot "stage\PaRuX" }
+$stageDir = if ($WithoutVulkan) { Join-Path $portableRoot "cpu-shell-stage\PaRuX" } elseif ($ShellOnly) {
+    Join-Path $portableRoot "diagnostic-shell-stage\PaRuX"
+} else { Join-Path $portableRoot "stage\PaRuX" }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     [xml]$projectXml = Get-Content -LiteralPath $appProject -Raw
@@ -87,9 +87,9 @@ $dirty = @(& git -C $repoRoot status --porcelain=v1 2>$null)
 $dirtyNote = if ($dirty.Count -gt 0) { " (working tree has uncommitted changes: this is a local build, not a release artifact)" } else { "" }
 Write-Host "Portable $Version from $sourceCommit$dirtyNote"
 
-$zipBase = if ($WithoutVulkan) { "PaRuX-$Version-CPU-shell-INTERNAL-win-x64" }
-    elseif ($ShellOnly) { "PaRuX-$Version-diagnostic-shell-INTERNAL-win-x64" }
-    else { "PaRuX-$Version-portable-win-x64" }
+$zipBase = if ($WithoutVulkan) { "PaRuX-$Version-CPU-shell-INTERNAL-win-x64" } elseif ($ShellOnly) {
+    "PaRuX-$Version-diagnostic-shell-INTERNAL-win-x64"
+} else { "PaRuX-$Version-portable-win-x64" }
 $zipName = $zipBase + ".zip"
 $zipPath = Join-Path $portableRoot $zipName
 $shaPath = Join-Path $portableRoot ($zipBase + ".sha256.txt")
@@ -259,7 +259,9 @@ $required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.
     "LICENSE.txt", "README-portable.txt", "PaRuX (portable data).cmd",
     "hostfxr.dll", "hostpolicy.dll", "coreclr.dll",
     "PaRuX.Server/hostfxr.dll", "PaRuX.Server/hostpolicy.dll", "PaRuX.Server/coreclr.dll")
-if ($IncludeCli) { $required += "Cli/parux.exe" }
+if ($IncludeCli) {
+    $required += @("Cli/parux.exe", "Cli/hostfxr.dll", "Cli/hostpolicy.dll", "Cli/coreclr.dll")
+}
 if (-not $WithoutVulkan) { $required += "parux.portable"; $required += "PaRuXData/.portable-data" }
 if ($fullyStandalone) {
     $required += "MANIFEST-portable.json"
