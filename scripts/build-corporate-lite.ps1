@@ -55,6 +55,13 @@ if (-not $SkipPublish) {
     if ($LASTEXITCODE -ne 0) { throw "Portable build failed." }
 }
 if (-not (Test-Path (Join-Path $portableStage "PaRuX.exe"))) { throw "Portable stage not found. Run without -SkipPublish." }
+$sourceCommit = ([string](& git -C $repoRoot rev-parse HEAD)).Trim().ToLowerInvariant()
+$sourceMarker = Join-Path $portableStage ".parux-publish-source"
+if ($sourceCommit -notmatch '^[a-f0-9]{40}$' -or
+    -not (Test-Path -LiteralPath $sourceMarker -PathType Leaf) -or
+    (Get-Content -LiteralPath $sourceMarker -Raw).Trim() -cne ($sourceCommit + "|cpu-shell")) {
+    throw "Corporate Lite CPU shell was compiled from a different commit or edition. Rebuild without -SkipPublish."
+}
 if (Test-Path (Join-Path $portableStage "PaRuX.Server\\runtime-baseline")) {
     throw "Corporate Lite requires a CPU-only portable stage. Rebuild without -SkipPublish using -WithoutVulkan."
 }
