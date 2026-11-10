@@ -96,7 +96,7 @@ function Assert-PinnedAsset {
     param([string]$File, [long]$Size, [string]$DigestKind, [string]$Digest)
     if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "Required pinned asset missing: $File" }
     $item = Get-Item -LiteralPath $File
-    if ($item.Length -ne $Size) {
+    if ($Size -gt 0 -and $item.Length -ne $Size) {
         throw "Pinned asset size mismatch: $File (expected $Size, found $($item.Length))"
     }
     if ($DigestKind -eq "sha256") {
@@ -160,7 +160,9 @@ if ($Fetch) {
     # still CPU-usable on 16 GB. Q4_K_M is the quality floor PaRuX uses for technical work.
     if (-not $NoModel) {
         $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
-        Get-File "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf" $ModelPath
+        # Publisher-provided GGUF SHA-256; immutable file content even if the remote
+        # branch changes. The official Qwen model page lists this exact digest.
+        Get-PinnedAsset "Qwen/Qwen3-4B-GGUF" "main" "Qwen3-4B-Q4_K_M.gguf" $ModelPath 0 "sha256" "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
     }
     # all-MiniLM-L6-v2 (Apache-2.0): the files the Core's EmbeddingService expects.
     $EmbeddingDir = Join-Path $assets "embeddings"
