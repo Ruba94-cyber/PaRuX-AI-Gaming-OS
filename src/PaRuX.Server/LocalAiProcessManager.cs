@@ -1503,7 +1503,8 @@ public sealed class LocalAiProcessManager
         // package-pinned starter, with a visible warning in the result message.
         bool corporate = CorporateMode.IsActive;
         CorporateTextModelChoice choice = CorporateTextModelChoicePolicy.Resolve(
-            modelPathOverride, LocalAiPaths.GetRoleOverride("standard"),
+            modelPathOverride,
+            corporate ? LocalAiPaths.GetRoleOverride("standard") : LocalAiPaths.GetPortableOwnedRoleModel("standard"),
             corporate ? LocalAiPaths.FindBundledCorporateModel() : LocalAiPaths.FindBundledPortableModel(),
             IsUsableCorporateTextGguf);
         string? model = choice.Path;
