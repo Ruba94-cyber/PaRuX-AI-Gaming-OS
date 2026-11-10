@@ -137,9 +137,20 @@ if ($Fetch) {
     $rel = $rels | Where-Object { @($_.assets | Where-Object { $_.name -match '^llama-.*-bin-win-cpu-x64\.zip$' }).Count -gt 0 } | Select-Object -First 1
     if (-not $rel) { throw "No official win-cpu-x64 llama.cpp asset found in recent releases." }
     $asset = $rel.assets | Where-Object { $_.name -match '^llama-.*-bin-win-cpu-x64\.zip$' } | Select-Object -First 1
-    $RuntimeTag = $rel.tag_name
+    $RuntimeTag = [string]$rel.tag_name
+    if ($RuntimeTag -notmatch '^[A-Za-z0-9._-]+$') { throw "Untrusted llama.cpp release tag." }
     $zip = Join-Path $assets $asset.name
     Get-File $asset.browser_download_url $zip
+    # GitHub release API SHA-256, when published, is checked before expanding the ZIP.
+    # If absent, keep provenance explicit rather than pretending transport TLS is a signed digest.
+    if ([string]$asset.digest -match '^sha256:([a-fA-F0-9]{64})$') {
+        $runtimeZipSha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($runtimeZipSha -ne $Matches[1].ToLowerInvariant()) {
+            throw "CPU llama.cpp release archive digest does not match the upstream release metadata: $zip"
+        }
+    } else {
+        Write-Warning "llama.cpp release metadata has no SHA-256 digest. Archive origin needs manual release review before redistribution."
+    }
     # A cached CPU folder must never be relabelled as a newer release.
     $RuntimeDir = Join-Path $assets ("llama-cpu-" + $RuntimeTag)
     if (-not (Test-Path $RuntimeDir)) { Expand-Archive -LiteralPath $zip -DestinationPath $RuntimeDir }
@@ -181,6 +192,12 @@ foreach ($required in "model.onnx", "vocab.txt", "tokenizer_config.json", "confi
         throw "Corporate Lite requires a complete local embedding engine: $file"
     }
 }
+# Even if the build uses offline pre-fetched assets, the shipped ONNX weights and
+# tokenizer must match the Core's exact pinned baseline. No unreviewed substitutes.
+Assert-PinnedAsset (Join-Path $EmbeddingDir "model.onnx") 90405214 "sha256" "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452"
+Assert-PinnedAsset (Join-Path $EmbeddingDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
+Assert-PinnedAsset (Join-Path $EmbeddingDir "tokenizer_config.json") 350 "git-sha1" "c79f2b6a0cea6f4b564fed1938984bace9d30ff0"
+Assert-PinnedAsset (Join-Path $EmbeddingDir "config.json") 612 "git-sha1" "72b987fd805cfa2b58c4c8c952b274a11bfd5a00"
 if ($RequireReranker -and [string]::IsNullOrWhiteSpace($RerankerDir)) {
     throw "Complete local RAG requires -RerankerDir or -Fetch. No cloud or later runtime download is permitted."
 }
@@ -191,6 +208,8 @@ if (-not [string]::IsNullOrWhiteSpace($RerankerDir)) {
             throw "Incomplete local reranker engine: $file"
         }
     }
+    Assert-PinnedAsset (Join-Path $RerankerDir "model.onnx") 90992115 "sha256" "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"
+    Assert-PinnedAsset (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
 }
 if ($ModelPath -match '(?i)(personal|company|private)') { throw "Refusing a model path that looks private." }
 if ($RuntimeTag -and $RuntimeTag -notmatch '^[A-Za-z0-9._-]+$') { throw "RuntimeTag contains unsafe characters." }
