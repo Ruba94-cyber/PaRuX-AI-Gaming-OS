@@ -45,7 +45,9 @@ $assets = Join-Path $outRoot "assets"
 New-Item -ItemType Directory -Force $outRoot, $assets | Out-Null
 
 # --- 1. The application (reuse the portable build; it already excludes models, indexes and tokens) --------------------------
-$portableStage = Join-Path $repoRoot "artifacts\portable\stage\PaRuX"
+# Reuse only the dedicated, CPU-only build shell. This no longer overwrites
+# the Standard Portable stage/ZIP when both editions are prepared for release.
+$portableStage = Join-Path $repoRoot "artifacts\portable\cpu-shell-stage\PaRuX"
 if (-not $SkipPublish) {
     $pv = @{}; if ($Version) { $pv["Version"] = $Version }
     # Corporate Lite has its own CPU engine and must not inherit the Standard portable Vulkan pack.
