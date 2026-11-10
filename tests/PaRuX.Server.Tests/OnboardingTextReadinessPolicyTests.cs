@@ -42,6 +42,26 @@ public sealed class OnboardingTextReadinessPolicyTests
     }
 
     [Fact]
+    public void Standard_portable_accepts_real_native_CPU_without_treating_ordinary_MSI_as_cpu_ready()
+    {
+        var cpu = new[] { new ComponentStatus { Id = "llama-server-cpu", Detected = true } };
+        var sleeping = new[] { new RuntimeBackendStatus
+            { Backend = "text-cpu", Installed = true, Running = false, Healthy = false } };
+        var healthy = new[] { new RuntimeBackendStatus
+            { Backend = "text-cpu", Installed = true, Running = true, Healthy = true } };
+
+        Assert.True(OnboardingTextReadinessPolicy.HasInstalledRuntime(cpu, false, standardPortableMode: true));
+        Assert.False(OnboardingTextReadinessPolicy.HasInstalledRuntime(cpu, false));
+        Assert.False(OnboardingTextReadinessPolicy.HasHealthyTextBackend(sleeping, false, standardPortableMode: true));
+        Assert.True(OnboardingTextReadinessPolicy.HasHealthyTextBackend(healthy, false, standardPortableMode: true));
+        Assert.False(OnboardingTextReadinessPolicy.HasHealthyTextBackend(healthy, false));
+        Assert.Contains("Re-extract", OnboardingTextReadinessPolicy.MissingRuntimeMessage(
+            false, false, standardPortableMode: true));
+        Assert.Contains("Estrai", OnboardingTextReadinessPolicy.MissingRuntimeMessage(
+            false, true, standardPortableMode: true));
+    }
+
+    [Fact]
     public void Corporate_missing_runtime_message_does_not_suggest_downloading_an_executable()
     {
         string english = OnboardingTextReadinessPolicy.MissingRuntimeMessage(true, false);
