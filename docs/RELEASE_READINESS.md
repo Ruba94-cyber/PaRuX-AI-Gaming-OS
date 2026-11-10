@@ -4,6 +4,8 @@
 
 Updated 2026-11-10.
 
+**Post-release source work (NOT part of any published 4.1.0 archive):** `3ddfd0a`, `d6c1abc`, `e88b428`, `31c05b8`, `764fbbe`, `4d14fe0` hardened Corporate Lite packaging, added optional local ONNX reranker and explicit strict offline acceptance, updated the canonical plan and corrected public README status. These changes are not yet compiled or tested on Windows and were not signed or released. The earlier successful xUnit/FlaUI results are for the previous tested tree; they do not automatically validate later commits. The next native gate is a full model-containing Corporate offline ZIP with `-RequireReranker`, clean extracted package and `tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance`. Passing this smaller corpus test does not certify 30,000-page PDFs, 8 GB machines or enterprise readiness.
+
 | Gate | Status | Basis |
 |---|---|---|
 | 1 Feature completeness | PARTIAL | 17 plan sections are SOURCE PARTIAL (written remotely, unit-tested only); per-section native checks are listed in `.ai/artifacts/native-verification-matrix.md` (local). Gaming parity gaps GAM-003..007 open |
