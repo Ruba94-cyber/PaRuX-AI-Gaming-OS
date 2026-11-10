@@ -1120,6 +1120,18 @@ public sealed class ManualGameLibraryView : UserControl
     private Task RefreshGogAsync() => RefreshDetectedAsync(
         "GOG", () => GamingOrchestratorClient.Current.DiscoverGogGamesAsync());
 
+    private static async Task<GamingCallResult<List<DiscoveredGameDto>>> TryDiscoverStoreAsync(
+        string provider, Func<Task<GamingCallResult<List<DiscoveredGameDto>>>> discover)
+    {
+        try { return await discover(); }
+        catch (Exception ex)
+        {
+            // One failed provider must not discard titles returned by other providers.
+            Log.Write("Gaming store discovery " + provider + ": " + ex.GetType().Name);
+            return GamingCallResult<List<DiscoveredGameDto>>.Fail(provider + " discovery unavailable.");
+        }
+    }
+
     private async Task RefreshAllStoresAsync()
     {
         if (_busy) return;
@@ -1133,9 +1145,9 @@ public sealed class ManualGameLibraryView : UserControl
         {
             // Each store remains independent. A broken provider cannot erase a valid
             // catalog result from another store. No background scan is started at boot.
-            var steam = GamingOrchestratorClient.Current.DiscoverSteamGamesAsync();
-            var epic = GamingOrchestratorClient.Current.DiscoverEpicGamesAsync();
-            var gog = GamingOrchestratorClient.Current.DiscoverGogGamesAsync();
+            var steam = TryDiscoverStoreAsync("Steam", () => GamingOrchestratorClient.Current.DiscoverSteamGamesAsync());
+            var epic = TryDiscoverStoreAsync("Epic", () => GamingOrchestratorClient.Current.DiscoverEpicGamesAsync());
+            var gog = TryDiscoverStoreAsync("GOG", () => GamingOrchestratorClient.Current.DiscoverGogGamesAsync());
             await Task.WhenAll(steam, epic, gog);
 
             var results = new[]
