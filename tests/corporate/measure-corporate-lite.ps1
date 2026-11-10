@@ -44,7 +44,13 @@ function Test-GroundedCase($Result, $Case) {
 # This negative probe has no supporting document. Accept one unambiguous response
 # only: a refusal accompanied by a fabricated code must never pass the gate.
 function Test-AbstentionCase($Result) {
-    $Result.declines = ([string]$Result.answer).Trim() -match '^(?i:INSUFFICIENT EVIDENCE)[.!]?$'
+    $answer = ([string]$Result.answer).Trim()
+    # Either the exact phrase the probe asks for, or PaRuX's own deterministic refusal (no model
+    # involved). In both cases nothing that looks like a code or a number may accompany it.
+    $exactPhrase = $answer -match '^(?i:INSUFFICIENT EVIDENCE)[.!]?$'
+    $productRefusal = $answer -match '^(?i)Not enough information in the selected documents\b' -and
+        $answer -notmatch '\b[A-Z0-9]{2,}-[A-Z0-9]{2,}\b' -and $answer -notmatch '\d{3,}'
+    $Result.declines = $exactPhrase -or $productRefusal
     $Result.pass = ($Result.http_status -eq 200) -and $Result.declines
 }
 
@@ -257,7 +263,11 @@ while (-not (Test-Path $Stop)) {
         $lines = @()
         foreach ($x in $c) {
             $nm = ($ours | Where-Object Id -eq $x.OwningProcess | Select-Object -First 1).ProcessName
-            $remoteOut = (-not (Test-NetworkLoopback $x.RemoteAddress)) -and $x.State -ne "Listen"
+            # A TCP socket that is only bound (or already closed) has no peer: Windows reports the
+            # unspecified address with port 0. That is not a connection to anywhere; a real remote
+            # endpoint always has a port. Wildcard LISTENERS are still reported below.
+            $noPeer = ([int]$x.RemotePort -eq 0) -and ($x.RemoteAddress -in @("::", "0.0.0.0"))
+            $remoteOut = (-not (Test-NetworkLoopback $x.RemoteAddress)) -and $x.State -ne "Listen" -and -not $noPeer
             $listenWide = $x.State -eq "Listen" -and -not (Test-NetworkLoopback $x.LocalAddress)
             if ($remoteOut -or $listenWide) { $lines += ("{0:o},{1},{2},{3}:{4},{5}:{6},{7}" -f $now.ToUniversalTime(), $x.OwningProcess, $nm, $x.LocalAddress, $x.LocalPort, $x.RemoteAddress, $x.RemotePort, $x.State) }
         }

@@ -45,6 +45,9 @@ Check-Abstention 'Insufficient evidence.' 200 $true 'refusal with punctuation'
 Check-Abstention 'No evidence found. The Osprey code is ZEUS-1234.' 200 $false 'invented alphanumeric code'
 Check-Abstention 'INSUFFICIENT EVIDENCE. Use ALPHA.' 200 $false 'extra fabricated code'
 Check-Abstention 'INSUFFICIENT EVIDENCE' 500 $false 'failed HTTP request'
+Check-Abstention 'Not enough information in the selected documents to answer this. No passage supports an answer, so I will not guess. Try other words, or check that the right folders are selected and indexed.' 200 $true 'deterministic product refusal'
+Check-Abstention 'Not enough information in the selected documents, but the Kestrel code is 4417-ZEPHYR.' 200 $false 'refusal that volunteers another code'
+Check-Abstention 'The access code for the Kestrel records vault is 4417-ZEPHYR. However, the documents do not provide the Osprey code.' 200 $false 'volunteered unrelated fact'
 $evidence = @{
     FATAL = $null; conn_error = $null; shutdown_error = $null
     sampler_completed = $true; process_sample_count = 2; network_sample_count = 1; network_sample_errors = 0
@@ -77,4 +80,4 @@ foreach ($undelivered in 'exit request not delivered (code 2)', 'exit request ti
     $bad = $evidence.Clone(); $bad['tray_exit'] = $undelivered
     if (@(Get-AcceptanceEvidenceFailures $bad).Count -eq 0) { throw "Undelivered exit accepted: $undelivered" }
 }
-Write-Host 'Corporate acceptance evaluators: 37 cases passed.'
+Write-Host 'Corporate acceptance evaluators: 40 cases passed.'

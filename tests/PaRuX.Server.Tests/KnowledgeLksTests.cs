@@ -421,6 +421,36 @@ public sealed class KnowledgeLksTests : IDisposable
 
     // ------------------------------------------------------------------------------------------------ 7) smart search + benchmark
 
+    [Fact]
+    public void A_question_about_one_named_thing_is_not_answered_from_passages_about_another()
+    {
+        var vault = new[] { Hit("The access code for the Kestrel records vault is 4417-ZEPHYR. Only the archive lead may open the vault.", file: "vault.md") };
+
+        // Same ordinary words ("access code"), different subject: no model is asked, nothing is volunteered.
+        Assert.False(DocumentChatPlanner.IsSufficient("What is the access code for the Osprey server room?", vault));
+        Assert.Equal(DocumentChatKind.NotEnoughInformation,
+            DocumentChatPlanner.Plan("What is the access code for the Osprey server room? Answer only from the documents.", vault).Kind);
+
+        // The named subject is in the passage: unchanged behaviour.
+        Assert.True(DocumentChatPlanner.IsSufficient("What is the access code for the Kestrel records vault?", vault));
+        Assert.True(DocumentChatPlanner.IsSufficient("what is the access code for the kestrel records vault", vault));
+        // One of two names present is enough to let the model read the passage.
+        Assert.True(DocumentChatPlanner.IsSufficient("Do the Kestrel and Osprey rooms share an access code?", vault));
+        // A name that only appears in the file name or heading still counts as covered.
+        Assert.True(DocumentChatPlanner.IsSufficient("What is the access code in the Osprey manual?",
+            new[] { Hit("The access code is 9911 for the server room.", file: "Osprey-manual.pdf") }));
+    }
+
+    [Theory]
+    [InlineData("What is the access code for the Osprey server room?", "Osprey")]
+    [InlineData("Qual è il codice della sala Osprey? Rispondi solo dai documenti.", "Osprey")]
+    [InlineData("What does Kestrel's policy say about Friday shifts?", "Kestrel,Friday")]
+    [InlineData("what is the leave policy for part-time staff", "")]
+    [InlineData("Summarize the report. Then list the risks. If none, say INSUFFICIENT EVIDENCE", "")]
+    [InlineData("Which DTC applies to ECU A2?", "")]
+    public void Named_terms_are_capitalised_words_inside_a_sentence(string query, string expected) =>
+        Assert.Equal(expected, string.Join(",", DocumentChatPlanner.NamedTerms(query)));
+
     private static KnowledgeHit Hit(string text, string match = "lexical", string file = "Spec.docx") =>
         new(1, "C:\\x\\" + file, file, text, new DocumentPosition(Page: 3), 1.0, match);
 

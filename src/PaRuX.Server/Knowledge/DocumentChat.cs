@@ -71,6 +71,29 @@ public static class DocumentChatPlanner
         return terms.Distinct().ToList();
     }
 
+    /// <summary>
+    /// Capitalised words inside a sentence (not its first word, not a stop word): the names a
+    /// question is about. Deliberately narrow: all-caps words, short words and sentence openers
+    /// are ignored, so an ordinary question yields nothing and keeps the existing behaviour.
+    /// </summary>
+    public static IReadOnlyList<string> NamedTerms(string query)
+    {
+        var names = new List<string>();
+        foreach (string sentence in Regex.Split(query, @"(?<=[.!?:;])\s+|\r?\n"))
+        {
+            MatchCollection words = Regex.Matches(sentence, @"[\p{L}\p{N}][\p{L}\p{N}'’\-]*");
+            for (int i = 1; i < words.Count; i++)
+            {
+                string w = words[i].Value.TrimEnd('\'', '’', '-');
+                if (w.EndsWith("'s", StringComparison.OrdinalIgnoreCase) || w.EndsWith("’s", StringComparison.OrdinalIgnoreCase)) w = w[..^2];
+                if (w.Length < 4 || !char.IsUpper(w[0]) || !w.Skip(1).All(char.IsLower)) continue;
+                if (Stop.Contains(w)) continue;
+                names.Add(w);
+            }
+        }
+        return names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>True when the best passage supports the question: an exact identifier matched, or at least half of the content words appear together.</summary>
     public static bool IsSufficient(string query, IReadOnlyList<KnowledgeHit> hits)
     {
@@ -89,6 +112,15 @@ public static class DocumentChatPlanner
                 h.Match == "exact" && ContainsWholeExactTerm(h.Text, term))))
             return false;
         if (exact.Count > 0 && hits.Any(h => h.Match == "exact")) return true;
+        // A question about a named thing ("the Osprey server room") is not supported by passages
+        // about a different named thing ("the Kestrel records vault") just because the ordinary
+        // words overlap. Measured on the Corporate package: a small model then volunteers the
+        // other item's value. When none of the names in the question occurs in any passage, the
+        // documents do not cover it and no model is asked.
+        IReadOnlyList<string> names = NamedTerms(query);
+        if (names.Count > 0 && !hits.Any(h => names.Any(name =>
+                (h.Text + " " + h.FileName + " " + h.Position.Heading).Contains(name, StringComparison.OrdinalIgnoreCase))))
+            return false;
         IReadOnlyList<string> terms = ContentTerms(query);
         if (terms.Count == 0) return false;
         double best = 0;
