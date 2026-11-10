@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using PaRuX.Contracts;
+using PaRuX.Server.Knowledge;
 
 namespace PaRuX.Server;
 
@@ -73,6 +74,17 @@ public sealed class ServerState
     public void Publish()
     {
         Directory.CreateDirectory(StateDirectory);
+        // Corporate portable data may be on a shared path rather than the protected
+        // per-user profile. Never publish a bearer token into a world-readable folder.
+        // On volumes without per-user ACLs (e.g. FAT/exFAT), Corporate refuses
+        // startup with an actionable message instead of leaking the Core credential.
+        if (CorporateMode.IsActive && OperatingSystem.IsWindows() &&
+            !LocalFileProtection.RestrictToCurrentUser(StateDirectory))
+        {
+            throw new UnauthorizedAccessException(
+                "Corporate cannot protect its local server data. Move the extracted PaRuX folder " +
+                "to an NTFS directory owned by your Windows account and try again.");
+        }
         var bootstrap = new ServerBootstrap
         {
             Endpoint = Endpoint,
@@ -82,6 +94,14 @@ public sealed class ServerState
         };
 
         PublishAtomically(BootstrapPath, bootstrap);
+        if (CorporateMode.IsActive && OperatingSystem.IsWindows() &&
+            !LocalFileProtection.RestrictToCurrentUser(BootstrapPath))
+        {
+            RemoveIfOwned();
+            throw new UnauthorizedAccessException(
+                "Corporate could not protect bootstrap.json. The local Core token must never " +
+                "be exposed to other Windows users.");
+        }
         // Remove the pre-1.5.1 fixed-name staging file if a prior interrupted promotion left it.
         try { File.Delete(BootstrapPath + ".tmp"); } catch (IOException) { }
         catch (UnauthorizedAccessException) { }
