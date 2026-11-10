@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -173,9 +174,41 @@ namespace PaRuX.Views
             ApplyFirstModelStorage(_modelBudget);
         }
 
+        private static bool HasBundledStandardPortableStarter()
+        {
+            if (CorporateMode.IsActive ||
+                PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) == null)
+                return false;
+            try
+            {
+                string path = Path.Combine(PaRuXDataRoot.Path, "models", "Qwen3-4B-Q4_K_M.gguf");
+                if (!File.Exists(path)) return false;
+                return CorporateModelImportPolicy.IsAcceptableModel(
+                    Path.GetFileName(path), new FileInfo(path).Length) &&
+                    CorporateModelImportPolicy.HasGgufHeader(path);
+            }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
+        }
+
         private void ApplyFirstModelAdvice(FirstModelAdvice advice)
         {
             FirstModelHardwareText.Text = advice.HardwareSummary;
+            if (HasBundledStandardPortableStarter())
+            {
+                // This is a presence check, NOT an assertion that inference works.
+                // The normal local-Chat verification still has to produce a real answer.
+                FirstModelHeadlineText.Text =
+                    "Portable starter Qwen3-4B is already included. No model download is required for basic local Chat.";
+                FirstModelHeadlineText.Visibility = Visibility.Visible;
+                FirstModelDetailText.Text =
+                    "Use Verify local Chat to prove the included CPU/Vulkan runtime answers correctly. " +
+                    "Additional models for advanced tasks are optional in Model Hub.";
+                FirstModelDetailText.Visibility = Visibility.Visible;
+                ShowFirstModelActions(installable: false);
+                ApplyFirstModelStorage(_modelBudget);
+                return;
+            }
 
             if (_selectedFirstModelId == null
                 || !advice.Candidates.Any(candidate => candidate.Model.Id == _selectedFirstModelId))
