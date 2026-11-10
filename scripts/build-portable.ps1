@@ -66,7 +66,12 @@ $appProject = Join-Path $repoRoot "src\PaRuX.App\PaRuX.App.csproj"
 $coreProject = Join-Path $repoRoot "src\PaRuX.Server\PaRuX.Server.csproj"
 $cliProject = Join-Path $repoRoot "src\PaRuX.Cli\PaRuX.Cli.csproj"
 $portableRoot = Join-Path $repoRoot "artifacts\portable"
-$stageDir = Join-Path $portableRoot "stage\PaRuX"
+# Different editions must NEVER share a mutable stage directory.
+# In particular, Corporate's CPU-only staging must not overwrite the signed
+# Standard ZIP or its verified publish tree during a multi-package release.
+$stageDir = if ($WithoutVulkan) { Join-Path $portableRoot "cpu-shell-stage\PaRuX" }
+    elseif ($ShellOnly) { Join-Path $portableRoot "diagnostic-shell-stage\PaRuX" }
+    else { Join-Path $portableRoot "stage\PaRuX" }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     [xml]$projectXml = Get-Content -LiteralPath $appProject -Raw
@@ -82,9 +87,12 @@ $dirty = @(& git -C $repoRoot status --porcelain=v1 2>$null)
 $dirtyNote = if ($dirty.Count -gt 0) { " (working tree has uncommitted changes: this is a local build, not a release artifact)" } else { "" }
 Write-Host "Portable $Version from $sourceCommit$dirtyNote"
 
-$zipName = "PaRuX-$Version-portable-win-x64.zip"
+$zipBase = if ($WithoutVulkan) { "PaRuX-$Version-CPU-shell-INTERNAL-win-x64" }
+    elseif ($ShellOnly) { "PaRuX-$Version-diagnostic-shell-INTERNAL-win-x64" }
+    else { "PaRuX-$Version-portable-win-x64" }
+$zipName = $zipBase + ".zip"
 $zipPath = Join-Path $portableRoot $zipName
-$shaPath = Join-Path $portableRoot "PaRuX-$Version-portable-win-x64.sha256.txt"
+$shaPath = Join-Path $portableRoot ($zipBase + ".sha256.txt")
 
 if (-not $SkipPublish) {
     if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
