@@ -453,8 +453,34 @@ public static class LocalAiPaths
     /// from.</summary>
     public static string StandardModel => CorporateMode.IsActive
         ? CorporateStandardModelPath()
-        : GetRoleOverride("standard") ?? (PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null
-            ? FindBundledPortableModel() ?? DefaultStandardModel : DefaultStandardModel);
+        : PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null
+            ? GetPortableOwnedRoleModel("standard") ?? FindBundledPortableModel()
+                ?? Path.Combine(ModelDownloadService.ModelsDirectory, "missing-portable-starter.gguf")
+            : GetRoleOverride("standard") ?? DefaultStandardModel;
+
+    /// <summary>On a moved USB Portable, absolute paths recorded on the old
+    /// machine are not allowed to reconnect to unrelated host models. If the
+    /// same explicitly selected GGUF is carried inside PaRuXData/models, rebase
+    /// its filename to the NEW portable root without rewriting user settings.</summary>
+    public static string? GetPortableOwnedRoleModel(string role)
+    {
+        string? chosen = GetRoleOverride(role);
+        if (string.IsNullOrWhiteSpace(chosen)) return null;
+        try
+        {
+            string models = Path.GetFullPath(ModelDownloadService.ModelsDirectory);
+            string name = Path.GetFileName(chosen);
+            if (!PaRuXPathSafety.IsSimpleFileName(name)) return null;
+            string localPath = Path.Combine(models, name);
+            if (!File.Exists(localPath)) return null;
+            if (!CorporateModelImportPolicy.IsAcceptableModel(name, new FileInfo(localPath).Length)
+                || !CorporateModelImportPolicy.HasGgufHeader(localPath)) return null;
+            return localPath;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
 
     private static string CorporateStandardModelPath()
     {
@@ -473,7 +499,11 @@ public static class LocalAiPaths
             });
         return selected.Path ?? DefaultStandardModel;
     }
-    public static string UncensoredModel => GetRoleOverride("uncensored") ?? DefaultUncensoredModel;
+    public static string UncensoredModel =>
+        PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null
+            ? GetPortableOwnedRoleModel("uncensored") ??
+                Path.Combine(ModelDownloadService.ModelsDirectory, "missing-portable-uncensored.gguf")
+            : GetRoleOverride("uncensored") ?? DefaultUncensoredModel;
 
     /// <summary>Null whenever the role is overridden: an arbitrary user-picked GGUF has no known
     /// matching vision projector, so StartTextAsync treats null here as "load this profile
