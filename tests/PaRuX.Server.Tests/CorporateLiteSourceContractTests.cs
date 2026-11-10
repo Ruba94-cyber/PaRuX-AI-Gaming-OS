@@ -29,6 +29,11 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("PaRuXData/ai-runtimes/reranker/", script, StringComparison.Ordinal);
         Assert.Contains("Corporate archive SHA-256 mismatch", script, StringComparison.Ordinal);
         Assert.Contains("NoModel edition has NO chat model", script, StringComparison.Ordinal);
+        Assert.Contains("Assert-PinnedAsset", script, StringComparison.Ordinal);
+        Assert.Contains("Get-PinnedAsset", script, StringComparison.Ordinal);
+        Assert.Contains("llama-cpu-", script, StringComparison.Ordinal);
+        Assert.Contains("Untrusted llama.cpp release tag", script, StringComparison.Ordinal);
+        Assert.Contains("Cached managed model asset is invalid", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,6 +78,39 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("chat.answer_mentions_expected_source", benchmark, StringComparison.Ordinal);
         Assert.Contains("nonloopback_outbound_connections", benchmark, StringComparison.Ordinal);
         Assert.Contains("Corporate offline acceptance FAILED", benchmark, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Corporate_offline_manifest_pins_match_the_actual_core_retrieval_engine_contract()
+    {
+        string build = Read("scripts", "build-corporate-lite.ps1");
+        string source = Read("src", "PaRuX.Server", "Knowledge", "KnowledgeSecurity.cs");
+        foreach (string pinned in new[] {
+            "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+            "a09144355adeed5f58c8ed011d209bf8ee5a1fec",
+            "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452",
+            "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870",
+            "fb140275c155a9c7c5a3b3e0e77a9e839594a938",
+            "c79f2b6a0cea6f4b564fed1938984bace9d30ff0",
+            "72b987fd805cfa2b58c4c8c952b274a11bfd5a00"
+        })
+        {
+            Assert.Contains(pinned, source, StringComparison.Ordinal);
+            Assert.Contains(pinned, build, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Corporate_model_hub_reports_offline_components_without_claiming_live_model_inference()
+    {
+        string ui = Read("src", "PaRuX.App", "Views", "ModelHubView.Corporate.cs");
+        string contract = Read("src", "PaRuX.Contracts", "CorporateOfflineReadiness.cs");
+        Assert.Contains("ModelHub_Corporate_OfflineReadiness_Status", ui, StringComparison.Ordinal);
+        Assert.Contains("ModelHub_Corporate_OfflineReadiness_Recheck", ui, StringComparison.Ordinal);
+        Assert.Contains("CorporateOfflineReadiness.Inspect(PaRuXDataRoot.Path)", ui, StringComparison.Ordinal);
+        Assert.Contains("not a functional test", contract, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpClient", contract, StringComparison.Ordinal);
+        Assert.DoesNotContain("Process.Start", contract, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] path)
