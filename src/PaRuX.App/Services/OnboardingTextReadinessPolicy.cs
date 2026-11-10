@@ -19,7 +19,7 @@ public static class OnboardingTextReadinessPolicy
         ArgumentNullException.ThrowIfNull(components);
         return components.Any(c => c.Detected && (corporateMode
             ? c.Id == "llama-server-cpu"
-            : c.Id is "llama-server-cuda" or "llama-server-vulkan"
+            : (c.Id is "llama-server-cuda" or "llama-server-vulkan")
                 || (standardPortableMode && c.Id == "llama-server-cpu")));
     }
 
@@ -29,7 +29,7 @@ public static class OnboardingTextReadinessPolicy
         ArgumentNullException.ThrowIfNull(backends);
         return backends.Any(b => b.Running && b.Healthy && (corporateMode
             ? b.Backend == "text-cpu"
-            : b.Backend is "text-cuda" or "text-vulkan"
+            : (b.Backend is "text-cuda" or "text-vulkan")
                 || (standardPortableMode && b.Backend == "text-cpu")));
     }
 
