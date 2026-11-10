@@ -78,6 +78,33 @@ public sealed class GamingHomeUiTests
     private static void Press(UiTestApplication app, AutomationElement element) => new InstallProgressPage(app).Invoke(element);
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void First_visit_store_scan_can_be_skipped_without_scanning_or_losing_preference()
+    {
+        const string name = nameof(First_visit_store_scan_can_be_skipped_without_scanning_or_losing_preference);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Offer"));
+            Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Start"));
+            var skip = ById(app, "GameLibrary_FirstRunScan_Dismiss");
+            Press(app, skip);
+
+            string settings = Path.Combine(app.DataRoot, "settings.json");
+            UiWait.For(() => File.Exists(settings) &&
+                SharedFile.ReadAllText(settings).Contains("\\"GameStoreDiscoveryPromptDismissed\\": true",
+                    StringComparison.Ordinal),
+                "first-visit scan declined and saved");
+            UiWait.For(() => TryById(app, "GameLibrary_FirstRunScan_Start") is null,
+                "first-visit scan offer removed");
+            // This path must never invoke Steam/Epic/GOG discovery: no provider
+            // credentials, game executable or launcher was requested.
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Cached_library_health_is_visible_without_scanning_or_opening_games()
     {
         const string name = nameof(Cached_library_health_is_visible_without_scanning_or_opening_games);
