@@ -80,6 +80,28 @@ public sealed class ComponentInventoryService
             await ManagedPythonComponentAsync("python", "Python runtime", ManagedPythonRuntime.TryGetInstalledPython(), ct)
         };
 
+        if (PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null)
+        {
+            string? cpuDir = LocalAiPaths.FindBundledCpuRuntime();
+            RuntimeBackendStatus? cpu = runtime.Backends.FirstOrDefault(b => b.Backend == "text-cpu");
+            bool installed = cpuDir != null && cpu?.Installed == true;
+            result.Insert(0, new ComponentStatus
+            {
+                Id = "llama-server-cpu",
+                DisplayName = "llama.cpp (CPU, bundled in Portable)",
+                Ownership = ComponentOwnership.PARUX_MANAGED,
+                Detected = installed,
+                Path = installed ? Path.Combine(cpuDir!, LocalAiPaths.LlamaServerExecutable) : null,
+                Version = cpu?.Version,
+                Health = cpu?.Healthy == true ? "healthy" : installed ? "installed" : "missing",
+                ValidationStatus = cpu?.Healthy == true ? "validated" : installed ? "unverified" : "missing",
+                ValidationMessage = installed
+                    ? "Bundled Portable CPU runtime is present. A successful local Chat answer is still needed for verification."
+                    : "Bundled Portable CPU runtime is missing. Re-extract the verified Standard Portable ZIP.",
+                Actions = Array.Empty<string>()
+            });
+        }
+
         foreach ((string id, string name, string[] executables) in LocatableComponents)
         {
             string? located = LocalAiPaths.GetComponentLocation(id);
