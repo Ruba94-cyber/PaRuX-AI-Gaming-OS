@@ -92,10 +92,13 @@ public sealed class GamingHomeUiTests
             Press(app, skip);
 
             string settings = Path.Combine(app.DataRoot, "settings.json");
-            UiWait.For(() => File.Exists(settings) &&
-                SharedFile.ReadAllText(settings).Contains("\\"GameStoreDiscoveryPromptDismissed\\": true",
-                    StringComparison.Ordinal),
-                "first-visit scan declined and saved");
+            UiWait.For(() =>
+            {
+                if (!File.Exists(settings)) return false;
+                using var json = JsonDocument.Parse(SharedFile.ReadAllText(settings));
+                return json.RootElement.TryGetProperty("GameStoreDiscoveryPromptDismissed", out var dismissed)
+                    && dismissed.ValueKind == JsonValueKind.True;
+            }, "first-visit scan declined and saved");
             UiWait.For(() => TryById(app, "GameLibrary_FirstRunScan_Start") is null,
                 "first-visit scan offer removed");
             // This path must never invoke Steam/Epic/GOG discovery: no provider
