@@ -23,6 +23,12 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("nativeRuntimeSha256", script, StringComparison.Ordinal);
         Assert.Contains("Starter GGUF", script, StringComparison.Ordinal);
         Assert.Contains("Offline smoke: native CPU loader", script, StringComparison.Ordinal);
+        Assert.Contains("RerankerDir", script, StringComparison.Ordinal);
+        Assert.Contains("RequireReranker", script, StringComparison.Ordinal);
+        Assert.Contains("PaRuXData/ai-runtimes/embeddings/", script, StringComparison.Ordinal);
+        Assert.Contains("PaRuXData/ai-runtimes/reranker/", script, StringComparison.Ordinal);
+        Assert.Contains("Corporate archive SHA-256 mismatch", script, StringComparison.Ordinal);
+        Assert.Contains("NoModel edition has NO chat model", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -55,6 +61,18 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("CorporateModelDownloadPolicy.IsTextGgufRequest", server, StringComparison.Ordinal);
         Assert.Contains("CorporateModelDownloadPolicy.IsTextGgufFileName", transfer, StringComparison.Ordinal);
         Assert.Contains("public const string ModelDownloadsEnvironmentVariable", mode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Corporate_benchmark_has_an_explicit_fail_closed_acceptance_mode()
+    {
+        string benchmark = Read("tests", "corporate", "measure-corporate-lite.ps1");
+        Assert.Contains("[switch]$EnforceAcceptance", benchmark, StringComparison.Ordinal);
+        Assert.Contains("Complete Corporate acceptance requires a bundled text GGUF", benchmark, StringComparison.Ordinal);
+        Assert.Contains("search_exact_id_exact_mode.hits", benchmark, StringComparison.Ordinal);
+        Assert.Contains("chat.answer_mentions_expected_source", benchmark, StringComparison.Ordinal);
+        Assert.Contains("nonloopback_outbound_connections", benchmark, StringComparison.Ordinal);
+        Assert.Contains("Corporate offline acceptance FAILED", benchmark, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] path)
