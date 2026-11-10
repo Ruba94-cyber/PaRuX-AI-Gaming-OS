@@ -12,8 +12,8 @@ Updated 2026-11-10 at `031baa84`.
 | 4 Performance | PARTIAL | [PERFORMANCE_BENCHMARKS.md](PERFORMANCE_BENCHMARKS.md): startup, RTX 5080 inference and Gaming VRAM release measured; in-game FPS, OOM recovery, CPU-only and RAG latency not run; open defects PERF-002/003 in the plan |
 | 5 Security | PARTIAL | Static review (QA-017): 0 Critical / 0 High / 7 Medium; SEC-F03/F04/F06 fixed in `d81cf475`; F01, F02, F05 open; .NET 8 reaches end of support in November 2026 (migration not planned in this RC); `dotnet list package --vulnerable` not run |
 | 6 Testing | PARTIAL | Server xUnit 13,057 pass / 1 fail (stale contract test, fixed and re-run targeted) at `d81cf475`. FlaUI Regression 307/308 at `b8d720ae` (QA-019, 1 intermittent); not re-run after the security changes |
-| 7 Packaging (MSI, Portable, Portable Corporate, APK) | NOT RUN | |
-| 8 Signing | NOT RUN | Signing material located (self-signed code-signing PFX, Android release keystore, release-manifest key) in the owner's Documents folders; owner authorised its use; nothing signed this cycle |
+| 7 Packaging (MSI, Portable, Portable Corporate, APK) | PARTIAL | All four built locally as 4.1.0 ([RELEASE_CANDIDATE_4.1.0.md](RELEASE_CANDIDATE_4.1.0.md)); Portable/Corporate launch and relocation verified, APK runs on the emulator. MSI install/upgrade/uninstall NOT RUN (needs elevation by the owner); no clean-machine test; Corporate built without a model |
+| 8 Signing | PARTIAL | MSI Authenticode-signed with the owner's self-signed certificate and update envelope verified; APK signed with the release keystore (`apksigner` OK). Portable and Corporate zips and their EXEs are not signed (no signing step in the scripts). Self-signed certificate means SmartScreen warnings |
 | 9 Documentation | PARTIAL | QA evidence, security review and this file current; README/feature matrix/release notes not refreshed |
 | 10 Public readiness | NOT RUN | No screenshots or benchmark claims prepared; none may be asserted without evidence |
 
