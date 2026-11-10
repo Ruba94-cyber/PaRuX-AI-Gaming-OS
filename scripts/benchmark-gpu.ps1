@@ -291,16 +291,30 @@ function Measure-VramWhile {
 
     $samples = [System.Collections.Concurrent.ConcurrentBag[object]]::new()
     $stop = [System.Threading.CancellationTokenSource]::new()
-    $sampler = [System.Threading.Tasks.Task]::Run({
-        while (-not $stop.IsCancellationRequested) {
-            $snapshot = Get-NvidiaSmi
-            if ($snapshot) { $samples.Add($snapshot) }
-            Start-Sleep -Milliseconds 250
-        }
-    }.GetNewClosure())
+    $smiPath = (Get-Command nvidia-smi -ErrorAction SilentlyContinue).Source
+    # A thread job owns a PowerShell runspace; a script block handed to Task.Run has none on the pool thread (and the
+    # overload is ambiguous on PowerShell 7), so the sampler is a thread job that queries nvidia-smi directly.
+    $sampler = if ($smiPath) {
+        Start-ThreadJob -ScriptBlock {
+            param($smiPath, $samples, $stop)
+            while (-not $stop.IsCancellationRequested) {
+                try {
+                    $line = @(& $smiPath '--query-gpu=memory.used,utilization.gpu,temperature.gpu' '--format=csv,noheader,nounits' 2>$null)[0]
+                    $parts = "$line" -split ',\s*'
+                    if ($parts.Count -ge 3) {
+                        $samples.Add([pscustomobject]@{ VramUsedMib = [int]$parts[0]; UtilizationPct = [int]$parts[1]; TemperatureC = [int]$parts[2] })
+                    }
+                } catch { }
+                Start-Sleep -Milliseconds 250
+            }
+        } -ArgumentList $smiPath, $samples, $stop
+    }
 
     try { $value = & $Action }
-    finally { $stop.Cancel(); try { $sampler.Wait(2000) | Out-Null } catch { } }
+    finally {
+        $stop.Cancel()
+        if ($sampler) { try { $null = Wait-Job -Job $sampler -Timeout 5; Remove-Job -Job $sampler -Force -ErrorAction SilentlyContinue } catch { } }
+    }
 
     $collected = @($samples)
     [pscustomobject]@{
@@ -346,8 +360,10 @@ function Measure-Chat {
             $payload = $line.Substring(5).Trim()
             if ($payload -eq '[DONE]') { break }
             try { $chunk = $payload | ConvertFrom-Json } catch { continue }
+            # Core interleaves routing/skill frames (parux_event) that carry no choices; they are not tokens.
+            if (-not $chunk.PSObject.Properties['choices'] -or @($chunk.choices).Count -eq 0) { continue }
             $delta = $chunk.choices[0].delta
-            if ($delta -and $delta.PSObject.Properties.Name -contains 'content' -and $delta.content) {
+            if ($delta -and $delta.PSObject.Properties['content'] -and $delta.content) {
                 if ($null -eq $ttft) { $ttft = $watch.Elapsed.TotalMilliseconds }
                 $tokens++
             }
@@ -434,7 +450,9 @@ function Invoke-BackendPhase {
         'runtime.activeHasVision' = $status.activeHasVisionSupport
     }
     try {
-        $installed = Invoke-Core -Path '/api/v1/runtime/builds/installed'
+        $installed = foreach ($backendName in 'text-cuda', 'text-vulkan') {
+            Invoke-Core -Path "/api/v1/runtime/builds/installed?backend=$backendName"
+        }
         $metrics['backend.installedBuilds'] = ($installed | ForEach-Object { "$($_.backend):$($_.tag)" }) -join ', '
     } catch { $metrics['backend.installedBuilds'] = "(unavailable: $($_.Exception.Message))" }
 

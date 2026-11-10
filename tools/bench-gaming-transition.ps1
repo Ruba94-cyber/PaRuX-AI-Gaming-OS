@@ -12,6 +12,8 @@ param([string]$OutFile)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($OutFile)) { $OutFile = Join-Path $root 'bench-results/gaming-transition.json' }
+# The test process runs from its own bin folder, so a relative -OutFile must be made absolute here.
+$OutFile = [System.IO.Path]::GetFullPath($OutFile, (Get-Location).Path)
 New-Item -ItemType Directory -Force -Path (Split-Path $OutFile) | Out-Null
 $env:PARUX_BENCH_OUT = $OutFile
 Push-Location $root

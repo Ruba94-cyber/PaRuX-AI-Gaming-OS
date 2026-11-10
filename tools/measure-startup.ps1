@@ -6,7 +6,7 @@
 # Prints per-run values and medians. Nothing is estimated; every number comes from this machine.
 # Usage:  powershell -File tools\measure-startup.ps1 -Mode all -Runs 3 -IdleSeconds 60
 # Needs Release builds:  dotnet build src/PaRuX.Server -c Release ; dotnet build src/PaRuX.App -c Release -p:Platform=x64
-# Uses the desktop and port 51123; stop any running PaRuX first. Kills what it starts.
+# Uses the desktop; the Core endpoint is read from the isolated data root's server/bootstrap.json; stop any running PaRuX first. Kills what it starts.
 param(
     [ValidateSet('core', 'app', 'all')][string]$Mode = 'all',
     [int]$Runs = 3,
@@ -35,10 +35,13 @@ function New-Env {
     $d
 }
 
-function Wait-Health($sw, $timeoutMs) {
+function Wait-Health($sw, $timeoutMs, $dataRoot) {
+    # Core publishes its real loopback endpoint in <data root>/server/bootstrap.json (the fixed port can be OS-reserved).
+    $bootstrap = Join-Path (Join-Path $dataRoot 'server') 'bootstrap.json'
     while ($sw.ElapsedMilliseconds -lt $timeoutMs) {
         try {
-            $r = [Net.WebRequest]::Create('http://127.0.0.1:51123/api/v1/health'); $r.Timeout = 500
+            $endpoint = ([string](Get-Content -LiteralPath $bootstrap -Raw -ErrorAction Stop | ConvertFrom-Json).endpoint).TrimEnd('/')
+            $r = [Net.WebRequest]::Create("$endpoint/api/v1/health"); $r.Timeout = 500
             $resp = $r.GetResponse(); $code = [int]$resp.StatusCode; $resp.Close()
             if ($code -eq 200) { return $sw.ElapsedMilliseconds }
         } catch { }
@@ -70,7 +73,7 @@ function Run-Core {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $p = [Diagnostics.Process]::Start($psi)
     try {
-        $ms = Wait-Health $sw 60000
+        $ms = Wait-Health $sw 60000 $d
         $idle = Measure-Idle $p $IdleSeconds
         @{ readyMs = $ms; ws = $idle.ws; priv = $idle.priv; cpuPct = $idle.cpuPct }
     } finally { if (-not $p.HasExited) { $p.Kill() }; Start-Sleep -Milliseconds 800; Remove-Item $d -Recurse -Force -ErrorAction SilentlyContinue }
@@ -93,7 +96,8 @@ function Run-App {
             if ($appProc -and $appProc.MainWindowHandle -ne 0) {
                 try {
                     $el = [Windows.Automation.AutomationElement]::FromHandle($appProc.MainWindowHandle)
-                    if ($el.Current.Name -in @('PaRuX AI & Gaming OS', 'RBG PaRuX AI Studio')) {
+                    # UIA reports the title without the '&' (e.g. 'PaRuX AI  Gaming OS'), so match with an optional '&'.
+                    if ($el.Current.Name -match '^PaRuX AI\s*&?\s*Gaming OS$' -or $el.Current.Name -eq 'RBG PaRuX AI Studio') {
                         $cond = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Edit)
                         $edit = $el.FindFirst([Windows.Automation.TreeScope]::Descendants, $cond)
                         if ($edit -and $edit.Current.IsEnabled) { $interactiveMs = $sw.ElapsedMilliseconds }
@@ -102,7 +106,7 @@ function Run-App {
             }
             if (-not $interactiveMs) { Start-Sleep -Milliseconds 25 }
         }
-        $coreMs = Wait-Health $sw 90000
+        $coreMs = Wait-Health $sw 90000 $d
         $half = [int]($IdleSeconds / 2)
         Start-Sleep -Seconds $half
         $core = Get-Process -Name PaRuX.Server -ErrorAction SilentlyContinue | Select-Object -First 1

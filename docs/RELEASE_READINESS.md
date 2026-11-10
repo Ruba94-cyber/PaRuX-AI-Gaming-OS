@@ -9,9 +9,9 @@ Updated 2026-11-10 at `031baa84`.
 | 1 Feature completeness | PARTIAL | 17 plan sections are SOURCE PARTIAL (written remotely, unit-tested only); per-section native checks are listed in `.ai/artifacts/native-verification-matrix.md` (local). Gaming parity gaps GAM-003..007 open |
 | 2 UX/UI | PARTIAL | Real-app screenshots reviewed at 200% on 2560x1600 only; scaling 100/125/150%, 4K, TV, multi-monitor not tested (TV/second monitor need the owner's hardware) |
 | 3 Stability | PARTIAL | P0 fixed: Core start when Windows reserves port 51123; onboarding profile switch blocked by detection fixed (QA-016) |
-| 4 Performance | NOT RUN | No AI/FPS/startup benchmarks executed this cycle |
-| 5 Security | PARTIAL | Static review done (QA-017): 0 Critical / 0 High / 7 Medium; none remediated; `dotnet list package --vulnerable` not run |
-| 6 Testing | PARTIAL | Server xUnit 13,036 pass / 0 fail (QA-014). FlaUI Regression 273/308 (QA-015), 35 failures under triage |
+| 4 Performance | PARTIAL | [PERFORMANCE_BENCHMARKS.md](PERFORMANCE_BENCHMARKS.md): startup, RTX 5080 inference and Gaming VRAM release measured; in-game FPS, OOM recovery, CPU-only and RAG latency not run; open defects PERF-002/003 in the plan |
+| 5 Security | PARTIAL | Static review (QA-017): 0 Critical / 0 High / 7 Medium; SEC-F03/F04/F06 fixed in `d81cf475`; F01, F02, F05 open; .NET 8 reaches end of support in November 2026 (migration not planned in this RC); `dotnet list package --vulnerable` not run |
+| 6 Testing | PARTIAL | Server xUnit 13,057 pass / 1 fail (stale contract test, fixed and re-run targeted) at `d81cf475`. FlaUI Regression 307/308 at `b8d720ae` (QA-019, 1 intermittent); not re-run after the security changes |
 | 7 Packaging (MSI, Portable, Portable Corporate, APK) | NOT RUN | |
 | 8 Signing | NOT RUN | Signing material located (self-signed code-signing PFX, Android release keystore, release-manifest key) in the owner's Documents folders; owner authorised its use; nothing signed this cycle |
 | 9 Documentation | PARTIAL | QA evidence, security review and this file current; README/feature matrix/release notes not refreshed |
