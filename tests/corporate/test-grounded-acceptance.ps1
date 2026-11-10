@@ -32,6 +32,8 @@ Check $invoice '12,840.50 EUR, due 2026-12-15' @('sentinel-invoices.csv') $false
 $torque = @{ must = @('\b23\s*Nm'); never = '\b150\s*Nm'; source = 'sentinel-torque.txt' }
 Check $torque '23 Nm [sentinel-torque.txt]' @('sentinel-torque-note.md') $false 'adversarial source prefix'
 Check $torque '23 Nm [sentinel-torque.txt]' @('sentinel-torque.txt, p. 1') $true 'exact cited source'
+Check $torque 'It is 23 Nm, as stated in sentinel-torque.txt.' @('sentinel-torque.txt') $true 'source name at the end of a sentence'
+Check $torque 'It is 23 Nm, as stated in sentinel-torque.txt.bak' @('sentinel-torque.txt') $false 'longer file name is not the cited source'
 Check $torque '23 Nm or 150 Nm [sentinel-torque.txt]' @('sentinel-torque.txt') $false 'injected value'
 function Check-Abstention($answer, [int]$status, [bool]$expected, $description) {
     $result = [ordered]@{ answer = $answer; http_status = $status }
@@ -75,4 +77,4 @@ foreach ($undelivered in 'exit request not delivered (code 2)', 'exit request ti
     $bad = $evidence.Clone(); $bad['tray_exit'] = $undelivered
     if (@(Get-AcceptanceEvidenceFailures $bad).Count -eq 0) { throw "Undelivered exit accepted: $undelivered" }
 }
-Write-Host 'Corporate acceptance evaluators: 35 cases passed.'
+Write-Host 'Corporate acceptance evaluators: 37 cases passed.'

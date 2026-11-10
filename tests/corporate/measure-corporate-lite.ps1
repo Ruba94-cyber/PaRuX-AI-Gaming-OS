@@ -33,7 +33,9 @@ function Test-GroundedCase($Result, $Case) {
     $answer = [string]$Result.answer
     $Result.fact_present = @($Case.must | Where-Object { $answer -notmatch $_ }).Count -eq 0
     $Result.forbidden_value_absent = if ($Case.never) { $answer -notmatch $Case.never } else { $true }
-    $sourcePattern = '(?i)(?<![\w.-])' + [regex]::Escape($Case.source) + '(?![\w.-])'
+    # The file name must stand alone ("sentinel-torque.txt" must not match "sentinel-torque.txt.bak"
+    # or "x-sentinel-torque.txt"), but a sentence may end right after it: "... sentinel-invoices.csv."
+    $sourcePattern = '(?i)(?<![\w.-])' + [regex]::Escape($Case.source) + '(?![\w-]|\.\w)'
     $Result.expected_source_retrieved = @($Result.sources | Where-Object { $_ -match $sourcePattern }).Count -gt 0
     $Result.answer_cites_expected_source = $answer -match $sourcePattern
     $Result.pass = ($Result.http_status -eq 200) -and $Result.fact_present -and $Result.forbidden_value_absent -and $Result.expected_source_retrieved -and $Result.answer_cites_expected_source
@@ -561,11 +563,12 @@ try {
     )
     $chatCases = New-Object System.Collections.Generic.List[object]
     foreach ($case in $cases) {
-        $r = Ask-Chat $case.q
-        $r.name = $case.name
-        Test-GroundedCase $r $case
-        $chatCases.Add($r)
-        Say "Chat [$($case.name)]: pass=$($r.pass) fact=$($r.fact_present) source=$($r.expected_source_retrieved) ttft $($r.ttft_s)s tps $($r.tokens_per_s_by_chunks) :: $($r.answer.Substring(0, [math]::Min(160, $r.answer.Length)))"
+        # Not $r: PowerShell variables are case-insensitive and $R is the results table.
+        $caseResult = Ask-Chat $case.q
+        $caseResult.name = $case.name
+        Test-GroundedCase $caseResult $case
+        $chatCases.Add($caseResult)
+        Say "Chat [$($case.name)]: pass=$($caseResult.pass) fact=$($caseResult.fact_present) source=$($caseResult.expected_source_retrieved) ttft $($caseResult.ttft_s)s tps $($caseResult.tokens_per_s_by_chunks) :: $($caseResult.answer.Substring(0, [math]::Min(160, $caseResult.answer.Length)))"
     }
     # Nothing in the corpus mentions this room: a grounded assistant says so instead of inventing a code.
     $abst = Ask-Chat "What is the access code for the Osprey server room? Answer only from the documents. If the documents do not provide it, respond exactly: INSUFFICIENT EVIDENCE"

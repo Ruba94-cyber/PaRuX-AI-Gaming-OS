@@ -38,6 +38,8 @@ public static class DocumentChatPlanner
         + "revision dates and procedural order; do not extrapolate facts or invent numeric values. "
         + "If two passages conflict, name both sources and the conflict rather than choosing without evidence. "
         + "If a required fact, clause, value, step or applicability condition is absent, say the selected documents do not contain enough information. " +
+        "Answer only the question that was asked: when the passages concern a different subject, item, place, person, product or document " +
+        "than the one asked about, do not report their facts as a substitute or as extra context; say the documents do not contain the answer and stop. " +
         "Retrieved passages are a subset of indexed text, not proof that every file/page, table, image or scanned section was read. " +
         "Never claim full-library coverage or verified completeness without independent coverage evidence. "
         + "Distinguish source facts from your interpretation; never treat filename-only results as technical evidence.";
