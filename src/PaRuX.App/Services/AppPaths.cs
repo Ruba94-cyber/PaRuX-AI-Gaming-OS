@@ -5,8 +5,9 @@ using System.Text.Json;
 namespace PaRuX.Services
 {
     /// <summary>
-    /// Every filesystem location PaRuX owns or reads. PaRuX writes only under
-    /// %LOCALAPPDATA%\PaRuX; the LocalAI paths are read-only to us.
+    /// Every filesystem location PaRuX owns or reads. The installed app writes
+    /// under %LOCALAPPDATA%\PaRuX; extracted Portable editions use PaRuXData
+    /// beside the executable. LocalAI paths are read-only to this layer.
     /// </summary>
     public static class AppPaths
     {
@@ -44,6 +45,12 @@ namespace PaRuX.Services
         {
             get
             {
+                // The Standard/Corporate ZIP is a self-contained storage boundary.
+                // A stale absolute config copied from another PC must not point at
+                // the host installation, even when that directory happens to exist.
+                if (PaRuX.Contracts.PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) is { } portableData)
+                    return Path.Combine(portableData, "LocalAI");
+
                 try
                 {
                     string configPath = Path.Combine(PaRuXRoot, "localai-paths.json");
