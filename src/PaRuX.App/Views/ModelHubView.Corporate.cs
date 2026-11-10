@@ -44,6 +44,29 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(status, "ModelHub_Corporate_ModelNetwork_Status");
             panel.Children.Add(status);
 
+            // Local-only preflight. It checks package files without loading a multi-GB model,
+            // starting a backend or hitting the corporate network. This is not a "chat works"
+            // green badge: the actual inference + RAG gate is run by the native acceptance suite.
+            var readiness = new TextBlock
+            {
+                Text = CorporateOfflineReadiness.Inspect(PaRuXDataRoot.Path).ToStatusText(it),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.9
+            };
+            AutomationProperties.SetAutomationId(readiness, "ModelHub_Corporate_OfflineReadiness_Status");
+            panel.Children.Add(readiness);
+            var recheck = new Button
+            {
+                Content = it ? "Ricontrolla componenti offline" : "Recheck offline components",
+                MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Left
+            };
+            AutomationProperties.SetAutomationId(recheck, "ModelHub_Corporate_OfflineReadiness_Recheck");
+            recheck.Click += (_, _) =>
+            {
+                readiness.Text = CorporateOfflineReadiness.Inspect(PaRuXDataRoot.Path).ToStatusText(it);
+            };
+            panel.Children.Add(recheck);
+
             var import = new Button
             {
                 Content = it ? "Importa file GGUF…" : "Import GGUF file…",
