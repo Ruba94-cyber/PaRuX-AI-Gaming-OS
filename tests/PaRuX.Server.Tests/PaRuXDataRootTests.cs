@@ -59,6 +59,8 @@ public sealed class PaRuXDataRootTests
             Directory.CreateDirectory(data);
             Assert.Equal(data, PaRuXDataRoot.FindPortableDataRoot(root));
             Assert.Equal(data, PaRuXDataRoot.FindPortableDataRoot(core));
+            Assert.Equal(data, PaRuXDataRoot.ResolveDefaultLocation(root,
+                Path.Combine(Path.GetTempPath(), "unexpected-host-profile")));
             Assert.Null(PaRuXDataRoot.FindCorporatePortableDataRoot(root));
 
             // Relocation across drive letters/USB paths must not retain the old root.
