@@ -2,6 +2,12 @@
 
 **Evidence status:** SOURCE-ONLY PARTIAL. The authoritative 4.1.0 beta was built from `348a433c`; the source commits below have **not** been built, tested with Windows/xUnit/FlaUI, signed or released. Do not describe them as working on the user's machine until the native gate passes. Preserve unrelated active work and never create GitHub Actions. The final package must be built on the development Windows PC.
 
+### Post-beta Corporate Lite dependency and functional-readiness tranche (2026-11-10)
+
+**Status: SOURCE PARTIAL — unbuilt and untested on Windows.** Packaging now pins and hashes the Qwen3-4B official Q4_K_M GGUF and the exact ONNX embedding/reranker assets already referenced by the Core, even for manually supplied baseline files. Downloads stage into temporary files and CPU release cache directories are version-specific. The complete Corporate ZIP must ship CPU llama.cpp, one valid GGUF, pinned embedding + pinned reranker and a working self-contained Core/App. A repaired duplicated-script regression is covered by a source contract.
+
+Corporate Model Hub now displays an honest local file-presence preflight (not a successful-inference indicator) and a Recheck button. Unit tests cover missing CPU/model/RAG components and malformed model marker; new script/source contracts guard immutable digests and single-section packaging. Corporate smoke checks real native ONNX engine loading, while the strict synthetic-document harness refuses missing/inoperative ONNX, retrieval, grounded chat or unexpected egress. **Do not equate these changes with completed capabilities.** Run the live gates and 8–16 GB clean-machine acceptance listed in the newest `HANDOFF.md`. No release/tag or GitHub Actions from this remote checkpoint.
+
 ### P0 Corporate Lite standalone (AnythingLLM-style local RAG, not an automotive-only tool)
 
 - [x] **Source:** `scripts/build-corporate-lite.ps1` now validates nonempty ONNX embedding assets, supports bundling the ONNX reranker through `-RerankerDir` or `-Fetch`, permits `-RequireReranker` to reject incomplete RAG inputs, records file digests and verifies every file from the resulting ZIP. `-NoModel` is explicitly identified as chat-incomplete. Commit `3ddfd0a`.
