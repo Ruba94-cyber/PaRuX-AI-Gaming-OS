@@ -8,7 +8,7 @@
     quantised model with a redistribution-friendly licence, the light embedding model, offline configuration
     (`parux.corporate` marker, launcher that sets PARUX_CORPORATE=1 and keeps all data in .\PaRuXData), licences and a manifest.
     Never included: documents, indexes, history, tokens, anything from the developer PC. Weights are NOT stored in Git: they are
-    supplied with -ModelPath / -EmbeddingDir / -RuntimeDir (or fetched with -Fetch from the official sources, hashes recorded).
+    supplied with -ModelPath / -EmbeddingDir / -RerankerDir / -RuntimeDir (or fetched with -Fetch from the official sources, hashes recorded).
 
     The package does not bypass SmartScreen/Defender/IT policy, requires no admin rights from the app and starts no cloud inference.
     Normal launch is offline. A separate IT-approved launcher opts into GGUF-only downloads. Runtime installers, media, Gaming
@@ -16,7 +16,8 @@
 
 .EXAMPLE
     ./scripts/build-corporate-lite.ps1 -ModelPath D:\assets\model.gguf -EmbeddingDir D:\assets\embeddings -RuntimeDir D:\assets\llama-cpu
-    ./scripts/build-corporate-lite.ps1 -Fetch -Smoke
+    ./scripts/build-corporate-lite.ps1 -Fetch -RequireReranker -Smoke
+    ./scripts/build-corporate-lite.ps1 -Fetch -NoModel -RequireReranker
 #>
 [CmdletBinding()]
 param(
@@ -85,8 +86,10 @@ if ($Fetch) {
     if (-not (Test-Path $RuntimeDir)) { Expand-Archive $zip $RuntimeDir }
     # Qwen3-4B Q4_K_M, Apache-2.0 (official Qwen repository): clearly better answers than 1.7B for technical questions,
     # still CPU-usable on 16 GB. Q4_K_M is the quality floor PaRuX uses for technical work.
-    $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
-    Get-File "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf" $ModelPath
+    if (-not $NoModel) {
+        $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
+        Get-File "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf" $ModelPath
+    }
     # all-MiniLM-L6-v2 (Apache-2.0): the files the Core's EmbeddingService expects.
     $EmbeddingDir = Join-Path $assets "embeddings"
     New-Item -ItemType Directory -Force $EmbeddingDir | Out-Null
@@ -193,7 +196,7 @@ For IT-approved GGUF downloads only: "Start PaRuX Corporate Model Downloads.cmd"
 Gaming, media, online runtime installers, cloud inference and automatic updates stay disabled.
 IT network rules still apply; downloads require network permission. Documents remain on this PC.
 Licences: see LICENSE.txt and THIRD_PARTY_NOTICES.md (model: Qwen3-4B, Apache-2.0; embeddings: all-MiniLM-L6-v2, Apache-2.0;
-llama.cpp: MIT).
+llama.cpp: MIT; optional cross-encoder reranker: Xenova/ms-marco-MiniLM-L-6-v2, review source licence before redistribution).
 
 Avvio offline con motore CPU gia' incluso: "Start PaRuX Corporate Lite.cmd".
 Importa nuovi GGUF e scegli il modello da Chat. Solo con consenso IT usa "Start PaRuX Corporate Model Downloads.cmd".
