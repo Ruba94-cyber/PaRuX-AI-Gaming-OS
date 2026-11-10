@@ -378,55 +378,93 @@ try {
 finally { $zip.Dispose() }
 
 if ($Smoke) {
-    $smokeDir = Join-Path ([IO.Path]::GetTempPath()) ("parux-portable-smoke-" + [Guid]::NewGuid().ToString('N'))
+    $smokeDir = Join-Path ([IO.Path]::GetTempPath()) ("parux-portable-smoke-" + [Guid]::NewGuid().ToString("N"))
     $extract = Join-Path $smokeDir "app"
-    $data = Join-Path $smokeDir "data"
-    New-Item -ItemType Directory -Path $data -Force | Out-Null
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extract)
-    $env:PARUX_DATA_ROOT = $data
-    $env:PARUX_LOCALAI_STATE_DIR = $data
-    $proc = Start-Process -FilePath (Join-Path $extract "PaRuX\PaRuX.exe") -PassThru
+    [IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extract)
+    $app = Join-Path $extract "PaRuX"
+    $data = if ($WithoutVulkan) { Join-Path $smokeDir "isolated-shell-data" } else { Join-Path $app "PaRuXData" }
+    if ($WithoutVulkan) { New-Item -ItemType Directory -Force -Path $data | Out-Null }
+
+    # A portable test that sets PARUX_DATA_ROOT proves nothing about a direct
+    # double-click. Clear every process override, then launch the REAL EXE and
+    # require the Core bootstrap under the extracted package itself.
+    $previousEnv = @{}
+    foreach ($name in @("PARUX_DATA_ROOT", "PARUX_LOCALAI_STATE_DIR", "PARUX_CORPORATE", "PARUX_CORPORATE_MODEL_DOWNLOADS")) {
+        $previousEnv[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+        [Environment]::SetEnvironmentVariable($name, $null, "Process")
+    }
+    if ($WithoutVulkan) {
+        $env:PARUX_DATA_ROOT = $data
+        $env:PARUX_LOCALAI_STATE_DIR = $data
+    }
+    $proc = $null
     try {
+        $proc = Start-Process -FilePath (Join-Path $app "PaRuX.exe") -WorkingDirectory $app -PassThru
         $deadline = (Get-Date).AddSeconds($SmokeTimeoutSeconds)
         $bootstrap = Join-Path $data "server\bootstrap.json"
         while ((Get-Date) -lt $deadline -and -not (Test-Path -LiteralPath $bootstrap)) {
-            if ($proc.HasExited) { throw "PaRuX.exe exited early (code $($proc.ExitCode)) during the portable smoke start." }
+            if ($proc.HasExited) { throw "Portable PaRuX.exe exited early (exit $($proc.ExitCode))." }
             Start-Sleep -Seconds 2
         }
-        if (-not (Test-Path -LiteralPath $bootstrap)) { throw "Core did not publish bootstrap.json within $SmokeTimeoutSeconds s." }
+        if (-not (Test-Path -LiteralPath $bootstrap)) {
+            throw "Portable Core did not write its bootstrap in the extracted data directory within $SmokeTimeoutSeconds s."
+        }
         if (-not $WithoutVulkan) {
             $managedVulkan = Join-Path $data "LocalAI\runtime\llama.cpp-b10549-vulkan\llama-server.exe"
             if (-not (Test-Path -LiteralPath $managedVulkan -PathType Leaf)) {
                 $errorPath = Join-Path $data "baseline-bootstrap.error.txt"
-                $detail = if (Test-Path -LiteralPath $errorPath) { Get-Content -LiteralPath $errorPath -Raw } else { 'No bootstrap error file.' }
-                throw "Portable Core started but did not bootstrap the bundled Vulkan runtime into its isolated data root. $detail"
+                $detail = if (Test-Path -LiteralPath $errorPath) { Get-Content -LiteralPath $errorPath -Raw } else { "No bootstrap error file." }
+                throw "Portable Core failed to stage its local Vulkan baseline: $detail"
             }
-
-            # Binary load/linked-DLL smoke: prevents treating a copied llama-server.exe as usable
-            # while ggml-vulkan.dll or other native dependencies fail to load. A real model
-            # inference and device/ICD check still requires separate physical Windows acceptance.
             $nativeOut = Join-Path $smokeDir "vulkan-help.stdout.txt"
             $nativeErr = Join-Path $smokeDir "vulkan-help.stderr.txt"
             $native = Start-Process -FilePath $managedVulkan -ArgumentList "--help" -WorkingDirectory (Split-Path -Parent $managedVulkan) -NoNewWindow -PassThru -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
             try {
                 if (-not $native.WaitForExit(15000)) {
                     try { $native.Kill() } catch { }
-                    throw "Bundled Vulkan llama-server --help did not exit within 15 seconds."
+                    throw "Portable Vulkan loader timed out."
                 }
-                if ($native.ExitCode -ne 0) {
-                    $errorText = if (Test-Path -LiteralPath $nativeErr) { (Get-Content -LiteralPath $nativeErr -Raw).Trim() } else { "" }
-                    throw "Bundled Vulkan llama-server failed its native loader probe (exit $($native.ExitCode)): $errorText"
-                }
-            }
-            finally { $native.Dispose() }
+                if ($native.ExitCode -ne 0) { throw "Portable Vulkan native DLL loader failed (exit $($native.ExitCode))." }
+            } finally { $native.Dispose() }
         }
-        Write-Host "Smoke OK: extracted portable Core started$(if ($WithoutVulkan) { '' } else { ' and Vulkan native loader passed' }). Real GPU inference still requires a model/driver test."
+        if ($fullyStandalone) {
+            $cpu = @(Get-ChildItem -LiteralPath (Join-Path $data "LocalAI\runtime") -File -Filter "llama-server.exe" -Recurse |
+                Where-Object { $_.DirectoryName -match 'llama\.cpp-[^\\]+-cpu$' })
+            if ($cpu.Count -ne 1) { throw "Offline Portable must have one complete CPU runtime in its data directory." }
+            $cpuOut = Join-Path $smokeDir "cpu-help.stdout.txt"
+            $cpuErr = Join-Path $smokeDir "cpu-help.stderr.txt"
+            $cpuProc = Start-Process -FilePath $cpu[0].FullName -ArgumentList "--help" -WorkingDirectory $cpu[0].DirectoryName -NoNewWindow -PassThru -RedirectStandardOutput $cpuOut -RedirectStandardError $cpuErr
+            try {
+                if (-not $cpuProc.WaitForExit(15000)) {
+                    try { $cpuProc.Kill() } catch { }
+                    throw "Offline Portable CPU llama.cpp native loader timed out."
+                }
+                if ($cpuProc.ExitCode -ne 0) { throw "Offline Portable CPU native DLL loader failed (exit $($cpuProc.ExitCode))." }
+            } finally { $cpuProc.Dispose() }
+
+            $b = Get-Content -LiteralPath $bootstrap -Raw | ConvertFrom-Json
+            $headers = @{ "X-PaRuX-Token" = $b.token }
+            $apiRoot = ([string]$b.endpoint).TrimEnd("/")
+            $emb = Invoke-RestMethod -Uri ($apiRoot + "/api/v1/embeddings/engine") -Headers $headers -TimeoutSec 120
+            $rerank = Invoke-RestMethod -Uri ($apiRoot + "/api/v1/reranker/engine") -Headers $headers -TimeoutSec 120
+            if (-not $emb.Installed -or -not $emb.Loaded) {
+                throw "Offline Portable embedding ONNX engine did not load from its bundled files."
+            }
+            if (-not $rerank.Installed -or -not $rerank.Loaded) {
+                throw "Offline Portable reranker ONNX engine did not load from its bundled files."
+            }
+            Write-Host "Smoke OK: double-click EXE isolated; .NET Core started, Vulkan/CPU native loaders and ONNX engines loaded without host dependencies. Real text inference and clean-machine checks still pending."
+        } else {
+            Write-Host "Shell smoke OK: Core started in isolated location; no claim that offline Chat works."
+        }
     }
     finally {
         Get-Process -Name PaRuX, PaRuX.Server -ErrorAction SilentlyContinue |
             Where-Object { $_.Path -and $_.Path.StartsWith($extract, [StringComparison]::OrdinalIgnoreCase) } |
             Stop-Process -Force -ErrorAction SilentlyContinue
-        Remove-Item Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
+        foreach ($name in $previousEnv.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $previousEnv[$name], "Process")
+        }
         Start-Sleep -Seconds 2
         Remove-Item -LiteralPath $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
     }
