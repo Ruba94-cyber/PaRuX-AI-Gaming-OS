@@ -6,6 +6,15 @@ if ($errors.Count) { throw "Acceptance script does not parse: $errors" }
 $function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-GroundedCase' }, $true)
 if (-not $function) { throw 'Grounded case evaluator missing' }
 Invoke-Expression $function.Extent.Text
+$function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-TrayExit' }, $true)
+if (-not $function) { throw 'Tray exit evaluator missing' }
+Invoke-Expression $function.Extent.Text
+$function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-NetworkLoopback' }, $true)
+if (-not $function) { throw 'Network loopback evaluator missing' }
+Invoke-Expression $function.Extent.Text
+$function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-AcceptanceEvidenceFailures' }, $true)
+if (-not $function) { throw 'Acceptance evidence evaluator missing' }
+Invoke-Expression $function.Extent.Text
 $function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-AbstentionCase' }, $true)
 if (-not $function) { throw 'Abstention evaluator missing' }
 Invoke-Expression $function.Extent.Text
@@ -34,4 +43,30 @@ Check-Abstention 'Insufficient evidence.' 200 $true 'refusal with punctuation'
 Check-Abstention 'No evidence found. The Osprey code is ZEUS-1234.' 200 $false 'invented alphanumeric code'
 Check-Abstention 'INSUFFICIENT EVIDENCE. Use ALPHA.' 200 $false 'extra fabricated code'
 Check-Abstention 'INSUFFICIENT EVIDENCE' 500 $false 'failed HTTP request'
-Write-Host 'Corporate acceptance evaluators: 12 cases passed.'
+$evidence = @{
+    FATAL = $null; conn_error = $null; shutdown_error = $null
+    sampler_completed = $true; process_sample_count = 2; network_sample_count = 1; network_sample_errors = 0
+    tray_exit = 'clicked Exit (Exit)'; processes_left_after_tray_exit = 'none'
+}
+if (@(Get-AcceptanceEvidenceFailures $evidence).Count -ne 0) { throw 'Valid evidence rejected' }
+foreach ($case in @(
+    @{ key='FATAL'; value='late fatal' }, @{ key='conn_error'; value='missing CSV' },
+    @{ key='shutdown_error'; value='shutdown failed' }, @{ key='sampler_completed'; value=$false },
+    @{ key='process_sample_count'; value=0 }, @{ key='network_sample_count'; value=0 },
+    @{ key='network_sample_errors'; value=1 }, @{ key='tray_exit'; value='tray icon not found' },
+    @{ key='processes_left_after_tray_exit'; value='PaRuX#1' }
+)) {
+    $invalid = $evidence.Clone(); $invalid[$case.key] = $case.value
+    if (@(Get-AcceptanceEvidenceFailures $invalid).Count -eq 0) { throw "Missing rejection: $($case.key)" }
+}
+foreach ($case in @(
+    @{ address='127.0.0.1'; expected=$true }, @{ address='127.23.4.5'; expected=$true },
+    @{ address='::1'; expected=$true }, @{ address='::ffff:127.0.0.1'; expected=$true },
+    @{ address='0.0.0.0'; expected=$false }, @{ address='::'; expected=$false },
+    @{ address='192.168.1.1'; expected=$false }, @{ address='2001:db8::1'; expected=$false },
+    @{ address=''; expected=$false }
+)) {
+    if ((Test-NetworkLoopback $case.address) -ne $case.expected) { throw "Incorrect loopback classification: $($case.address)" }
+}
+if ((Invoke-TrayExit) -notlike 'blocked:*') { throw 'Unverified tray target must remain blocked' }
+Write-Host 'Corporate acceptance evaluators: 32 cases passed.'

@@ -46,6 +46,28 @@ function Test-AbstentionCase($Result) {
     $Result.pass = ($Result.http_status -eq 200) -and $Result.declines
 }
 
+function Test-NetworkLoopback([string]$Address) {
+    $addressValue = $null
+    if (-not [System.Net.IPAddress]::TryParse($Address, [ref]$addressValue)) { return $false }
+    if ($addressValue.IsIPv4MappedToIPv6) { $addressValue = $addressValue.MapToIPv4() }
+    return [System.Net.IPAddress]::IsLoopback($addressValue)
+}
+
+function Get-AcceptanceEvidenceFailures($Result) {
+    $failures = New-Object System.Collections.Generic.List[string]
+    if ($Result.FATAL) { $failures.Add('The measurement terminated with a fatal error.') }
+    if ($Result.conn_error) { $failures.Add('Network observation failed.') }
+    if ($Result.shutdown_error) { $failures.Add('Shutdown observation failed.') }
+    if (-not $Result.sampler_completed -or [int]$Result.process_sample_count -lt 1 -or [int]$Result.network_sample_count -lt 1) {
+        $failures.Add('Process and network sampling did not complete with observable samples.')
+    }
+    if ([int]$Result.network_sample_errors -gt 0) { $failures.Add('A network sampling query failed.') }
+    if ($Result.tray_exit -notlike 'clicked Exit (*' -or $Result.processes_left_after_tray_exit -ne 'none') {
+        $failures.Add('Tray exit was not confirmed or package processes remained after exit.')
+    }
+    return $failures.ToArray()
+}
+
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $ZipPath) {
     # The ZIP is a build artifact (not in Git); look in this checkout, then in the main checkout of the same repository.
@@ -202,12 +224,12 @@ function New-Corpus($root, $count) {
 # Process sampler (separate process so it never interferes with timing)
 # ---------------------------------------------------------------------------------------------------------------------------
 $samplerPath = Join-Path $work "sampler.ps1"
-@'
-param([string]$Root, [string]$Out, [string]$ConnOut, [string]$Stop, [int]$Cores)
+$samplerBody = @'
+param([string]$Root, [string]$Out, [string]$ConnOut, [string]$NetChecks, [string]$Stop, [int]$Cores)
 $prev = @{}; $lastT = Get-Date
 "ts,pid,name,ws_mb,private_mb,cpu_pct" | Set-Content $Out -Encoding ASCII
 "ts,pid,name,local,remote,state" | Set-Content $ConnOut -Encoding ASCII
-function IsLoop($a) { $a -in @("127.0.0.1","::1","0.0.0.0","::","") -or $a -like "127.*" -or $a -like "::ffff:127.*" }
+"ts,status" | Set-Content $NetChecks -Encoding ASCII
 while (-not (Test-Path $Stop)) {
     $now = Get-Date; $dt = ($now - $lastT).TotalSeconds; $lastT = $now
     $ours = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase) }
@@ -223,19 +245,28 @@ while (-not (Test-Path $Stop)) {
     }
     if ($rows) { Add-Content $Out $rows -Encoding ASCII }
     if ($pids) {
-        $c = Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $pids -contains $_.OwningProcess }
+        try {
+            $c = @(Get-NetTCPConnection -ErrorAction Stop | Where-Object { $pids -contains $_.OwningProcess })
+            Add-Content $NetChecks ((Get-Date).ToUniversalTime().ToString('o') + ',ok') -Encoding ASCII
+        } catch {
+            Add-Content $NetChecks ((Get-Date).ToUniversalTime().ToString('o') + ',error') -Encoding ASCII
+            $c = @()
+        }
         $lines = @()
         foreach ($x in $c) {
             $nm = ($ours | Where-Object Id -eq $x.OwningProcess | Select-Object -First 1).ProcessName
-            $remoteOut = (-not (IsLoop $x.RemoteAddress)) -and $x.State -ne "Listen"
-            $listenWide = $x.State -eq "Listen" -and -not (IsLoop $x.LocalAddress)
+            $remoteOut = (-not (Test-NetworkLoopback $x.RemoteAddress)) -and $x.State -ne "Listen"
+            $listenWide = $x.State -eq "Listen" -and -not (Test-NetworkLoopback $x.LocalAddress)
             if ($remoteOut -or $listenWide) { $lines += ("{0:o},{1},{2},{3}:{4},{5}:{6},{7}" -f $now.ToUniversalTime(), $x.OwningProcess, $nm, $x.LocalAddress, $x.LocalPort, $x.RemoteAddress, $x.RemotePort, $x.State) }
         }
         if ($lines) { Add-Content $ConnOut $lines -Encoding ASCII }
     }
     Start-Sleep -Milliseconds 1000
 }
-'@ | Set-Content $samplerPath -Encoding UTF8
+'@
+# Keep param() as the first statement of the child script.
+$parameterLine, $remainingSamplerBody = $samplerBody -split "`r?`n", 2
+($parameterLine + "`r`nfunction Test-NetworkLoopback {`r`n" + ${function:Test-NetworkLoopback}.ToString() + "`r`n}`r`n" + $remainingSamplerBody) | Set-Content $samplerPath -Encoding UTF8
 
 function Get-SampleStats([datetime]$from, [datetime]$to) {
     $f = $from.ToUniversalTime(); $t = $to.ToUniversalTime(); $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -295,37 +326,16 @@ function Wait-Index([string]$id, [int]$timeoutSec) {
 
 
 function Invoke-TrayExit {
-    # Finds the PaRuX notification-area icon (taskbar or overflow flyout), right-clicks it and invokes the Exit item.
-    try {
-        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-        Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class Mouse { [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y); [DllImport("user32.dll")] public static extern void mouse_event(uint f,uint x,uint y,uint d,UIntPtr e); public static void Click(int x,int y,bool right){ SetCursorPos(x,y); System.Threading.Thread.Sleep(150); mouse_event(right?0x8u:0x2u,0,0,0,UIntPtr.Zero); mouse_event(right?0x10u:0x4u,0,0,0,UIntPtr.Zero);} }' -ErrorAction SilentlyContinue
-        $A = [System.Windows.Automation.AutomationElement]; $T = [System.Windows.Automation.TreeScope]
-        $root = $A::RootElement
-        $find = {
-            $all = $root.FindAll($T::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-            foreach ($e in $all) { try { if ($e.Current.Name -like "PaRuX*" -and $e.Current.ControlType.ProgrammaticName -eq "ControlType.Button") { return $e } } catch {} }
-            return $null
-        }
-        $icon = & $find
-        if (-not $icon) {
-            $chev = $root.FindAll($T::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { try { $_.Current.AutomationId -eq "SystemTrayIcon" -or $_.Current.Name -match "hidden icons|icone nascoste|Mostra icone" } catch { $false } } | Select-Object -First 1
-            if ($chev) { $chev.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep 1; $icon = & $find }
-        }
-        if (-not $icon) { return "tray icon not found via UI Automation" }
-        $r = $icon.Current.BoundingRectangle
-        [Mouse]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2), $true); Start-Sleep 1
-        $menu = $root.FindAll($T::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { try { $_.Current.ControlType.ProgrammaticName -eq "ControlType.MenuItem" -and $_.Current.Name -match "^(Exit|Esci|Quit|Chiudi)" } catch { $false } } | Select-Object -First 1
-        if (-not $menu) { return "tray menu opened but no Exit item found" }
-        try { $menu.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() } catch { $m = $menu.Current.BoundingRectangle; [Mouse]::Click([int]($m.X + $m.Width / 2), [int]($m.Y + $m.Height / 2), $false) }
-        return "clicked Exit ($($menu.Current.Name))"
-    } catch { return "tray exit automation failed: $($_.Exception.Message)" }
+    # Explorer owns tray UIA elements, so their names do not establish which
+    # PaRuX process owns the icon. Never click an unverified global target.
+    return 'blocked: tray icon ownership cannot be tied to the test process'
 }
 
 # ---------------------------------------------------------------------------------------------------------------------------
 # 1. Extract + start like the launcher
 # ---------------------------------------------------------------------------------------------------------------------------
 $sampler = $null; $appProc = $null; $stopFile = Join-Path $work "stop.flag"
-$script:sampOut = Join-Path $work "samples.csv"; $connOut = Join-Path $work "conns.csv"
+$script:sampOut = Join-Path $work "samples.csv"; $connOut = Join-Path $work "conns.csv"; $netChecks = Join-Path $work "net-checks.csv"
 try {
     Say "Machine: $cpuName, $cores logical cores, $totalRamGb GB RAM. Work dir $work"
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -349,7 +359,7 @@ try {
     $dataRoot = Join-Path $app "PaRuXData"
     $env:PARUX_CORPORATE = "1"; $env:PARUX_DATA_ROOT = $dataRoot; $env:PARUX_LOCALAI_STATE_DIR = $dataRoot
 
-    $sampler = Start-Process pwsh -ArgumentList @("-NoProfile", "-File", $samplerPath, "-Root", $extract, "-Out", $script:sampOut, "-ConnOut", $connOut, "-Stop", $stopFile, "-Cores", $cores) -PassThru -WindowStyle Hidden
+    $sampler = Start-Process pwsh -ArgumentList @("-NoProfile", "-File", $samplerPath, "-Root", $extract, "-Out", $script:sampOut, "-ConnOut", $connOut, "-NetChecks", $netChecks, "-Stop", $stopFile, "-Cores", $cores) -PassThru -WindowStyle Hidden
     $t0 = Get-Date
     $appProc = Start-Process (Join-Path $app "PaRuX.exe") -PassThru -WorkingDirectory $app
     $boot = Join-Path $dataRoot "server\bootstrap.json"
@@ -605,7 +615,19 @@ finally {
         }
         $left | Stop-Process -Force -ErrorAction SilentlyContinue
     } catch { $R.shutdown_error = $_.Exception.Message }
-    "stop" | Set-Content $stopFile; Start-Sleep 2
+    "stop" | Set-Content $stopFile
+    $R.sampler_completed = $false
+    try {
+        if ($sampler) {
+            $null = $sampler.Handle
+            if ($sampler.WaitForExit(15000)) { $R.sampler_completed = $sampler.ExitCode -eq 0 }
+            else { $sampler.Kill() }
+        }
+        $R.process_sample_count = @(Import-Csv $script:sampOut).Count
+        $checks = @(Import-Csv $netChecks)
+        $R.network_sample_count = @($checks | Where-Object { $_.status -eq 'ok' }).Count
+        $R.network_sample_errors = @($checks | Where-Object { $_.status -ne 'ok' }).Count
+    } catch { $R.conn_error = $_.Exception.Message }
     try {
         $conns = @(Import-Csv $connOut)
         $out = @($conns | Where-Object { $_.state -ne "Listen" }); $wide = @($conns | Where-Object { $_.state -eq "Listen" })
@@ -619,6 +641,7 @@ finally {
     # mode must reject false-green packages instead of treating HTTP 200 or a generated report as DONE.
     $acceptanceFailures = New-Object System.Collections.Generic.List[string]
     if ($EnforceAcceptance) {
+        foreach ($failure in @(Get-AcceptanceEvidenceFailures $R)) { $acceptanceFailures.Add($failure) }
         if (-not $R.embedding_engine.loaded -or -not $R.reranker_engine.loaded) {
             $acceptanceFailures.Add("Real ONNX embedding/reranker loader did not succeed in the extracted standalone package.")
         }
