@@ -143,7 +143,7 @@ public sealed class CorporateLiteSourceContractTests
         Assert.DoesNotContain("ApplicationStarted.Register(state.Publish)", program, StringComparison.Ordinal);
         Assert.Contains("ServerState.TryWriteStartFailure(ex.Message)", program, StringComparison.Ordinal);
         Assert.Contains("app.Lifetime.StopApplication()", program, StringComparison.Ordinal);
-        Assert.Contains("ReadStartFailure(startAttemptUtc)",
+        Assert.Contains("CoreStartFailure.TryRead(AppPaths.PaRuXRoot, startAttempt)",
             Read("src", "PaRuX.App", "Services", "PaRuXServerController.cs"), StringComparison.Ordinal);
         // Standard Portable protects the token best-effort and never blocks startup.
         Assert.Contains("TokenProtectedForCurrentUser = LocalFileProtection.RestrictToCurrentUser(StateDirectory)", source, StringComparison.Ordinal);

@@ -71,15 +71,10 @@ public sealed class ServerState
 
     public static string BootstrapPath => Path.Combine(StateDirectory, "bootstrap.json");
 
-    /// <summary>Plain-text reason the Core refused to start, read by the Desktop instead of
-    /// waiting for a bootstrap that will never appear. Contains no credential.</summary>
-    public static string StartFailurePath => Path.Combine(PaRuXDataRoot.Path, "core-start.error.txt");
-
     public static void TryWriteStartFailure(string message)
     {
-        try { File.WriteAllText(StartFailurePath, message); }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        CoreStartFailure.TryWrite(PaRuXDataRoot.Path,
+            Environment.GetEnvironmentVariable(CoreStartFailure.AttemptEnvironmentVariable), message);
     }
 
     /// <summary>Standard Portable only: false when the volume cannot restrict the bootstrap
@@ -144,8 +139,6 @@ public sealed class ServerState
             TokenProtectedForCurrentUser = LocalFileProtection.RestrictToCurrentUser(StateDirectory)
                 && LocalFileProtection.RestrictToCurrentUser(BootstrapPath);
         }
-        try { File.Delete(StartFailurePath); } catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
         // Remove the pre-1.5.1 fixed-name staging file if a prior interrupted promotion left it.
         try { File.Delete(BootstrapPath + ".tmp"); } catch (IOException) { }
         catch (UnauthorizedAccessException) { }

@@ -27,6 +27,25 @@ param(
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem, System.Net.Http
 
+# Keep the evidence checks conservative: a retrieved source is not itself a citation,
+# and an answer to a multi-part question must contain every requested fact.
+function Test-GroundedCase($Result, $Case) {
+    $answer = [string]$Result.answer
+    $Result.fact_present = @($Case.must | Where-Object { $answer -notmatch $_ }).Count -eq 0
+    $Result.forbidden_value_absent = if ($Case.never) { $answer -notmatch $Case.never } else { $true }
+    $sourcePattern = '(?i)(?<![\w.-])' + [regex]::Escape($Case.source) + '(?![\w.-])'
+    $Result.expected_source_retrieved = @($Result.sources | Where-Object { $_ -match $sourcePattern }).Count -gt 0
+    $Result.answer_cites_expected_source = $answer -match $sourcePattern
+    $Result.pass = ($Result.http_status -eq 200) -and $Result.fact_present -and $Result.forbidden_value_absent -and $Result.expected_source_retrieved -and $Result.answer_cites_expected_source
+}
+
+# This negative probe has no supporting document. Accept one unambiguous response
+# only: a refusal accompanied by a fabricated code must never pass the gate.
+function Test-AbstentionCase($Result) {
+    $Result.declines = ([string]$Result.answer).Trim() -match '^(?i:INSUFFICIENT EVIDENCE)[.!]?$'
+    $Result.pass = ($Result.http_status -eq 200) -and $Result.declines
+}
+
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $ZipPath) {
     # The ZIP is a build artifact (not in Git); look in this checkout, then in the main checkout of the same repository.
@@ -514,30 +533,23 @@ try {
     }
     $tC0 = Get-Date
     $cases = @(
-        @{ name = "vault_code";  q = "What is the access code for the Kestrel records vault? Answer briefly and cite the source."; must = '4417-ZEPHYR'; never = $null; source = 'sentinel-vault' },
-        @{ name = "torque_rev3"; q = "In procedure 10-4500 revision 3, what torque applies to the M8 flange screw? Answer briefly and cite the source."; must = '\b23\s*Nm'; never = '\b150\s*Nm'; source = 'sentinel-torque' },
-        @{ name = "invoice_884"; q = "What is the amount and the due date of invoice INV_2026_884? Answer briefly and cite the source."; must = '12[.,]?840'; never = '9[.,]?310'; source = 'sentinel-invoices' },
-        @{ name = "leave_part_time"; q = "How many leave days per month do part-time staff accrue under the 2026 leave policy? Answer briefly and cite the source."; must = '1[.,]75'; never = $null; source = 'sentinel-leave' }
+        @{ name = "vault_code";  q = "What is the access code for the Kestrel records vault? Answer briefly and cite the source filename."; must = @('4417-ZEPHYR'); never = $null; source = 'sentinel-vault.md' },
+        @{ name = "torque_rev3"; q = "In procedure 10-4500 revision 3, what torque applies to the M8 flange screw? Answer briefly and cite the source filename."; must = @('\b23\s*Nm'); never = '\b150\s*Nm'; source = 'sentinel-torque.txt' },
+        @{ name = "invoice_884"; q = "What is the amount and the due date of invoice INV_2026_884? Answer briefly and cite the source filename."; must = @('(?<!\d)(?:12,840\.50|12\.840,50|12840[.,]50)(?!\d)', '(?i)(?:2026-12-15|15\s+December\s+2026|December\s+15,?\s+2026)'); never = '9[.,]?310'; source = 'sentinel-invoices.csv' },
+        @{ name = "leave_part_time"; q = "How many leave days per month do part-time staff accrue under the 2026 leave policy? Answer briefly and cite the source filename."; must = @('1[.,]75'); never = $null; source = 'sentinel-leave.docx' }
     )
     $chatCases = New-Object System.Collections.Generic.List[object]
     foreach ($case in $cases) {
         $r = Ask-Chat $case.q
         $r.name = $case.name
-        $r.fact_present = [bool]($r.answer -match $case.must)
-        $r.forbidden_value_absent = if ($case.never) { -not ($r.answer -match $case.never) } else { $true }
-        $r.expected_source_retrieved = [bool](@($r.sources | Where-Object { $_ -like "*$($case.source)*" }).Count -gt 0)
-        $r.pass = ($r.http_status -eq 200) -and $r.fact_present -and $r.forbidden_value_absent -and $r.expected_source_retrieved
+        Test-GroundedCase $r $case
         $chatCases.Add($r)
         Say "Chat [$($case.name)]: pass=$($r.pass) fact=$($r.fact_present) source=$($r.expected_source_retrieved) ttft $($r.ttft_s)s tps $($r.tokens_per_s_by_chunks) :: $($r.answer.Substring(0, [math]::Min(160, $r.answer.Length)))"
     }
     # Nothing in the corpus mentions this room: a grounded assistant says so instead of inventing a code.
-    $abst = Ask-Chat "What is the access code for the Osprey server room? Answer only from the documents."
+    $abst = Ask-Chat "What is the access code for the Osprey server room? Answer only from the documents. If the documents do not provide it, respond exactly: INSUFFICIENT EVIDENCE"
     $abst.name = "abstain_unknown_room"
-    # Declining while mentioning a different, real document fact is not a fabrication; attributing
-    # any code to the unknown room is.
-    $abst.no_invented_code = -not ($abst.answer -match '(?i)Osprey[^.]{0,120}\b(is|:)\s*["'']?\d{3,}')
-    $abst.declines = [bool]($abst.answer -match '(?i)\b(not (found|mentioned|available|specified|provided|contain|include|listed|stated)|no (information|mention|reference|record|document|evidence|access code)|do(es)? not|don''t|cannot|can''t|unable|unknown|not in the)\b')
-    $abst.pass = ($abst.http_status -eq 200) -and $abst.no_invented_code -and $abst.declines
+    Test-AbstentionCase $abst
     Say "Chat [abstain]: pass=$($abst.pass) :: $($abst.answer.Substring(0, [math]::Min(160, $abst.answer.Length)))"
     $tC1 = Get-Date
     $first = $chatCases[0]

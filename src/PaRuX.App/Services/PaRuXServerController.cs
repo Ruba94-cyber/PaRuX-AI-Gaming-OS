@@ -34,6 +34,7 @@ namespace PaRuX.Services
         public async Task<ServerBootstrap> EnsureRunningAsync(IProgress<string?>? progress, CancellationToken ct)
         {
             await _startGate.WaitAsync(ct).ConfigureAwait(false);
+            string? startAttempt = null;
             try
             {
                 ServerBootstrap? current = ReadBootstrap();
@@ -51,8 +52,8 @@ namespace PaRuX.Services
                 }
 
                 if (progress != null) progress.Report("Starting PaRuX Server…");
-                DateTime startAttemptUtc = DateTime.UtcNow.AddSeconds(-2);
-                StartServerProcess();
+                startAttempt = Guid.NewGuid().ToString("N");
+                StartServerProcess(startAttempt);
 
                 DateTime deadline = DateTime.UtcNow.AddSeconds(20);
                 while (DateTime.UtcNow < deadline)
@@ -61,7 +62,7 @@ namespace PaRuX.Services
                     await Task.Delay(200, ct).ConfigureAwait(false);
                     // The Core writes this when it refuses to start (for example Corporate on a
                     // volume that cannot protect its token): show the reason, do not wait it out.
-                    string? refusal = ReadStartFailure(startAttemptUtc);
+                    string? refusal = CoreStartFailure.TryRead(AppPaths.PaRuXRoot, startAttempt);
                     if (refusal != null) throw new LocalAiException(refusal);
                     current = ReadBootstrap();
                     probe = await ProbeServerAsync(current, ct).ConfigureAwait(false);
@@ -85,6 +86,7 @@ namespace PaRuX.Services
             }
             finally
             {
+                if (startAttempt != null) CoreStartFailure.TryDelete(AppPaths.PaRuXRoot, startAttempt);
                 _startGate.Release();
             }
         }
@@ -140,20 +142,6 @@ namespace PaRuX.Services
             }
 
             return await EnsureRunningAsync(progress, ct).ConfigureAwait(false);
-        }
-
-        private static string? ReadStartFailure(DateTime notBeforeUtc)
-        {
-            try
-            {
-                string path = Path.Combine(AppPaths.PaRuXRoot, "core-start.error.txt");
-                if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) < notBeforeUtc) return null;
-                string text = File.ReadAllText(path).Trim();
-                if (text.Length == 0) return null;
-                return text.Length > 400 ? text.Substring(0, 400) : text;
-            }
-            catch (IOException) { return null; }
-            catch (UnauthorizedAccessException) { return null; }
         }
 
         private static ServerBootstrap? ReadBootstrap()
@@ -284,7 +272,7 @@ namespace PaRuX.Services
             catch { return true; }
         }
 
-        private static void StartServerProcess()
+        private static void StartServerProcess(string startAttempt)
         {
             string executable = FindServerExecutable();
             var info = new ProcessStartInfo
@@ -295,6 +283,7 @@ namespace PaRuX.Services
                 WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = Path.GetDirectoryName(executable)
             };
+            info.Environment[CoreStartFailure.AttemptEnvironmentVariable] = startAttempt;
             Process? process = Process.Start(info);
             if (process == null) throw new LocalAiException("Windows could not start PaRuX Server.");
             ChildProcessJob.Assign(process);
