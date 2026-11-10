@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,6 +27,64 @@ namespace PaRuX.Services
     {
         internal const uint KeyEventKeyUp = 0x0002;
         internal const uint KeyEventUnicode = 0x0004;
+
+        internal enum ComboOutcome { Delivered, Refused, Revoked, Cancelled, Blocked, Error }
+        internal sealed record ComboResult(ComboOutcome Outcome, int PressedCount, bool AllReleasesAccepted, bool DeliveryUncertain = false);
+
+        internal static async Task<ComboResult> PressComboAsync(IComputerUseInputDriver driver,
+            IReadOnlyList<ushort> keys, Func<bool> mayContinue, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(driver);
+            ArgumentNullException.ThrowIfNull(keys);
+            ArgumentNullException.ThrowIfNull(mayContinue);
+            int pressed = 0;
+            var releaseKeys = new List<ushort>();
+            bool releasesAccepted = true;
+            bool deliveryUncertain = false;
+            ComboOutcome outcome = keys.Count == 0 ? ComboOutcome.Refused : ComboOutcome.Delivered;
+            try
+            {
+                foreach (ushort key in keys)
+                {
+                    if (ct.IsCancellationRequested) { outcome = ComboOutcome.Cancelled; break; }
+                    bool allowed;
+                    try { allowed = mayContinue(); }
+                    catch (Exception) { outcome = ComboOutcome.Error; break; }
+                    if (!allowed) { outcome = ComboOutcome.Revoked; break; }
+                    if (ct.IsCancellationRequested) { outcome = ComboOutcome.Cancelled; break; }
+                    uint inserted;
+                    try { inserted = driver.SendKeyboardEvent(key, 0, 0); }
+                    catch (Exception)
+                    {
+                        // A driver exception cannot prove whether the down reached Windows.
+                        // Attempt the matching release and report the uncertainty.
+                        releaseKeys.Add(key);
+                        deliveryUncertain = true;
+                        outcome = ComboOutcome.Error;
+                        break;
+                    }
+                    if (inserted == 0) { outcome = ComboOutcome.Blocked; break; }
+                    pressed++;
+                    releaseKeys.Add(key);
+                }
+                if (outcome == ComboOutcome.Delivered)
+                    await Task.Delay(30, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                outcome = ComboOutcome.Cancelled;
+            }
+            finally
+            {
+                // Releases remain necessary after cancellation or focus loss to avoid stuck modifiers.
+                for (int i = releaseKeys.Count - 1; i >= 0; i--)
+                {
+                    try { if (driver.SendKeyboardEvent(releaseKeys[i], 0, KeyEventKeyUp) == 0) releasesAccepted = false; }
+                    catch (Exception) { releasesAccepted = false; }
+                }
+            }
+            return new ComboResult(outcome, pressed, releasesAccepted, deliveryUncertain);
+        }
 
         /// <summary>
         /// Sends one character with KEYEVENTF_UNICODE, so no virtual-key or shift-state mapping is needed. False when Windows

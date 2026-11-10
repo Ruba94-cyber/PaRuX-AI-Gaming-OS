@@ -272,9 +272,10 @@ namespace PaRuX.Services
 
         /// <summary>Presses a key combo like "Ctrl+S", "Alt+Tab", or a single key like "Enter". Keys that went down
         /// are always released, including when the combo is cancelled part way through.</summary>
-        public static async Task<bool> PressKeyComboAsync(string combo, CancellationToken cancellationToken = default)
+        internal static async Task<ComputerUseKeyboard.ComboResult> PressKeyComboAsync(
+            string combo, Func<bool> mayContinue, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(combo)) return false;
+            if (string.IsNullOrWhiteSpace(combo)) return new(ComputerUseKeyboard.ComboOutcome.Refused, 0, true);
             var codes = new List<ushort>();
             foreach (string part in combo.Split('+'))
             {
@@ -282,32 +283,10 @@ namespace PaRuX.Services
                 if (token.Length == 0) continue;
                 if (KeyNames.TryGetValue(token, out ushort vk)) codes.Add(vk);
                 else if (token.Length == 1) codes.Add((ushort)char.ToUpperInvariant(token[0]));
-                else return false; // unrecognized token: press nothing rather than guess
+                else return new(ComputerUseKeyboard.ComboOutcome.Refused, 0, true);
             }
-            if (codes.Count == 0) return false;
-
-            cancellationToken.ThrowIfCancellationRequested();
-            int pressed = 0;
-            bool accepted = true;
-            try
-            {
-                foreach (ushort code in codes)
-                {
-                    if (Win32Driver.SendKeyboardEvent(code, 0, 0) == 0)
-                    {
-                        accepted = false;
-                        break;
-                    }
-                    pressed++;
-                }
-                if (accepted) await Task.Delay(30, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                // Release whatever went down, even when cancelled mid-combo, so no modifier stays held.
-                for (int i = pressed - 1; i >= 0; i--) Win32Driver.SendKeyboardEvent(codes[i], 0, KEYEVENTF_KEYUP);
-            }
-            return accepted;
+            return await ComputerUseKeyboard.PressComboAsync(Win32Driver, codes, mayContinue, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         // ------------------------------------------------------------------

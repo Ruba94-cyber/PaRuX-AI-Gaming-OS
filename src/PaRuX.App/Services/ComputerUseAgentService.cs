@@ -968,8 +968,23 @@ namespace PaRuX.Services
                     return await TypePinnedAsync(action.Text ?? string.Empty, pin, ct, stopReason).ConfigureAwait(false);
                 case "key":
                 {
-                    bool pressed = await DesktopAutomationService.PressKeyComboAsync(action.Combo ?? string.Empty, ct).ConfigureAwait(false);
-                    return pressed ? null : "The key combo is not recognized, or Windows did not accept it, so nothing was pressed.";
+                    bool MaySendKey()
+                    {
+                        if (stopReason() != null || pin.RefusalIfChanged() != null) return false;
+                        if (!appLease.IsActive) return true;
+                        var identity = DesktopAutomationService.CaptureWindowFocusIdentity(new IntPtr(pin.Pinned.WindowHandle));
+                        string[] approved = (SettingsStore.Current.Data.ComputerApps ?? new List<ComputerAppShortcut>())
+                            .Select(a => a.ExecutablePath).ToArray();
+                        return appLease.RefusalForAction(pin.Pinned, identity, approved) == null;
+                    }
+                    var result = await DesktopAutomationService.PressKeyComboAsync(action.Combo ?? string.Empty, MaySendKey, ct).ConfigureAwait(false);
+                    if (result.Outcome == ComputerUseKeyboard.ComboOutcome.Delivered && result.AllReleasesAccepted) return null;
+                    return "Key combination stopped (" + result.Outcome + "); " + result.PressedCount
+                        + " key-down events were accepted. "
+                        + (result.DeliveryUncertain ? "Another key-down may also have been delivered. " : string.Empty)
+                        + (result.AllReleasesAccepted
+                            ? "All attempted key releases were accepted."
+                            : "Windows did not confirm every key release; a modifier may remain active.");
                 }
                 case "scroll":
                     return DesktopAutomationService.Scroll(RequireX(action), RequireY(action), action.Lines ?? -3)
