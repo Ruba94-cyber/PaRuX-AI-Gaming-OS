@@ -11,6 +11,8 @@ namespace PaRuX.Contracts;
 public static class PaRuXDataRoot
 {
     private const string FolderName = "PaRuX";
+    /// <summary>The standard Portable edition carries its data beside PaRuX.exe.</summary>
+    public const string PortableMarkerFileName = "parux.portable";
 
     private static readonly object Gate = new();
     private static string? _resolved;
@@ -59,12 +61,11 @@ public static class PaRuXDataRoot
         if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
             return System.IO.Path.GetFullPath(overrideRoot);
 
-        // Double-clicking PaRuX.exe inside an extracted Corporate ZIP must be portable
-        // as well: the launcher is helpful for consent but not a prerequisite for finding
-        // the preseeded CPU runtime, model and document index. Never apply this to MSI/
-        // standard portable editions without the explicit corporate marker.
-        string? corporateRoot = FindCorporatePortableDataRoot(AppContext.BaseDirectory);
-        if (corporateRoot != null) return corporateRoot;
+        // Both ZIP editions must carry all persistent state with their extracted
+        // directory even when PaRuX.exe is double-clicked, rather than requiring
+        // the .cmd launcher to choose the right data location.
+        string? portableRoot = FindPortableDataRoot(AppContext.BaseDirectory);
+        if (portableRoot != null) return portableRoot;
 
         return System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), FolderName);
@@ -73,6 +74,27 @@ public static class PaRuXDataRoot
     /// <summary>Pure directory boundary for tests and normal executable/server startup.
     /// The marker must sit adjacent to a real PaRuXData directory. Environment-only
     /// corporate UI tests do not accidentally inherit a sibling directory.</summary>
+    /// <summary>Recognizes a physically extracted Standard/Corporate ZIP, from
+    /// the Desktop exe folder or the nested PaRuX.Server Core directory. A marker
+    /// alone is insufficient: PaRuXData must also exist beside it.</summary>
+    public static string? FindPortableDataRoot(string baseDirectory)
+    {
+        try
+        {
+            string current = System.IO.Path.GetFullPath(baseDirectory);
+            foreach (string root in new[] { current, System.IO.Path.GetDirectoryName(current.TrimEnd(
+                System.IO.Path.DirectorySeparatorChar)) ?? current })
+            {
+                if (System.IO.Directory.Exists(System.IO.Path.Combine(root, "PaRuXData")) &&
+                    (System.IO.File.Exists(System.IO.Path.Combine(root, PortableMarkerFileName)) ||
+                     System.IO.File.Exists(System.IO.Path.Combine(root, CorporateMode.MarkerFileName))))
+                    return System.IO.Path.Combine(root, "PaRuXData");
+            }
+        }
+        catch (Exception) { /* standard MSI/profile fallback */ }
+        return null;
+    }
+
     internal static string? FindCorporatePortableDataRoot(string baseDirectory)
     {
         try
