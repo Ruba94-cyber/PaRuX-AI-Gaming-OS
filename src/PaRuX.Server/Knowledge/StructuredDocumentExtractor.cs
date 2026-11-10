@@ -131,6 +131,30 @@ public static class StructuredDocumentExtractor
             new[] { new DocumentSegment(text, new DocumentPosition()) }, false, "Content is not readable as text; indexed by name and metadata only.", null);
     }
 
+
+    /// <summary>A first row is a header unless every field is a number (same rule the CSV extractor uses).</summary>
+    public static bool IsHeaderRow(IEnumerable<string> fields)
+    {
+        foreach (string f in fields)
+        {
+            if (f.Length == 0 || !double.TryParse(f, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Renders one sparse row as <c>Header=value | Header=value</c>; empty cells are omitted, unnamed columns fall back to their letter.</summary>
+    public static string RenderHeaderedRow(IEnumerable<(int Col, string Value)> cells, IReadOnlyDictionary<int, string> header)
+    {
+        var parts = new List<string>();
+        foreach ((int col, string value) in cells)
+        {
+            if (value.Length == 0) continue;
+            string h = header.TryGetValue(col, out string? name) && name.Length > 0 ? name : ColumnName(Math.Max(1, col));
+            parts.Add(h + "=" + value);
+        }
+        return string.Join(" | ", parts);
+    }
+
     /// <summary>1 -> A, 27 -> AA.</summary>
     public static string ColumnName(int oneBased)
     {
@@ -332,6 +356,8 @@ internal sealed class OpenXmlSpreadsheetExtractor : IDocumentExtractor
             string sheetName = sheet.Name?.Value ?? "Sheet";
             var block = new List<string>();
             int firstRow = 0, lastRow = 0, maxCol = 1, rows = 0;
+            Dictionary<int, string>? header = null;
+            bool headerChecked = false;
 
             void Flush()
             {
@@ -362,7 +388,19 @@ internal sealed class OpenXmlSpreadsheetExtractor : IDocumentExtractor
                 if (block.Count == 0) firstRow = rowNumber;
                 lastRow = rowNumber; rows++;
                 maxCol = Math.Max(maxCol, cells.Max(c => c.Col));
-                block.Add(string.Join("\t", cells.Select(c => c.Value)));
+                if (!headerChecked)
+                {
+                    headerChecked = true;
+                    if (StructuredDocumentExtractor.IsHeaderRow(cells.Select(c => c.Value)))
+                    {
+                        header = new Dictionary<int, string>();
+                        foreach (var c in cells) header[c.Col] = c.Value;
+                        block.Add("columns: " + string.Join(" | ", cells.Select(c => c.Value)));
+                        if (block.Count >= limits.SpreadsheetRowsPerSegment) Flush();
+                        continue;
+                    }
+                }
+                block.Add(header == null ? string.Join("\t", cells.Select(c => c.Value)) : StructuredDocumentExtractor.RenderHeaderedRow(cells, header));
                 if (block.Count >= limits.SpreadsheetRowsPerSegment) Flush();
             }
             Flush();
@@ -407,6 +445,8 @@ internal sealed class LegacyWorkbookExtractor : IDocumentExtractor
             string sheetName = reader.Name;
             var block = new List<string>();
             int row = 0, firstRow = 0, maxCol = 1, rows = 0;
+            Dictionary<int, string>? header = null;
+            bool headerChecked = false;
             void Flush()
             {
                 if (block.Count == 0) return;
@@ -433,7 +473,20 @@ internal sealed class LegacyWorkbookExtractor : IDocumentExtractor
                 if (block.Count == 0) firstRow = row;
                 rows++;
                 maxCol = Math.Max(maxCol, lastFilled);
-                block.Add(string.Join("\t", values.Take(lastFilled)));
+                var cells = new List<(int Col, string Value)>();
+                for (int i = 0; i < lastFilled; i++) if (values[i].Length > 0) cells.Add((i + 1, values[i]));
+                if (!headerChecked)
+                {
+                    headerChecked = true;
+                    if (StructuredDocumentExtractor.IsHeaderRow(cells.Select(c => c.Value)))
+                    {
+                        header = cells.ToDictionary(c => c.Col, c => c.Value);
+                        block.Add("columns: " + string.Join(" | ", cells.Select(c => c.Value)));
+                        if (block.Count >= limits.SpreadsheetRowsPerSegment) Flush();
+                        continue;
+                    }
+                }
+                block.Add(header == null ? string.Join("\t", values.Take(lastFilled)) : StructuredDocumentExtractor.RenderHeaderedRow(cells, header));
                 if (block.Count >= limits.SpreadsheetRowsPerSegment) Flush();
             }
             Flush();

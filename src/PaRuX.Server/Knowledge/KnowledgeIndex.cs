@@ -85,16 +85,22 @@ public sealed partial class KnowledgeIndex : IDisposable
     private readonly string _dbPath;
     private volatile KnowledgeIndexOptions _options;
     private readonly IRetrievalEmbeddingProvider? _embedder;
+    private readonly IRetrievalRerankerProvider? _reranker;
     private readonly object _gate = new();
     private bool _hasFts5;
     private bool _ready;
 
-    public KnowledgeIndex(string dbPath, KnowledgeIndexOptions? options = null, IRetrievalEmbeddingProvider? embedder = null)
+    public KnowledgeIndex(string dbPath, KnowledgeIndexOptions? options = null, IRetrievalEmbeddingProvider? embedder = null,
+        IRetrievalRerankerProvider? reranker = null)
     {
         _dbPath = dbPath;
         _options = options ?? new KnowledgeIndexOptions();
         _embedder = embedder;
+        _reranker = reranker;
     }
+
+    /// <summary>True while the persisted Gaming marker exists; cross-encoder reranking is skipped then (Gaming hard-off).</summary>
+    internal Func<bool> GamingActive { get; set; } = GamingHardOffWatch.MarkerActive;
 
     /// <summary>Replaces the options used by the next indexing run (settings or profile changed).</summary>
     public void UpdateOptions(KnowledgeIndexOptions options) => _options = options;
@@ -865,7 +871,7 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
     private static string Phrase(string term) => "\"" + term.Replace("\"", "\"\"") + "\"";
 
     public IReadOnlyList<KnowledgeHit> Search(string query, KnowledgeSearchMode mode = KnowledgeSearchMode.Auto, int topK = 10,
-        IReadOnlyCollection<string>? sourceIds = null)
+        IReadOnlyCollection<string>? sourceIds = null, CancellationToken ct = default)
     {
         EnsureSchema();
         if (string.IsNullOrWhiteSpace(query) || sourceIds is { Count: 0 })
@@ -881,6 +887,12 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
                 if (exact.Count > 0) return exact;       // identifiers win: no semantic noise around an exact code
             }
             mode = semanticPossible ? KnowledgeSearchMode.Hybrid : KnowledgeSearchMode.Lexical;
+            // Lexical-only indexes (no embedder) still benefit from the cross-encoder when it is installed.
+            if (!semanticPossible && CanRerank())
+            {
+                int lexPool = Math.Max(topK, RerankCandidateCount(topK));
+                return Rerank(query, SearchLexical(query, lexPool, sourceIds, "lexical"), topK, exactTerms, ct);
+            }
         }
         switch (mode)
         {
@@ -892,11 +904,83 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
                 return SearchSemantic(query, topK, sourceIds);
             default:
             {
-                var lexical = SearchLexical(query, topK * 3, sourceIds, "lexical");
-                var semantic = SearchSemantic(query, topK * 3, sourceIds);
-                return Fuse(topK, lexical, semantic);
+                bool rerank = CanRerank();
+                int pool = rerank ? Math.Max(topK, RerankCandidateCount(topK)) : topK;
+                var lexical = SearchLexical(query, Math.Max(topK * 3, pool), sourceIds, "lexical");
+                var semantic = SearchSemantic(query, Math.Max(topK * 3, pool), sourceIds);
+                var fused = Fuse(pool, lexical, semantic);
+                return rerank ? Rerank(query, fused, topK, exactTerms, ct) : fused.Take(topK).ToList();
             }
         }
+    }
+
+    internal const int RerankMaxCandidates = 48;
+    private const int RerankBatch = 8;
+
+    /// <summary>N = max(k*4, 24), capped at 48.</summary>
+    internal static int RerankCandidateCount(int topK) => Math.Min(RerankMaxCandidates, Math.Max(topK * 4, 24));
+
+    private bool CanRerank()
+    {
+        try { return _reranker is { IsAvailable: true } && !GamingActive(); }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// Cross-encoder pass over the fused candidates. Any failure, cancellation, Gaming activation or short score list falls back
+    /// to the fused order without throwing. Hits that contain a queried identifier as a whole token are never demoted below
+    /// hits that do not.
+    /// </summary>
+    private IReadOnlyList<KnowledgeHit> Rerank(string query, IReadOnlyList<KnowledgeHit> fused, int topK,
+        IReadOnlyList<string> exactTerms, CancellationToken ct)
+    {
+        if (fused.Count < 2 || _reranker == null) return fused.Take(topK).ToList();
+        try
+        {
+            int n = Math.Min(fused.Count, RerankCandidateCount(topK));
+            var scores = new float?[n];
+            for (int start = 0; start < n; start += RerankBatch)
+            {
+                if (ct.IsCancellationRequested || GamingActive()) return fused.Take(topK).ToList();
+                int len = Math.Min(RerankBatch, n - start);
+                var docs = new string[len];
+                for (int i = 0; i < len; i++) docs[i] = fused[start + i].Text;
+                IReadOnlyList<float?> batch = _reranker.TryScoreBatch(query, docs);
+                if (batch.Count != len) return fused.Take(topK).ToList();
+                for (int i = 0; i < len; i++) scores[start + i] = batch[i];
+            }
+            // A candidate the model could not score keeps its fused position relative to the others, after the scored ones.
+            var order = Enumerable.Range(0, n)
+                .OrderByDescending(i => scores[i].HasValue && float.IsFinite(scores[i]!.Value))
+                .ThenByDescending(i => scores[i].HasValue && float.IsFinite(scores[i]!.Value) ? scores[i]!.Value : float.MinValue)
+                .ThenBy(i => i)
+                .Select(i => fused[i]);
+            IEnumerable<KnowledgeHit> ranked = order;
+            if (exactTerms.Count > 0)
+                ranked = ranked.Where(h => HasWholeToken(h.Text, exactTerms)).Concat(ranked.Where(h => !HasWholeToken(h.Text, exactTerms)));
+            return ranked.Concat(fused.Skip(n)).Take(topK).ToList();
+        }
+        catch (Exception)
+        {
+            return fused.Take(topK).ToList();
+        }
+    }
+
+    private static bool HasWholeToken(string text, IReadOnlyList<string> terms)
+    {
+        foreach (string term in terms)
+        {
+            int at = 0;
+            while ((at = text.IndexOf(term, at, StringComparison.OrdinalIgnoreCase)) >= 0)
+            {
+                bool leftOk = at == 0 || !char.IsLetterOrDigit(text[at - 1]);
+                int end = at + term.Length;
+                bool rightOk = end >= text.Length || !char.IsLetterOrDigit(text[end]);
+                if (leftOk && rightOk) return true;
+                at++;
+            }
+        }
+        return false;
     }
 
     private static IReadOnlyList<KnowledgeHit> Fuse(int topK, params IReadOnlyList<KnowledgeHit>[] lists)

@@ -98,7 +98,8 @@ public sealed class StructuredDocumentExtractorTests : IDisposable
         Assert.Equal("Params", segment.Position.Sheet);
         Assert.Equal("A1:C3", segment.Position.CellRange);
         Assert.Equal("Params!A1:C3", segment.Position.Describe());
-        Assert.Contains("id2\tval2", segment.Text);
+        // The first row is a header, so rows are rendered Header=value (previously TAB-joined values).
+        Assert.Contains("id1=id2 | val1=val2", segment.Text);
     }
 
     [Theory]
