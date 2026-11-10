@@ -123,6 +123,18 @@ public sealed class CorporateLiteSourceContractTests
         Assert.DoesNotContain("Process.Start", contract, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Corporate_server_never_exposes_bootstrap_token_with_unprotected_windows_acls()
+    {
+        string source = Read("src", "PaRuX.Server", "ServerState.cs");
+        Assert.Contains("CorporateMode.IsActive && OperatingSystem.IsWindows()", source, StringComparison.Ordinal);
+        Assert.Contains("LocalFileProtection.RestrictToCurrentUser(StateDirectory)", source, StringComparison.Ordinal);
+        Assert.Contains("LocalFileProtection.RestrictToCurrentUser(BootstrapPath)", source, StringComparison.Ordinal);
+        Assert.Contains("Move the extracted PaRuX folder", source, StringComparison.Ordinal);
+        Assert.Contains("RemoveIfOwned();", source, StringComparison.Ordinal);
+        Assert.Contains("throw new UnauthorizedAccessException", source, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] path)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
