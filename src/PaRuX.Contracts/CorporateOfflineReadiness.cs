@@ -48,7 +48,7 @@ public sealed record CorporateOfflineReadiness(
             if (Directory.Exists(models))
             {
                 string marker = Path.Combine(models, ".corporate-default-model");
-                if (File.Exists(marker))
+                if (File.Exists(marker) && new FileInfo(marker).Length <= 4096)
                 {
                     string name = File.ReadAllText(marker).Trim().Trim('\uFEFF');
                     if (SafeGgufName(name))
@@ -92,6 +92,7 @@ public sealed record CorporateOfflineReadiness(
     private static bool SafeGgufName(string? name) =>
         !string.IsNullOrWhiteSpace(name)
         && name == Path.GetFileName(name)
+        && !name.Contains('/') && !name.Contains('\\')
         && name.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
         && !name.Contains("..", StringComparison.Ordinal)
         && !name.Contains("mmproj", StringComparison.OrdinalIgnoreCase)
