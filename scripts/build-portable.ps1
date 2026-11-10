@@ -216,7 +216,9 @@ Set-Content -LiteralPath (Join-Path $stageDir "README-portable.txt") -Value $rea
 # every archive member, not merely the executable. The manifest excludes
 # itself; it is generated from strictly staged build assets, never real user data.
 if ($fullyStandalone) {
-    $fileManifest = @(Get-ChildItem -LiteralPath $stageDir -Recurse -File | ForEach-Object {
+    # A -SkipPublish re-run finds the previous manifest in the stage: it must not list itself.
+    $manifestSelf = Join-Path $stageDir "MANIFEST-portable.json"
+    $fileManifest = @(Get-ChildItem -LiteralPath $stageDir -Recurse -File | Where-Object { $_.FullName -ne $manifestSelf } | ForEach-Object {
         [ordered]@{
             path = $_.FullName.Substring($stageDir.Length + 1).Replace('\', '/')
             size = $_.Length
@@ -443,6 +445,8 @@ if ($Smoke) {
             $nativeOut = Join-Path $smokeDir "vulkan-help.stdout.txt"
             $nativeErr = Join-Path $smokeDir "vulkan-help.stderr.txt"
             $native = Start-Process -FilePath $managedVulkan -ArgumentList "--help" -WorkingDirectory (Split-Path -Parent $managedVulkan) -NoNewWindow -PassThru -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+            # Windows PowerShell 5.1 drops ExitCode of a -PassThru process unless its handle is cached first.
+            $null = $native.Handle
             try {
                 if (-not $native.WaitForExit(15000)) {
                     try { $native.Kill() } catch { }
@@ -467,6 +471,8 @@ if ($Smoke) {
             $cpuOut = Join-Path $smokeDir "cpu-help.stdout.txt"
             $cpuErr = Join-Path $smokeDir "cpu-help.stderr.txt"
             $cpuProc = Start-Process -FilePath $cpu[0].FullName -ArgumentList "--help" -WorkingDirectory $cpu[0].DirectoryName -NoNewWindow -PassThru -RedirectStandardOutput $cpuOut -RedirectStandardError $cpuErr
+            # Windows PowerShell 5.1 drops ExitCode of a -PassThru process unless its handle is cached first.
+            $null = $cpuProc.Handle
             try {
                 if (-not $cpuProc.WaitForExit(15000)) {
                     try { $cpuProc.Kill() } catch { }

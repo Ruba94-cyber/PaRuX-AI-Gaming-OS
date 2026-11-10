@@ -411,6 +411,8 @@ if ($Smoke) {
     if ($nativeExe.Count -ne 1) { throw "Offline smoke: expected one bundled CPU llama-server.exe." }
     $stdout = Join-Path $tmp "cpu-help-out.txt"; $stderr = Join-Path $tmp "cpu-help-err.txt"
     $nativeProc = Start-Process $nativeExe[0].FullName -WorkingDirectory $nativeExe[0].DirectoryName -ArgumentList "--help" -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    # Windows PowerShell 5.1 drops ExitCode of a -PassThru process unless its handle is cached first.
+    $null = $nativeProc.Handle
     if (-not $nativeProc.WaitForExit(15000)) {
         $nativeProc.Kill()
         throw "Offline smoke: native CPU loader timed out."
