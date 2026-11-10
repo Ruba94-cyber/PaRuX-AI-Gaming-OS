@@ -14,21 +14,23 @@ namespace PaRuX.Services;
 public static class OnboardingTextReadinessPolicy
 {
     public static bool HasInstalledRuntime(
-        IEnumerable<ComponentStatus> components, bool corporateMode)
+        IEnumerable<ComponentStatus> components, bool corporateMode, bool standardPortableMode = false)
     {
         ArgumentNullException.ThrowIfNull(components);
         return components.Any(c => c.Detected && (corporateMode
             ? c.Id == "llama-server-cpu"
-            : c.Id is "llama-server-cuda" or "llama-server-vulkan"));
+            : c.Id is "llama-server-cuda" or "llama-server-vulkan"
+                || (standardPortableMode && c.Id == "llama-server-cpu")));
     }
 
     public static bool HasHealthyTextBackend(
-        IEnumerable<RuntimeBackendStatus> backends, bool corporateMode)
+        IEnumerable<RuntimeBackendStatus> backends, bool corporateMode, bool standardPortableMode = false)
     {
         ArgumentNullException.ThrowIfNull(backends);
         return backends.Any(b => b.Running && b.Healthy && (corporateMode
             ? b.Backend == "text-cpu"
-            : b.Backend is "text-cuda" or "text-vulkan"));
+            : b.Backend is "text-cuda" or "text-vulkan"
+                || (standardPortableMode && b.Backend == "text-cpu")));
     }
 
     public static string MissingModelMessage(bool corporateMode, bool italian) =>
@@ -40,8 +42,13 @@ public static class OnboardingTextReadinessPolicy
                 ? "Non è disponibile un modello Chat. Seleziona o importa un modello dal Model Hub."
                 : "No Chat model is available. Select or import one from Model Hub.";
 
-    public static string MissingRuntimeMessage(bool corporateMode, bool italian) =>
-        corporateMode
+    public static string MissingRuntimeMessage(bool corporateMode, bool italian,
+        bool standardPortableMode = false) =>
+        !corporateMode && standardPortableMode
+            ? italian
+                ? "Il motore CPU/Vulkan incluso nella Portable non è disponibile. Estrai nuovamente lo ZIP verificato."
+                : "The bundled CPU/Vulkan engine is missing. Re-extract the verified Portable ZIP."
+        : corporateMode
             ? italian
                 ? "Il runtime CPU incluso non è stato trovato. Estrai nuovamente il pacchetto Corporate verificato."
                 : "The included CPU runtime is missing. Re-extract the verified Corporate package."
