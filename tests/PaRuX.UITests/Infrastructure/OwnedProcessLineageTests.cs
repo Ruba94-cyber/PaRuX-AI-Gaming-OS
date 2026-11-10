@@ -7,6 +7,24 @@ namespace PaRuX.UITests.Tests;
 public sealed class OwnedProcessLineageTests
 {
     [Fact]
+    public void Newly_launched_process_identity_uses_its_executable_even_before_loader_initialization()
+    {
+        string expected = Path.GetFullPath(Path.Combine(Environment.SystemDirectory, "ping.exe"));
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            using Process launched = StartHelper("ping.exe", "-n 20 127.0.0.1");
+            try
+            {
+                Assert.True(OwnedProcessLineage.TryCaptureWhenReady(launched, TimeSpan.FromSeconds(1), out var first));
+                Assert.Equal(expected, first.ImagePath, ignoreCase: true);
+                Assert.True(OwnedProcessLineage.TryCapture(launched, out var second));
+                Assert.True(OwnedProcessLineage.IsSameIdentity(first, second));
+            }
+            finally { StopTestProcessTree(launched); }
+        }
+    }
+
+    [Fact]
     public void Captures_only_descendants_of_the_owned_process_and_requires_full_identity_match()
     {
         using Process ownedRoot = StartHelper("cmd.exe", "/d /c ping.exe -n 20 127.0.0.1");

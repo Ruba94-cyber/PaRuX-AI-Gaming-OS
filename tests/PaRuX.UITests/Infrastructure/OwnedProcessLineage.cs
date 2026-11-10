@@ -76,11 +76,10 @@ internal static class OwnedProcessLineage
             var handle = process.SafeHandle;
             if (handle.IsInvalid || handle.IsClosed) { identity = default; return false; }
             int processId = process.Id;
-            string? imagePath = null;
-            try { imagePath = process.MainModule?.FileName; }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or
-                                       UnauthorizedAccessException or NotSupportedException) { }
-            imagePath ??= QueryImagePath(handle);
+            // MainModule can temporarily report a loader DLL while a newly created
+            // process is initializing. Read the image path from this exact kernel
+            // process handle instead; unavailable metadata must fail closed.
+            string? imagePath = QueryImagePath(handle);
             if (string.IsNullOrWhiteSpace(imagePath)) { identity = default; return false; }
             identity = new OwnedProcessIdentity(processId, process.StartTime.ToUniversalTime().Ticks,
                 Path.GetFullPath(imagePath));
