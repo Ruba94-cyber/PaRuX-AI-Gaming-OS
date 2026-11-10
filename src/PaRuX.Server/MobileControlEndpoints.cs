@@ -386,7 +386,7 @@ public static class MobileControlEndpoints
                     Goal = request.Goal.Trim(),
                     Role = "coding",
                     GrantedCapabilities = CodingTaskPermissionProfile.RootCapabilitiesFor(profile).ToList(),
-                    CodingRunPermissionMode = CodingRunPermissionModes.Normalize(request.CodingRunPermissionMode),
+                    CodingRunPermissionMode = CodingRunPermissionModes.NormalizeRequested(request.CodingRunPermissionMode),
                     MaxRepairAttempts = Math.Clamp(request.MaxRepairAttempts, 0, 3)
                 });
 

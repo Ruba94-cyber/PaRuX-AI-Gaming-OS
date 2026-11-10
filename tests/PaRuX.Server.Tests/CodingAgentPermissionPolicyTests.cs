@@ -57,10 +57,13 @@ public sealed class CodingAgentPermissionPolicyTests
     }
 
     [Fact]
-    public void Missing_mode_keeps_bypass_and_unknown_mode_fails_closed_to_ask()
+    public void New_run_defaults_to_ask_stored_missing_is_bypass_and_unknown_fails_closed_to_ask()
     {
-        Assert.Equal(CodingAgentPermissionMode.Bypass, CodingAgentPermissionMode.Normalize(null));
-        Assert.Equal(CodingAgentPermissionMode.Ask, CodingAgentPermissionMode.Normalize("unexpected"));
+        Assert.Equal(CodingAgentPermissionMode.Ask, CodingAgentPermissionMode.NormalizeRequested(null));
+        Assert.Equal(CodingAgentPermissionMode.Bypass, CodingAgentPermissionMode.NormalizeRequested("bypass"));
+        Assert.Equal(CodingAgentPermissionMode.Bypass, CodingAgentPermissionMode.NormalizeStored(null));
+        Assert.Equal(CodingAgentPermissionMode.Ask, CodingAgentPermissionMode.NormalizeStored("unexpected"));
+        Assert.Equal(CodingAgentPermissionMode.Ask, CodingAgentPermissionMode.NormalizeRequested("unexpected"));
         Assert.False(CodingAgentPermissionPolicy.IsRefusedInPlanMode("unexpected", "write_file"));
     }
 

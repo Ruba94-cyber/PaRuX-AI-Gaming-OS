@@ -282,7 +282,7 @@ public sealed class BackupServiceTests : IDisposable
     /// (not just the on-disk file) after export, to prove ImportAsync updates the already-running
     /// cache immediately rather than only writing a file a restart would eventually pick up.</summary>
     [Fact]
-    public async Task Export_then_import_round_trips_benchmarks_personas_mcp_internet_and_paired_devices()
+    public async Task Export_then_import_round_trips_benchmarks_personas_and_mcp_but_never_restores_internet_or_paired_devices()
     {
         ModelBenchmarkRun benchmarkRun = _modelBenchmarks.Create("C:\\fake\\model.gguf", "Backup round-trip benchmark marker", automatic: false);
         _modelBenchmarks.Complete(benchmarkRun.Id, 123.4, 256, 3, "cuda", "RTX-fake");
@@ -334,9 +334,13 @@ public sealed class BackupServiceTests : IDisposable
         Assert.Equal(1, result.Restored.CustomPersonaCount);
         Assert.True(result.Restored.McpClientsIncluded);
         Assert.Equal(1, result.Restored.McpClientCount);
-        Assert.True(result.Restored.InternetSettingIncluded);
-        Assert.True(result.Restored.PairedDevicesIncluded);
-        Assert.Equal(1, result.Restored.PairedDeviceCount);
+        // SEC-F03: security-sensitive values are reported as ignored, never applied.
+        Assert.False(result.Restored.InternetSettingIncluded);
+        Assert.False(result.Restored.PairedDevicesIncluded);
+        Assert.Equal(0, result.Restored.PairedDeviceCount);
+        Assert.Contains(BackupService.IgnoredInternetSwitch, result.IgnoredSecuritySensitive);
+        Assert.Contains(BackupService.IgnoredPairedDevices, result.IgnoredSecuritySensitive);
+        Assert.Contains("this PC keeps its current values", result.Message);
 
         ModelBenchmarkRun? restoredBenchmark = _modelBenchmarks.Get(benchmarkRun.Id);
         Assert.NotNull(restoredBenchmark);
@@ -352,11 +356,12 @@ public sealed class BackupServiceTests : IDisposable
         Assert.Contains(mcpConfigs, c => c.Id == mcpServer.Id && c.Name == "Backup round-trip mcp marker");
         Assert.DoesNotContain(mcpConfigs, c => c.Name.StartsWith("Decoy"));
 
-        Assert.True(_internetSettings.GetEnabled());
+        // This machine keeps its CURRENT values: Internet stays off, the current device stays, the archived one is not added.
+        Assert.False(_internetSettings.GetEnabled());
 
         List<PairedDeviceInfo> devices = _remoteAccess.GetStatus().Devices;
-        Assert.Contains(devices, d => d.Id == originalDevice.Id && d.Name == "Backup round-trip device marker");
-        Assert.DoesNotContain(devices, d => d.Id == decoyDevice.Id);
+        Assert.DoesNotContain(devices, d => d.Id == originalDevice.Id);
+        Assert.Contains(devices, d => d.Id == decoyDevice.Id);
     }
 
     /// <summary>A backup taken before any of these five stores has ever been touched must not
@@ -568,7 +573,7 @@ public sealed class BackupServiceTests : IDisposable
     /// entry). Same "mutate the live state after export, not just the file" discipline as the
     /// first pass's combined test, so a pass proves the in-memory caches were actually refreshed.</summary>
     [Fact]
-    public async Task Export_then_import_round_trips_skills_custom_workflows_auto_fallback_and_remote_access_settings()
+    public async Task Export_then_import_round_trips_skills_custom_workflows_and_auto_fallback_but_never_restores_remote_access_settings()
     {
         SkillManifest skill = _skills.CreateOrUpdateUserSkill(new SkillManifest
         {
@@ -601,7 +606,8 @@ public sealed class BackupServiceTests : IDisposable
         Assert.True(result.Restored.CustomWorkflowsIncluded);
         Assert.Equal(1, result.Restored.CustomWorkflowCount);
         Assert.True(result.Restored.AutoFallbackSettingIncluded);
-        Assert.True(result.Restored.RemoteAccessSettingsIncluded);
+        Assert.False(result.Restored.RemoteAccessSettingsIncluded);
+        Assert.Contains(BackupService.IgnoredRemoteAccessSettings, result.IgnoredSecuritySensitive);
 
         List<SkillManifest> skills = _skills.List();
         Assert.Contains(skills, s => s.Id == skill.Id && s.DisplayName == "Backup Marker Skill");
@@ -613,9 +619,10 @@ public sealed class BackupServiceTests : IDisposable
 
         Assert.False(_aiProfile.GetAutoFallbackEnabled());
 
+        // SEC-F03: the LAN setting of THIS machine (disabled, port 9999 set after the export) is kept.
         RemoteAccessStatus status = _remoteAccess.GetStatus();
-        Assert.True(status.Enabled);
-        Assert.Equal(55123, status.Port);
+        Assert.False(status.Enabled);
+        Assert.Equal(9999, status.Port);
     }
 
     /// <summary>A backup taken before any of these four stores has ever been touched must not

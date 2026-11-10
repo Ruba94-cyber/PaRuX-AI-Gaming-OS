@@ -112,7 +112,10 @@ public sealed class AgentTaskDto
     public string? RepairContext { get; set; }
     public string? CreatedByAutomationId { get; set; }
 
-    /// <summary>Permission preset frozen when a desktop coding task is created; children inherit it.</summary>
+    /// <summary>Permission preset frozen when a desktop coding task is created; children inherit it.
+    /// Read model: Core always populates it. A payload that omits it comes from a legacy Core created under
+    /// the old contract, so a missing value keeps the legacy meaning (bypass); NEW tasks default to ask in
+    /// <c>TaskStore.Create</c>.</summary>
     public string CodingRunPermissionMode { get; set; } = CodingRunPermissionModes.Bypass;
 
     /// <summary>Additive: serialized <see cref="AgentTaskReviewStatusDto"/> (review findings with state, child

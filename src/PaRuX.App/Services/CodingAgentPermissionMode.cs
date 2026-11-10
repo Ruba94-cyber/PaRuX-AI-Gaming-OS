@@ -6,7 +6,8 @@ using System.Text.Json;
 
 namespace PaRuX.Services
 {
-    /// <summary>Permission behavior for one coding run. Bypass preserves the established defaults.</summary>
+    /// <summary>Permission behavior for one coding run. NEW runs that do not state a mode default to Ask; a
+    /// missing value in a STORED record keeps its legacy meaning (Bypass).</summary>
     public static class CodingAgentPermissionMode
     {
         public const string Bypass = "bypass";
@@ -18,11 +19,20 @@ namespace PaRuX.Services
             Bypass, Ask, Plan
         };
 
-        // Missing keeps the established default; an unknown non-empty value fails closed to Ask.
-        public static string Normalize(string? value) =>
-            string.IsNullOrWhiteSpace(value) ? Bypass
-            : Modes.Contains(value.Trim()) ? value.Trim().ToLowerInvariant()
-            : Ask;
+        /// <summary>Mode for a new run that does not state one.</summary>
+        public const string Default = Ask;
+
+        // STORED record (checkpoint, task row, conversation): missing keeps the legacy meaning (Bypass),
+        // because it was created under that contract. An unknown non-empty value fails closed to Ask.
+        public static string NormalizeStored(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? Bypass : NormalizeKnownOrAsk(value);
+
+        // NEW run: missing resolves to Ask. An explicit known mode (including Bypass) is honoured.
+        public static string NormalizeRequested(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? Default : NormalizeKnownOrAsk(value);
+
+        private static string NormalizeKnownOrAsk(string value) =>
+            Modes.Contains(value.Trim()) ? value.Trim().ToLowerInvariant() : Ask;
     }
 
     /// <summary>Fail-closed action classification and exact one-shot shell approval checks.</summary>
@@ -58,7 +68,7 @@ namespace PaRuX.Services
                 : IsAllowedInPlanMode(action);
 
         public static bool IsRefusedInPlanMode(string? mode, string? action, string? command = null) =>
-            CodingAgentPermissionMode.Normalize(mode) == CodingAgentPermissionMode.Plan
+            CodingAgentPermissionMode.NormalizeStored(mode) == CodingAgentPermissionMode.Plan
             && !IsAllowedInPlanMode(action, command);
 
         public static bool IsWorkspaceMutationAction(string? action) =>

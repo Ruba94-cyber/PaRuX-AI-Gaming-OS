@@ -226,6 +226,10 @@ public sealed class BackupImportResult
     /// <summary>Live stores that could not be exported into the snapshot (missing/corrupt). They were restored
     /// without a rollback safety net; the caller had to opt in explicitly.</summary>
     public List<string> UnsnapshottableStores { get; set; } = new();
+
+    /// <summary>Security-sensitive values present in the archive (paired devices, LAN/Remote Access settings, the
+    /// Internet switch) that were deliberately NOT applied: this machine keeps its current values. Additive.</summary>
+    public List<string> IgnoredSecuritySensitive { get; set; } = new();
 }
 
 /// <summary>HTTP 409 body when a restore is refused because the rollback snapshot would be incomplete.</summary>

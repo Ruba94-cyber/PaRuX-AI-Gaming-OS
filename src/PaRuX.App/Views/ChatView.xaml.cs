@@ -1368,7 +1368,7 @@ namespace PaRuX.Views
                         SettingsStore.Current.Data.CodingPermissionProfile ?? "offline",
                         2,
                         CancellationToken.None,
-                        codingRunPermissionMode: CodingRunPermissionModes.Normalize(
+                        codingRunPermissionMode: CodingRunPermissionModes.NormalizeStored(
                             ChatSession.Current.Conversation.CodingRunPermissionMode));
                     ShowTransientStatus("Coding task " + task.Id[..8] + " created on " + workspace
                         + ". Follow it in Settings › Agents.");

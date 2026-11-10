@@ -42,7 +42,7 @@ namespace PaRuX.Services
     public static class CodeHandoffService
     {
         public static async Task<CodeHandoffResult> PrepareAndLaunchAsync(
-            Conversation conversation, string codingRunPermissionMode = CodingRunPermissionModes.Bypass)
+            Conversation conversation, string codingRunPermissionMode = CodingRunPermissionModes.Default)
         {
             if (GamingManager.Current.IsActive)
                 throw new InvalidOperationException("Gaming Mode is active. Coding agents are suspended.");
@@ -72,7 +72,7 @@ namespace PaRuX.Services
                     permissionProfile,
                     maxRepairAttempts: 2,
                     CancellationToken.None,
-                    codingRunPermissionMode: CodingRunPermissionModes.Normalize(codingRunPermissionMode)).ConfigureAwait(false);
+                    codingRunPermissionMode: CodingRunPermissionModes.NormalizeRequested(codingRunPermissionMode)).ConfigureAwait(false);
 
                 if (!string.IsNullOrWhiteSpace(activeProjectId))
                 {

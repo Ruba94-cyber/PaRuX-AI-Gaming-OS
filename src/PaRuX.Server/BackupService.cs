@@ -830,7 +830,15 @@ public sealed class BackupService
             if (modelBenchmarksPath != null) RunStep("model benchmark history", () => _modelBenchmarks.ReplaceDatabaseFile(modelBenchmarksPath));
             if (personas != null) RunStep("Personas", () => _personas.ImportForBackup(personas));
             if (mcpClients != null) await RunStepAsync("configured MCP servers", () => _mcpClients.ImportForBackupAsync(mcpClients, commitCt)).ConfigureAwait(false);
-            if (internetSetting.HasValue) RunStep("the internet-access setting", () => _internetSettings.ImportForBackup(internetSetting.Value));
+            // SEC-F03: security-sensitive values are NOT applied from a backup. An archive is unsigned, so a tampered
+            // one must not be able to add a paired device whose token it knows, open the LAN listener or turn the
+            // Internet switch on. This machine keeps its current values; the result reports what was ignored.
+            var ignoredSecuritySensitive = new List<string>();
+            if (internetSetting.HasValue)
+            {
+                ignoredSecuritySensitive.Add(IgnoredInternetSwitch);
+                manifest.Contents.InternetSettingIncluded = false;
+            }
             if (modelAliases != null) RunStep("model alias labels", () => ModelDownloadService.ImportAliasesForBackup(modelAliases, _modelsDirectory));
             if (modelRepoIds != null) RunStep("model repo-id labels", () => ModelDownloadService.ImportRepoIdsForBackup(modelRepoIds, _modelsDirectory));
             int? importedModelProvenanceCount = null;
@@ -839,11 +847,20 @@ public sealed class BackupService
                     importedModelProvenanceCount = await ModelDownloadService.ImportModelProvenanceForBackupAsync(
                         modelProvenance, _modelsDirectory, commitCt).ConfigureAwait(false))
                     .ConfigureAwait(false);
-            if (pairedDevices != null) RunStep("paired LAN devices", () => _remoteAccess.ImportDevicesForBackup(pairedDevices));
+            if (pairedDevices != null)
+            {
+                ignoredSecuritySensitive.Add(IgnoredPairedDevices);
+                manifest.Contents.PairedDevicesIncluded = false;
+                manifest.Contents.PairedDeviceCount = 0;
+            }
             if (skillsPath != null) RunStep("user-created Skills", () => _skills.ReplaceDatabaseFile(skillsPath));
             if (customWorkflows != null) RunStep("custom ComfyUI workflows", () => _customWorkflows.ImportForBackup(customWorkflows));
             if (autoFallbackSetting.HasValue) RunStep("the auto-fallback setting", () => _aiProfile.ImportAutoFallbackForBackup(autoFallbackSetting.Value));
-            if (remoteAccessSettings != null) RunStep("Remote Access settings", () => _remoteAccess.ImportSettingsForBackup(remoteAccessSettings));
+            if (remoteAccessSettings != null)
+            {
+                ignoredSecuritySensitive.Add(IgnoredRemoteAccessSettings);
+                manifest.Contents.RemoteAccessSettingsIncluded = false;
+            }
 
             // Rollback only: a settings file that did not exist before the failed restore must not survive it.
             if (!takeSnapshot && !manifest.Contents.SettingsIncluded)
@@ -861,8 +878,11 @@ public sealed class BackupService
             return new BackupImportResult
             {
                 Success = true,
-                Message = "Backup restored successfully.",
-                Restored = manifest.Contents
+                Message = "Backup restored successfully."
+                    + (ignoredSecuritySensitive.Count == 0 || !takeSnapshot ? string.Empty
+                        : " Not restored (this PC keeps its current values): " + string.Join(", ", ignoredSecuritySensitive) + "."),
+                Restored = manifest.Contents,
+                IgnoredSecuritySensitive = takeSnapshot ? ignoredSecuritySensitive : new List<string>()
             };
         }
         finally
@@ -870,6 +890,10 @@ public sealed class BackupService
             try { Directory.Delete(workDir, recursive: true); } catch { /* best effort cleanup */ }
         }
     }
+
+    internal const string IgnoredInternetSwitch = "the Internet switch";
+    internal const string IgnoredPairedDevices = "paired devices";
+    internal const string IgnoredRemoteAccessSettings = "LAN / Remote Access settings";
 
     /// <summary>Test seam: invoked after each restore step completes (see BackupResilienceTests).</summary>
     internal Action<string>? CommitStepObserver { get; set; }

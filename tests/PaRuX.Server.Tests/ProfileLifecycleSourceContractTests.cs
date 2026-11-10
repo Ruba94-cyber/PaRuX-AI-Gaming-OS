@@ -48,7 +48,9 @@ public sealed class ProfileLifecycleSourceContractTests
         string hub = Read("src", "PaRuX.App", "Views", "ModelHubView.cs");
         string shell = Read("src", "PaRuX.App", "MainWindow.Workspaces.cs");
 
-        Assert.Contains("public void OnHidden()", hub, StringComparison.Ordinal);
+        // Hiding stops background polls but keeps a user-started repository check; only a real Unload cancels it.
+        Assert.Contains("public void OnHidden(bool keepExplicitDiscovery = true)", hub, StringComparison.Ordinal);
+        Assert.Contains("Unloaded += (_, _) => OnHidden(keepExplicitDiscovery: false);", hub, StringComparison.Ordinal);
         Assert.Contains("_downloadPoll?.Stop()", hub, StringComparison.Ordinal);
         Assert.Contains("_candidateEvaluationPoll?.Stop()", hub, StringComparison.Ordinal);
         Assert.Contains("_startPoll?.Stop()", hub, StringComparison.Ordinal);

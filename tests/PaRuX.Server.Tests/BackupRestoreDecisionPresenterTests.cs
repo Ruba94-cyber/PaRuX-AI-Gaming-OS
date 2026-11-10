@@ -175,5 +175,24 @@ namespace PaRuX.Server.Tests
             Assert.Equal("Restore failed", plainDecision.Title);
             Assert.Contains("File format is invalid", plainDecision.Body);
         }
+
+        [Fact]
+        public void RestoreSucceeded_ReportsIgnoredSecuritySensitiveValuesInTheExistingDialog()
+        {
+            var result = new BackupImportResult
+            {
+                Success = true,
+                Restored = new BackupContents(),
+                IgnoredSecuritySensitive = new List<string> { "paired devices", "the Internet switch" }
+            };
+
+            var decision = BackupRestoreDecisionPresenter.RestoreSucceeded(result);
+
+            Assert.Equal("Restore completed", decision.Title);
+            Assert.Contains("paired devices, the Internet switch", decision.Body);
+            Assert.Contains("kept its current", decision.Body);
+            Assert.DoesNotContain("kept its current",
+                BackupRestoreDecisionPresenter.RestoreSucceeded(new BackupImportResult { Success = true }).Body);
+        }
     }
 }

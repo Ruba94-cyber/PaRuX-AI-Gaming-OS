@@ -1161,7 +1161,7 @@ app.MapPost("/api/v1/internet", (InternetEnabledRequest request, InternetSetting
 {
     internet.SetEnabled(request.Enabled);
     return Results.Ok(new InternetStatus { Enabled = request.Enabled });
-});
+}).RequireDesktopOwnerToEnableInternet();
 
 app.MapGet("/api/v1/personas", (PersonaService personas) => Results.Ok(personas.GetAll()));
 
@@ -1824,7 +1824,7 @@ app.MapPost("/api/v1/orchestrator/tasks", (CreateAgentTaskRequest request, TaskS
     {
         return Results.BadRequest(new { error = exception.Message });
     }
-});
+}).ConstrainPairedDeviceTaskAuthority();
 
 app.MapGet("/api/v1/orchestrator/tasks", (TaskStore tasks) =>
     Results.Ok(new AgentTaskListResponse { Tasks = tasks.List() }));

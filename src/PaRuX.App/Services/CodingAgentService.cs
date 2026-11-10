@@ -136,7 +136,7 @@ namespace PaRuX.Services
             string resolvedSessionId = CodingAgentCheckpointStore.ResolveSessionId(root, task, sessionId);
             using IDisposable executionLease = ActiveRunLease.Enter(resolvedSessionId);
             string? orchestratorTaskId = string.IsNullOrWhiteSpace(sessionId) ? null : resolvedSessionId;
-            string requestedPermissionMode = CodingAgentPermissionMode.Normalize(permissionMode);
+            string requestedPermissionMode = CodingAgentPermissionMode.NormalizeRequested(permissionMode);
             // One ledger scope per coding task, so durable memory never bleeds between
             // unrelated tasks and a resumed run picks its own history back up.
             string memoryScopeId = orchestratorTaskId ?? resolvedSessionId;
@@ -151,7 +151,7 @@ namespace PaRuX.Services
             };
             string effectivePermissionMode = restored == null
                 ? requestedPermissionMode
-                : CodingAgentPermissionMode.Normalize(restored.PermissionMode);
+                : CodingAgentPermissionMode.NormalizeStored(restored.PermissionMode);
             checkpoint.PermissionMode = effectivePermissionMode;
 
             // An OS/process crash may land AFTER a side-effecting tool returned but
@@ -1463,11 +1463,11 @@ namespace PaRuX.Services
             int recentEvidenceCharacters,
             string durableMemory,
             string recoveryDigest = "",
-            string permissionMode = CodingAgentPermissionMode.Bypass)
+            string permissionMode = CodingAgentPermissionMode.Default)
         {
             var sb = new StringBuilder();
             sb.Append("Task: ").Append(task).Append("\n\n");
-            string normalizedPermissionMode = CodingAgentPermissionMode.Normalize(permissionMode);
+            string normalizedPermissionMode = CodingAgentPermissionMode.NormalizeRequested(permissionMode);
             if (normalizedPermissionMode == CodingAgentPermissionMode.Plan)
                 sb.Append("CODING MODE: PLAN (READ ONLY). File writes, package restore, browser mutations, and shell commands that are not mechanically classified as safe read-only commands are refused before execution. Read-only shell commands must be a single command with no chaining, substitution, or redirection.\n\n");
             else if (normalizedPermissionMode == CodingAgentPermissionMode.Ask)

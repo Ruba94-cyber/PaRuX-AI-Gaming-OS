@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using PaRuX.Contracts;
 
 namespace PaRuX.Models
 {
@@ -15,8 +17,20 @@ namespace PaRuX.Models
         public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
         public bool IsFavorite { get; set; }
 
-        /// <summary>Permission preset for coding tasks started from this conversation.</summary>
-        public string CodingRunPermissionMode { get; set; } = "bypass";
+        /// <summary>Permission preset for coding tasks started from this conversation. A NEW conversation
+        /// defaults to ask; a stored document that lacks the field was created under the old contract and
+        /// resolves to bypass (see the JSON constructor).</summary>
+        public string CodingRunPermissionMode { get; set; } = CodingRunPermissionModes.Default;
+
+        public Conversation() { }
+
+        /// <summary>Used by System.Text.Json when loading a persisted conversation: a missing value keeps its
+        /// legacy meaning (bypass); an explicit value is preserved.</summary>
+        [JsonConstructor]
+        private Conversation(string? codingRunPermissionMode)
+        {
+            CodingRunPermissionMode = CodingRunPermissionModes.NormalizeStored(codingRunPermissionMode);
+        }
 
         /// <summary>Never written to parux.db, never pushed to the server, never shown in the
         /// sidebar's Recent list - see ChatSession.Persist. Not itself persisted (an incognito

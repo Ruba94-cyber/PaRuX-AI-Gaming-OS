@@ -86,8 +86,16 @@ namespace PaRuX.Services
                 IsPrimaryDestructive: false);
         }
 
-        public static BackupDialogDecision RestoreSucceeded(BackupImportResult? result) =>
-            RestoreSucceeded(result?.Restored);
+        public static BackupDialogDecision RestoreSucceeded(BackupImportResult? result)
+        {
+            BackupDialogDecision decision = RestoreSucceeded(result?.Restored);
+            if (result?.IgnoredSecuritySensitive is not { Count: > 0 } ignored) return decision;
+            return decision with
+            {
+                Body = decision.Body + " For safety, this PC kept its current " + string.Join(", ", ignored)
+                    + " - they are never restored from a backup. Re-pair devices or change those settings manually if needed."
+            };
+        }
 
         public static BackupDialogDecision ForRestoreSucceeded(BackupContents? restored = null) =>
             RestoreSucceeded(restored);

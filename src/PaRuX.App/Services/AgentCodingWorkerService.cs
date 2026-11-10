@@ -437,7 +437,7 @@ namespace PaRuX.Services
                         },
                         tracked.Cts.Token,
                         sessionId: task.Id,
-                        permissionMode: CodingAgentPermissionMode.Normalize(task.CodingRunPermissionMode)).ConfigureAwait(false);
+                        permissionMode: CodingAgentPermissionMode.NormalizeStored(task.CodingRunPermissionMode)).ConfigureAwait(false);
                 }
                 finally
                 {

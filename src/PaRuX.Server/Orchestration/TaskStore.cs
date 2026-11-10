@@ -99,6 +99,8 @@ CREATE INDEX IF NOT EXISTS ix_agent_task_logs_task ON agent_task_logs(task_id, t
                 "ALTER TABLE agent_tasks ADD COLUMN execution_attempt_id TEXT;",
                 "ALTER TABLE agent_tasks ADD COLUMN execution_owner_pid INTEGER;",
                 "ALTER TABLE agent_tasks ADD COLUMN execution_owner_start_ticks INTEGER;",
+                // Legacy backfill only: rows created before this column existed were created under the bypass contract.
+                // Every INSERT supplies the value explicitly (new tasks default to ask), so this default is never used for new rows.
                 "ALTER TABLE agent_tasks ADD COLUMN coding_run_permission_mode TEXT NOT NULL DEFAULT 'bypass';",
                 "ALTER TABLE agent_tasks ADD COLUMN review_status_json TEXT;",
                 "ALTER TABLE agent_tasks ADD COLUMN declared_files_json TEXT;"
@@ -202,7 +204,7 @@ CREATE INDEX IF NOT EXISTS ix_agent_task_logs_task ON agent_task_logs(task_id, t
             GrantedCapabilities = capabilities,
             FinishCondition = finishCondition,
             DeclaredFiles = declaredFiles,
-            CodingRunPermissionMode = CodingRunPermissionModes.Normalize(request.CodingRunPermissionMode)
+            CodingRunPermissionMode = CodingRunPermissionModes.NormalizeRequested(request.CodingRunPermissionMode)
         };
 
         lock (Gate)
@@ -214,10 +216,10 @@ CREATE INDEX IF NOT EXISTS ix_agent_task_logs_task ON agent_task_logs(task_id, t
                 AgentTaskDto parent = GetInternal(connection, request.ParentId)
                     ?? throw new InvalidDataException("parentId does not reference an existing task.");
                 EnsureCapabilitiesDoNotWiden(DelegationAuthority(parent, parentHasRepositoryAuthority), capabilities);
-                string inheritedPermissionMode = CodingRunPermissionModes.Normalize(parent.CodingRunPermissionMode);
-                if (request.CodingRunPermissionMode != null
+                string inheritedPermissionMode = CodingRunPermissionModes.NormalizeStored(parent.CodingRunPermissionMode);
+                if (!string.IsNullOrWhiteSpace(request.CodingRunPermissionMode)
                     && !string.Equals(
-                        CodingRunPermissionModes.Normalize(request.CodingRunPermissionMode),
+                        CodingRunPermissionModes.NormalizeRequested(request.CodingRunPermissionMode),
                         inheritedPermissionMode,
                         StringComparison.Ordinal))
                     throw new InvalidDataException("A delegated task must inherit its parent's coding permission mode.");
@@ -1043,7 +1045,7 @@ FROM agent_tasks WHERE id = $id;";
             FinishConditionSatisfied = reader.IsDBNull(21) ? null : reader.GetInt32(21) != 0,
             CodingRunPermissionMode = reader.IsDBNull(22)
                 ? CodingRunPermissionModes.Bypass
-                : CodingRunPermissionModes.Normalize(reader.GetString(22)),
+                : CodingRunPermissionModes.NormalizeStored(reader.GetString(22)),
             ReviewStatusJson = reader.IsDBNull(23) ? null : reader.GetString(23),
             DeclaredFiles = DeserializeList(reader, 24)
         };

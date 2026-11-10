@@ -52,6 +52,8 @@ namespace PaRuX.Services
         /// </summary>
         public List<string> ConsumedUserInputIds { get; set; } = new();
         /// <summary>Permission mode frozen when this coding run first persisted its checkpoint.</summary>
+        // Legacy meaning for a stored checkpoint that lacks the field (created under the bypass contract).
+        // New checkpoints always set this explicitly from the run's resolved mode (default Ask).
         public string PermissionMode { get; set; } = CodingAgentPermissionMode.Bypass;
         /// <summary>Durable Ask-mode approval bound to one unanswered Core user question and exact command.</summary>
         public string PendingCommandApprovalQuestionId { get; set; } = string.Empty;

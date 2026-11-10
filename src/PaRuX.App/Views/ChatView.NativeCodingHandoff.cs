@@ -978,13 +978,13 @@ namespace PaRuX.Views
         private async Task<string?> ChooseCodingRunPermissionModeAsync(Conversation conversation)
         {
             var picker = new ComboBox { MinWidth = 260, HorizontalAlignment = HorizontalAlignment.Stretch };
-            picker.Items.Add(new ComboBoxItem { Content = "Bypass — keep current behavior", Tag = CodingAgentPermissionMode.Bypass });
-            picker.Items.Add(new ComboBoxItem { Content = "Ask — approve commands and file changes", Tag = CodingAgentPermissionMode.Ask });
+            picker.Items.Add(new ComboBoxItem { Content = "Ask (default) — approve commands and file changes", Tag = CodingAgentPermissionMode.Ask });
+            picker.Items.Add(new ComboBoxItem { Content = "Bypass — no approval prompts; the agent changes files and runs commands on its own", Tag = CodingAgentPermissionMode.Bypass });
             picker.Items.Add(new ComboBoxItem { Content = "Plan — read-only actions", Tag = CodingAgentPermissionMode.Plan });
-            string current = CodingAgentPermissionMode.Normalize(conversation.CodingRunPermissionMode);
+            string current = CodingAgentPermissionMode.NormalizeStored(conversation.CodingRunPermissionMode);
             picker.SelectedIndex = current switch
             {
-                CodingAgentPermissionMode.Ask => 1,
+                CodingAgentPermissionMode.Bypass => 1,
                 CodingAgentPermissionMode.Plan => 2,
                 _ => 0
             };
@@ -1012,7 +1012,7 @@ namespace PaRuX.Views
                 || item.Tag is not string selected)
                 return null;
 
-            string normalized = CodingAgentPermissionMode.Normalize(selected);
+            string normalized = CodingAgentPermissionMode.NormalizeStored(selected);
             conversation.CodingRunPermissionMode = normalized;
             ChatSession.Current.Persist();
             return normalized;

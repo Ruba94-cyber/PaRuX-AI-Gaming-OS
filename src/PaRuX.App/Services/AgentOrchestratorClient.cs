@@ -48,7 +48,7 @@ namespace PaRuX.Services
             int maxRepairAttempts,
             CancellationToken ct,
             IEnumerable<AddAgentRepositoryAuthorityRequest>? additionalRepositories = null,
-            string codingRunPermissionMode = CodingRunPermissionModes.Bypass) =>
+            string codingRunPermissionMode = CodingRunPermissionModes.Default) =>
             SendAsync<AgentTaskDto>(HttpMethod.Post, "/api/v1/orchestrator/coding-tasks",
                 new CreateDesktopCodingTaskRequest
                 {
@@ -56,7 +56,7 @@ namespace PaRuX.Services
                     WorkspaceRoot = workspaceRoot,
                     AdditionalRepositories = additionalRepositories?.ToList() ?? new List<AddAgentRepositoryAuthorityRequest>(),
                     CodingPermissionProfile = codingPermissionProfile,
-                    CodingRunPermissionMode = CodingRunPermissionModes.Normalize(codingRunPermissionMode),
+                    CodingRunPermissionMode = CodingRunPermissionModes.NormalizeRequested(codingRunPermissionMode),
                     MaxRepairAttempts = maxRepairAttempts
                 }, ct);
 

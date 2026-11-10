@@ -12,15 +12,26 @@ public static class CodingRunPermissionModes
         || string.Equals(value, Ask, StringComparison.OrdinalIgnoreCase)
         || string.Equals(value, Plan, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Mode for a NEW coding run/task that does not state one (fail-closed).</summary>
+    public const string Default = Ask;
+
     /// <summary>
-    /// A missing value keeps the established default (bypass) so omitted fields and stored legacy rows are
-    /// unchanged. A non-empty value that is not a known mode fails closed to <see cref="Ask"/>: a typo or a
-    /// hostile value must never silently remove approvals.
+    /// Normalizes a value that was PERSISTED (SQLite row, conversation, checkpoint). A missing value keeps the
+    /// legacy meaning (bypass) because those records were created under that contract. A non-empty value that
+    /// is not a known mode fails closed to <see cref="Ask"/>.
     /// </summary>
-    public static string Normalize(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? Bypass
-        : IsKnown(value!.Trim()) ? value.Trim().ToLowerInvariant()
-        : Ask;
+    public static string NormalizeStored(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? Bypass : NormalizeKnownOrAsk(value!);
+
+    /// <summary>
+    /// Normalizes a value on a NEW request (desktop, CLI, paired phone). A missing value resolves to
+    /// <see cref="Default"/> (ask); an explicit known mode is honoured; unknown values fail closed to ask.
+    /// </summary>
+    public static string NormalizeRequested(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? Default : NormalizeKnownOrAsk(value!);
+
+    private static string NormalizeKnownOrAsk(string value) =>
+        IsKnown(value.Trim()) ? value.Trim().ToLowerInvariant() : Ask;
 }
 
 /// <summary>
@@ -104,7 +115,7 @@ public sealed class CreateDesktopCodingTaskRequest
     public string WorkspaceRoot { get; set; } = string.Empty;
     public List<AddAgentRepositoryAuthorityRequest> AdditionalRepositories { get; set; } = new();
     public string CodingPermissionProfile { get; set; } = CodingTaskPermissionProfile.Offline;
-    public string CodingRunPermissionMode { get; set; } = CodingRunPermissionModes.Bypass;
+    public string CodingRunPermissionMode { get; set; } = CodingRunPermissionModes.Default;
     public int MaxRepairAttempts { get; set; } = 2;
 }
 

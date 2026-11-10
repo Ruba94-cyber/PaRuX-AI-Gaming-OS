@@ -47,6 +47,62 @@ internal static class DesktopOwnerRouteExtensions
         });
 
     /// <summary>
+    /// SEC-F04: turning the Internet switch ON is the strict-local boundary and is desktop-owner only. A paired
+    /// device keeps the safe direction (turning it OFF).
+    /// </summary>
+    internal static RouteHandlerBuilder RequireDesktopOwnerToEnableInternet(this RouteHandlerBuilder route) =>
+        route.AddEndpointFilter(async (invocation, next) =>
+        {
+            InternetEnabledRequest? request = invocation.Arguments.OfType<InternetEnabledRequest>().FirstOrDefault();
+            if (request is not null && request.Enabled && !IsDesktopOwner(invocation.HttpContext))
+            {
+                return Results.Problem(
+                    detail: "Turning the Internet switch on requires the desktop owner.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Desktop owner required",
+                    type: "about:blank",
+                    extensions: new Dictionary<string, object?> { ["code"] = "desktop_owner_required" });
+            }
+
+            return await next(invocation);
+        });
+
+    /// <summary>Capabilities a paired device may grant to a task it creates. Everything else (mcp.external,
+    /// coding.package-restore*, agent.delegate, unknown names) is desktop-owner only.</summary>
+    internal static readonly IReadOnlySet<string> RemoteGrantableCapabilities =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "context.read", "web.research", "repository.read" };
+
+    /// <summary>
+    /// SEC-F04: a paired device may create agent tasks but cannot choose their authority. Capabilities outside
+    /// <see cref="RemoteGrantableCapabilities"/> are rejected, and a root task's coding permission mode is forced
+    /// to ask (a delegated child always inherits its parent's mode, so any requested value is dropped).
+    /// </summary>
+    internal static RouteHandlerBuilder ConstrainPairedDeviceTaskAuthority(this RouteHandlerBuilder route) =>
+        route.AddEndpointFilter(async (invocation, next) =>
+        {
+            CreateAgentTaskRequest? request = invocation.Arguments.OfType<CreateAgentTaskRequest>().FirstOrDefault();
+            if (request is not null && !IsDesktopOwner(invocation.HttpContext))
+            {
+                if (request.GrantedCapabilities?.Any(c => !RemoteGrantableCapabilities.Contains((c ?? string.Empty).Trim())) == true)
+                {
+                    return Results.Problem(
+                        detail: "A paired device cannot grant this capability to a task. Allowed: "
+                            + string.Join(", ", RemoteGrantableCapabilities.Order(StringComparer.Ordinal)) + ".",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Desktop owner required",
+                        type: "about:blank",
+                        extensions: new Dictionary<string, object?> { ["code"] = "desktop_owner_required" });
+                }
+
+                request.CodingRunPermissionMode = string.IsNullOrWhiteSpace(request.ParentId)
+                    ? CodingRunPermissionModes.Ask
+                    : null;
+            }
+
+            return await next(invocation);
+        });
+
+    /// <summary>
     /// The one predicate for desktop-only authority. Loopback alone is not evidence of the desktop: a browser session
     /// that reaches PaRuX through a same-machine reverse proxy arrives from 127.0.0.1 too, so the owner that the global
     /// gate stamped must also be the desktop itself.
