@@ -663,6 +663,16 @@ namespace PaRuX.Services
                         string? newRefusal = fresh.HasEvidence
                             ? pin.RefusalForUiaObservation(fresh.ProcessId, fresh.WindowHandle)
                             : "No fresh UI Automation observation is available.";
+                        if (newRefusal == null && appLease.IsActive)
+                        {
+                            var freshIdentity = DesktopAutomationService.CaptureWindowFocusIdentity(
+                                new IntPtr(fresh.WindowHandle));
+                            string[] approvedNow = (SettingsStore.Current.Data.ComputerApps
+                                ?? new List<ComputerAppShortcut>()).Select(a => a.ExecutablePath).ToArray();
+                            newRefusal = appLease.RefusalForAction(
+                                new ForegroundWindowSnapshot(fresh.ProcessId, fresh.WindowHandle, string.Empty),
+                                freshIdentity, approvedNow);
+                        }
                         if (newRefusal != null)
                             return new ComputerUseAgentResult
                             {
@@ -981,7 +991,7 @@ namespace PaRuX.Services
                     if (appLease.RefusalForCurrentApproval(approvedPaths) is { } revokedScope)
                         return revokedScope;
                     var candidates = windows.Select(w => new ComputerUseWindowFocusPolicy.Candidate(
-                        w.Title, w.ProcessId, w.Handle.ToInt64(), w.ExecutablePath)).ToArray();
+                        w.Title, w.ProcessId, w.Handle.ToInt64(), w.ExecutablePath, w.ProcessStartTimeUtcTicks)).ToArray();
 
                     // A title alone is not app ownership. Only same-process
                     // windows or explicitly user-approved executables are selectable.

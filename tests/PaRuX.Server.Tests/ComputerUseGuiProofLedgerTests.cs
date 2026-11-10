@@ -145,7 +145,22 @@ public sealed class ComputerUseGuiProofLedgerTests
     private static ComputerUseWindowFocusPolicy.Candidate OsWindow(
         string file, int pid, long hwnd) =>
         new("OS title is not evidence", pid, hwnd,
-            Path.Combine(Path.GetTempPath(), "parux-provenance-fixture", file));
+            Path.Combine(Path.GetTempPath(), "parux-provenance-fixture", file), 1);
+
+    [Fact]
+    public void Recycled_window_identity_is_not_accepted_as_the_same_proof_source()
+    {
+        var ledger = new ComputerUseGuiProofLedger();
+        var original = OsWindow("Editor.exe", 137, 804);
+        var replaced = original with { ProcessStartTimeUtcTicks = 2 };
+        Assert.Equal(ComputerUseGuiProofLedger.AddResult.Recorded,
+            ledger.TryRecordVerifiedWindow(Proof("txt-main", "value", "ready"), original));
+        Assert.Equal(ComputerUseGuiProofLedger.AddResult.DifferentWindow,
+            ledger.TryRecordVerifiedWindow(Proof("txt-main", "value", "ready"), replaced));
+        var missing = new ComputerUseGuiProofLedger();
+        Assert.Equal(ComputerUseGuiProofLedger.AddResult.InvalidProof,
+            missing.TryRecordVerifiedWindow(Proof("txt-main", "value", "ready"), original with { ProcessStartTimeUtcTicks = 0 }));
+    }
 
     [Fact]
     public void Two_approved_processes_are_verified_again_from_separate_fresh_trees()

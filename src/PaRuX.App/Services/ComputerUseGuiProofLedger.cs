@@ -65,6 +65,7 @@ namespace PaRuX.Services
             if (!_strictSingleWindowOnly)
             {
                 if (identity == null
+                    || identity.ProcessStartTimeUtcTicks <= 0
                     || !proof.MatchesWindow(identity.ProcessId, identity.WindowHandle)
                     || !ComputerUseAppLaunchPolicy.IsAllowedConfiguredExecutable(identity.ExecutablePath))
                     return AddResult.InvalidProof;

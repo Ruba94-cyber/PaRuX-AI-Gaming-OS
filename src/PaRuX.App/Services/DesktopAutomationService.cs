@@ -19,6 +19,7 @@ namespace PaRuX.Services
         // Read by Windows, not by the model or the untrusted window title.
         public int ProcessId { get; set; }
         public string ExecutablePath { get; set; } = string.Empty;
+        public long ProcessStartTimeUtcTicks { get; set; }
     }
 
     /// <summary>
@@ -330,6 +331,7 @@ namespace PaRuX.Services
                 string processName = "unknown";
                 string executablePath = string.Empty;
                 int processId = 0;
+                long processStartTimeUtcTicks = 0;
                 try
                 {
                     GetWindowThreadProcessId(hWnd, out uint pid);
@@ -339,6 +341,7 @@ namespace PaRuX.Services
                         using Process process = Process.GetProcessById(processId);
                         processName = process.ProcessName;
                         executablePath = process.MainModule?.FileName ?? string.Empty;
+                        processStartTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
                     }
                 }
                 catch
@@ -351,7 +354,8 @@ namespace PaRuX.Services
                 results.Add(new DesktopWindowInfo
                 {
                     Handle = hWnd, Title = title, ProcessName = processName,
-                    ProcessId = processId, ExecutablePath = executablePath
+                    ProcessId = processId, ExecutablePath = executablePath,
+                    ProcessStartTimeUtcTicks = processStartTimeUtcTicks
                 });
                 return true;
             }, IntPtr.Zero);
@@ -371,10 +375,11 @@ namespace PaRuX.Services
                 if (pid == 0 || pid > int.MaxValue) return null;
                 using Process process = Process.GetProcessById((int)pid);
                 string? executable = process.MainModule?.FileName;
+                long processStartTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
                 if (!ComputerUseAppLaunchPolicy.IsAllowedConfiguredExecutable(executable))
                     return null;
                 return new ComputerUseWindowFocusPolicy.Candidate(
-                    string.Empty, (int)pid, handle.ToInt64(), executable);
+                    string.Empty, (int)pid, handle.ToInt64(), executable, processStartTimeUtcTicks);
             }
             catch (Exception)
             {

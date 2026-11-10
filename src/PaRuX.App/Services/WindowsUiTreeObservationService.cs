@@ -196,7 +196,7 @@ namespace PaRuX.Services
                 if (!ComputerUseAppLaunchPolicy.IsAllowedConfiguredExecutable(exe))
                     return null;
                 return new ComputerUseWindowFocusPolicy.Candidate(
-                    string.Empty, (int)pid, hwnd, exe);
+                    string.Empty, (int)pid, hwnd, exe, process.StartTime.ToUniversalTime().Ticks);
             }
             catch (ArgumentException) { return null; }
             catch (InvalidOperationException) { return null; }
