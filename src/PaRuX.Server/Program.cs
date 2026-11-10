@@ -99,6 +99,7 @@ builder.Services.AddSingleton<MemoryStore>();
 builder.Services.AddSingleton<RagStore>(sp =>
     new RagStore(sp.GetRequiredService<EmbeddingService>(), sp.GetRequiredService<RerankerService>()));
 builder.Services.AddSingleton<IRetrievalEmbeddingProvider>(sp => new LegacyMiniLmEmbeddingProvider(sp.GetRequiredService<EmbeddingService>()));
+builder.Services.AddSingleton<IRetrievalRerankerProvider>(sp => new LegacyMiniLmRerankerProvider(sp.GetRequiredService<RerankerService>()));
 builder.Services.AddSingleton<PaRuX.Server.Knowledge.KnowledgeJobService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<WebSearchService>();

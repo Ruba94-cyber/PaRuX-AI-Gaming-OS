@@ -51,13 +51,14 @@ public sealed class KnowledgeJobService
     public KnowledgeSettingsStore Settings => _settings;
 
     public KnowledgeJobService(RagStore sources, KnowledgeSettingsStore? settings = null, EmbeddingService? embeddings = null,
-        KnowledgeIndex? index = null, IOcrEngine? ocr = null, IRetrievalEmbeddingProvider? embedder = null)
+        KnowledgeIndex? index = null, IOcrEngine? ocr = null, IRetrievalEmbeddingProvider? embedder = null,
+        IRetrievalRerankerProvider? reranker = null)
     {
         _sources = sources;
         _settings = settings ?? KnowledgeSettingsStore.Shared;
         _embeddings = embeddings;
         _ocr = ocr ?? new WindowsOcrEngine();
-        Index = index ?? CreateIndex(PaRuXDataRoot.Combine("knowledge", "knowledge.db"), embedder, BuildOptions());
+        Index = index ?? CreateIndex(PaRuXDataRoot.Combine("knowledge", "knowledge.db"), embedder, BuildOptions(), reranker);
         if (embeddings != null)
             _unloader = new IdleModelUnloader(embeddings, () => CurrentPlan().IdleUnload);
     }
@@ -82,8 +83,9 @@ public sealed class KnowledgeJobService
 
     /// <summary>The default index. The embedder is what makes Semantic/Hybrid search work: without it the index is lexical-only
     /// (found in the Corporate Lite measurement run: 0 semantic hits for 50 queries).</summary>
-    public static KnowledgeIndex CreateIndex(string dbPath, IRetrievalEmbeddingProvider? embedder, KnowledgeIndexOptions? options = null) =>
-        new(dbPath, options ?? new KnowledgeIndexOptions { ThrottleMilliseconds = 5 }, embedder);
+    public static KnowledgeIndex CreateIndex(string dbPath, IRetrievalEmbeddingProvider? embedder, KnowledgeIndexOptions? options = null,
+        IRetrievalRerankerProvider? reranker = null) =>
+        new(dbPath, options ?? new KnowledgeIndexOptions { ThrottleMilliseconds = 5 }, embedder, reranker);
 
     public bool HasData
     {
