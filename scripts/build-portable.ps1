@@ -120,6 +120,19 @@ if (-not $SkipPublish) {
     }
 }
 if (-not (Test-Path -LiteralPath (Join-Path $stageDir "PaRuX.exe"))) { throw "Nothing staged at $stageDir. Run without -SkipPublish first." }
+# A stale -SkipPublish must not stamp an old compiled Desktop/Core with the
+# CURRENT source commit. Stage provenance includes the variant, not just SHA.
+$variant = if ($WithoutVulkan) { "cpu-shell" } elseif ($ShellOnly) { "diagnostic-shell" } else { "standard-offline" }
+$provenancePath = Join-Path $stageDir ".parux-publish-source"
+$expectedProvenance = $sourceCommit + "|" + $variant
+if ($SkipPublish) {
+    if (-not (Test-Path -LiteralPath $provenancePath -PathType Leaf) -or
+        (Get-Content -LiteralPath $provenancePath -Raw).Trim() -cne $expectedProvenance) {
+        throw "-SkipPublish refused: staged source commit/edition differs. Build a fresh publish first."
+    }
+} else {
+    Set-Content -LiteralPath $provenancePath -Value $expectedProvenance -Encoding ASCII
+}
 
 foreach ($notice in @("LICENSE:LICENSE.txt", "NVIDIA_CUDA_NOTICE.txt:NVIDIA_CUDA_NOTICE.txt", "THIRD_PARTY_NOTICES.md:THIRD_PARTY_NOTICES.md", "OPEN_SOURCE_PROVENANCE.md:OPEN_SOURCE_PROVENANCE.md")) {
     $src, $dst = $notice.Split(':')
