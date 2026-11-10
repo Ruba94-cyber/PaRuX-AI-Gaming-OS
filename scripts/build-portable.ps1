@@ -340,6 +340,7 @@ try {
     $bad = @($names | Where-Object {
         ($_ -match $forbiddenPattern -or $_ -match '^PaRuXData/') -and
         $_ -notmatch '(?i)(^|/)(Microsoft\\.|System\\.|onnxruntime|DirectML)' -and
+        -not ((-not $WithoutVulkan) -and $_ -ceq "PaRuXData/.portable-data") -and
         -not ($fullyStandalone -and $_ -match $allowedOfflineData)
     })
     if ($bad.Count -gt 0) { throw "Portable ZIP contains unapproved assets, user data or tokens: $($bad | Select-Object -First 5 | Out-String)" }
