@@ -243,8 +243,23 @@ Write-Host "ZIP: $zipPath ($sizeMb MB)`nSHA-256: $sha"
 # ---- Verify the finished ZIP -------------------------------------------------------------------------------------------
 Write-Host "Verifying the ZIP..."
 $required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.Server/PaRuX.Server.dll",
-    "LICENSE.txt", "README-portable.txt", "PaRuX (portable data).cmd")
+    "LICENSE.txt", "README-portable.txt", "PaRuX (portable data).cmd",
+    "hostfxr.dll", "hostpolicy.dll", "coreclr.dll",
+    "PaRuX.Server/hostfxr.dll", "PaRuX.Server/hostpolicy.dll", "PaRuX.Server/coreclr.dll")
 if ($IncludeCli) { $required += "Cli/parux.exe" }
+if (-not $WithoutVulkan) { $required += "parux.portable" }
+if ($fullyStandalone) {
+    $required += "MANIFEST-portable.json"
+    $required += "PaRuXData/models/Qwen3-4B-Q4_K_M.gguf"
+    $required += "PaRuXData/models/.portable-default-model"
+    foreach ($file in @("model.onnx", "vocab.txt", "config.json", "tokenizer_config.json")) {
+        $required += "PaRuXData/ai-runtimes/embeddings/" + $file
+    }
+    foreach ($file in @("model.onnx", "vocab.txt")) {
+        $required += "PaRuXData/ai-runtimes/reranker/" + $file
+    }
+    $required += "PaRuXData/LocalAI/runtime/llama.cpp-" + $offline.RuntimeTag + "-cpu/llama-server.exe"
+}
 $baselineRelative = "PaRuX.Server/runtime-baseline"
 $vulkanRelative = "$baselineRelative/llama.cpp-b10549-vulkan"
 if (-not $WithoutVulkan) {
@@ -261,7 +276,13 @@ try {
     $prefix = "PaRuX/"
     $backslashed = @($zip.Entries | Where-Object { $_.FullName.Contains('\') })
     if ($backslashed.Count -gt 0) { throw "Portable ZIP has $($backslashed.Count) entries with '\' separators (invalid ZIP): $($backslashed[0].FullName)" }
-    $names = @($zip.Entries | ForEach-Object { if ($_.FullName.StartsWith($prefix)) { $_.FullName.Substring($prefix.Length) } else { $_.FullName } })
+    if (@($zip.Entries | Where-Object {
+        -not $_.FullName.StartsWith($prefix, [StringComparison]::Ordinal) -or
+        $_.FullName.Contains("../") -or $_.FullName.Contains("/./") -or
+        $_.FullName.Contains("..\\") -or $_.FullName.Contains("\\")
+    }).Count -gt 0) { throw "Portable archive contains an unsafe entry path." }
+    $names = @($zip.Entries | ForEach-Object { $_.FullName.Substring($prefix.Length) })
+    if (@($names | Sort-Object -Unique).Count -ne $names.Count) { throw "Portable archive contains duplicated entry names." }
     foreach ($file in $required) { if ($names -notcontains $file) { throw "Portable ZIP is missing required file: $file" } }
     if (-not $IncludeCli -and @($names | Where-Object { $_ -like "Cli/*" }).Count -gt 0) {
         throw "Minimal portable ZIP unexpectedly contains the optional CLI."
@@ -308,9 +329,46 @@ try {
             throw "Minimal portable contains unwanted CUDA or uv runtime files."
         }
     }
-    $bad = @($names | Where-Object { $_ -match $forbiddenPattern -and $_ -notmatch '(?i)(^|/)(Microsoft\.|System\.|onnxruntime|DirectML)' })
-    if ($bad.Count -gt 0) { throw "Portable ZIP contains payload that must not ship (models/indexes/tokens): $($bad | Select-Object -First 5 | Out-String)" }
-    Write-Host "ZIP check OK: $($names.Count) entries, required files present, no models, indexes or tokens."
+    $allowedOfflineData = '(?i)^PaRuXData/(?:models/(?:Qwen3-4B-Q4_K_M\\.gguf|\\.portable-default-model)|ai-runtimes/embeddings/(?:model\\.onnx|vocab\\.txt|config\\.json|tokenizer_config\\.json)|ai-runtimes/reranker/(?:model\\.onnx|vocab\\.txt)|LocalAI/runtime/llama\\.cpp-[^/]+-cpu/[^/]+)$'
+    # Even with the full bundle, bootstrap tokens, settings, history, indexes,
+    # unknown models and user documents are never legitimate build inputs.
+    $bad = @($names | Where-Object {
+        ($_ -match $forbiddenPattern -or $_ -match '^PaRuXData/') -and
+        $_ -notmatch '(?i)(^|/)(Microsoft\\.|System\\.|onnxruntime|DirectML)' -and
+        -not ($fullyStandalone -and $_ -match $allowedOfflineData)
+    })
+    if ($bad.Count -gt 0) { throw "Portable ZIP contains unapproved assets, user data or tokens: $($bad | Select-Object -First 5 | Out-String)" }
+    if ($fullyStandalone) {
+        $manifestEntry = $zip.GetEntry("PaRuX/MANIFEST-portable.json")
+        if ($null -eq $manifestEntry) { throw "Portable file inventory missing." }
+        $reader = [IO.StreamReader]::new($manifestEntry.Open())
+        try { $manifestOnDisk = $reader.ReadToEnd() | ConvertFrom-Json }
+        finally { $reader.Dispose() }
+        if ([string]$manifestOnDisk.sourceCommit -ne $sourceCommit -or
+            [int]$manifestOnDisk.fileCount -ne ($names.Count - 1)) {
+            throw "Standalone portable file inventory does not match archive/source."
+        }
+        $expectedPaths = @($manifestOnDisk.files | ForEach-Object { [string]$_.path })
+        if (@($expectedPaths | Sort-Object -Unique).Count -ne $expectedPaths.Count) {
+            throw "Portable manifest contains duplicate paths."
+        }
+        $hash = [Security.Cryptography.SHA256]::Create()
+        try {
+            foreach ($entry in $manifestOnDisk.files) {
+                $zipEntry = $zip.GetEntry("PaRuX/" + [string]$entry.path)
+                if ($null -eq $zipEntry -or $zipEntry.Length -ne [long]$entry.size) {
+                    throw "Portable archive file is missing or has the wrong length: $($entry.path)"
+                }
+                $stream = $zipEntry.Open()
+                try { $shaActual = [BitConverter]::ToString($hash.ComputeHash($stream)).Replace("-", "").ToLowerInvariant() }
+                finally { $stream.Dispose() }
+                if ($shaActual -ne ([string]$entry.sha256).ToLowerInvariant()) {
+                    throw "Portable archive SHA-256 mismatch: $($entry.path)"
+                }
+            }
+        } finally { $hash.Dispose() }
+    }
+    Write-Host "ZIP check OK: $($names.Count) entries, full file inventory=$(if ($fullyStandalone) { 'verified' } else { 'not applicable to shell' }), no private data."
 }
 finally { $zip.Dispose() }
 
