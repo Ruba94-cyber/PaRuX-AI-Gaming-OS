@@ -118,6 +118,16 @@ public sealed class RuntimeManagerService
         }
         else
         {
+            // Standard Portable ships an independent CPU inference engine. It
+            // must be visible to onboarding and diagnostics even when this
+            // Windows computer has no Vulkan ICD or a working GPU.
+            if (PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null)
+            {
+                string cpuDir = LocalAiPaths.FindBundledCpuRuntime()
+                    ?? Path.Combine(LocalAiPaths.RuntimeRoot, "missing-cpu-runtime");
+                backends.Add(DescribeLlamaBackend(
+                    "text-cpu", cpuDir, textPid, textHealthy, inProcessManaged));
+            }
             backends.Add(DescribeLlamaBackend(
                 "text-cuda", LocalAiPaths.RuntimeCudaPath, textPid, textHealthy, inProcessManaged));
             backends.Add(DescribeLlamaBackend(
