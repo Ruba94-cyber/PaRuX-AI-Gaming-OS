@@ -69,9 +69,67 @@ if (-not $Version) {
 
 # --- 2. Optional fetch of official assets (hashes are recorded in the manifest) -----------------------------------------------
 function Get-File($url, $dest) {
-    if (Test-Path $dest) { return }
-    Write-Host "Downloading $url"
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -Headers @{ "User-Agent" = "PaRuX-build" }
+    if (Test-Path -LiteralPath $dest -PathType Leaf) {
+        if ((Get-Item -LiteralPath $dest).Length -le 0) {
+            throw "Cached download is empty: $dest. Remove it and rebuild."
+        }
+        return
+    }
+    $partial = $dest + "." + [Guid]::NewGuid().ToString("N") + ".partial"
+    try {
+        Write-Host "Downloading $url"
+        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing -Headers @{ "User-Agent" = "PaRuX-build" }
+        if (-not (Test-Path -LiteralPath $partial -PathType Leaf) -or (Get-Item -LiteralPath $partial).Length -eq 0) {
+            throw "Incomplete download: $url"
+        }
+        Move-Item -LiteralPath $partial -Destination $dest -ErrorAction Stop
+    } finally {
+        Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# The Core already pins these ONNX models to immutable revisions and checks their
+# SHA-256 / Git blob digests. Corporate packaging must honor the SAME bytes so a
+# fresh offline user never discovers that the bundled RAG engines are incompatible.
+# For Git-backed small files the digest is SHA1("blob " + length + NUL + bytes).
+function Assert-PinnedAsset {
+    param([string]$File, [long]$Size, [string]$DigestKind, [string]$Digest)
+    if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "Required pinned asset missing: $File" }
+    $item = Get-Item -LiteralPath $File
+    if ($item.Length -ne $Size) {
+        throw "Pinned asset size mismatch: $File (expected $Size, found $($item.Length))"
+    }
+    if ($DigestKind -eq "sha256") {
+        $actual = (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant()
+    } elseif ($DigestKind -eq "git-sha1") {
+        if ($Size -gt 1048576) { throw "Refusing to load a large Git blob into memory: $File" }
+        $raw = [IO.File]::ReadAllBytes($File)
+        $prefix = [Text.Encoding]::ASCII.GetBytes("blob $($raw.Length)" + [char]0)
+        $blob = New-Object byte[] ($prefix.Length + $raw.Length)
+        [Buffer]::BlockCopy($prefix, 0, $blob, 0, $prefix.Length)
+        [Buffer]::BlockCopy($raw, 0, $blob, $prefix.Length, $raw.Length)
+        $sha1 = [Security.Cryptography.SHA1]::Create()
+        try { $actual = [BitConverter]::ToString($sha1.ComputeHash($blob)).Replace('-', '').ToLowerInvariant() }
+        finally { $sha1.Dispose() }
+    } else { throw "Unsupported digest kind: $DigestKind" }
+    if ($actual -ne $Digest) { throw "Pinned asset digest mismatch: $File (expected $Digest, got $actual)" }
+}
+function Get-PinnedAsset {
+    param([string]$Repo, [string]$Revision, [string]$RemotePath,
+          [string]$Dest, [long]$Size, [string]$DigestKind, [string]$Digest)
+    if (Test-Path -LiteralPath $Dest -PathType Leaf) {
+        try { Assert-PinnedAsset $Dest $Size $DigestKind $Digest; return }
+        catch { Write-Warning "Cached managed model asset is invalid; downloading verified replacement: $Dest" }
+    }
+    $url = "https://huggingface.co/$Repo/resolve/$Revision/$RemotePath"
+    $partial = $Dest + "." + [Guid]::NewGuid().ToString("N") + ".partial"
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing -Headers @{ "User-Agent" = "PaRuX-build" }
+        Assert-PinnedAsset $partial $Size $DigestKind $Digest
+        Move-Item -LiteralPath $partial -Destination $Dest -Force -ErrorAction Stop
+    } finally {
+        Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+    }
 }
 if ($Fetch) {
     # llama.cpp (MIT) CPU build from the official releases.
@@ -82,8 +140,9 @@ if ($Fetch) {
     $RuntimeTag = $rel.tag_name
     $zip = Join-Path $assets $asset.name
     Get-File $asset.browser_download_url $zip
-    $RuntimeDir = Join-Path $assets "llama-cpu"
-    if (-not (Test-Path $RuntimeDir)) { Expand-Archive $zip $RuntimeDir }
+    # A cached CPU folder must never be relabelled as a newer release.
+    $RuntimeDir = Join-Path $assets ("llama-cpu-" + $RuntimeTag)
+    if (-not (Test-Path $RuntimeDir)) { Expand-Archive -LiteralPath $zip -DestinationPath $RuntimeDir }
     # Qwen3-4B Q4_K_M, Apache-2.0 (official Qwen repository): clearly better answers than 1.7B for technical questions,
     # still CPU-usable on 16 GB. Q4_K_M is the quality floor PaRuX uses for technical work.
     if (-not $NoModel) {
@@ -93,18 +152,20 @@ if ($Fetch) {
     # all-MiniLM-L6-v2 (Apache-2.0): the files the Core's EmbeddingService expects.
     $EmbeddingDir = Join-Path $assets "embeddings"
     New-Item -ItemType Directory -Force $EmbeddingDir | Out-Null
-    $base = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/"
-    Get-File ($base + "onnx/model.onnx") (Join-Path $EmbeddingDir "model.onnx")
-    foreach ($f in "vocab.txt", "tokenizer_config.json", "config.json") { Get-File ($base + $f) (Join-Path $EmbeddingDir $f) }
-    # Cross-encoder for optional local second-stage RAG relevance. PaRuX's RerankerService
-    # consumes model.onnx + vocab.txt directly, without Python, Docker or an online service.
+    $embRepo = "sentence-transformers/all-MiniLM-L6-v2"
+    $embRev = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    Get-PinnedAsset $embRepo $embRev "onnx/model.onnx" (Join-Path $EmbeddingDir "model.onnx") 90405214 "sha256" "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452"
+    Get-PinnedAsset $embRepo $embRev "vocab.txt" (Join-Path $EmbeddingDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
+    Get-PinnedAsset $embRepo $embRev "tokenizer_config.json" (Join-Path $EmbeddingDir "tokenizer_config.json") 350 "git-sha1" "c79f2b6a0cea6f4b564fed1938984bace9d30ff0"
+    Get-PinnedAsset $embRepo $embRev "config.json" (Join-Path $EmbeddingDir "config.json") 612 "git-sha1" "72b987fd805cfa2b58c4c8c952b274a11bfd5a00"
+    # Cross-encoder for optional local second-stage RAG relevance. The exact
+    # model/vocab pair below matches PinnedModelManifest.RerankerMsMarcoMiniLm.
     $RerankerDir = Join-Path $assets "reranker"
     New-Item -ItemType Directory -Force $RerankerDir | Out-Null
-    $rerankerBase = "https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/"
-    Get-File ($rerankerBase + "onnx/model.onnx") (Join-Path $RerankerDir "model.onnx")
-    foreach ($f in "vocab.txt", "tokenizer_config.json", "config.json") {
-        Get-File ($rerankerBase + $f) (Join-Path $RerankerDir $f)
-    }
+    $rerRepo = "Xenova/ms-marco-MiniLM-L-6-v2"
+    $rerRev = "a09144355adeed5f58c8ed011d209bf8ee5a1fec"
+    Get-PinnedAsset $rerRepo $rerRev "onnx/model.onnx" (Join-Path $RerankerDir "model.onnx") 90992115 "sha256" "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"
+    Get-PinnedAsset $rerRepo $rerRev "vocab.txt" (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
 }
 if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
 $requiredInputs = @(@("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))
