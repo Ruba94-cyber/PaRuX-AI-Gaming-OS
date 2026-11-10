@@ -19,6 +19,12 @@ public static class PaRuXLocalAiStateRoot
             if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
                 return System.IO.Path.GetFullPath(overrideRoot);
 
+            // Double-clicking an extracted Portable/Corporate executable must
+            // not leak process coordination, PID files or Gaming markers into
+            // %LOCALAPPDATA%\LocalAI on the host machine.
+            string? portableData = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory);
+            if (portableData != null) return portableData;
+
             return System.IO.Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalAI");
         }
