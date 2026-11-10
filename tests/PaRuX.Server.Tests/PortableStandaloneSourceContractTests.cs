@@ -94,6 +94,23 @@ public sealed class PortableStandaloneSourceContractTests
     }
 
     [Fact]
+    public void First_run_detects_included_CPU_and_starter_without_suggesting_another_download()
+    {
+        string onboard = Read("src", "PaRuX.App", "Views", "OnboardingView.xaml.cs");
+        string firstModel = Read("src", "PaRuX.App", "Views", "OnboardingView.FirstModel.cs");
+        string runtime = Read("src", "PaRuX.Server", "RuntimeManagerService.cs");
+        string components = Read("src", "PaRuX.Server", "ComponentInventoryService.cs");
+        Assert.Contains("components, corporate, standalonePortable", onboard, StringComparison.Ordinal);
+        Assert.Contains("runtimeStatus.Backends, corporate, standalonePortable", onboard, StringComparison.Ordinal);
+        Assert.Contains("standardPortableMode", Read("src", "PaRuX.App", "Services",
+            "OnboardingTextReadinessPolicy.cs"), StringComparison.Ordinal);
+        Assert.Contains("HasBundledStandardPortableStarter", firstModel, StringComparison.Ordinal);
+        Assert.Contains("No model download is required", firstModel, StringComparison.Ordinal);
+        Assert.Contains("text-cpu", runtime, StringComparison.Ordinal);
+        Assert.Contains("Bundled Portable CPU runtime", components, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_Corporate_packager_still_uses_the_CPU_only_shell_not_the_standard_modelled_zip()
     {
         string corporate = Read("scripts", "build-corporate-lite.ps1");
