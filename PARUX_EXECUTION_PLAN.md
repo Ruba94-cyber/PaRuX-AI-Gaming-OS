@@ -7,7 +7,7 @@ Source of truth for this cycle: evidence in `docs/QA_EVIDENCE.md`, verdict in `d
 | REL-001 | Whole solution | Merged `main` (646 source-only commits) compiles | - | P0 | 0 build errors | Release build | VERIFIED (QA-002) |
 | REL-002 | Server tests | Server xUnit green | REL-001 | P0 | all pass | full xUnit | VERIFIED (QA-014: 13,036 pass / 0 fail / 9 skipped) |
 | REL-003 | Core server | Start when Windows reserves 51123 (Hyper-V/WSL2/Docker) | - | P0 | Core binds a free loopback port and publishes it in bootstrap.json | `CorePortSelectionTests`, FlaUI Smoke 35/35 | VERIFIED (QA-007/008/009) |
-| REL-004 | FlaUI Regression | All non-hardware UI tests pass | REL-003 | P0 | 0 failures | FlaUI Regression | TESTED (307/308, QA-019; 1 intermittent `DocumentSkillsAndRagWipeUiTests` timeout that passes alone - root cause open) |
+| REL-004 | FlaUI Regression | All non-hardware UI tests pass | REL-003 | P0 | 0 failures | FlaUI Regression | TESTED (307/308 QA-019, 306/308 QA-022; each full run has 1-2 different timeouts that pass 13/13 when re-run alone - suite intermittency, root cause open) |
 | UX-002 | Gaming sections | "Return to AI" / "Refresh Gaming status" are only on Devices & session; nothing on Library points to them; add-game is one click deeper | - | P2 | Return to AI reachable from every Gaming section in one action | FlaUI | NOT IMPLEMENTED |
 | REL-005 | Shell | AI/Gaming mode tab compact but >= 44 px touch target | - | P2 | ~half the previous height, test passes | FlaUI tab target test | IMPLEMENTED (visual check pending) |
 | GAM-001 | Gaming library | Per-game completion status + 0-10 score, sort by score | - | P1 | persists across restart, shown in details, sortable | `GameCompletionStatusTests` (unit) | TESTED (unit only; no FlaUI yet) |
