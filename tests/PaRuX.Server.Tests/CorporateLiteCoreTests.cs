@@ -58,15 +58,26 @@ public sealed class CorporateLiteCoreTests : IDisposable
         Directory.CreateDirectory(dir);
         string starter = Path.Combine(dir, "z-starter.gguf");
         string other = Path.Combine(dir, "a-other.gguf");
-        File.WriteAllText(starter, "synthetic-model-bytes");
+        using (var fs = new FileStream(starter, FileMode.CreateNew, FileAccess.Write))
+        {
+            fs.SetLength(70_000);
+            fs.Write(new byte[] { (byte)'G', (byte)'G', (byte)'U', (byte)'F' });
+        }
         File.WriteAllText(other, "synthetic-model-bytes");
         File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "z-starter.gguf");
         Assert.Equal(starter, LocalAiPaths.FindBundledPortableModel(dir));
         Assert.Equal(other, LocalAiPaths.FindBundledCorporateModel(dir));
 
-        // A malformed portable marker cannot resolve outside this package.
+        // A malformed portable marker cannot resolve outside this package and
+        // must not silently pick a different imported GGUF.
         File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "../outside.gguf");
-        Assert.Equal(other, LocalAiPaths.FindBundledPortableModel(dir));
+        Assert.Null(LocalAiPaths.FindBundledPortableModel(dir));
+        File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "missing.gguf");
+        Assert.Null(LocalAiPaths.FindBundledPortableModel(dir));
+        File.WriteAllText(Path.Combine(dir, ".portable-default-model"), "z-starter.gguf");
+        using (var fs = new FileStream(starter, FileMode.Open, FileAccess.Write))
+            fs.Write(new byte[] { (byte)'B', (byte)'A', (byte)'D', (byte)'!' });
+        Assert.Null(LocalAiPaths.FindBundledPortableModel(dir));
     }
 
     [Fact]
