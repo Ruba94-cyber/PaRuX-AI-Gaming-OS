@@ -1,3 +1,32 @@
+## 2026-11-10 — Real-world stability + all-in-one competitor parity (CURRENT PRIORITY)
+
+**Evidence status:** SOURCE-ONLY PARTIAL. The authoritative 4.1.0 beta was built from `348a433c`; the source commits below have **not** been built, tested with Windows/xUnit/FlaUI, signed or released. Do not describe them as working on the user's machine until the native gate passes. Preserve unrelated active work and never create GitHub Actions. The final package must be built on the development Windows PC.
+
+### P0 Corporate Lite standalone (AnythingLLM-style local RAG, not an automotive-only tool)
+
+- [x] **Source:** `scripts/build-corporate-lite.ps1` now validates nonempty ONNX embedding assets, supports bundling the ONNX reranker through `-RerankerDir` or `-Fetch`, permits `-RequireReranker` to reject incomplete RAG inputs, records file digests and verifies every file from the resulting ZIP. `-NoModel` is explicitly identified as chat-incomplete. Commit `3ddfd0a`.
+- [x] **Source:** `tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance` emits FAIL on nonfunctional index, exact/semantic retrieval, real chat with source evidence or observed non-loopback network activity; source contracts updated. Commits `d6c1abc`/`e88b428`. Earlier measurement-only reports cannot satisfy this gate.
+- [ ] **Windows P0:** Parse/execute PowerShell 5.1 scripts; Release-build App + Core; run targeted CorporateLiteSourceContractTests, whole xUnit and exclusive FlaUI. Build full Corporate ZIP **with** starter GGUF, CPU llama.cpp, embedding ONNX and reranker ONNX. Run `scripts/build-corporate-lite.ps1 -Fetch -RequireReranker -Smoke` (if using separately reviewed offline assets, supply explicit local paths instead of `-Fetch`). Inspect hash/manifest and source licences. Never package customer documents/credentials.
+- [ ] **Windows P0:** Run `tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance` on an isolated extracted package (synthetic documents only); test IT-approved and fully offline launch modes, persistent settings and app relocation. Confirm a correct response, its original source, page/sheet evidence where applicable and absence of outbound network connections. The 403 download and 200 search-endpoint smoke **alone** are insufficient.
+- [ ] **Windows P0:** Clean Windows standard-user account / low-end 8–16 GB RAM CPU-only laptop: no .NET SDK, Python, Docker, Ollama, LM Studio, Internet or developer configuration. Verify start, model, ONNX native DLL load, PDF/DOCX/XLSX/PPTX ingestion, index/search/citations, CPU/RAM limits, offline policy, app exit and zero orphan processes. Include missing/corrupt model/DLL, unwritable USB/network share, no free disk, Unicode paths, safe recovery.
+- [ ] **Windows P0:** Build and validate signed MSI, standard Portable, Corporate Full and Android companion separately. Do not reuse Corporate's `-WithoutVulkan` staging as the Standard Portable payload. Verify MSI elevation install/upgrade/uninstall, executable signatures, clean-machine installation, Android pairing, no regression to Gaming or RTX 5080 workflows.
+
+### P0–P2 competitor-feature gates (prioritize functioning end-to-end flows, not code count)
+
+| Priority | Comparator / expected workflow | PaRuX gap and actual acceptance |
+|---|---|---|
+| P0 | Locally Uncensored / AnythingLLM | Single-first-run **Detect → Locate → Install → Skip**; local chat, file import, knowledge collection, source-grounded answers, native model execution, failure recovery, privacy, resource control. No user-side dependency hunt. |
+| P0 | Codex coding agent | Understand repository, scoped tools, diff/approval, execute bounded tests, clean rollback and reliable task status. Consent and audit logging; do not inherit `bypass` permissions by default. |
+| P1 | Unsloth | Quick training/LoRA/QLoRA workflow with real GPU evidence, dataset validation, checkpoints, export GGUF, recovery and comparable quality/speed on the same hardware; absent features remain PARTIAL. |
+| P1 | Playnite | Smooth 2,000-title virtualized universal library, controller-first fullscreen/TV, Steam/Epic/GOG + emulator paths, per-game launch/exit, save backup and user settings preserved; GAM-003..007 outstanding. |
+| P1 | Hydra Launcher | User-provided legal HTTPS/torrent/magnet transfers, persistent progress/resume, SHA-verified archives, explicit installation control and Gaming resource isolation. Never supply unauthorized copyrighted distribution catalogues. |
+| P1 | FitGirl launcher patterns | Optional user-supplied local installer/repack progress and predictable paths, with no automatic execution of untrusted binaries, DRM circumvention or undisclosed downloads. |
+| P2 | Cross-mode polish | Unified Simple/Advanced and Desktop/Console/TV experiences, consistent accessibility and recovery, opt-in connectors, full media workflows, no hidden cloud dependency or training workload during Gaming. |
+
+**Release rule:** The current 4.1.0 beta is NOT certified as fully standalone or competitor-parity. A source change, a green unit suite, an endpoint HTTP 200 or a screenshot is never sufficient to mark a feature VERIFIED. Refer to `docs/RELEASE_READINESS.md`, `docs/CORPORATE_TECHNICAL_RAG_ACCEPTANCE.md` and live hardware evidence. Licensing/provenance must be checked before reusing any third-party code, model or game metadata.
+
+---
+
 ## 2026-11-09 - Release-completion control table (first native verification on the reference PC)
 
 Source of truth for this cycle: evidence in `docs/QA_EVIDENCE.md`, verdict in `docs/RELEASE_READINESS.md` (NOT RELEASE READY). Status vocabulary: NOT IMPLEMENTED / PARTIAL / IMPLEMENTED / TESTED / VERIFIED / BLOCKED. VERIFIED requires evidence in QA_EVIDENCE.md.
