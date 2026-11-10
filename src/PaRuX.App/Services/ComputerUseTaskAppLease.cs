@@ -97,5 +97,20 @@ namespace PaRuX.Services
                 return "The foreground window is not the verified application process for this task. No input or UI assertion was sent.";
             return null;
         }
+
+        /// <summary>Re-attest both sides of a UIA assertion before its evidence is recorded.</summary>
+        internal string? RefusalForProof(
+            ForegroundWindowSnapshot screenshotWindow,
+            ComputerUseWindowFocusPolicy.Candidate? afterRead,
+            ComputerUseWindowFocusPolicy.Candidate? beforeRecord,
+            IReadOnlyCollection<string>? currentlyApprovedExecutablePaths)
+        {
+            string? refusal = RefusalForAction(screenshotWindow, afterRead, currentlyApprovedExecutablePaths)
+                ?? RefusalForAction(screenshotWindow, beforeRecord, currentlyApprovedExecutablePaths);
+            if (refusal != null) return refusal;
+            if (afterRead == null || !ComputerUseWindowFocusPolicy.IsUnchanged(afterRead, beforeRecord))
+                return "The application process changed before the UI assertion was recorded.";
+            return null;
+        }
     }
 }

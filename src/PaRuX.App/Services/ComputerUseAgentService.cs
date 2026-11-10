@@ -663,15 +663,16 @@ namespace PaRuX.Services
                         string? newRefusal = fresh.HasEvidence
                             ? pin.RefusalForUiaObservation(fresh.ProcessId, fresh.WindowHandle)
                             : "No fresh UI Automation observation is available.";
+                        ComputerUseWindowFocusPolicy.Candidate? readbackIdentity = null;
                         if (newRefusal == null && appLease.IsActive)
                         {
-                            var freshIdentity = DesktopAutomationService.CaptureWindowFocusIdentity(
+                            readbackIdentity = DesktopAutomationService.CaptureWindowFocusIdentity(
                                 new IntPtr(fresh.WindowHandle));
                             string[] approvedNow = (SettingsStore.Current.Data.ComputerApps
                                 ?? new List<ComputerAppShortcut>()).Select(a => a.ExecutablePath).ToArray();
                             newRefusal = appLease.RefusalForAction(
                                 new ForegroundWindowSnapshot(fresh.ProcessId, fresh.WindowHandle, string.Empty),
-                                freshIdentity, approvedNow);
+                                readbackIdentity, approvedNow);
                         }
                         if (newRefusal != null)
                             return new ComputerUseAgentResult
@@ -731,6 +732,18 @@ namespace PaRuX.Services
                         string[] assertionAllowlist = (SettingsStore.Current.Data.ComputerApps
                             ?? new List<ComputerAppShortcut>())
                             .Select(a => a.ExecutablePath).ToArray();
+                        if (appLease.IsActive)
+                        {
+                            string? proofRefusal = appLease.RefusalForProof(
+                                new ForegroundWindowSnapshot(fresh.ProcessId, fresh.WindowHandle, string.Empty),
+                                readbackIdentity, assertedIdentity, assertionAllowlist);
+                            if (proofRefusal != null)
+                                return new ComputerUseAgentResult
+                                {
+                                    StepsTaken = step,
+                                    Summary = "UI assertion cannot verify target: " + proofRefusal
+                                };
+                        }
                         bool attestedAllowed = assertedIdentity != null
                             && assertedIdentity.ProcessId == fresh.ProcessId
                             && assertedIdentity.WindowHandle == fresh.WindowHandle

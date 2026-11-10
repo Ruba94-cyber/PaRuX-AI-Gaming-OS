@@ -79,6 +79,19 @@ public sealed class ComputerUseTaskAppLeaseTests
     }
 
     [Fact]
+    public void Proof_recording_refuses_process_replacement_after_readback()
+    {
+        var lease = new ComputerUseTaskAppLease();
+        var readback = Current("Editor.exe", processStartTimeUtcTicks: 100);
+        Assert.True(lease.BindVerifiedFocus(readback, true));
+        Assert.Null(lease.RefusalForProof(Screenshot(), readback, readback, Approved("Editor.exe")));
+        Assert.NotNull(lease.RefusalForProof(Screenshot(), readback,
+            Current("Editor.exe", processStartTimeUtcTicks: 200), Approved("Editor.exe")));
+        Assert.NotNull(lease.RefusalForProof(Screenshot(), readback, null, Approved("Editor.exe")));
+        Assert.NotNull(lease.RefusalForProof(Screenshot(), readback, readback, Approved("Other.exe")));
+    }
+
+    [Fact]
     public async Task Reused_pid_and_hwnd_after_uia_async_boundary_is_refused_before_proof()
     {
         var lease = new ComputerUseTaskAppLease();
