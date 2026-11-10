@@ -178,10 +178,31 @@ public static class LocalAiPaths
     public static string? FindBundledCorporateModel(string? modelsDirectory = null) =>
         FindBundledModel(modelsDirectory, ".corporate-default-model");
 
-    /// <summary>The Standard Portable's optional small starter model. Never used
-    /// by MSI or a machine's ordinary profile unless the ZIP marker is present.</summary>
-    public static string? FindBundledPortableModel(string? modelsDirectory = null) =>
-        FindBundledModel(modelsDirectory, ".portable-default-model");
+    /// <summary>The Standard Portable's explicitly pinned starter model. Never
+    /// switch to an arbitrary imported GGUF when this file is missing/corrupt:
+    /// imported models require an explicit Chat role choice.</summary>
+    public static string? FindBundledPortableModel(string? modelsDirectory = null)
+    {
+        string dir = modelsDirectory ?? ModelDownloadService.ModelsDirectory;
+        try
+        {
+            string marker = Path.Combine(dir, ".portable-default-model");
+            if (!File.Exists(marker) || new FileInfo(marker).Length > 4096) return null;
+            string name = File.ReadAllText(marker).Trim().Trim('\uFEFF');
+            if (!PaRuXPathSafety.IsSimpleFileName(name) ||
+                !name.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("mmproj", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("projector", StringComparison.OrdinalIgnoreCase))
+                return null;
+            string starter = Path.Combine(dir, name);
+            return File.Exists(starter) && CorporateModelImportPolicy.IsAcceptableModel(
+                name, new FileInfo(starter).Length) &&
+                CorporateModelImportPolicy.HasGgufHeader(starter) ? starter : null;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
 
     private static string? FindBundledModel(string? modelsDirectory, string markerName)
     {
