@@ -417,7 +417,19 @@ if ($Smoke) {
         if ([int]$r.StatusCode -ne 403) { throw "Download endpoint was not refused (status $([int]$r.StatusCode))." }
         $s = Invoke-WebRequest -Uri ($b.endpoint.TrimEnd('/') + "/api/v1/knowledge/search?q=test") -Headers $h -UseBasicParsing
         if ($s.StatusCode -ne 200) { throw "Knowledge search not available." }
-        Write-Host "Smoke OK: offline start, downloads refused (403), knowledge endpoint reachable. This does NOT verify indexing, source citations or chat inference; run tests/corporate/measure-corporate-lite.ps1 with a bundled model."
+        # Actual ONNX native session load: a 200 from /knowledge/search alone can
+        # mask an absent or unloadable embedding engine by falling back to keywords.
+        $emb = Invoke-RestMethod -Uri ($b.endpoint.TrimEnd('/') + "/api/v1/embeddings/engine") -Headers $h -TimeoutSec 120
+        if (-not $emb.Installed -or -not $emb.Loaded) {
+            throw "Offline smoke: bundled embedding ONNX engine failed real native load."
+        }
+        if ($RequireReranker) {
+            $rer = Invoke-RestMethod -Uri ($b.endpoint.TrimEnd('/') + "/api/v1/reranker/engine") -Headers $h -TimeoutSec 120
+            if (-not $rer.Installed -or -not $rer.Loaded) {
+                throw "Offline smoke: bundled reranker ONNX engine failed real native load."
+            }
+        }
+        Write-Host "Smoke OK: offline start, downloads refused (403), embedding ONNX loaded$(if ($RequireReranker) { ', reranker ONNX loaded' }). This does NOT verify document indexing, source citations or text chat inference; run tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance with a bundled model."
     } finally {
         Get-Process PaRuX, PaRuX.Server -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($tmp, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
         Remove-Item Env:PARUX_CORPORATE, Env:PARUX_CORPORATE_MODEL_DOWNLOADS, Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
