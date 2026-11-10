@@ -158,13 +158,21 @@ public static class LocalAiPaths
     /// <summary>The Corporate fallback text model, pinned by the package manifest.
     /// Importing another GGUF must never silently change the active fallback just because
     /// its filename sorts earlier. The explicit user-owned Chat role still takes precedence.</summary>
-    public static string? FindBundledCorporateModel(string? modelsDirectory = null)
+    public static string? FindBundledCorporateModel(string? modelsDirectory = null) =>
+        FindBundledModel(modelsDirectory, ".corporate-default-model");
+
+    /// <summary>The Standard Portable's optional small starter model. Never used
+    /// by MSI or a machine's ordinary profile unless the ZIP marker is present.</summary>
+    public static string? FindBundledPortableModel(string? modelsDirectory = null) =>
+        FindBundledModel(modelsDirectory, ".portable-default-model");
+
+    private static string? FindBundledModel(string? modelsDirectory, string markerName)
     {
         string dir = modelsDirectory ?? ModelDownloadService.ModelsDirectory;
         if (!Directory.Exists(dir)) return null;
         try
         {
-            string marker = Path.Combine(dir, ".corporate-default-model");
+            string marker = Path.Combine(dir, markerName);
             if (File.Exists(marker))
             {
                 string name = File.ReadAllText(marker).Trim().Trim('\uFEFF');
@@ -407,7 +415,8 @@ public static class LocalAiPaths
     /// from.</summary>
     public static string StandardModel => CorporateMode.IsActive
         ? CorporateStandardModelPath()
-        : GetRoleOverride("standard") ?? DefaultStandardModel;
+        : GetRoleOverride("standard") ?? (PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null
+            ? FindBundledPortableModel() ?? DefaultStandardModel : DefaultStandardModel);
 
     private static string CorporateStandardModelPath()
     {
@@ -432,7 +441,8 @@ public static class LocalAiPaths
     /// matching vision projector, so StartTextAsync treats null here as "load this profile
     /// text-only" rather than failing startup over a vision file that was never going to exist for
     /// a model PaRuX didn't pick. Only the built-in default pairing is vision-capable for now.</summary>
-    public static string? StandardVision => GetRoleOverride("standard") != null
+    public static string? StandardVision => GetRoleOverride("standard") != null ||
+        (PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null && FindBundledPortableModel() != null)
         ? null : GetBundledVisionProjectorForModel("standard", DefaultStandardModel);
     public static string? UncensoredVision => GetRoleOverride("uncensored") != null
         ? null : GetBundledVisionProjectorForModel("uncensored", DefaultUncensoredModel);
@@ -448,7 +458,12 @@ public static class LocalAiPaths
         string inRoot = Path.Combine(ModelsPath, fileName);
         if (File.Exists(inRoot)) return inRoot;
         string managed = Path.Combine(ModelDownloadService.ModelsDirectory, fileName);
-        return File.Exists(managed) ? managed : inRoot;
+        if (File.Exists(managed)) return managed;
+        // A new Standard Portable can ship a small starter instead of several
+        // heavyweight role-specific weights. Do not inherit host models or guess
+        // a projector for the text-only packaged starter.
+        return PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null
+            ? FindBundledPortableModel() ?? inRoot : inRoot;
     }
 
     /// <summary>The bundled 4B pair exists only for the explicit no-heavy-GPU/media fallback
