@@ -1201,6 +1201,18 @@ public sealed class LocalAiProcessManager
             // offload to skips the Vulkan attempt and launches CPU arguments directly.
             bool cpuOnly = RuntimeLaunchOptimizer.ResolveCpuOnly(hasGpu, () => inventory);
             string choice = GetTextProfile();
+            bool selfContainedPortable = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null;
+            // A fresh CPU-only PC must not need a Vulkan driver. Standard Portable
+            // ships a real CPU llama-server and a small local Chat model; use
+            // these before attempting to launch a Vulkan-linked executable.
+            if (cpuOnly && selfContainedPortable && LocalAiPaths.FindBundledCpuRuntime() != null)
+            {
+                if (intent == TextStartIntent.ForcedRestart && !StopText())
+                    return new RuntimeResult(false, "The previous text runtime did not stop.");
+                string? cpuModel = modelPathOverride ??
+                    (choice == "UNCENSORED" ? LocalAiPaths.UncensoredModel : null);
+                return await StartCorporateCpuTextAsync(ct, cpuModel).ConfigureAwait(false);
+            }
 
             string model, alias = "local-coder", runtime, profile;
             string? vision = null;
@@ -1419,6 +1431,26 @@ public sealed class LocalAiProcessManager
                 if (ct.IsCancellationRequested || GamingActive) break;
             }
 
+            // A Portable machine with an unsupported Vulkan ICD can still chat
+            // offline: the bundled CPU engine is the final real executable fallback
+            // after the normal GPU ladder, never an external installed runtime.
+            if (selfContainedPortable && LocalAiPaths.FindBundledCpuRuntime() != null
+                && !ct.IsCancellationRequested && !GamingActive)
+            {
+                if (!StopText())
+                    return new RuntimeResult(false,
+                        "GPU launch failed and the previous text process could not be stopped for CPU fallback.");
+                RuntimeResult portableCpu = await StartCorporateCpuTextAsync(ct, modelPathOverride ?? model)
+                    .ConfigureAwait(false);
+                trace.Add("portable native CPU" +
+                    (portableCpu.Success ? ": ready" : ": failed (" + FirstLine(portableCpu.Message) + ")"));
+                if (portableCpu.Success)
+                {
+                    _lastTextLaunchTrace = trace.ToArray();
+                    return portableCpu;
+                }
+                lastFailure = portableCpu;
+            }
             _lastTextLaunchTrace = trace.ToArray();
             // A single attempt keeps its own message. Several attempts keep the first failure, which is the more useful diagnostic,
             // and add how the ladder ended so no rung's outcome is lost.
@@ -1469,17 +1501,20 @@ public sealed class LocalAiProcessManager
         // A live explicit request never silently falls back. A previously saved
         // Chat role that was moved/deleted (or points to a projector) may use the
         // package-pinned starter, with a visible warning in the result message.
+        bool corporate = CorporateMode.IsActive;
         CorporateTextModelChoice choice = CorporateTextModelChoicePolicy.Resolve(
             modelPathOverride, LocalAiPaths.GetRoleOverride("standard"),
-            LocalAiPaths.FindBundledCorporateModel(), IsUsableCorporateTextGguf);
+            corporate ? LocalAiPaths.FindBundledCorporateModel() : LocalAiPaths.FindBundledPortableModel(),
+            IsUsableCorporateTextGguf);
         string? model = choice.Path;
         if (model == null || !IsUsableCorporateTextGguf(model))
             return new RuntimeResult(false,
-                "The selected Corporate text GGUF model is missing or incompatible. Import or choose an installed text model in Model Hub.");
+                "The selected offline text GGUF model is missing or incompatible. Import or choose an installed text model in Model Hub.");
         string fallbackNotice = choice.RecoveredFromSavedChoice
             ? " Saved Chat model was unavailable; the bundled starter is in use. Choose a new model in Model Hub."
             : string.Empty;
-        string profile = Path.GetFileNameWithoutExtension(model) + " CPU (Corporate Lite)";
+        string profile = Path.GetFileNameWithoutExtension(model) +
+            (corporate ? " CPU (Corporate Lite)" : " CPU (Standard Portable)");
         if ((ReadTrimmed(LocalAiPaths.ActiveProfileFile) == profile || PathsEqual(GetActiveTextModelPath(), model))
             && await IsTextHealthyAsync(ct).ConfigureAwait(false))
             return new RuntimeResult(true, "Already running: " + profile + fallbackNotice);
