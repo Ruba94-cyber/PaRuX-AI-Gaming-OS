@@ -74,6 +74,20 @@ public sealed class ServerState
     public void Publish()
     {
         Directory.CreateDirectory(StateDirectory);
+        // A Corporate portable folder can be placed on a shared disk. Reject
+        // junctions/symlinks before changing ACLs: otherwise protecting PaRuXData
+        // could unexpectedly mutate permissions on some unrelated directory.
+        if (CorporateMode.IsActive && OperatingSystem.IsWindows())
+        {
+            if ((File.GetAttributes(PaRuXDataRoot.Path) & FileAttributes.ReparsePoint) != 0 ||
+                (File.GetAttributes(StateDirectory) & FileAttributes.ReparsePoint) != 0 ||
+                (File.Exists(BootstrapPath) &&
+                    (File.GetAttributes(BootstrapPath) & FileAttributes.ReparsePoint) != 0))
+            {
+                throw new UnauthorizedAccessException(
+                    "Corporate local data and bootstrap token cannot be stored through a junction or symbolic link.");
+            }
+        }
         // Corporate portable data may be on a shared path rather than the protected
         // per-user profile. Never publish a bearer token into a world-readable folder.
         // On volumes without per-user ACLs (e.g. FAT/exFAT), Corporate refuses
