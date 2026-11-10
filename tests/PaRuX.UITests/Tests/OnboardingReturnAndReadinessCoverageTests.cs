@@ -86,6 +86,8 @@ public sealed class OnboardingReturnAndReadinessCoverageTests
 
             page.TriggerModelHubHandoff();
 
+            UiWait.ById(app.MainWindow, "ModelHub_Search_TextBox", ControlType.Edit);
+
             var returnButton = page.ReturnToSetupButton;
             Assert.NotNull(returnButton);
             Assert.Equal("Return to Setup", returnButton!.Name);
