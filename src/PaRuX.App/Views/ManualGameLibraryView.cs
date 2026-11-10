@@ -513,6 +513,11 @@ public sealed class ManualGameLibraryView : UserControl
             button.MinHeight = enabled ? 56 : 32;
         }
         _status.FontSize = bodySize;
+        _storeDiscoveryOfferText.FontSize = bodySize;
+        _storeDiscoveryOfferScan.FontSize = bodySize;
+        _storeDiscoveryOfferDismiss.FontSize = bodySize;
+        _storeDiscoveryOfferScan.MinHeight = enabled ? 56 : 44;
+        _storeDiscoveryOfferDismiss.MinHeight = enabled ? 56 : 44;
         _universal?.SetConsolePresentation(enabled);
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
@@ -1080,6 +1085,7 @@ public sealed class ManualGameLibraryView : UserControl
             "Trova i giochi Steam, Epic e GOG installati con una scansione locale di sola lettura. Nessuna installazione, avvio o invio di dati. Oppure salta e rileva in seguito.");
         AutomationProperties.SetAutomationId(_storeDiscoveryOffer, "GameLibrary_FirstRunScan_Offer");
         AutomationProperties.SetAutomationId(_storeDiscoveryOfferText, "GameLibrary_FirstRunScan_Description");
+        AutomationProperties.SetLiveSetting(_storeDiscoveryOfferText, AutomationLiveSetting.Polite);
         var content = new StackPanel { Spacing = 12 };
         content.Children.Add(_storeDiscoveryOfferText);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
