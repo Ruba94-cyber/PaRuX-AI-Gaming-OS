@@ -626,6 +626,7 @@ public sealed class ManualGameLibraryView : UserControl
             await _universal.RefreshVisibleTitlesAsync();
         await RefreshAsync();
         await UpdateGamingStatusAsync();
+        UpdateStoreDiscoveryOffer();
         // The initial catalog load briefly disables buttons; restore a useful
         // gamepad focus target once the real server status has been fetched.
         if (_consolePresentation && !_busy)
@@ -1107,6 +1108,7 @@ public sealed class ManualGameLibraryView : UserControl
     {
         _storeDiscoveryOffer.Visibility =
             !SettingsStore.Current.Data.GameStoreDiscoveryPromptDismissed && !CorporateMode.IsActive
+                && !GamingManager.Current.IsActive && !_lastConfirmedGamingActive
                 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -1126,6 +1128,15 @@ public sealed class ManualGameLibraryView : UserControl
     private Task RefreshGogAsync() => RefreshDetectedAsync(
         "GOG", () => GamingOrchestratorClient.Current.DiscoverGogGamesAsync());
 
+    private bool CanDiscoverStores()
+    {
+        if (!GamingManager.Current.IsActive && !_lastConfirmedGamingActive) return true;
+        _discoveryStatus.Text = T(
+            "Store detection is paused during Gaming to protect game performance. Return to AI and try again.",
+            "Rilevamento store sospeso durante il Gaming per proteggere le prestazioni. Torna all'AI e riprova.");
+        return false;
+    }
+
     private static async Task<GamingCallResult<List<DiscoveredGameDto>>> TryDiscoverStoreAsync(
         string provider, Func<Task<GamingCallResult<List<DiscoveredGameDto>>>> discover)
     {
@@ -1140,7 +1151,7 @@ public sealed class ManualGameLibraryView : UserControl
 
     private async Task RefreshAllStoresAsync()
     {
-        if (_busy) return;
+        if (_busy || !CanDiscoverStores()) return;
         SetBusy(true);
         _lastDetectedGames.Clear();
         _detectedPage = 0;
@@ -1195,7 +1206,7 @@ public sealed class ManualGameLibraryView : UserControl
         string provider,
         Func<Task<GamingCallResult<List<DiscoveredGameDto>>>> fetch)
     {
-        if (_busy) return;
+        if (_busy || !CanDiscoverStores()) return;
         SetBusy(true);
         _lastDetectedGames.Clear();
         _discoveredGames.Children.Clear();
