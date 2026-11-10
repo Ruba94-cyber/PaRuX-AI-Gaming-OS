@@ -34,6 +34,11 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("llama-cpu-", script, StringComparison.Ordinal);
         Assert.Contains("Untrusted llama.cpp release tag", script, StringComparison.Ordinal);
         Assert.Contains("Cached managed model asset is invalid", script, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/embeddings/engine", script, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/reranker/engine", script, StringComparison.Ordinal);
+        Assert.Contains("bundled embedding ONNX engine failed real native load", script, StringComparison.Ordinal);
+        Assert.Equal(1, script.Split("# --- 3. Contained, pre-seeded data root", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, script.Split("Write-Host \"Done.\"", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]
@@ -78,6 +83,9 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("chat.answer_mentions_expected_source", benchmark, StringComparison.Ordinal);
         Assert.Contains("nonloopback_outbound_connections", benchmark, StringComparison.Ordinal);
         Assert.Contains("Corporate offline acceptance FAILED", benchmark, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/embeddings/engine", benchmark, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/reranker/engine", benchmark, StringComparison.Ordinal);
+        Assert.Contains("Real ONNX embedding/reranker loader did not succeed", benchmark, StringComparison.Ordinal);
     }
 
     [Fact]
