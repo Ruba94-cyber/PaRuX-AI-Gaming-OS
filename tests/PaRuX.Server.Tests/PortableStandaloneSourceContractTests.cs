@@ -75,6 +75,8 @@ public sealed class PortableStandaloneSourceContractTests
         Assert.Contains("FindBundledPortableModel()", paths, StringComparison.Ordinal);
         Assert.Contains("StandardVision =>", paths, StringComparison.Ordinal);
         Assert.Contains("CPU (Standard Portable)", ai, StringComparison.Ordinal);
+        Assert.Contains("GetPortableOwnedRoleModel(\"standard\")", ai, StringComparison.Ordinal);
+        Assert.Contains("GetPortableOwnedRoleModel", paths, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -105,6 +107,11 @@ public sealed class PortableStandaloneSourceContractTests
         Assert.Contains("CPU-shell-INTERNAL", portable, StringComparison.Ordinal);
         Assert.Contains("diagnostic-shell-INTERNAL", portable, StringComparison.Ordinal);
         Assert.Contains("PaRuX-$Version-portable-win-x64", portable, StringComparison.Ordinal);
+        Assert.Contains(".parux-publish-source", portable, StringComparison.Ordinal);
+        Assert.Contains(".parux-publish-source", corporate, StringComparison.Ordinal);
+        Assert.Contains("compiled from a different commit or edition", corporate, StringComparison.Ordinal);
+        Assert.Contains("staged source commit/edition differs", portable, StringComparison.Ordinal);
+        Assert.Contains("$allowedOfflineData", portable, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] relative)
