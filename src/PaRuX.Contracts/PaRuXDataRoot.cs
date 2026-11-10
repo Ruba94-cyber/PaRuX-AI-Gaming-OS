@@ -55,17 +55,19 @@ public static class PaRuXDataRoot
 
     /// <summary>The location computed without touching the disk, so the naming rule can be
     /// asserted directly.</summary>
-    internal static string DefaultLocation()
+    internal static string DefaultLocation() => ResolveDefaultLocation(
+        AppContext.BaseDirectory, Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"));
+
+    /// <summary>Portable marker wins over inherited/machine-wide environment
+    /// overrides, which must not silently redirect a USB edition into some
+    /// unrelated host user's profile. Pure with respect to process environment.</summary>
+    internal static string ResolveDefaultLocation(string baseDirectory, string? overrideRoot)
     {
-        string? overrideRoot = Environment.GetEnvironmentVariable("PARUX_DATA_ROOT");
+        string? portableRoot = FindPortableDataRoot(baseDirectory);
+        if (portableRoot != null) return portableRoot;
+
         if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
             return System.IO.Path.GetFullPath(overrideRoot);
-
-        // Both ZIP editions must carry all persistent state with their extracted
-        // directory even when PaRuX.exe is double-clicked, rather than requiring
-        // the .cmd launcher to choose the right data location.
-        string? portableRoot = FindPortableDataRoot(AppContext.BaseDirectory);
-        if (portableRoot != null) return portableRoot;
 
         return System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), FolderName);
