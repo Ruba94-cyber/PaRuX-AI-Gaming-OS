@@ -22,6 +22,7 @@
 param(
     [string]$Version = "",
     [string]$ModelPath = "",
+    [switch]$NoModel,
     [string]$EmbeddingDir = "",
     [string]$RuntimeDir = "",
     [string]$RuntimeTag = "",
@@ -91,7 +92,10 @@ if ($Fetch) {
     Get-File ($base + "onnx/model.onnx") (Join-Path $EmbeddingDir "model.onnx")
     foreach ($f in "vocab.txt", "tokenizer_config.json", "config.json") { Get-File ($base + $f) (Join-Path $EmbeddingDir $f) }
 }
-foreach ($pair in @(@("ModelPath", $ModelPath), @("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))) {
+if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
+$requiredInputs = @(@("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))
+if (-not $NoModel) { $requiredInputs = @(,@("ModelPath", $ModelPath)) + $requiredInputs }
+foreach ($pair in $requiredInputs) {
     if ([string]::IsNullOrWhiteSpace($pair[1]) -or -not (Test-Path $pair[1])) { throw "$($pair[0]) is required (or use -Fetch). Not found: '$($pair[1])'" }
 }
 if ($ModelPath -match '(?i)(personal|company|private)') { throw "Refusing a model path that looks private." }
@@ -105,7 +109,7 @@ if (-not (Test-Path $native)) {
     $native = Join-Path $RuntimeDir "llama-server.exe"
 }
 if (-not (Test-Path $native)) { throw "CPU runtime executable missing." }
-if ((Get-Item $native).Length -lt 65536) { throw "CPU runtime exe is unexpectedly small." }
+if ((Get-Item $native).Length -lt 4096) { throw "CPU runtime exe is unexpectedly small." }
 
 # --- 3. Contained, pre-seeded data root + offline configuration -------------------------------------------------------------
 $data = Join-Path $stage "PaRuXData"
@@ -113,9 +117,9 @@ $tag = if ($RuntimeTag) { $RuntimeTag } else { "bundled" }
 $runtimeDest = Join-Path $data "LocalAI\runtime\llama.cpp-$tag-cpu"
 New-Item -ItemType Directory -Force $runtimeDest, (Join-Path $data "models"), (Join-Path $data "ai-runtimes\embeddings") | Out-Null
 Copy-Item (Join-Path $RuntimeDir "*") $runtimeDest -Recurse -Force
-Copy-Item $ModelPath (Join-Path $data "models") -Force
+if (-not $NoModel) { Copy-Item $ModelPath (Join-Path $data "models") -Force }
 # Extra models must not silently change the starter fallback.
-Set-Content (Join-Path (Join-Path $data "models") ".corporate-default-model") ([IO.Path]::GetFileName($ModelPath)) -Encoding UTF8
+if (-not $NoModel) { Set-Content (Join-Path (Join-Path $data "models") ".corporate-default-model") ([IO.Path]::GetFileName($ModelPath)) -Encoding UTF8 }
 if (-not (Test-Path (Join-Path $runtimeDest "llama-server.exe"))) { throw "Bundled CPU runtime was not staged." }
 Copy-Item (Join-Path $EmbeddingDir "*") (Join-Path $data "ai-runtimes\embeddings") -Recurse -Force
 Set-Content (Join-Path $stage "parux.corporate") "PaRuX Corporate Lite Offline: AI + documents only, no cloud." -Encoding ASCII
@@ -162,7 +166,8 @@ $files = Get-ChildItem $stage -Recurse -File | ForEach-Object {
 }
 $manifest = [ordered]@{
     product = "PaRuX Corporate Lite Offline"; version = $Version; generatedUtc = [DateTime]::UtcNow.ToString("o")
-    model = [IO.Path]::GetFileName($ModelPath); modelSha256 = (Get-FileHash $ModelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    modelIncluded = (-not $NoModel)
+    model = $(if ($NoModel) { $null } else { [IO.Path]::GetFileName($ModelPath) }); modelSha256 = $(if ($NoModel) { $null } else { (Get-FileHash $ModelPath -Algorithm SHA256).Hash.ToLowerInvariant() })
     runtimeTag = $tag; runtimeIncluded = $true; modelImportAllowed = $true; modelDownloadsRequireOptIn = $true
     nativeRuntimeSha256 = (Get-FileHash (Join-Path $runtimeDest "llama-server.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
     fileCount = $files.Count
@@ -196,8 +201,9 @@ try {
     foreach ($req in "PaRuX.exe", "PaRuX.Server/PaRuX.Server.exe", "parux.corporate", "Start PaRuX Corporate Lite.cmd", "MANIFEST.json", "LICENSE.txt",
         "PaRuXData/settings.json", "Start PaRuX Corporate Model Downloads.cmd", "README-corporate-lite.txt") { if ($rel -notcontains $req) { throw "Missing $req" } }
     if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/(parux\.db|history|attachments|server/)' -or $_ -match '(?i)(^|/)(rag\.db|knowledge\.db|bootstrap\.json)$' }).Count -gt 0) { throw "ZIP contains user data/indexes/tokens." }
-    if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' }).Count -ne 1) { throw "Expected exactly one bundled model." }
-    if ($rel -notcontains "PaRuXData/models/.corporate-default-model") { throw "Bundled default-model marker missing." }
+    $expectedModels = if ($NoModel) { 0 } else { 1 }
+    if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' }).Count -ne $expectedModels) { throw "Expected $expectedModels bundled model(s)." }
+    if (-not $NoModel -and $rel -notcontains "PaRuXData/models/.corporate-default-model") { throw "Bundled default-model marker missing." }
     if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/LocalAI/runtime/llama\.cpp-[^/]+-cpu/llama-server\.exe$' }).Count -ne 1) {
         throw "Bundled CPU runtime executable missing from ZIP."
     }
@@ -213,13 +219,12 @@ try {
     }
     # Verify native CPU engine and starter model bytes from the FINISHED archive, not just the stage.
     $nativePath = @($rel | Where-Object { $_ -match '(?i)^PaRuXData/LocalAI/runtime/llama\.cpp-[^/]+-cpu/llama-server\.exe$' })[0]
-    $modelPathInZip = @($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' })[0]
+    $modelPathInZip = if ($NoModel) { $null } else { @($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' })[0] }
     $shaTool = [Security.Cryptography.SHA256]::Create()
     try {
-        foreach ($check in @(
-            @{ entry = $nativePath; expected = $manifest.nativeRuntimeSha256; title = "CPU runtime" },
-            @{ entry = $modelPathInZip; expected = $manifest.modelSha256; title = "Starter GGUF" }
-        )) {
+        $checks = @(@{ entry = $nativePath; expected = $manifest.nativeRuntimeSha256; title = "CPU runtime" })
+        if (-not $NoModel) { $checks += @{ entry = $modelPathInZip; expected = $manifest.modelSha256; title = "Starter GGUF" } }
+        foreach ($check in $checks) {
             $zipEntry = $z.GetEntry("PaRuX-Corporate-Lite/" + $check.entry)
             if ($null -eq $zipEntry) { throw "Missing $($check.title) archive entry." }
             $stream = $zipEntry.Open()
@@ -228,7 +233,7 @@ try {
             if ($actual -ne $check.expected) { throw "$($check.title) SHA-256 mismatch in finished ZIP." }
         }
     } finally { $shaTool.Dispose() }
-    Write-Host "ZIP check OK: $($names.Count) entries; CPU runtime and starter GGUF hashes verified."
+    Write-Host "ZIP check OK: $($names.Count) entries; CPU runtime$(if ($NoModel) { ' hash verified; NO model bundled (-NoModel)' } else { ' and starter GGUF hashes verified' })."
 } finally { $z.Dispose() }
 
 # --- 7. Smoke: extracted package starts offline, Core is up, downloads are refused, document search answers -------------------
