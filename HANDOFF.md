@@ -4,7 +4,9 @@ Published on GitHub at the owner's instruction after: Server xUnit 13,068 pass /
 
 Since the previous checkpoint also done: SEC-F03/F04/F06 fixed (`d81cf475`), benchmarks (`docs/PERFORMANCE_BENCHMARKS.md`), UX-002 / PERF-003a / PKG-002 fixed (`5cdf56e3`).
 
-Still open, in priority order: MSI install/upgrade/uninstall test (needs elevation); Corporate with bundled model; REL-006 real-app verification of the 17 SOURCE PARTIAL sections; PERF-002 (one-off idle Core at 8.5 GB) and the rest of PERF-003 (auto-routing to the 30B model, GameStop restore); SEC-F01/F02/F05; .NET 8 end of support (migration to .NET 10 not started); GAM-003..007; UX scaling/4K/TV passes; README/feature matrix refresh; signing of Portable/Corporate executables. Local worktree `.claude/worktrees/rc-4.1.0` holds the build outputs; upload set in `.ai/artifacts/release-4.1.0-upload/`.
+Added later the same day at the owner's confirmation: Corporate Lite Offline WITH bundled Qwen3-4B Q4_K_M (two parts + JOIN-Corporate-Lite.txt, QA-026), built from the same tag; the NoModel zip stays on the release as an alternative. Note: that build re-ran `build-portable.ps1 -WithoutVulkan`, so the Portable zip left in the `rc-4.1.0` worktree is the CPU-only variant, NOT the published one (the published Portable is in `.ai/artifacts/release-4.1.0-upload/`).
+
+Still open, in priority order: MSI install/upgrade/uninstall test (needs elevation); REL-006 real-app verification of the 17 SOURCE PARTIAL sections; PERF-002 (one-off idle Core at 8.5 GB) and the rest of PERF-003 (auto-routing to the 30B model, GameStop restore); SEC-F01/F02/F05; .NET 8 end of support (migration to .NET 10 not started); GAM-003..007; UX scaling/4K/TV passes; README/feature matrix refresh; signing of Portable/Corporate executables. Local worktree `.claude/worktrees/rc-4.1.0` holds the build outputs; upload set in `.ai/artifacts/release-4.1.0-upload/`.
 
 ## 2026-11-10 - Release-completion cycle toward 4.1.0-rc1 (WINDOWS, RTX 5080) - checkpoint at `031baa84`
 

@@ -15,7 +15,7 @@ Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by c
 - **Portable / packaging:** Standard portable stages the SHA-256-locked llama.cpp Vulkan runtime; Corporate Lite is a separate CPU-only shell; portable data-root isolation.
 - **Android:** versionCode 22; model browsing, job polling lifecycle and create-draft retention improvements.
 - **Build / tests / docs:** many new xUnit and FlaUI tests, a build fix for source-only commits, QA evidence and benchmark harness fixes (`docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`).
-- **Known limits (beta):** the MSI is signed with a self-signed certificate (SmartScreen will warn) and its install/upgrade/uninstall was not tested in this cycle; Portable and Corporate zips are unsigned; Corporate ships without a bundled model; no clean-machine, physical Android device, TV/multi-monitor, controller-hardware or in-game FPS testing; security findings SEC-F01/F02/F05 are open (`docs/SECURITY_REVIEW.md`); .NET 8 reaches end of support in November 2026. Not all release gates are met: see `docs/RELEASE_READINESS.md`.
+- **Known limits (beta):** the MSI is signed with a self-signed certificate (SmartScreen will warn) and its install/upgrade/uninstall was not tested in this cycle; Portable and Corporate zips are unsigned; no clean-machine, physical Android device, TV/multi-monitor, controller-hardware or in-game FPS testing; security findings SEC-F01/F02/F05 are open (`docs/SECURITY_REVIEW.md`); .NET 8 reaches end of support in November 2026. Not all release gates are met: see `docs/RELEASE_READINESS.md`.
 
 ### Corporate CPU readiness, profile-aware inner pages and GGUF validation (unreleased; Windows validation required)
 
