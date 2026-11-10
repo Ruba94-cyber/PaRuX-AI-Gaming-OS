@@ -12,23 +12,25 @@
     Corporate Lite uses -WithoutVulkan and supplies its own CPU runtime and one model.
 
     Where data lives (no fixed paths, no duplication of the storage system):
-      * PaRuX.exe                         -> the normal per-user profile, %LOCALAPPDATA%\PaRuX, one profile per PC.
-                                             Nothing is carried between computers automatically.
-      * "PaRuX (portable data).cmd"       -> sets PARUX_DATA_ROOT to a PaRuXData folder next to the program, so settings,
-                                             models, history, RAG folders and indexes stay inside the portable folder.
-    Both start the very same PaRuX.exe; the existing PARUX_DATA_ROOT resolver (PaRuXDataRoot) does the rest.
+      * PaRuX.exe                         -> detects parux.portable and PaRuXData beside the EXE.
+                                             App, Core and AI state stay inside this folder after relocation.
+      * "PaRuX (portable data).cmd"       -> optional shortcut; identical data location.
+    MSI editions have neither the portable marker nor an adjacent PaRuXData directory, so
+    they keep the original per-user %LOCALAPPDATA%\PaRuX behavior.
 
     The ZIP is not signed by this script and does nothing to bypass Windows SmartScreen, Defender or IT policy.
     The MSI-only protected update helper is not part of the portable package: update by downloading the new ZIP.
 
     Verification (always on) re-opens the ZIP, checks the runtime selection and required files, refuses forbidden payload
-    (models, indexes, bootstrap tokens), and prints SHA-256. -Smoke additionally starts an extracted app against a
-    throw-away data root and waits for Core plus the bootstrapped Vulkan runtime, then stops it.
-    This does NOT claim that a particular GPU, ICD/driver, or model has successfully completed inference.
+    (tokens, user files and indexes), verifies the full offline model/ONNX/native file inventory,
+    and prints SHA-256. -Smoke starts a relocated extracted EXE with environment overrides cleared,
+    checks Core, native CPU/Vulkan loader and ONNX load; real CPU/driver inference still needs
+    the separate clean-machine acceptance test.
 
 .EXAMPLE
-    ./scripts/build-portable.ps1
-    ./scripts/build-portable.ps1 -Smoke
+    ./scripts/build-portable.ps1 -FetchAssets -Smoke    # complete Standard Offline ZIP
+    ./scripts/build-portable.ps1 -Smoke                # offline from locally cached reviewed assets
+    ./scripts/build-portable.ps1 -ShellOnly            # incomplete development shell only
     ./scripts/build-portable.ps1 -IncludeCli                 # additionally ship terminal CLI
     ./scripts/build-portable.ps1 -WithoutVulkan              # only for Corporate Lite's separate CPU pack
     ./scripts/build-portable.ps1 -SkipPublish -Smoke         # reuse an already staged matching variant
@@ -120,6 +122,9 @@ foreach ($notice in @("LICENSE:LICENSE.txt", "NVIDIA_CUDA_NOTICE.txt:NVIDIA_CUDA
 # applies to double-clicking PaRuX.exe, not merely a special batch-file launch.
 if (-not $WithoutVulkan) {
     New-Item -ItemType Directory -Force -Path (Join-Path $stageDir "PaRuXData") | Out-Null
+    # ZIP libraries omit empty directories: a small marker makes first launch
+    # portable even when the shell deliberately carries no model yet.
+    Set-Content -LiteralPath (Join-Path $stageDir "PaRuXData\.portable-data") -Value "PaRuX portable storage" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $stageDir "parux.portable") -Value "PaRuX Standard Portable" -Encoding ASCII
 }
 if ($fullyStandalone) {
@@ -151,7 +156,7 @@ if ($fullyStandalone) {
 $cmd = @'
 @echo off
 rem Starts PaRuX with ALL of its data (settings, models, history, RAG folders, indexes) inside the "PaRuXData" folder
-rem next to this file. Use the normal PaRuX.exe instead for a separate personal profile on each PC.
+rem next to this file. PaRuX.exe also uses this folder directly in the Portable edition.
 setlocal
 set "PARUX_DATA_ROOT=%~dp0PaRuXData"
 if not exist "%PARUX_DATA_ROOT%" mkdir "%PARUX_DATA_ROOT%"
@@ -247,7 +252,7 @@ $required = @("PaRuX.exe", "PaRuX.pri", "PaRuX.Server/PaRuX.Server.exe", "PaRuX.
     "hostfxr.dll", "hostpolicy.dll", "coreclr.dll",
     "PaRuX.Server/hostfxr.dll", "PaRuX.Server/hostpolicy.dll", "PaRuX.Server/coreclr.dll")
 if ($IncludeCli) { $required += "Cli/parux.exe" }
-if (-not $WithoutVulkan) { $required += "parux.portable" }
+if (-not $WithoutVulkan) { $required += "parux.portable"; $required += "PaRuXData/.portable-data" }
 if ($fullyStandalone) {
     $required += "MANIFEST-portable.json"
     $required += "PaRuXData/models/Qwen3-4B-Q4_K_M.gguf"
@@ -329,7 +334,7 @@ try {
             throw "Minimal portable contains unwanted CUDA or uv runtime files."
         }
     }
-    $allowedOfflineData = '(?i)^PaRuXData/(?:models/(?:Qwen3-4B-Q4_K_M\\.gguf|\\.portable-default-model)|ai-runtimes/embeddings/(?:model\\.onnx|vocab\\.txt|config\\.json|tokenizer_config\\.json)|ai-runtimes/reranker/(?:model\\.onnx|vocab\\.txt)|LocalAI/runtime/llama\\.cpp-[^/]+-cpu/[^/]+)$'
+    $allowedOfflineData = '(?i)^PaRuXData/(?:\.portable-data|models/(?:Qwen3-4B-Q4_K_M\\.gguf|\\.portable-default-model)|ai-runtimes/embeddings/(?:model\\.onnx|vocab\\.txt|config\\.json|tokenizer_config\\.json)|ai-runtimes/reranker/(?:model\\.onnx|vocab\\.txt)|LocalAI/runtime/llama\\.cpp-[^/]+-cpu/[^/]+)$'
     # Even with the full bundle, bootstrap tokens, settings, history, indexes,
     # unknown models and user documents are never legitimate build inputs.
     $bad = @($names | Where-Object {
