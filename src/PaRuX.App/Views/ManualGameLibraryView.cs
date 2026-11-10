@@ -37,6 +37,10 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _displayRefresh = new();
     private readonly Button _controllerRefresh = new();
     private readonly Button _returnToAi = new();
+    // Compact strip above every section: shown only while Gaming mode is active, so Return to AI is one action away from any section.
+    private readonly Border _gamingStrip = new() { Visibility = Visibility.Collapsed, Padding = new Thickness(12, 4, 12, 4), CornerRadius = new CornerRadius(8) };
+    private readonly TextBlock _gamingStripText = new() { VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+    private readonly Button _gamingStripReturn = new();
     private readonly TextBlock _sessionHeading = new();
     private readonly StackPanel _installerSection = new() { Spacing = 8 };
     private readonly Button _inspectInstaller = new();
@@ -422,10 +426,44 @@ public sealed class ManualGameLibraryView : UserControl
             foreach (var pair in panels) pair.Value.Visibility = pair.Key == tag ? Visibility.Visible : Visibility.Collapsed;
         };
         root.Children.Add(bar);
+        BuildGamingStrip();
+        root.Children.Add(_gamingStrip);
         foreach (var panel in panels.Values) root.Children.Add(panel);
         bar.SelectedItem = bar.Items[0];
 
         Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    }
+
+    private void BuildGamingStrip()
+    {
+        _gamingStripText.Text = T("Gaming mode is active. AI is off.", "Modalità Gaming attiva. L'AI è spenta.");
+        AutomationProperties.SetAutomationId(_gamingStripText, "GameLibrary_Strip_Status_Text");
+        _gamingStripReturn.Content = T("Return to AI", "Torna all'AI");
+        _gamingStripReturn.MinHeight = 44;
+        _gamingStripReturn.MinWidth = 44;
+        _gamingStripReturn.IsEnabled = false;
+        AutomationProperties.SetAutomationId(_gamingStripReturn, "GameLibrary_Strip_ReturnToAi_Button");
+        AutomationProperties.SetName(_gamingStripReturn, T("Return to AI without closing the game", "Torna all'AI senza chiudere il gioco"));
+        // The same handler as the Devices & session button: same confirmation dialog and outcome message.
+        _gamingStripReturn.Click += async (_, _) => await ReturnToAiAsync();
+        var layout = new Grid { ColumnSpacing = 12 };
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_gamingStripReturn, 1);
+        layout.Children.Add(_gamingStripText);
+        layout.Children.Add(_gamingStripReturn);
+        _gamingStrip.Child = layout;
+        if (Application.Current.Resources.TryGetValue("CardBackgroundFillColorSecondaryBrush", out object? brush) && brush is Microsoft.UI.Xaml.Media.Brush fill)
+            _gamingStrip.Background = fill;
+        AutomationProperties.SetAutomationId(_gamingStrip, "GameLibrary_Strip");
+        AutomationProperties.SetName(_gamingStrip, T("Gaming session", "Sessione Gaming"));
+    }
+
+    /// <summary>Shows the strip only while Gaming mode is active (same condition as the Return to AI button on Devices &amp; session).</summary>
+    private void SyncGamingStrip()
+    {
+        _gamingStrip.Visibility = _returnToAiAvailable && !GamingOnlySetup ? Visibility.Visible : Visibility.Collapsed;
+        _gamingStripReturn.IsEnabled = _returnToAiAvailable && !_busy;
     }
 
     /// <summary>
@@ -456,6 +494,9 @@ public sealed class ManualGameLibraryView : UserControl
         double bodySize = enabled ? 20 : 14;
         foreach (TextBox box in new[] { _name, _path, _filter })
             box.FontSize = bodySize;
+        _gamingStripText.FontSize = bodySize;
+        _gamingStripReturn.FontSize = bodySize;
+        _gamingStripReturn.MinHeight = enabled ? 56 : 44;
         foreach (Button button in new[] { _add, _browse, _returnToAi, _gamingStatusRefresh, _allStoresRefresh, _displayRefresh, _controllerRefresh, _steamRefresh, _epicRefresh, _gogRefresh, _previous, _next, _detectedPrevious, _detectedNext })
         {
             button.FontSize = bodySize;
@@ -555,6 +596,7 @@ public sealed class ManualGameLibraryView : UserControl
     {
         bool gamingOnly = GamingOnlySetup;
         _returnToAi.Visibility = gamingOnly ? Visibility.Collapsed : Visibility.Visible;
+        SyncGamingStrip();
         _sessionHeading.Text = gamingOnly
             ? T("Gaming session", "Sessione Gaming")
             : T("AI / Gaming session", "Sessione AI / Gaming");
@@ -625,6 +667,7 @@ public sealed class ManualGameLibraryView : UserControl
             _gamingStatus.Text = T("Gaming status unavailable.", "Stato Gaming non disponibile.");
         }
         _returnToAi.IsEnabled = _returnToAiAvailable && !_busy;
+        SyncGamingStrip();
         _inspectInstaller.IsEnabled = _installerInspectionAllowed && !_busy;
         _refreshStaged.IsEnabled = _installerInspectionAllowed && !_busy;
         UpdatePackageStageAvailability();
@@ -1573,5 +1616,5 @@ public sealed class ManualGameLibraryView : UserControl
         });
     }
 
-    private void SetBusy(bool value) { TrackFocusAcrossBusy(value); _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
+    private void SetBusy(bool value) { TrackFocusAcrossBusy(value); _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; SyncGamingStrip(); _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
 }

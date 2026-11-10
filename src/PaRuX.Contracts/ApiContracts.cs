@@ -83,7 +83,8 @@ public sealed class ChatImageContent
 public sealed class ServerHealth
 {
     public string Status { get; set; } = "ok";
-    public string Version { get; set; } = "1.1.0";
+    /// <summary>Product version of the Server that answered (e.g. 4.1.0). Set by the Server; clients treat it as informational.</summary>
+    public string Version { get; set; } = string.Empty;
     public bool ProviderReady { get; set; }
     public bool GamingMode { get; set; }
 }

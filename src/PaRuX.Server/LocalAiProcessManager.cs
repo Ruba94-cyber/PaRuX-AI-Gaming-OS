@@ -1175,14 +1175,20 @@ public sealed class LocalAiProcessManager
         return text && media;
     }
 
-    public async Task<RuntimeResult> StartTextAsync(CancellationToken ct, string? modelPathOverride = null)
+    public async Task<RuntimeResult> StartTextAsync(CancellationToken ct, string? modelPathOverride = null,
+        TextStartIntent intent = TextStartIntent.Ensure)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
             // Corporate Lite stays CPU-only; a locally imported or explicitly downloaded GGUF can replace the starter.
-            if (PaRuX.Contracts.CorporateMode.IsActive) return await StartCorporateCpuTextAsync(ct, modelPathOverride).ConfigureAwait(false);
+            if (PaRuX.Contracts.CorporateMode.IsActive)
+            {
+                if (intent == TextStartIntent.ForcedRestart && !StopText())
+                    return new RuntimeResult(false, "The text runtime did not stop, so the requested model was not started.");
+                return await StartCorporateCpuTextAsync(ct, modelPathOverride).ConfigureAwait(false);
+            }
             if (!await StopMediaAwaitingVramReleaseAsync(ct).ConfigureAwait(false)) return new RuntimeResult(false, "The media runtime did not stop, so local text was not started.");
             // One inventory decides the tier and the backend: nvidia-smi for an NVIDIA device, DXGI for every other adapter. The launch reads
             // that same decision, so the tier, the build and the status line cannot disagree about the GPU.
@@ -1257,17 +1263,21 @@ public sealed class LocalAiProcessManager
             // restarts correctly.
             string current = ReadTrimmed(LocalAiPaths.ActiveProfileFile);
             bool sameModelAlreadyResident = PathsEqual(GetActiveTextModelPath(), model);
-            if ((current == profile || sameModelAlreadyResident)
+            if (intent == TextStartIntent.Ensure && (current == profile || sameModelAlreadyResident)
                 && await IsTextHealthyAsync(ct).ConfigureAwait(false))
                 return new RuntimeResult(true, "Already running: " + profile);
 
             // Captured before the stop below. When this start is a switch to another model and no rung of it becomes healthy,
             // the runtime that was working is relaunched from this snapshot instead of being lost.
-            TextLaunchSnapshot? previous = _lastTextLaunch is { } lastLaunch && await IsTextHealthyAsync(ct).ConfigureAwait(false)
+            // An explicit profile request has always stopped the resident before starting, so it never restores one.
+            TextLaunchSnapshot? residentLaunch = _lastTextLaunch;
+            TextLaunchSnapshot? previous = intent == TextStartIntent.Ensure && residentLaunch is { } lastLaunch
+                && await IsTextHealthyAsync(ct).ConfigureAwait(false)
                 ? lastLaunch : null;
 
             // A resident runtime that will not stop keeps its VRAM. Launching beside it would orphan it, so the start stops here.
-            if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
+            // An explicit profile request defers this until its launch is built, to compare it with the resident first.
+            if (intent == TextStartIntent.Ensure && ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
                 return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
 
             string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
@@ -1358,6 +1368,24 @@ public sealed class LocalAiProcessManager
                 hasPlannedLaunch: baselineArgs != null,
                 primaryAvailable: !heavyCuda
                     || File.Exists(Path.Combine(LocalAiPaths.RuntimeCudaPath, LocalAiPaths.LlamaServerExecutable)));
+            if (intent != TextStartIntent.Ensure)
+            {
+                // Warm reuse: the resident was launched from exactly what this request would launch, and it is alive and healthy.
+                // Gaming is re-read here, so a game that started meanwhile can never reuse or start.
+                bool healthy = intent == TextStartIntent.ProfileRequest && residentLaunch is not null
+                    && await IsTextHealthyAsync(ct).ConfigureAwait(false);
+                var resident = residentLaunch is null ? null
+                    : new WarmTextReusePolicy.Resident(residentLaunch.ModelPath, residentLaunch.Executable, residentLaunch.Arguments);
+                if (WarmTextReusePolicy.CanReuse(intent, GamingActive, healthy, resident, model,
+                        rungs.Select(planned => new WarmTextReusePolicy.Candidate(
+                            Path.Combine(planned.Engine == TextLaunchLadder.Engine.Cuda ? LocalAiPaths.RuntimeCudaPath : LocalAiPaths.RuntimeVulkanPath,
+                                LocalAiPaths.LlamaServerExecutable),
+                            TextLaunchLadder.ArgumentsFor(planned, args, baselineArgs)))))
+                    return new RuntimeResult(true, "Already running: " + profile);
+                if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
+                if (!StopText())
+                    return new RuntimeResult(false, "The text runtime did not stop, so the requested model was not started.");
+            }
             if (optimization.Plan is { Applied: true } appliedPlan)
                 _lastLaunchPlanExplanation = appliedPlan.Explain();
             else _lastLaunchPlanExplanation = optimization.Plan?.Summary ?? string.Empty;
@@ -2358,9 +2386,11 @@ public sealed class LocalAiProcessManager
         catch { return string.Empty; }
     }
 
+    /// <param name="forceRestart">Standard/Uncensored only: stop and relaunch even when the identical runtime is already healthy.</param>
     public async Task<RuntimeResult> RunActionAsync(
-        string action, CancellationToken ct, string? modelPathOverride = null)
+        string action, CancellationToken ct, string? modelPathOverride = null, bool forceRestart = false)
     {
+        TextStartIntent profileIntent = forceRestart ? TextStartIntent.ForcedRestart : TextStartIntent.ProfileRequest;
         switch (action)
         {
             case "On": SetMode("ON"); return await StartTextAsync(ct).ConfigureAwait(false);
@@ -2381,13 +2411,12 @@ public sealed class LocalAiProcessManager
                 return await StartTextAsync(ct).ConfigureAwait(false);
             case "Standard":
                 SetTextProfile("STANDARD"); if (GetMode() == "OFF") SetMode("AUTO");
-                if (!StopText()) return new RuntimeResult(false, "The text runtime did not stop, so the Standard profile was not started.");
-                return await StartTextAsync(ct, modelPathOverride).ConfigureAwait(false);
+                // No unconditional stop: StartTextAsync keeps an identical healthy runtime warm and otherwise stops it itself.
+                return await StartTextAsync(ct, modelPathOverride, profileIntent).ConfigureAwait(false);
             case "Uncensored":
                 if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
                 SetTextProfile("UNCENSORED"); if (GetMode() == "OFF") SetMode("AUTO");
-                if (!StopText()) return new RuntimeResult(false, "The text runtime did not stop, so the Uncensored profile was not started.");
-                return await StartTextAsync(ct, modelPathOverride).ConfigureAwait(false);
+                return await StartTextAsync(ct, modelPathOverride, profileIntent).ConfigureAwait(false);
             case "MediaStart":
                 if (GetMode() == "OFF") return new RuntimeResult(false, "Local AI is in OFF mode.");
                 return await StartMediaAsync(ct).ConfigureAwait(false);

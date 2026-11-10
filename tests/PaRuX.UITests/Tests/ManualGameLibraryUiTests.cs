@@ -221,6 +221,73 @@ public sealed class ManualGameLibraryUiTests
         }
     }
 
+    /// <summary>UX-002: while Gaming mode is active, "Return to AI" is one action away from every Gaming section.</summary>
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI"), Trait("Category", "Gaming")]
+    public void Return_to_ai_strip_is_on_every_gaming_section_only_while_gaming_is_active()
+    {
+        using var app = new UiTestApplication(nameof(Return_to_ai_strip_is_on_every_gaming_section_only_while_gaming_is_active));
+        try
+        {
+            const string stripButton = "GameLibrary_Strip_ReturnToAi_Button";
+            string[] sections = ["Library", "Downloads", "Add", "Devices"];
+            var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
+            new InstallProgressPage(app).Invoke(navigation);
+            UiWait.ById(app.MainWindow, "GameLibrary_Sections");
+
+            void RefreshStatus()
+            {
+                GamingSectionsPage.SelectSection(app.MainWindow, "Devices");
+                var refresh = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
+                UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault, "Gaming status refresh usable");
+                refresh.Patterns.Invoke.Pattern.Invoke();
+            }
+            RefreshStatus();
+
+            AutomationElement? Strip() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(stripButton));
+
+            // AI ready: no strip on any section.
+            foreach (string section in sections)
+            {
+                GamingSectionsPage.SelectSection(app.MainWindow, section);
+                Thread.Sleep(300);
+                Assert.Null(Strip());
+            }
+
+            string marker = Path.Combine(app.LocalAiStateRoot, "game-active.json");
+            Directory.CreateDirectory(app.LocalAiStateRoot);
+            File.WriteAllText(marker, "{\"started\":\"" + DateTime.UtcNow.ToString("o") + "\"}");
+            RefreshStatus();
+
+            foreach (string section in sections)
+            {
+                GamingSectionsPage.SelectSection(app.MainWindow, section);
+                var button = Find(Strip, "Return to AI strip on section " + section);
+                UiWait.For(() => button.Properties.IsEnabled.ValueOrDefault, "strip Return to AI enabled on " + section);
+                Assert.Equal("Return to AI without closing the game", button.Name);
+                Assert.True(button.Properties.IsKeyboardFocusable.ValueOrDefault, "keyboard reachable");
+                var bounds = button.BoundingRectangle;
+                Assert.True(bounds.Height >= 44, "touch target height " + bounds.Height);
+                Assert.True(bounds.Width >= 44, "touch target width " + bounds.Width);
+                Assert.True(bounds.Bottom <= app.MainWindow.BoundingRectangle.Bottom, "strip stays inside the window on " + section);
+                Assert.True(bounds.Top - app.MainWindow.BoundingRectangle.Top < 400, "strip sits above the section content on " + section);
+            }
+
+            // Gaming ends: the strip goes away on every section.
+            File.Delete(marker);
+            RefreshStatus();
+            foreach (string section in sections)
+            {
+                GamingSectionsPage.SelectSection(app.MainWindow, section);
+                UiWait.For(() => Strip() == null, "strip hidden on " + section + " after Gaming ended");
+            }
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(nameof(Return_to_ai_strip_is_on_every_gaming_section_only_while_gaming_is_active), ex);
+            throw;
+        }
+    }
+
     private static AutomationElement Find(Func<AutomationElement?> find, string description)
     {
         AutomationElement? element = null;

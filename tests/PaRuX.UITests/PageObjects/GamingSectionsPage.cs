@@ -46,7 +46,9 @@ internal static class GamingSectionsPage
             || id.StartsWith("GameLibrary_Displays_", StringComparison.Ordinal)
             || id.StartsWith("GameLibrary_Controllers_", StringComparison.Ordinal)
             || id == "GameLibrary_ReturnToAi_Button") return "Devices";
-        if (id == SectionBar || id.StartsWith("GameLibrary_Section_", StringComparison.Ordinal)) return null;
+        // The Gaming-active strip sits above every section, so it needs no section selected.
+        if (id == SectionBar || id.StartsWith("GameLibrary_Section_", StringComparison.Ordinal)
+            || id.StartsWith("GameLibrary_Strip", StringComparison.Ordinal)) return null;
         if (id.StartsWith("GameLibrary_", StringComparison.Ordinal)) return "Add";
         foreach (string prefix in LibraryPrefixes)
             if (id.StartsWith(prefix, StringComparison.Ordinal)) return "Library";

@@ -32,6 +32,17 @@ public sealed class ApiSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFacto
     }
 
     [Fact]
+    public async Task Health_reports_the_product_version_not_a_stale_api_constant()
+    {
+        using HttpClient client = _factory.CreateClient();
+        ServerHealth? health = await client.GetFromJsonAsync<ServerHealth>("/api/v1/health");
+
+        Assert.Equal(PaRuX.Server.ServerProductVersion.Resolve(typeof(PaRuX.Server.ServerProductVersion).Assembly), health?.Version);
+        Assert.NotEqual("1.1.0", health?.Version);
+        Assert.Matches(@"^\d+\.\d+\.\d+", health?.Version ?? "");
+    }
+
+    [Fact]
     public async Task Protected_endpoint_rejects_missing_token()
     {
         using HttpClient client = _factory.CreateClient();

@@ -644,6 +644,7 @@ app.MapGet("/api/v1/health", async (LocalRuntimeService runtime, CancellationTok
 
     return Results.Ok(new ServerHealth
     {
+        Version = PaRuX.Server.ServerProductVersion.Current,
         ProviderReady = providerReady,
         GamingMode = runtime.GamingMode
     });
@@ -660,6 +661,7 @@ app.MapGet("/api/v1/system/status", async (LocalRuntimeService runtime, Cancella
 
     return Results.Ok(new ServerHealth
     {
+        Version = PaRuX.Server.ServerProductVersion.Current,
         ProviderReady = providerReady,
         GamingMode = runtime.GamingMode
     });
