@@ -618,8 +618,10 @@ namespace PaRuX.Views
                 _stateMachine.SetComponents(componentStates);
 
                 bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+                bool standalonePortable = !corporate &&
+                    PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null;
                 bool runtimeHealthy = OnboardingTextReadinessPolicy.HasInstalledRuntime(
-                    components, corporate);
+                    components, corporate, standalonePortable);
 
                 List<ModelRoleStatus>? roles = null;
                 try
@@ -655,7 +657,7 @@ namespace PaRuX.Views
                     RuntimeManagerStatus runtimeStatus = await ModelRolesClient.Current.GetRuntimeStatusAsync(CancellationToken.None);
                     // A detected binary or selected role does not prove a live, healthy backend.
                     probeSucceeded = OnboardingTextReadinessPolicy.HasHealthyTextBackend(
-                        runtimeStatus.Backends, corporate);
+                        runtimeStatus.Backends, corporate, standalonePortable);
                 }
                 catch (Exception ex)
                 {
@@ -741,7 +743,9 @@ namespace PaRuX.Views
             // start-on-demand path; the post-request check below still requires it.
             if (initial == null || !initial.RuntimeHealthy)
                 return OnboardingTextReadinessPolicy.MissingRuntimeMessage(
-                    PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian);
+                    PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian,
+                    !PaRuX.Contracts.CorporateMode.IsActive &&
+                    PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null);
             if (!initial.ModelAvailable)
                 return OnboardingTextReadinessPolicy.MissingModelMessage(
                     PaRuX.Contracts.CorporateMode.IsActive, SetupProfileItalian);
