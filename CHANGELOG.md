@@ -1,6 +1,9 @@
-## 4.1.0 (release candidate 4.1.0-rc1, local build only, not published)
+## 4.1.0 (beta)
 
-Summary of `git log v4.0.1..HEAD` (665 commits; counts approximate, by commit prefix). The MSI version is 4.1.0 (Windows Installer cannot carry a prerelease suffix); the RC label `4.1.0-rc1` is used only in the local git tag and in release-candidate documentation. Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`.
+Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by commit prefix). Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`, `docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`.
+
+- **Fixes found by real-app testing on the reference PC:** onboarding no longer refuses "Gaming only" while components are being detected; first run keeps Manual setup collapsed; a user-started Model Hub repository check survives navigation; "Return to AI" is reachable from every Gaming section; re-requesting the already loaded text profile no longer restarts the runtime; the health endpoint reports the product version.
+- **Documents:** `#folder-name` mentions in chat scope one message to a document folder; folders and files can be dragged onto Document search (files are copied, originals untouched).
 
 - **Training / datasets (about 95 commits):** SFT/DPO/KTO Data Recipes (CSV/JSONL/Parquet to verified JSONL in PaRuX-owned storage), full-dataset SHA-256 binding for Quick Training approval, explicit final GPU consent, recipe builder in Dataset Hub, blocked in Corporate Lite and Gaming hard-off.
 - **Media / gallery / create (about 60):** on-demand image and video previews, bounded thumbnail and video-frame cache with link/junction rejection, gallery recovery states for missing/empty/in-progress outputs, safer delete/reveal/open checks, off-UI-thread scanning.
@@ -12,7 +15,7 @@ Summary of `git log v4.0.1..HEAD` (665 commits; counts approximate, by commit pr
 - **Portable / packaging:** Standard portable stages the SHA-256-locked llama.cpp Vulkan runtime; Corporate Lite is a separate CPU-only shell; portable data-root isolation.
 - **Android:** versionCode 22; model browsing, job polling lifecycle and create-draft retention improvements.
 - **Build / tests / docs:** many new xUnit and FlaUI tests, a build fix for source-only commits, QA evidence and benchmark harness fixes (`docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`).
-- Known limits: see `docs/RELEASE_READINESS.md` (verdict NOT RELEASE READY at the time of this entry); physical-PC acceptance remains open.
+- **Known limits (beta):** the MSI is signed with a self-signed certificate (SmartScreen will warn) and its install/upgrade/uninstall was not tested in this cycle; Portable and Corporate zips are unsigned; Corporate ships without a bundled model; no clean-machine, physical Android device, TV/multi-monitor, controller-hardware or in-game FPS testing; security findings SEC-F01/F02/F05 are open (`docs/SECURITY_REVIEW.md`); .NET 8 reaches end of support in November 2026. Not all release gates are met: see `docs/RELEASE_READINESS.md`.
 
 ### Corporate CPU readiness, profile-aware inner pages and GGUF validation (unreleased; Windows validation required)
 
