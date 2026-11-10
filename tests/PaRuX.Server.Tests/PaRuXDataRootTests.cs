@@ -41,6 +41,57 @@ public sealed class PaRuXDataRootTests
     }
 
     [Fact]
+    public void Standard_portable_direct_exe_and_nested_Core_resolve_the_same_movable_data_root()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-standard-portable-" + Guid.NewGuid().ToString("N"));
+        string moved = root + "-moved";
+        try
+        {
+            Directory.CreateDirectory(root);
+            string core = Path.Combine(root, "PaRuX.Server");
+            Directory.CreateDirectory(core);
+            Assert.Null(PaRuXDataRoot.FindPortableDataRoot(root));
+
+            // A marker without the actual data folder does not make an ordinary MSI portable.
+            File.WriteAllText(Path.Combine(root, PaRuXDataRoot.PortableMarkerFileName), "Standard ZIP");
+            Assert.Null(PaRuXDataRoot.FindPortableDataRoot(root));
+            string data = Path.Combine(root, "PaRuXData");
+            Directory.CreateDirectory(data);
+            Assert.Equal(data, PaRuXDataRoot.FindPortableDataRoot(root));
+            Assert.Equal(data, PaRuXDataRoot.FindPortableDataRoot(core));
+            Assert.Null(PaRuXDataRoot.FindCorporatePortableDataRoot(root));
+
+            // Relocation across drive letters/USB paths must not retain the old root.
+            Directory.Move(root, moved);
+            string movedData = Path.Combine(moved, "PaRuXData");
+            Assert.Equal(movedData, PaRuXDataRoot.FindPortableDataRoot(moved));
+            Assert.Equal(movedData,
+                PaRuXDataRoot.FindPortableDataRoot(Path.Combine(moved, "PaRuX.Server")));
+            Assert.False(Directory.Exists(root));
+        }
+        finally
+        {
+            try { if (Directory.Exists(moved)) Directory.Delete(moved, true); } catch { }
+            try { if (Directory.Exists(root)) Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Corporate_marker_also_resolves_new_shared_portable_data_root()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "parux-corp-portable-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "PaRuXData"));
+            File.WriteAllText(Path.Combine(root, CorporateMode.MarkerFileName), "Corporate ZIP");
+            Assert.Equal(Path.Combine(root, "PaRuXData"), PaRuXDataRoot.FindPortableDataRoot(root));
+            Assert.Equal(Path.Combine(root, "PaRuXData"),
+                PaRuXDataRoot.FindPortableDataRoot(Path.Combine(root, "PaRuX.Server")));
+        }
+        finally { try { Directory.Delete(root, true); } catch { } }
+    }
+
+    [Fact]
     public void The_test_run_is_isolated_from_the_real_data_root()
     {
         // If this ever fails, the suite is writing into the developer's installation again.
