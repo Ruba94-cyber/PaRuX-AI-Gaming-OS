@@ -40,8 +40,9 @@ public sealed class GameStoreFirstRunSourceContractTests
         Assert.Contains("GamingCallResult<List<DiscoveredGameDto>>.Fail", ui, StringComparison.Ordinal);
         Assert.Contains("await Task.WhenAll(steam, epic, gog);", ui, StringComparison.Ordinal);
         Assert.Contains("results.Any(x => x.Result.Succeeded && x.Result.Value != null)", ui, StringComparison.Ordinal);
-        Assert.Contains("Full provider outage", ui, StringComparison.Ordinal);
-        Assert.Contains("if (_busy) return;", ui, StringComparison.Ordinal);
+        Assert.Contains("A full outage", ui, StringComparison.Ordinal);
+        Assert.Contains("if (_busy || !CanDiscoverStores()) return;", ui, StringComparison.Ordinal);
+        Assert.Contains("GamingManager.Current.IsActive", ui, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
