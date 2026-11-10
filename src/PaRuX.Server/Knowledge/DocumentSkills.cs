@@ -21,8 +21,7 @@ public static class DocumentSkills
         "Document skills (they read only the selected folders):\n"
         + "- /diff <document A> | <document B>  - compare two versions of a document, found by file name or hash. With a single name, the two most recent versions of that name are compared.\n"
         + "- /contradictions [topic]  - look for passages that give different numbers, units or identifier values for the same thing.\n"
-        + "Add --explain to let the local model explain the findings.\n\n"
-        + "Competenze sui documenti: /diff <documento A> | <documento B> (confronta due versioni, per nome o hash), /contradictions [argomento] (cerca valori in contrasto). Aggiungi --explain per una spiegazione del modello locale.";
+        + "Add --explain to let the local model explain the findings.";
 
     private static readonly string[] DiffCommands = { "/diff", "/compare", "/confronta", "/revisione" };
     private static readonly string[] ContradictionCommands = { "/contradictions", "/contradiction", "/contraddizioni", "/conflicts", "/conflitti" };

@@ -22,7 +22,7 @@ public sealed class MediaGalleryOutputRecoveryTests
             Assert.Equal(MediaGalleryPreviewKind.Unavailable, MediaGalleryPreviewPolicy.KindFor(item));
             Assert.False(MediaGalleryBrowser.CanOpen(item));
             Assert.Contains("Create or Chat", MediaGalleryOutputRecovery.Guidance(
-                MediaGalleryOutputRecovery.Inspect(item)));
+                MediaGalleryOutputRecovery.Inspect(item), italian: false));
         });
     }
 
@@ -39,7 +39,7 @@ public sealed class MediaGalleryOutputRecoveryTests
             Assert.Equal(MediaGalleryPreviewKind.Unavailable, MediaGalleryPreviewPolicy.KindFor(item));
             Assert.True(File.Exists(file));
             Assert.Contains("partial file is left untouched",
-                MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.GenerationStopped));
+                MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.GenerationStopped, italian: false));
         });
     }
 
@@ -105,7 +105,7 @@ public sealed class MediaGalleryOutputRecoveryTests
         Assert.Contains("vuoto", MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.Empty, true));
         Assert.Contains("Create o Chat", MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.Generating, true));
         Assert.Contains("codec", MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.Ready, true));
-        Assert.Contains("not been verified", MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.Ready));
+        Assert.Contains("not been verified", MediaGalleryOutputRecovery.Guidance(MediaGalleryOutputState.Ready, italian: false));
     }
 
     private static MediaGalleryItem Make(

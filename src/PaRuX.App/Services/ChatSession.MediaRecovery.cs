@@ -55,9 +55,9 @@ namespace PaRuX.Services
         }
 
         private static string DescribeAsset(MediaAsset a, bool video, bool edited) =>
-            video ? "Generated locally · " + a.Width + "×" + a.Height + " · " + a.DurationSeconds.ToString("0.0") + "s · "
+            video ? T("Generated locally · ", "Generato localmente · ") + a.Width + "×" + a.Height + " · " + a.DurationSeconds.ToString("0.0") + "s · "
                 + a.Fps + " fps · " + a.Steps + " steps · seed " + a.Seed
-            : (edited ? "Edited locally · " : "Generated locally · ") + a.Width + "×" + a.Height + " · seed " + a.Seed;
+            : (edited ? T("Edited locally · ", "Modificato localmente · ") : T("Generated locally · ", "Generato localmente · ")) + a.Width + "×" + a.Height + " · seed " + a.Seed;
 
         private void NotifyMediaChanged(ChatMessage message)
         {

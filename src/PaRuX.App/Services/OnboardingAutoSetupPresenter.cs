@@ -15,7 +15,7 @@ namespace PaRuX.Services
 
     public static class OnboardingAutoSetupPresenter
     {
-        public static AutoSetupViewModel Present(AutoSetupState state, bool italian = false)
+        public static AutoSetupViewModel Present(AutoSetupState state, bool italian)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (italian) return PresentItalian(state);

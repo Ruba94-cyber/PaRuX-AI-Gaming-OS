@@ -24,6 +24,9 @@ namespace PaRuX.Services
 
         public bool IsBusy { get; private set; }
 
+        private static string T(string en, string it) =>
+            System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? it : en;
+
         /// <summary>Transient status such as "Waking up PaRuX…"; null when idle.</summary>
         public string? Status { get; private set; }
 
@@ -904,7 +907,7 @@ namespace PaRuX.Services
                         LocalPath = path,
                         MediaType = image.MediaType,
                         SizeBytes = bytes.LongLength
-                    }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"), "Generated locally · " + image.Width + "×" + image.Height
+                    }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"), T("Generated locally · ", "Generato localmente · ") + image.Width + "×" + image.Height
                         + " · seed " + image.Seed);
                     Persist();
                     // "Generate an image, then animate it": the second step reuses this image.
@@ -957,7 +960,7 @@ namespace PaRuX.Services
                     {
                         FileName = video.FileName, LocalPath = path,
                         MediaType = video.MediaType, SizeBytes = bytes.LongLength
-                    }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"), "Generated locally · " + video.Width + "×" + video.Height
+                    }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"), T("Generated locally · ", "Generato localmente · ") + video.Width + "×" + video.Height
                         + " · " + video.DurationSeconds.ToString("0.0") + "s · " + video.Fps
                         + " fps · " + video.Steps + " steps · seed " + video.Seed);
                 }
@@ -987,7 +990,7 @@ namespace PaRuX.Services
                             FileName = cutout.FileName, LocalPath = cutoutPath,
                             MediaType = cutout.MediaType, SizeBytes = new FileInfo(cutoutPath).Length
                         }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"),
-                        "Background removed locally · BiRefNet-lite · " + cutout.Width + "×" + cutout.Height + " · transparent PNG");
+                        T("Background removed locally · ", "Sfondo rimosso localmente · ") + "BiRefNet-lite · " + cutout.Width + "×" + cutout.Height + " · transparent PNG");
                         Persist();
                     }
                     else
@@ -1030,7 +1033,7 @@ namespace PaRuX.Services
                             FileName = edited.FileName, LocalPath = path,
                             MediaType = edited.MediaType, SizeBytes = bytes.LongLength
                         }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"),
-                        "Edited locally · " + edited.Width + "×" + edited.Height + " · seed " + edited.Seed
+                        T("Edited locally · ", "Modificato localmente · ") + edited.Width + "×" + edited.Height + " · seed " + edited.Seed
                         + (RouterService.RegionEditHint(request.Content) is { } regionHint ? "\n\n" + regionHint : string.Empty));
                     }
                 }

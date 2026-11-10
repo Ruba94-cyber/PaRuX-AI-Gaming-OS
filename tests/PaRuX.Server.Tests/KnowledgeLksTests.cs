@@ -447,7 +447,8 @@ public sealed class KnowledgeLksTests : IDisposable
         var weak = DocumentChatPlanner.Plan("what is the torque of the flux capacitor", new[] { Hit("Torque tables for the gearbox.") });
         Assert.Equal(DocumentChatKind.NotEnoughInformation, weak.Kind);
         Assert.Contains("Not enough information", weak.Text);
-        Assert.Contains("non ci sono informazioni sufficienti", weak.Text);
+        Assert.Contains("No passage supports an answer, so I will not guess.", weak.Text);
+        Assert.DoesNotContain("non ci sono informazioni sufficienti", weak.Text);
         Assert.Empty(weak.Citations);
         Assert.Equal(DocumentChatKind.NotEnoughInformation, DocumentChatPlanner.Plan("anything at all about turbines", Array.Empty<KnowledgeHit>()).Kind);
         // supported by the passage: stays with the documents

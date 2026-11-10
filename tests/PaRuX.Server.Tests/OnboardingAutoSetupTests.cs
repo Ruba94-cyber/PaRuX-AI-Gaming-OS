@@ -235,7 +235,7 @@ namespace PaRuX.Server.Tests
             Assert.Equal(0, host.PlanCalls);
             Assert.Equal(0, host.LicenceCalls);
             Assert.Contains("Model Hub", result.Message);
-            AutoSetupViewModel vm = OnboardingAutoSetupPresenter.Present(result);
+            AutoSetupViewModel vm = OnboardingAutoSetupPresenter.Present(result, italian: false);
             Assert.True(vm.ShowSkip);
             Assert.True(vm.PrimaryEnabled);
         }
@@ -244,7 +244,7 @@ namespace PaRuX.Server.Tests
         public void Ready_state_offers_start_chatting_not_set_up_again()
         {
             AutoSetupViewModel vm = OnboardingAutoSetupPresenter.Present(
-                new AutoSetupState { Phase = AutoSetupPhase.Ready, Message = "ok" });
+                new AutoSetupState { Phase = AutoSetupPhase.Ready, Message = "ok" }, italian: false);
 
             Assert.Equal("Start chatting", vm.PrimaryLabel);
             Assert.True(vm.PrimaryEnabled);
@@ -598,7 +598,7 @@ namespace PaRuX.Server.Tests
             };
             foreach (AutoSetupState state in phases)
             {
-                AutoSetupViewModel en = OnboardingAutoSetupPresenter.Present(state);
+                AutoSetupViewModel en = OnboardingAutoSetupPresenter.Present(state, italian: false);
                 AutoSetupViewModel it = OnboardingAutoSetupPresenter.Present(state, italian: true);
                 Assert.Equal(en.PrimaryEnabled, it.PrimaryEnabled);
                 Assert.Equal(en.ShowRetry, it.ShowRetry);
@@ -634,12 +634,12 @@ namespace PaRuX.Server.Tests
         public void Presenter_ShowsRetryAndSkipOnFailure_AndCancelWhileRunning()
         {
             AutoSetupViewModel failed = OnboardingAutoSetupPresenter.Present(
-                new AutoSetupState { Phase = AutoSetupPhase.Failed, Message = "x" });
+                new AutoSetupState { Phase = AutoSetupPhase.Failed, Message = "x" }, italian: false);
             Assert.True(failed.ShowRetry);
             Assert.True(failed.ShowSkip);
 
             AutoSetupViewModel running = OnboardingAutoSetupPresenter.Present(
-                new AutoSetupState { Phase = AutoSetupPhase.Downloading, ModelTitle = "M" });
+                new AutoSetupState { Phase = AutoSetupPhase.Downloading, ModelTitle = "M" }, italian: false);
             Assert.True(running.ShowCancel);
             Assert.True(running.ShowProgress);
             Assert.False(running.PrimaryEnabled);
