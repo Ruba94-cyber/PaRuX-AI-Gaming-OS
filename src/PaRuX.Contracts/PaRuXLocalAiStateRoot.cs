@@ -11,22 +11,19 @@ public static class PaRuXLocalAiStateRoot
     /// %LOCALAPPDATA%\LocalAI by default. A process-local absolute override is supported for
     /// isolated integration/UI-test child processes; normal launches never set it.
     /// </summary>
-    public static string Path
+    public static string Path => Resolve(AppContext.BaseDirectory,
+        Environment.GetEnvironmentVariable(OverrideEnvironmentVariable));
+
+    /// <summary>Portable marker wins over inherited process overrides; all
+    /// coordination files stay inside the same movable PaRuXData directory.</summary>
+    internal static string Resolve(string baseDirectory, string? overrideRoot)
     {
-        get
-        {
-            string? overrideRoot = Environment.GetEnvironmentVariable(OverrideEnvironmentVariable);
-            if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
-                return System.IO.Path.GetFullPath(overrideRoot);
-
-            // Double-clicking an extracted Portable/Corporate executable must
-            // not leak process coordination, PID files or Gaming markers into
-            // %LOCALAPPDATA%\LocalAI on the host machine.
-            string? portableData = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory);
-            if (portableData != null) return portableData;
-
-            return System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalAI");
-        }
+        string? portableData = PaRuXDataRoot.FindPortableDataRoot(baseDirectory);
+        if (portableData != null) return portableData;
+        if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
+            return System.IO.Path.GetFullPath(overrideRoot);
+        return System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalAI");
     }
+
 }
