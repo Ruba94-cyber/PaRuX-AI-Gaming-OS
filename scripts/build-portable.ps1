@@ -357,7 +357,7 @@ try {
             throw "Minimal portable contains unwanted CUDA or uv runtime files."
         }
     }
-    $allowedOfflineData = '(?i)^PaRuXData/(?:\.portable-data|models/(?:Qwen3-4B-Q4_K_M\\.gguf|\\.portable-default-model)|ai-runtimes/embeddings/(?:model\\.onnx|vocab\\.txt|config\\.json|tokenizer_config\\.json)|ai-runtimes/reranker/(?:model\\.onnx|vocab\\.txt)|LocalAI/runtime/llama\\.cpp-[^/]+-cpu/[^/]+)$'
+    $allowedOfflineData = '(?i)^PaRuXData/(?:\.portable-data|models/(?:Qwen3-4B-Q4_K_M\.gguf|\.portable-default-model)|ai-runtimes/embeddings/(?:model\.onnx|vocab\.txt|config\.json|tokenizer_config\.json)|ai-runtimes/reranker/(?:model\.onnx|vocab\.txt)|LocalAI/runtime/llama\.cpp-[^/]+-cpu/[^/]+)$'
     # Even with the full bundle, bootstrap tokens, settings, history, indexes,
     # unknown models and user documents are never legitimate build inputs.
     $bad = @($names | Where-Object {
