@@ -20,7 +20,8 @@ param(
     [int]$StartTimeoutSeconds = 180,
     [int]$IndexTimeoutSeconds = 900,
     [int]$ChatTimeoutSeconds = 420,
-    [switch]$KeepWorkDir
+    [switch]$KeepWorkDir,
+    [switch]$EnforceAcceptance
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem, System.Net.Http
@@ -300,6 +301,15 @@ try {
     $app = Join-Path $extract "PaRuX-Corporate-Lite"
     $R.zip_mb = [math]::Round((Get-Item $ZipPath).Length / 1MB, 0); $R.extract_s = [math]::Round($sw.Elapsed.TotalSeconds, 1)
     $R.package_extracted_mb = [math]::Round((Get-ChildItem $app -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 0)
+    $bundleManifestPath = Join-Path $app "MANIFEST.json"
+    if (-not (Test-Path -LiteralPath $bundleManifestPath -PathType Leaf)) { throw "Corporate archive has no MANIFEST.json." }
+    $bundleManifest = Get-Content -LiteralPath $bundleManifestPath -Raw | ConvertFrom-Json
+    $R.package_model_included = [bool]$bundleManifest.modelIncluded
+    $R.package_embedding_included = [bool]$bundleManifest.embeddingIncluded
+    $R.package_reranker_included = [bool]$bundleManifest.rerankerIncluded
+    if ($EnforceAcceptance -and (-not $R.package_model_included -or -not $R.package_embedding_included -or -not $R.package_reranker_included)) {
+        throw "Complete Corporate acceptance requires a bundled text GGUF, ONNX embeddings and ONNX reranker. Rebuild with -Fetch or -RequireReranker plus locally provided assets."
+    }
     Say "Extracted $($R.zip_mb) MB ZIP in $($R.extract_s)s -> $($R.package_extracted_mb) MB"
 
     $cmd = Get-Content (Join-Path $app "Start PaRuX Corporate Lite.cmd") -Raw
@@ -377,7 +387,7 @@ try {
     # ------------------------------------------------------------------------------------------------------------------------
     # 3. Search latency
     # ------------------------------------------------------------------------------------------------------------------------
-    $idQ = $manifest | Where-Object { $_.Kind -in "txt", "md", "csv", "docx", "xlsx", "pdf", "json", "code" } | Get-Random -Count 50 -SetSeed 7 | ForEach-Object { [pscustomobject]@{ Q = $_.Id; Id = $_.Id } }
+    $idQ = $manifest | Where-Object { $_.Kind -in "txt", "md", "csv", "docx", "xlsx", "pdf", "json", "code" } | Get-Random -Count ([math]::Min(50, $manifest.Count)) -SetSeed 7 | ForEach-Object { [pscustomobject]@{ Q = $_.Id; Id = $_.Id } }
     $tS0 = Get-Date
     $null = Measure-Search ($idQ | Select-Object -First 3) "Auto"   # warm-up
     $R.search_exact_id_auto = Measure-Search $idQ "Auto" { param($q, $hits) (@($hits | Where-Object { $_.text -like "*$($q.Id)*" -or $_.fileName -like "*" } | Where-Object { $_.text -like "*$($q.Id)*" }).Count -gt 0) }
@@ -521,6 +531,35 @@ finally {
     } catch { $R.conn_error = $_.Exception.Message }
     Remove-Item Env:PARUX_CORPORATE, Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
 
+    # An ordinary measurement writes diagnostic evidence even on failure. The explicit acceptance
+    # mode must reject false-green packages instead of treating HTTP 200 or a generated report as DONE.
+    $acceptanceFailures = New-Object System.Collections.Generic.List[string]
+    if ($EnforceAcceptance) {
+        if ($R.index_final_state -ne "done" -or [int]$R.index_chunks -lt 1) {
+            $acceptanceFailures.Add("Document indexing did not finish with searchable chunks.")
+        }
+        if ($R.search_exact_id_exact_mode.errors -gt 0 -or
+            $R.search_exact_id_exact_mode.hits -lt [math]::Ceiling(0.95 * $R.search_exact_id_exact_mode.n)) {
+            $acceptanceFailures.Add("Exact document lookup recall is below 95% or returned HTTP errors.")
+        }
+        if ($R.search_semantic.errors -gt 0 -or $R.search_semantic.hits -lt 1) {
+            $acceptanceFailures.Add("Local semantic retrieval did not demonstrate a nonempty result.")
+        }
+        if ($R.chat.http_status -ne 200 -or $R.chat.answer_chars -lt 1 -or -not $R.chat.answer_mentions_expected_source) {
+            $acceptanceFailures.Add("Local chat failed to return a source-grounded response.")
+        }
+        if ($R.nonloopback_outbound_connections -gt 0 -or @($R.listeners_on_non_loopback).Count -gt 0) {
+            $acceptanceFailures.Add("Corporate package had observed non-loopback traffic or listeners.")
+        }
+    }
+    $R.acceptance = [ordered]@{
+        enforced = [bool]$EnforceAcceptance
+        passed = ([bool]$EnforceAcceptance -and $acceptanceFailures.Count -eq 0)
+        failures = @($acceptanceFailures.ToArray())
+        note = $(if ($EnforceAcceptance) { "Strict offline smoke acceptance; not 30,000-page or clean-machine certification." }
+                 else { "Measurements only; not an acceptance pass." })
+    }
+
     # ---- write the results file ----
     $stamp = Get-Date -Format "yyyyMMdd-HHmm"
     $resFile = Join-Path $ResultsDir "corporate-lite-measurements-$stamp.md"
@@ -542,7 +581,11 @@ finally {
     Set-Content $resFile $sb.ToString() -Encoding UTF8
     Copy-Item $script:sampOut (Join-Path $ResultsDir "corporate-lite-samples-$stamp.csv") -ErrorAction SilentlyContinue
     Say "Results: $resFile"
+    if ($EnforceAcceptance -and $acceptanceFailures.Count -eq 0) { Say "Corporate offline synthetic-corpus acceptance PASS." }
     if (-not $KeepWorkDir) {
         Start-Sleep 2; Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if ($EnforceAcceptance -and $acceptanceFailures.Count -gt 0) {
+        throw ("Corporate offline acceptance FAILED; evidence: $resFile; " + ($acceptanceFailures -join " | "))
     }
 }
