@@ -29,10 +29,10 @@ public sealed class GamingHomeCompetitiveUiTests
     }
 
     private static AutomationElement ById(UiTestApplication app, string id) =>
-        Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id)), id);
+        UiWait.ById(app.MainWindow, id);
 
     private static AutomationElement? TryById(UiTestApplication app, string id) =>
-        app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+        GamingSectionsPage.TryFind(app.MainWindow, id);
 
     /// <summary>Collapsed WinUI elements are absent from the UIA tree; scrolled-off ones are present but offscreen, which still counts as shown.</summary>
     private static bool Shown(UiTestApplication app, string id) => TryById(app, id) != null;
@@ -98,11 +98,15 @@ public sealed class GamingHomeCompetitiveUiTests
 
     private static void RefreshLibrary(UiTestApplication app) => Press(app, ById(app, "GameTitles_Refresh_Button"));
 
-    private static void CancelDialog(UiTestApplication app) =>
-        Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")), "dialog cancel").Patterns.Invoke.Pattern.Invoke();
+    private static void CancelDialog(UiTestApplication app)
+    {
+        // The covers opt-in InfoBar also has a "CloseButton"; only the button inside the dialog popup may be pressed.
+        Find(() => UiWait.DialogButton(app.MainWindow, "CloseButton"), "dialog cancel").Patterns.Invoke.Pattern.Invoke();
+        UiWait.For(() => UiWait.DialogButton(app.MainWindow, "CloseButton") == null, "dialog closed after Cancel");
+    }
 
     private static void ConfirmDialog(UiTestApplication app) =>
-        Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("PrimaryButton")), "dialog confirm").Patterns.Invoke.Pattern.Invoke();
+        Find(() => UiWait.DialogButton(app.MainWindow, "PrimaryButton"), "dialog confirm").Patterns.Invoke.Pattern.Invoke();
 
     private static string DialogText(UiTestApplication app) =>
         string.Join("\n", app.MainWindow.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.Name ?? string.Empty));

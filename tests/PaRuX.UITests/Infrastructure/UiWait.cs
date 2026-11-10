@@ -77,6 +77,15 @@ internal static class UiWait
         return result!;
     }
 
+    /// <summary>A ContentDialog button (PrimaryButton / SecondaryButton / CloseButton). Those ids are not unique: an InfoBar close button
+    /// is also "CloseButton". Only a button whose parent is the dialog's Popup window counts; null while no dialog is open.</summary>
+    internal static AutomationElement? DialogButton(AutomationElement root, string id)
+    {
+        foreach (AutomationElement candidate in root.FindAllDescendants(cf => cf.ByAutomationId(id)))
+            if (candidate.Parent?.Properties.ClassName.ValueOrDefault == "Popup") return candidate;
+        return null;
+    }
+
     internal static AutomationElement ById(AutomationElement root, string id)
     {
         AutomationElement? element = null;
@@ -84,6 +93,7 @@ internal static class UiWait
         {
             EnsureModeTabFor(root, id);
             element = root.FindFirstDescendant(cf => cf.ByAutomationId(id));
+            if (element == null) { PageObjects.GamingSectionsPage.Reveal(root, id); PageObjects.OnboardingDisclosurePage.Reveal(root, id); }
             return element != null;
         }, "UI element " + id);
         return element ?? throw new InvalidOperationException("Missing UI element: " + id + ".");
@@ -96,6 +106,7 @@ internal static class UiWait
         {
             EnsureModeTabFor(root, id);
             element = root.FindFirstDescendant(cf => cf.ByAutomationId(id).And(cf.ByControlType(type)));
+            if (element == null) { PageObjects.GamingSectionsPage.Reveal(root, id); PageObjects.OnboardingDisclosurePage.Reveal(root, id); }
             return element != null;
         }, "UI element " + id + " (" + type + ")");
         return element ?? throw new InvalidOperationException("Missing UI element: " + id + " (" + type + ").");

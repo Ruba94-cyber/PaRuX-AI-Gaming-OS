@@ -105,6 +105,9 @@ public sealed class ManualGameLibraryUiTests
             var epic = UiWait.ById(app.MainWindow, "GameLibrary_Epic_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(steam.Name));
             Assert.False(string.IsNullOrWhiteSpace(epic.Name));
+            // Store buttons are disabled while the library's initial load is busy; they must become usable once it settles.
+            UiWait.For(() => steam.Properties.IsEnabled.ValueOrDefault && epic.Properties.IsEnabled.ValueOrDefault,
+                "store refresh buttons enabled after the initial library load");
             Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
             Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
             var inspector = UiWait.ById(app.MainWindow, "GameLibrary_Installer_Inspect_Button", ControlType.Button);

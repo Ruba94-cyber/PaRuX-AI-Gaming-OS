@@ -206,15 +206,19 @@ namespace PaRuX.Views
                 }
             };
 #endif
-            Unloaded += (_, _) => OnHidden();
+            // A real unload ends everything, including a user-started repository check.
+            Unloaded += (_, _) => OnHidden(keepExplicitDiscovery: false);
         }
 
         /// <summary>Visibility.Collapsed does not reliably raise Unloaded in every
         /// WinUI tree. Explicitly stop background polling as soon as the user leaves
         /// the Model Hub, especially on a battery-powered Corporate laptop.</summary>
-        public void OnHidden()
+        /// <param name="keepExplicitDiscovery">Navigating away only stops background refreshes and polls. A repository check the
+        /// user explicitly started is one bounded request: it keeps running and reports its outcome when the user comes back,
+        /// exactly as it did before navigation began to stop background work.</param>
+        public void OnHidden(bool keepExplicitDiscovery = true)
         {
-            InvalidatePendingRefresh();
+            InvalidatePendingRefresh(keepExplicitDiscovery);
             _downloadPoll?.Stop();
             _candidateEvaluationPoll?.Stop();
             _startPoll?.Stop();
@@ -1022,10 +1026,10 @@ namespace PaRuX.Views
             }
         }
 
-        private void InvalidatePendingRefresh()
+        private void InvalidatePendingRefresh(bool keepExplicitDiscovery = false)
         {
             ++_refreshGeneration;
-            InvalidateExplicitDiscovery();
+            if (!keepExplicitDiscovery) InvalidateExplicitDiscovery();
             _refreshCts?.Cancel();
             InvalidatePendingSearch();
             _refreshBusy = false;

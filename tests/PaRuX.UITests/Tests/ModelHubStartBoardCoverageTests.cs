@@ -35,6 +35,9 @@ public sealed class ModelHubStartBoardCoverageTests
             {
                 string id = "ModelHub_Start_" + capability;
                 UiWait.For(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id)) != null, "tile " + id);
+                // The tile exists before the board's async status load has filled in its accessible name (it is empty for a moment).
+                UiWait.For(() => (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))?.Properties.Name.ValueOrDefault ?? string.Empty).Contains(':'),
+                    "tile " + id + " to carry its status");
                 AutomationElement tile = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))!;
                 Assert.Contains(":", tile.Properties.Name.ValueOrDefault ?? string.Empty);   // "<title>: <status>" - the state is part of the accessible name
             }

@@ -37,10 +37,10 @@ public sealed class QuickResumeAndMetadataUiTests
     }
 
     private static AutomationElement ById(UiTestApplication app, string id) =>
-        Find(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id)), id);
+        UiWait.ById(app.MainWindow, id);
 
     private static AutomationElement? TryById(UiTestApplication app, string id) =>
-        app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+        GamingSectionsPage.TryFind(app.MainWindow, id);
 
     private static void WaitForCoreIdle()
     {

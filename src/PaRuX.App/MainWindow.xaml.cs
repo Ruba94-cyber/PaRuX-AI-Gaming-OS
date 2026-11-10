@@ -168,7 +168,7 @@ namespace PaRuX
                 if (string.Equals(Environment.GetEnvironmentVariable("PARUX_UI_TESTS"), "1", StringComparison.Ordinal)
                     && string.Equals(uiTestPage, "firstmodel", StringComparison.Ordinal))
                 {
-                    ShowOnboarding();
+                    ShowOnboarding(returningFromModelHub: false);
                 }
                 else if (string.Equals(Environment.GetEnvironmentVariable("PARUX_UI_TESTS"), "1", StringComparison.Ordinal)
                     && string.Equals(uiTestPage, "modelhub", StringComparison.Ordinal))
@@ -184,7 +184,7 @@ namespace PaRuX
                     ShowChat();
                 }
             }
-            else ShowOnboarding();
+            else ShowOnboarding(returningFromModelHub: false);
 
             // One best-effort pull from PaRuX Server at startup, off the UI thread, so a
             // conversation started on a paired Android device shows up here too. Never
@@ -824,7 +824,7 @@ namespace PaRuX
         /// <summary>First run only - see the OnboardingPage.Completed wiring in the
         /// constructor. Hides the nav pane too, so Settings/history aren't reachable as a
         /// side door around the guided folder-confirmation step.</summary>
-        public void ShowOnboarding()
+        public void ShowOnboarding(bool returningFromModelHub = true)
         {
             if (OnboardingReturnBanner != null) OnboardingReturnBanner.IsOpen = false;
             NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
@@ -833,7 +833,7 @@ namespace PaRuX
             SettingsPage.Visibility = Visibility.Collapsed;
             HideAllWorkspacePages();
             OnboardingPage.Visibility = Visibility.Visible;
-            OnboardingPage.OnReturnedFromModelHub();
+            OnboardingPage.OnReturnedFromModelHub(expandManualSetup: returningFromModelHub);
             PlayPageEntrance(OnboardingPage);
         }
 

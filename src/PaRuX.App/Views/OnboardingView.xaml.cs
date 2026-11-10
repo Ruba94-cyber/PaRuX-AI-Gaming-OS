@@ -962,12 +962,14 @@ namespace PaRuX.Views
             }
         }
 
-        public async void OnReturnedFromModelHub()
+        /// <param name="expandManualSetup">True when the person comes back from Model Hub / the return banner, so the models they
+        /// just chose are in view. A fresh first run keeps the guided path primary and the manual controls collapsed.</param>
+        public async void OnReturnedFromModelHub(bool expandManualSetup = true)
         {
             _unprovenWarningShown = false;
             _verifyLocalChatCts?.Cancel();
             _stateMachine.ReturnFromModelHub();
-            if (!PaRuX.Contracts.CorporateMode.IsActive && ManualSetupExpander != null)
+            if (expandManualSetup && !PaRuX.Contracts.CorporateMode.IsActive && ManualSetupExpander != null)
                 ManualSetupExpander.IsExpanded = true;
             await RefreshComponentsAsync();
             await RefreshFirstModelAdviceAsync();

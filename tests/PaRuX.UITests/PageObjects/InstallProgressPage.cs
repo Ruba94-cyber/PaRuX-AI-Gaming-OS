@@ -102,18 +102,31 @@ internal sealed class InstallProgressPage
             el.Properties.ControlType.ValueOrDefault == ControlType.Text
             && string.Equals(el.Properties.Name.ValueOrDefault, "Runtime components", StringComparison.Ordinal));
 
+    // These live inside the collapsed "Manual setup" disclosure of first-run onboarding; UiWait.ById opens it when the lookup misses.
     internal AutomationElement? OnboardingDownloadHeader =>
-        _window.FindFirstDescendant(cf => cf.ByAutomationId("FirstModelDownloadProgress_Header"));
+        UiWait.ById(_window, "FirstModelDownloadProgress_Header");
 
     internal AutomationElement? OnboardingDownloadStatus =>
-        _window.FindFirstDescendant(cf => cf.ByAutomationId("FirstModelDownloadProgress_Status"));
+        UiWait.ById(_window, "FirstModelDownloadProgress_Status");
 
-    internal AutomationElement? OnboardingDownloadEmptyRow =>
-        _app.FindRawDescendant(_window, el =>
-            el.Properties.ControlType.ValueOrDefault == ControlType.Text
-            && string.Equals(el.Properties.Name.ValueOrDefault, "No downloads yet.", StringComparison.Ordinal));
+    internal AutomationElement? OnboardingDownloadEmptyRow
+    {
+        get
+        {
+            OnboardingDisclosurePage.Reveal(_window, "FirstModelDownloadProgress_Header");
+            return _app.FindRawDescendant(_window, el =>
+                el.Properties.ControlType.ValueOrDefault == ControlType.Text
+                && string.Equals(el.Properties.Name.ValueOrDefault, "No downloads yet.", StringComparison.Ordinal));
+        }
+    }
 
-    internal AutomationElement? FindOnboardingComponentsStatus() =>
+    internal AutomationElement? FindOnboardingComponentsStatus()
+    {
+        OnboardingDisclosurePage.Reveal(_window, "ComponentsStatusText");
+        return FindOnboardingComponentsStatusCore();
+    }
+
+    private AutomationElement? FindOnboardingComponentsStatusCore() =>
         _app.FindRawDescendant(_window, el =>
             el.Properties.ControlType.ValueOrDefault == ControlType.Text
             && ((el.Properties.Name.ValueOrDefault ?? string.Empty).Contains("component(s) checked. Detection never installs or changes software.", StringComparison.Ordinal)
