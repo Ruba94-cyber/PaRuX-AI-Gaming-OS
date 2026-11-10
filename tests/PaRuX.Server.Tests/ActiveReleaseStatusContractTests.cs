@@ -53,7 +53,12 @@ public sealed class ActiveReleaseStatusContractTests
             Path.Combine(root, "docs", "PARUX_MAIN_SOFTWARE_CLOSEOUT_2026-09-05.md"));
 
         string readmeStatus = ExtractSection(readme, "## Project status");
-        Assert.Contains("PARTIAL — active software gaps; PHYSICAL_PC_ACCEPTANCE_REQUIRED", readmeStatus, StringComparison.Ordinal);
+        // The wording between the two markers follows the release in progress; what must
+        // never disappear is the PARTIAL verdict and the physical-acceptance requirement.
+        Assert.StartsWith("**PARTIAL — ", readmeStatus.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim()).First(line => line.Length > 0 && !line.StartsWith("## ", StringComparison.Ordinal)),
+            StringComparison.Ordinal);
+        Assert.Contains("PHYSICAL_PC_ACCEPTANCE_REQUIRED", readmeStatus, StringComparison.Ordinal);
         Assert.Contains("[PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md)", readmeStatus, StringComparison.Ordinal);
         Assert.Contains("historical", readmeStatus, StringComparison.OrdinalIgnoreCase);
 

@@ -2190,6 +2190,7 @@ public sealed class LocalAiProcessManager
                 RedirectStandardError = true
             };
             psi.ArgumentList.Add("--help");
+            ApplyAppLocalNativeRuntime(psi);
             using var process = new Process { StartInfo = psi };
             process.Start();
             Task<string> stdout = process.StandardOutput.ReadToEndAsync(ct);
@@ -2237,6 +2238,27 @@ public sealed class LocalAiProcessManager
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// Portable editions carry the Microsoft Visual C++ runtime beside PaRuX.Server.exe so that
+    /// no redistributable has to be installed on the target PC. Native engines started from
+    /// another folder (llama.cpp CPU/Vulkan builds) resolve it through PATH; a machine that
+    /// already has the runtime in System32 keeps using that copy, which is searched first.
+    /// </summary>
+    internal static void ApplyAppLocalNativeRuntime(ProcessStartInfo psi) =>
+        ApplyAppLocalNativeRuntime(psi, AppContext.BaseDirectory);
+
+    internal static void ApplyAppLocalNativeRuntime(ProcessStartInfo psi, string coreDirectory)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string directory = coreDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!File.Exists(Path.Combine(directory, "vcruntime140.dll"))) return;
+        psi.Environment.TryGetValue("PATH", out string? current);
+        if (string.IsNullOrEmpty(current)) { psi.Environment["PATH"] = directory; return; }
+        foreach (string part in current.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+            if (string.Equals(part.TrimEnd('\\', '/'), directory, StringComparison.OrdinalIgnoreCase)) return;
+        psi.Environment["PATH"] = directory + Path.PathSeparator + current;
     }
 
     internal static List<string> BuildLoraArguments(IReadOnlyList<string>? adapterPaths)
@@ -2290,6 +2312,7 @@ public sealed class LocalAiProcessManager
             RedirectStandardError = true
         };
         foreach (string arg in args) psi.ArgumentList.Add(arg);
+        ApplyAppLocalNativeRuntime(psi);
         if (launchProfile != null) RuntimeLaunchOptimizer.ApplyEnvironment(psi, launchProfile);
         if (baseName == "comfyui") ComfyLaunchEnvironment.Apply(psi);
         // The actual-launch fence: derived from the very argv/environment given to this process

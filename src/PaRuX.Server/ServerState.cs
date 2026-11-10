@@ -71,6 +71,21 @@ public sealed class ServerState
 
     public static string BootstrapPath => Path.Combine(StateDirectory, "bootstrap.json");
 
+    /// <summary>Plain-text reason the Core refused to start, read by the Desktop instead of
+    /// waiting for a bootstrap that will never appear. Contains no credential.</summary>
+    public static string StartFailurePath => Path.Combine(PaRuXDataRoot.Path, "core-start.error.txt");
+
+    public static void TryWriteStartFailure(string message)
+    {
+        try { File.WriteAllText(StartFailurePath, message); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Standard Portable only: false when the volume cannot restrict the bootstrap
+    /// token to the current Windows user (for example exFAT). Null when not applicable.</summary>
+    public bool? TokenProtectedForCurrentUser { get; private set; }
+
     public void Publish()
     {
         Directory.CreateDirectory(StateDirectory);
@@ -79,10 +94,12 @@ public sealed class ServerState
         // could unexpectedly mutate permissions on some unrelated directory.
         if (CorporateMode.IsActive && OperatingSystem.IsWindows())
         {
-            if ((File.GetAttributes(PaRuXDataRoot.Path) & FileAttributes.ReparsePoint) != 0 ||
-                (File.GetAttributes(StateDirectory) & FileAttributes.ReparsePoint) != 0 ||
-                (File.Exists(BootstrapPath) &&
-                    (File.GetAttributes(BootstrapPath) & FileAttributes.ReparsePoint) != 0))
+            // LinkTarget is set only for symbolic links and junctions. The bare ReparsePoint
+            // attribute also marks OneDrive placeholders and deduplicated files, which are
+            // ordinary user folders and must not make Corporate refuse to start.
+            if (new DirectoryInfo(PaRuXDataRoot.Path).LinkTarget != null ||
+                new DirectoryInfo(StateDirectory).LinkTarget != null ||
+                (File.Exists(BootstrapPath) && new FileInfo(BootstrapPath).LinkTarget != null))
             {
                 throw new UnauthorizedAccessException(
                     "Corporate local data and bootstrap token cannot be stored through a junction or symbolic link.");
@@ -117,6 +134,18 @@ public sealed class ServerState
                 "Corporate could not protect bootstrap.json. The local Core token must never " +
                 "be exposed to other Windows users.");
         }
+        // A Standard Portable folder can also sit in a shared location (C:\Tools, a second
+        // drive). Best effort: keep the bearer token readable by this Windows user only.
+        // Unlike Corporate this never blocks startup, so exFAT/FAT USB sticks keep working.
+        if (!CorporateMode.IsActive && OperatingSystem.IsWindows() &&
+            PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null &&
+            new DirectoryInfo(StateDirectory).LinkTarget == null)
+        {
+            TokenProtectedForCurrentUser = LocalFileProtection.RestrictToCurrentUser(StateDirectory)
+                && LocalFileProtection.RestrictToCurrentUser(BootstrapPath);
+        }
+        try { File.Delete(StartFailurePath); } catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
         // Remove the pre-1.5.1 fixed-name staging file if a prior interrupted promotion left it.
         try { File.Delete(BootstrapPath + ".tmp"); } catch (IOException) { }
         catch (UnauthorizedAccessException) { }

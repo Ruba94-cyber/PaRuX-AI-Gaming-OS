@@ -4029,7 +4029,20 @@ app.MapMcp("/mcp");
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    app.Lifetime.ApplicationStarted.Register(state.Publish);
+    // Exceptions thrown from lifetime callbacks are only logged by the host: a Core that
+    // cannot publish (or protect) its bootstrap token would keep listening with no way for
+    // the Desktop to reach it. Stop it and exit non-zero so the Desktop reports the reason.
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        try { state.Publish(); }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            Console.Error.WriteLine("PaRuX Core cannot publish its local bootstrap: " + ex.Message);
+            ServerState.TryWriteStartFailure(ex.Message);
+            Environment.ExitCode = 1;
+            app.Lifetime.StopApplication();
+        }
+    });
     app.Lifetime.ApplicationStarted.Register(() => StartupTrace.Mark("application-started"));
     app.Lifetime.ApplicationStopped.Register(state.RemoveIfOwned);
 }

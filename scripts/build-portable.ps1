@@ -171,6 +171,10 @@ if ($fullyStandalone) {
     if (-not (Test-Path -LiteralPath (Join-Path $cpuDest "llama-server.exe") -PathType Leaf)) {
         throw "Full Portable package is missing the actual native CPU llama-server.exe."
     }
+    # No prerequisites on the target PC: llama.cpp and ONNX Runtime import the Visual C++
+    # runtime. It ships app-local beside the CPU engine and the Core; the Core adds its own
+    # folder to the PATH of the engines it starts, which covers the Vulkan engine as well.
+    $vcRuntimeVersion = Copy-PaRuXVcRuntime -Destinations @($cpuDest, (Join-Path $stageDir "PaRuX.Server"), $stageDir)
 }
 # The batch file is only a convenient alternate entry point. Direct PaRuX.exe
 # reads the same nearby PaRuXData directory from the explicit marker.
@@ -289,6 +293,10 @@ if ($fullyStandalone) {
         $required += "PaRuXData/ai-runtimes/reranker/" + $file
     }
     $required += "PaRuXData/LocalAI/runtime/llama.cpp-" + $offline.RuntimeTag + "-cpu/llama-server.exe"
+    foreach ($vcFile in @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll")) {
+        $required += "PaRuX.Server/" + $vcFile
+        $required += "PaRuXData/LocalAI/runtime/llama.cpp-" + $offline.RuntimeTag + "-cpu/" + $vcFile
+    }
 }
 $baselineRelative = "PaRuX.Server/runtime-baseline"
 $vulkanRelative = "$baselineRelative/llama.cpp-b10549-vulkan"
@@ -362,11 +370,16 @@ try {
     $allowedOfflineData = '(?i)^PaRuXData/(?:\.portable-data|models/(?:Qwen3-4B-Q4_K_M\.gguf|\.portable-default-model)|ai-runtimes/embeddings/(?:model\.onnx|vocab\.txt|config\.json|tokenizer_config\.json)|ai-runtimes/reranker/(?:model\.onnx|vocab\.txt)|LocalAI/runtime/llama\.cpp-[^/]+-cpu/[^/]+)$'
     # Even with the full bundle, bootstrap tokens, settings, history, indexes,
     # unknown models and user documents are never legitimate build inputs.
+    # Inside PaRuXData only the explicit allowlist applies: the framework-file exemption
+    # below is for application binaries and must never excuse a file in the data folder.
     $bad = @($names | Where-Object {
-        ($_ -match $forbiddenPattern -or $_ -match '^PaRuXData/') -and
-        $_ -notmatch '(?i)(^|/)(Microsoft\\.|System\\.|onnxruntime|DirectML)' -and
-        -not ((-not $WithoutVulkan) -and $_ -ceq "PaRuXData/.portable-data") -and
-        -not ($fullyStandalone -and $_ -match $allowedOfflineData)
+        if ($_ -match '^PaRuXData/') {
+            -not (((-not $WithoutVulkan) -and $_ -ceq "PaRuXData/.portable-data") -or
+                  ($fullyStandalone -and $_ -match $allowedOfflineData))
+        } else {
+            $_ -match $forbiddenPattern -and
+            $_ -notmatch '(?i)(^|/)(Microsoft\.|System\.|onnxruntime|DirectML)'
+        }
     })
     if ($bad.Count -gt 0) { throw "Portable ZIP contains unapproved assets, user data or tokens: $($bad | Select-Object -First 5 | Out-String)" }
     if ($fullyStandalone) {

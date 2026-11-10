@@ -247,6 +247,15 @@ if (-not $NoModel) { Copy-Item $ModelPath (Join-Path $data "models") -Force }
 # Extra models must not silently change the starter fallback.
 if (-not $NoModel) { Set-Content (Join-Path (Join-Path $data "models") ".corporate-default-model") ([IO.Path]::GetFileName($ModelPath)) -Encoding UTF8 }
 if (-not (Test-Path (Join-Path $runtimeDest "llama-server.exe"))) { throw "Bundled CPU runtime was not staged." }
+# No prerequisites on the target PC: llama.cpp and ONNX Runtime import the Visual C++ runtime,
+# so it travels app-local next to every native engine and next to the Core.
+. (Join-Path $PSScriptRoot "portable-offline-assets.ps1")
+$vcRuntimeVersion = Copy-PaRuXVcRuntime -Destinations @($runtimeDest, (Join-Path $stage "PaRuX.Server"), $stage)
+foreach ($vcDir in @($runtimeDest, (Join-Path $stage "PaRuX.Server"))) {
+    foreach ($vcFile in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll") {
+        if (-not (Test-Path -LiteralPath (Join-Path $vcDir $vcFile) -PathType Leaf)) { throw "Visual C++ runtime not staged: $vcDir\$vcFile" }
+    }
+}
 Copy-Item (Join-Path $EmbeddingDir "*") (Join-Path $data "ai-runtimes\embeddings") -Recurse -Force
 if (-not [string]::IsNullOrWhiteSpace($RerankerDir)) {
     $rerankerDest = Join-Path $data "ai-runtimes\reranker"

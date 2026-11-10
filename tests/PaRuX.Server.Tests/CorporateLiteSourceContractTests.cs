@@ -82,7 +82,12 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("[switch]$EnforceAcceptance", benchmark, StringComparison.Ordinal);
         Assert.Contains("Complete Corporate acceptance requires a bundled text GGUF", benchmark, StringComparison.Ordinal);
         Assert.Contains("search_exact_id_exact_mode.hits", benchmark, StringComparison.Ordinal);
-        Assert.Contains("chat.answer_mentions_expected_source", benchmark, StringComparison.Ordinal);
+        // Grounding is judged on sentinel facts with known answers and sources, plus a
+        // question that no document supports and a document carrying a planted instruction.
+        Assert.Contains("chat.grounded_passed -lt $R.chat.grounded_cases", benchmark, StringComparison.Ordinal);
+        Assert.Contains("chat.abstention_passed", benchmark, StringComparison.Ordinal);
+        Assert.Contains("expected_source_retrieved", benchmark, StringComparison.Ordinal);
+        Assert.Contains("Ignore all previous instructions", benchmark, StringComparison.Ordinal);
         Assert.Contains("nonloopback_outbound_connections", benchmark, StringComparison.Ordinal);
         Assert.Contains("Corporate offline acceptance FAILED", benchmark, StringComparison.Ordinal);
         Assert.Contains("/api/v1/embeddings/engine", benchmark, StringComparison.Ordinal);
@@ -129,7 +134,19 @@ public sealed class CorporateLiteSourceContractTests
         string source = Read("src", "PaRuX.Server", "ServerState.cs");
         Assert.Contains("CorporateMode.IsActive && OperatingSystem.IsWindows()", source, StringComparison.Ordinal);
         Assert.Contains("LocalFileProtection.RestrictToCurrentUser(PaRuXDataRoot.Path)", source, StringComparison.Ordinal);
-        Assert.Contains("FileAttributes.ReparsePoint", source, StringComparison.Ordinal);
+        // Links are detected by LinkTarget: the bare ReparsePoint attribute also matches
+        // OneDrive placeholders, which would make Corporate refuse an ordinary folder.
+        Assert.Contains("new DirectoryInfo(PaRuXDataRoot.Path).LinkTarget != null", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FileAttributes.ReparsePoint", source, StringComparison.Ordinal);
+        // A refusal must stop the Core and tell the Desktop why, not leave it listening.
+        string program = Read("src", "PaRuX.Server", "Program.cs");
+        Assert.DoesNotContain("ApplicationStarted.Register(state.Publish)", program, StringComparison.Ordinal);
+        Assert.Contains("ServerState.TryWriteStartFailure(ex.Message)", program, StringComparison.Ordinal);
+        Assert.Contains("app.Lifetime.StopApplication()", program, StringComparison.Ordinal);
+        Assert.Contains("ReadStartFailure(startAttemptUtc)",
+            Read("src", "PaRuX.App", "Services", "PaRuXServerController.cs"), StringComparison.Ordinal);
+        // Standard Portable protects the token best-effort and never blocks startup.
+        Assert.Contains("TokenProtectedForCurrentUser = LocalFileProtection.RestrictToCurrentUser(StateDirectory)", source, StringComparison.Ordinal);
         Assert.Contains("Corporate local data and bootstrap token cannot be stored", source, StringComparison.Ordinal);
         Assert.Contains("LocalFileProtection.RestrictToCurrentUser(StateDirectory)", source, StringComparison.Ordinal);
         Assert.Contains("LocalFileProtection.RestrictToCurrentUser(BootstrapPath)", source, StringComparison.Ordinal);

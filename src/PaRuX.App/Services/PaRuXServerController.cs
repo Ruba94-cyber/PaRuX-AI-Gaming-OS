@@ -51,6 +51,7 @@ namespace PaRuX.Services
                 }
 
                 if (progress != null) progress.Report("Starting PaRuX Server…");
+                DateTime startAttemptUtc = DateTime.UtcNow.AddSeconds(-2);
                 StartServerProcess();
 
                 DateTime deadline = DateTime.UtcNow.AddSeconds(20);
@@ -58,6 +59,10 @@ namespace PaRuX.Services
                 {
                     ct.ThrowIfCancellationRequested();
                     await Task.Delay(200, ct).ConfigureAwait(false);
+                    // The Core writes this when it refuses to start (for example Corporate on a
+                    // volume that cannot protect its token): show the reason, do not wait it out.
+                    string? refusal = ReadStartFailure(startAttemptUtc);
+                    if (refusal != null) throw new LocalAiException(refusal);
                     current = ReadBootstrap();
                     probe = await ProbeServerAsync(current, ct).ConfigureAwait(false);
                     if (probe == ServerProbeResult.AuthenticationRejected)
@@ -135,6 +140,20 @@ namespace PaRuX.Services
             }
 
             return await EnsureRunningAsync(progress, ct).ConfigureAwait(false);
+        }
+
+        private static string? ReadStartFailure(DateTime notBeforeUtc)
+        {
+            try
+            {
+                string path = Path.Combine(AppPaths.PaRuXRoot, "core-start.error.txt");
+                if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) < notBeforeUtc) return null;
+                string text = File.ReadAllText(path).Trim();
+                if (text.Length == 0) return null;
+                return text.Length > 400 ? text.Substring(0, 400) : text;
+            }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
         }
 
         private static ServerBootstrap? ReadBootstrap()

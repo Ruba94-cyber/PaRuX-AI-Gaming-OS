@@ -41,6 +41,44 @@ function Get-PaRuXPinnedAsset {
     } finally { Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue }
 }
 
+# The official llama.cpp and ONNX Runtime binaries import the Microsoft Visual C++ runtime.
+# A clean Windows PC is not guaranteed to have it, so the portable editions ship it app-local
+# (the deployment Microsoft documents for the redistributable DLLs) from the build PC's licensed
+# Visual Studio Redist folder. Every copied file must carry a valid Microsoft signature.
+function Copy-PaRuXVcRuntime {
+    param([string[]]$Destinations)
+    $names = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll",
+               "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll")
+    $candidates = @()
+    foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+        if ([string]::IsNullOrWhiteSpace($root)) { continue }
+        $vs = Join-Path $root "Microsoft Visual Studio"
+        if (-not (Test-Path -LiteralPath $vs -PathType Container)) { continue }
+        $candidates += @(Get-ChildItem -LiteralPath $vs -Directory -Recurse -Filter "Microsoft.VC14*.CRT" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\Redist\\MSVC\\[0-9.]+\\x64\\Microsoft\.VC14\d\.CRT$' })
+    }
+    $source = $candidates | Sort-Object { [version]((Get-Item (Join-Path $_.FullName "vcruntime140.dll")).VersionInfo.FileVersion -replace '[^0-9.].*$', '') } -Descending |
+        Select-Object -First 1
+    if ($null -eq $source) {
+        throw "Visual C++ x64 redistributable DLLs not found on the build PC (Visual Studio 'VC\Redist\MSVC\<version>\x64\Microsoft.VC14x.CRT'). The portable editions must ship them: without them llama.cpp and ONNX Runtime do not start on a clean PC."
+    }
+    foreach ($name in $names) {
+        $file = Join-Path $source.FullName $name
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Visual C++ runtime file missing in the Redist folder: $name" }
+        $signature = Get-AuthenticodeSignature -LiteralPath $file
+        if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw "Visual C++ runtime file is not validly signed by Microsoft: $file"
+        }
+    }
+    foreach ($destination in $Destinations) {
+        New-Item -ItemType Directory -Force -Path $destination | Out-Null
+        foreach ($name in $names) { Copy-Item -LiteralPath (Join-Path $source.FullName $name) -Destination $destination -Force }
+    }
+    $version = (Get-Item (Join-Path $source.FullName "vcruntime140.dll")).VersionInfo.FileVersion
+    Write-Host "Visual C++ runtime $version bundled app-local in $($Destinations.Count) folder(s)."
+    return [string]$version
+}
+
 function Assert-PaRuXNoReparseTree {
     param([string]$PathToInspect)
     if ((Get-Item -LiteralPath $PathToInspect -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
