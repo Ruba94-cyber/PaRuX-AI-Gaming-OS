@@ -22,6 +22,9 @@ namespace PaRuX.Models
         public bool GameMetadataEnabled { get; set; }
         /// <summary>True once the owner closed the "show covers?" banner in the Gaming library (it never returns).</summary>
         public bool GameMetadataPromptDismissed { get; set; }
+        /// <summary>First-visit offer to detect local Steam/Epic/GOG installs. Never scan on boot;
+        /// persisted only after an explicit user dismissal or a successful opt-in scan.</summary>
+        public bool GameStoreDiscoveryPromptDismissed { get; set; }
         /// <summary>Source filter: empty (all), "steam", "epic", "gog", "manual" or "emulator".</summary>
         public string GameLibrarySource { get; set; } = string.Empty;
         public string GameLibraryPlatform { get; set; } = string.Empty;
