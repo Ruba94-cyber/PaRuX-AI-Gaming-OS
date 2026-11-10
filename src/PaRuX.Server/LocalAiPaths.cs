@@ -118,6 +118,23 @@ public static class LocalAiPaths
     /// access picks it up. Used by the Settings UI.</summary>
     public static void SetRoot(string path)
     {
+        // A Portable cannot be portable if Settings silently reconnects it to
+        // D:\\Models or an old Documents\LocalAI directory. The only accepted
+        // selection in ZIP editions is the owned LocalAI folder itself.
+        string? portableData = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory);
+        if (portableData != null)
+        {
+            string owned = Path.GetFullPath(Path.Combine(portableData, "LocalAI"));
+            if (string.IsNullOrWhiteSpace(path) ||
+                !string.Equals(Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar),
+                    owned.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    "Portable AI runtime storage must remain under PaRuXData\\LocalAI. " +
+                    "Use the MSI edition to manage external runtime folders.");
+            Directory.CreateDirectory(owned);
+            _cachedRoot = owned;
+            return;
+        }
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             throw new InvalidDataException("The local AI root folder must be an existing directory.");
         Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
