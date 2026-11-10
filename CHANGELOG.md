@@ -1,3 +1,19 @@
+## 4.1.0 (release candidate 4.1.0-rc1, local build only, not published)
+
+Summary of `git log v4.0.1..HEAD` (665 commits; counts approximate, by commit prefix). The MSI version is 4.1.0 (Windows Installer cannot carry a prerelease suffix); the RC label `4.1.0-rc1` is used only in the local git tag and in release-candidate documentation. Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`.
+
+- **Training / datasets (about 95 commits):** SFT/DPO/KTO Data Recipes (CSV/JSONL/Parquet to verified JSONL in PaRuX-owned storage), full-dataset SHA-256 binding for Quick Training approval, explicit final GPU consent, recipe builder in Dataset Hub, blocked in Corporate Lite and Gaming hard-off.
+- **Media / gallery / create (about 60):** on-demand image and video previews, bounded thumbnail and video-frame cache with link/junction rejection, gallery recovery states for missing/empty/in-progress outputs, safer delete/reveal/open checks, off-UI-thread scanning.
+- **Corporate Lite (about 60):** resumable low-memory large-PDF indexing with page-level progress, opt-in OCR in bounded batches, evidence-grounding safety checks for technical answers, paged and searchable document sources, Chat-first shell.
+- **Chat / models / Model Hub:** searchable paged installed-model browser with size and measured-speed ordering, local model comparison, explicit shared context for group chat, recovery-snapshot validation for history, manual GGUF choice kept per repository, role auto-assignment after a model download, English base UI language with optional Italian.
+- **Gaming:** library sections, per-game status and score, library health from cached titles, input-device identity checks.
+- **Onboarding / runtime:** actionable local model-start recovery guidance (EN/IT); Core falls back to a free loopback port when 51123 is reserved.
+- **Security (latest commits):** new coding runs default to ask; paired devices cannot enable Internet or self-grant capabilities; restore preserves this PC's pairing/LAN/Internet settings.
+- **Portable / packaging:** Standard portable stages the SHA-256-locked llama.cpp Vulkan runtime; Corporate Lite is a separate CPU-only shell; portable data-root isolation.
+- **Android:** versionCode 22; model browsing, job polling lifecycle and create-draft retention improvements.
+- **Build / tests / docs:** many new xUnit and FlaUI tests, a build fix for source-only commits, QA evidence and benchmark harness fixes (`docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`).
+- Known limits: see `docs/RELEASE_READINESS.md` (verdict NOT RELEASE READY at the time of this entry); physical-PC acceptance remains open.
+
 ### Corporate CPU readiness, profile-aware inner pages and GGUF validation (unreleased; Windows validation required)
 
 - Fixed first-run Corporate falsely requiring CUDA/Vulkan and missing its bundled CPU engine: CPU-only runtime status, inventory, diagnostics, Chat role and readiness now agree; startup ignores stale Gaming-only UI preferences and does not mutate hidden storage settings.
