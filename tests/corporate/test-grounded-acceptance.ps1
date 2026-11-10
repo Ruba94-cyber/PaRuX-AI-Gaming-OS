@@ -69,4 +69,10 @@ foreach ($case in @(
     if ((Test-NetworkLoopback $case.address) -ne $case.expected) { throw "Incorrect loopback classification: $($case.address)" }
 }
 if ((Invoke-TrayExit) -notlike 'blocked:*') { throw 'Unverified tray target must remain blocked' }
-Write-Host 'Corporate acceptance evaluators: 32 cases passed.'
+$viaRequest = $evidence.Clone(); $viaRequest['tray_exit'] = 'exit requested (PaRuX.exe --exit, delivered)'
+if (@(Get-AcceptanceEvidenceFailures $viaRequest).Count -ne 0) { throw 'A delivered exit request with no process left must be accepted' }
+foreach ($undelivered in 'exit request not delivered (code 2)', 'exit request timed out') {
+    $bad = $evidence.Clone(); $bad['tray_exit'] = $undelivered
+    if (@(Get-AcceptanceEvidenceFailures $bad).Count -eq 0) { throw "Undelivered exit accepted: $undelivered" }
+}
+Write-Host 'Corporate acceptance evaluators: 35 cases passed.'

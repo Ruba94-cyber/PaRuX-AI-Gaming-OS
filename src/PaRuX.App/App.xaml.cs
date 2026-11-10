@@ -43,8 +43,20 @@ namespace PaRuX
             UnhandledException += OnUnhandledException;
         }
 
+        private static IDisposable? _exitSignal;
+
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
+            // "PaRuX.exe --exit" closes the running instance that uses this data folder and returns.
+            // Handled before anything else so it never starts a second UI, Core or model.
+            string exitSignalName = PaRuX.Contracts.AppExitSignal.NameFor(AppPaths.PaRuXRoot);
+            if (PaRuX.Contracts.AppExitSignal.IsExitRequest(Environment.GetCommandLineArgs()))
+            {
+                bool delivered = PaRuX.Contracts.AppExitSignal.TrySignal(exitSignalName);
+                Environment.Exit(delivered ? 0 : 2);
+                return;
+            }
+
             bool createdNew;
             string mutexName = SingleInstanceMutexName;
 #if DEBUG
@@ -95,6 +107,12 @@ namespace PaRuX
 
                 MainWin = new MainWindow();
                 MainWin.Activate();
+                Microsoft.UI.Dispatching.DispatcherQueue uiQueue = MainWin.DispatcherQueue;
+                _exitSignal = PaRuX.Contracts.AppExitSignal.Listen(exitSignalName, () =>
+                {
+                    Log.Write("Exit requested through PaRuX.exe --exit.");
+                    if (!uiQueue.TryEnqueue(ExitApplication)) Environment.Exit(0);
+                });
 
                 BubbleWin = new BubbleWindow();
                 BubbleWin.ApplyVisibilityMode();

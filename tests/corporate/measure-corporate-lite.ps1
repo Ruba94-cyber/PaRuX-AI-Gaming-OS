@@ -62,7 +62,7 @@ function Get-AcceptanceEvidenceFailures($Result) {
         $failures.Add('Process and network sampling did not complete with observable samples.')
     }
     if ([int]$Result.network_sample_errors -gt 0) { $failures.Add('A network sampling query failed.') }
-    if ($Result.tray_exit -notlike 'clicked Exit (*' -or $Result.processes_left_after_tray_exit -ne 'none') {
+    if (($Result.tray_exit -notlike 'clicked Exit (*' -and $Result.tray_exit -notlike 'exit requested (*') -or $Result.processes_left_after_tray_exit -ne 'none') {
         $failures.Add('Tray exit was not confirmed or package processes remained after exit.')
     }
     return $failures.ToArray()
@@ -329,6 +329,17 @@ function Invoke-TrayExit {
     # Explorer owns tray UIA elements, so their names do not establish which
     # PaRuX process owns the icon. Never click an unverified global target.
     return 'blocked: tray icon ownership cannot be tied to the test process'
+}
+
+function Invoke-AppExitRequest([string]$appDirectory) {
+    # "PaRuX.exe --exit" signals the instance that uses the data folder of THIS extracted package
+    # (the name is derived from the data root), so it cannot close any other PaRuX on the machine.
+    $exe = Join-Path $appDirectory "PaRuX.exe"
+    $request = Start-Process -FilePath $exe -ArgumentList "--exit" -WorkingDirectory $appDirectory -PassThru
+    $null = $request.Handle
+    if (-not $request.WaitForExit(30000)) { try { $request.Kill() } catch { }; return 'exit request timed out' }
+    if ($request.ExitCode -ne 0) { return "exit request not delivered (code $($request.ExitCode))" }
+    return 'exit requested (PaRuX.exe --exit, delivered)'
 }
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -600,9 +611,10 @@ finally {
         function Get-Ours { @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($extract, [StringComparison]::OrdinalIgnoreCase) }) }
         # (a) window close: by design PaRuX hides to the tray, so the processes are expected to stay.
         if ($appProc -and -not $appProc.HasExited) { $null = $appProc.CloseMainWindow(); Start-Sleep 4; $R.processes_after_window_close = (Get-Ours | ForEach-Object { $_.ProcessName }) -join ", " }
-        # (b) the real exit: tray menu "Exit" through UI Automation.
-        Say "Exiting through the tray menu ..."
-        $R.tray_exit = Invoke-TrayExit
+        # (b) the real exit: the same clean shutdown as the tray menu "Exit", requested for this
+        # package's own data folder. The tray icon itself is owned by Explorer and stays untouched.
+        Say "Requesting a clean exit (PaRuX.exe --exit) ..."
+        $R.tray_exit = Invoke-AppExitRequest $app
         $dl = (Get-Date).AddSeconds(40); while ((Get-Date) -lt $dl -and (Get-Ours).Count -gt 0) { Start-Sleep 1 }
         $left = Get-Ours
         $R.processes_left_after_tray_exit = if ($left.Count) { ($left | ForEach-Object { "$($_.ProcessName)#$($_.Id)" }) -join ", " } else { "none" }
