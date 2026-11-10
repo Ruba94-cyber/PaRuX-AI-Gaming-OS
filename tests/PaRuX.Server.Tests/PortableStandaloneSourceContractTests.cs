@@ -100,6 +100,11 @@ public sealed class PortableStandaloneSourceContractTests
         Assert.Contains("if (-not $WithoutVulkan)", portable, StringComparison.Ordinal);
         Assert.Contains("$fullyStandalone = -not $WithoutVulkan -and -not $ShellOnly", portable, StringComparison.Ordinal);
         Assert.Contains("if ($WithoutVulkan -and $FetchAssets)", portable, StringComparison.Ordinal);
+        Assert.Contains("cpu-shell-stage", portable, StringComparison.Ordinal);
+        Assert.Contains("cpu-shell-stage", corporate, StringComparison.Ordinal);
+        Assert.Contains("CPU-shell-INTERNAL", portable, StringComparison.Ordinal);
+        Assert.Contains("diagnostic-shell-INTERNAL", portable, StringComparison.Ordinal);
+        Assert.Contains("PaRuX-$Version-portable-win-x64", portable, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] relative)
