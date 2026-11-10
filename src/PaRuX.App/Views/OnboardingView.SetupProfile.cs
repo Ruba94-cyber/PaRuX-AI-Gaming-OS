@@ -156,7 +156,7 @@ namespace PaRuX.Views
                 SetupProfileChoice.IsEnabled = true;
                 GamingOnlyStartButton.IsEnabled = true;
                 AutoSetupStartButton.IsEnabled = _autoSetup == null
-                    || OnboardingAutoSetupPresenter.Present(_autoSetup.State).PrimaryEnabled;
+                    || OnboardingAutoSetupPresenter.Present(_autoSetup.State, italian: false).PrimaryEnabled;
                 GetStartedButton.IsEnabled = !_componentsBusy && _verifyLocalChatCts == null && _autoSetupCts == null;
             }
         }

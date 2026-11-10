@@ -64,7 +64,7 @@ namespace PaRuX.Services
             }
         }
 
-        public static string Guidance(MediaGalleryOutputState state, bool italian = false) =>
+        public static string Guidance(MediaGalleryOutputState state, bool italian) =>
             state switch
             {
                 MediaGalleryOutputState.Ready => italian

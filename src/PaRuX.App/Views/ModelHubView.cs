@@ -27,11 +27,11 @@ namespace PaRuX.Views
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _candidateUtilityStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         private readonly Button _candidateUtilityConfigureButton = new Button
-        { Content = "Set comparison criteria", IsEnabled = false };
+        { Content = StartItalian ? "Imposta criteri di confronto" : "Set comparison criteria", IsEnabled = false };
         private readonly Button _candidateUtilityResetButton = new Button
-        { Content = "Reset criteria", IsEnabled = false, Visibility = Visibility.Collapsed };
+        { Content = StartItalian ? "Reimposta criteri" : "Reset criteria", IsEnabled = false, Visibility = Visibility.Collapsed };
         private readonly TextBlock _hardwareSummary = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75 };
-        private readonly Button _hardwareDetailsButton = new Button { Content = "Hardware details", IsEnabled = false };
+        private readonly Button _hardwareDetailsButton = new Button { Content = StartItalian ? "Dettagli hardware" : "Hardware details", IsEnabled = false };
         private string _hardwareDetailText = string.Empty;
         private readonly TextBlock _discoveryRefreshStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75 };
         private string? _discoveryRefreshPausedReason;
@@ -435,7 +435,7 @@ namespace PaRuX.Views
                 Orientation = Orientation.Horizontal,
                 Spacing = 8
             };
-            var refreshCandidates = new Button { Content = "Refresh candidates" };
+            var refreshCandidates = new Button { Content = StartItalian ? "Aggiorna candidati" : "Refresh candidates" };
             AutomationProperties.SetAutomationId(refreshCandidates, "ModelHub_CandidateRefreshButton");
             refreshCandidates.Click += async (_, _) => await RefreshCandidateCatalogAsync();
             candidateActions.Children.Add(refreshCandidates);
@@ -458,7 +458,7 @@ namespace PaRuX.Views
             var candidateFilterRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             AutomationProperties.SetAutomationId(_candidateFilter, "ModelHub_CandidateFilter_TextBox");
             candidateFilterRow.Children.Add(_candidateFilter);
-            var clearCandidateFilter = new Button { Content = "Clear filter" };
+            var clearCandidateFilter = new Button { Content = StartItalian ? "Cancella filtro" : "Clear filter" };
             AutomationProperties.SetAutomationId(clearCandidateFilter, "ModelHub_CandidateFilter_Clear_Button");
             clearCandidateFilter.Click += (_, _) => _candidateFilter.Text = string.Empty;
             candidateFilterRow.Children.Add(clearCandidateFilter);
@@ -3603,9 +3603,15 @@ namespace PaRuX.Views
         private static string FormatCandidateEvidenceScope(CandidateEvaluationJobStatus? status)
         {
             if (status == null)
-                return "Evidence scope: no retained evaluation result is shown. Quick checks cover "
-                    + CandidateEvaluationScope.ChatInstructionFollowingCapability
-                    + "; a separate General chat qualification profile covers standard × balanced text tasks. Neither an available profile nor this provisional fit establishes a recommendation, coding, tool-use or RAG quality.";
+            {
+                return StartItalian
+                    ? "Ambito dell'evidenza: nessun risultato di valutazione conservato mostrato. I controlli rapidi coprono "
+                        + CandidateEvaluationScope.ChatInstructionFollowingCapability
+                        + "; un profilo di qualificazione distinto per General chat copre le attività di testo standard × bilanciate. Né un profilo disponibile né questa idoneità provvisoria costituiscono una raccomandazione o garantiscono qualità in coding, uso di strumenti o RAG."
+                    : "Evidence scope: no retained evaluation result is shown. Quick checks cover "
+                        + CandidateEvaluationScope.ChatInstructionFollowingCapability
+                        + "; a separate General chat qualification profile covers standard × balanced text tasks. Neither an available profile nor this provisional fit establishes a recommendation, coding, tool-use or RAG quality.";
+            }
 
             bool generalChatScope = status.Capability == CandidateEvaluationScope.GeneralChatCapability
                 && status.QualitySuiteId == CandidateEvaluationScope.GeneralChatSuiteId
@@ -3615,10 +3621,17 @@ namespace PaRuX.Views
                 && status.PerformanceWorkloadId == CandidateEvaluationScope.ChatInstructionFollowingPerformanceWorkloadId
                 && status.PerformanceWorkloadVersion == CandidateEvaluationScope.ChatInstructionFollowingPerformanceWorkloadVersion;
             if (generalChatScope)
-                return "Evidence scope: " + status.Capability + " suite " + status.QualitySuiteVersion
-                    + " for standard × balanced only, plus the separate performance workload "
-                    + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
-                    + "; a single run does not establish qualification or promotion. Coding, other modalities and best-in-class quality are unverified.";
+            {
+                return StartItalian
+                    ? "Ambito dell'evidenza: " + status.Capability + " suite " + status.QualitySuiteVersion
+                        + " solo per standard × bilanciato, oltre al carico di prestazioni separato "
+                        + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
+                        + "; una singola esecuzione non costituisce qualificazione o promozione. Coding, altre modalità e qualità di riferimento non sono verificate."
+                    : "Evidence scope: " + status.Capability + " suite " + status.QualitySuiteVersion
+                        + " for standard × balanced only, plus the separate performance workload "
+                        + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
+                        + "; a single run does not establish qualification or promotion. Coding, other modalities and best-in-class quality are unverified.";
+            }
 
             bool knownScope = status.Capability == CandidateEvaluationScope.ChatInstructionFollowingCapability
                 && status.QualitySuiteId == CandidateEvaluationScope.ChatInstructionFollowingSuiteId
@@ -3626,11 +3639,19 @@ namespace PaRuX.Views
                 && status.PerformanceWorkloadId == CandidateEvaluationScope.ChatInstructionFollowingPerformanceWorkloadId
                 && status.PerformanceWorkloadVersion == CandidateEvaluationScope.ChatInstructionFollowingPerformanceWorkloadVersion;
             if (knownScope)
-                return "Evidence scope: " + status.Capability + " suite " + status.QualitySuiteVersion
-                    + " plus performance workload " + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
-                    + "; this narrow result does not establish coding, reasoning, tool-use, RAG or profile-specific quality.";
+            {
+                return StartItalian
+                    ? "Ambito dell'evidenza: " + status.Capability + " suite " + status.QualitySuiteVersion
+                        + " oltre al carico di prestazioni " + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
+                        + "; questo risultato ristretto non garantisce qualità per coding, ragionamento, uso di strumenti, RAG o profili specifici."
+                    : "Evidence scope: " + status.Capability + " suite " + status.QualitySuiteVersion
+                        + " plus performance workload " + status.PerformanceWorkloadId + " v" + status.PerformanceWorkloadVersion
+                        + "; this narrow result does not establish coding, reasoning, tool-use, RAG or profile-specific quality.";
+            }
 
-            return "Evidence scope: this retained job does not identify a recognized capability, quality suite and performance workload; do not infer capability-wide or profile-specific results.";
+            return StartItalian
+                ? "Ambito dell'evidenza: questo job conservato non identifica una capacità, suite di qualità e carico di prestazioni riconosciuti; non dedurre risultati a livello di capacità o specifici del profilo."
+                : "Evidence scope: this retained job does not identify a recognized capability, quality suite and performance workload; do not infer capability-wide or profile-specific results.";
         }
 
         private static string FormatObservedBytes(long? bytes) => bytes is >= 0

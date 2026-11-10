@@ -15,18 +15,19 @@ namespace PaRuX.Views
         /// <summary>Right-click menu on any message bubble (user or assistant): "Branch from here".</summary>
         private MenuFlyout BuildMessageBranchFlyout(ChatMessage message)
         {
-            var item = new MenuFlyoutItem { Text = "Branch from here" };
+            var item = new MenuFlyoutItem { Text = ChatItalian ? "Crea un ramo da qui" : "Branch from here" };
             AutomationProperties.SetAutomationId(item, MessageBranchAutomationId);
-            AutomationProperties.SetName(item, "Branch from here");
+            AutomationProperties.SetName(item, ChatItalian ? "Crea un ramo da qui" : "Branch from here");
             item.Click += (_, _) => BranchFromMessage(message);
             var flyout = new MenuFlyout();
             flyout.Items.Add(item);
 
-            var duplicate = new MenuFlyoutItem { Text = "Duplicate chat" };
+            var duplicate = new MenuFlyoutItem { Text = ChatItalian ? "Duplica chat" : "Duplicate chat" };
             AutomationProperties.SetAutomationId(duplicate, DuplicateChatAutomationId);
-            AutomationProperties.SetName(duplicate, "Duplicate chat");
+            AutomationProperties.SetName(duplicate, ChatItalian ? "Duplica chat" : "Duplicate chat");
             duplicate.Click += (_, _) => ShowTransientStatus(ChatSession.Current.DuplicateConversation()
-                ? "Opened a copy of this chat." : "Nothing to duplicate yet.");
+                ? (ChatItalian ? "Aperta una copia di questa chat." : "Opened a copy of this chat.")
+                : (ChatItalian ? "Ancora niente da duplicare." : "Nothing to duplicate yet."));
             flyout.Items.Add(duplicate);
             return flyout;
         }
@@ -34,7 +35,7 @@ namespace PaRuX.Views
         /// <summary>Visible per-message button next to Copy/Regenerate on assistant replies.</summary>
         private Button BuildBranchActionButton(ChatMessage message)
         {
-            Button branch = BuildActionButton("", "Branch from here");
+            Button branch = BuildActionButton("", ChatItalian ? "Crea un ramo da qui" : "Branch from here");
             AutomationProperties.SetAutomationId(branch, MessageBranchAutomationId);
             branch.Click += (_, _) => BranchFromMessage(message);
             return branch;
@@ -42,17 +43,17 @@ namespace PaRuX.Views
 
         private void BranchFromMessage(ChatMessage message)
         {
-            if (message.IsStreaming) { ShowTransientStatus("Wait for the reply to finish before branching."); return; }
+            if (message.IsStreaming) { ShowTransientStatus(ChatItalian ? "Attendi che la risposta sia completata prima di creare un ramo." : "Wait for the reply to finish before branching."); return; }
             try
             {
                 ShowTransientStatus(ChatSession.Current.BranchFromMessage(message)
-                    ? "Opened a new branch of this chat."
-                    : "Couldn't branch from this message.");
+                    ? (ChatItalian ? "Aperto un nuovo ramo di questa chat." : "Opened a new branch of this chat.")
+                    : (ChatItalian ? "Impossibile creare un ramo da questo messaggio." : "Couldn't branch from this message."));
             }
             catch (Exception ex)
             {
                 Log.Write("Branch failed: " + ex.Message);
-                ShowTransientStatus("Couldn't branch from this message.");
+                ShowTransientStatus(ChatItalian ? "Impossibile creare un ramo da questo messaggio." : "Couldn't branch from this message.");
             }
         }
     }

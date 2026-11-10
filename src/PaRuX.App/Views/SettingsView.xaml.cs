@@ -38,11 +38,14 @@ namespace PaRuX.Views
         private bool _remoteAccessEnabled;
         private bool _benchmarkPollActive;
 
+        private static string T(string en, string it) => KT(en, it);
+
         public SettingsView()
         {
             InitializeComponent();
             InitializeCorporateSettingsLayout();
             ApplyProfileSettingsSections();
+            LocalizeVideoPresets();
 
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
@@ -456,7 +459,7 @@ namespace PaRuX.Views
 
                 if (isActive)
                 {
-                    var badge = new TextBlock { Text = "Active", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+                    var badge = new TextBlock { Text = T("Active", "Attivo"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
                     ApplyCaptionStyle(badge);
                     if (Application.Current.Resources.TryGetValue("PaRuXSuccessColor", out object okColor) && okColor is Windows.UI.Color okC)
                         badge.Foreground = new SolidColorBrush(okC);
@@ -466,7 +469,7 @@ namespace PaRuX.Views
                 else
                 {
                     string capturedId = persona.Id;
-                    var setActive = new Button { Content = "Set active", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var setActive = new Button { Content = T("Set active", "Imposta come attivo"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     setActive.Click += async (s, e2) => await SetActivePersonaAsync(capturedId);
                     Grid.SetColumn(setActive, 1);
                     row.Children.Add(setActive);
@@ -475,7 +478,7 @@ namespace PaRuX.Views
                 if (!persona.IsBuiltIn)
                 {
                     string capturedId = persona.Id;
-                    var delete = new Button { Content = "Delete", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var delete = new Button { Content = T("Delete", "Elimina"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     delete.Click += async (s, e2) => await DeletePersonaAsync(capturedId);
                     Grid.SetColumn(delete, 2);
                     row.Children.Add(delete);
@@ -528,7 +531,7 @@ namespace PaRuX.Views
             string? prompt = (NewPersonaPromptBox?.Text ?? string.Empty).Trim();
             if (name.Length == 0 || prompt.Length == 0)
             {
-                if (PersonaStatus != null) PersonaStatus.Text = "Both a name and a system-prompt instruction are required.";
+                if (PersonaStatus != null) PersonaStatus.Text = T("Both a name and a system-prompt instruction are required.", "Sono necessari sia un nome che un'istruzione di prompt di sistema.");
                 return;
             }
             try
@@ -560,7 +563,7 @@ namespace PaRuX.Views
             McpServersList.Children.Clear();
             if (statuses.Count == 0)
             {
-                var empty = new TextBlock { Text = "No MCP servers configured yet." };
+                var empty = new TextBlock { Text = T("No MCP servers configured yet.", "Nessun server MCP ancora configurato.") };
                 ApplyCaptionStyle(empty);
                 McpServersList.Children.Add(empty);
                 return;
@@ -597,7 +600,7 @@ namespace PaRuX.Views
 
                 string capturedId = status.Id;
                 bool capturedEnabled = status.Enabled;
-                var toggle = new ToggleSwitch { IsOn = status.Enabled, OnContent = "On", OffContent = "Off" };
+                var toggle = new ToggleSwitch { IsOn = status.Enabled, OnContent = T("On", "Attivo"), OffContent = T("Off", "Disattivo") };
                 toggle.Toggled += async (s, e2) =>
                 {
                     if (_switchesBeingReverted.Contains(toggle)) return;
@@ -615,7 +618,7 @@ namespace PaRuX.Views
                 Grid.SetColumn(toggle, 1);
                 row.Children.Add(toggle);
 
-                var remove = new Button { Content = "Remove", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                var remove = new Button { Content = T("Remove", "Rimuovi"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                 remove.Click += async (s, e2) =>
                 {
                     try { await McpServersClient.Current.RemoveAsync(capturedId, CancellationToken.None); }
@@ -752,18 +755,18 @@ namespace PaRuX.Views
                 EmbeddingEngineStatus status = await EmbeddingClient.Current.GetStatusAsync(CancellationToken.None);
                 if (status.Loaded)
                 {
-                    EmbeddingEngineStatusText.Text = "Installed and active (" + status.Dimensions + "-dim) - Memory and RAG now rank by real semantic similarity, not just keyword overlap.";
+                    EmbeddingEngineStatusText.Text = T("Installed and active (", "Installato e attivo (") + status.Dimensions + T("-dim) - Memory and RAG now rank by real semantic similarity, not just keyword overlap.", "-dim) - Memoria e RAG ora ordinano per reale somiglianza semantica, non solo per parole chiave.");
                     if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.Visibility = Visibility.Collapsed;
                 }
                 else if (status.Installed)
                 {
-                    EmbeddingEngineStatusText.Text = "Installed but failed to load" + (string.IsNullOrEmpty(status.LastError) ? "." : ": " + status.LastError);
+                    EmbeddingEngineStatusText.Text = T("Installed but failed to load", "Installato ma caricamento non riuscito") + (string.IsNullOrEmpty(status.LastError) ? "." : ": " + status.LastError);
                     if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.Visibility = Visibility.Visible;
                 }
                 else
                 {
-                    EmbeddingEngineStatusText.Text = "Not installed - Memory and RAG currently rank by keyword overlap only. Installing adds real semantic search for both, entirely local (sentence-transformers/all-MiniLM-L6-v2, ~90 MB, one-time download, verified against a pinned SHA-256)."
-                        + (_embeddingInstallFailure == null ? string.Empty : " Last install attempt failed: " + _embeddingInstallFailure);
+                    EmbeddingEngineStatusText.Text = T("Not installed - Memory and RAG currently rank by keyword overlap only. Installing adds real semantic search for both, entirely local (sentence-transformers/all-MiniLM-L6-v2, ~90 MB, one-time download, verified against a pinned SHA-256).", "Non installato - Memoria e RAG attualmente ordinano solo per sovrapposizione di parole chiave. L'installazione aggiunge la vera ricerca semantica per entrambi, interamente locale (sentence-transformers/all-MiniLM-L6-v2, ~90 MB, download singolo, verificato tramite SHA-256 bloccato).")
+                        + (_embeddingInstallFailure == null ? string.Empty : (T(" Last install attempt failed: ", " Ultimo tentativo di installazione non riuscito: ") + _embeddingInstallFailure));
                     if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.Visibility = Visibility.Visible;
                 }
             }
@@ -2241,6 +2244,7 @@ namespace PaRuX.Views
                 VideoFpsBox.Value = s.GeneratedVideoFps;
                 VideoStepsBox.Value = s.GeneratedVideoSteps;
                 MaxVideoMegabytesBox.Value = s.MaxVideoMegabytes;
+                LocalizeVideoPresets();
                 SelectVideoPreset(s.GeneratedVideoWidth, s.GeneratedVideoHeight, s.GeneratedVideoSteps);
                 UpdateVideoFolderText();
                 VsCodeCommandBox.Text = s.VsCodeCommand;
@@ -2542,6 +2546,28 @@ namespace PaRuX.Views
             SelectByTag(VideoPresetCombo, wanted);
             if (SelectedTag(VideoPresetCombo) != wanted) SelectByTag(VideoPresetCombo, "custom");
             _loading = false;
+        }
+
+        private void LocalizeVideoPresets()
+        {
+            if (VideoPresetCombo == null) return;
+            foreach (object entry in VideoPresetCombo.Items)
+            {
+                if (entry is ComboBoxItem item && item.Tag is string tag)
+                {
+                    item.Content = tag switch
+                    {
+                        "640x360x12" => T("Fast preview · 640×360 · 12 steps", "Anteprima rapida · 640×360 · 12 passaggi"),
+                        "832x448x16" => T("Draft · 832×448 · 16 steps", "Bozza · 832×448 · 16 passaggi"),
+                        "1280x720x30" => T("Standard · 1280×720 · 30 steps", "Standard · 1280×720 · 30 passaggi"),
+                        "1920x1080x40" => T("High · 1920×1080 · 40 steps", "Alta · 1920×1080 · 40 passaggi"),
+                        "2560x1440x50" => T("Ultra · 2560×1440 · 50 steps", "Ultra · 2560×1440 · 50 passaggi"),
+                        "3840x2160x60" => T("4K · 3840×2160 · 60 steps", "4K · 3840×2160 · 60 passaggi"),
+                        "custom" => T("Custom", "Personalizzato"),
+                        _ => item.Content
+                    };
+                }
+            }
         }
 
         private async void ChooseVideoFolder_Click(object sender, RoutedEventArgs e)
