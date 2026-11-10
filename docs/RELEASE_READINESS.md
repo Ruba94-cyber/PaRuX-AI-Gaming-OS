@@ -12,6 +12,8 @@ Updated 2026-11-10.
 
 **Further post-beta source work — portable distribution, NOT yet released:** The Standard ZIP builder now stages a hash-locked Qwen3-4B starter, CPU and Vulkan native inference engines, ONNX embedding and reranker, and .NET/WinUI self-contained Desktop/Core, with full-archive SHA256 verification and exact portable data-root markers. The direct EXE resolves colocated data even after relocation and a preexisting host install cannot supply missing models; Standard CPU fallback is source-implemented. The Corporate CPU build shell now uses a distinct stage and internal ZIP name, preventing it from overwriting the Standard Portable package; `-SkipPublish` rejects mismatched source/edition. Newly authored unit/source-contract tests and smoke code have not been run. **Current source may still fail Windows compile, PowerShell 5.1 parsing, native dependency loading or live AI/RAG tests.** No clean target PC/USB and no independent Windows QA; no new signatures/releases. Advanced media/training, game clients and Windows driver dependencies remain optional, and Corporate permission protection may reject FAT/exFAT USB volumes.
 
+**Onboarding post-beta source, unverified:** the Standard Portable's packaged CPU engine can now appear in Runtime Manager, Component discovery and first-run readiness, and the starter-model screen recognizes the shipped GGUF without requiring a second download. Still needs Windows/FlaUI/restart verification. 
+
 | Gate | Status | Basis |
 |---|---|---|
 | 1 Feature completeness | PARTIAL | 17 plan sections are SOURCE PARTIAL (written remotely, unit-tested only); per-section native checks are listed in `.ai/artifacts/native-verification-matrix.md` (local). Gaming parity gaps GAM-003..007 open |
