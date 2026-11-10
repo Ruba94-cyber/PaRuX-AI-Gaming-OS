@@ -13,7 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-blue" alt="FSL-1.1-MIT license"></a>
 </p>
 
-> **BETA — Active development (4.0.1).** PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues).
+> **BETA — v4.1.0 pre-release published 10 November 2026.** The 4.0.1 stable-channel release is still the default GitHub `latest` until the owner promotes 4.1.0. PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues).
 
 ## What is PaRuX?
 
@@ -38,6 +38,12 @@
 
 Available features depend on your installed models, runtimes and hardware. **Not every feature or model will work on every PC during beta.**
 
+## Corporate Lite: fully offline requires the right package
+
+The **Corporate Lite with Qwen3-4B** package includes a CPU `llama.cpp` runtime and the starter GGUF for offline text chat. The separately distributed **NoModel** variant does **not** contain a chat model; installing it alone is not a complete standalone chat setup. Neither variant is enterprise-certified. For a verified document-search build, the local embedding ONNX model is required, and a cross-encoder ONNX reranker can now be bundled using `-RerankerDir` / `-Fetch` plus `-RequireReranker` during packaging. Files, runtime and model licences must be reviewed before distribution.
+
+**Validation still pending on the current source:** a clean 8–16 GB CPU-only Windows PC, real offline document ingestion + search + source-grounded response, machine networking/egress, failure recovery, signed binaries and full regression testing. The `-EnforceAcceptance` mode in `tests/corporate/measure-corporate-lite.ps1` explicitly rejects missing dependencies and non-functional real-chat/RAG smoke on a fresh extracted package. A passing source check or HTTP 200 is not proof of functional RAG. See [release readiness](docs/RELEASE_READINESS.md) and the [canonical execution plan](PARUX_EXECUTION_PLAN.md).
+
 ## Getting started
 
 1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
@@ -59,15 +65,15 @@ Available features depend on your installed models, runtimes and hardware. **Not
 
 ## Project status
 
-**PARTIAL — active software gaps; PHYSICAL_PC_ACCEPTANCE_REQUIRED.** The canonical status and the open work (the BIC-01 to BIC-17 backlog) live in [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md). Earlier "software complete" markers in the documentation are dated historical evidence, not the status of the current code. The Release build and the test classes touched in the latest fixes pass; the full xUnit suite and the FlaUI UI tests were NOT RUN for this statement.
+**PARTIAL — v4.1.0 beta published; later source changes still require native Windows validation and PHYSICAL_PC_ACCEPTANCE_REQUIRED.** The canonical status and the open work (the BIC-01 to BIC-17 backlog) live in [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md). Earlier "software complete" markers in the documentation are dated historical evidence, not the status of the current code. The Release build and the test classes touched in the latest fixes pass; the full xUnit suite and the FlaUI UI tests were NOT RUN for this statement.
 
-## Validation matrix (5 November 2026)
+## Historical validation matrix (5 November 2026 — superseded by the 10 November 4.1.0 evidence)
 
 Status refers to a **specific test or delivery**, not to the entire product. Earlier PRs have been merged onto `main`; the latest source-only increments, including GOS-13, are not compiled, run or release-verified.
 
 | Capability / evidence | What is established | What remains |
 |---|---|---|
-| Latest published release | **4.0.1** (signed with the owner's local certificates) | Built and signed on the owner's Windows PC; see GitHub Releases |
+| Latest published release | **4.1.0 beta pre-release** (4.0.1 remains the stable-channel GitHub `latest`) | Built and signed on the owner's Windows PC; see GitHub Releases |
 | Baseline Server tests (before PR merges) | **Auto-tested on Windows**: 12,410 passed, 9 skipped (handoff dated 5 Nov 2026) | Newly merged PR tests are **Authored-not-run**, must not inherit prior evidence |
 | FlaUI desktop | **Verified on Windows**: Smoke 34/34. Prior full suite 270/283; 11 failures rerun passed after the bundled Core was refreshed | Run the **complete** Regression suite again by itself against the final source |
 | Coding diff and safe permissions (L2) | Main runtime/sandbox exists; **Merged source, authored-not-compiled** PR #1 adds strict metadata-checked per-hunk review, SHA-256 preview and OS + all-mutation-tools Auto admission | Rejects unknown metadata, unreviewable sections, binary/rename/add/delete; no transactional apply, UI or Windows tests |
@@ -76,7 +82,7 @@ Status refers to a **specific test or delivery**, not to the entire product. Ear
 | Auto-suspend and controllers (L6/L7) | Existing Quick Resume, virtual-pad and HidHide source; **Merged source, authored-not-compiled** PR #4 adds per-game suspend/debounce policies (3/5/10s, verified-process resets), anti-cheat guards and controller previews | **Needs physical HW**: event/sensor sampling, anti-cheat detection, device recovery; no XOutput-equivalence claim |
 | External library, wishlist and compliance (L4/L5/L9) | PR #5 metadata preview plus **new uncompiled main WIP**: local Steam wishlist with owner-only settings and bilingual UI; explicit one-shot price quote reuses Discover's opt-in, rate limit, HTTPS allow-list and Gaming hard-off | Windows build/UI/security tests and real-world Store JSON not verified. A requested country is **not** a verified Steam account region. No automatic price polling, alert delivery, purchases or complete i18n/accessibility validation |
 | Integrated BitTorrent (GOS-13) | **Main source WIP, not compiled/tested:** MonoTorrent 3.0.2, source-selected v1 magnets/local torrents, verified bounded staging, safe multifile-to-ZIP packaging, no unattended seeding; DPAPI-encrypted native-job recovery shown paused on restart | Verify Windows NuGet/build, real peer swarm, piece rehash/restart, pause/cancel/Gaming hard-off, bandwidth/disk-full/cleanup, FlaUI and provider integrity. Raw multifile folder deployment and unattended installers remain unavailable |
-| Corporate Lite | AI-only offline profile exists | 8 GB support and 4B answer quality on target hardware **not established** |
+| Corporate Lite | Offline AI-only CPU runtime; model-inclusive 4B and NoModel package variants; source now permits local ONNX reranker, requiring rebuilt package | Low-end 8 GB PC, complete real document answer and every-new-commit Windows gates **not established** |
 
 Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1), [L3 PR #2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2), [L8 PR #3](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/3), [L6/L7 PR #4](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/4), [L4/L5/L9 PR #5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5). See [HANDOFF.md](HANDOFF.md) for the independent Windows gate and [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md) for status lines. All merged source remains local-first; no new model/driver downloads or game piracy support.
 
