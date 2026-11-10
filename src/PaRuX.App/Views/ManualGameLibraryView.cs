@@ -1072,6 +1072,44 @@ public sealed class ManualGameLibraryView : UserControl
         finally { SetBusy(false); }
     }
 
+    private void BuildStoreDiscoveryOffer(StackPanel root)
+    {
+        _storeDiscoveryOfferText.Text = T(
+            "Find installed Steam, Epic and GOG games with one local read-only scan. Nothing is installed, launched or uploaded. Or skip and scan later.",
+            "Trova i giochi Steam, Epic e GOG installati con una scansione locale di sola lettura. Nessuna installazione, avvio o invio di dati. Oppure salta e rileva in seguito.");
+        AutomationProperties.SetAutomationId(_storeDiscoveryOffer, "GameLibrary_FirstRunScan_Offer");
+        AutomationProperties.SetAutomationId(_storeDiscoveryOfferText, "GameLibrary_FirstRunScan_Description");
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(_storeDiscoveryOfferText);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        _storeDiscoveryOfferScan.Content = T("Find my installed games", "Trova i giochi installati");
+        AutomationProperties.SetAutomationId(_storeDiscoveryOfferScan, "GameLibrary_FirstRunScan_Start");
+        _storeDiscoveryOfferScan.Click += async (_, _) => await RefreshAllStoresAsync();
+        _storeDiscoveryOfferDismiss.Content = T("Not now", "Non ora");
+        AutomationProperties.SetAutomationId(_storeDiscoveryOfferDismiss, "GameLibrary_FirstRunScan_Dismiss");
+        _storeDiscoveryOfferDismiss.Click += (_, _) => DismissStoreDiscoveryOffer();
+        actions.Children.Add(_storeDiscoveryOfferScan);
+        actions.Children.Add(_storeDiscoveryOfferDismiss);
+        content.Children.Add(actions);
+        _storeDiscoveryOffer.Child = content;
+        root.Children.Add(_storeDiscoveryOffer);
+        UpdateStoreDiscoveryOffer();
+    }
+
+    private void UpdateStoreDiscoveryOffer()
+    {
+        _storeDiscoveryOffer.Visibility =
+            !SettingsStore.Current.Data.GameStoreDiscoveryPromptDismissed && !CorporateMode.IsActive
+                ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void DismissStoreDiscoveryOffer()
+    {
+        SettingsStore.Current.Data.GameStoreDiscoveryPromptDismissed = true;
+        SettingsStore.Current.Save();
+        UpdateStoreDiscoveryOffer();
+    }
+
     private Task RefreshSteamAsync() => RefreshDetectedAsync(
         "Steam", () => GamingOrchestratorClient.Current.DiscoverSteamGamesAsync());
 
