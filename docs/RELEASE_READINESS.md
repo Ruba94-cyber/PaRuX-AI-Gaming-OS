@@ -1,8 +1,8 @@
 # Release readiness
 
-**Verdict: NOT RELEASE READY.** Last published tag: `v4.0.1`. Target of this cycle: `4.1.0` (release candidate `4.1.0-rc1`, local only). Evidence: [QA_EVIDENCE.md](QA_EVIDENCE.md). Nothing is tagged, signed, packaged or published without the owner's explicit approval.
+**Verdict: PUBLISHED AS BETA PRE-RELEASE, NOT ALL GATES MET.** `v4.1.0` (commit `348a433c`) was published on GitHub on 2026-11-10 as a pre-release at the owner's instruction, after green xUnit, green FlaUI regression and verified packages. The gates below that are PARTIAL remain open and must not be described as passed. Evidence: [QA_EVIDENCE.md](QA_EVIDENCE.md), [RELEASE_CANDIDATE_4.1.0.md](RELEASE_CANDIDATE_4.1.0.md).
 
-Updated 2026-11-10 at `031baa84`.
+Updated 2026-11-10.
 
 | Gate | Status | Basis |
 |---|---|---|
