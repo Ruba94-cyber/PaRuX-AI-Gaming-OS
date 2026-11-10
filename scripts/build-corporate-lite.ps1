@@ -24,6 +24,8 @@ param(
     [string]$ModelPath = "",
     [switch]$NoModel,
     [string]$EmbeddingDir = "",
+    [string]$RerankerDir = "",
+    [switch]$RequireReranker,
     [string]$RuntimeDir = "",
     [string]$RuntimeTag = "",
     [switch]$Fetch,
@@ -91,12 +93,40 @@ if ($Fetch) {
     $base = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/"
     Get-File ($base + "onnx/model.onnx") (Join-Path $EmbeddingDir "model.onnx")
     foreach ($f in "vocab.txt", "tokenizer_config.json", "config.json") { Get-File ($base + $f) (Join-Path $EmbeddingDir $f) }
+    # Cross-encoder for optional local second-stage RAG relevance. PaRuX's RerankerService
+    # consumes model.onnx + vocab.txt directly, without Python, Docker or an online service.
+    $RerankerDir = Join-Path $assets "reranker"
+    New-Item -ItemType Directory -Force $RerankerDir | Out-Null
+    $rerankerBase = "https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/"
+    Get-File ($rerankerBase + "onnx/model.onnx") (Join-Path $RerankerDir "model.onnx")
+    foreach ($f in "vocab.txt", "tokenizer_config.json", "config.json") {
+        Get-File ($rerankerBase + $f) (Join-Path $RerankerDir $f)
+    }
 }
 if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
 $requiredInputs = @(@("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))
 if (-not $NoModel) { $requiredInputs = @(,@("ModelPath", $ModelPath)) + $requiredInputs }
 foreach ($pair in $requiredInputs) {
     if ([string]::IsNullOrWhiteSpace($pair[1]) -or -not (Test-Path $pair[1])) { throw "$($pair[0]) is required (or use -Fetch). Not found: '$($pair[1])'" }
+}
+# Avoid creating a "standalone" archive that silently drops from semantic RAG to lexical-only
+# because the model directory existed but the actual files were missing.
+foreach ($required in "model.onnx", "vocab.txt", "tokenizer_config.json", "config.json") {
+    $file = Join-Path $EmbeddingDir $required
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -eq 0) {
+        throw "Corporate Lite requires a complete local embedding engine: $file"
+    }
+}
+if ($RequireReranker -and [string]::IsNullOrWhiteSpace($RerankerDir)) {
+    throw "Complete local RAG requires -RerankerDir or -Fetch. No cloud or later runtime download is permitted."
+}
+if (-not [string]::IsNullOrWhiteSpace($RerankerDir)) {
+    foreach ($required in "model.onnx", "vocab.txt") {
+        $file = Join-Path $RerankerDir $required
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -eq 0) {
+            throw "Incomplete local reranker engine: $file"
+        }
+    }
 }
 if ($ModelPath -match '(?i)(personal|company|private)') { throw "Refusing a model path that looks private." }
 if ($RuntimeTag -and $RuntimeTag -notmatch '^[A-Za-z0-9._-]+$') { throw "RuntimeTag contains unsafe characters." }
@@ -122,6 +152,11 @@ if (-not $NoModel) { Copy-Item $ModelPath (Join-Path $data "models") -Force }
 if (-not $NoModel) { Set-Content (Join-Path (Join-Path $data "models") ".corporate-default-model") ([IO.Path]::GetFileName($ModelPath)) -Encoding UTF8 }
 if (-not (Test-Path (Join-Path $runtimeDest "llama-server.exe"))) { throw "Bundled CPU runtime was not staged." }
 Copy-Item (Join-Path $EmbeddingDir "*") (Join-Path $data "ai-runtimes\embeddings") -Recurse -Force
+if (-not [string]::IsNullOrWhiteSpace($RerankerDir)) {
+    $rerankerDest = Join-Path $data "ai-runtimes\reranker"
+    New-Item -ItemType Directory -Force $rerankerDest | Out-Null
+    Copy-Item (Join-Path $RerankerDir "*") $rerankerDest -Recurse -Force
+}
 Set-Content (Join-Path $stage "parux.corporate") "PaRuX Corporate Lite Offline: AI + documents only, no cloud." -Encoding ASCII
 $settings = @{ OnboardingCompleted = $true; SetupProfileId = "ai"; StudioModeEnabled = $false; DefaultProfile = "AUTO" } | ConvertTo-Json
 Set-Content (Join-Path $data "settings.json") $settings -Encoding UTF8
@@ -145,10 +180,14 @@ set "PARUX_DATA_ROOT=%~dp0PaRuXData"
 set "PARUX_LOCALAI_STATE_DIR=%~dp0PaRuXData"
 start "" "%~dp0PaRuX.exe"
 '@ | Set-Content (Join-Path $stage "Start PaRuX Corporate Model Downloads.cmd") -Encoding ASCII
+$modelGuide = if ($NoModel) { "This NoModel edition has NO chat model: import a compatible GGUF before expecting local chat answers." } else { "Local Qwen3-4B GGUF chat model included, no additional download required." }
+$ragGuide = if ([string]::IsNullOrWhiteSpace($RerankerDir)) { "Local embeddings included; advanced second-stage reranking is NOT included in this reduced package." } else { "Local embeddings and cross-encoder reranking included for document retrieval." }
 @"
 PaRuX Corporate Lite Offline $Version
 Start with "Start PaRuX Corporate Lite.cmd". No installation and no administrator rights are needed by the application.
-CPU runtime and a starter GGUF are already included. No runtime setup or Internet needed.
+CPU runtime and embedding model are included. No runtime setup or Internet needed.
+$modelGuide
+$ragGuide
 Offline: "Start PaRuX Corporate Lite.cmd". Import further GGUF files in Model Hub (files are copied into PaRuXData/models).
 For IT-approved GGUF downloads only: "Start PaRuX Corporate Model Downloads.cmd". Model inference remains entirely local;
 Gaming, media, online runtime installers, cloud inference and automatic updates stay disabled.
@@ -162,17 +201,17 @@ Importa nuovi GGUF e scegli il modello da Chat. Solo con consenso IT usa "Start 
 
 # --- 4. Manifest with hashes -----------------------------------------------------------------------------------------------
 $files = Get-ChildItem $stage -Recurse -File | ForEach-Object {
-    [ordered]@{ path = $_.FullName.Substring($stage.Length + 1).Replace('\', '/'); size = $_.Length }
+    [ordered]@{ path = $_.FullName.Substring($stage.Length + 1).Replace('\', '/'); size = $_.Length; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $manifest = [ordered]@{
     product = "PaRuX Corporate Lite Offline"; version = $Version; generatedUtc = [DateTime]::UtcNow.ToString("o")
     modelIncluded = (-not $NoModel)
     model = $(if ($NoModel) { $null } else { [IO.Path]::GetFileName($ModelPath) }); modelSha256 = $(if ($NoModel) { $null } else { (Get-FileHash $ModelPath -Algorithm SHA256).Hash.ToLowerInvariant() })
-    runtimeTag = $tag; runtimeIncluded = $true; modelImportAllowed = $true; modelDownloadsRequireOptIn = $true
+    runtimeTag = $tag; runtimeIncluded = $true; embeddingIncluded = $true; rerankerIncluded = (-not [string]::IsNullOrWhiteSpace($RerankerDir)); modelImportAllowed = $true; modelDownloadsRequireOptIn = $true
     nativeRuntimeSha256 = (Get-FileHash (Join-Path $runtimeDest "llama-server.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
-    fileCount = $files.Count
+    fileCount = $files.Count; files = $files
 }
-$manifest | ConvertTo-Json | Set-Content (Join-Path $stage "MANIFEST.json") -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stage "MANIFEST.json") -Encoding UTF8
 
 # --- 5. ZIP ('/' separators, one top-level folder) -----------------------------------------------------------------------
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -204,6 +243,18 @@ try {
     $expectedModels = if ($NoModel) { 0 } else { 1 }
     if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/models/.+\.gguf$' }).Count -ne $expectedModels) { throw "Expected $expectedModels bundled model(s)." }
     if (-not $NoModel -and $rel -notcontains "PaRuXData/models/.corporate-default-model") { throw "Bundled default-model marker missing." }
+    foreach ($needed in "model.onnx", "vocab.txt", "tokenizer_config.json", "config.json") {
+        if ($rel -notcontains "PaRuXData/ai-runtimes/embeddings/$needed") {
+            throw "Incomplete standalone embedding engine: $needed"
+        }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($RerankerDir)) {
+        foreach ($needed in "model.onnx", "vocab.txt") {
+            if ($rel -notcontains "PaRuXData/ai-runtimes/reranker/$needed") {
+                throw "Incomplete standalone reranker engine: $needed"
+            }
+        }
+    }
     if (@($rel | Where-Object { $_ -match '(?i)^PaRuXData/LocalAI/runtime/llama\.cpp-[^/]+-cpu/llama-server\.exe$' }).Count -ne 1) {
         throw "Bundled CPU runtime executable missing from ZIP."
     }
@@ -233,7 +284,23 @@ try {
             if ($actual -ne $check.expected) { throw "$($check.title) SHA-256 mismatch in finished ZIP." }
         }
     } finally { $shaTool.Dispose() }
-    Write-Host "ZIP check OK: $($names.Count) entries; CPU runtime$(if ($NoModel) { ' hash verified; NO model bundled (-NoModel)' } else { ' and starter GGUF hashes verified' })."
+    # Verify EVERY staged file from the finished archive, including native DLLs, Core, tokenizer
+    # and ONNX assets. The old two-file verification could pass with missing/corrupt embedding DLLs.
+    if ($names.Count -ne ($manifest.fileCount + 1)) { throw "Archive inventory count differs from MANIFEST.json." }
+    foreach ($item in $files) {
+        $entry = $z.GetEntry("PaRuX-Corporate-Lite/" + $item.path)
+        if ($null -eq $entry -or $entry.Length -ne $item.size) {
+            throw "Archive missing or truncated: $($item.path)"
+        }
+        $stream = $entry.Open()
+        try {
+            $shaTool = [Security.Cryptography.SHA256]::Create()
+            try { $actual = [BitConverter]::ToString($shaTool.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+            finally { $shaTool.Dispose() }
+        } finally { $stream.Dispose() }
+        if ($actual -ne $item.sha256) { throw "Corporate archive SHA-256 mismatch: $($item.path)" }
+    }
+    Write-Host "ZIP check OK: $($names.Count) entries, complete file SHA-256 inventory; modelIncluded=$(-not $NoModel); rerankerIncluded=$(-not [string]::IsNullOrWhiteSpace($RerankerDir))."
 } finally { $z.Dispose() }
 
 # --- 7. Smoke: extracted package starts offline, Core is up, downloads are refused, document search answers -------------------
@@ -265,7 +332,7 @@ if ($Smoke) {
         if ([int]$r.StatusCode -ne 403) { throw "Download endpoint was not refused (status $([int]$r.StatusCode))." }
         $s = Invoke-WebRequest -Uri ($b.endpoint.TrimEnd('/') + "/api/v1/knowledge/search?q=test") -Headers $h -UseBasicParsing
         if ($s.StatusCode -ne 200) { throw "Knowledge search not available." }
-        Write-Host "Smoke OK: offline start, downloads refused (403), document search answers without any model."
+        Write-Host "Smoke OK: offline start, downloads refused (403), knowledge endpoint reachable. This does NOT verify indexing, source citations or chat inference; run tests/corporate/measure-corporate-lite.ps1 with a bundled model."
     } finally {
         Get-Process PaRuX, PaRuX.Server -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($tmp, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
         Remove-Item Env:PARUX_CORPORATE, Env:PARUX_CORPORATE_MODEL_DOWNLOADS, Env:PARUX_DATA_ROOT, Env:PARUX_LOCALAI_STATE_DIR -ErrorAction SilentlyContinue
