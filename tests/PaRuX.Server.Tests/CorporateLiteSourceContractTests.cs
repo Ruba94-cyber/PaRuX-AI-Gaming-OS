@@ -31,6 +31,8 @@ public sealed class CorporateLiteSourceContractTests
         Assert.Contains("NoModel edition has NO chat model", script, StringComparison.Ordinal);
         Assert.Contains("Assert-PinnedAsset", script, StringComparison.Ordinal);
         Assert.Contains("Get-PinnedAsset", script, StringComparison.Ordinal);
+        // Official Qwen/Qwen3-4B-GGUF Q4_K_M file digest, not a mutable branch's unverified bytes.
+        Assert.Contains("7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5", script, StringComparison.Ordinal);
         Assert.Contains("llama-cpu-", script, StringComparison.Ordinal);
         Assert.Contains("Untrusted llama.cpp release tag", script, StringComparison.Ordinal);
         Assert.Contains("Cached managed model asset is invalid", script, StringComparison.Ordinal);
