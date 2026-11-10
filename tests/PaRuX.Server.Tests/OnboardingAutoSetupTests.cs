@@ -26,6 +26,9 @@ namespace PaRuX.Server.Tests
             };
             public Func<long, AutoSetupFit> Fit = bytes => bytes <= 6 * Gb ? AutoSetupFit.Fits : AutoSetupFit.TooBig;
             public bool PlanInstalled;
+            public bool BundledStarter;
+            public bool FailQuantLookup;
+            public int QuantLookupCalls;
             public bool LicenceAccepted = true;
             public Queue<List<ModelDownloadStatus>> Polls = new();
             public List<ModelDownloadStatus> LastPoll = new();
@@ -41,8 +44,13 @@ namespace PaRuX.Server.Tests
             public Task InstallRuntimeAsync(AutoSetupRuntimeOffer offer, IProgress<InstallProgressPresentation> progress, CancellationToken ct)
             { RuntimeInstallCalls++; return Task.CompletedTask; }
             public Dictionary<string, List<ModelQuantChoice>> ChoicesByRepo = new();
-            public Task<IReadOnlyList<ModelQuantChoice>> GetQuantChoicesAsync(string repoId, CancellationToken ct) =>
-                Task.FromResult<IReadOnlyList<ModelQuantChoice>>(ChoicesByRepo.TryGetValue(repoId, out var list) ? list : Choices);
+            public bool HasBundledStandardPortableStarter() => BundledStarter;
+            public Task<IReadOnlyList<ModelQuantChoice>> GetQuantChoicesAsync(string repoId, CancellationToken ct)
+            {
+                QuantLookupCalls++;
+                if (FailQuantLookup) throw new InvalidOperationException("offline");
+                return Task.FromResult<IReadOnlyList<ModelQuantChoice>>(ChoicesByRepo.TryGetValue(repoId, out var list) ? list : Choices);
+            }
             public Task<AutoSetupFit> EstimateFitAsync(long totalBytes, CancellationToken ct) => Task.FromResult(Fit(totalBytes));
             public Task<ModelDownloadPlan> GetPlanAsync(string repoId, ModelQuantChoice choice, CancellationToken ct)
             {
@@ -106,6 +114,60 @@ namespace PaRuX.Server.Tests
 
         private static OnboardingAutoSetupService Make(FakeHost host, IAutoSetupStateStore? store = null) =>
             new(host, store ?? new InMemoryAutoSetupStateStore(), delay: (_, _) => Task.CompletedTask);
+
+        [Fact]
+        public void Runtime_selection_recognizes_real_portable_cpu_component()
+        {
+            var cpu = new ComponentStatus { Id = "llama-server-cpu", Detected = true, Ownership = ComponentOwnership.PARUX_MANAGED };
+            var missingGpu = new ComponentStatus { Id = "llama-server-vulkan", Detected = false };
+            Assert.Same(cpu, AutoSetupRuntimeSelection.Select(new[] { missingGpu, cpu }));
+            cpu.Detected = false;
+            Assert.Null(AutoSetupRuntimeSelection.Select(new[] { missingGpu, cpu }));
+        }
+
+        [Fact]
+        public void Runtime_selection_preserves_user_managed_precedence_and_prefers_installed_gpu_to_cpu()
+        {
+            var cpu = new ComponentStatus { Id = "llama-server-cpu", Detected = true, Ownership = ComponentOwnership.PARUX_MANAGED };
+            var gpu = new ComponentStatus { Id = "llama-server-vulkan", Detected = true, Ownership = ComponentOwnership.PARUX_MANAGED };
+            var user = new ComponentStatus { Id = "llama-server-cuda", Detected = true, Ownership = ComponentOwnership.USER_MANAGED };
+            Assert.Same(user, AutoSetupRuntimeSelection.Select(new[] { cpu, gpu, user }));
+            Assert.Same(gpu, AutoSetupRuntimeSelection.Select(new[] { cpu, gpu }));
+        }
+
+        [Fact]
+        public async Task Bundled_portable_starter_skips_catalog_and_role_changes_but_requires_real_chat_verification()
+        {
+            var host = new FakeHost { BundledStarter = true, FailQuantLookup = true, VerifyFailure = "chat failed" };
+            var service = Make(host);
+            AutoSetupState first = await service.RunAsync(CancellationToken.None);
+            Assert.Equal(AutoSetupPhase.Failed, first.Phase);
+            Assert.Equal(AutoSetupPhase.VerifyingChat, first.FailedPhase);
+            Assert.Equal(0, host.QuantLookupCalls);
+            Assert.Equal(0, host.PlanCalls);
+            Assert.Equal(0, host.LicenceCalls);
+            Assert.Equal(0, host.AssignCalls);
+            Assert.Equal(1, host.VerifyCalls);
+
+            host.VerifyFailure = null;
+            Assert.True(service.TryPrepareRetry());
+            AutoSetupState retried = await service.RunAsync(CancellationToken.None);
+            Assert.Equal(AutoSetupPhase.Ready, retried.Phase);
+            Assert.Equal(2, host.VerifyCalls);
+            Assert.Equal(0, host.AssignCalls);
+            Assert.Equal(0, host.QuantLookupCalls);
+        }
+
+        [Fact]
+        public async Task Missing_portable_starter_keeps_catalog_path_and_does_not_claim_ready_offline()
+        {
+            var host = new FakeHost { BundledStarter = false, FailQuantLookup = true };
+            AutoSetupState result = await Make(host).RunAsync(CancellationToken.None);
+            Assert.Equal(AutoSetupPhase.Failed, result.Phase);
+            Assert.Equal(AutoSetupPhase.SelectingModel, result.FailedPhase);
+            Assert.Equal(1, host.QuantLookupCalls);
+            Assert.Equal(0, host.VerifyCalls);
+        }
 
         [Fact]
         public async Task HappyPath_RunsEveryStepInOrder_AndOnlyThenIsReady()

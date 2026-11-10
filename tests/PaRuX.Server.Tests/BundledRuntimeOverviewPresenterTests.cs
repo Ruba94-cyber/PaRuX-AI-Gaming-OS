@@ -37,7 +37,9 @@ namespace PaRuX.Server.Tests
             Assert.Equal(3, overview.DownloadableItems.Count);
             DownloadableComponentItem model = overview.DownloadableItems.First(d => d.Id == BundledRuntimeOverviewPresenter.DownloadableModelId);
             Assert.True(model.IsRequired);
-            Assert.True(model.EstimatedSizeBytes > 0);
+            Assert.Equal("Compatible Chat Model", model.DisplayName);
+            Assert.Equal(0, model.EstimatedSizeBytes);
+            Assert.Equal("Varies by model", model.EstimatedSizeText);
 
             DownloadableComponentItem cuda = overview.DownloadableItems.First(d => d.Id == BundledRuntimeOverviewPresenter.DownloadableCudaId);
             Assert.False(cuda.IsRequired);
@@ -75,7 +77,7 @@ namespace PaRuX.Server.Tests
 
             Assert.True(overview.HasWorkingTextPathWithoutDownload);
             Assert.Contains("Included text engine detected", overview.Headline);
-            Assert.Contains("download a chat model", overview.Headline);
+            Assert.Contains("choose a compatible chat model", overview.Headline);
             Assert.Contains("verify a real local answer", overview.Subhead);
 
             BundledComponentItem vulkan = overview.BundledItems.First(b => b.Id == BundledRuntimeOverviewPresenter.BundledVulkanId);
@@ -109,7 +111,7 @@ namespace PaRuX.Server.Tests
         }
 
         [Fact]
-        public void BuildOverview_WithModelAdvice_PopulatesRecommendedModelTitleAndEstimatedSize()
+        public void BuildOverview_WithModelAdvice_DoesNotPreselectARecommendedModel()
         {
             const long expectedSize = 3_800_000_000L;
             var advice = new FirstModelAdvice
@@ -135,10 +137,9 @@ namespace PaRuX.Server.Tests
             FirstInstallEffortOverview overview = BundledRuntimeOverviewPresenter.BuildOverview(null, advice);
 
             DownloadableComponentItem model = overview.DownloadableItems.First(d => d.Id == BundledRuntimeOverviewPresenter.DownloadableModelId);
-            Assert.Contains("Qwen 2.5 7B Instruct", model.DisplayName);
-            Assert.Contains("Q4_K_M", model.DisplayName);
-            Assert.Equal(expectedSize, model.EstimatedSizeBytes);
-            Assert.Contains("GB", model.EstimatedSizeText);
+            Assert.Equal("Compatible Chat Model", model.DisplayName);
+            Assert.Equal(0, model.EstimatedSizeBytes);
+            Assert.Equal("Varies by model", model.EstimatedSizeText);
         }
 
         [Theory]

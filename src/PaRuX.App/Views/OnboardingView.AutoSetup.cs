@@ -165,10 +165,9 @@ namespace PaRuX.Views
             {
                 List<ComponentStatus> components = await RuntimeManagerClient.Current.GetComponentsAsync(ct);
                 var text = components
-                    .Where(c => c.Id is "llama-server-vulkan" or "llama-server-cuda").ToList();
+                    .Where(c => c.Id is "llama-server-vulkan" or "llama-server-cuda" or "llama-server-cpu").ToList();
                 // A runtime the user manages always wins: it is reported as-is and never changed.
-                ComponentStatus? active = text.FirstOrDefault(c => c.Detected && c.Ownership == ComponentOwnership.USER_MANAGED)
-                    ?? text.FirstOrDefault(c => c.Detected);
+                ComponentStatus? active = AutoSetupRuntimeSelection.Select(text);
                 var info = new AutoSetupRuntimeInfo
                 {
                     Detected = active != null,
@@ -256,6 +255,8 @@ namespace PaRuX.Views
                 try { await RuntimeManagerClient.Current.UnskipAsync(offer.ComponentId, CancellationToken.None); }
                 catch { /* the install is complete; a stale skip flag is cosmetic */ }
             }
+
+            public bool HasBundledStandardPortableStarter() => OnboardingView.HasBundledStandardPortableStarter();
 
             public async Task<IReadOnlyList<ModelQuantChoice>> GetQuantChoicesAsync(string repoId, CancellationToken ct)
             {

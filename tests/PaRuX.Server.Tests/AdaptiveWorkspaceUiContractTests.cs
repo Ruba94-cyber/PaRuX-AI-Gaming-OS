@@ -92,6 +92,30 @@ public sealed class AdaptiveWorkspaceUiContractTests
     }
 
     [Fact]
+    public void Manual_first_model_browsing_is_neutral_and_empty_handoff_loads_hub()
+    {
+        string firstModel = File.ReadAllText(SourcePath("OnboardingView.FirstModel.cs"));
+        string nav = File.ReadAllText(Path.Combine(Path.GetDirectoryName(SourcePath("OnboardingView.xaml"))!, "..", "MainWindow.Workspaces.cs"));
+        Assert.DoesNotContain("_selectedFirstModelId = advice.RecommendedId", firstModel, StringComparison.Ordinal);
+        Assert.Contains("SuggestedQuantHintForHandoff = null;", firstModel, StringComparison.Ordinal);
+        Assert.Contains("FindModelRequested?.Invoke(string.Empty)", firstModel, StringComparison.Ordinal);
+        Assert.Contains("Browse models in Model Hub", firstModel, StringComparison.Ordinal);
+        Assert.Contains("if (string.IsNullOrWhiteSpace(repoId))", nav, StringComparison.Ordinal);
+        Assert.Contains("else ModelHubPage.OnShownBrowsingChatModels();", nav, StringComparison.Ordinal);
+        Assert.Contains("ModelHubPage.OnShown();", nav, StringComparison.Ordinal);
+        string hub = File.ReadAllText(SourcePath("ModelHubView.cs"));
+        int start = hub.IndexOf("public async void OnShownBrowsingChatModels()", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        int end = hub.IndexOf("public async void OnShownSearching(", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+        string browse = hub.Substring(start, end - start);
+        Assert.Contains("ShowHubTab(ModelHubTab.Text)", browse, StringComparison.Ordinal);
+        Assert.Contains("_search.Text = string.Empty", browse, StringComparison.Ordinal);
+        Assert.Contains("InvalidatePendingSearch()", browse, StringComparison.Ordinal);
+        Assert.DoesNotContain("SearchAsync(", browse, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Corporate_first_run_uses_preinstalled_cpu_and_hides_generic_auto_installer()
     {
         XDocument doc = XDocument.Load(SourcePath("OnboardingView.xaml"));
@@ -111,7 +135,8 @@ public sealed class AdaptiveWorkspaceUiContractTests
         Assert.Contains("CorporateManageModelsButton.Visibility = Visibility.Visible", setup, StringComparison.Ordinal);
         Assert.Contains("FindModelRequested?.Invoke(string.Empty)", page, StringComparison.Ordinal);
         Assert.Contains("if (PaRuX.Contracts.CorporateMode.IsActive)", page, StringComparison.Ordinal);
-        Assert.Contains("ModelHubPage.OnShown(); // Corporate's local model management", nav, StringComparison.Ordinal);
+        Assert.Contains("if (string.IsNullOrWhiteSpace(repoId))", nav, StringComparison.Ordinal);
+        Assert.Contains("ModelHubPage.OnShown();", nav, StringComparison.Ordinal);
     }
 
     [Fact]

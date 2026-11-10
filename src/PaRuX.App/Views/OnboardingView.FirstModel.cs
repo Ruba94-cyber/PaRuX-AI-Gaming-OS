@@ -13,12 +13,7 @@ using PaRuX.Services;
 namespace PaRuX.Views
 {
     /// <summary>
-    /// The first-run answer to "which model do I download?".
-    ///
-    /// Onboarding previously finished with a runtime installed, no model, and a line pointing at
-    /// Model Hub - which is only actionable if you already know what to look for. Core now ranks its
-    /// curated list against the actual GPU and memory, so this screen can name one model, say in a
-    /// sentence why it suits this machine, and start it.
+    /// Neutral model browsing, with optional task-specific candidates and hardware-fit estimates.
     /// </summary>
     public sealed partial class OnboardingView
     {
@@ -30,7 +25,7 @@ namespace PaRuX.Views
         /// the shell can open Model Hub already searching for it.</summary>
         public event Action<string>? FindModelRequested;
 
-        /// <summary>Quantization recommended for the current first-model handoff.</summary>
+        /// <summary>Quantization hint for a candidate explicitly selected by the user.</summary>
         public string? SuggestedQuantHintForHandoff { get; private set; }
 
         private async Task RefreshFirstModelAdviceAsync()
@@ -159,7 +154,9 @@ namespace PaRuX.Views
                 FirstModelHardwareText.Text =
                     "PaRuX couldn't read this machine's hardware, so it can't suggest a model yet. "
                     + "You can still choose one in Model Hub.";
-                ShowFirstModelActions(installable: false);
+                if (FirstModelInstallButton != null)
+                    FirstModelInstallButton.Content = "Browse models in Model Hub";
+                ShowFirstModelActions(installable: true);
             }
 
             try
@@ -210,15 +207,15 @@ namespace PaRuX.Views
                 return;
             }
 
-            if (_selectedFirstModelId == null
-                || !advice.Candidates.Any(candidate => candidate.Model.Id == _selectedFirstModelId))
-                _selectedFirstModelId = advice.RecommendedId;
+            if (_selectedFirstModelId != null
+                && !advice.Candidates.Any(candidate => candidate.Model.Id == _selectedFirstModelId))
+                _selectedFirstModelId = null;
 
             FirstModelCandidate? selected = advice.Candidates
                 .FirstOrDefault(candidate => candidate.Model.Id == _selectedFirstModelId);
             FirstModelHeadlineText.Text = selected == null
-                ? advice.Headline
-                : "General-chat starter: " + selected.Model.Title + ". " + selected.Reason
+                ? "Choose a compatible chat model in Model Hub."
+                : "Selected model: " + selected.Model.Title + ". " + selected.Reason
                   + " This is a fit estimate, not a task-quality winner; coding, vision, image and video tasks may use different models.";
             FirstModelHeadlineText.Visibility = Visibility.Visible;
 
@@ -232,14 +229,16 @@ namespace PaRuX.Views
                 }.Where(part => !string.IsNullOrWhiteSpace(part)));
                 FirstModelDetailText.Visibility = Visibility.Visible;
                 if (FirstModelInstallButton != null)
-                    FirstModelInstallButton.Content = "Find " + selected.Model.Title + " in Model Hub";
+                    FirstModelInstallButton.Content = "Open selected model in Model Hub";
             }
             else
             {
                 FirstModelDetailText.Visibility = Visibility.Collapsed;
+                if (FirstModelInstallButton != null)
+                    FirstModelInstallButton.Content = "Browse models in Model Hub";
             }
 
-            ShowFirstModelActions(installable: selected != null);
+            ShowFirstModelActions(installable: true);
             ApplyFirstModelStorage(_modelBudget);
             RenderBundledOverview(BundledRuntimeOverviewPresenter.BuildOverview(_lastComponents, _modelAdvice));
         }
@@ -287,7 +286,12 @@ namespace PaRuX.Views
         {
             FirstModelCandidate? best = _modelAdvice?.Candidates
                 .FirstOrDefault(c => c.Model.Id == _selectedFirstModelId);
-            if (best == null) return;
+            if (best == null)
+            {
+                SuggestedQuantHintForHandoff = null;
+                FindModelRequested?.Invoke(string.Empty);
+                return;
+            }
 
             string repoId = best.Model.HuggingFaceRepoId;
             if (!_stateMachine.TryHandoffToModelHub(repoId))
@@ -396,7 +400,7 @@ namespace PaRuX.Views
                         Content = !canSelect
                             ? "Not a fit for this PC"
                             : isStandardGeneralChat
-                                ? "Use as general-chat starter"
+                                ? "Select for general chat"
                                 : "Find " + routeRole + " candidate in Model Hub",
                         IsEnabled = canSelect && (isStandardGeneralChat
                             || !string.IsNullOrWhiteSpace(candidate.Model.HuggingFaceRepoId)),

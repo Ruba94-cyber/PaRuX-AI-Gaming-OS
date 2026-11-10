@@ -16,26 +16,39 @@ namespace PaRuX.Services
         public bool ServerProcessPresent { get; set; }
         public bool Healthy { get; set; }
 
-        /// <summary>Condensed label for the chat header, e.g. "Qwen 27B - Standard".</summary>
+        /// <summary>Chat header derived from the reported profile without guessing the model family.</summary>
         public string ShortProfileLabel
         {
             get
             {
-                string p = ActiveProfile ?? string.Empty;
+                string p = (ActiveProfile ?? string.Empty).Trim();
                 if (p.Length == 0) return "Model idle";
-                string family = p.Contains("27B") ? "Qwen 27B" : (p.Contains("4B") ? "Qwen 4B" : "Qwen");
-                // "media assistant" checked first: the small model's own profile name is
-                // "Qwen3.5-4B Uncensored media assistant", which also contains "Uncensored" - that
-                // made this show "Qwen 4B - Uncensored" during media generation, indistinguishable
-                // from the user's real Uncensored chat profile and read as "stuck on the wrong
-                // model" even on runs where the restore afterward worked correctly.
-                bool mediaAssistant = p.IndexOf("media assistant", System.StringComparison.OrdinalIgnoreCase) >= 0;
-                string flavour = mediaAssistant
-                    ? "Media"
-                    : (p.IndexOf("Uncensored", System.StringComparison.OrdinalIgnoreCase) >= 0
-                        ? "Uncensored"
-                        : "Standard");
-                return mediaAssistant ? "Media prompt assistant · " + family : family + " · " + flavour;
+                const System.StringComparison comparison = System.StringComparison.OrdinalIgnoreCase;
+                const string mediaSuffix = " media assistant";
+                if (p.EndsWith(mediaSuffix, comparison))
+                {
+                    string model = p[..^mediaSuffix.Length].TrimEnd();
+                    const string uncensoredSuffix = " Uncensored";
+                    if (model.EndsWith(uncensoredSuffix, comparison))
+                        model = model[..^uncensoredSuffix.Length].TrimEnd();
+                    return model.Length == 0 ? "Media prompt assistant" : "Media prompt assistant · " + model;
+                }
+
+                // Strip only role suffixes explicitly encoded in the reported profile. Unknown
+                // profiles stay intact: neither model identity nor role is inferred from size.
+                foreach (string role in new[] { "Standard", "Uncensored" })
+                {
+                    foreach (string backend in new[] { " GPU", " CPU/Vulkan", "" })
+                    {
+                        string suffix = " " + role + backend;
+                        if (p.EndsWith(suffix, comparison))
+                        {
+                            string model = p[..^suffix.Length].TrimEnd();
+                            return model.Length == 0 ? p : model + " · " + role;
+                        }
+                    }
+                }
+                return p;
             }
         }
     }

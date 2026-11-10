@@ -80,6 +80,17 @@ namespace PaRuX.Services
         public bool Required { get; set; }
     }
 
+    public static class AutoSetupRuntimeSelection
+    {
+        public static ComponentStatus? Select(IEnumerable<ComponentStatus> components)
+        {
+            var text = components.Where(c => c.Id is "llama-server-vulkan" or "llama-server-cuda" or "llama-server-cpu").ToList();
+            return text.FirstOrDefault(c => c.Detected && c.Ownership == ComponentOwnership.USER_MANAGED)
+                ?? text.FirstOrDefault(c => c.Detected && c.Id != "llama-server-cpu")
+                ?? text.FirstOrDefault(c => c.Detected);
+        }
+    }
+
     public sealed class AutoSetupRuntimeInfo
     {
         public bool Detected { get; set; }
@@ -103,6 +114,8 @@ namespace PaRuX.Services
         /// <summary>Explicit user confirmation for a PaRuX-managed runtime install. False = declined.</summary>
         Task<bool> ConfirmRuntimeInstallAsync(AutoSetupRuntimeOffer offer, CancellationToken ct);
         Task InstallRuntimeAsync(AutoSetupRuntimeOffer offer, IProgress<InstallProgressPresentation> progress, CancellationToken ct);
+        /// <summary>Presence-only check for the Standard Portable starter; does not prove inference.</summary>
+        bool HasBundledStandardPortableStarter();
         Task<IReadOnlyList<ModelQuantChoice>> GetQuantChoicesAsync(string repoId, CancellationToken ct);
         Task<AutoSetupFit> EstimateFitAsync(long totalBytes, CancellationToken ct);
         Task<ModelDownloadPlan> GetPlanAsync(string repoId, ModelQuantChoice choice, CancellationToken ct);
@@ -460,6 +473,15 @@ namespace PaRuX.Services
 
         private async Task SelectModelAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+            if (_host.HasBundledStandardPortableStarter())
+            {
+                // Do not replace existing model/role choices or query a remote catalogue.
+                // The actual configured local model must still pass the chat challenge.
+                _state.ModelNote = "A Portable starter is present. The current local Chat configuration still needs verification.";
+                Move(AutoSetupPhase.VerifyingChat, "Verifying the current local Chat configuration...");
+                return;
+            }
             _advice ??= await _host.GetAdviceAsync(ct).ConfigureAwait(false);
             IReadOnlyList<FirstModelCandidate> ranked = AutoSetupModelPicker.RankedCandidates(_advice);
             if (ranked.Count == 0)

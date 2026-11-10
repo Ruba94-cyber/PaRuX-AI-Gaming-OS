@@ -231,6 +231,19 @@ namespace PaRuX.Views
             await RefreshAllAsync();
         }
 
+        /// <summary>Opens the neutral first-run browse route without retaining an earlier search.</summary>
+        public async void OnShownBrowsingChatModels()
+        {
+            _firstModelHandoffRepoId = null;
+            _firstModelHandoffQuantHint = null;
+            ShowHubTab(ModelHubTab.Text);
+            InvalidatePendingSearch();
+            _search.Text = string.Empty;
+            _lastSearch.Clear();
+            RenderSearch(Array.Empty<ModelSearchResult>());
+            await RefreshAllAsync();
+        }
+
         /// <summary>
         /// Opens Model Hub already searching for a specific repository. First-run recommends one
         /// model by name; landing the user on an empty search box after they pressed a button that

@@ -100,7 +100,7 @@
                             <StackPanel Spacing="{StaticResource PaRuXSpaceXS}">
                                 <TextBlock x:Name="BundledRuntimeHeadlineText"
                                            AutomationProperties.AutomationId="Onboarding_BundledRuntimeHeadlineText"
-                                           Text="The installer includes the baseline text runtime; download a model to start chatting."
+                                           Text="Check the included text runtime, choose or use an existing model, then verify local Chat."
                                            Style="{StaticResource PaRuXBodyTextStyle}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                 <TextBlock x:Name="BundledRuntimeSubheadText"
                                            AutomationProperties.AutomationId="Onboarding_BundledRuntimeSubheadText"
@@ -217,7 +217,7 @@
                                        Style="{StaticResource PaRuXCaptionTextStyle}" />
                             <StackPanel x:Name="FirstModelActions" Orientation="Horizontal"
                                         Spacing="{StaticResource PaRuXSpaceS}" Visibility="Collapsed">
-                                <Button x:Name="FirstModelInstallButton" Content="Get this model"
+                                <Button x:Name="FirstModelInstallButton" Content="Browse models in Model Hub"
                                         AutomationProperties.AutomationId="FirstModelInstallButton"
                                         Style="{StaticResource AccentButtonStyle}" Click="FirstModelInstall_Click" />
                                 <Button x:Name="FirstModelOtherButton"
