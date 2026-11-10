@@ -34,6 +34,15 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly Button _epicRefresh = new();
     private readonly Button _gogRefresh = new();
     private readonly Button _allStoresRefresh = new();
+    // First-visit voluntary local store scan; no disk scan on app startup.
+    private readonly Border _storeDiscoveryOffer = new()
+    {
+        Visibility = Visibility.Collapsed, Padding = new Thickness(16),
+        CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1)
+    };
+    private readonly TextBlock _storeDiscoveryOfferText = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly Button _storeDiscoveryOfferScan = new() { MinHeight = 44 };
+    private readonly Button _storeDiscoveryOfferDismiss = new() { MinHeight = 44 };
     private readonly Button _displayRefresh = new();
     private readonly Button _controllerRefresh = new();
     private readonly Button _returnToAi = new();
@@ -108,6 +117,7 @@ public sealed class ManualGameLibraryView : UserControl
         _heading.FontSize = 28;
         _heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         root.Children.Add(_heading);
+        BuildStoreDiscoveryOffer(root);
 
         // The Gaming home (Continue shelf, tile library, detail panel) opens first; it also hosts the opt-in advanced section.
         _universal = new UniversalLibraryPanel(LaunchInstallationAsync, LoadAsync);
