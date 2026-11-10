@@ -616,6 +616,7 @@ public sealed class ManualGameLibraryView : UserControl
     public async void OnShown()
     {
         ApplySetupProfilePresentation();
+        UpdateStoreDiscoveryOffer();
         if (_universal is not null)
             await _universal.RefreshVisibleTitlesAsync();
         await RefreshAsync();
@@ -1159,6 +1160,10 @@ public sealed class ManualGameLibraryView : UserControl
                 $"Rilevati {_lastDetectedGames.Count} giochi installati tra gli store. " +
                 (failed.Length > 0 ? "Non disponibili: " + string.Join(", ", failed) : "Tutti i provider hanno risposto."));
             RenderDiscoveredGames();
+            // Dismiss only after at least one real provider responded. A full outage
+            // keeps the banner available to retry; never claim success on a failure.
+            if (results.Any(x => x.Result.Succeeded && x.Result.Value != null))
+                DismissStoreDiscoveryOffer();
         }
         catch (Exception)
         {
@@ -1664,5 +1669,5 @@ public sealed class ManualGameLibraryView : UserControl
         });
     }
 
-    private void SetBusy(bool value) { TrackFocusAcrossBusy(value); _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; SyncGamingStrip(); _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; }
+    private void SetBusy(bool value) { TrackFocusAcrossBusy(value); _busy = value; _add.IsEnabled = !value; _browse.IsEnabled = !value; _steamRefresh.IsEnabled = !value; _epicRefresh.IsEnabled = !value; _gogRefresh.IsEnabled = !value; _allStoresRefresh.IsEnabled = !value; _displayRefresh.IsEnabled = !value; _controllerRefresh.IsEnabled = !value; _inspectInstaller.IsEnabled = !value && _installerInspectionAllowed; _refreshStaged.IsEnabled = !value && _installerInspectionAllowed; UpdatePackageStageAvailability(); _cancelInspection.IsEnabled = value && _inspectionCancellation != null; _gamingStatusRefresh.IsEnabled = !value; _returnToAi.IsEnabled = !value && _returnToAiAvailable; SyncGamingStrip(); _games.IsHitTestVisible = !value; _discoveredGames.IsHitTestVisible = !value; _detectedPrevious.IsEnabled = !value && _lastDetectedWindow.HasPrevious; _detectedNext.IsEnabled = !value && _lastDetectedWindow.HasNext; _storeDiscoveryOfferScan.IsEnabled = !value; _storeDiscoveryOfferDismiss.IsEnabled = !value; }
 }
