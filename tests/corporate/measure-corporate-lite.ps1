@@ -329,6 +329,21 @@ try {
     for ($i = 0; $i -lt 120; $i++) { try { if ((Api GET "/api/v1/knowledge/search?q=ping").Status -eq 200) { break } } catch {}; Start-Sleep -Milliseconds 500 }
     $R.cold_start_to_core_s = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
     Say "Core up at $script:endpoint after $($R.cold_start_to_core_s)s"
+    # This GET loads the real ONNX runtime and tokenizer, not merely a filename.
+    # It catches missing native DLLs or incompatible model graphs on a clean PC.
+    $emb = Api GET "/api/v1/embeddings/engine" $null 120
+    $rer = Api GET "/api/v1/reranker/engine" $null 120
+    $R.embedding_engine = [ordered]@{
+        http_status = $emb.Status
+        installed = ($emb.Status -eq 200 -and [bool]$emb.Json.installed)
+        loaded = ($emb.Status -eq 200 -and [bool]$emb.Json.loaded)
+    }
+    $R.reranker_engine = [ordered]@{
+        http_status = $rer.Status
+        installed = ($rer.Status -eq 200 -and [bool]$rer.Json.installed)
+        loaded = ($rer.Status -eq 200 -and [bool]$rer.Json.loaded)
+    }
+    Say "ONNX loader status: embedding loaded=$($R.embedding_engine.loaded), reranker loaded=$($R.reranker_engine.loaded)"
     Start-Sleep 5
     $idleStats = Get-SampleStats $t0 (Get-Date)
     $R.idle_after_start = Fmt-Stats (Get-SampleStats (Get-Date).AddSeconds(-4) (Get-Date))
@@ -535,6 +550,9 @@ finally {
     # mode must reject false-green packages instead of treating HTTP 200 or a generated report as DONE.
     $acceptanceFailures = New-Object System.Collections.Generic.List[string]
     if ($EnforceAcceptance) {
+        if (-not $R.embedding_engine.loaded -or -not $R.reranker_engine.loaded) {
+            $acceptanceFailures.Add("Real ONNX embedding/reranker loader did not succeed in the extracted standalone package.")
+        }
         if ($R.index_final_state -ne "done" -or [int]$R.index_chunks -lt 1) {
             $acceptanceFailures.Add("Document indexing did not finish with searchable chunks.")
         }
