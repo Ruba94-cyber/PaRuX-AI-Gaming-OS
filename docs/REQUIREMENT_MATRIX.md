@@ -30,7 +30,7 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | GAM-007 Sunshine/Moonlight, HDR/VRR | NO | NO | NOT RUN | NOT RUN | NOT RUN | BLOCKED-HW | NO | none |
 | PKG-001 MSI, Portable, Corporate, APK built and signed | YES | YES | YES | N/A | NOT RUN | BLOCKED-HW | NO | docs/RELEASE_CANDIDATE_4.1.0.md, QA-026 (plan row cites stale c288afb9), EV-05, EV-06 |
 | PKG-002 Health reports product version | YES | NO | NOT RUN | NOT RUN | NOT RUN | N/A | NO | docs/RELEASE_CANDIDATE_4.1.0.md (health shows 4.1.0; Implemented per RC doc; earlier "NOT IMPLEMENTED" superseded) |
-| PKG-STD Standard Portable standalone ZIP | YES | YES | YES | YES | NOT RUN | NOT RUN | NO | EV-05, EV-07. Not verified: real chat/RAG, relocation, clean PC |
+| PKG-STD Standard Portable standalone ZIP | YES | YES | YES | YES | NOT RUN | PARTIAL | NO | EV-05, EV-07, QA-036 (chat, document search with citation, abstention, clean exit, folder relocation and no host-profile writes verified on the build PC). Not verified: clean PC, network disabled, non-NTFS volume, the UI through FlaUI on the packaged app |
 | PKG-CORP Corporate Portable standalone ZIP with model | YES | YES | YES | YES | NOT RUN | PARTIAL | NO | EV-06, EV-07, EV-09 (strict gate PASS on the reference PC). Not verified: clean PC without developer tools, 8-16 GB machine, 30,000-page PDF, network physically disabled, Corporate UI through FlaUI |
 | PKG-MSI Windows MSI install/upgrade/uninstall | YES | YES | YES | N/A | N/A | NOT RUN | NO | docs/RELEASE_CANDIDATE_4.1.0.md. Build on 4.1.0 beta build only |
 | PKG-APK Android companion APK | YES | YES | YES | YES | NOT RUN | BLOCKED-HW | NO | EV-03. Build on 4.1.0 beta build only |
@@ -145,6 +145,6 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | G UI/UX | PENDING | FlaUI regression 310/311 at 12028a3c with one test fix re-run alone (QA-035); scaling/4K/TV/controller passes and the visual audit of every screen not done |
 | H Performance | PENDING | PERF-001 PARTIAL; PERF-002 and PERF-003 open; hardware benchmarks BLOCKED-HW |
 | I QA | PENDING | Server xUnit 13,160/0 (QA-034), Android 41/41 (EV-03), FlaUI 310/311 + fix (QA-035), Corporate strict gate PASS (QA-032); Standard Portable chat/RAG, MSI, APK and hardware suites not run |
-| J Packaging | PENDING | Standard and Corporate ZIPs built and smoke OK (EV-05, EV-06); MSI and APK UI/hardware not run; clean-PC verification pending |
+| J Packaging | PENDING | Standard (QA-036) and Corporate (QA-032) ZIPs pass their real acceptance on the build PC; MSI install/upgrade/uninstall and APK not re-run on current source; clean-PC verification and signing of portable EXEs pending |
 | K Security | PENDING | 2 High findings fixed (EV-07); Medium findings open; many SEC-F rows still open |
 | L Release | PENDING | Release Ready is YES only for REL-001, REL-002, REL-003 |
