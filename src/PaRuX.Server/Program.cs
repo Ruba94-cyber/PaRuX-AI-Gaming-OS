@@ -367,6 +367,9 @@ if (PaRuX.Contracts.CorporateMode.IsActive)
         await next();
     });
 }
+// Microsoft Store edition: no executable downloads/installs and no torrent engine (single shared guard).
+// A pass-through everywhere else.
+app.UseMiddleware<StoreEditionGuardMiddleware>();
 StartupTrace.Mark("built");
 
 // Before anything can ask for a model or a picture: put the runtime config files back if the

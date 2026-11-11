@@ -12,6 +12,7 @@ public static class ManagedSourceArchive
         string owner, string repository, string commitSha, string destination, CancellationToken ct)
     {
         if (Directory.Exists(destination) && Directory.EnumerateFileSystemEntries(destination).Any()) return;
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         if (!SafeSlug(owner) || !SafeSlug(repository) || commitSha.Length != 40 || commitSha.Any(c => !Uri.IsHexDigit(c)))
             throw new InvalidDataException("Managed source archive identity is invalid.");
 

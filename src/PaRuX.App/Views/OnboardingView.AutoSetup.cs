@@ -176,6 +176,8 @@ namespace PaRuX.Views
                     Version = active?.Version
                 };
                 if (info.IsUserManaged) return info;
+                // Microsoft Store edition: never offer to download a runtime; the bundled baseline engine is used.
+                if (!PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) return info;
 
                 ComponentStatus? cuda = text.FirstOrDefault(c => c.Id == "llama-server-cuda");
                 bool nvidia = (await TryHardwareAsync(ct))?.GpuAdapters.Any(a =>

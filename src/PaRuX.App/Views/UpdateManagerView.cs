@@ -326,7 +326,7 @@ namespace PaRuX.Views
                     var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                     var update = new Button { Content = "Check / update…" };
                     update.Click += async (_, _) => await CheckRuntimeBuildsAsync(component, backend);
-                    actions.Children.Add(update);
+                    if (PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) actions.Children.Add(update);
                     if (component.Actions.Contains("rollback"))
                     {
                         var rollback = new Button { Content = "Rollback…" };

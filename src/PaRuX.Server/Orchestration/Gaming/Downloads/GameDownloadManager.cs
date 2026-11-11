@@ -168,6 +168,9 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
 
     public GameDownloadDto Enqueue(GameDownloadRequest request)
     {
+        // Store edition: game archives/installers and torrents are never downloaded (HTTP guard is first; this is defense in depth).
+        if (!StoreEditionPolicy.AllowsExecutableDownloads || !StoreEditionPolicy.AllowsTorrent)
+            throw new GameDownloadException(StoreEditionPolicy.ExecutableDownloadsReason);
         ArgumentNullException.ThrowIfNull(request);
         string kind = GameDownloadKinds.Normalize(request.Kind)
             ?? throw new GameDownloadException("The download kind must be http, magnet or torrentfile.");
@@ -788,7 +791,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
     /// </summary>
     private void LoadNativeTorrentRecovery()
     {
-        if (_nativeRecovery is null || _nativeTorrent is null) return;
+        if (_nativeRecovery is null || _nativeTorrent is null || !StoreEditionPolicy.AllowsTorrent) return;
         try
         {
             foreach (NativeTorrentRecoveryStore.Entry job in _nativeRecovery.Load())

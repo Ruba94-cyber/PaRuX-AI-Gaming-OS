@@ -56,6 +56,21 @@ internal sealed class GameDownloadsPanel : StackPanel
             FontSize = 22,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         });
+        if (!StoreEditionPolicy.AllowsExecutableDownloads)
+        {
+            // Microsoft Store edition: game archives/installers and torrents are never downloaded. The library,
+            // launching installed games and store discovery are unaffected; no controls, no polling.
+            AutomationProperties.SetAutomationId(this, "GameDownloads_StoreEdition_Panel");
+            Children.Add(new TextBlock
+            {
+                Text = T(
+                    "Not available in the Microsoft Store edition. Downloading game archives or installers is turned off here. Add games you already own to the library and launch them as usual.",
+                    "Non disponibile nell'edizione Microsoft Store. Il download di archivi o installer di giochi è disattivato. Aggiungi alla libreria i giochi che già possiedi e avviali come di consueto."),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.8
+            });
+            return;
+        }
         Children.Add(new TextBlock
         {
             Text = T(

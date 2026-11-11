@@ -12,7 +12,7 @@ PaRuX AI Studio e uno spazio di lavoro AI "local-first" per Windows. Chatta con 
 
 Da sapere prima di installare:
 - PaRuX ha bisogno di un modello AI per rispondere. Il pacchetto dello Store contiene l'app e un motore di inferenza locale, ma nessun file modello. Alla prima chat PaRuX ti aiuta a scegliere un modello e lo scarica solo dopo la tua conferma (i modelli sono grandi, spesso diversi GB).
-- Alcune funzioni opzionali scaricano componenti aggiuntivi su richiesta (per esempio altri motori di inferenza o strumenti multimediali). Ognuno e opzionale, viene mostrato prima dell'installazione e nulla viene installato in modo silenzioso.
+- L'edizione Microsoft Store include il motore di inferenza e non scarica ne installa mai programmi: nessun motore aggiuntivo, nessuno strumento Python, nessun installer. Vengono scaricati solo i file dei modelli AI e altri dati, e solo dopo la tua conferma. Il motore torrent integrato non fa parte di questa edizione. Puoi comunque indicare a PaRuX software che hai gia installato tu.
 - La velocita dipende dal tuo PC. Un computer con una GPU recente o abbastanza memoria esegue meglio i modelli piu grandi.
 - Questa e una versione iniziale. Alcune funzioni sono ancora in fase di test su hardware reale.
 

@@ -633,6 +633,12 @@ namespace PaRuX.Views
         private async Task InstallStartEngineAsync(string type, Button button)
         {
             bool it = StartItalian;
+            if (!PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads)
+            {
+                // Microsoft Store edition: engines are never downloaded (the Core refuses as well).
+                _status.Text = it ? "Non disponibile nell'edizione Microsoft Store." : PaRuX.Contracts.StoreEditionPolicy.Reason;
+                return;
+            }
             _startEngineStatuses.TryGetValue(type, out MediaSetupStatus? status);
             MediaEngineDefinition? engine = MediaEngineHubPresenter.Engines.FirstOrDefault(e => e.Type == type);
             string name = StartEngineTitle(type, engine?.Title ?? type, it);

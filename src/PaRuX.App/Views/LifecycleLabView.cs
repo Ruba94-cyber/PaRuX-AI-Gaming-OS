@@ -876,6 +876,11 @@ namespace PaRuX.Views
 
         private async Task InstallTrainingEngineAsync()
         {
+            if (!PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads)
+            {
+                _status.Text = PaRuX.Contracts.StoreEditionPolicy.Reason;
+                return;
+            }
             SetBusy(true, "Installing managed Training Lab runtime…");
             try
             {

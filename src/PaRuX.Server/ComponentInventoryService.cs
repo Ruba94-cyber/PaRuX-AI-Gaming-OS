@@ -194,7 +194,7 @@ public sealed class ComponentInventoryService
         bool installed = status?.Installed == true;
         bool skipped = !installed && LocalAiPaths.IsComponentSkipped(id);
         var actions = new List<string>();
-        if (installSupported) actions.Add("install");
+        if (installSupported && PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) actions.Add("install");
         if (installSupported && installed) actions.Add("rollback");
         if (!installed) actions.Add(skipped ? "unskip" : "skip");
 
@@ -242,7 +242,7 @@ public sealed class ComponentInventoryService
                 ValidationMessage = stillThere
                     ? "The selected checkout contains the expected ComfyUI main.py entry point. PaRuX does not own or modify it."
                     : "The configured ComfyUI main.py no longer exists.",
-                Actions = new[] { "relocate", "remove", "install" }
+                Actions = PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads ? new[] { "relocate", "remove", "install" } : new[] { "relocate", "remove" }
             };
         }
 
@@ -253,7 +253,8 @@ public sealed class ComponentInventoryService
         IReadOnlyList<ComfyBuildIdentity> builds = store.ListInstalled();
         bool rollbackAvailable = active != null && builds.Any(b => b != active);
 
-        var actions = new List<string> { "install", "locate" };
+        var actions = new List<string> { "locate" };
+        if (PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) actions.Insert(0, "install");
         if (rollbackAvailable) actions.Add("rollback");
         if (!installed) actions.Add(skipped ? "unskip" : "skip");
 

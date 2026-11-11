@@ -43,6 +43,7 @@ namespace PaRuX.Views
         public SettingsView()
         {
             InitializeComponent();
+            ApplyStoreEditionRestrictions();
             InitializeCorporateSettingsLayout();
             ApplyProfileSettingsSections();
             LocalizeVideoPresets();
@@ -778,6 +779,19 @@ namespace PaRuX.Views
         }
 
         private string? _embeddingInstallFailure;
+
+        /// <summary>Microsoft Store edition: PaRuX does not download or install programs, so the engine installers and the
+        /// runtime updater are hidden (the Core refuses them too). Locating software the user installed stays available.</summary>
+        private void ApplyStoreEditionRestrictions()
+        {
+            if (PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) return;
+            foreach (Button b in new[] { InstallEmbeddingEngineButton, AvatarInstallButton, ThreedInstallButton, Settings_AutoCheck_RuntimeUpdate_Button })
+            {
+                if (b == null) continue;
+                b.Visibility = Visibility.Collapsed;
+                b.IsEnabled = false;
+            }
+        }
 
         private async void InstallEmbeddingEngine_Click(object sender, RoutedEventArgs e)
         {
