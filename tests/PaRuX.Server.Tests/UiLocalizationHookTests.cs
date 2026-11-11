@@ -31,13 +31,14 @@ public sealed class UiLocalizationHookTests
     private static readonly string[] LocalizedXaml =
     {
         "Views/SettingsView.xaml",
+        "Views/ChatView.xaml",
     };
 
     // Visible English values that are intentionally identical in Italian (brand names, product names, units,
     // example literals, language names). Anything else without an Italian companion fails the test.
     private static readonly HashSet<string> SameInBothLanguages = new(StringComparer.Ordinal)
     {
-        "English", "Italiano", "GAMING", "INTERNET", "PERSONAS", "AVATAR STUDIO", "Auto", "Standard", "AUTO", "Provider", "Trigger", "Autopilot", "Dataset",
+        "English", "Italiano", "Chat", "Incognito", "AI (Ctrl+1)", "Gaming", "Gaming (Ctrl+2)", "Model Hub", "Lifecycle Lab", "Runtime", "PaRuX", "Console / TV", "GAMING", "INTERNET", "PERSONAS", "AVATAR STUDIO", "Auto", "Standard", "AUTO", "Provider", "Trigger", "Autopilot", "Dataset",
         "Benchmark", "Personas", "FPS", "GPU / VRAM", "VS Code", "OpenCode", "parux-code", "parux-reasoning",
         "parux-fast", "* (default)", "http://127.0.0.1:11434", "https://your-gateway.example.com/v1",
         "openai/gpt-oss-120b", "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit", "PaRuX · ", "PaRuX AI & Gaming OS",

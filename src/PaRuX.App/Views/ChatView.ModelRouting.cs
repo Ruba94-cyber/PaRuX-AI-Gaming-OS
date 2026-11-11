@@ -54,8 +54,8 @@ namespace PaRuX.Views
                 ShowTransientStatus(selected + " · " + profile + capability + speed);
                 ToolTipService.SetToolTip(ModelSelector,
                     string.IsNullOrWhiteSpace(route.Reason)
-                        ? "Last routed turn: " + selected + " · " + profile
-                        : "Last routed turn: " + selected + " · " + profile + "\n\n" + route.Reason);
+                        ? T("Last routed turn: ", "Ultimo turno instradato: ") + selected + " · " + profile
+                        : T("Last routed turn: ", "Ultimo turno instradato: ") + selected + " · " + profile + "\n\n" + route.Reason);
             });
         }
 
@@ -501,7 +501,7 @@ namespace PaRuX.Views
                     string fullDetails = model.FileName + " · " + model.Quantization;
                     ToolTipService.SetToolTip(item, fullDetails);
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item,
-                        "Manual model " + display + ". File " + fullDetails);
+                        T("Manual model ", "Modello manuale ") + display + T(". File ", ". File ") + fullDetails);
                     ModelSelector.Items.Add(item);
                 }
 

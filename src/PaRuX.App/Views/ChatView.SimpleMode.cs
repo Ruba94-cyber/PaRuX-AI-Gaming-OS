@@ -349,7 +349,7 @@ namespace PaRuX.Views
                 string badge = ApplyManualChoiceToBadge(info.BadgeText);
                 SimpleModeAnsweringModelLabel.Text = badge;
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeAnsweringModelLabel,
-                    string.Equals(badge, info.BadgeText, StringComparison.Ordinal) ? info.AccessibleName : "Answering model: " + badge);
+                    string.Equals(badge, info.BadgeText, StringComparison.Ordinal) ? info.AccessibleName : T("Answering model: ", "Modello che risponde: ") + badge);
             }
             if (SimpleModeAnsweringModelBadge != null)
             {
@@ -369,12 +369,12 @@ namespace PaRuX.Views
                 : ProjectWorkspaceSession.Current.RepositoryRoot;
             bool hasFolder = !string.IsNullOrWhiteSpace(root);
             string name = hasFolder ? Path.GetFileName(root!.TrimEnd(Path.DirectorySeparatorChar)) : string.Empty;
-            CodeFolderLabel.Text = name.Length == 0 ? "Choose code folder" : name;
+            CodeFolderLabel.Text = name.Length == 0 ? T("Choose code folder", "Scegli la cartella di codice") : name;
             ToolTipService.SetToolTip(CodeFolderButton,
-                name.Length == 0 ? "Choose the repository PaRuX will work on" : root);
+                name.Length == 0 ? T("Choose the repository PaRuX will work on", "Scegli il repository su cui lavorerà PaRuX") : root);
             // Icon-only button: without a name screen readers announced nothing at all.
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(CodeFolderButton,
-                name.Length == 0 ? "Choose code folder" : "Code folder: " + name + ". Choose another");
+                name.Length == 0 ? T("Choose code folder", "Scegli la cartella di codice") : T("Code folder: ", "Cartella di codice: ") + name + T(". Choose another", ". Sceglierne un'altra"));
             CodeFolderClearButton.Visibility = (CodeFolderButton.Visibility == Visibility.Visible && hasFolder)
                 ? Visibility.Visible
                 : Visibility.Collapsed;

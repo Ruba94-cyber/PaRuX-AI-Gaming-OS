@@ -148,13 +148,13 @@ namespace PaRuX.Views
             int nextCount = Math.Min(ChatRenderWindowPolicy.HistoryPageSize, hiddenCount);
             var button = new Button
             {
-                Content = "Load " + nextCount + " earlier messages · " + hiddenCount + " hidden",
+                Content = T("Load ", "Carica ") + nextCount + T(" earlier messages · ", " messaggi precedenti · ") + hiddenCount + T(" hidden", " nascosti"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 8),
                 Padding = new Thickness(12, 6, 12, 6)
             };
             ToolTipService.SetToolTip(button,
-                "Only the chat visual tree is paged. The complete conversation remains saved and available to PaRuX.");
+                T("Only the chat visual tree is paged. The complete conversation remains saved and available to PaRuX.", "Solo l'albero visivo della chat è paginato. L'intera conversazione resta salvata e disponibile per PaRuX."));
             button.Click += (s, e) =>
             {
                 List<ChatMessage> messages = ChatSession.Current.Conversation.Messages;

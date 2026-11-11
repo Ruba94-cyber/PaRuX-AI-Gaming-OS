@@ -3,6 +3,7 @@
     x:Class="PaRuX.Views.ChatView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="using:PaRuX.Views"
     mc:Ignorable="d"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
@@ -140,7 +141,7 @@
                         <TextBlock
                             x:Name="ProfileText"
                             AutomationProperties.AutomationId="Chat_Header_Profile_Text"
-                            Text="Model idle"
+                            Text="Model idle" loc:Loc.ItText="Modello inattivo"
                             TextWrapping="NoWrap"
                             TextTrimming="CharacterEllipsis"
                             Style="{StaticResource PaRuXSubtleCaptionStyle}"
@@ -155,7 +156,7 @@
                                     FontSize="11"
                                     Foreground="{ThemeResource PaRuXCautionTextBrush}" />
                                 <TextBlock
-                                    Text="Gaming Mode"
+                                    Text="Gaming Mode" loc:Loc.ItText="Modalità Gaming"
                                     FontSize="{StaticResource PaRuXFontSizeMicro}"
                                     Foreground="{ThemeResource PaRuXCautionTextBrush}" />
                             </StackPanel>
@@ -163,21 +164,21 @@
                         <Button
                             x:Name="ReturnToAiButton"
                             AutomationProperties.AutomationId="Chat_Header_ReturnToAi_Button"
-                            AutomationProperties.Name="Return to AI"
+                            AutomationProperties.Name="Return to AI" loc:Loc.ItName="Torna all&#x27;IA"
                             Visibility="Collapsed"
-                            Content="Return to AI"
+                            Content="Return to AI" loc:Loc.ItContent="Torna all&#x27;IA"
                             Padding="10,2"
                             MinHeight="0"
                             Height="24"
                             FontSize="{StaticResource PaRuXFontSizeMicro}"
                             VerticalAlignment="Center"
                             Click="ReturnToAi_Click"
-                            ToolTipService.ToolTip="Leave Gaming Mode. Local AI loads again when you send your next message." />
+                            ToolTipService.ToolTip="Leave Gaming Mode. Local AI loads again when you send your next message." loc:Loc.ItToolTip="Esci dalla Modalità Gaming. L&#x27;IA locale si ricarica al prossimo messaggio." />
                         <Border
                             x:Name="IncognitoBadge"
                             Visibility="Collapsed"
                             Style="{StaticResource PaRuXQuietPillStyle}"
-                            ToolTipService.ToolTip="This conversation is never saved - not on this PC, not synced to any paired device.">
+                            ToolTipService.ToolTip="This conversation is never saved - not on this PC, not synced to any paired device." loc:Loc.ItToolTip="Questa conversazione non viene mai salvata: né su questo PC né sincronizzata con alcun dispositivo associato.">
                             <StackPanel Orientation="Horizontal" Spacing="{StaticResource PaRuXSpaceXS}">
                                 <FontIcon
                                     Glyph="&#xED1A;"
@@ -192,8 +193,8 @@
                         <Button
                             x:Name="ChatHelpButton"
                             AutomationProperties.AutomationId="Chat_Header_Help_Button"
-                            AutomationProperties.Name="Help and guided tour"
-                            ToolTipService.ToolTip="Open PaRuX in-app help, guide topics and guided tour"
+                            AutomationProperties.Name="Help and guided tour" loc:Loc.ItName="Guida e visita guidata"
+                            ToolTipService.ToolTip="Open PaRuX in-app help, guide topics and guided tour" loc:Loc.ItToolTip="Apri la guida in-app di PaRuX, gli argomenti della guida e la visita guidata"
                             Padding="8,2"
                             MinHeight="0"
                             Height="24"
@@ -202,7 +203,7 @@
                             Click="ChatHelpButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="{StaticResource PaRuXSpaceXS}">
                                 <FontIcon Glyph="&#xE897;" FontSize="11" />
-                                <TextBlock Text="Help" FontSize="{StaticResource PaRuXFontSizeMicro}" />
+                                <TextBlock Text="Help" loc:Loc.ItText="Aiuto" FontSize="{StaticResource PaRuXFontSizeMicro}" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -234,7 +235,7 @@
                                 CornerRadius="{StaticResource PaRuXRadiusPill}"
                                 Click="ProfileToggle_Click"
                                 Tag="AUTO"
-                                ToolTipService.ToolTip="Use whichever text profile is already loaded" />
+                                ToolTipService.ToolTip="Use whichever text profile is already loaded" loc:Loc.ItToolTip="Usa il profilo di testo già caricato" />
                             <ToggleButton
                                 x:Name="StandardToggle"
                                 AutomationProperties.AutomationId="Chat_Profile_Standard_Toggle"
@@ -246,11 +247,11 @@
                                 CornerRadius="{StaticResource PaRuXRadiusPill}"
                                 Click="ProfileToggle_Click"
                                 Tag="STANDARD"
-                                ToolTipService.ToolTip="Switch llama-server to the Standard profile (reloads the model)" />
+                                ToolTipService.ToolTip="Switch llama-server to the Standard profile (reloads the model)" loc:Loc.ItToolTip="Passa a llama-server con il profilo Standard (ricarica il modello)" />
                             <ToggleButton
                                 x:Name="UncensoredToggle"
                                 AutomationProperties.AutomationId="Chat_Profile_Uncensored_Toggle"
-                                Content="Uncensored"
+                                Content="Uncensored" loc:Loc.ItContent="Senza censura"
                                 MinWidth="92"
                                 Height="28"
                                 Padding="12,0,12,0"
@@ -258,7 +259,7 @@
                                 CornerRadius="{StaticResource PaRuXRadiusPill}"
                                 Click="ProfileToggle_Click"
                                 Tag="UNCENSORED"
-                                ToolTipService.ToolTip="Switch to the configured Uncensored provider (requires a compatible accelerator)" />
+                                ToolTipService.ToolTip="Switch to the configured Uncensored provider (requires a compatible accelerator)" loc:Loc.ItToolTip="Passa al provider Senza censura configurato (richiede un acceleratore compatibile)" />
                         </StackPanel>
                     </Border>
                 </ScrollViewer>
@@ -301,7 +302,7 @@
             <StackPanel Spacing="{StaticResource PaRuXSpaceS}">
                 <TextBlock
                     x:Name="HomeHeadline"
-                    Text="Ask PaRuX anything"
+                    Text="Ask PaRuX anything" loc:Loc.ItText="Chiedi qualsiasi cosa a PaRuX"
                     TextWrapping="Wrap"
                     Style="{StaticResource PaRuXDisplayTextStyle}"
                     HorizontalAlignment="Center"
@@ -309,7 +310,7 @@
                 <TextBlock
                     x:Name="HomeDescription"
                     AutomationProperties.AutomationId="Chat_Home_Description_Text"
-                    Text="Start a conversation with PaRuX."
+                    Text="Start a conversation with PaRuX." loc:Loc.ItText="Inizia una conversazione con PaRuX."
                     TextWrapping="Wrap"
                     Style="{StaticResource PaRuXCaptionTextStyle}"
                     HorizontalAlignment="Center"
@@ -323,7 +324,7 @@
                     x:Name="HomeCodeSuggestion"
                     Click="Suggestion_Click"
                     AutomationProperties.AutomationId="Chat_Home_Code_Button"
-                    AutomationProperties.Name="Improve this codebase"
+                    AutomationProperties.Name="Improve this codebase" loc:Loc.ItName="Migliora questo codice"
                     Tag="Improve the code in this project:"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
@@ -336,7 +337,7 @@
                     <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <FontIcon Glyph="&#xE943;" FontSize="14" Foreground="{ThemeResource PaRuXBrandTextBrush}" />
-                        <TextBlock Grid.Column="1" x:Name="HomeCodeLabel" Text="Improve this codebase" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="HomeCodeLabel" Text="Improve this codebase" loc:Loc.ItText="Migliora questo codice" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
                     </Grid>
                 </Button>
 
@@ -344,7 +345,7 @@
                     x:Name="HomeAnalysisSuggestion"
                     Click="Suggestion_Click"
                     AutomationProperties.AutomationId="Chat_Home_Analysis_Button"
-                    AutomationProperties.Name="Analyse a problem in depth"
+                    AutomationProperties.Name="Analyse a problem in depth" loc:Loc.ItName="Analizza un problema a fondo"
                     Tag="Analyse this problem in depth:"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
@@ -357,7 +358,7 @@
                     <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <FontIcon Glyph="&#xE9CE;" FontSize="14" Foreground="{ThemeResource PaRuXBrandTextBrush}" />
-                        <TextBlock Grid.Column="1" x:Name="HomeAnalysisLabel" Text="Analyse a problem in depth" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="HomeAnalysisLabel" Text="Analyse a problem in depth" loc:Loc.ItText="Analizza un problema a fondo" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
                     </Grid>
                 </Button>
 
@@ -365,7 +366,7 @@
                     x:Name="HomeSummarySuggestion"
                     Click="Suggestion_Click"
                     AutomationProperties.AutomationId="Chat_Home_Summary_Button"
-                    AutomationProperties.Name="Summarise a text into key points"
+                    AutomationProperties.Name="Summarise a text into key points" loc:Loc.ItName="Riassumi un testo nei punti chiave"
                     Tag="Summarise this into key points:"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
@@ -378,7 +379,7 @@
                     <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <FontIcon Glyph="&#xE8BD;" FontSize="14" Foreground="{ThemeResource PaRuXBrandTextBrush}" />
-                        <TextBlock Grid.Column="1" x:Name="HomeSummaryLabel" Text="Summarise a text into key points" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="HomeSummaryLabel" Text="Summarise a text into key points" loc:Loc.ItText="Riassumi un testo nei punti chiave" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
                     </Grid>
                 </Button>
 
@@ -386,7 +387,7 @@
                     x:Name="HomeImageSuggestion"
                     Click="Suggestion_Click"
                     AutomationProperties.AutomationId="Chat_Home_Image_Button"
-                    AutomationProperties.Name="Generate an image"
+                    AutomationProperties.Name="Generate an image" loc:Loc.ItName="Genera un&#x27;immagine"
                     Tag="Generate an image of a futuristic landscape, no text"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
@@ -399,7 +400,7 @@
                     <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <FontIcon Glyph="&#xEB9F;" FontSize="14" Foreground="{ThemeResource PaRuXBrandTextBrush}" />
-                        <TextBlock Grid.Column="1" x:Name="HomeImageLabel" Text="Generate an image" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="HomeImageLabel" Text="Generate an image" loc:Loc.ItText="Genera un&#x27;immagine" TextWrapping="Wrap" Style="{StaticResource PaRuXBodyTextStyle}" />
                     </Grid>
                 </Button>
             </StackPanel>
@@ -478,7 +479,7 @@
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom">
                         <Button
                             x:Name="AttachButton"
-                            AutomationProperties.Name="Attach images"
+                            AutomationProperties.Name="Attach images" loc:Loc.ItName="Allega immagini"
                             Click="Attach_Click"
                             Background="Transparent"
                             BorderThickness="0"
@@ -488,13 +489,13 @@
                             Height="36"
                             Width="36"
                             Padding="0"
-                            ToolTipService.ToolTip="Attach images (PNG, JPEG, WebP, BMP)">
+                            ToolTipService.ToolTip="Attach images (PNG, JPEG, WebP, BMP)" loc:Loc.ItToolTip="Allega immagini (PNG, JPEG, WebP, BMP)">
                             <FontIcon Glyph="&#xE723;" FontSize="15" />
                         </Button>
                         <Button
                             x:Name="AttachAudioButton"
                             AutomationProperties.AutomationId="Chat_Audio_Attach_Button"
-                            AutomationProperties.Name="Attach audio"
+                            AutomationProperties.Name="Attach audio" loc:Loc.ItName="Allega audio"
                             Click="AttachAudio_Click"
                             Background="Transparent"
                             BorderThickness="0"
@@ -504,13 +505,13 @@
                             Height="36"
                             Width="36"
                             Padding="0"
-                            ToolTipService.ToolTip="Attach audio to transcribe locally (WAV, MP3, M4A, OGG, FLAC)">
+                            ToolTipService.ToolTip="Attach audio to transcribe locally (WAV, MP3, M4A, OGG, FLAC)" loc:Loc.ItToolTip="Allega audio da trascrivere in locale (WAV, MP3, M4A, OGG, FLAC)">
                             <FontIcon Glyph="&#xE8D6;" FontSize="15" />
                         </Button>
                         <Button
                             x:Name="DocumentsButton"
                             AutomationProperties.AutomationId="Chat_Documents_Button"
-                            AutomationProperties.Name="Answer from my documents"
+                            AutomationProperties.Name="Answer from my documents" loc:Loc.ItName="Rispondi dai miei documenti"
                             Background="Transparent"
                             BorderThickness="0"
                             CornerRadius="{StaticResource PaRuXRadiusMedium}"
@@ -519,13 +520,13 @@
                             Height="36"
                             Width="36"
                             Padding="0"
-                            ToolTipService.ToolTip="Answer from my documents (cited, from the folders you choose)">
+                            ToolTipService.ToolTip="Answer from my documents (cited, from the folders you choose)" loc:Loc.ItToolTip="Rispondi dai miei documenti (con citazioni, dalle cartelle che scegli)">
                             <FontIcon Glyph="&#xE8A5;" FontSize="15" />
                         </Button>
                         <Button
                             x:Name="MicButton"
                             AutomationProperties.AutomationId="Chat_Mic_Button"
-                            AutomationProperties.Name="Record voice message"
+                            AutomationProperties.Name="Record voice message" loc:Loc.ItName="Registra un messaggio vocale"
                             Click="Mic_Click"
                             Background="Transparent"
                             BorderThickness="0"
@@ -535,13 +536,13 @@
                             Height="36"
                             Width="36"
                             Padding="0"
-                            ToolTipService.ToolTip="Dictate: click to start recording, click again to stop (Esc cancels, 2 min max)">
+                            ToolTipService.ToolTip="Dictate: click to start recording, click again to stop (Esc cancels, 2 min max)" loc:Loc.ItToolTip="Dettatura: clicca per iniziare a registrare, clicca di nuovo per fermare (Esc annulla, massimo 2 min)">
                             <FontIcon x:Name="MicIcon" Glyph="&#xE720;" FontSize="15" />
                         </Button>
                         <Button
                             x:Name="VoiceModeButton"
                             AutomationProperties.AutomationId="Chat_VoiceMode_Toggle"
-                            AutomationProperties.Name="Start voice conversation"
+                            AutomationProperties.Name="Start voice conversation" loc:Loc.ItName="Avvia la conversazione vocale"
                             Click="VoiceMode_Click"
                             Background="Transparent"
                             BorderThickness="0"
@@ -551,7 +552,7 @@
                             Height="36"
                             Width="36"
                             Padding="0"
-                            ToolTipService.ToolTip="Voice mode: hands-free conversation. PaRuX listens, answers aloud, then listens again (Esc leaves)">
+                            ToolTipService.ToolTip="Voice mode: hands-free conversation. PaRuX listens, answers aloud, then listens again (Esc leaves)" loc:Loc.ItToolTip="Modalità vocale: conversazione a mani libere. PaRuX ascolta, risponde ad alta voce, poi ascolta di nuovo (Esc per uscire)">
                             <FontIcon x:Name="VoiceModeIcon" Glyph="&#xE9D9;" FontSize="15" />
                         </Button>
                     </StackPanel>
@@ -568,7 +569,7 @@
                         Background="Transparent"
                         Padding="6,6,6,6"
                         FontSize="{StaticResource PaRuXFontSizeBody}"
-                        PlaceholderText="Message PaRuX…   (Enter to send, Shift+Enter for a new line)"
+                        PlaceholderText="Message PaRuX…   (Enter to send, Shift+Enter for a new line)" loc:Loc.ItPlaceholder="Scrivi a PaRuX…   (Invio per inviare, Maiusc+Invio per andare a capo)"
                         VerticalAlignment="Bottom"
                         GotFocus="InputBox_GotFocus"
                         LostFocus="InputBox_LostFocus"
@@ -594,13 +595,13 @@
                             VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="{ThemeResource PaRuXDangerTextBrush}"
-                            ToolTipService.ToolTip="Recording. Click the microphone to stop, Esc to cancel." />
+                            ToolTipService.ToolTip="Recording. Click the microphone to stop, Esc to cancel." loc:Loc.ItToolTip="Registrazione in corso. Clicca il microfono per fermare, Esc per annullare." />
                         <!-- Stop only exists while a reply streams, and reads as a
                              neutral/danger control so it can never be mistaken for Send. -->
                         <Button
                             x:Name="StopButton"
                             AutomationProperties.AutomationId="Chat_Stop_Button"
-                            AutomationProperties.Name="Stop generating"
+                            AutomationProperties.Name="Stop generating" loc:Loc.ItName="Interrompi la generazione"
                             Visibility="Collapsed"
                             Height="36"
                             Width="36"
@@ -611,20 +612,20 @@
                             BorderThickness="1"
                             Foreground="{ThemeResource PaRuXDangerTextBrush}"
                             Click="Stop_Click"
-                            ToolTipService.ToolTip="Stop generating">
+                            ToolTipService.ToolTip="Stop generating" loc:Loc.ItToolTip="Interrompi la generazione">
                             <FontIcon Glyph="&#xE71A;" FontSize="14" />
                         </Button>
                         <Button
                             x:Name="SendButton"
                             AutomationProperties.AutomationId="Chat_Send_Button"
-                            AutomationProperties.Name="Send message"
+                            AutomationProperties.Name="Send message" loc:Loc.ItName="Invia il messaggio"
                             Height="36"
                             Width="36"
                             Padding="0"
                             CornerRadius="{StaticResource PaRuXRadiusMedium}"
                             Style="{StaticResource AccentButtonStyle}"
                             Click="Send_Click"
-                            ToolTipService.ToolTip="Send  (Enter)">
+                            ToolTipService.ToolTip="Send  (Enter)" loc:Loc.ItToolTip="Invia  (Invio)">
                             <FontIcon Glyph="&#xE724;" FontSize="15" />
                         </Button>
                     </StackPanel>
@@ -646,19 +647,19 @@
                     <Button
                         x:Name="CodeFolderButton"
                         AutomationProperties.AutomationId="Chat_CodeFolder_Button"
-                        AutomationProperties.Name="Choose code folder"
+                        AutomationProperties.Name="Choose code folder" loc:Loc.ItName="Scegli la cartella di codice"
                         Height="32"
                         MaxWidth="240"
                         Padding="10,0,10,0"
                         FontSize="{StaticResource PaRuXFontSizeMicro}"
                         Click="CodeFolderButton_Click"
-                        ToolTipService.ToolTip="Choose the repository PaRuX will work on">
+                        ToolTipService.ToolTip="Choose the repository PaRuX will work on" loc:Loc.ItToolTip="Scegli il repository su cui lavorerà PaRuX">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE8B7;" FontSize="12" />
                             <TextBlock
                                 x:Name="CodeFolderLabel"
                                 AutomationProperties.AutomationId="Chat_CodeFolder_Label"
-                                Text="Choose code folder"
+                                Text="Choose code folder" loc:Loc.ItText="Scegli la cartella di codice"
                                 MaxWidth="190"
                                 TextTrimming="CharacterEllipsis" />
                         </StackPanel>
@@ -666,14 +667,14 @@
                     <Button
                         x:Name="CodeFolderClearButton"
                         AutomationProperties.AutomationId="Chat_CodeFolderClear_Button"
-                        AutomationProperties.Name="Clear code folder"
+                        AutomationProperties.Name="Clear code folder" loc:Loc.ItName="Cancella la cartella di codice"
                         Height="32"
                         Width="32"
                         Padding="0"
                         Visibility="Collapsed"
                         FontSize="{StaticResource PaRuXFontSizeMicro}"
                         Click="CodeFolderClearButton_Click"
-                        ToolTipService.ToolTip="Clear code folder">
+                        ToolTipService.ToolTip="Clear code folder" loc:Loc.ItToolTip="Cancella la cartella di codice">
                         <FontIcon Glyph="&#xE711;" FontSize="10" />
                     </Button>
                 </StackPanel>
@@ -709,13 +710,13 @@
                     <Button
                         x:Name="SimpleModeModelPickerButton"
                         AutomationProperties.AutomationId="Chat_SimpleMode_ModelPicker_Button"
-                        AutomationProperties.Name="Choose the chat model"
-                        AutomationProperties.HelpText="Choose Auto or an installed model, or get more models."
+                        AutomationProperties.Name="Choose the chat model" loc:Loc.ItName="Scegli il modello della chat"
+                        AutomationProperties.HelpText="Choose Auto or an installed model, or get more models." loc:Loc.ItHelpText="Scegli Auto o un modello installato, oppure scarica altri modelli."
                         Padding="0"
                         Background="Transparent"
                         BorderThickness="0"
                         VerticalAlignment="Center"
-                        ToolTipService.ToolTip="Choose the chat model">
+                        ToolTipService.ToolTip="Choose the chat model" loc:Loc.ItToolTip="Scegli il modello della chat">
                         <Border
                             x:Name="SimpleModeAnsweringModelBadge"
                             Style="{StaticResource PaRuXQuietPillStyle}"
@@ -729,8 +730,8 @@
                                 <TextBlock
                                     x:Name="SimpleModeAnsweringModelLabel"
                                     AutomationProperties.AutomationId="Chat_SimpleMode_AnsweringModel_Label"
-                                    AutomationProperties.Name="Answering model"
-                                    Text="Model: Auto"
+                                    AutomationProperties.Name="Answering model" loc:Loc.ItName="Modello che risponde"
+                                    Text="Model: Auto" loc:Loc.ItText="Modello: Auto"
                                     FontSize="{StaticResource PaRuXFontSizeMicro}"
                                     Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
                                     VerticalAlignment="Center" />
@@ -748,14 +749,14 @@
                     <Button
                         x:Name="SimpleModeRouteReasonButton"
                         AutomationProperties.AutomationId="Chat_SimpleMode_RouteReason_Button"
-                        AutomationProperties.Name="Why this model?"
-                        AutomationProperties.HelpText="Open the model routing reason and evidence."
-                        Content="Why?"
+                        AutomationProperties.Name="Why this model?" loc:Loc.ItName="Perché questo modello?"
+                        AutomationProperties.HelpText="Open the model routing reason and evidence." loc:Loc.ItHelpText="Apri il motivo dell&#x27;instradamento del modello e le prove."
+                        Content="Why?" loc:Loc.ItContent="Perché?"
                         FontSize="{StaticResource PaRuXFontSizeMicro}"
                         MinWidth="36"
                         Padding="6,2,6,2"
                         Click="ModelRouteExplanationButton_Click"
-                        ToolTipService.ToolTip="Why this model?" />
+                        ToolTipService.ToolTip="Why this model?" loc:Loc.ItToolTip="Perché questo modello?" />
                 </StackPanel>
 
                 <!-- Simple mode: runtime health indicator and quick access to component lifecycle (hidden in Advanced mode) -->
@@ -768,8 +769,8 @@
                     <Button
                         x:Name="SimpleModeRuntimeHealthButton"
                         AutomationProperties.AutomationId="Chat_SimpleMode_RuntimeHealth_Button"
-                        AutomationProperties.Name="Runtime health"
-                        AutomationProperties.HelpText="View component health and manage local runtimes in Settings."
+                        AutomationProperties.Name="Runtime health" loc:Loc.ItName="Stato del runtime"
+                        AutomationProperties.HelpText="View component health and manage local runtimes in Settings." loc:Loc.ItHelpText="Vedi lo stato dei componenti e gestisci i runtime locali in Impostazioni."
                         Click="SimpleModeRuntimeHealthButton_Click"
                         Padding="6,3,6,3"
                         Background="Transparent"
@@ -786,8 +787,8 @@
                             <TextBlock
                                 x:Name="SimpleModeRuntimeHealthLabel"
                                 AutomationProperties.AutomationId="Chat_SimpleMode_RuntimeHealth_Label"
-                                AutomationProperties.Name="Runtime health"
-                                Text="Runtime: Checking…"
+                                AutomationProperties.Name="Runtime health" loc:Loc.ItName="Stato del runtime"
+                                Text="Runtime: Checking…" loc:Loc.ItText="Runtime: controllo in corso…"
                                 FontSize="{StaticResource PaRuXFontSizeMicro}"
                                 Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
                                 VerticalAlignment="Center" />
@@ -799,44 +800,44 @@
                      GGUF creates a sticky exact lock until the user explicitly returns to AUTO. -->
                 <ComboBox
                     x:Name="ModelSelector"
-                    AutomationProperties.Name="Chat model"
+                    AutomationProperties.Name="Chat model" loc:Loc.ItName="Modello della chat"
                     AutomationProperties.AutomationId="Chat_ModelSelector_ComboBox"
                     MinWidth="205"
                     FontSize="{StaticResource PaRuXFontSizeMicro}"
                     Loaded="ModelSelector_Loaded"
                     SelectionChanged="ModelSelector_SelectionChanged"
-                    ToolTipService.ToolTip="AUTO chooses by task intelligence; Manual locks the exact model until you change it" />
+                    ToolTipService.ToolTip="AUTO chooses by task intelligence; Manual locks the exact model until you change it" loc:Loc.ItToolTip="AUTO sceglie in base all&#x27;intelligenza richiesta dall&#x27;attività; Manuale blocca il modello esatto finché non lo cambi" />
 
                 <Button
                     x:Name="ModelRouteExplanationButton"
-                    Content="Why?"
+                    Content="Why?" loc:Loc.ItContent="Perché?"
                     MinWidth="48"
                     AutomationProperties.AutomationId="Chat_ModelRoute_Explain_Button"
-                    AutomationProperties.Name="Why this model?"
-                    AutomationProperties.HelpText="Open the model routing reason, capability estimate and available benchmark evidence."
+                    AutomationProperties.Name="Why this model?" loc:Loc.ItName="Perché questo modello?"
+                    AutomationProperties.HelpText="Open the model routing reason, capability estimate and available benchmark evidence." loc:Loc.ItHelpText="Apri il motivo dell&#x27;instradamento del modello, la stima delle capacità e le prove di benchmark disponibili."
                     Click="ModelRouteExplanationButton_Click"
-                    ToolTipService.ToolTip="Why this model?" />
+                    ToolTipService.ToolTip="Why this model?" loc:Loc.ItToolTip="Perché questo modello?" />
 
                 <Button
                     x:Name="QuickModelCompareButton"
-                    Content="Compare"
+                    Content="Compare" loc:Loc.ItContent="Confronta"
                     Visibility="Collapsed"
                     MinWidth="68"
                     AutomationProperties.AutomationId="Chat_QuickModelCompare_Button"
-                    AutomationProperties.Name="Compare two local models"
-                    AutomationProperties.HelpText="Run the same prompt on two installed local models without changing Chat routing."
+                    AutomationProperties.Name="Compare two local models" loc:Loc.ItName="Confronta due modelli locali"
+                    AutomationProperties.HelpText="Run the same prompt on two installed local models without changing Chat routing." loc:Loc.ItHelpText="Esegui lo stesso prompt su due modelli locali installati senza cambiare l&#x27;instradamento della Chat."
                     Click="QuickModelCompareButton_Click"
-                    ToolTipService.ToolTip="Compare two local models" />
+                    ToolTipService.ToolTip="Compare two local models" loc:Loc.ItToolTip="Confronta due modelli locali" />
 
                 <!-- Skill: AUTO by default (server chooses); pick one to force it, or type a
                      slash command (e.g. "/research …") which auto-selects and strips itself. -->
                 <ComboBox
                     x:Name="SkillSelector"
-                    AutomationProperties.Name="Chat skill"
+                    AutomationProperties.Name="Chat skill" loc:Loc.ItName="Skill della chat"
                     AutomationProperties.AutomationId="Chat_SkillSelector_ComboBox"
                     MinWidth="150"
                     FontSize="{StaticResource PaRuXFontSizeMicro}"
-                    ToolTipService.ToolTip="Force a skill instead of AUTO routing"
+                    ToolTipService.ToolTip="Force a skill instead of AUTO routing" loc:Loc.ItToolTip="Forza una skill invece dell&#x27;instradamento AUTO"
                     SelectionChanged="SkillSelector_SelectionChanged" />
             </StackPanel>
             </ScrollViewer>

@@ -56,10 +56,10 @@ namespace PaRuX.Views
                 FontSize = 18,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            AutomationProperties.SetName(previous, "Previous conversation version");
-            AutomationProperties.SetHelpText(previous, "Switch to the previous alternative at this fork");
+            AutomationProperties.SetName(previous, T("Previous conversation version", "Versione precedente della conversazione"));
+            AutomationProperties.SetHelpText(previous, T("Switch to the previous alternative at this fork", "Passa all'alternativa precedente in questo punto di diramazione"));
             AutomationProperties.SetAcceleratorKey(previous, "Ctrl+Alt+Left");
-            ToolTipService.SetToolTip(previous, "Previous alternative at this fork (Ctrl+Alt+Left)");
+            ToolTipService.SetToolTip(previous, T("Previous alternative at this fork (Ctrl+Alt+Left)", "Alternativa precedente in questo punto di diramazione (Ctrl+Alt+Sinistra)"));
             previous.Click += async (sender, args) => await NavigateConversationBranchAsync(-1);
             previous.KeyboardAccelerators.Add(new KeyboardAccelerator
             {
@@ -76,7 +76,7 @@ namespace PaRuX.Views
                 FontSize = 11,
                 Opacity = 0.78
             };
-            AutomationProperties.SetName(counter, "Conversation version 1 of 1");
+            AutomationProperties.SetName(counter, T("Conversation version 1 of 1", "Versione 1 di 1 della conversazione"));
             AutomationProperties.SetLiveSetting(counter, AutomationLiveSetting.Polite);
 
             var next = new Button
@@ -89,10 +89,10 @@ namespace PaRuX.Views
                 FontSize = 18,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            AutomationProperties.SetName(next, "Next conversation version");
-            AutomationProperties.SetHelpText(next, "Switch to the next alternative at this fork");
+            AutomationProperties.SetName(next, T("Next conversation version", "Versione successiva della conversazione"));
+            AutomationProperties.SetHelpText(next, T("Switch to the next alternative at this fork", "Passa all'alternativa successiva in questo punto di diramazione"));
             AutomationProperties.SetAcceleratorKey(next, "Ctrl+Alt+Right");
-            ToolTipService.SetToolTip(next, "Next alternative at this fork (Ctrl+Alt+Right)");
+            ToolTipService.SetToolTip(next, T("Next alternative at this fork (Ctrl+Alt+Right)", "Alternativa successiva in questo punto di diramazione (Ctrl+Alt+Destra)"));
             next.Click += async (sender, args) => await NavigateConversationBranchAsync(1);
             next.KeyboardAccelerators.Add(new KeyboardAccelerator
             {
@@ -102,17 +102,17 @@ namespace PaRuX.Views
 
             var versions = new Button
             {
-                Content = "Versions",
+                Content = T("Versions", "Versioni"),
                 MinWidth = 88,
                 Height = 32,
                 Padding = new Thickness(10, 0, 10, 0),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            AutomationProperties.SetName(versions, "Conversation version history");
-            AutomationProperties.SetHelpText(versions, "Open previous conversation paths retained by Regenerate or Edit and continue");
+            AutomationProperties.SetName(versions, T("Conversation version history", "Cronologia delle versioni della conversazione"));
+            AutomationProperties.SetHelpText(versions, T("Open previous conversation paths retained by Regenerate or Edit and continue", "Apri i percorsi di conversazione precedenti conservati da Rigenera o da Modifica e continua"));
             ToolTipService.SetToolTip(versions,
-                "Open previous conversation paths retained by Regenerate or Edit and continue");
+                T("Open previous conversation paths retained by Regenerate or Edit and continue", "Apri i percorsi di conversazione precedenti conservati da Rigenera o da Modifica e continua"));
             versions.Click += async (sender, args) => await ShowConversationBranchHistoryAsync();
 
             var panel = new StackPanel
@@ -166,15 +166,15 @@ namespace PaRuX.Views
             _conversationBranchCounter.Text = counterText;
             AutomationProperties.SetName(_conversationBranchCounter,
                 state.HasRetainedVersions
-                    ? $"Conversation version {state.ActiveIndex + 1} of {state.Paths.Count}"
-                    : "Conversation version 1 of 1");
+                    ? T($"Conversation version {state.ActiveIndex + 1} of {state.Paths.Count}", $"Versione {state.ActiveIndex + 1} di {state.Paths.Count} della conversazione")
+                    : T("Conversation version 1 of 1", "Versione 1 di 1 della conversazione"));
             _conversationPreviousButton.IsEnabled = !ChatSession.Current.IsBusy && state.ActiveIndex > 0;
             _conversationNextButton.IsEnabled = !ChatSession.Current.IsBusy && state.ActiveIndex + 1 < state.Paths.Count;
             _conversationVersionsButton.IsEnabled = !ChatSession.Current.IsBusy && state.HasRetainedVersions;
             ToolTipService.SetToolTip(_conversationBranchCounter,
                 state.HasRetainedVersions
-                    ? "Alternative " + (state.ActiveIndex + 1) + " of " + state.Paths.Count + " at the nearest retained fork"
-                    : "No retained alternatives at the current path");
+                    ? T("Alternative ", "Alternativa ") + (state.ActiveIndex + 1) + " of " + state.Paths.Count + T(" at the nearest retained fork", " nella diramazione conservata più vicina")
+                    : T("No retained alternatives at the current path", "Nessuna alternativa conservata nel percorso attuale"));
         }
 
         private async Task NavigateConversationBranchAsync(int direction)
@@ -182,7 +182,7 @@ namespace PaRuX.Views
             if (direction != -1 && direction != 1) return;
             if (ChatSession.Current.IsBusy)
             {
-                ShowTransientStatus("Stop the current generation before switching conversation versions.");
+                ShowTransientStatus(T("Stop the current generation before switching conversation versions.", "Interrompi la generazione in corso prima di cambiare versione della conversazione."));
                 return;
             }
 
@@ -199,7 +199,7 @@ namespace PaRuX.Views
         {
             if (ChatSession.Current.IsBusy)
             {
-                ShowTransientStatus("Stop the current generation before switching conversation versions.");
+                ShowTransientStatus(T("Stop the current generation before switching conversation versions.", "Interrompi la generazione in corso prima di cambiare versione della conversazione."));
                 return;
             }
 
@@ -211,7 +211,7 @@ namespace PaRuX.Views
 
             if (branches.Count == 0)
             {
-                ShowTransientStatus("No previous conversation versions have been retained yet.");
+                ShowTransientStatus(T("No previous conversation versions have been retained yet.", "Nessuna versione precedente della conversazione è stata ancora conservata."));
                 return;
             }
 
@@ -234,7 +234,7 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 10, MinWidth = 480 };
             content.Children.Add(new TextBlock
             {
-                Text = "PaRuX keeps up to 64 full paths that existed before a regeneration or edit. Restoring one version also preserves the path you are viewing now, so switching remains reversible. Previous/next above the chat move among alternatives at the nearest fork.",
+                Text = T("PaRuX keeps up to 64 full paths that existed before a regeneration or edit. Restoring one version also preserves the path you are viewing now, so switching remains reversible. Previous/next above the chat move among alternatives at the nearest fork.", "PaRuX conserva fino a 64 percorsi completi esistenti prima di una rigenerazione o di una modifica. Ripristinare una versione conserva anche il percorso che stai guardando ora, quindi il passaggio resta reversibile. I pulsanti precedente/successivo sopra la chat si spostano tra le alternative della diramazione più vicina."),
                 TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 520
             });
@@ -242,10 +242,10 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Conversation versions",
+                Title = T("Conversation versions", "Versioni della conversazione"),
                 Content = content,
-                PrimaryButtonText = "Restore selected",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Restore selected", "Ripristina la selezione"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -258,7 +258,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Conversation branch dialog failed: " + ex.Message);
-                ShowTransientStatus("Couldn't open conversation versions.");
+                ShowTransientStatus(T("Couldn't open conversation versions.", "Impossibile aprire le versioni della conversazione."));
                 return;
             }
 
@@ -274,7 +274,7 @@ namespace PaRuX.Views
             string conversationId = conversation.Id;
             if (!HistoryStore.RestoreBranch(conversation, branchId))
             {
-                ShowTransientStatus("That conversation version could not be persisted, so the current path was left unchanged.");
+                ShowTransientStatus(T("That conversation version could not be persisted, so the current path was left unchanged.", "Non è stato possibile salvare quella versione della conversazione, quindi il percorso attuale è rimasto invariato."));
                 RefreshConversationBranchNavigation();
                 return;
             }
@@ -285,12 +285,12 @@ namespace PaRuX.Views
             ChatSession.Current.NewConversation();
             if (!ChatSession.Current.OpenConversation(conversationId))
             {
-                ShowTransientStatus("The version was saved, but the conversation could not be reloaded.");
+                ShowTransientStatus(T("The version was saved, but the conversation could not be reloaded.", "La versione è stata salvata, ma non è stato possibile ricaricare la conversazione."));
                 return;
             }
 
             RefreshConversationBranchNavigation();
-            ShowTransientStatus("Conversation version restored. The path you left was retained too.");
+            ShowTransientStatus(T("Conversation version restored. The path you left was retained too.", "Versione della conversazione ripristinata. Anche il percorso che hai lasciato è stato conservato."));
             await Task.CompletedTask;
         }
 
