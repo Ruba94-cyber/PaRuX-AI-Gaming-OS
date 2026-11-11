@@ -43,6 +43,7 @@ param(
     [switch]$IncludeCli,
     [switch]$ShellOnly,
     [switch]$FetchAssets,
+    [switch]$AllowUnpinnedLlamaCpuRuntime,
     [string]$ModelPath = "",
     [string]$CpuRuntimeDir = "",
     [string]$EmbeddingDir = "",
@@ -152,7 +153,7 @@ if ($fullyStandalone) {
     . (Join-Path $PSScriptRoot "portable-offline-assets.ps1")
     $offline = Resolve-PaRuXPortableOfflineAssets -AssetsRoot (Join-Path $repoRoot "artifacts\corporate-lite\assets") `
         -ModelPath $ModelPath -CpuRuntimeDir $CpuRuntimeDir -EmbeddingDir $EmbeddingDir `
-        -RerankerDir $RerankerDir -RuntimeTag $RuntimeTag -Fetch:$FetchAssets
+        -RerankerDir $RerankerDir -RuntimeTag $RuntimeTag -Fetch:$FetchAssets -AllowUnpinnedLlamaCpuRuntime:$AllowUnpinnedLlamaCpuRuntime
     $data = Join-Path $stageDir "PaRuXData"
     $cpuDest = Join-Path $data ("LocalAI\runtime\llama.cpp-" + $offline.RuntimeTag + "-cpu")
     New-Item -ItemType Directory -Force -Path $cpuDest | Out-Null

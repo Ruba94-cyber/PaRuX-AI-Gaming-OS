@@ -336,6 +336,11 @@ public sealed class FirstModelAdvice
     public string? RecommendedId { get; set; }
     public string Headline { get; set; } = string.Empty;
 
+    /// <summary>File name of the Standard Portable starter model the Core accepted
+    /// (pinned marker, valid GGUF header, not Corporate). Null when absent or when the Core could not
+    /// confirm it; clients must then treat the starter as NOT included.</summary>
+    public string? BundledPortableStarterModel { get; set; }
+
     /// <summary>Hardware-fit list, including candidates that do not fit this machine.</summary>
     public List<FirstModelCandidate> Candidates { get; set; } = new();
 

@@ -30,6 +30,7 @@ param(
     [string]$RuntimeDir = "",
     [string]$RuntimeTag = "",
     [switch]$Fetch,
+    [switch]$AllowUnpinnedLlamaCpuRuntime,
     [switch]$SkipPublish,
     [switch]$Smoke,
     [int]$SmokeTimeoutSeconds = 120
@@ -140,6 +141,7 @@ function Get-PinnedAsset {
         Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
     }
 }
+. (Join-Path $PSScriptRoot "llama-cpu-pin.ps1")
 if ($Fetch) {
     # llama.cpp (MIT) CPU build from the official releases.
     $rels = Invoke-RestMethod "https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=20" -Headers @{ "User-Agent" = "PaRuX-build" }
@@ -154,7 +156,12 @@ if ($Fetch) {
     # If absent, keep provenance explicit rather than pretending transport TLS is a signed digest.
     $assetDigestField = $asset.PSObject.Properties["digest"]
     $assetDigest = if ($null -ne $assetDigestField) { [string]$assetDigestField.Value } else { "" }
-    if ($assetDigest -match '^sha256:([a-fA-F0-9]{64})$') {
+    # The archive must also match the reviewed pin (packaging/llama-cpu-archive.lock.json), not only the digest
+    # delivered by the same GitHub API response as the download. Unpinned tags need an explicit switch.
+    $pinnedZipSha = Get-PaRuXLlamaCpuPin -Tag $RuntimeTag -ArchiveName $asset.name -AllowUnpinned:$AllowUnpinnedLlamaCpuRuntime
+    if ($pinnedZipSha) {
+        Assert-PaRuXLlamaCpuArchivePin -File $zip -PinnedSha256 $pinnedZipSha -UpstreamDigest $assetDigest
+    } elseif ($assetDigest -match '^sha256:([a-fA-F0-9]{64})$') {
         $runtimeZipSha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($runtimeZipSha -ne $Matches[1].ToLowerInvariant()) {
             throw "CPU llama.cpp release archive digest does not match the upstream release metadata: $zip"

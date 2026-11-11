@@ -171,27 +171,15 @@ namespace PaRuX.Views
             ApplyFirstModelStorage(_modelBudget);
         }
 
-        private static bool HasBundledStandardPortableStarter()
-        {
-            if (CorporateMode.IsActive ||
-                PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) == null)
-                return false;
-            try
-            {
-                string path = Path.Combine(PaRuXDataRoot.Path, "models", "Qwen3-4B-Q4_K_M.gguf");
-                if (!File.Exists(path)) return false;
-                return CorporateModelImportPolicy.IsAcceptableModel(
-                    Path.GetFileName(path), new FileInfo(path).Length) &&
-                    CorporateModelImportPolicy.HasGgufHeader(path);
-            }
-            catch (IOException) { return false; }
-            catch (UnauthorizedAccessException) { return false; }
-        }
+        /// <summary>Uses the Core's authoritative bundled-model decision carried in the advice;
+        /// no advice or no confirmation means "not included".</summary>
+        internal static bool HasBundledStandardPortableStarter(FirstModelAdvice? advice) =>
+            advice != null && !string.IsNullOrWhiteSpace(advice.BundledPortableStarterModel);
 
         private void ApplyFirstModelAdvice(FirstModelAdvice advice)
         {
             FirstModelHardwareText.Text = advice.HardwareSummary;
-            if (HasBundledStandardPortableStarter())
+            if (HasBundledStandardPortableStarter(advice))
             {
                 // This is a presence check, NOT an assertion that inference works.
                 // The normal local-Chat verification still has to produce a real answer.

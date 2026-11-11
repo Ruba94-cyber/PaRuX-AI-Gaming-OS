@@ -204,6 +204,16 @@ public static class LocalAiPaths
         catch (ArgumentException) { return null; }
     }
 
+    /// <summary>Authoritative "Standard Portable starter is included" decision, shared with the UI through
+    /// FirstModelAdvice. Null unless this is a non-Corporate portable layout whose pinned starter passes
+    /// <see cref="FindBundledPortableModel"/>.</summary>
+    public static string? GetBundledPortableStarterFileName(bool corporate, bool portableLayout, string? modelsDirectory = null)
+    {
+        if (corporate || !portableLayout) return null;
+        string? path = FindBundledPortableModel(modelsDirectory);
+        return path == null ? null : Path.GetFileName(path);
+    }
+
     private static string? FindBundledModel(string? modelsDirectory, string markerName)
     {
         string dir = modelsDirectory ?? ModelDownloadService.ModelsDirectory;

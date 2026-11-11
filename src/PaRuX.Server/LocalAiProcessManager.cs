@@ -1521,6 +1521,9 @@ public sealed class LocalAiProcessManager
             return new RuntimeResult(true, "Already running: " + profile + fallbackNotice);
         if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
             return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
+        // The previous text process (if any) has been stopped above, so its memory is already free in the snapshot.
+        string? ramRefusal = CpuFallbackAdmission.Check(model, ExecutionResourceGuard.TryGetSystemRamSnapshot(), 0);
+        if (ramRefusal != null) return new RuntimeResult(false, ramRefusal);
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
         List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount);

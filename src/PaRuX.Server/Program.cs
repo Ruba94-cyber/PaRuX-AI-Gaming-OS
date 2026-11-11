@@ -2829,7 +2829,14 @@ app.MapGet("/api/v1/models/recommended/for-this-pc", async (
             b => LocalAiPaths.GetActiveRuntimeBuildTag(b) ?? LocalAiPaths.DefaultRuntimeBuildTag(b))?.Runtime;
     }
     catch (Exception ex) when (ex is not OperationCanceledException) { }
-    return Results.Ok(FirstModelAdvisor.Advise(status, gpu, localModels, installedRuntime));
+    FirstModelAdvice firstAdvice = FirstModelAdvisor.Advise(status, gpu, localModels, installedRuntime);
+    try
+    {
+        firstAdvice.BundledPortableStarterModel = LocalAiPaths.GetBundledPortableStarterFileName(
+            CorporateMode.IsActive, PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException) { firstAdvice.BundledPortableStarterModel = null; }
+    return Results.Ok(firstAdvice);
 });
 
 app.MapPost("/api/v1/models/roles/auto-assign", async (
