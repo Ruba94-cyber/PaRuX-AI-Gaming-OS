@@ -42,7 +42,7 @@ namespace PaRuX.Views
             if (modelCardUri is { Scheme: "https", Host: "huggingface.co" })
                 content.Children.Add(new HyperlinkButton
                 {
-                    Content = "Read model card and repository terms",
+                    Content = T("Read model card and repository terms", "Leggi la scheda del modello e i termini del repository"),
                     NavigateUri = modelCardUri,
                     HorizontalAlignment = HorizontalAlignment.Left
                 });
@@ -54,7 +54,7 @@ namespace PaRuX.Views
             };
             var dialog = new ContentDialog
             {
-                Title = title, Content = scroll, CloseButtonText = "Close",
+                Title = title, Content = scroll, CloseButtonText = T("Close", "Chiudi"),
                 XamlRoot = XamlRoot, MaxWidth = 720
             };
             dialog.Resources["ContentDialogMaxWidth"] = 720d;
@@ -69,7 +69,7 @@ namespace PaRuX.Views
         {
             if (choices.Count == 0)
             {
-                _status.Text = "This repository has no GGUF variants to review.";
+                _status.Text = T("This repository has no GGUF variants to review.", "Questo repository non ha varianti GGUF da controllare.");
                 return;
             }
 
@@ -77,7 +77,7 @@ namespace PaRuX.Views
             {
                 MinWidth = 0, // Let WinUI size the picker within narrow / high-DPI dialogs.
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                PlaceholderText = "Select a complete quantization"
+                PlaceholderText = T("Select a complete quantization", "Seleziona una quantizzazione completa")
             };
             AutomationProperties.SetAutomationId(picker, "ModelHub_VariantPicker_ComboBox");
             foreach (ModelHubSplitSetPresentation.QuantChoiceOption option in choices)
@@ -86,7 +86,7 @@ namespace PaRuX.Views
                     Content = option.Label
                         + (option.Choice.SizeBytes > 0
                             ? " · ~" + FormatBytes(option.Choice.SizeBytes)
-                            : " · size not published"),
+                            : T(" · size not published", " · dimensione non pubblicata")),
                     Tag = option.Choice,
                     IsEnabled = option.CanDownload
                 });
@@ -103,17 +103,17 @@ namespace PaRuX.Views
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Choose a complete GGUF set. Size and hardware fit are estimates; the pinned download plan and licence are reviewed before any transfer.",
+                Text = T("Choose a complete GGUF set. Size and hardware fit are estimates; the pinned download plan and licence are reviewed before any transfer.", "Scegli un set GGUF completo. Dimensione e compatibilità hardware sono stime; il piano di download fissato e la licenza vengono controllati prima di qualsiasi trasferimento."),
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.78
             });
             body.Children.Add(picker);
             body.Children.Add(hardwareText);
             var dialog = new ContentDialog
             {
-                Title = "Quantization options",
+                Title = T("Quantization options", "Opzioni di quantizzazione"),
                 Content = body,
-                PrimaryButtonText = "Review download",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Review download", "Controlla il download"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
                 MaxWidth = 720
@@ -124,14 +124,14 @@ namespace PaRuX.Views
             {
                 ModelQuantChoice? selected = (picker.SelectedItem as ComboBoxItem)?.Tag as ModelQuantChoice;
                 dialog.IsPrimaryButtonEnabled = selected?.Complete == true;
-                if (selected == null) { hardwareText.Text = "No complete variant selected."; return; }
+                if (selected == null) { hardwareText.Text = T("No complete variant selected.", "Nessuna variante completa selezionata."); return; }
                 if (selected.SizeBytes <= 0)
                 {
-                    hardwareText.Text = "Hardware fit unknown until the repository provides an exact file size.";
+                    hardwareText.Text = T("Hardware fit unknown until the repository provides an exact file size.", "Compatibilità hardware sconosciuta finché il repository non fornisce la dimensione esatta del file.");
                     return;
                 }
                 ModelHardwareFitEstimate fit = ModelHardwareFitEstimator.Estimate(selected.SizeBytes, _hardware);
-                hardwareText.Text = "On this PC: " + ModelHubRowPresentation.HardwareFit(fit.Verdict, fit.Summary);
+                hardwareText.Text = T("On this PC: ", "Su questo PC: ") + ModelHubRowPresentation.HardwareFit(fit.Verdict, fit.Summary);
             };
             if (preferredIndex >= 0 && preferredIndex < picker.Items.Count)
                 picker.SelectedIndex = preferredIndex;
@@ -142,7 +142,7 @@ namespace PaRuX.Views
             // for this Model Hub session; do not auto-download or persist paths.
             _manuallyReviewedQuantByRepo[repo.RepoId] = selectedChoice.SetName;
             try { await ChooseQuantChoiceAsync(repo.RepoId, selectedChoice); }
-            catch (Exception ex) { _status.Text = "Could not review this variant: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not review this variant: ", "Impossibile controllare questa variante: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
     }

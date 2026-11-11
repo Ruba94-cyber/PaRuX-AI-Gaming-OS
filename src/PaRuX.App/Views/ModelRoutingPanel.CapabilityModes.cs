@@ -17,11 +17,12 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class CapabilityModesSection : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private sealed class Row
         {
             public string Capability = string.Empty;
             public ComboBox Mode = new ComboBox { MinWidth = 130 };
-            public ComboBox Model = new ComboBox { MinWidth = 260, PlaceholderText = "Choose model…" };
+            public ComboBox Model = new ComboBox { MinWidth = 260, PlaceholderText = T("Choose model…", "Scegli il modello…") };
             public TextBlock Trace = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8 };
             public CapabilityRoutingStatusDto? Status;
             public bool Suppress;
@@ -39,13 +40,13 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock
             {
-                Text = "Capability overrides",
+                Text = T("Capability overrides", "Override delle capacità"),
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "Automatic lets PaRuX choose and explain. Prefer uses your model when it can run, otherwise falls back with a visible trace. Force uses only your model and refuses honestly if it cannot run.",
+                Text = T("Automatic lets PaRuX choose and explain. Prefer uses your model when it can run, otherwise falls back with a visible trace. Force uses only your model and refuses honestly if it cannot run.", "Automatico lascia scegliere e spiegare a PaRuX. Preferisci usa il tuo modello quando può girare, altrimenti ripiega con una traccia visibile. Forza usa solo il tuo modello e rifiuta onestamente se non può girare."),
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.72
             });
             foreach ((string capability, string label) in CapabilityModePresenter.Capabilities)
@@ -60,9 +61,9 @@ namespace PaRuX.Views
             var row = new Row { Capability = capability };
             _rows[capability] = row;
             AutomationProperties.SetAutomationId(row.Mode, CapabilityModePresenter.ModeAutomationId(capability));
-            AutomationProperties.SetName(row.Mode, label + " mode");
+            AutomationProperties.SetName(row.Mode, label + T(" mode", " modalità"));
             AutomationProperties.SetAutomationId(row.Model, CapabilityModePresenter.ModelAutomationId(capability));
-            AutomationProperties.SetName(row.Model, label + " model");
+            AutomationProperties.SetName(row.Model, label + T(" model", " modello"));
             AutomationProperties.SetAutomationId(row.Trace, CapabilityModePresenter.TraceAutomationId(capability));
 
             foreach ((string mode, string text) in CapabilityModePresenter.ModeOptions)
@@ -102,7 +103,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                row.Trace.Text = "Could not save this override: " + ex.Message;
+                row.Trace.Text = T("Could not save this override: ", "Impossibile salvare questo override: ") + ex.Message;
             }
         }
 
@@ -112,7 +113,7 @@ namespace PaRuX.Views
             try { statuses = await CapabilityModeClient.Current.GetStatusAsync(CancellationToken.None); }
             catch (Exception ex)
             {
-                _summary.Text = "Capability overrides are unavailable: " + ex.Message;
+                _summary.Text = T("Capability overrides are unavailable: ", "Gli override delle capacità non sono disponibili: ") + ex.Message;
                 return;
             }
             _summary.Text = string.Empty;

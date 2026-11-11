@@ -700,7 +700,7 @@ namespace PaRuX.Views
 
             // On-demand capability acquisition card (BIC-16, Simple mode)
             AutomationProperties.SetAutomationId(_capabilityAcquireCard, "ModelHub_CapabilityAcquire_Card");
-            AutomationProperties.SetName(_capabilityAcquireCard, "Capability Acquisition");
+            AutomationProperties.SetName(_capabilityAcquireCard, T("Capability Acquisition", "Acquisizione di capacità"));
 
             AutomationProperties.SetAutomationId(_capabilityAcquireDownloadButton, "ModelHub_CapabilityAcquire_Download_Button");
             AutomationProperties.SetName(_capabilityAcquireDownloadButton, CapabilityAcquisitionPresenter.DownloadButtonLabel);
@@ -1012,9 +1012,9 @@ namespace PaRuX.Views
                 RenderMedia(mediaTask.Result, mediaRecommendedTask.Result, downloadsTask.Result);
                 RenderHuggingFaceRows(downloadsTask.Result);
                 RenderDiscoveryRefreshStatus();
-                _status.Text = installedTask.Result.Count + " PaRuX-managed GGUF model(s) (models you linked from elsewhere are listed in Settings > Models) · "
-                    + mediaTask.Result.Count + " media role(s) · " + downloadsTask.Result.Count + " download job(s) · "
-                    + (_discoveryCatalog?.Candidates.Count ?? 0) + " discovered Candidate(s).";
+                _status.Text = installedTask.Result.Count + T(" PaRuX-managed GGUF model(s) (models you linked from elsewhere are listed in Settings > Models) · ", " modelli GGUF gestiti da PaRuX (i modelli collegati da altrove sono elencati in Impostazioni > Modelli) · ")
+                    + mediaTask.Result.Count + T(" media role(s) · ", " ruoli multimediali · ") + downloadsTask.Result.Count + T(" download job(s) · ", " job di download · ")
+                    + (_discoveryCatalog?.Candidates.Count ?? 0) + T(" discovered Candidate(s).", " candidati scoperti.");
                 if (_catalogStale) _status.Text += " · " + StaleCatalogMessage;
                 ShowActiveTransfer(downloadsTask.Result);
                 if (_candidateJobHistoryRefreshFailed && !downloadsTask.Result.Any(IsActive))
@@ -1839,7 +1839,7 @@ namespace PaRuX.Views
             bool anyBusy = _suggestionBusyKeys.Count > 0;
             foreach (ModelSuggestionGroup group in section.Groups)
             {
-                var groupTitle = new TextBlock { Text = group.Title + (group.HiddenCount > 0 ? " (top " + group.Cards.Count.ToString(CultureInfo.InvariantCulture) + "; more in Advanced)" : ""), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+                var groupTitle = new TextBlock { Text = group.Title + (group.HiddenCount > 0 ? T(" (top ", " (primi ") + group.Cards.Count.ToString(CultureInfo.InvariantCulture) + T("; more in Advanced)", "; altri in Avanzate)") : ""), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
                 AutomationProperties.SetAutomationId(groupTitle, ModelSuggestionLanePresenter.GroupAutomationId(section.SelectedLane, group.CapabilityGroup));
                 _suggestions.Children.Add(groupTitle);
             foreach (ModelSuggestionCard cardModel in group.Cards)
@@ -4326,8 +4326,8 @@ namespace PaRuX.Views
                 + (_hardware.GpuInventoryAvailable ? _hardware.GpuInventorySource : "runtime fallback")
                 + " · " + gpu + " · system RAM " + FormatBytes(_hardware.RamTotalBytes)
                 + ". Independent GPU VRAM pools are never summed as an automatic single-model fit.";
-            _hardwareSummary.Text = "This PC: " + ModelHubRowPresentation.CompactDescription(gpu, 84)
-                + " · RAM " + FormatBytes(_hardware.RamTotalBytes);
+            _hardwareSummary.Text = T("This PC: ", "Questo PC: ") + ModelHubRowPresentation.CompactDescription(gpu, 84)
+                + T(" · RAM ", " · RAM ") + FormatBytes(_hardware.RamTotalBytes);
             _hardwareDetailsButton.IsEnabled = true;
         }
 
@@ -4363,14 +4363,14 @@ namespace PaRuX.Views
                 List<ModelSearchResult> filtered = FilterSearch();
                 RenderSearch(filtered);
                 _status.Text = results.Count == 0
-                    ? "No GGUF repositories matched."
-                    : filtered.Count + " shown of " + results.Count + " repository result(s).";
+                    ? T("No GGUF repositories matched.", "Nessun repository GGUF corrisponde.")
+                    : filtered.Count + T(" shown of ", " mostrati su ") + results.Count + T(" repository result(s).", " risultati di repository.");
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 if (IsCurrentSearch(generation, ct, expectedRefreshGeneration))
-                    _status.Text = UserFailureRecoveryMapper.Map(ex, "Model search failed").FormatStatusLine();
+                    _status.Text = UserFailureRecoveryMapper.Map(ex, T("Model search failed", "Ricerca dei modelli non riuscita")).FormatStatusLine();
             }
             finally
             {
@@ -4479,7 +4479,7 @@ namespace PaRuX.Views
                 });
                 card.Children.Add(new TextBlock
                 {
-                    Text = repo.Category + " · " + choices.Count + " GGUF option(s)",
+                    Text = repo.Category + " · " + choices.Count + T(" GGUF option(s)", " opzioni GGUF"),
                     FontSize = 12, Opacity = 0.78
                 });
                 if (!fromFirstModelSetup && !canReviewDefault && choices.Count > 0)
@@ -4502,11 +4502,11 @@ namespace PaRuX.Views
                     ModelHubSplitSetPresentation.QuantChoiceOption suggested = choices[preferred];
                     card.Children.Add(new TextBlock
                     {
-                        Text = (fromFirstModelSetup ? "Setup choice: " : "Default to review: ")
+                        Text = (fromFirstModelSetup ? T("Setup choice: ", "Scelta di configurazione: ") : T("Default to review: ", "Predefinito da controllare: "))
                             + suggested.Choice.Quantization
                             + (suggested.Choice.SizeBytes > 0
                                 ? " · ~" + FormatBytes(suggested.Choice.SizeBytes)
-                                : " · size not published"),
+                                : T(" · size not published", " · dimensione non pubblicata")),
                         FontSize = 12, Opacity = 0.82, TextWrapping = TextWrapping.Wrap
                     });
                     if (!fromFirstModelSetup && preferred == quantAdvice.PreferredIndex)
@@ -4557,8 +4557,8 @@ namespace PaRuX.Views
                 _results.Children.Add(new TextBlock
                 {
                     Text = _lastSearch.Count == 0
-                        ? "Search for a model to compare available GGUF options."
-                        : "No model matches the selected category."
+                        ? T("Search for a model to compare available GGUF options.", "Cerca un modello per confrontare le opzioni GGUF disponibili.")
+                        : T("No model matches the selected category.", "Nessun modello corrisponde alla categoria selezionata.")
                 });
         }
 
@@ -4594,13 +4594,13 @@ namespace PaRuX.Views
             planContent.Children.Add(new TextBlock
             {
                 Text = plan.SetName + " · " + plan.Quantization + " · " + plan.PartCount
-                    + (plan.PartCount == 1 ? " part" : " parts") + " · " + FormatBytes(plan.TotalBytes),
+                    + (plan.PartCount == 1 ? T(" part", " parte") : T(" parts", " parti")) + " · " + FormatBytes(plan.TotalBytes),
                 TextWrapping = TextWrapping.Wrap,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             planContent.Children.Add(new TextBlock
             {
-                Text = "Hardware fit: " + ModelFitVerdictWords.Of(fit.Verdict) + " · " + fit.Summary,
+                Text = T("Hardware fit: ", "Compatibilità hardware: ") + ModelFitVerdictWords.Of(fit.Verdict) + " · " + fit.Summary,
                 TextWrapping = TextWrapping.Wrap
             });
             planContent.Children.Add(new TextBlock
@@ -4687,7 +4687,7 @@ namespace PaRuX.Views
                 string label = status.Type switch { "image" => "Image", "video" => "Video", "edit" => "Image Edit", _ => status.Type };
                 _media.Children.Add(new TextBlock
                 {
-                    Text = label + " · active: " + (string.IsNullOrWhiteSpace(status.CurrentFile) ? "not configured" : status.CurrentFile)
+                    Text = label + T(" · active: ", " · attivo: ") + (string.IsNullOrWhiteSpace(status.CurrentFile) ? T("not configured", "non configurato") : status.CurrentFile)
                         + " · " + MediaSelectionPresenter.SummarySource(status),
                     TextWrapping = TextWrapping.Wrap,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
@@ -4715,11 +4715,11 @@ namespace PaRuX.Views
                     card.Children.Add(new TextBlock { Text = T("Latest transfer: ", "Ultimo trasferimento: ") + latest.Status + (latest.VerificationStatus == null ? string.Empty : " · SHA-256 " + latest.VerificationStatus), FontSize = 12, Opacity = 0.72 });
 
                 var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var download = new Button { Content = "1. Download checkpoint", IsEnabled = !active };
+                var download = new Button { Content = T("1. Download checkpoint", "1. Scarica il checkpoint"), IsEnabled = !active };
                 download.Click += async (_, _) => await DownloadMediaCheckpointAsync(checkpoint, download);
                 buttons.Children.Add(download);
 
-                var activate = new Button { Content = active ? "Active" : "2. Activate downloaded", IsEnabled = !active };
+                var activate = new Button { Content = active ? T("Active", "Attivo") : T("2. Activate downloaded", "2. Attiva il file scaricato"), IsEnabled = !active };
                 activate.Click += async (_, _) => await ActivateMediaCheckpointAsync(checkpoint);
                 buttons.Children.Add(activate);
                 card.Children.Add(buttons);
@@ -4798,7 +4798,7 @@ namespace PaRuX.Views
             {
                 SetBusy(true, "Activating " + checkpoint.Title + "…");
                 MediaCheckpointStatus status = await ModelDownloadClient.Current.ActivateMediaCheckpointAsync(checkpoint, CancellationToken.None);
-                _status.Text = checkpoint.Title + " is now active for " + status.Type + ".";
+                _status.Text = checkpoint.Title + T(" is now active for ", " è ora attivo per ") + status.Type + ".";
                 await RefreshAllAsync();
             }
             catch (Exception ex)
@@ -4896,8 +4896,8 @@ namespace PaRuX.Views
             content.Children.Add(new TextBlock
             {
                 Text = licenseDecision.MetadataStatus
-                    + " · revision: " + (details?.Revision ?? "unknown")
-                    + (string.IsNullOrWhiteSpace(details?.PipelineTag) ? string.Empty : " · pipeline: " + details.PipelineTag),
+                    + T(" · revision: ", " · revisione: ") + (details?.Revision ?? T("unknown", "sconosciuta"))
+                    + (string.IsNullOrWhiteSpace(details?.PipelineTag) ? string.Empty : T(" · pipeline: ", " · pipeline: ") + details.PipelineTag),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.82
@@ -4936,7 +4936,7 @@ namespace PaRuX.Views
             {
                 Title = T("Compare GGUF variants", "Confronta le varianti GGUF"),
                 Content = content,
-                PrimaryButtonText = licenseDecision.RequiresReview ? "Review terms & download" : "Download selected",
+                PrimaryButtonText = licenseDecision.RequiresReview ? T("Review terms & download", "Controlla i termini e scarica") : T("Download selected", "Scarica la selezione"),
                 CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
@@ -5088,7 +5088,7 @@ namespace PaRuX.Views
                 text.Children.Add(new TextBlock
                 {
                     Text = job.FileName + " · " + state + progress
-                        + (string.IsNullOrWhiteSpace(job.VerificationStatus) ? string.Empty : " · SHA-256 " + job.VerificationStatus),
+                        + (string.IsNullOrWhiteSpace(job.VerificationStatus) ? string.Empty : T(" · SHA-256 ", " · SHA-256 ") + job.VerificationStatus),
                     TextWrapping = TextWrapping.Wrap
                 });
                 string details = ModelDownloadPresentationPolicy.FormatDetails(job);
@@ -5140,7 +5140,7 @@ namespace PaRuX.Views
                             var confirm = new ContentDialog
                             {
                                 Title = T("Remove this download?", "Rimuovere questo download?"),
-                                Content = job.FileName + " and its partially downloaded bytes will be deleted. This cannot be undone.",
+                                Content = job.FileName + T(" and its partially downloaded bytes will be deleted. This cannot be undone.", " e i suoi byte scaricati parzialmente verranno eliminati. L'operazione non può essere annullata."),
                                 PrimaryButtonText = T("Remove", "Rimuovi"),
                                 CloseButtonText = T("Cancel", "Annulla"),
                                 DefaultButton = ContentDialogButton.Close,
@@ -5283,7 +5283,7 @@ namespace PaRuX.Views
                 {
                     Text = FormatBytes(model.SizeBytes) + " · " + ModelFitVerdictWords.Of(fit.Verdict)
                         + (model.LastBenchmarkTokensPerSecond.HasValue
-                            ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + " tok/s"
+                            ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + T(" tok/s", " tok/s")
                             : string.Empty),
                     FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
                 });
