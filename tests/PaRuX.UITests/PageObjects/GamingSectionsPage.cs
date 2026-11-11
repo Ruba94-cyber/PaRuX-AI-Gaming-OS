@@ -49,6 +49,8 @@ internal static class GamingSectionsPage
         // The Gaming-active strip sits above every section, so it needs no section selected.
         if (id == SectionBar || id.StartsWith("GameLibrary_Section_", StringComparison.Ordinal)
             || id.StartsWith("GameLibrary_Strip", StringComparison.Ordinal)) return null;
+        // The first-visit "find my installed games" banner sits at the top of the Library section.
+        if (id.StartsWith("GameLibrary_FirstRunScan_", StringComparison.Ordinal)) return "Library";
         if (id.StartsWith("GameLibrary_", StringComparison.Ordinal)) return "Add";
         foreach (string prefix in LibraryPrefixes)
             if (id.StartsWith(prefix, StringComparison.Ordinal)) return "Library";

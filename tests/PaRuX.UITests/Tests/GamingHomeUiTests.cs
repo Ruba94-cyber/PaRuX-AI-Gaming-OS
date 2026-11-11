@@ -86,7 +86,9 @@ public sealed class GamingHomeUiTests
         try
         {
             OpenGamingHome(app);
-            Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Offer"));
+            // The banner container is a Border, which has no UI Automation peer: assert on its
+            // text and buttons, which are what a user (and a screen reader) actually reaches.
+            Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Description"));
             Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Start"));
             var skip = ById(app, "GameLibrary_FirstRunScan_Dismiss");
             Press(app, skip);

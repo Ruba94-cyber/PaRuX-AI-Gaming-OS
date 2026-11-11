@@ -23,7 +23,7 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | UX-002 Return to AI reachable from every Gaming section | NO | NO | NOT RUN | NOT RUN | NOT RUN | N/A | NO | none |
 | GAM-001 Completion status and 0-10 score | YES | PARTIAL | YES | YES | NOT RUN | N/A | NO | QA-011 |
 | GAM-002 Compact Gaming toolbar, covers above fold | YES | PARTIAL | NOT RUN | NOT RUN | NOT RUN | N/A | NO | none |
-| GAM-003 First-run store scan prompt | PARTIAL | PARTIAL | YES | YES | NOT RUN | N/A | NO | EV-01, EV-02. Implemented in source; UI not run |
+| GAM-003 First-run store scan prompt | YES | YES | YES | YES | PARTIAL | N/A | NO | QA-035: opt-out path verified in the real UI (banner shown, "Not now" persisted); the scan path against real Steam/Epic/GOG installs NOT RUN |
 | GAM-004 Cover control, virtualization for 2,000 titles | NO | NO | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | none |
 | GAM-005 Save-folder detection and backup | NO | NO | NOT RUN | NOT RUN | NOT RUN | N/A | NO | none |
 | GAM-006 Update detection, export, itch.io, achievements | NO | NO | NOT RUN | NOT RUN | NOT RUN | N/A | NO | none |
@@ -142,9 +142,9 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | D AI | PENDING | Real CPU inference, grounded document chat and abstention verified in the Corporate package (EV-09); GPU chat, agents, model download and Standard Portable chat not re-run on current source |
 | E Corporate | PENDING | Strict synthetic-corpus gate PASSED on the reference PC at aaf09c8e (EV-09); clean-PC, 8-16 GB, large-PDF and physically offline runs still pending |
 | F Gaming | PENDING | Gaming rows are PARTIAL or NOT RUN; no UI or hardware run on current source |
-| G UI/UX | PENDING | Full FlaUI regression not run on current source; Smoke 35/35 only (EV-04) |
+| G UI/UX | PENDING | FlaUI regression 310/311 at 12028a3c with one test fix re-run alone (QA-035); scaling/4K/TV/controller passes and the visual audit of every screen not done |
 | H Performance | PENDING | PERF-001 PARTIAL; PERF-002 and PERF-003 open; hardware benchmarks BLOCKED-HW |
-| I QA | PENDING | Server xUnit green (EV-02) and Android 41/41 (EV-03); full FlaUI not run on current source |
+| I QA | PENDING | Server xUnit 13,160/0 (QA-034), Android 41/41 (EV-03), FlaUI 310/311 + fix (QA-035), Corporate strict gate PASS (QA-032); Standard Portable chat/RAG, MSI, APK and hardware suites not run |
 | J Packaging | PENDING | Standard and Corporate ZIPs built and smoke OK (EV-05, EV-06); MSI and APK UI/hardware not run; clean-PC verification pending |
 | K Security | PENDING | 2 High findings fixed (EV-07); Medium findings open; many SEC-F rows still open |
 | L Release | PENDING | Release Ready is YES only for REL-001, REL-002, REL-003 |
