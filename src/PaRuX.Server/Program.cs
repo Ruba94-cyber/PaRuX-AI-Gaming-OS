@@ -530,10 +530,19 @@ app.Use(async (context, next) =>
         }
 
         string deviceToken = context.Request.Headers[PaRuXHeaders.DeviceToken].ToString();
-        if (!remoteAccess.TryValidateDeviceToken(deviceToken, out string deviceId))
+        if (!remoteAccess.TryValidateDeviceToken(deviceToken, out string deviceId, out bool tokenExpired))
         {
+            // An expired token is the same 401 as an unknown one; only the message and an additive header differ. The Android
+            // client has no 401 handling for normal API calls (only PairingRepository reads 401, for the pairing code), so the
+            // person has to pair again by hand; a friendlier prompt needs an Android change that is out of scope here.
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "A paired device token is required." });
+            if (tokenExpired) context.Response.Headers["X-PaRuX-Pairing"] = "expired";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = tokenExpired
+                    ? "This device's pairing has expired. Pair it again from PaRuX on the PC."
+                    : "A paired device token is required."
+            });
             return;
         }
         context.Items["PaRuXOwner"] = "device:" + deviceId;
@@ -704,6 +713,11 @@ app.MapPost("/api/v1/remote/pair/complete", (
 {
     try { return Results.Ok(remote.CompletePairing(request, context.Connection.RemoteIpAddress)); }
     catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (RemoteAccessService.PairingLockedException ex)
+    {
+        context.Response.Headers.RetryAfter = ((int)Math.Ceiling(ex.RetryAfter.TotalSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status429TooManyRequests);
+    }
     catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
 });
 
