@@ -51,7 +51,7 @@ public sealed class RemoteAccessServiceTests : IDisposable
     [Fact]
     public void CompletePairing_with_invalid_or_expired_code_fails()
     {
-        var ex = Assert.Throws<UnauthorizedAccessException>(() =>
+        var ex = Assert.ThrowsAny<UnauthorizedAccessException>(() =>
             _service.CompletePairing(new PairingCompleteRequest { Code = "999999", DeviceName = "Pixel 9" }));
         Assert.Contains("invalid or expired", ex.Message);
     }
@@ -71,16 +71,16 @@ public sealed class RemoteAccessServiceTests : IDisposable
         // Issue 10 failed attempts
         for (int i = 0; i < 9; i++)
         {
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsAny<UnauthorizedAccessException>(() =>
                 _service.CompletePairing(new PairingCompleteRequest { Code = "000000", DeviceName = "Attacker" }));
         }
 
         // 10th attempt should record 10 failures
-        Assert.Throws<UnauthorizedAccessException>(() =>
+        Assert.ThrowsAny<UnauthorizedAccessException>(() =>
             _service.CompletePairing(new PairingCompleteRequest { Code = "000000", DeviceName = "Attacker" }));
 
         // 11th attempt should hit the rate limiter with explicit message
-        var ex = Assert.Throws<UnauthorizedAccessException>(() =>
+        var ex = Assert.ThrowsAny<UnauthorizedAccessException>(() =>
             _service.CompletePairing(new PairingCompleteRequest { Code = "000000", DeviceName = "Attacker" }));
         Assert.Contains("Too many failed pairing attempts", ex.Message);
     }
@@ -94,13 +94,13 @@ public sealed class RemoteAccessServiceTests : IDisposable
         IPAddress first = IPAddress.Parse("192.168.1.20");
         IPAddress second = IPAddress.Parse("192.168.1.21");
         for (int i = 0; i < 10; i++)
-            Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
-        var limited = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first.MapToIPv6()));
+            Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
+        var limited = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, first.MapToIPv6()));
         Assert.Contains("Too many", limited.Message);
-        var other = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, second));
+        var other = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, second));
         Assert.Contains("invalid or expired", other.Message);
         now = now.AddMinutes(1);
-        var afterExpiry = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
+        var afterExpiry = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
         Assert.Contains("invalid or expired", afterExpiry.Message);
     }
 
@@ -113,14 +113,14 @@ public sealed class RemoteAccessServiceTests : IDisposable
         for (int i = 1; i <= 200; i++)
         {
             IPAddress source = IPAddress.Parse($"192.168.1.{i}");
-            var failure = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, source));
+            var failure = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, source));
             Assert.Contains("invalid or expired", failure.Message);
         }
-        var blocked = Assert.Throws<UnauthorizedAccessException>(() =>
+        var blocked = Assert.ThrowsAny<UnauthorizedAccessException>(() =>
             service.CompletePairing(request, IPAddress.Parse("192.168.1.201")));
         Assert.Contains("Too many", blocked.Message);
         now = now.AddMinutes(1);
-        var afterExpiry = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, null));
+        var afterExpiry = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(request, null));
         Assert.Contains("invalid or expired", afterExpiry.Message);
     }
 

@@ -58,10 +58,10 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
     private void Fail(RemoteAccessService service, int count, IPAddress source)
     {
         for (int i = 0; i < count; i++)
-            Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), source));
+            Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), source));
     }
 
-    private static string Message(Action action) => Assert.Throws<UnauthorizedAccessException>(action).Message;
+    private static string Message(Action action) => Assert.ThrowsAny<UnauthorizedAccessException>(action).Message;
 
     // ---- (a) paired-token expiry -------------------------------------------------------------------------------------
 
@@ -126,7 +126,7 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
     }
 
     [Fact]
-    public void Expired_device_can_pair_again_with_the_normal_flow_and_is_pruned_from_disk()
+    public void Expired_device_can_pair_again_with_the_normal_flow_and_stays_listed_as_expired()
     {
         RemoteAccessService service = Open();
         PairingCompleteResponse old = Pair(service, "Old phone");
@@ -142,7 +142,11 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
         Assert.Equal(fresh.DeviceId, freshId);
         Assert.False(service.TryValidateDeviceToken(old.DeviceToken, out _));
         string json = File.ReadAllText(_file);
-        Assert.DoesNotContain(old.DeviceId, json, StringComparison.Ordinal);
+        // The expired device is kept (never pruned on the pairing path) and flagged, so a clock jump cannot erase it.
+        Assert.Contains(old.DeviceId, json, StringComparison.Ordinal);
+        var devices = service.GetStatus().Devices;
+        Assert.True(devices.Single(d => d.Id == old.DeviceId).Expired);
+        Assert.False(devices.Single(d => d.Id == fresh.DeviceId).Expired);
         Assert.Contains(fresh.DeviceId, json, StringComparison.Ordinal);
         // The pairing response keeps the shape the Android client reads.
         Assert.Equal($"https://{LanAddress}:55100", fresh.Endpoint);
@@ -262,7 +266,7 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
         RemoteAccessService service = Open();
         string code = service.StartPairing().Code;
         for (int i = 1; i <= 200; i++)
-            Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), IPAddress.Parse($"10.20.{i / 250}.{i % 250}")));
+            Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), IPAddress.Parse($"10.20.{i / 250}.{i % 250}")));
 
         // The 201st attempt trips the global lockout, and even the correct code from a fresh address is turned away.
         Assert.Contains("Too many", Message(() => service.CompletePairing(Request("00000000"), Source(1))));
@@ -275,7 +279,7 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
 
         // A second distributed burst inside the memory window locks for two minutes; the owner starting a new pairing clears it.
         for (int i = 1; i <= 200; i++)
-            Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), IPAddress.Parse($"10.30.{i / 250}.{i % 250}")));
+            Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), IPAddress.Parse($"10.30.{i / 250}.{i % 250}")));
         Assert.Contains("Too many", Message(() => service.CompletePairing(Request("00000000"), Source(3))));
         _now = _now.AddSeconds(61);
         Assert.Contains("Too many", Message(() => service.CompletePairing(Request("00000000"), Source(3))));
@@ -394,5 +398,76 @@ public sealed class RemoteAccessPairingHardeningTests : IDisposable
         PairingCompleteResponse retry = service.CompletePairing(Request(code, "Lost"), Source(40));
         Assert.True(service.TryValidateDeviceToken(retry.DeviceToken, out _));
         Assert.Equal(2, service.GetStatus().Devices.Count);
+    }
+
+    // ---- review follow-ups -------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_failing_last_seen_write_is_attempted_once_per_interval_not_once_per_request()
+    {
+        RemoteAccessService service = Open();
+        PairingCompleteResponse paired = Pair(service);
+        _now = _now.AddMinutes(20);
+
+        using (new FileStream(_file + ".tmp", FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                Assert.True(service.TryValidateDeviceToken(paired.DeviceToken, out _));
+                await service.WaitForLastSeenFlushAsync();
+            }
+        }
+
+        Assert.Equal(1, service.LastSeenFlushAttempts);
+        // One interval later it tries again.
+        _now = _now.AddMinutes(16);
+        Assert.True(service.TryValidateDeviceToken(paired.DeviceToken, out _));
+        await service.WaitForLastSeenFlushAsync();
+        Assert.Equal(2, service.LastSeenFlushAttempts);
+    }
+
+    [Fact]
+    public void A_forward_clock_jump_does_not_erase_devices_when_pairing_and_they_return_with_the_clock()
+    {
+        RemoteAccessService service = Open();
+        PairingCompleteResponse early = Pair(service, "Early");
+        DateTime real = _now;
+
+        _now = real.AddYears(10);
+        Assert.False(service.TryValidateDeviceToken(early.DeviceToken, out _));
+        Pair(service, "During jump");
+        _now = real.AddMinutes(1);
+
+        var reloaded = new RemoteAccessService(_file, () => _now, a => a == LanAddress, () => "F");
+        Assert.Contains(reloaded.GetStatus().Devices, d => d.Id == early.DeviceId);
+        Assert.True(reloaded.TryValidateDeviceToken(early.DeviceToken, out _));
+    }
+
+    [Fact]
+    public void Starting_a_pairing_clears_the_global_failure_counter_so_the_owner_is_not_refused_after_a_burst()
+    {
+        RemoteAccessService service = Open();
+        service.StartPairing();
+        for (int i = 1; i <= 200; i++)
+            Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), IPAddress.Parse($"10.40.{i / 250}.{i % 250}")));
+
+        string code = service.StartPairing().Code;
+        PairingCompleteResponse paired = service.CompletePairing(Request(code), Source(7));
+
+        Assert.True(service.TryValidateDeviceToken(paired.DeviceToken, out _));
+    }
+
+    [Fact]
+    public void Lockouts_raise_a_distinct_exception_with_retry_after_while_a_wrong_code_stays_a_plain_unauthorized()
+    {
+        RemoteAccessService service = Open();
+        IPAddress attacker = Source(90);
+        var wrong = Assert.ThrowsAny<UnauthorizedAccessException>(() => service.CompletePairing(Request("00000000"), attacker));
+        Assert.IsNotType<RemoteAccessService.PairingLockedException>(wrong);
+
+        Fail(service, 9, attacker);
+        var locked = Assert.Throws<RemoteAccessService.PairingLockedException>(() => service.CompletePairing(Request("00000000"), attacker));
+        Assert.Equal(TimeSpan.FromMinutes(1), locked.RetryAfter);
+        Assert.Contains("Too many failed pairing attempts", locked.Message);
     }
 }

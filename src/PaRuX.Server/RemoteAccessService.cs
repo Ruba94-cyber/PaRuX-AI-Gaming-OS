@@ -152,7 +152,7 @@ public sealed class RemoteAccessService
                 CertificateFingerprint = _certificateFingerprint(),
                 RestartRequired = restartRequired,
                 NetworkCategory = NetworkCategoryProbe.Describe(NetworkCategoryProbe.GetConnectedCategory()),
-                Devices = _document.Devices.Select(ToInfo).OrderBy(d => d.Name).ToList()
+                Devices = _document.Devices.Select(d => ToInfo(d, IsExpired(d, _utcNow()))).OrderBy(d => d.Name).ToList()
             };
         }
     }
@@ -202,6 +202,7 @@ public sealed class RemoteAccessService
             // LAN host provoked, so it clears the global backoff (per-source lockouts stay). The new code is still guarded by the
             // per-source and global failure budgets.
             _globalLockout.Reset();
+            _failedPairingAttempts.Clear();
             DateTime expires = _utcNow().AddMinutes(5);
             string code;
             do code = RandomNumberGenerator.GetInt32(10000000, 100000000).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -280,9 +281,9 @@ public sealed class RemoteAccessService
                 CreatedUtc = now,
                 LastSeenUtc = now
             };
-            // Devices whose token already lapsed are dropped in the same write: they could not authenticate anyway.
-            List<PairedDevice> devices = _document.Devices.Where(d => !IsExpired(d, now)).ToList();
-            devices.Add(device);
+            // Expired devices are kept, not pruned: a clock that jumped forward would otherwise erase every device irreversibly.
+            // They cannot authenticate while expired, are flagged in the status, and the person can revoke them.
+            List<PairedDevice> devices = new(_document.Devices) { device };
             try { PersistDevices(devices); }
             catch
             {
@@ -300,11 +301,11 @@ public sealed class RemoteAccessService
         }
     }
 
-    private static UnauthorizedAccessException TooMany(TimeSpan remaining)
+    private static PairingLockedException TooMany(TimeSpan remaining)
     {
         int seconds = (int)Math.Ceiling(Math.Max(1, remaining.TotalSeconds));
         string wait = seconds >= 120 ? $"{(int)Math.Ceiling(seconds / 60.0)} minutes" : seconds >= 60 ? "one minute" : $"{seconds} seconds";
-        return new UnauthorizedAccessException($"Too many failed pairing attempts. Wait {wait} and try again.");
+        return new PairingLockedException($"Too many failed pairing attempts. Wait {wait} and try again.", TimeSpan.FromSeconds(seconds));
     }
 
     private void EvictIdleSources(DateTime now)
@@ -379,21 +380,23 @@ public sealed class RemoteAccessService
     {
         if (_lastSeenFlushQueued || now - _lastSeenPersistedUtc < LastSeenFlushInterval) return;
         _lastSeenFlushQueued = true;
+        // Advanced before the write, so a failing disk (full, locked by a scanner) is retried once per interval, not per request.
+        _lastSeenPersistedUtc = now;
         _lastSeenFlush = Task.Run(() =>
         {
             lock (_gate)
             {
                 _lastSeenFlushQueued = false;
+                LastSeenFlushAttempts++;
                 if (_unreadableReason is not null) return;
-                try
-                {
-                    SaveDocument(_document, _configurationPath);
-                    _lastSeenPersistedUtc = _utcNow();
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+                try { SaveDocument(_document, _configurationPath); }
+                catch (Exception) { /* LastSeenUtc is a convenience; the next interval tries again. */ }
             }
         });
     }
+
+    /// <summary>Test hook: how many background LastSeenUtc writes were attempted.</summary>
+    internal int LastSeenFlushAttempts { get; private set; }
 
     /// <summary>Test hook: completes when the queued LastSeenUtc write, if any, has finished.</summary>
     internal Task WaitForLastSeenFlushAsync() { lock (_gate) return _lastSeenFlush; }
@@ -546,12 +549,13 @@ public sealed class RemoteAccessService
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
-    private static PairedDeviceInfo ToInfo(PairedDevice d) => new()
+    private static PairedDeviceInfo ToInfo(PairedDevice d, bool expired) => new()
     {
         Id = d.Id,
         Name = d.Name,
         CreatedUtc = d.CreatedUtc,
-        LastSeenUtc = d.LastSeenUtc
+        LastSeenUtc = d.LastSeenUtc,
+        Expired = expired
     };
 
     private void RemoveExpiredPairings()
@@ -667,6 +671,13 @@ public sealed class RemoteAccessService
     // A device with a missing identifier or token hash cannot be matched, and would fault on the first LAN request that reaches it.
     private static bool IsCompleteDevice(PairedDevice? device) =>
         device is not null && device.Id is not null && device.Name is not null && device.TokenHash is not null;
+
+    /// <summary>A pairing attempt turned away by a lockout. Still an UnauthorizedAccessException; the endpoint maps it to 429.</summary>
+    public sealed class PairingLockedException : UnauthorizedAccessException
+    {
+        public PairingLockedException(string message, TimeSpan retryAfter) : base(message) => RetryAfter = retryAfter;
+        public TimeSpan RetryAfter { get; }
+    }
 
     public sealed record RemoteAccessConfiguration(bool Enabled, string Address, int Port);
     private sealed record PairingSession(DateTime ExpiresUtc);

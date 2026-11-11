@@ -235,6 +235,8 @@ public sealed class PairedDeviceInfo
     public string Name { get; set; } = string.Empty;
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastSeenUtc { get; set; }
+    /// <summary>True when the device's token has lapsed (idle or absolute lifetime); it must pair again. Additive field.</summary>
+    public bool Expired { get; set; }
 }
 
 public sealed class ServerBootstrap
