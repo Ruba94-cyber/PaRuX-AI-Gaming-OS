@@ -4,9 +4,9 @@ Nothing here has been submitted. Items marked OWNER need the owner's Partner Cen
 
 ## A. Account and identity (OWNER)
 
-1. TODO Register a free developer account (individual) at https://storedeveloper.microsoft.com (Partner Center).
-2. TODO Reserve the app name. The build default display name is "PaRuX AI Studio"; if you reserve a different name, put it in the identity file as `appDisplayName`.
-3. TODO In Partner Center open Product management > Product identity and copy **Package/Identity/Name**, **Package/Identity/Publisher** and **Package/Properties/PublisherDisplayName** into the Git-ignored file `<main checkout>\.ai\store\store-identity.local.json` (keys `identityName`, `identityPublisher`, `publisherDisplayName`; optional `appDisplayName`). Values are case- and punctuation-sensitive. Never commit this file (`*.local.json` is ignored).
+1. DONE (owner) Register a free developer account (individual) at https://storedeveloper.microsoft.com (Partner Center).
+2. DONE (owner) Reserve the app name. The build default display name is "PaRuX AI Studio"; if you reserve a different name, put it in the identity file as `appDisplayName`.
+3. DONE (owner, 2026-11-11) In Partner Center open Product management > Product identity and copy **Package/Identity/Name**, **Package/Identity/Publisher** and **Package/Properties/PublisherDisplayName** into the Git-ignored file `<main checkout>\.ai\store\store-identity.local.json` (keys `identityName`, `identityPublisher`, `publisherDisplayName`; optional `appDisplayName`). Values are case- and punctuation-sensitive. Never commit this file (`*.local.json` is ignored).
 4. TODO Pricing: Free. Markets: choose. Availability: public.
 
 ## B. Build the package (agent-reproducible)
@@ -22,8 +22,8 @@ Output: `artifacts\msix\PaRuX_<major.minor.patch>.0_x64.msix` (+ `.sha256.txt`).
 
 | Check | Status | How |
 |---|---|---|
-| Windows App Certification Kit on the .msix | NOT RUN (needs an elevated prompt) | In an elevated PowerShell: `& "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe" reset` then `appcert.exe test -appxpackagepath <msix> -reportoutputpath wack-report.xml`. Keep the XML report; fix every failure. |
-| Local install + first run of the packaged app | NOT RUN (needs trust of a test certificate machine-wide, or Developer Mode) | Option 1: `./scripts/build-msix.ps1 -IdentityFile ... -SkipPublish -SignTestCopy`, then in an elevated PowerShell import the printed certificate's `.cer` into `Cert:\LocalMachine\TrustedPeople` and `Add-AppxPackage <TESTSIGNED.msix>`. Option 2: turn on Developer Mode and `Add-AppxPackage -Register <layout>\AppxManifest.xml`. Remove the certificate and package afterwards. |
+| Windows App Certification Kit on the .msix | DONE 2026-11-11: overall PASS, 2 optional tests fail (WebView2 metadata, blocked executables) - QA-044. Re-run after any packaging change (needs an elevated prompt) | In an elevated PowerShell: `& "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe" reset` then `appcert.exe test -appxpackagepath <msix> -reportoutputpath wack-report.xml`. Keep the XML report; fix every failure. |
+| Local install + first run of the packaged app | DONE 2026-11-11 through the Core API (QA-043); the window and a chat with a downloaded model are still to be checked by eye (needs trust of a test certificate machine-wide, or Developer Mode) | Option 1: `./scripts/build-msix.ps1 -IdentityFile ... -SkipPublish -SignTestCopy`, then in an elevated PowerShell import the printed certificate's `.cer` into `Cert:\LocalMachine\TrustedPeople` and `Add-AppxPackage <TESTSIGNED.msix>`. Option 2: turn on Developer Mode and `Add-AppxPackage -Register <layout>\AppxManifest.xml`. Remove the certificate and package afterwards. |
 | First-run checks once installed | NOT RUN | PaRuX starts; Core starts (`PaRuX.Server.exe` child of PaRuX.exe); Chat with a downloaded small model works; data appears under `%LOCALAPPDATA%\Packages\<PFN>\LocalState\PaRuX` and **not** under `%LOCALAPPDATA%\PaRuX`; Update Manager says the Store manages updates; app uninstalls cleanly. If the app fails to start, the first suspect is WinRT activation / `resources.pri` for a self-contained WinUI 3 app with package identity (see `PACKAGING_DECISION.md`). |
 | Partner Center certification | NOT RUN | Upload the .msix on the Packages page. |
 
