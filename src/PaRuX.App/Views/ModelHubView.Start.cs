@@ -25,6 +25,7 @@ namespace PaRuX.Views
     public sealed partial class ModelHubView
     {
         private static bool StartItalian => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
+        private static string T(string en, string it) => StartItalian ? it : en;
 
         private readonly VariableSizedWrapGrid _startCards = new VariableSizedWrapGrid
         {
