@@ -53,6 +53,32 @@ public sealed class ApiSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFacto
     }
 
     [Fact]
+    public async Task Browser_launch_code_is_authenticated_loopback_only_and_single_use()
+    {
+        using HttpClient anonymous = _factory.CreateClient();
+        using HttpClient desktop = _factory.CreateClient();
+        ServerState state = _factory.Services.GetRequiredService<ServerState>();
+        desktop.DefaultRequestHeaders.Add("X-PaRuX-Token", state.Token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsync("/api/v1/web/launch-code", null)).StatusCode);
+        var issued = await desktop.PostAsync("/api/v1/web/launch-code", null);
+        Assert.Equal(HttpStatusCode.OK, issued.StatusCode);
+        var json = await issued.Content.ReadFromJsonAsync<JsonObject>();
+        string code = json!["code"]!.GetValue<string>();
+        Assert.DoesNotContain(state.Token, code, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/app?token=" + state.Token)).StatusCode);
+
+        using var badHost = new HttpRequestMessage(HttpMethod.Get, "/app?code=" + code);
+        badHost.Headers.Host = "attacker.example";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.SendAsync(badHost)).StatusCode);
+        var page = await anonymous.GetAsync("/app?code=" + code);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("const launchToken =", await page.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal("no-store", page.Headers.CacheControl?.ToString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/app?code=" + code)).StatusCode);
+    }
+
+    [Fact]
     public async Task Protected_endpoint_accepts_current_session_token()
     {
         using HttpClient client = _factory.CreateClient();

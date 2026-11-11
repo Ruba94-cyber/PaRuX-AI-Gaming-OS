@@ -45,6 +45,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<ServerState>();
+builder.Services.AddSingleton<PaRuX.Server.BrowserLaunchCodes>();
 builder.Services.AddSingleton<LocalAiProcessManager>();
 builder.Services.AddSingleton<ISystemRamSnapshotProvider, SystemRamSnapshotProvider>();
 builder.Services.AddSingleton<IGpuPerformanceTelemetrySnapshotProvider>(
@@ -380,6 +381,7 @@ ConfigAssets.EnsureAll();
 StartupTrace.Mark("config-assets-ensured");
 
 ServerState state = app.Services.GetRequiredService<ServerState>();
+var browserLaunchCodes = app.Services.GetRequiredService<PaRuX.Server.BrowserLaunchCodes>();
 // Download jobs are in-memory; construct the service now so preserved partials are visible before Model Hub is opened.
 _ = app.Services.GetRequiredService<ModelDownloadService>();
 RemoteAccessService remoteAccess = app.Services.GetRequiredService<RemoteAccessService>();
@@ -431,6 +433,20 @@ app.Use(async (context, next) =>
     bool pairingCompletion = context.Request.Path == "/api/v1/remote/pair/complete";
     if (loopback && context.Request.Path == "/api/v1/health")
     {
+        await next();
+        return;
+    }
+
+    // A one-use desktop launch must take precedence over an existing browser session. Otherwise
+    // the session would absorb the navigation and leave a redeemable desktop capability behind.
+    if (loopback && HttpMethods.IsGet(context.Request.Method) && context.Request.Path == WebClientEndpoint.Path
+        && context.Request.Query.TryGetValue("code", out var launchCode) && launchCode.Count == 1
+        && (context.Request.Host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || context.Request.Host.Host == "127.0.0.1" || context.Request.Host.Host == "[::1]")
+        && browserLaunchCodes.Consume(launchCode.ToString()))
+    {
+        context.Items["PaRuXOwner"] = "desktop";
+        context.Items["PaRuXBrowserLaunch"] = true;
         await next();
         return;
     }
@@ -590,12 +606,6 @@ app.Use(async (context, next) =>
     }
 
     string provided = context.Request.Headers[PaRuXHeaders.Token].ToString();
-    // A browser cannot set a header on a navigation, so the web client's own page - and only that
-    // one path, only on loopback, which is already all this branch handles - may carry the token in
-    // the query string. The page moves it into sessionStorage and strips it from the URL on load,
-    // and every request it makes afterwards uses the header like every other client.
-    if (string.IsNullOrEmpty(provided) && context.Request.Path == WebClientEndpoint.Path)
-        provided = context.Request.Query["token"].ToString();
     if (string.IsNullOrEmpty(provided))
     {
         string authHeader = context.Request.Headers.Authorization.ToString();
@@ -690,9 +700,9 @@ app.MapPost("/api/v1/remote/pair/start", (RemoteAccessService remote, HttpContex
 });
 
 app.MapPost("/api/v1/remote/pair/complete", (
-    PairingCompleteRequest request, RemoteAccessService remote) =>
+    PairingCompleteRequest request, RemoteAccessService remote, HttpContext context) =>
 {
-    try { return Results.Ok(remote.CompletePairing(request)); }
+    try { return Results.Ok(remote.CompletePairing(request, context.Connection.RemoteIpAddress)); }
     catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
     catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
 });
@@ -1206,6 +1216,13 @@ app.MapPost("/api/v1/personas/active", (SetActivePersonaRequest request, Persona
 // makes it usable at all. LAN access stays on the paired-device path, which has a device token and
 // certificate pinning; a browser has neither, and shipping a LAN web UI without them would trade
 // the product's security model for convenience.
+app.MapPost("/api/v1/web/launch-code", (HttpContext context) =>
+{
+    if (!IsDesktopOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    try { return Results.Ok(new { code = browserLaunchCodes.Issue() }); }
+    catch (InvalidOperationException) { return Results.StatusCode(StatusCodes.Status429TooManyRequests); }
+}).RequireDesktopOwner();
+
 app.MapGet(WebClientEndpoint.Path, (HttpContext context, WebAccessService web) =>
 {
     if (!IsLoopback(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
@@ -1215,14 +1232,24 @@ app.MapGet(WebClientEndpoint.Path, (HttpContext context, WebAccessService web) =
     // 401, which is what makes the reverse-proxy case usable at all.
     if (context.Items["PaRuXOwner"] is not string owner) return Results.StatusCode(StatusCodes.Status403Forbidden);
     if (web.Enabled && !owner.StartsWith("web:", StringComparison.Ordinal)
-        && context.Request.Cookies.ContainsKey(WebAccessService.SessionCookieName))
+        && context.Request.Cookies.ContainsKey(WebAccessService.SessionCookieName)
+        && !context.Items.ContainsKey("PaRuXBrowserLaunch"))
         return Results.Redirect(WebAccessEndpoints.LoginPath);
+
+    if (context.Items.ContainsKey("PaRuXBrowserLaunch") && context.Request.Cookies.ContainsKey(WebAccessService.SessionCookieName))
+        context.Response.Cookies.Delete(WebAccessService.SessionCookieName, new CookieOptions
+        {
+            HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/"
+        });
 
     // The page is tested for having no external references; this makes that a property the browser
     // enforces rather than one a test merely observed. connect-src 'self' also means the client
     // cannot be turned into an exfiltration path for the chat it is displaying.
     WebAccessEndpoints.ApplyClientHeaders(context);
-    return Results.Content(WebClientEndpoint.Html, "text/html; charset=utf-8");
+    string html = context.Items.ContainsKey("PaRuXBrowserLaunch")
+        ? WebClientEndpoint.Html.Replace("/* PARUX_LAUNCH_TOKEN */", "const launchToken = " + System.Text.Json.JsonSerializer.Serialize(state.Token) + ";", StringComparison.Ordinal)
+        : WebClientEndpoint.Html.Replace("/* PARUX_LAUNCH_TOKEN */", "const launchToken = null;", StringComparison.Ordinal);
+    return Results.Content(html, "text/html; charset=utf-8");
 });
 
 app.MapWebAccessEndpoints();

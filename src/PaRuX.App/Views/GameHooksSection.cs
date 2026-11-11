@@ -20,12 +20,14 @@ internal sealed class GameHooksSection : StackPanel
     private static string T(string en, string it) => GameUi.T(en, it);
 
     private readonly string _titleKey;
-    private readonly ToggleSwitch _enabled = new() { OnContent = "", OffContent = "" };
+    private readonly ToggleSwitch _enabled = new() { OnContent = "", OffContent = "", IsEnabled = false };
     private readonly TextBox _prePath = new() { MaxLength = 260 }, _preArgs = new() { MaxLength = 1024 }, _preTimeout = new() { MaxLength = 2, Text = "15" };
     private readonly TextBox _postPath = new() { MaxLength = 260 }, _postArgs = new() { MaxLength = 1024 }, _postTimeout = new() { MaxLength = 2, Text = "15" };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _save = new(), _clear = new();
+    private readonly Button _retryLoad = new() { Visibility = Visibility.Collapsed, MinHeight = 44 };
     private bool _loading = true;
+    private bool _loadInProgress;
 
     internal GameHooksSection(string titleKey)
     {
@@ -68,6 +70,10 @@ internal sealed class GameHooksSection : StackPanel
         AutomationProperties.SetAutomationId(_status, "GameHooks_Status_" + titleKey);
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Children.Add(_status);
+        _retryLoad.Content = T("Retry loading helper settings", "Riprova a caricare le impostazioni degli helper");
+        AutomationProperties.SetAutomationId(_retryLoad, "GameHooks_Retry_" + titleKey);
+        _retryLoad.Click += async (_, _) => await LoadAsync();
+        Children.Add(_retryLoad);
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -102,6 +108,12 @@ internal sealed class GameHooksSection : StackPanel
 
     private async Task LoadAsync()
     {
+        if (_loadInProgress) return;
+        _loadInProgress = true;
+        _loading = true;
+        _enabled.IsEnabled = false;
+        _retryLoad.Visibility = Visibility.Collapsed;
+        bool loaded = false;
         try
         {
             var state = await GamingLibraryClient.Current.GetGameHooksAsync();
@@ -119,9 +131,16 @@ internal sealed class GameHooksSection : StackPanel
             _status.Text = state.Value.Enabled
                 ? T("Launch helpers are on.", "Gli helper di avvio sono attivi.")
                 : T("Launch helpers are off. Nothing runs before or after any game.", "Gli helper di avvio sono spenti. Nulla viene eseguito prima o dopo i giochi.");
+            loaded = true;
         }
         catch (Exception) { _status.Text = T("Launch helper settings could not be read.", "Impossibile leggere le impostazioni degli helper."); }
-        finally { _loading = false; }
+        finally
+        {
+            _loading = false;
+            _loadInProgress = false;
+            _enabled.IsEnabled = loaded;
+            _retryLoad.Visibility = loaded ? Visibility.Collapsed : Visibility.Visible;
+        }
     }
 
     private static void Fill(GameHookSpec? spec, TextBox path, TextBox args, TextBox timeout)

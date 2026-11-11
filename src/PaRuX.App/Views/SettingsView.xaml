@@ -769,7 +769,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="2">
                                 <TextBlock Text="Pair a device" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
-                                <TextBlock Text="Creates a one-time six-digit code valid for five minutes. Each device receives its own revocable token." TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
+                                <TextBlock Text="Creates a one-time eight-digit code valid for five minutes. Each device receives its own revocable token." TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                             </StackPanel>
                             <Button x:Name="PairDeviceButton" Grid.Column="1" Content="Create pairing code" Click="PairDevice_Click" VerticalAlignment="Center" />
                         </Grid>

@@ -58,8 +58,4 @@ internal static class WebClientEndpoint
 
     internal static string LoginHtml => LoginContent.Value;
 
-    /// <summary>The URL to hand a person, token included. Only ever printed to the machine's own
-    /// console or written to its own state - it is a loopback URL and the token is this process's.</summary>
-    internal static string BuildLocalUrl(string endpoint, string token) =>
-        endpoint.TrimEnd('/') + Path + "?token=" + Uri.EscapeDataString(token);
 }

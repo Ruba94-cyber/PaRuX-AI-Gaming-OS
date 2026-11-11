@@ -339,11 +339,21 @@ public sealed class LocalRuntimeService
 
     public async Task<RuntimeResult> RunActionAsync(string action, CancellationToken cancellationToken)
     {
-        if (!new[] { "Ensure", "Auto", "On", "Off", "Standard", "Uncensored", "MediaStart", "MediaStop", "GameStart", "GameStop" }
+        if (!new[] { "Ensure", "Warmup", "Auto", "On", "Off", "Standard", "Uncensored", "MediaStart", "MediaStop", "GameStart", "GameStop" }
                 .Contains(action, StringComparer.OrdinalIgnoreCase))
             return new RuntimeResult(false, "Unsupported runtime action.");
 
         string normalized = action.Trim().ToLowerInvariant();
+        if (normalized == "warmup")
+        {
+            // Unlike an explicit Ensure, startup may quietly skip an unconfigured install.
+            // Check before resource admission or stopping another inference engine.
+            if (ShouldPreflightAutomaticWarmup(_process.GetMode(), _process.GamingActive)
+                && await _process.ShouldSkipAutomaticWarmupAsync(cancellationToken).ConfigureAwait(false))
+                return new RuntimeResult(true, "Automatic warm-up skipped: no model configured.");
+            action = "Ensure";
+            normalized = "ensure";
+        }
         if (IsTextStartAction(normalized))
             await MediaExecutionCoordinator.Current.WaitForMediaAvailabilityAsync(cancellationToken).ConfigureAwait(false);
 
@@ -401,6 +411,9 @@ public sealed class LocalRuntimeService
         else if (result.Success && normalized == "gamestart") SetGamingState(true);
         return new RuntimeResult(result.Success, result.Message);
     }
+
+    internal static bool ShouldPreflightAutomaticWarmup(string mode, bool gamingActive) =>
+        mode != "OFF" && !gamingActive;
 
     internal static bool RequiresResourceAdmission(string? action) => (action ?? string.Empty).Trim().ToLowerInvariant() switch
     {

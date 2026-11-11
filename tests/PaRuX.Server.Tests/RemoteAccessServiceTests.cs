@@ -86,6 +86,45 @@ public sealed class RemoteAccessServiceTests : IDisposable
     }
 
     [Fact]
+    public void Pairing_limit_is_per_normalized_source_and_expires()
+    {
+        DateTime now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var service = new RemoteAccessService(_configFile, () => now);
+        var request = new PairingCompleteRequest { Code = "00000000", DeviceName = "Test" };
+        IPAddress first = IPAddress.Parse("192.168.1.20");
+        IPAddress second = IPAddress.Parse("192.168.1.21");
+        for (int i = 0; i < 10; i++)
+            Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
+        var limited = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first.MapToIPv6()));
+        Assert.Contains("Too many", limited.Message);
+        var other = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, second));
+        Assert.Contains("invalid or expired", other.Message);
+        now = now.AddMinutes(1);
+        var afterExpiry = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, first));
+        Assert.Contains("invalid or expired", afterExpiry.Message);
+    }
+
+    [Fact]
+    public void Pairing_global_budget_bounds_distributed_attempts_without_evicting_buckets()
+    {
+        DateTime now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var service = new RemoteAccessService(_configFile, () => now);
+        var request = new PairingCompleteRequest { Code = "00000000", DeviceName = "Test" };
+        for (int i = 1; i <= 200; i++)
+        {
+            IPAddress source = IPAddress.Parse($"192.168.1.{i}");
+            var failure = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, source));
+            Assert.Contains("invalid or expired", failure.Message);
+        }
+        var blocked = Assert.Throws<UnauthorizedAccessException>(() =>
+            service.CompletePairing(request, IPAddress.Parse("192.168.1.201")));
+        Assert.Contains("Too many", blocked.Message);
+        now = now.AddMinutes(1);
+        var afterExpiry = Assert.Throws<UnauthorizedAccessException>(() => service.CompletePairing(request, null));
+        Assert.Contains("invalid or expired", afterExpiry.Message);
+    }
+
+    [Fact]
     public void Pairing_workflow_issues_valid_token_and_persists_device()
     {
         string? assignedIp = RemoteAccessService.GetPrivateIpv4Addresses().FirstOrDefault()?.ToString();
@@ -100,7 +139,7 @@ public sealed class RemoteAccessServiceTests : IDisposable
 
         PairingStartResponse start = _service.StartPairing();
         Assert.NotNull(start.Code);
-        Assert.Equal(6, start.Code.Length);
+        Assert.Equal(8, start.Code.Length);
         Assert.True(start.ExpiresUtc > DateTime.UtcNow);
         Assert.Equal($"https://{assignedIp}:55100", start.Endpoint);
 

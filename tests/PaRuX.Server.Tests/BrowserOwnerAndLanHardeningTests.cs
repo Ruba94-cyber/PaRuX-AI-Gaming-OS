@@ -44,6 +44,41 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
         return (setCookie.Split(';')[0], body.CsrfToken!);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Desktop_launch_consumes_code_and_supersedes_existing_browser_cookie(bool validCookie)
+    {
+        Web.Reset();
+        Web.SetPassphrase(GoodPassphrase);
+        Web.SetEnabled(true);
+        using HttpClient desktop = DesktopClient();
+        using HttpClient browser = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false, HandleCookies = false
+        });
+        try
+        {
+            string cookie = validCookie
+                ? (await SignInAsync(browser)).Cookie
+                : WebAccessService.SessionCookieName + "=expired-session";
+            using var issued = await desktop.PostAsync("/api/v1/web/launch-code", null);
+            issued.EnsureSuccessStatusCode();
+            var result = await issued.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+            string code = result!["code"]!.GetValue<string>();
+
+            using var navigation = new HttpRequestMessage(HttpMethod.Get, "/app?code=" + code);
+            navigation.Headers.Add("Cookie", cookie);
+            using var page = await browser.SendAsync(navigation);
+            Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+            Assert.Contains("const launchToken =", await page.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            Assert.Contains(page.Headers.GetValues("Set-Cookie"), value => value.StartsWith(WebAccessService.SessionCookieName + "=", StringComparison.Ordinal));
+            Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync("/app?code=" + code)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await desktop.GetAsync("/api/v1/system/status")).StatusCode);
+        }
+        finally { Web.Reset(); }
+    }
+
     [Fact]
     public async Task A_sign_in_from_the_lan_is_refused_even_with_the_right_passphrase()
     {

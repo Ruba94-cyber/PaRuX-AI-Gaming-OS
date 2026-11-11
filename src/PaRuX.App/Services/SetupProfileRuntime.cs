@@ -64,7 +64,7 @@ namespace PaRuX.Services
                         // Same idempotent warm-up as start-up; Core refuses it while a game is active or the mode is OFF.
                         _ = Task.Run(async () =>
                         {
-                            try { await LocalAiController.Current.RunActionAsync("Ensure", CancellationToken.None).ConfigureAwait(false); }
+                            try { await LocalAiController.Current.RunActionAsync("Warmup", CancellationToken.None).ConfigureAwait(false); }
                             catch (Exception ex) { Log.Write("Setup switch: model warm-up failed: " + ex.GetType().Name); }
                         });
                     }

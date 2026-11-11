@@ -22,7 +22,11 @@ public sealed class RemoteAccessService
 
     private readonly object _gate = new();
     private readonly Dictionary<string, PairingSession> _pairings = new(StringComparer.Ordinal);
+    private readonly Dictionary<IPAddress, List<DateTime>> _failedPairingBySource = new();
     private readonly List<DateTime> _failedPairingAttempts = new();
+    private readonly Func<DateTime> _utcNow;
+    private const int PairingFailuresPerSource = 10;
+    private const int PairingFailuresGlobal = 200;
     private readonly string _configurationPath;
     private RemoteAccessDocument _document;
 
@@ -38,9 +42,12 @@ public sealed class RemoteAccessService
     /// above (the DI singleton registered in Program.cs). The LAN certificate itself
     /// (CertificatePath) is deliberately NOT threaded the same way - it's always real/machine-
     /// specific and untouched by backup/restore.</summary>
-    public RemoteAccessService(string configurationPath)
+    public RemoteAccessService(string configurationPath) : this(configurationPath, () => DateTime.UtcNow) { }
+
+    internal RemoteAccessService(string configurationPath, Func<DateTime> utcNow)
     {
         _configurationPath = configurationPath;
+        _utcNow = utcNow;
         _document = LoadDocument(configurationPath, out _unreadableReason);
     }
 
@@ -164,9 +171,9 @@ public sealed class RemoteAccessService
             if (!_document.Enabled || !IsPrivateAssignedAddress(_document.Address))
                 throw new InvalidOperationException("Enable LAN access on a private network interface first.");
 
-            DateTime expires = DateTime.UtcNow.AddMinutes(5);
+            DateTime expires = _utcNow().AddMinutes(5);
             string code;
-            do code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            do code = RandomNumberGenerator.GetInt32(10000000, 100000000).ToString(System.Globalization.CultureInfo.InvariantCulture);
             while (_pairings.ContainsKey(code));
             _pairings[code] = new PairingSession(expires);
             RemoveExpiredPairings();
@@ -180,7 +187,9 @@ public sealed class RemoteAccessService
         }
     }
 
-    public PairingCompleteResponse CompletePairing(PairingCompleteRequest request)
+    public PairingCompleteResponse CompletePairing(PairingCompleteRequest request) => CompletePairing(request, IPAddress.Loopback);
+
+    public PairingCompleteResponse CompletePairing(PairingCompleteRequest request, IPAddress? remoteAddress)
     {
         string code = request.Code?.Trim() ?? string.Empty;
         string name = request.DeviceName?.Trim() ?? string.Empty;
@@ -188,16 +197,30 @@ public sealed class RemoteAccessService
 
         lock (_gate)
         {
+            DateTime now = _utcNow();
+            IPAddress source = remoteAddress is null ? IPAddress.None
+                : remoteAddress.IsIPv4MappedToIPv6 ? remoteAddress.MapToIPv4() : remoteAddress;
             RemoveExpiredPairings();
-            _failedPairingAttempts.RemoveAll(t => t <= DateTime.UtcNow.AddMinutes(-1));
-            if (_failedPairingAttempts.Count >= 10)
-                throw new UnauthorizedAccessException("Too many failed pairing attempts. Wait one minute and try again.");
-            if (!_pairings.Remove(code, out PairingSession? pairing) || pairing.ExpiresUtc <= DateTime.UtcNow)
+            DateTime cutoff = now.AddMinutes(-1);
+            _failedPairingAttempts.RemoveAll(t => t <= cutoff);
+            foreach (IPAddress key in _failedPairingBySource.Keys.ToArray())
             {
-                _failedPairingAttempts.Add(DateTime.UtcNow);
+                List<DateTime> bucket = _failedPairingBySource[key];
+                bucket.RemoveAll(t => t <= cutoff);
+                if (bucket.Count == 0) _failedPairingBySource.Remove(key);
+            }
+            if (_failedPairingAttempts.Count >= PairingFailuresGlobal
+                || (_failedPairingBySource.TryGetValue(source, out var failures) && failures.Count >= PairingFailuresPerSource))
+                throw new UnauthorizedAccessException("Too many failed pairing attempts. Wait one minute and try again.");
+            if (!_pairings.Remove(code, out PairingSession? pairing) || pairing.ExpiresUtc <= now)
+            {
+                if (!_failedPairingBySource.TryGetValue(source, out failures))
+                    _failedPairingBySource.Add(source, failures = new List<DateTime>());
+                failures.Add(now);
+                _failedPairingAttempts.Add(now);
                 throw new UnauthorizedAccessException("The pairing code is invalid or expired.");
             }
-            _failedPairingAttempts.Clear();
+            _failedPairingBySource.Remove(source);
 
             string token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             var device = new PairedDevice
@@ -395,7 +418,7 @@ public sealed class RemoteAccessService
 
     private void RemoveExpiredPairings()
     {
-        foreach (string code in _pairings.Where(p => p.Value.ExpiresUtc <= DateTime.UtcNow).Select(p => p.Key).ToList())
+        foreach (string code in _pairings.Where(p => p.Value.ExpiresUtc <= _utcNow()).Select(p => p.Key).ToList())
             _pairings.Remove(code);
     }
 

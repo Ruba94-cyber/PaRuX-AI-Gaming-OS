@@ -211,19 +211,16 @@
 (() => {
   "use strict";
 
-  // Two ways in, deliberately. The desktop launches this page with its own token in the URL,
-  // because a browser cannot set a header on a navigation; the token is moved into sessionStorage
-  // and stripped from the address bar at once, so it does not sit in history, a bookmark or a
-  // screenshot. Everyone else arrives with a session cookie the browser holds and script cannot
-  // read, and echoes the CSRF token the sign-in call handed back.
+  // A one-use launch code is exchanged by the server when this document is requested. The code
+  // is removed from the address bar and the resulting token is kept in this tab's session storage.
+  /* PARUX_LAUNCH_TOKEN */
   const url = new URL(location.href);
-  const fromQuery = url.searchParams.get("token");
-  if (fromQuery) {
-    try { sessionStorage.setItem("parux-token", fromQuery); } catch { /* private mode */ }
-    url.searchParams.delete("token");
+  if (url.searchParams.has("code")) {
+    url.searchParams.delete("code");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   }
-  let token = fromQuery;
+  if (launchToken) { try { sessionStorage.removeItem("parux_csrf"); sessionStorage.setItem("parux-token", launchToken); } catch { /* private mode */ } }
+  let token = launchToken;
   if (!token) { try { token = sessionStorage.getItem("parux-token"); } catch { token = null; } }
   let csrf = null;
   try { csrf = sessionStorage.getItem("parux_csrf"); } catch { csrf = null; }

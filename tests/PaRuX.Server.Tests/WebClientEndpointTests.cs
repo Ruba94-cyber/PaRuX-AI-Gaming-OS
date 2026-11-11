@@ -13,6 +13,19 @@ namespace PaRuX.Server.Tests;
 public sealed class WebClientEndpointTests
 {
     [Fact]
+    public void Launch_codes_expire_and_are_consumed_once()
+    {
+        DateTime now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var codes = new BrowserLaunchCodes(() => now);
+        string first = codes.Issue();
+        Assert.True(codes.Consume(first));
+        Assert.False(codes.Consume(first));
+        string expired = codes.Issue();
+        now = now.AddMinutes(2);
+        Assert.False(codes.Consume(expired));
+    }
+
+    [Fact]
     public void The_client_is_embedded_in_the_build_rather_than_left_on_disk()
     {
         string html = WebClientEndpoint.Html;
@@ -40,12 +53,13 @@ public sealed class WebClientEndpointTests
     }
 
     [Fact]
-    public void The_token_is_removed_from_the_address_bar_as_soon_as_the_page_loads()
+    public void The_one_time_code_is_removed_from_the_address_bar_as_soon_as_the_page_loads()
     {
         string html = WebClientEndpoint.Html;
 
         Assert.Contains("sessionStorage.setItem(\"parux-token\"", html, StringComparison.Ordinal);
-        Assert.Contains("searchParams.delete(\"token\")", html, StringComparison.Ordinal);
+        Assert.Contains("searchParams.delete(\"code\")", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("searchParams.get(\"token\")", html, StringComparison.Ordinal);
         Assert.Contains("history.replaceState", html, StringComparison.Ordinal);
     }
 
@@ -66,12 +80,4 @@ public sealed class WebClientEndpointTests
         Assert.Contains("left your machine", WebClientEndpoint.Html, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("http://127.0.0.1:7801", "abc123", "http://127.0.0.1:7801/app?token=abc123")]
-    [InlineData("http://127.0.0.1:7801/", "abc123", "http://127.0.0.1:7801/app?token=abc123")]
-    [InlineData("http://127.0.0.1:7801", "a b+c", "http://127.0.0.1:7801/app?token=a%20b%2Bc")]
-    public void The_printed_url_carries_an_escaped_token(string endpoint, string token, string expected)
-    {
-        Assert.Equal(expected, WebClientEndpoint.BuildLocalUrl(endpoint, token));
-    }
 }

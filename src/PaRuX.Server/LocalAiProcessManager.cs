@@ -467,6 +467,34 @@ public sealed class LocalAiProcessManager
         string.IsNullOrWhiteSpace(requestedModelPath)
             ? (hasHeavyGpu ? selectedProfileModel : LocalAiPaths.SmallModel)
             : requestedModelPath;
+
+    // Automatic startup is optional. An absent built-in starter on a fresh installation is
+    // not an error. When the launch path uses a missing assignment, preserve its diagnostic;
+    // CPU/Vulkan fallback already uses the small starter instead of the role assignment.
+    internal Func<CancellationToken, Task<bool>>? AutomaticWarmupSkipForTests { get; set; }
+
+    internal async Task<bool> ShouldSkipAutomaticWarmupAsync(CancellationToken ct)
+    {
+        if (AutomaticWarmupSkipForTests is { } testPreflight)
+            return await testPreflight(ct).ConfigureAwait(false);
+        string role = !CorporateMode.IsActive && GetTextProfile() == "UNCENSORED" ? "uncensored" : "standard";
+        string? assigned = LocalAiPaths.GetRoleOverride(role);
+        if (CorporateMode.IsActive)
+            return ShouldSkipAutomaticWarmup(assigned, LocalAiPaths.FindBundledCorporateModel(), assignmentUsed: true);
+
+        GpuInventoryStatus inventory = InventoryProbe();
+        TextLaunchTier tier = TextLaunchTierSelector.Select(inventory, await GetVramMibAsync(ct).ConfigureAwait(false));
+        bool portable = PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null;
+        bool cpuOnly = RuntimeLaunchOptimizer.ResolveCpuOnly(tier.HeavyGpu, () => inventory);
+        if (cpuOnly && portable && LocalAiPaths.FindBundledCpuRuntime() != null)
+            return ShouldSkipAutomaticWarmup(assigned, role == "uncensored"
+                ? LocalAiPaths.UncensoredModel : LocalAiPaths.FindBundledPortableModel(), assignmentUsed: true);
+        string selected = role == "uncensored" ? LocalAiPaths.UncensoredModel : LocalAiPaths.StandardModel;
+        return ShouldSkipAutomaticWarmup(assigned, ResolveTextModelPath(selected, tier.HeavyGpu, null), tier.HeavyGpu);
+    }
+
+    internal static bool ShouldSkipAutomaticWarmup(string? assigned, string? resolved, bool assignmentUsed) =>
+        (!assignmentUsed || string.IsNullOrWhiteSpace(assigned)) && (string.IsNullOrWhiteSpace(resolved) || !File.Exists(resolved));
     public void SetTextProfile(string value) => WriteState(LocalAiPaths.TextProfileFile, value.ToUpperInvariant());
 
     private static string ReadTrimmedUpper(string path, string fallback, params string[] allowed)

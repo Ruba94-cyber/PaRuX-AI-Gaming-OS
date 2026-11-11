@@ -61,13 +61,45 @@ internal sealed class SettingsCategoriesPage
 
     internal static void ScrollIntoView(AutomationElement element)
     {
+        try { element.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView(); }
+        catch { }
+    }
+
+    internal void ScrollSettingsIntoView(AutomationElement element)
+    {
+        var host = UiWait.ById(_window, "SettingsContentScroll", ControlType.Pane);
+        bool VisibleInViewport()
+        {
+            if (!element.Properties.IsOffscreen.TryGetValue(out bool offscreen) || offscreen ||
+                !element.Properties.BoundingRectangle.TryGetValue(out var bounds) ||
+                !host.Properties.BoundingRectangle.TryGetValue(out var viewport)) return false;
+            var intersection = System.Drawing.Rectangle.Intersect(bounds, viewport);
+            return bounds.Width > 0 && bounds.Height > 0 && intersection.Width > 0 && intersection.Height > 0;
+        }
+
+        if (VisibleInViewport()) return;
         try
         {
             element.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
         }
         catch
         {
-            // Fall back silently if the item is already visible or does not support IScrollItemProvider
+            // Use the settings content scroll host if the child cannot scroll itself.
         }
+        if (VisibleInViewport()) return;
+
+        var scroll = host.Patterns.Scroll.PatternOrDefault
+            ?? throw new InvalidOperationException("SettingsContentScroll does not expose UIA ScrollPattern.");
+        for (int percent = 0; percent <= 100; percent += 5)
+        {
+            scroll.SetScrollPercent(-1, percent);
+            try
+            {
+                UiWait.For(VisibleInViewport, "settings control in view", TimeSpan.FromMilliseconds(400));
+                return;
+            }
+            catch (TimeoutException) { }
+        }
+        throw new TimeoutException("The settings control could not be scrolled into view.");
     }
 }

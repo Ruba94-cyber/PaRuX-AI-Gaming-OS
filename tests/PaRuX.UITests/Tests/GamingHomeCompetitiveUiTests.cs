@@ -325,6 +325,8 @@ public sealed class GamingHomeCompetitiveUiTests
             Press(app, ById(app, "GameTile_" + key));
             UiWait.ExpandById(app.MainWindow, "GameDetail_Hooks_Expander_" + key);
             var toggle = ById(app, "GameHooks_Enabled_" + key);
+            UiWait.For(() => !string.IsNullOrWhiteSpace(TextOf(app, "GameHooks_Status_" + key)), "launch helper settings loaded");
+            UiWait.For(() => toggle.Properties.IsEnabled.ValueOrDefault, "launch helper switch enabled after loading");
             UiWait.For(() => toggle.Patterns.Toggle.PatternOrDefault?.ToggleState.ValueOrDefault == ToggleState.Off, "switch shown off");
             Assert.False(File.Exists(hooksFile), "nothing is persisted until the user acts");
 

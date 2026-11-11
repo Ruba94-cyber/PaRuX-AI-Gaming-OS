@@ -27,7 +27,7 @@ internal static class CliServerLauncher
         if (await IsHealthyAsync(existing, cancellationToken).ConfigureAwait(false))
         {
             Console.WriteLine($"PaRuX Server is already running at {existing!.Endpoint} (pid {existing.ProcessId}).");
-            PrintWebClientUrl(existing);
+            await PrintWebClientUrlAsync(existing, cancellationToken).ConfigureAwait(false);
             return 0;
         }
 
@@ -93,7 +93,7 @@ internal static class CliServerLauncher
         }
 
         Console.WriteLine($"PaRuX Server is healthy at {bootstrap.Endpoint}. Press Ctrl+C to stop this foreground Server.");
-        PrintWebClientUrl(bootstrap);
+        await PrintWebClientUrlAsync(bootstrap, cancellationToken).ConfigureAwait(false);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
@@ -175,18 +175,29 @@ internal static class CliServerLauncher
         }
     }
 
-    /// <summary>
-    /// Prints the browser client's URL, token and all. This is the only place PaRuX ever puts the
-    /// session token on a screen, and it is the right one: `parux serve` runs on the machine that
-    /// owns the token, the URL is loopback, and without it a headless Core has no interface a person
-    /// can use. The page strips the token out of the address bar as soon as it loads.
-    /// </summary>
-    private static void PrintWebClientUrl(ServerBootstrap bootstrap)
+    private static async Task PrintWebClientUrlAsync(ServerBootstrap bootstrap, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(bootstrap.Token)
             || !PaRuXControlPlaneHttpClient.TryParseLocalEndpoint(bootstrap.Endpoint, out _)) return;
-        Console.WriteLine("Open PaRuX in a browser on this machine:");
-        Console.WriteLine("  " + bootstrap.Endpoint.TrimEnd('/') + "/app?token=" + Uri.EscapeDataString(bootstrap.Token));
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, bootstrap.Endpoint.TrimEnd('/') + "/api/v1/web/launch-code");
+            request.Headers.Add(PaRuXHeaders.Token, bootstrap.Token);
+            using var response = await HealthClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            string? code = body.RootElement.ValueKind == JsonValueKind.Object
+                && body.RootElement.TryGetProperty("code", out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString() : null;
+            if (string.IsNullOrWhiteSpace(code)) throw new InvalidDataException("The server returned an empty launch code.");
+            Console.WriteLine("Open PaRuX in a browser on this machine (link expires in two minutes and can be used once):");
+            Console.WriteLine("  " + bootstrap.Endpoint.TrimEnd('/') + "/app?code=" + Uri.EscapeDataString(code));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidDataException
+            || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("Could not prepare the local browser link. Run 'parux serve' again to retry.");
+        }
     }
 
     private static async Task<bool> IsHealthyAsync(ServerBootstrap? bootstrap, CancellationToken cancellationToken)

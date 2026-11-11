@@ -138,7 +138,7 @@ namespace PaRuX
             try
             {
                 LocalAiController.ActionResult result = await LocalAiController.Current
-                    .RunActionAsync("Ensure", CancellationToken.None).ConfigureAwait(false);
+                    .RunActionAsync("Warmup", CancellationToken.None).ConfigureAwait(false);
                 Log.Write("Startup model warmup -> success=" + result.Success + " : " + result.Message);
             }
             catch (Exception ex)
