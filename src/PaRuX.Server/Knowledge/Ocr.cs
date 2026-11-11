@@ -43,7 +43,7 @@ public sealed class UnavailableOcrEngine : IOcrEngine
 
 /// <summary>
 /// Windows OCR (Windows.Media.Ocr) and PDF page rendering (Windows.Data.Pdf), both part of Windows, no model or binary to ship.
-/// The Core targets plain net8.0 and cannot project WinRT directly, so recognition runs out of process in Windows PowerShell with
+/// The Core targets plain net10.0 and cannot project WinRT directly, so recognition runs out of process in Windows PowerShell with
 /// a timeout: a hostile or corrupt image can only take down that short-lived process. Paths are passed as arguments, never
 /// interpolated into the script. Recognition runs fully offline.
 /// </summary>

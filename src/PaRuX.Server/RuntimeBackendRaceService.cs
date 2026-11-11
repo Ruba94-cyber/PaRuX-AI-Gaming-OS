@@ -313,10 +313,11 @@ public sealed class RuntimeBackendRaceService
 
         await using Stream stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        while (!reader.EndOfStream)
+        while (true)
         {
             string? line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
-            if (line == null || !line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            if (line == null) break;
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
             string json = line[5..].Trim();
             if (json.Length == 0 || json == "[DONE]") continue;
             try

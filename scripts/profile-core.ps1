@@ -36,7 +36,7 @@ Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($CoreExe)) {
-    $CoreExe = Join-Path $repoRoot 'src\PaRuX.Server\bin\Release\net8.0\win-x64\publish\PaRuX.Server.exe'
+    $CoreExe = Join-Path $repoRoot 'src\PaRuX.Server\bin\Release\net10.0\win-x64\publish\PaRuX.Server.exe'
 }
 if (-not (Test-Path -LiteralPath $CoreExe)) {
     throw "PaRuX Core not found at $CoreExe. Publish it first: dotnet publish src\PaRuX.Server -c Release -r win-x64 --self-contained false"

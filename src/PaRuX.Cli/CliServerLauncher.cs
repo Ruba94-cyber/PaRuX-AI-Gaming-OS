@@ -139,7 +139,7 @@ internal static class CliServerLauncher
             if (!directory.Name.Equals("src", StringComparison.OrdinalIgnoreCase)) continue;
             foreach (string configuration in new[] { "Debug", "Release" })
             {
-                string output = Path.Combine(directory.FullName, "PaRuX.Server", "bin", configuration, "net8.0");
+                string output = Path.Combine(directory.FullName, "PaRuX.Server", "bin", configuration, "net10.0");
                 string exe = Path.Combine(output, "PaRuX.Server.exe");
                 if (File.Exists(exe)) return SpecFor(exe);
                 string dll = Path.Combine(output, "PaRuX.Server.dll");

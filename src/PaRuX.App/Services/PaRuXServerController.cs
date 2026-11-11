@@ -312,9 +312,9 @@ namespace PaRuX.Services
                 // A self-contained Release publish still sits below src during local release smoke.
                 // Prefer its matching Release Core so the packaged UI cannot silently validate
                 // against an older Debug binary left by a previous development run.
-                string release = Path.Combine(directory.FullName, "PaRuX.Server", "bin", "Release", "net8.0", "PaRuX.Server.exe");
+                string release = Path.Combine(directory.FullName, "PaRuX.Server", "bin", "Release", "net10.0", "PaRuX.Server.exe");
                 if (File.Exists(release)) return release;
-                string debug = Path.Combine(directory.FullName, "PaRuX.Server", "bin", "Debug", "net8.0", "PaRuX.Server.exe");
+                string debug = Path.Combine(directory.FullName, "PaRuX.Server", "bin", "Debug", "net10.0", "PaRuX.Server.exe");
                 if (File.Exists(debug)) return debug;
             }
 

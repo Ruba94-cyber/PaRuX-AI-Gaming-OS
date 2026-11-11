@@ -57,7 +57,7 @@ The **Corporate Lite with Qwen3-4B** package includes a CPU `llama.cpp` runtime 
 3. Launch PaRuX, review the suggested local setup, and choose which model or runtime to install. **Downloads require your confirmation.**
 4. Start with Chat, or explore Model Hub, Create and the other workspaces as your hardware allows.
 
-**Windows requirements:** Windows 10 or newer (x64). Building from source requires the .NET 8 SDK and the documented Windows build prerequisites. A dedicated GPU is strongly recommended for demanding models and media generation; exact RAM/VRAM requirements vary.
+**Windows requirements:** Windows 10 or newer (x64). Building from source requires the .NET 10 SDK and the documented Windows build prerequisites. A dedicated GPU is strongly recommended for demanding models and media generation; exact RAM/VRAM requirements vary.
 
 **Android companion:** an optional controller for PaRuX running on Windows, **not** a standalone mobile inference engine. See [Android setup](docs/PARUX_ANDROID_README.md).
 

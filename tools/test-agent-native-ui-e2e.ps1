@@ -21,7 +21,7 @@ if (-not ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT)) {
     throw 'Real Windows desktop and .NET SDK are required.'
 }
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    throw '.NET 8 SDK is required for the disposable fixture.'
+    throw '.NET 10 SDK is required for the disposable fixture.'
 }
 if (-not $ConfirmFunctionalTest) {
     throw 'An explicit opt-in is required for a UI mutation test.'

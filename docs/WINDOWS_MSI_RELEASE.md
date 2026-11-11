@@ -32,7 +32,7 @@ The verified baseline runtime embedded under `Program Files` is immutable MSI-ow
 
 For the Windows MSI:
 
-- .NET 8 SDK / Windows desktop build prerequisites;
+- .NET 10 SDK / Windows desktop build prerequisites;
 - WiX Toolset v7 through `WixToolset.Sdk/7.0.0`;
 - WiX v7 OSMF/EULA terms accepted explicitly by the person performing the build;
 - Windows PowerShell 5.1 or newer;

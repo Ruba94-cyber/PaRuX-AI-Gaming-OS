@@ -344,14 +344,14 @@ public sealed partial class DatasetCurationService
     /// download produces - not a naive Split(',') that would break on the first quoted field.</summary>
     private static async Task<List<string>?> ReadCsvRecordAsync(StreamReader reader, CancellationToken ct)
     {
-        if (reader.EndOfStream) return null;
+        int ci = reader.Read();
+        if (ci == -1) return null; // end of stream (CA2024: EndOfStream must not be used in async methods)
         var fields = new List<string>();
         var field = new StringBuilder();
         bool inQuotes = false;
         bool sawAnyChar = false;
         int processedChars = 0;
-        int ci;
-        while ((ci = reader.Read()) != -1)
+        do
         {
             ct.ThrowIfCancellationRequested();
             char c = (char)ci;
@@ -375,7 +375,7 @@ public sealed partial class DatasetCurationService
             // an ordinary CSV line and caused huge latency on large datasets.
             // Cancellation is still checked on every character above.
             if ((++processedChars & 4095) == 0) await Task.Yield();
-        }
+        } while ((ci = reader.Read()) != -1);
         if (sawAnyChar) fields.Add(field.ToString());
         return fields.Count > 0 ? fields : null;
     }

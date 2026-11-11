@@ -112,7 +112,7 @@ public sealed class RemoteAccessService
     {
         Directory.CreateDirectory(ServerState.StateDirectory);
         if (File.Exists(CertificatePath))
-            return new X509Certificate2(CertificatePath, (string?)null,
+            return X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, (string?)null,
                 X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
 
         using RSA rsa = RSA.Create(2048);
@@ -132,7 +132,7 @@ public sealed class RemoteAccessService
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using X509Certificate2 generated = request.CreateSelfSigned(now.AddMinutes(-5), now.AddYears(5));
         File.WriteAllBytes(CertificatePath, generated.Export(X509ContentType.Pfx));
-        return new X509Certificate2(CertificatePath, (string?)null,
+        return X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, (string?)null,
             X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
     }
 

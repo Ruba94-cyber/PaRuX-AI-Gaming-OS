@@ -32,7 +32,7 @@ if (-not $ConfirmLiveAgentTest -or -not [Environment]::UserInteractive) {
     throw 'Explicit opt-in and an interactive user authorization are required.'
 }
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    throw '.NET 8 SDK is required to build the disposable WinForms fixture.'
+    throw '.NET 10 SDK is required to build the disposable WinForms fixture.'
 }
 
 $cli = (Resolve-Path -LiteralPath $CliPath -ErrorAction Stop).Path

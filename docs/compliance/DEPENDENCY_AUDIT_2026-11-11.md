@@ -1,6 +1,6 @@
 # Dependency, licence and SBOM audit - 2026-11-11
 
-Scope: `PaRuX.sln` (NuGet, .NET 8) and `src/PaRuX.Android` (Gradle). This is an inventory and documentation check. It is not legal clearance and not a full transitive licence review. Base commit: `18fe4a67`.
+Scope: `PaRuX.sln` (NuGet, .NET 8 at audit time; now .NET 10) and `src/PaRuX.Android` (Gradle). This is an inventory and documentation check. It is not legal clearance and not a full transitive licence review. Base commit: `18fe4a67`.
 
 ## 1. Commands and results
 
@@ -33,7 +33,7 @@ Status key: FIXED = corrected in this commit; OPEN = not changed, owner or sourc
 | B4 | Xenova/ms-marco-MiniLM-L-6-v2 (reranker ONNX) | No notice row. Script itself says review the source licence before redistribution. | `scripts/build-corporate-lite.ps1:189-191`, `scripts/portable-offline-assets.ps1:147`; notice `:50` | FIXED as UNKNOWN - NEEDS REVIEW |
 | B5 | llama.cpp CPU x64 runtime in Portable and Corporate Lite | Fetched from the latest release, not version- or hash-pinned, so the notice cannot name a build. | `scripts/portable-offline-assets.ps1:108-113`, `scripts/build-corporate-lite.ps1:145-148`; notice `:51` | FIXED as a documented gap (MIT upstream stated, build not pinned) |
 | B6 | MonoTorrent 3.0.2, PdfPig 0.1.16, System.Drawing.Common | Licences are known and already in the notices (MIT from LICENSE; Apache-2.0 from nuspec; MIT from nuspec). They fail only the dependency-boundary baseline. Updating the baseline needs owner review, so it was not changed. | `src/PaRuX.Server/PaRuX.Server.csproj:45,65,67`; baseline `packaging/dependency-boundaries.json` | OPEN |
-| B7 | System.Drawing.Common version split | App pins 8.0.10, Server pins 8.0.0. Both MIT, but the versions differ. | `src/PaRuX.App/PaRuX.App.csproj:55`, `src/PaRuX.Server/PaRuX.Server.csproj:67` | OPEN (version alignment, not a licence issue) |
+| B7 | System.Drawing.Common version split | Resolved by the .NET 10 migration: App and Server now both pin 10.0.15 (previously App 8.0.10, Server 8.0.0). Both MIT, but the versions differ. | `src/PaRuX.App/PaRuX.App.csproj:55`, `src/PaRuX.Server/PaRuX.Server.csproj:67` | OPEN (version alignment, not a licence issue) |
 | B8 | Kotlin stdlib (transitive, APK) | Not in the notices. Cached JAR has no licence file and the POM is not cached, so the licence cannot be proven here. | notice `THIRD_PARTY_NOTICES.md:87` | FIXED as UNKNOWN - NEEDS REVIEW |
 | B9 | okio-jvm (transitive of OkHttp, APK) | Same as B8. | notice `:88` | FIXED as UNKNOWN - NEEDS REVIEW |
 | B10 | Gradle components generally | SBOM has 150 maven components. Most carry no licence field, so the APK is covered only by family wording in the notices. | SBOM, section 4 | OPEN |

@@ -17,8 +17,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-if (-not $Server) { $Server = Join-Path $root 'src\PaRuX.Server\bin\Release\net8.0\PaRuX.Server.exe' }
-if (-not $App) { $App = Join-Path $root 'src\PaRuX.App\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\PaRuX.exe' }
+if (-not $Server) { $Server = Join-Path $root 'src\PaRuX.Server\bin\Release\net10.0\PaRuX.Server.exe' }
+if (-not $App) { $App = Join-Path $root 'src\PaRuX.App\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64\PaRuX.exe' }
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 
 function Median($v) { $s = @($v | Sort-Object); if ($s.Count -eq 0) { return $null }; $s[[int][math]::Floor(($s.Count - 1) / 2)] }
