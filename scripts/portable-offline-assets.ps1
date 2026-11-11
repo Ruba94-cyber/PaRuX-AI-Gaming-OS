@@ -4,6 +4,7 @@
  until Resolve-PaRuXPortableOfflineAssets is explicitly called by the builder.
  Native dependencies are shipped INSIDE the ZIP, never installed on the target.
 #>
+. (Join-Path $PSScriptRoot "llama-cpu-pin.ps1")
 function Assert-PaRuXPinnedAsset {
     param([string]$File, [long]$Size, [string]$HashKind, [string]$Digest)
     if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "Missing offline asset: $File" }
@@ -100,7 +101,8 @@ function Resolve-PaRuXPortableOfflineAssets {
         [string]$EmbeddingDir = "",
         [string]$RerankerDir = "",
         [string]$RuntimeTag = "",
-        [switch]$Fetch
+        [switch]$Fetch,
+        [switch]$AllowUnpinnedLlamaCpuRuntime
     )
     if ([string]::IsNullOrWhiteSpace($AssetsRoot)) { throw "AssetsRoot is required." }
     New-Item -ItemType Directory -Force -Path $AssetsRoot | Out-Null
@@ -117,10 +119,15 @@ function Resolve-PaRuXPortableOfflineAssets {
         $cpuZipPartial = $cpuZip + ".partial"
         $shaField = $asset.PSObject.Properties["digest"]
         $upstreamDigest = if ($null -ne $shaField) { [string]$shaField.Value } else { "" }
-        if ($upstreamDigest -notmatch '^sha256:([0-9A-Fa-f]{64})$') {
-            throw "The llama.cpp release does not publish SHA-256 metadata; review and pin this CPU asset explicitly before distributing."
+        $pinnedZipHash = Get-PaRuXLlamaCpuPin -Tag $RuntimeTag -ArchiveName $asset.name -AllowUnpinned:$AllowUnpinnedLlamaCpuRuntime
+        if ($pinnedZipHash) {
+            $expectedZipHash = $pinnedZipHash
+        } else {
+            if ($upstreamDigest -notmatch '^sha256:([0-9A-Fa-f]{64})$') {
+                throw "The llama.cpp release does not publish SHA-256 metadata; review and pin this CPU asset explicitly before distributing."
+            }
+            $expectedZipHash = $Matches[1].ToLowerInvariant()
         }
-        $expectedZipHash = $Matches[1].ToLowerInvariant()
         if (-not (Test-Path -LiteralPath $cpuZip -PathType Leaf) -or
             (Get-FileHash -LiteralPath $cpuZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedZipHash) {
             try {
@@ -129,6 +136,7 @@ function Resolve-PaRuXPortableOfflineAssets {
                 Move-Item -LiteralPath $cpuZipPartial -Destination $cpuZip -Force -ErrorAction Stop
             } finally { Remove-Item -LiteralPath $cpuZipPartial -Force -ErrorAction SilentlyContinue }
         }
+        if ($pinnedZipHash) { Assert-PaRuXLlamaCpuArchivePin -File $cpuZip -PinnedSha256 $pinnedZipHash -UpstreamDigest $upstreamDigest }
         $CpuRuntimeDir = Join-Path $AssetsRoot ("llama-cpu-" + $RuntimeTag)
         if (-not (Test-Path -LiteralPath $CpuRuntimeDir -PathType Container)) {
             Expand-Archive -LiteralPath $cpuZip -DestinationPath $CpuRuntimeDir

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "description": "Reviewed pins for the llama.cpp Windows CPU x64 archives bundled by the Standard Portable and Corporate Lite builders. A release tag without an entry here is refused unless -AllowUnpinnedLlamaCpuRuntime is passed explicitly. To add a pin: download the archive, compute SHA-256, compare with the digest on the upstream release page (gh api repos/ggml-org/llama.cpp/releases/tags/<tag>), then add an entry in a reviewed commit.",
+  "pins": [
+    {
+      "tag": "b12282",
+      "archiveName": "llama-b12282-bin-win-cpu-x64.zip",
+      "sha256": "582a5da726b30e0b9e801b4ebd1b85cbe023ca266bdebf6a9d55426c85e57463"
+    },
+    {
+      "tag": "b12283",
+      "archiveName": "llama-b12283-bin-win-cpu-x64.zip",
+      "sha256": "dafb19ac757bfb7cfc1f91c6e26703264df861c4331e3ef6dc9543ae8d010c5e"
+    }
+  ]
+}

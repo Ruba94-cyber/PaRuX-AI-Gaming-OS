@@ -158,8 +158,14 @@ namespace PaRuX.Views
             private RuntimeManagerHardwareStatus? _hardware;
             public AutoSetupHost(OnboardingView view) => _view = view;
 
-            public Task<FirstModelAdvice> GetAdviceAsync(CancellationToken ct) =>
-                ModelDownloadClient.Current.GetAdviceForThisPcAsync(ct);
+            private FirstModelAdvice? _lastAdvice;
+
+            public async Task<FirstModelAdvice> GetAdviceAsync(CancellationToken ct)
+            {
+                FirstModelAdvice advice = await ModelDownloadClient.Current.GetAdviceForThisPcAsync(ct);
+                _lastAdvice = advice;
+                return advice;
+            }
 
             public async Task<AutoSetupRuntimeInfo> GetTextRuntimeAsync(CancellationToken ct)
             {
@@ -256,7 +262,7 @@ namespace PaRuX.Views
                 catch { /* the install is complete; a stale skip flag is cosmetic */ }
             }
 
-            public bool HasBundledStandardPortableStarter() => OnboardingView.HasBundledStandardPortableStarter();
+            public bool HasBundledStandardPortableStarter() => OnboardingView.HasBundledStandardPortableStarter(_lastAdvice);
 
             public async Task<IReadOnlyList<ModelQuantChoice>> GetQuantChoicesAsync(string repoId, CancellationToken ct)
             {
