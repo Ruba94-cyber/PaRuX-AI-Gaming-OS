@@ -89,7 +89,7 @@ namespace PaRuX.Views
                         IsChecked = string.Equals(current, selector, StringComparison.OrdinalIgnoreCase)
                     };
                     ToolTipService.SetToolTip(item, model.FileName + " · " + model.Quantization);
-                    AutomationProperties.SetName(item, "Model " + ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName)
+                    AutomationProperties.SetName(item, T("Model ", "Modello ") + ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName)
                         + ". File " + model.FileName + " · " + model.Quantization);
                     item.Click += async (_, _) => await ApplyChatModelChoiceAsync(selector);
                     items.Add(item);
@@ -357,8 +357,8 @@ namespace PaRuX.Views
             }
             if (SimpleModeRouteReasonButton != null)
             {
-                ToolTipService.SetToolTip(SimpleModeRouteReasonButton, string.IsNullOrWhiteSpace(info.OneLineReason) ? "Why this model?" : info.OneLineReason);
-                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeRouteReasonButton, "Why this model? " + info.OneLineReason);
+                ToolTipService.SetToolTip(SimpleModeRouteReasonButton, string.IsNullOrWhiteSpace(info.OneLineReason) ? T("Why this model?", "Perché questo modello?") : info.OneLineReason);
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeRouteReasonButton, T("Why this model? ", "Perché questo modello? ") + info.OneLineReason);
             }
         }
 
@@ -389,7 +389,7 @@ namespace PaRuX.Views
             SettingsStore.Current.Data.AgentCodingWorkspaceRoot = string.Empty;
             SettingsStore.Current.Save();
             RefreshCodeFolderLabel();
-            ShowTransientStatus("Code folder deselected.");
+            ShowTransientStatus(T("Code folder deselected.", "Cartella di codice deselezionata."));
         }
 
         private async void CodeFolderButton_Click(object sender, RoutedEventArgs e)
@@ -403,7 +403,7 @@ namespace PaRuX.Views
                     CodingTaskSandboxWorkspacePolicy.TryBindConversationSandboxTasks(
                         ChatSession.Current.Conversation, root);
                     RefreshCodeFolderLabel();
-                    ShowTransientStatus("Code folder selected. Tell PaRuX what to change in this chat.");
+                    ShowTransientStatus(T("Code folder selected. Tell PaRuX what to change in this chat.", "Cartella di codice selezionata. Dì a PaRuX cosa modificare in questa chat."));
                 }
             }
             catch (Exception ex)

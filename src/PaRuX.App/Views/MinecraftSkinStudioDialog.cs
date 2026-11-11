@@ -38,8 +38,8 @@ internal static class MinecraftSkinStudioDialog
             Header = T("Minecraft Java model", "Modello Minecraft Java"),
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
-        arms.Items.Add(new ComboBoxItem { Tag = "classic", Content = "Classic / Steve" });
-        arms.Items.Add(new ComboBoxItem { Tag = "slim", Content = "Slim / Alex" });
+        arms.Items.Add(new ComboBoxItem { Tag = "classic", Content = T("Classic / Steve", "Classico / Steve") });
+        arms.Items.Add(new ComboBoxItem { Tag = "slim", Content = T("Slim / Alex", "Snello / Alex") });
         arms.SelectedIndex = 0;
         AutomationProperties.SetAutomationId(arms, "SkinStudio_Arms");
         var useOriginal = new CheckBox

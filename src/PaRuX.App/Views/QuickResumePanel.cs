@@ -36,7 +36,7 @@ internal sealed class QuickResumePanel : StackPanel
     {
         Spacing = 8;
         Margin = new Thickness(0, 16, 0, 0);
-        _heading.Text = "Quick Resume";
+        _heading.Text = T("Quick Resume", "Ripresa rapida");
         AutomationProperties.SetAutomationId(_heading, "QuickResume_Heading");
         AutomationProperties.SetHeadingLevel(_heading, AutomationHeadingLevel.Level3);
         _description.Text = T(

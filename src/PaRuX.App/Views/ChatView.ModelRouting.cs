@@ -99,9 +99,9 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Why this model?",
+                Title = T("Why this model?", "Perché questo modello?"),
                 Content = new ScrollViewer { Content = content, MaxHeight = 440 },
-                CloseButtonText = "Close",
+                CloseButtonText = T("Close", "Chiudi"),
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
@@ -495,7 +495,7 @@ namespace PaRuX.Views
                     string display = ModelHubRowPresentation.CompactManualLabel(model.Alias, model.FileName);
                     var item = new ComboBoxItem
                     {
-                        Content = "Manual · " + display,
+                        Content = T("Manual · ", "Manuale · ") + display,
                         Tag = "parux-manual:" + model.FileName
                     };
                     string fullDetails = model.FileName + " · " + model.Quantization;
@@ -512,7 +512,7 @@ namespace PaRuX.Views
                     string missing = selectedSelector.Substring("parux-manual:".Length);
                     selected = new ComboBoxItem
                     {
-                        Content = "Manual · " + missing + " (missing)", Tag = selectedSelector, IsEnabled = false
+                        Content = T("Manual · ", "Manuale · ") + missing + T(" (missing)", " (mancante)"), Tag = selectedSelector, IsEnabled = false
                     };
                     ModelSelector.Items.Add(selected);
                 }
@@ -529,7 +529,7 @@ namespace PaRuX.Views
                     // entry re-saves a valid preference.
                     var unreadable = new ComboBoxItem
                     {
-                        Content = "Routing preference unreadable (re-select to repair)", Tag = selected.Tag, IsEnabled = false
+                        Content = T("Routing preference unreadable (re-select to repair)", "Preferenza di instradamento illeggibile (riseleziona per ripararla)"), Tag = selected.Tag, IsEnabled = false
                     };
                     ModelSelector.Items.Add(unreadable);
                     ModelSelector.SelectedItem = unreadable;
@@ -592,13 +592,13 @@ namespace PaRuX.Views
             var stack = new StackPanel { Spacing = 10, MaxWidth = 560 };
             stack.Children.Add(new TextBlock
             {
-                Text = "Custom AUTO still estimates task difficulty first. These controls decide how aggressively PaRuX escalates toward stronger models versus keeping a sufficiently capable faster model. Hardware safety and exact Manual locks cannot be bypassed.",
+                Text = T("Custom AUTO still estimates task difficulty first. These controls decide how aggressively PaRuX escalates toward stronger models versus keeping a sufficiently capable faster model. Hardware safety and exact Manual locks cannot be bypassed.", "Auto personalizzato stima comunque prima la difficoltà dell'attività. Questi controlli decidono quanto PaRuX passa a modelli più potenti anziché mantenerne uno più veloce e sufficientemente capace. La sicurezza hardware e i blocchi Manuali esatti non possono essere aggirati."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.76
             });
             foreach (NumberBox box in new[] { minFloor, floorBoost, capability, performance, compatibility, reuse, capabilityBoost, performancePenalty })
                 stack.Children.Add(box);
-            var reset = new Button { Content = "Reset fields to Balanced-like defaults", HorizontalAlignment = HorizontalAlignment.Left };
+            var reset = new Button { Content = T("Reset fields to Balanced-like defaults", "Ripristina i campi ai valori simili a Bilanciato"), HorizontalAlignment = HorizontalAlignment.Left };
             reset.Click += (_, _) =>
             {
                 var d = new AutoRoutingTuningDto();
@@ -611,10 +611,10 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Auto · Custom intelligence",
+                Title = T("Auto · Custom intelligence", "Auto · Intelligenza personalizzata"),
                 Content = new ScrollViewer { Content = stack, MaxHeight = 620, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
-                PrimaryButtonText = "Save & use Custom",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Save & use Custom", "Salva e usa Personalizzato"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
