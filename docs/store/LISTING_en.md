@@ -12,7 +12,7 @@ PaRuX AI Studio is a local-first AI workspace for Windows. Chat with language mo
 
 Important to know before you install:
 - PaRuX needs an AI model to answer. The Store package contains the app and a local inference engine, but no model files. The first time you chat, PaRuX helps you choose a model and downloads it only after you say yes (models are large, often several GB).
-- Some optional features download additional components on request (for example other inference engines or media tools). Each is optional, shown before it is installed, and nothing is installed silently.
+- The Microsoft Store edition includes the inference engine and never downloads or installs programs: no extra engines, no Python tooling and no installers. Only AI model files and other data are downloaded, and only after you say yes. The built-in torrent engine is not part of this edition. You can still point PaRuX at software you installed yourself.
 - Speed depends on your PC. A computer with a recent GPU or enough memory runs bigger models better.
 - This is an early release. Some features are still being tested on real hardware.
 
@@ -49,7 +49,7 @@ Memory: a 4-billion-parameter model peaked at 6.7 GB RAM in the reference-PC tes
 
 ## Notes for certification (Partner Center "Notes for certification")
 
-PaRuX AI Studio requires the runFullTrust capability because the desktop app starts its own local server process (PaRuX.Server.exe) and local inference engines as child processes. It does not require an account. To test: start the app, choose "Skip" or a small model in the first-run screen; no sign-in is needed. Model files are downloaded from public model hosts only after the user confirms. Non-Microsoft dependencies: the llama.cpp inference engine (MIT license) is included in the package; optional engines are downloaded on request.
+PaRuX AI Studio requires the runFullTrust capability because the desktop app starts its own local server process (PaRuX.Server.exe) and local inference engines as child processes. It does not require an account. To test: start the app, choose "Skip" or a small model in the first-run screen; no sign-in is needed. Model files are downloaded from public model hosts only after the user confirms. The app does not download or install executable code (no additional engines, no Python tooling, no installers) and has no torrent engine. Non-Microsoft dependencies: the llama.cpp inference engine (MIT license) is included in the package.
 
 ## Age rating notes (answer the IARC questionnaire yourself)
 

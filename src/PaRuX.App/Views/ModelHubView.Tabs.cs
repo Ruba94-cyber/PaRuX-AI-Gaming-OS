@@ -178,7 +178,14 @@ namespace PaRuX.Views
                 AutomationProperties.SetAutomationId(bar, id + "_Progress");
                 panel.Children.Add(bar);
             }
-            var button = new Button { Content = model.ButtonLabel, IsEnabled = model.ButtonEnabled };
+            bool storeBlocksEngine = !StoreEditionPolicy.AllowsExecutableDownloads && !model.Installed && !model.IsCancel;
+            if (storeBlocksEngine)
+                panel.Children.Add(new TextBlock
+                {
+                    Text = StartItalian ? "Non disponibile nell'edizione Microsoft Store." : StoreEditionPolicy.Reason,
+                    FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap
+                });
+            var button = new Button { Content = model.ButtonLabel, IsEnabled = model.ButtonEnabled && !storeBlocksEngine };
             AutomationProperties.SetAutomationId(button, id + "_Button");
             AutomationProperties.SetName(button, model.ButtonLabel + " " + model.Title);
             string type = model.Type;

@@ -35,6 +35,32 @@ public static class PackageIdentity
 
     internal static bool AllowsInAppSelfUpdateFor(bool isPackaged) => !isPackaged;
 
+    /// <summary>
+    /// Environment variable the packaged Desktop sets on the Core child process so the Core does not
+    /// depend on package identity being inherited. Only the packaged app ever sets it; the MSI,
+    /// Portable and Corporate builds never do, so their behaviour is unchanged.
+    /// </summary>
+    public const string StoreEditionEnvironmentVariable = "PARUX_STORE_EDITION";
+
+    /// <summary>True when this process is the Microsoft Store edition: it has package identity OR the
+    /// packaged Desktop declared it through <see cref="StoreEditionEnvironmentVariable"/>.</summary>
+    public static bool IsStoreEdition => IsStoreEditionFor(IsPackaged, Environment.GetEnvironmentVariable(StoreEditionEnvironmentVariable));
+
+    internal static bool IsStoreEditionFor(bool isPackaged, string? environmentValue)
+        => isPackaged
+           || string.Equals(environmentValue?.Trim(), "1", StringComparison.Ordinal)
+           || string.Equals(environmentValue?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Store policy: PaRuX must not download or install executable code (extra inference runtimes,
+    /// Python tooling, engines, emulators, game installers/archives). Model files and other pure data
+    /// are not affected, and pointing PaRuX at software the user already installed stays allowed.
+    /// </summary>
+    public static bool AllowsExecutableDownloadsFor(bool isPackaged) => !isPackaged;
+
+    /// <summary>Store policy: the embedded torrent/magnet engine is not available.</summary>
+    public static bool AllowsTorrentFor(bool isPackaged) => !isPackaged;
+
     /// <summary>Unvirtualized per-package data folder: <c>{localAppData}\Packages\{pfn}\LocalState</c>.</summary>
     internal static string PackagedStateRoot(string localAppData, string packageFamilyName)
     {

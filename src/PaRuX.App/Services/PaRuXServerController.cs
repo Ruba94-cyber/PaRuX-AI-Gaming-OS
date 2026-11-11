@@ -284,6 +284,10 @@ namespace PaRuX.Services
                 WorkingDirectory = Path.GetDirectoryName(executable)
             };
             info.Environment[CoreStartFailure.AttemptEnvironmentVariable] = startAttempt;
+            // Microsoft Store edition: tell the Core explicitly instead of relying on inherited package identity.
+            // Only the packaged app sets this; MSI, Portable and Corporate never do.
+            if (PaRuX.Contracts.PackageIdentity.IsPackaged)
+                info.Environment[PaRuX.Contracts.PackageIdentity.StoreEditionEnvironmentVariable] = "1";
             Process? process = Process.Start(info);
             if (process == null) throw new LocalAiException("Windows could not start PaRuX Server.");
             ChildProcessJob.Assign(process);

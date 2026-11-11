@@ -71,7 +71,8 @@ internal sealed class AutoMaintenanceHostedService : BackgroundService
                         await _service.CheckFirstRunAsync(stoppingToken).ConfigureAwait(false);
                     }
                     // Deferred runtime switch / bounded retry of a failed stage (no network unless something is due).
-                    await _service.TickRuntimeUpdateAsync(stoppingToken).ConfigureAwait(false);
+                    if (PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads)
+                        await _service.TickRuntimeUpdateAsync(stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
                 catch (Exception ex)
@@ -189,7 +190,8 @@ internal static class AutoMaintenanceComposition
             CheckRuntimeUpdates = async ct =>
             {
                 ResolvedTextRuntime? r = resolved;
-                if (r is null) return Array.Empty<RuntimeUpdateObservation>();
+                // Store edition: runtimes are never updated by downloading, so there is nothing to look for.
+                if (r is null || !PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) return Array.Empty<RuntimeUpdateObservation>();
                 List<RuntimeBuildOption> builds = await installer.ListAvailableAsync(r.Backend, ct).ConfigureAwait(false);
                 string? latest = builds.Select(b => b.Tag)
                     .Where(t => ModelRuntimeRequirements.TryParseBuild(t) is not null)

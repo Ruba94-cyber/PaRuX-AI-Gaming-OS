@@ -80,6 +80,7 @@ public sealed class RuntimeInstallService
     /// pick the CUDA major instead of the installer's own hardware read.</summary>
     internal async Task<List<RuntimeBuildOption>> ListAvailableAsync(string backend, int? cudaMajorOverride, CancellationToken ct)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads(); // release-feed query: no network in the Store edition
         ValidateBackend(backend);
         if (backend == MediaBackend) return await ListComfyAvailableAsync(ct);
 
@@ -284,6 +285,7 @@ public sealed class RuntimeInstallService
 
     public RuntimeInstallStatus CreateInstall(RuntimeInstallRequest request)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         if (string.IsNullOrWhiteSpace(request.Backend) || string.IsNullOrWhiteSpace(request.Tag))
             throw new InvalidDataException("backend and tag are required.");
         ValidateBackend(request.Backend);
@@ -402,6 +404,7 @@ public sealed class RuntimeInstallService
     /// .partial path, so the download can continue from the verified byte-range boundary.</summary>
     public RuntimeInstallStatus? ResumeJob(string id)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         if (!_jobs.TryGetValue(id, out Entry? entry)) return null;
 
         RuntimeInstallRequest request;
@@ -493,6 +496,7 @@ public sealed class RuntimeInstallService
     /// </summary>
     internal async Task<string?> StageTextBuildAsync(string backend, string tag, int? cudaMajor, CancellationToken ct)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         ValidateBackend(backend);
         if (backend == MediaBackend) throw new InvalidDataException("Only llama.cpp text runtimes can be staged.");
         ValidateReleaseTag(tag);
@@ -523,6 +527,7 @@ public sealed class RuntimeInstallService
     /// safe extraction, then the build is placed in the store and NOT activated.</summary>
     internal async Task StageComfyBuildAsync(string tag, string variant, CancellationToken ct)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         ValidateReleaseTag(tag);
         var status = new RuntimeInstallStatus
         {

@@ -43,6 +43,8 @@ internal sealed class EmbeddedTorrentTransport : IGameDownloadTransport, IDispos
     async Task IGameDownloadTransport.FetchAsync(GameDownloadTransferContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        // Store edition: the engine is never constructed, so nothing listens or connects.
+        StoreEditionPolicy.RequireTorrent();
         GameDownloadJob job = context.Job;
         if (job.Kind is not (GameDownloadKinds.Magnet or GameDownloadKinds.TorrentFile))
             throw new GameDownloadException("The integrated engine accepts only magnets and local .torrent files.");

@@ -50,6 +50,7 @@ public static class ManagedPythonRuntime
                 return UvExe;
             }
 
+            PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
             string archive = Path.Combine(Root, "uv-" + UvVersion + ".zip.download");
             Directory.CreateDirectory(Root);
             try
@@ -84,6 +85,9 @@ public static class ManagedPythonRuntime
     public static async Task<string> EnsurePythonAsync(string version, CancellationToken ct)
     {
         ValidateVersion(version);
+        // Store edition: an interpreter that is not already here is never downloaded.
+        string? alreadyThere = TryGetInstalledPython(version);
+        if (alreadyThere is null || !File.Exists(alreadyThere)) PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads();
         await EnsureUvAsync(ct).ConfigureAwait(false);
         // Already installed: do not ask uv again. `uv python install` for an installed version fails on some folders (see the fallback below).
         string? installed = TryGetInstalledPython(version);
@@ -221,6 +225,7 @@ public static class ManagedPythonRuntime
         string venvRoot, IEnumerable<string> arguments, CancellationToken ct,
         TimeSpan? timeout = null)
     {
+        PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads(); // pip downloads packages (executable code)
         string python = VenvPython(venvRoot);
         if (!File.Exists(python)) throw new InvalidOperationException("The PaRuX managed venv does not exist: " + venvRoot);
         var args = new List<string> { "pip", "install", "--python", python };

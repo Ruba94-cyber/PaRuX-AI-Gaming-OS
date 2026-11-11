@@ -77,7 +77,7 @@ public static class GameDownloadEndpoints
         app.MapGet("/api/v1/gaming/downloads/torrent-engine", (
             ExternalTorrentClientTransport external, EmbeddedTorrentTransport embedded) =>
             Results.Ok(new GameTorrentEngineStatusDto(
-                EmbeddedAvailable: !CorporateMode.IsActive,
+                EmbeddedAvailable: !CorporateMode.IsActive && StoreEditionPolicy.AllowsTorrent,
                 ExternalConfigured: external.IsEnabled,
                 NewJobTransport: external.IsEnabled ? "external" : "embedded",
                 SingleFileOnly: external.IsEnabled,

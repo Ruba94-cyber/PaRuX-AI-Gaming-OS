@@ -42,6 +42,7 @@ public sealed class ExternalTorrentClientTransport : IGameDownloadTransport, IDi
     /// <summary>Verifies the WebUI answers on loopback (and the credentials work), then keeps the settings in memory.</summary>
     public async Task ConfigureAsync(int port, string? username, string? password, CancellationToken ct)
     {
+        if (!StoreEditionPolicy.AllowsTorrent) throw new GameDownloadException(StoreEditionPolicy.TorrentReason);
         if (_gamingActive()) throw new GameDownloadException("Leave Gaming before changing download settings.");
         if (port is < 1 or > 65535) throw new GameDownloadException("Enter a port between 1 and 65535.");
         username ??= string.Empty;
