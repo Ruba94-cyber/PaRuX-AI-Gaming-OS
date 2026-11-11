@@ -530,10 +530,18 @@ app.Use(async (context, next) =>
         }
 
         string deviceToken = context.Request.Headers[PaRuXHeaders.DeviceToken].ToString();
-        if (!remoteAccess.TryValidateDeviceToken(deviceToken, out string deviceId))
+        if (!remoteAccess.TryValidateDeviceToken(deviceToken, out string deviceId, out bool tokenExpired))
         {
+            // An expired token is the same 401 as an unknown one (the Android client already treats 401 as "pair again"); only
+            // the message and an additive header differ, so no client contract changes.
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "A paired device token is required." });
+            if (tokenExpired) context.Response.Headers["X-PaRuX-Pairing"] = "expired";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = tokenExpired
+                    ? "This device's pairing has expired. Pair it again from PaRuX on the PC."
+                    : "A paired device token is required."
+            });
             return;
         }
         context.Items["PaRuXOwner"] = "device:" + deviceId;

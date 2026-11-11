@@ -22,11 +22,30 @@ public sealed class RemoteAccessService
 
     private readonly object _gate = new();
     private readonly Dictionary<string, PairingSession> _pairings = new(StringComparer.Ordinal);
-    private readonly Dictionary<IPAddress, List<DateTime>> _failedPairingBySource = new();
+    private readonly Dictionary<IPAddress, SourceLimiter> _failedPairingBySource = new();
     private readonly List<DateTime> _failedPairingAttempts = new();
+    private readonly LockoutState _globalLockout = new();
     private readonly Func<DateTime> _utcNow;
+    private readonly Func<string, bool> _isAssignedPrivateAddress;
+    private readonly Func<string> _certificateFingerprint;
     private const int PairingFailuresPerSource = 10;
     private const int PairingFailuresGlobal = 200;
+    private const int MaxTrackedSources = 1024;
+
+    // Lockout backoff after a limiter trips: 1, 2, 4, 8 minutes, then capped at 15 so a LAN host can never lock pairing out for good.
+    private static readonly TimeSpan LockoutBase = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan LockoutCap = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan LockoutMemory = TimeSpan.FromMinutes(30);
+
+    /// <summary>Paired-token lifetime defaults, used when remote-access.json does not set DeviceTokenIdleDays / DeviceTokenMaxDays.</summary>
+    internal const int DefaultDeviceTokenIdleDays = 90;
+    internal const int DefaultDeviceTokenMaxDays = 365;
+    internal const int MaxConfigurableTokenDays = 3650;
+    // LastSeenUtc is the sliding-expiry clock. It is flushed to disk at most this often so authenticated requests do not write.
+    internal static readonly TimeSpan LastSeenFlushInterval = TimeSpan.FromMinutes(15);
+    private DateTime _lastSeenPersistedUtc = DateTime.MinValue;
+    private bool _lastSeenFlushQueued;
+    private Task _lastSeenFlush = Task.CompletedTask;
     private readonly string _configurationPath;
     private RemoteAccessDocument _document;
 
@@ -45,10 +64,18 @@ public sealed class RemoteAccessService
     public RemoteAccessService(string configurationPath) : this(configurationPath, () => DateTime.UtcNow) { }
 
     internal RemoteAccessService(string configurationPath, Func<DateTime> utcNow)
+        : this(configurationPath, utcNow, IsPrivateAssignedAddress, GetStoredCertificateFingerprint) { }
+
+    /// <summary>Test seam: the address check and certificate fingerprint depend on this machine's adapters and LAN certificate.</summary>
+    internal RemoteAccessService(string configurationPath, Func<DateTime> utcNow,
+        Func<string, bool> isAssignedPrivateAddress, Func<string> certificateFingerprint)
     {
         _configurationPath = configurationPath;
         _utcNow = utcNow;
+        _isAssignedPrivateAddress = isAssignedPrivateAddress;
+        _certificateFingerprint = certificateFingerprint;
         _document = LoadDocument(configurationPath, out _unreadableReason);
+        _lastSeenPersistedUtc = utcNow();
     }
 
     public bool Enabled { get { lock (_gate) return _document.Enabled; } }
@@ -113,7 +140,7 @@ public sealed class RemoteAccessService
     {
         lock (_gate)
         {
-            string endpoint = _document.Enabled && IsPrivateAssignedAddress(_document.Address)
+            string endpoint = _document.Enabled && _isAssignedPrivateAddress(_document.Address)
                 ? $"https://{_document.Address}:{_document.Port}"
                 : string.Empty;
             return new RemoteAccessStatus
@@ -122,7 +149,7 @@ public sealed class RemoteAccessService
                 Address = _document.Address,
                 Port = _document.Port,
                 Endpoint = endpoint,
-                CertificateFingerprint = GetStoredCertificateFingerprint(),
+                CertificateFingerprint = _certificateFingerprint(),
                 RestartRequired = restartRequired,
                 NetworkCategory = NetworkCategoryProbe.Describe(NetworkCategoryProbe.GetConnectedCategory()),
                 Devices = _document.Devices.Select(ToInfo).OrderBy(d => d.Name).ToList()
@@ -135,7 +162,7 @@ public sealed class RemoteAccessService
         string address = request.Address?.Trim() ?? string.Empty;
         if (request.Port is < 1024 or > 65535)
             throw new InvalidDataException("Choose a LAN port between 1024 and 65535.");
-        if (request.Enabled && !IsPrivateAssignedAddress(address))
+        if (request.Enabled && !_isAssignedPrivateAddress(address))
             throw new InvalidDataException("Choose a private IPv4 address currently assigned to this PC.");
 
         lock (_gate)
@@ -168,9 +195,13 @@ public sealed class RemoteAccessService
     {
         lock (_gate)
         {
-            if (!_document.Enabled || !IsPrivateAssignedAddress(_document.Address))
+            if (!_document.Enabled || !_isAssignedPrivateAddress(_document.Address))
                 throw new InvalidOperationException("Enable LAN access on a private network interface first.");
 
+            // Only the desktop owner reaches this method. Starting a new pairing is the owner's recovery from a lockout that a
+            // LAN host provoked, so it clears the global backoff (per-source lockouts stay). The new code is still guarded by the
+            // per-source and global failure budgets.
+            _globalLockout.Reset();
             DateTime expires = _utcNow().AddMinutes(5);
             string code;
             do code = RandomNumberGenerator.GetInt32(10000000, 100000000).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -182,7 +213,7 @@ public sealed class RemoteAccessService
                 Code = code,
                 ExpiresUtc = expires,
                 Endpoint = $"https://{_document.Address}:{_document.Port}",
-                CertificateFingerprint = GetStoredCertificateFingerprint()
+                CertificateFingerprint = _certificateFingerprint()
             };
         }
     }
@@ -205,22 +236,40 @@ public sealed class RemoteAccessService
             _failedPairingAttempts.RemoveAll(t => t <= cutoff);
             foreach (IPAddress key in _failedPairingBySource.Keys.ToArray())
             {
-                List<DateTime> bucket = _failedPairingBySource[key];
-                bucket.RemoveAll(t => t <= cutoff);
-                if (bucket.Count == 0) _failedPairingBySource.Remove(key);
+                SourceLimiter bucket = _failedPairingBySource[key];
+                bucket.Failures.RemoveAll(t => t <= cutoff);
+                if (bucket.Failures.Count == 0 && bucket.Lockout.IsIdle(now)) _failedPairingBySource.Remove(key);
             }
-            if (_failedPairingAttempts.Count >= PairingFailuresGlobal
-                || (_failedPairingBySource.TryGetValue(source, out var failures) && failures.Count >= PairingFailuresPerSource))
-                throw new UnauthorizedAccessException("Too many failed pairing attempts. Wait one minute and try again.");
+
+            // A locked-out caller is turned away before its code is looked at, so a locked attempt can neither redeem a code nor
+            // extend the lockout it is already serving.
+            if (_globalLockout.IsLocked(now))
+                throw TooMany(_globalLockout.LockedUntil - now);
+            if (_failedPairingBySource.TryGetValue(source, out SourceLimiter? limiter) && limiter.Lockout.IsLocked(now))
+                throw TooMany(limiter.Lockout.LockedUntil - now);
+            if (_failedPairingAttempts.Count >= PairingFailuresGlobal)
+                throw TooMany(_globalLockout.Trip(now));
+            if (limiter is not null && limiter.Failures.Count >= PairingFailuresPerSource)
+                throw TooMany(limiter.Lockout.Trip(now));
+
             if (!_pairings.Remove(code, out PairingSession? pairing) || pairing.ExpiresUtc <= now)
             {
-                if (!_failedPairingBySource.TryGetValue(source, out failures))
-                    _failedPairingBySource.Add(source, failures = new List<DateTime>());
-                failures.Add(now);
+                if (limiter is null)
+                {
+                    if (_failedPairingBySource.Count >= MaxTrackedSources) EvictIdleSources(now);
+                    // Still full of locked sources: account the failure to the global budget only, which bounds memory.
+                    if (_failedPairingBySource.Count < MaxTrackedSources)
+                        _failedPairingBySource.Add(source, limiter = new SourceLimiter());
+                }
+                limiter?.Failures.Add(now);
                 _failedPairingAttempts.Add(now);
                 throw new UnauthorizedAccessException("The pairing code is invalid or expired.");
             }
-            _failedPairingBySource.Remove(source);
+            if (limiter is not null)
+            {
+                limiter.Failures.Clear();
+                if (limiter.Lockout.IsIdle(now)) _failedPairingBySource.Remove(source);
+            }
 
             string token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             var device = new PairedDevice
@@ -228,22 +277,54 @@ public sealed class RemoteAccessService
                 Id = Guid.NewGuid().ToString("N"),
                 Name = name,
                 TokenHash = HashToken(token),
-                CreatedUtc = DateTime.UtcNow
+                CreatedUtc = now,
+                LastSeenUtc = now
             };
-            PersistDevices(new List<PairedDevice>(_document.Devices) { device });
+            // Devices whose token already lapsed are dropped in the same write: they could not authenticate anyway.
+            List<PairedDevice> devices = _document.Devices.Where(d => !IsExpired(d, now)).ToList();
+            devices.Add(device);
+            try { PersistDevices(devices); }
+            catch
+            {
+                // The device was not recorded, so the code that would have recorded it is not spent: the person retries with it.
+                _pairings[code] = pairing;
+                throw;
+            }
             return new PairingCompleteResponse
             {
                 DeviceId = device.Id,
                 DeviceToken = token,
                 Endpoint = $"https://{_document.Address}:{_document.Port}",
-                CertificateFingerprint = GetStoredCertificateFingerprint()
+                CertificateFingerprint = _certificateFingerprint()
             };
         }
     }
 
-    public bool TryValidateDeviceToken(string token, out string deviceId)
+    private static UnauthorizedAccessException TooMany(TimeSpan remaining)
+    {
+        int seconds = (int)Math.Ceiling(Math.Max(1, remaining.TotalSeconds));
+        string wait = seconds >= 120 ? $"{(int)Math.Ceiling(seconds / 60.0)} minutes" : seconds >= 60 ? "one minute" : $"{seconds} seconds";
+        return new UnauthorizedAccessException($"Too many failed pairing attempts. Wait {wait} and try again.");
+    }
+
+    private void EvictIdleSources(DateTime now)
+    {
+        foreach (IPAddress key in _failedPairingBySource.Where(p => p.Value.Lockout.IsIdle(now)).Select(p => p.Key).ToList())
+            _failedPairingBySource.Remove(key);
+    }
+
+    public bool TryValidateDeviceToken(string token, out string deviceId) =>
+        TryValidateDeviceToken(token, out deviceId, out _);
+
+    /// <summary>
+    /// Checks a device token. A token that lapsed (idle too long, or older than the absolute lifetime) is rejected exactly like an
+    /// unknown one on the wire, so the Android client's 401 handling is unchanged: the person pairs again with a new code.
+    /// <paramref name="expired"/> only tells the server which 401 message to send.
+    /// </summary>
+    public bool TryValidateDeviceToken(string token, out string deviceId, out bool expired)
     {
         deviceId = string.Empty;
+        expired = false;
         if (string.IsNullOrWhiteSpace(token)) return false;
         string hash = HashToken(token.Trim());
         lock (_gate)
@@ -254,12 +335,68 @@ public sealed class RemoteAccessService
                 CryptographicOperations.FixedTimeEquals(
                     Encoding.UTF8.GetBytes(d.TokenHash), Encoding.UTF8.GetBytes(hash)));
             if (device is null) return false;
+            DateTime now = _utcNow();
+            if (IsExpired(device, now))
+            {
+                expired = true;
+                return false;
+            }
             deviceId = device.Id;
-            device.LastSeenUtc = DateTime.UtcNow;
-            SaveDocument(_document, _configurationPath);
+            device.LastSeenUtc = now;
+            QueueLastSeenFlush(now);
             return true;
         }
     }
+
+    /// <summary>
+    /// Sliding idle expiry plus an absolute cap. A device is expired when it has not been seen for the idle lifetime, or when
+    /// the token is older than the maximum lifetime however active it is. An unset creation time fails closed.
+    /// </summary>
+    private bool IsExpired(PairedDevice device, DateTime now)
+    {
+        if (device.CreatedUtc == default) return true;
+        TimeSpan idle = TimeSpan.FromDays(EffectiveIdleDays());
+        TimeSpan max = TimeSpan.FromDays(EffectiveMaxDays());
+        DateTime lastActive = device.LastSeenUtc is { } seen && seen > device.CreatedUtc ? seen : device.CreatedUtc;
+        return now - device.CreatedUtc >= max || now - lastActive >= idle;
+    }
+
+    private int EffectiveMaxDays() =>
+        _document.DeviceTokenMaxDays is > 0 and var d ? Math.Min(d, MaxConfigurableTokenDays) : DefaultDeviceTokenMaxDays;
+
+    // The idle lifetime never exceeds the absolute one, whatever the file says.
+    private int EffectiveIdleDays() =>
+        Math.Min(_document.DeviceTokenIdleDays is > 0 and var d ? Math.Min(d, MaxConfigurableTokenDays) : DefaultDeviceTokenIdleDays,
+            EffectiveMaxDays());
+
+    /// <summary>
+    /// LastSeenUtc is the sliding clock but not a security decision, so it is written off the request path and at most once per
+    /// <see cref="LastSeenFlushInterval"/>. The background write takes the same lock and saves the live registry, never a stale
+    /// snapshot, so it cannot bring back a device revoked in the meantime. A crash loses at most one interval of LastSeenUtc,
+    /// which is negligible against a lifetime counted in days.
+    /// </summary>
+    private void QueueLastSeenFlush(DateTime now)
+    {
+        if (_lastSeenFlushQueued || now - _lastSeenPersistedUtc < LastSeenFlushInterval) return;
+        _lastSeenFlushQueued = true;
+        _lastSeenFlush = Task.Run(() =>
+        {
+            lock (_gate)
+            {
+                _lastSeenFlushQueued = false;
+                if (_unreadableReason is not null) return;
+                try
+                {
+                    SaveDocument(_document, _configurationPath);
+                    _lastSeenPersistedUtc = _utcNow();
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+            }
+        });
+    }
+
+    /// <summary>Test hook: completes when the queued LastSeenUtc write, if any, has finished.</summary>
+    internal Task WaitForLastSeenFlushAsync() { lock (_gate) return _lastSeenFlush; }
 
     /// <summary>
     /// Removes a paired device. The removal is written before it takes effect: if the write fails the device stays paired
@@ -293,7 +430,8 @@ public sealed class RemoteAccessService
     {
         lock (_gate)
         {
-            return _document.Devices.Any(d => d.Id == id);
+            DateTime now = _utcNow();
+            return _document.Devices.Any(d => d.Id == id && !IsExpired(d, now));
         }
     }
 
@@ -467,7 +605,14 @@ public sealed class RemoteAccessService
         string temporary = configurationPath + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(document, JsonOptions));
+            // The new content is forced to disk before it can replace the registry, so a crash or power loss leaves either the
+            // complete old file or the complete new one, never a truncated or empty registry.
+            byte[] bytes = new UTF8Encoding(false).GetBytes(JsonSerializer.Serialize(document, JsonOptions));
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
             if (File.Exists(configurationPath))
                 File.Replace(temporary, configurationPath, configurationPath + ".bak", true);
             else
@@ -489,6 +634,7 @@ public sealed class RemoteAccessService
         RequireReadableRegistry();
         SaveDocument(next, _configurationPath);
         _document = next;
+        _lastSeenPersistedUtc = _utcNow();
     }
 
     private void PersistDevices(List<PairedDevice> devices)
@@ -504,6 +650,8 @@ public sealed class RemoteAccessService
         Address = _document.Address,
         Port = _document.Port,
         CertificateAddress = _document.CertificateAddress,
+        DeviceTokenIdleDays = _document.DeviceTokenIdleDays,
+        DeviceTokenMaxDays = _document.DeviceTokenMaxDays,
         Devices = new List<PairedDevice>(_document.Devices)
     };
 
@@ -529,7 +677,49 @@ public sealed class RemoteAccessService
         public string Address { get; set; } = string.Empty;
         public int Port { get; set; } = 51124;
         public string CertificateAddress { get; set; } = string.Empty;
+        // Paired-token lifetime in days; 0 (or absent) means the built-in default. Idle is sliding, max is absolute from pairing.
+        public int DeviceTokenIdleDays { get; set; }
+        public int DeviceTokenMaxDays { get; set; }
         public List<PairedDevice> Devices { get; set; } = new();
+    }
+
+    /// <summary>One source's recent failures and its escalating lockout.</summary>
+    private sealed class SourceLimiter
+    {
+        public List<DateTime> Failures { get; } = new();
+        public LockoutState Lockout { get; } = new();
+    }
+
+    /// <summary>
+    /// Bounded exponential lockout: each trip inside the memory window doubles the wait up to <see cref="LockoutCap"/>; after a quiet
+    /// <see cref="LockoutMemory"/> the next trip starts again from the base wait.
+    /// </summary>
+    private sealed class LockoutState
+    {
+        private int _level;
+        private DateTime _lastTrip = DateTime.MinValue;
+        public DateTime LockedUntil { get; private set; } = DateTime.MinValue;
+
+        public bool IsLocked(DateTime now) => now < LockedUntil;
+        public bool IsIdle(DateTime now) => !IsLocked(now) && (_lastTrip == DateTime.MinValue || now - _lastTrip >= LockoutMemory);
+
+        public TimeSpan Trip(DateTime now)
+        {
+            if (_lastTrip != DateTime.MinValue && now - _lastTrip >= LockoutMemory) _level = 0;
+            double minutes = Math.Min(LockoutBase.TotalMinutes * Math.Pow(2, _level), LockoutCap.TotalMinutes);
+            TimeSpan wait = TimeSpan.FromMinutes(minutes);
+            if (_level < 16) _level++;
+            _lastTrip = now;
+            LockedUntil = now + wait;
+            return wait;
+        }
+
+        public void Reset()
+        {
+            _level = 0;
+            _lastTrip = DateTime.MinValue;
+            LockedUntil = DateTime.MinValue;
+        }
     }
 
     internal sealed class PairedDevice
