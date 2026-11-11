@@ -25,6 +25,9 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class MediaGalleryView : UserControl
     {
+        private static string T(string en, string it) =>
+            System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? it : en;
+
         private readonly TextBox _searchBox = new()
         {
             PlaceholderText = "Search outputs by prompt, model, title, or file name…",
@@ -76,12 +79,18 @@ namespace PaRuX.Views
         {
             AutomationProperties.SetAutomationId(this, "MediaGallery_View");
 
+            _searchBox.PlaceholderText = T("Search outputs by prompt, model, title, or file name…", "Cerca output per prompt, modello, titolo o nome file…");
+            _refreshButton.Content = T("Refresh", "Aggiorna");
+            _emptyState.Text = T("No media outputs found in Artifact Workspace or generated folders.", "Nessun output multimediale trovato nell'area di lavoro degli artefatti o nelle cartelle generate.");
+            _previousPage.Content = T("Previous", "Precedente");
+            _nextPage.Content = T("Next", "Successivo");
+
             var root = new StackPanel { Spacing = 12 };
 
             var headerPanel = new StackPanel { Spacing = 4 };
             var title = new TextBlock
             {
-                Text = "Media Gallery",
+                Text = T("Media Gallery", "Galleria multimediale"),
                 FontSize = 20,
                 FontWeight = FontWeights.SemiBold
             };
@@ -90,7 +99,7 @@ namespace PaRuX.Views
 
             var subtitle = new TextBlock
             {
-                Text = "Browse generated images and videos. Choose Preview for local playback, the full prompt and output details.",
+                Text = T("Browse generated images and videos. Choose Preview for local playback, the full prompt and output details.", "Esplora immagini e video generati. Scegli Anteprima per la riproduzione locale, il prompt completo e i dettagli dell'output."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.75,
                 FontSize = 13
@@ -117,25 +126,25 @@ namespace PaRuX.Views
             Grid.SetColumnSpan(_searchBox, 2);
             filterBar.Children.Add(_searchBox);
 
-            _filterCombo.Items.Add(new ComboBoxItem { Content = "All Media", Tag = MediaGalleryFilter.All });
-            _filterCombo.Items.Add(new ComboBoxItem { Content = "Images Only", Tag = MediaGalleryFilter.ImagesOnly });
-            _filterCombo.Items.Add(new ComboBoxItem { Content = "Videos Only", Tag = MediaGalleryFilter.VideosOnly });
-            _filterCombo.Items.Add(new ComboBoxItem { Content = "Final Only", Tag = MediaGalleryFilter.FinalOnly });
+            _filterCombo.Items.Add(new ComboBoxItem { Content = T("All Media", "Tutti i file multimediali"), Tag = MediaGalleryFilter.All });
+            _filterCombo.Items.Add(new ComboBoxItem { Content = T("Images Only", "Solo immagini"), Tag = MediaGalleryFilter.ImagesOnly });
+            _filterCombo.Items.Add(new ComboBoxItem { Content = T("Videos Only", "Solo video"), Tag = MediaGalleryFilter.VideosOnly });
+            _filterCombo.Items.Add(new ComboBoxItem { Content = T("Final Only", "Solo finali"), Tag = MediaGalleryFilter.FinalOnly });
             _filterCombo.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_filterCombo, "MediaGallery_Filter_Combo");
-            AutomationProperties.SetName(_filterCombo, "Filter media");
+            AutomationProperties.SetName(_filterCombo, T("Filter media", "Filtra contenuti multimediali"));
             _filterCombo.SelectionChanged += (_, _) => { _pageIndex = 0; ApplyFilterAndSort(); };
             Grid.SetRow(_filterCombo, 1);
             _filterCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
             filterBar.Children.Add(_filterCombo);
 
-            _sortCombo.Items.Add(new ComboBoxItem { Content = "Newest First", Tag = MediaGallerySort.NewestFirst });
-            _sortCombo.Items.Add(new ComboBoxItem { Content = "Oldest First", Tag = MediaGallerySort.OldestFirst });
-            _sortCombo.Items.Add(new ComboBoxItem { Content = "Title (A-Z)", Tag = MediaGallerySort.TitleAscending });
-            _sortCombo.Items.Add(new ComboBoxItem { Content = "File Size", Tag = MediaGallerySort.SizeDescending });
+            _sortCombo.Items.Add(new ComboBoxItem { Content = T("Newest First", "I più recenti prima"), Tag = MediaGallerySort.NewestFirst });
+            _sortCombo.Items.Add(new ComboBoxItem { Content = T("Oldest First", "I meno recenti prima"), Tag = MediaGallerySort.OldestFirst });
+            _sortCombo.Items.Add(new ComboBoxItem { Content = T("Title (A-Z)", "Titolo (A-Z)"), Tag = MediaGallerySort.TitleAscending });
+            _sortCombo.Items.Add(new ComboBoxItem { Content = T("File Size", "Dimensione file"), Tag = MediaGallerySort.SizeDescending });
             _sortCombo.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_sortCombo, "MediaGallery_Sort_Combo");
-            AutomationProperties.SetName(_sortCombo, "Sort media");
+            AutomationProperties.SetName(_sortCombo, T("Sort media", "Ordina contenuti multimediali"));
             _sortCombo.SelectionChanged += (_, _) => { _pageIndex = 0; ApplyFilterAndSort(); };
             Grid.SetRow(_sortCombo, 1);
             Grid.SetColumn(_sortCombo, 1);
@@ -162,8 +171,8 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_previousPage, "MediaGallery_PreviousPage_Button");
             AutomationProperties.SetAutomationId(_nextPage, "MediaGallery_NextPage_Button");
             AutomationProperties.SetAutomationId(_pageStatus, "MediaGallery_PageStatus_Text");
-            AutomationProperties.SetName(_previousPage, "Previous media page");
-            AutomationProperties.SetName(_nextPage, "Next media page");
+            AutomationProperties.SetName(_previousPage, T("Previous media page", "Pagina multimediale precedente"));
+            AutomationProperties.SetName(_nextPage, T("Next media page", "Pagina multimediale successiva"));
             _previousPage.Click += (_, _) => { _pageIndex--; ApplyFilterAndSort(); };
             _nextPage.Click += (_, _) => { _pageIndex++; ApplyFilterAndSort(); };
             var pager = new StackPanel
@@ -191,20 +200,20 @@ namespace PaRuX.Views
 
             try
             {
-                _status.Text = "Loading media outputs…";
+                _status.Text = T("Loading media outputs…", "Caricamento degli output multimediali in corso…");
                 List<MediaGalleryItem> discovered = await DiscoverMediaOutputsAsync(ct);
                 ct.ThrowIfCancellationRequested();
                 if (!ReferenceEquals(_refreshCts, request)) return;
                 _allItems.Clear();
                 _allItems.AddRange(discovered);
                 ApplyFilterAndSort();
-                _status.Text = $"Gallery updated: {_allItems.Count} media output(s) available.";
+                _status.Text = T($"Gallery updated: {_allItems.Count} media output(s) available.", $"Galleria aggiornata: {_allItems.Count} output multimediali disponibili.");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)
             {
                 if (ReferenceEquals(_refreshCts, request) && !ct.IsCancellationRequested)
-                    _status.Text = "Gallery refresh failed: " + ex.Message;
+                    _status.Text = T("Gallery refresh failed: ", "Aggiornamento galleria non riuscito: ") + ex.Message;
             }
             finally
             {
@@ -275,7 +284,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _status.Text = "Artifact Workspace media query notice: " + ex.Message;
+                _status.Text = T("Artifact Workspace media query notice: ", "Notifica query multimediale dell'area di lavoro artefatti: ") + ex.Message;
             }
 
             // 2. Directory enumeration and FileInfo metadata may involve
@@ -342,7 +351,7 @@ namespace PaRuX.Views
             IReadOnlyList<MediaGalleryItem> filtered = MediaGalleryBrowser.FilterAndSort(_allItems, filter, sort, search);
             MediaGalleryBrowser.Page page = MediaGalleryBrowser.Paginate(filtered, _pageIndex);
             _pageIndex = page.PageIndex;
-            _pageStatus.Text = page.TotalMatches + " results · page "
+            _pageStatus.Text = page.TotalMatches + T(" results · page ", " risultati · pagina ")
                 + (page.PageIndex + 1) + "/" + page.PageCount;
             _previousPage.IsEnabled = page.PageIndex > 0;
             _nextPage.IsEnabled = page.PageIndex + 1 < page.PageCount;
@@ -433,7 +442,7 @@ namespace PaRuX.Views
                             imagePath,
                             () => GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive());
                     };
-                    AutomationProperties.SetName(thumbnail, "Cached local video frame: " + item.Title);
+                    AutomationProperties.SetName(thumbnail, T("Cached local video frame: ", "Fotogramma video locale memorizzato nella cache: ") + item.Title);
                     host.Child = thumbnail;
                 }
             }
@@ -502,7 +511,7 @@ namespace PaRuX.Views
                 {
                     thumbBox.Child = new TextBlock
                     {
-                        Text = "🖼 IMAGE",
+                        Text = T("🖼 IMAGE", "🖼 IMMAGINE"),
                         VerticalAlignment = VerticalAlignment.Center,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Opacity = 0.7
@@ -519,7 +528,7 @@ namespace PaRuX.Views
                 };
                 videoStack.Children.Add(new TextBlock
                 {
-                    Text = "🎬 VIDEO",
+                    Text = T("🎬 VIDEO", "🎬 VIDEO"),
                     FontWeight = FontWeights.Bold,
                     HorizontalAlignment = HorizontalAlignment.Center
                 });
@@ -608,7 +617,7 @@ namespace PaRuX.Views
 
             var openBtn = new Button
             {
-                Content = "Open",
+                Content = T("Open", "Apri"),
                 IsEnabled = MediaGalleryBrowser.CanOpen(item)
             };
             AutomationProperties.SetAutomationId(openBtn, $"MediaGallery_Open_{item.Id}");
@@ -616,30 +625,30 @@ namespace PaRuX.Views
             {
                 if (!MediaGalleryBrowser.CanOpen(item))
                 {
-                    _status.Text = "This local output is no longer available or its file type has changed. Refresh the gallery.";
+                    _status.Text = T("This local output is no longer available or its file type has changed. Refresh the gallery.", "Questo output locale non è più disponibile o il tipo di file è cambiato. Aggiorna la galleria.");
                     return;
                 }
                 try
                 {
                     Process.Start(new ProcessStartInfo(item.FilePath) { UseShellExecute = true });
-                    _status.Text = $"Opened {item.Title}.";
+                    _status.Text = T($"Opened {item.Title}.", $"Aperto {item.Title}.");
                 }
                 catch (Exception ex)
                 {
-                    _status.Text = "Failed to open output: " + ex.Message;
+                    _status.Text = T("Failed to open output: ", "Apertura dell'output non riuscita: ") + ex.Message;
                 }
             };
             actions.Children.Add(openBtn);
 
-            var detailsBtn = new Button { Content = "Preview" };
+            var detailsBtn = new Button { Content = T("Preview", "Anteprima") };
             AutomationProperties.SetAutomationId(detailsBtn, $"MediaGallery_ViewDetails_{item.Id}");
-            AutomationProperties.SetName(detailsBtn, "Preview media and show full output details");
+            AutomationProperties.SetName(detailsBtn, T("Preview media and show full output details", "Visualizza l'anteprima multimediale e mostra i dettagli completi dell'output"));
             detailsBtn.Click += async (_, _) => await ShowDetailsAsync(item);
             actions.Children.Add(detailsBtn);
 
             var revealBtn = new Button
             {
-                Content = "Reveal in folder",
+                Content = T("Reveal in folder", "Mostra nella cartella"),
                 IsEnabled = MediaGalleryBrowser.CanReveal(item)
             };
             AutomationProperties.SetAutomationId(revealBtn, $"MediaGallery_Reveal_{item.Id}");
@@ -647,24 +656,24 @@ namespace PaRuX.Views
             {
                 if (!MediaGalleryBrowser.CanReveal(item))
                 {
-                    _status.Text = "Cannot reveal this path: it is missing, remote or no longer a local output.";
+                    _status.Text = T("Cannot reveal this path: it is missing, remote or no longer a local output.", "Impossibile mostrare questo percorso: non è presente, è remoto o non è più un output locale.");
                     return;
                 }
                 try
                 {
                     Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{item.FilePath}\"") { UseShellExecute = true });
-                    _status.Text = $"Revealed {item.Title} in Explorer.";
+                    _status.Text = T($"Revealed {item.Title} in Explorer.", $"Mostrato {item.Title} in Esplora file.");
                 }
                 catch (Exception ex)
                 {
-                    _status.Text = "Failed to reveal in folder: " + ex.Message;
+                    _status.Text = T("Failed to reveal in folder: ", "Impossibile mostrare nella cartella: ") + ex.Message;
                 }
             };
             actions.Children.Add(revealBtn);
 
             var reuseBtn = new Button
             {
-                Content = "Reuse as edit source",
+                Content = T("Reuse as edit source", "Usa come origine per modifica"),
                 IsEnabled = MediaGalleryBrowser.CanReuseAsEditSource(item)
             };
             AutomationProperties.SetAutomationId(reuseBtn, $"MediaGallery_ReuseEdit_{item.Id}");
@@ -672,7 +681,7 @@ namespace PaRuX.Views
             {
                 if (!MediaGalleryBrowser.CanReuseAsEditSource(item))
                 {
-                    _status.Text = "The image source is no longer available or has changed. Refresh before editing.";
+                    _status.Text = T("The image source is no longer available or has changed. Refresh before editing.", "L'immagine di origine non è più disponibile o è cambiata. Aggiorna prima di modificare.");
                     return;
                 }
                 SetEditSourceResult result = MediaEditSourceBridge.Current.SetEditSource(item.FilePath, item.Prompt);
@@ -684,7 +693,7 @@ namespace PaRuX.Views
 
             var deleteBtn = new Button
             {
-                Content = "Delete",
+                Content = T("Delete", "Elimina"),
                 IsEnabled = CanPermanentlyDelete(item)
             };
             AutomationProperties.SetAutomationId(deleteBtn, $"MediaGallery_Delete_{item.Id}");
@@ -809,7 +818,7 @@ namespace PaRuX.Views
                             HorizontalAlignment = HorizontalAlignment.Left
                         };
                         AutomationProperties.SetAutomationId(imagePreview, "MediaGallery_DetailImagePreview");
-                        AutomationProperties.SetName(imagePreview, "Local image preview: " + item.Title);
+                        AutomationProperties.SetName(imagePreview, T("Local image preview: ", "Anteprima immagine locale: ") + item.Title);
                         imagePreview.ImageFailed += (_, _) =>
                         {
                             imagePreview.Source = null;
@@ -831,7 +840,7 @@ namespace PaRuX.Views
                             HorizontalAlignment = HorizontalAlignment.Stretch
                         };
                         AutomationProperties.SetAutomationId(previewPlayer, "MediaGallery_DetailVideoPreview");
-                        AutomationProperties.SetName(previewPlayer, "Local video preview: " + item.Title);
+                        AutomationProperties.SetName(previewPlayer, T("Local video preview: ", "Anteprima video locale: ") + item.Title);
                         previewHost.Children.Add(previewPlayer);
                     }
                 }
@@ -862,16 +871,16 @@ namespace PaRuX.Views
             };
             AutomationProperties.SetAutomationId(prompt, $"MediaGallery_FullPrompt_{item.Id}");
             details.Children.Add(prompt);
-            details.Children.Add(new TextBlock { Text = "Metadata", FontWeight = FontWeights.SemiBold });
+            details.Children.Add(new TextBlock { Text = T("Metadata", "Metadati"), FontWeight = FontWeights.SemiBold });
             details.Children.Add(new TextBlock { Text = item.FormattedDetails, TextWrapping = TextWrapping.Wrap });
-            details.Children.Add(new TextBlock { Text = "File location", FontWeight = FontWeights.SemiBold });
+            details.Children.Add(new TextBlock { Text = T("File location", "Percorso file"), FontWeight = FontWeights.SemiBold });
             var path = new TextBox { Text = item.FilePath, IsReadOnly = true };
             AutomationProperties.SetAutomationId(path, $"MediaGallery_Path_{item.Id}");
             details.Children.Add(path);
 
             var dialog = new ContentDialog
             {
-                Title = string.IsNullOrWhiteSpace(item.Title) ? "Media details" : item.Title,
+                Title = string.IsNullOrWhiteSpace(item.Title) ? T("Media details", "Dettagli multimediali") : item.Title,
                 Content = new ScrollViewer { Content = details, MaxHeight = 420 },
                 CloseButtonText = italian ? "Chiudi" : "Close",
                 DefaultButton = ContentDialogButton.Close,
@@ -912,18 +921,17 @@ namespace PaRuX.Views
         {
             if (!CanPermanentlyDelete(item))
             {
-                _status.Text = "This file is outside the verified generated-media folders or has changed. "
-                    + "PaRuX will not delete an external or linked file. Use your file manager if you own it.";
+                _status.Text = T("This file is outside the verified generated-media folders or has changed. PaRuX will not delete an external or linked file. Use your file manager if you own it.", "Questo file si trova al di fuori delle cartelle verificate dei file multimediali generati o è cambiato. PaRuX non eliminerà un file esterno o collegato. Usa la gestione file se ne sei il proprietario.");
                 return;
             }
             _deleteCoordinator.RequestDelete(item.Id, item.Title, item.FilePath);
 
             var confirmDialog = new ContentDialog
             {
-                Title = "Delete Media Output",
-                Content = $"Are you sure you want to permanently delete '{item.Title}'?\n\nPath: {item.FilePath}\n\nThis action cannot be undone.",
-                PrimaryButtonText = "Delete",
-                CloseButtonText = "Cancel",
+                Title = T("Delete Media Output", "Elimina output multimediale"),
+                Content = T($"Are you sure you want to permanently delete '{item.Title}'?\n\nPath: {item.FilePath}\n\nThis action cannot be undone.", $"Sei sicuro di voler eliminare definitivamente '{item.Title}'?\n\nPercorso: {item.FilePath}\n\nQuesta azione non può essere annullata."),
+                PrimaryButtonText = T("Delete", "Elimina"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -932,7 +940,7 @@ namespace PaRuX.Views
             if (result != ContentDialogResult.Primary)
             {
                 _deleteCoordinator.CancelDelete(item.Id);
-                _status.Text = "Deletion cancelled.";
+                _status.Text = T("Deletion cancelled.", "Eliminazione annullata.");
                 return;
             }
 
@@ -968,12 +976,12 @@ namespace PaRuX.Views
 
                 _allItems.RemoveAll(i => i.Id == item.Id);
                 ApplyFilterAndSort();
-                _status.Text = $"Permanently deleted media output '{item.Title}'.";
+                _status.Text = T($"Permanently deleted media output '{item.Title}'.", $"Output multimediale '{item.Title}' eliminato definitivamente.");
                 ItemDeleted?.Invoke(this, item);
             }
             else
             {
-                _status.Text = "Delete failed: " + (delResult.Error ?? "unknown error");
+                _status.Text = T("Delete failed: ", "Eliminazione non riuscita: ") + (delResult.Error ?? T("unknown error", "errore sconosciuto"));
             }
         }
     }

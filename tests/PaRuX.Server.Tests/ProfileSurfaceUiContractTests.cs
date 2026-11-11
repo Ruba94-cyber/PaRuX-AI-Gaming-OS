@@ -302,7 +302,7 @@ public sealed class ProfileSurfaceUiContractTests
         Assert.Contains("MediaGalleryPreviewPolicy.KindFor(item)", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGallery_DetailImagePreview", gallery, StringComparison.Ordinal);
         Assert.Contains("MediaGallery_DetailVideoPreview", gallery, StringComparison.Ordinal);
-        Assert.Contains("Content = \"Preview\"", gallery, StringComparison.Ordinal);
+        Assert.Contains("Content = T(\"Preview\", \"Anteprima\")", gallery, StringComparison.Ordinal);
         Assert.Contains("DecodePixelWidth = MediaGalleryPreviewPolicy.PreviewDecodeWidth", gallery, StringComparison.Ordinal);
         Assert.Contains("AutoPlay = false", gallery, StringComparison.Ordinal);
         Assert.Contains("GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive()", gallery, StringComparison.Ordinal);
