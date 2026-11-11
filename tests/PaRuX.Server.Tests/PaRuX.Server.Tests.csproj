@@ -35,6 +35,8 @@
     <ProjectReference Include="..\..\src\PaRuX.Server\PaRuX.Server.csproj" />
     <ProjectReference Include="..\..\src\PaRuX.Intelligence\PaRuX.Intelligence.csproj" />
     <ProjectReference Include="..\PaRuX.RuntimeStub\PaRuX.RuntimeStub.csproj" ReferenceOutputAssembly="false" />
+    <!-- PaRuXCliAgentHelpTests launch the CLI via dotnet run with no-restore; referencing it here makes the test restore/build it first. -->
+    <ProjectReference Include="..\..\src\PaRuX.Cli\PaRuX.Cli.csproj" ReferenceOutputAssembly="false" />
     <Compile Include="..\..\src\PaRuX.WinMlWorker\ChatTemplateThinking.cs" Link="Linked\ChatTemplateThinking.cs" />
     <ProjectReference Include="..\PaRuX.WinMlWorkerStub\PaRuX.WinMlWorkerStub.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
