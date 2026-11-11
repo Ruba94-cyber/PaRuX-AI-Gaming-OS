@@ -20,6 +20,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed partial class OnboardingView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly DispatcherQueue _dispatcher;
         private readonly OnboardingStateMachine _stateMachine = new();
         private CancellationTokenSource? _operationCts;
@@ -115,8 +116,8 @@ namespace PaRuX.Views
                 if (!_modelDownloadViewLoaded) return;
                 RenderModelDownloads(jobs);
                 FirstModelDownloadStatusText.Text = jobs.Count == 0
-                    ? "No model downloads yet. Start one from Model Hub to see its progress here."
-                    : jobs.Count + " download(s) · updates every two seconds while this page is open.";
+                    ? T("No model downloads yet. Start one from Model Hub to see its progress here.", "Nessun download di modelli per ora. Avviane uno dal Model Hub per vederne qui l'avanzamento.")
+                    : jobs.Count + T(" download(s) · updates every two seconds while this page is open.", " download · aggiornamento ogni due secondi mentre questa pagina è aperta.");
                 if (jobs.Any(job => ModelDownloadStatusPolicy.IsActive(job.Status))) _modelDownloadPoll?.Start();
                 else _modelDownloadPoll?.Stop();
             }
@@ -125,7 +126,7 @@ namespace PaRuX.Views
                 Log.Write("Onboarding download progress refresh failed: " + ex.Message);
                 if (_modelDownloadViewLoaded)
                     FirstModelDownloadStatusText.Text =
-                        UserFailureRecoveryMapper.Map(ex, "Could not refresh downloads").FormatStatusLine();
+                        UserFailureRecoveryMapper.Map(ex, T("Could not refresh downloads", "Impossibile aggiornare i download")).FormatStatusLine();
             }
             finally { _modelDownloadRefreshBusy = false; }
         }
@@ -191,7 +192,7 @@ namespace PaRuX.Views
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(bar,
                         "Onboarding_DownloadProgress_" + job.Id);
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(bar,
-                        job.FileName + " download progress");
+                        job.FileName + T(" download progress", " avanzamento del download"));
                     row.Children.Add(bar);
                     progressBar = bar;
                 }
@@ -207,7 +208,7 @@ namespace PaRuX.Views
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 if (ModelDownloadStatusPolicy.CanPause(job.Status))
                 {
-                    var pause = new Button { Content = "Pause", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
+                    var pause = new Button { Content = T("Pause", "Pausa"), MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(pause,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Pause"));
                     pause.Click += async (s, e) =>
@@ -215,16 +216,16 @@ namespace PaRuX.Views
                         try
                         {
                             await ModelDownloadClient.Current.PauseDownloadAsync(job.Id, CancellationToken.None);
-                            FirstModelDownloadStatusText.Text = "Paused " + job.FileName + "; downloaded bytes are kept for resume.";
+                            FirstModelDownloadStatusText.Text = T("Paused ", "In pausa: ") + job.FileName + T("; downloaded bytes are kept for resume.", "; i byte scaricati sono conservati per la ripresa.");
                             await RefreshModelDownloadsAsync();
                         }
-                        catch (Exception ex) { FirstModelDownloadStatusText.Text = "Pause failed: " + ex.Message; }
+                        catch (Exception ex) { FirstModelDownloadStatusText.Text = T("Pause failed: ", "Pausa non riuscita: ") + ex.Message; }
                     };
                     actions.Children.Add(pause);
                 }
                 else if (ModelDownloadStatusPolicy.CanResume(job.Status))
                 {
-                    var resume = new Button { Content = "Resume", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
+                    var resume = new Button { Content = T("Resume", "Riprendi"), MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(resume,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Resume"));
                     resume.Click += async (s, e) =>
@@ -233,26 +234,26 @@ namespace PaRuX.Views
                         {
                             await ModelDownloadClient.Current.StartDownloadAsync(
                                 new ModelDownloadRequest { ResumeFromDownloadId = job.Id }, CancellationToken.None);
-                            FirstModelDownloadStatusText.Text = "Re-queued " + job.FileName + " from its preserved partial download.";
+                            FirstModelDownloadStatusText.Text = T("Re-queued ", "Rimesso in coda: ") + job.FileName + T(" from its preserved partial download.", " dal download parziale conservato.");
                             await RefreshModelDownloadsAsync();
                         }
-                        catch (Exception ex) { FirstModelDownloadStatusText.Text = "Resume failed: " + ex.Message; }
+                        catch (Exception ex) { FirstModelDownloadStatusText.Text = T("Resume failed: ", "Ripresa non riuscita: ") + ex.Message; }
                     };
                     actions.Children.Add(resume);
 
                     if (ModelDownloadStatusPolicy.CanRemove(job.Status, job.Id))
                     {
-                        var remove = new Button { Content = "Remove", MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
+                        var remove = new Button { Content = T("Remove", "Rimuovi"), MinHeight = 40, MinWidth = 76, FontSize = 13, Padding = new Thickness(12, 6, 12, 6) };
                         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(remove,
                             ModelDownloadPresentationPolicy.GetActionAutomationId("Onboarding", job.Id, "Remove"));
                         remove.Click += async (s, e) =>
                         {
                             var confirm = new ContentDialog
                             {
-                                Title = "Remove this download?",
-                                Content = job.FileName + " and its partially downloaded bytes will be deleted. This cannot be undone.",
-                                PrimaryButtonText = "Remove",
-                                CloseButtonText = "Cancel",
+                                Title = T("Remove this download?", "Rimuovere questo download?"),
+                                Content = job.FileName + T(" and its partially downloaded bytes will be deleted. This cannot be undone.", " e i suoi byte scaricati parzialmente verranno eliminati. L'operazione non può essere annullata."),
+                                PrimaryButtonText = T("Remove", "Rimuovi"),
+                                CloseButtonText = T("Cancel", "Annulla"),
                                 DefaultButton = ContentDialogButton.Close,
                                 XamlRoot = XamlRoot
                             };
@@ -260,10 +261,10 @@ namespace PaRuX.Views
                             try
                             {
                                 await ModelDownloadClient.Current.RemoveDownloadAsync(job.Id, CancellationToken.None);
-                                FirstModelDownloadStatusText.Text = "Removed " + job.FileName + ".";
+                                FirstModelDownloadStatusText.Text = T("Removed ", "Rimosso: ") + job.FileName + ".";
                                 await RefreshModelDownloadsAsync();
                             }
-                            catch (Exception ex) { FirstModelDownloadStatusText.Text = "Remove failed: " + ex.Message; }
+                            catch (Exception ex) { FirstModelDownloadStatusText.Text = T("Remove failed: ", "Rimozione non riuscita: ") + ex.Message; }
                         };
                         actions.Children.Add(remove);
                     }
@@ -284,7 +285,7 @@ namespace PaRuX.Views
             foreach (string id in _downloadRowsById.Keys.Where(id => !keep.Contains(id)).ToArray())
                 _downloadRowsById.Remove(id);
             if (ordered.Count == 0 && FirstModelDownloadRows.Children.Count == 0)
-                FirstModelDownloadRows.Children.Add(new TextBlock { Text = "No downloads yet.", Opacity = 0.75 });
+                FirstModelDownloadRows.Children.Add(new TextBlock { Text = T("No downloads yet.", "Nessun download ancora."), Opacity = 0.75 });
         }
 
         private void PositionDownloadRow(StackPanel row, int index)
@@ -305,15 +306,15 @@ namespace PaRuX.Views
                 LocalAiRootBox.Text = status.Root;
                 _effectiveRoot = status.Root ?? string.Empty;
                 if (_effectiveRoot.Length > 0) _stateMachine.ConfigureRoot(_effectiveRoot);
-                LocalAiRootText.Text = (status.Configured ? "Explicitly configured. " : "Auto-detected. ")
+                LocalAiRootText.Text = (status.Configured ? T("Explicitly configured. ", "Configurata esplicitamente. ") : T("Auto-detected. ", "Rilevata automaticamente. "))
                     + (status.LooksConfigured
-                        ? "An existing local-AI layout was found."
-                        : "No complete runtime layout was found yet; configure the components below.");
+                        ? T("An existing local-AI layout was found.", "È stato trovato un layout di IA locale esistente.")
+                        : T("No complete runtime layout was found yet; configure the components below.", "Non è ancora stato trovato un layout di runtime completo; configura i componenti qui sotto."));
             }
             catch (Exception ex)
             {
                 Log.Write("Onboarding RefreshLocalAiRootAsync failed: " + ex.Message);
-                LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, "Couldn't reach PaRuX Core").FormatStatusLine();
+                LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, T("Couldn't reach PaRuX Core", "Impossibile raggiungere PaRuX Core")).FormatStatusLine();
             }
         }
 
@@ -344,7 +345,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Onboarding LocalAiRootSave failed: " + ex.Message);
-                LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, "Couldn't save").FormatStatusLine();
+                LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, T("Couldn't save", "Impossibile salvare")).FormatStatusLine();
             }
         }
 
@@ -371,13 +372,13 @@ namespace PaRuX.Views
                 RenderComponents(components);
                 UpdateReadySummary(components);
                 RenderBundledOverview(BundledRuntimeOverviewPresenter.BuildOverview(_lastComponents, _modelAdvice));
-                ComponentsStatusText.Text = components.Count + " component(s) checked. Detection never installs or changes software.";
+                ComponentsStatusText.Text = components.Count + T(" component(s) checked. Detection never installs or changes software.", " componenti controllati. Il rilevamento non installa né modifica mai il software.");
             }
             catch (Exception ex)
             {
                 Log.Write("Onboarding RefreshComponents failed: " + ex.Message);
                 ComponentsList.Children.Clear();
-                ComponentsStatusText.Text = UserFailureRecoveryMapper.Map(ex, "Component discovery failed").FormatStatusLine();
+                ComponentsStatusText.Text = UserFailureRecoveryMapper.Map(ex, T("Component discovery failed", "Rilevamento dei componenti non riuscito")).FormatStatusLine();
             }
             finally { _componentsDetectionOnly = false; SetComponentsBusy(false, ComponentsStatusText.Text); }
         }
@@ -469,7 +470,7 @@ namespace PaRuX.Views
                 catch (Exception ex)
                 {
                     Log.Write("Onboarding component action failed: " + ex.Message);
-                    ComponentsStatusText.Text = UserFailureRecoveryMapper.Map(ex, "Component action failed").FormatStatusLine();
+                    ComponentsStatusText.Text = UserFailureRecoveryMapper.Map(ex, T("Component action failed", "Azione sul componente non riuscita")).FormatStatusLine();
                     SetComponentsBusy(false, ComponentsStatusText.Text);
                 }
             };
@@ -520,7 +521,7 @@ namespace PaRuX.Views
                 if (selected == null)
                     throw new InvalidOperationException("No compatible Windows build is currently published for " + component.DisplayName + ".");
 
-                ComponentsStatusText.Text = "Installing " + component.DisplayName + " " + selected.Tag
+                ComponentsStatusText.Text = T("Installing ", "Installazione di ") + component.DisplayName + " " + selected.Tag
                     + (string.IsNullOrWhiteSpace(selected.Variant) ? string.Empty : " (" + selected.Variant + ")") + "…";
                 RuntimeInstallStatus started = await RuntimeManagerClient.Current.StartInstallAsync(
                     backend, selected.Tag, selected.Variant, token);
@@ -549,7 +550,7 @@ namespace PaRuX.Views
 
                 try { await RuntimeManagerClient.Current.UnskipAsync(component.Id, CancellationToken.None); }
                 catch { /* install is complete; stale skip state is cosmetic and discovery hides it while installed */ }
-                ComponentsStatusText.Text = component.DisplayName + " installed successfully.";
+                ComponentsStatusText.Text = component.DisplayName + T(" installed successfully.", " installato correttamente.");
             }
             finally
             {
@@ -576,7 +577,7 @@ namespace PaRuX.Views
             RenderComponents(components);
             UpdateReadySummary(components);
             RenderBundledOverview(BundledRuntimeOverviewPresenter.BuildOverview(_lastComponents, _modelAdvice));
-            ComponentsStatusText.Text = "Component state updated.";
+            ComponentsStatusText.Text = T("Component state updated.", "Stato del componente aggiornato.");
         }
 
         private void SetComponentsBusy(bool busy, string message)
@@ -684,7 +685,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Onboarding RefreshReadyCheckAsync failed: " + ex.Message);
-                SetupSummaryText.Text = "Could not check chat readiness: " + ex.Message;
+                SetupSummaryText.Text = T("Could not check chat readiness: ", "Impossibile controllare la prontezza della chat: ") + ex.Message;
             }
         }
 
@@ -705,7 +706,7 @@ namespace PaRuX.Views
             else
             {
                 SetupSummaryText.Text = assessment.Summary
-                    + (string.IsNullOrWhiteSpace(assessment.NextAction) ? string.Empty : "\n\nNext step: " + assessment.NextAction);
+                    + (string.IsNullOrWhiteSpace(assessment.NextAction) ? string.Empty : T("\n\nNext step: ", "\n\nPassaggio successivo: ") + assessment.NextAction);
                 if (GetStartedButton != null)
                 {
                     GetStartedButton.Content = PaRuX.Contracts.CorporateMode.IsActive
@@ -760,7 +761,7 @@ namespace PaRuX.Views
             await ChatClient.Current.StreamAsync(
                 history: new[] { new PaRuX.Models.ChatMessage
                 {
-                    Role = "user", Content = "Repeat this one-time verification code exactly: " + challenge
+                    Role = "user", Content = T("Repeat this one-time verification code exactly: ", "Ripeti esattamente questo codice di verifica una tantum: ") + challenge
                 } },
                 systemPrompt: "You are verifying a local model installation. Reply with only the exact requested code.",
                 onDelta: delta =>
@@ -841,13 +842,13 @@ namespace PaRuX.Views
             }
             catch (OperationCanceledException)
             {
-                VerifyLocalChatStatusText.Text = "Verification cancelled or timed out. Check the runtime and retry.";
+                VerifyLocalChatStatusText.Text = T("Verification cancelled or timed out. Check the runtime and retry.", "Verifica annullata o scaduta. Controlla il runtime e riprova.");
             }
             catch (Exception ex)
             {
                 Log.Write("Onboarding local chat verification failed: " + ex);
                 VerifyLocalChatStatusText.Text =
-                    UserFailureRecoveryMapper.Map(ex, "Local chat verification failed").FormatStatusLine();
+                    UserFailureRecoveryMapper.Map(ex, T("Local chat verification failed", "Verifica della chat locale non riuscita")).FormatStatusLine();
             }
             finally
             {
@@ -1023,7 +1024,7 @@ namespace PaRuX.Views
                     // Say so and stay put: continuing would silently use a different folder.
                     Log.Write("Onboarding GetStarted could not apply the shown local-AI root: " + ex.Message);
                     if (LocalAiRootText != null)
-                        LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, "Couldn't use that folder").FormatStatusLine();
+                        LocalAiRootText.Text = UserFailureRecoveryMapper.Map(ex, T("Couldn't use that folder", "Impossibile usare quella cartella")).FormatStatusLine();
                     return;
                 }
             }
@@ -1052,7 +1053,7 @@ namespace PaRuX.Views
                 UnprovenReadinessCard.StartBringIntoView();
             }
             if (SetupSummaryText != null)
-                SetupSummaryText.Text = "Readiness is unproven: " + string.Join("; ", unprovenItems);
+                SetupSummaryText.Text = T("Readiness is unproven: ", "La prontezza non è dimostrata: ") + string.Join("; ", unprovenItems);
 
             Log.Write("Onboarding completion attempted with unproven readiness: " + string.Join("; ", unprovenItems));
 
@@ -1060,14 +1061,14 @@ namespace PaRuX.Views
             {
                 var dialog = new ContentDialog
                 {
-                    Title = "Unproven Chat Readiness",
-                    Content = "The following readiness requirements were not verified:"
+                    Title = T("Unproven Chat Readiness", "Prontezza della chat non dimostrata"),
+                    Content = T("The following readiness requirements were not verified:", "I seguenti requisiti di prontezza non sono stati verificati:")
                         + Environment.NewLine + Environment.NewLine
                         + unprovenList
                         + Environment.NewLine + Environment.NewLine
-                        + "If you proceed, chat may not work until these components are configured.",
-                    PrimaryButtonText = "Proceed anyway",
-                    CloseButtonText = "Go back",
+                        + T("If you proceed, chat may not work until these components are configured.", "Se prosegui, la chat potrebbe non funzionare finché questi componenti non sono configurati."),
+                    PrimaryButtonText = T("Proceed anyway", "Prosegui comunque"),
+                    CloseButtonText = T("Go back", "Indietro"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };

@@ -152,10 +152,10 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshFirstModelAdviceAsync failed: " + ex.Message);
                 FirstModelHardwareText.Text =
-                    "PaRuX couldn't read this machine's hardware, so it can't suggest a model yet. "
-                    + "You can still choose one in Model Hub.";
+                    T("PaRuX couldn't read this machine's hardware, so it can't suggest a model yet. ", "PaRuX non è riuscito a leggere l'hardware di questa macchina, quindi per ora non può suggerire un modello. ")
+                    + T("You can still choose one in Model Hub.", "Puoi comunque sceglierne uno nel Model Hub.");
                 if (FirstModelInstallButton != null)
-                    FirstModelInstallButton.Content = "Browse models in Model Hub";
+                    FirstModelInstallButton.Content = T("Browse models in Model Hub", "Sfoglia i modelli nel Model Hub");
                 ShowFirstModelActions(installable: true);
             }
 
@@ -184,11 +184,11 @@ namespace PaRuX.Views
                 // This is a presence check, NOT an assertion that inference works.
                 // The normal local-Chat verification still has to produce a real answer.
                 FirstModelHeadlineText.Text =
-                    "Portable starter Qwen3-4B is already included. No model download is required for basic local Chat.";
+                    T("Portable starter Qwen3-4B is already included. No model download is required for basic local Chat.", "Il modello di partenza Qwen3-4B è già incluso. Per la Chat locale di base non serve alcun download di modelli.");
                 FirstModelHeadlineText.Visibility = Visibility.Visible;
                 FirstModelDetailText.Text =
-                    "Use Verify local Chat to prove the included CPU/Vulkan runtime answers correctly. " +
-                    "Additional models for advanced tasks are optional in Model Hub.";
+                    T("Use Verify local Chat to prove the included CPU/Vulkan runtime answers correctly. ", "Usa Verifica la Chat locale per dimostrare che il runtime CPU/Vulkan incluso risponde correttamente. ") +
+                    T("Additional models for advanced tasks are optional in Model Hub.", "Altri modelli per attività avanzate sono facoltativi nel Model Hub.");
                 FirstModelDetailText.Visibility = Visibility.Visible;
                 ShowFirstModelActions(installable: false);
                 ApplyFirstModelStorage(_modelBudget);
@@ -202,28 +202,28 @@ namespace PaRuX.Views
             FirstModelCandidate? selected = advice.Candidates
                 .FirstOrDefault(candidate => candidate.Model.Id == _selectedFirstModelId);
             FirstModelHeadlineText.Text = selected == null
-                ? "Choose a compatible chat model in Model Hub."
-                : "Selected model: " + selected.Model.Title + ". " + selected.Reason
-                  + " This is a fit estimate, not a task-quality winner; coding, vision, image and video tasks may use different models.";
+                ? T("Choose a compatible chat model in Model Hub.", "Scegli un modello di chat compatibile nel Model Hub.")
+                : T("Selected model: ", "Modello selezionato: ") + selected.Model.Title + ". " + selected.Reason
+                  + T(" This is a fit estimate, not a task-quality winner; coding, vision, image and video tasks may use different models.", " È una stima di compatibilità, non il vincitore per qualità; programmazione, visione, immagini e video possono usare modelli diversi.");
             FirstModelHeadlineText.Visibility = Visibility.Visible;
 
             if (selected != null)
             {
                 FirstModelDetailText.Text = string.Join("  ·  ", new[]
                 {
-                    selected.Model.ApproxParams + " parameters",
+                    selected.Model.ApproxParams + T(" parameters", " parametri"),
                     selected.Model.QuantHint,
-                    "About " + Gigabytes(selected.Model.EstimatedSizeBytes) + " download; the selected file may differ"
+                    T("About ", "Circa ") + Gigabytes(selected.Model.EstimatedSizeBytes) + T(" download; the selected file may differ", " di download; il file selezionato può differire")
                 }.Where(part => !string.IsNullOrWhiteSpace(part)));
                 FirstModelDetailText.Visibility = Visibility.Visible;
                 if (FirstModelInstallButton != null)
-                    FirstModelInstallButton.Content = "Open selected model in Model Hub";
+                    FirstModelInstallButton.Content = T("Open selected model in Model Hub", "Apri il modello selezionato nel Model Hub");
             }
             else
             {
                 FirstModelDetailText.Visibility = Visibility.Collapsed;
                 if (FirstModelInstallButton != null)
-                    FirstModelInstallButton.Content = "Browse models in Model Hub";
+                    FirstModelInstallButton.Content = T("Browse models in Model Hub", "Sfoglia i modelli nel Model Hub");
             }
 
             ShowFirstModelActions(installable: true);
@@ -237,8 +237,8 @@ namespace PaRuX.Views
             if (budget == null)
             {
                 FirstModelStorageText.Text =
-                    "PaRuX quota headroom and model-destination free space are unavailable. "
-                    + "No storage is reserved by this estimate.";
+                    T("PaRuX quota headroom and model-destination free space are unavailable. ", "Margine di quota di PaRuX e spazio libero nella destinazione dei modelli non disponibili. ")
+                    + T("No storage is reserved by this estimate.", "Questa stima non riserva spazio di archiviazione.");
                 return;
             }
 
@@ -250,7 +250,7 @@ namespace PaRuX.Views
                 ? "Free space on the model destination volume: " + StorageGigabytes(freeBytes) + "."
                 : "Free space on the model destination volume: unavailable.";
             FirstModelStorageText.Text = quota + "\n" + destination
-                + "\nThese are current snapshots, not reservations; the exact model file may differ from the estimate.";
+                + T("\nThese are current snapshots, not reservations; the exact model file may differ from the estimate.", "\nSono istantanee attuali, non prenotazioni; il file esatto del modello può differire dalla stima.");
 
             FirstModelCandidate? selected = _modelAdvice?.Candidates
                 .FirstOrDefault(candidate => candidate.Model.Id == _selectedFirstModelId);
@@ -287,7 +287,7 @@ namespace PaRuX.Views
                 if (FirstModelStatusText != null)
                 {
                     FirstModelStatusText.Text =
-                        "This model does not have a Model Hub repository yet. Choose another model to continue.";
+                        T("This model does not have a Model Hub repository yet. Choose another model to continue.", "Questo modello non ha ancora un repository nel Model Hub. Scegli un altro modello per continuare.");
                     FirstModelStatusText.Visibility = Visibility.Visible;
                 }
 
@@ -300,8 +300,8 @@ namespace PaRuX.Views
             if (FirstModelStatusText != null)
             {
                 FirstModelStatusText.Text =
-                    "Opening Model Hub with " + repoId + " searched. "
-                    + "Pick the file matching \"" + best.Model.QuantHint + "\" and choose Download. Return to Setup when ready.";
+                    T("Opening Model Hub with ", "Apertura del Model Hub con ") + repoId + T(" searched. ", " cercato. ")
+                    + T("Pick the file matching \"", "Scegli il file corrispondente a \"") + best.Model.QuantHint + T("\" and choose Download. Return to Setup when ready.", "\" e premi Scarica. Torna alla configurazione quando sei pronto.");
                 FirstModelStatusText.Visibility = Visibility.Visible;
             }
             SuggestedQuantHintForHandoff = best.Model.QuantHint;
@@ -320,7 +320,7 @@ namespace PaRuX.Views
             var body = new StackPanel { Spacing = 14 };
             body.Children.Add(new TextBlock
             {
-                Text = "These are task-specific candidates, not validated winners. For text models, memory fit is estimated; task quality and local speed need matching measurements. Uncensored is a separate content preference, not an automatic mode.",
+                Text = T("These are task-specific candidates, not validated winners. For text models, memory fit is estimated; task quality and local speed need matching measurements. Uncensored is a separate content preference, not an automatic mode.", "Sono candidati specifici per attività, non vincitori convalidati. Per i modelli di testo la compatibilità di memoria è stimata; qualità e velocità locale richiedono misurazioni corrispondenti. Senza censura è una preferenza di contenuto separata, non una modalità automatica."),
                 TextWrapping = TextWrapping.Wrap,
                 Style = (Style)Application.Current.Resources["PaRuXCaptionTextStyle"]
             });
@@ -328,8 +328,8 @@ namespace PaRuX.Views
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "Model candidates by task",
-                CloseButtonText = "Close"
+                Title = T("Model candidates by task", "Modelli candidati per attività"),
+                CloseButtonText = T("Close", "Chiudi")
             };
 
             foreach (FirstModelCapabilityGroup group in advice.CapabilityGroups)
@@ -386,10 +386,10 @@ namespace PaRuX.Views
                     var choose = new Button
                     {
                         Content = !canSelect
-                            ? "Not a fit for this PC"
+                            ? T("Not a fit for this PC", "Non adatto a questo PC")
                             : isStandardGeneralChat
-                                ? "Select for general chat"
-                                : "Find " + routeRole + " candidate in Model Hub",
+                                ? T("Select for general chat", "Seleziona per la chat generale")
+                                : T("Find ", "Trova il candidato ") + routeRole + T(" candidate in Model Hub", " nel Model Hub"),
                         IsEnabled = canSelect && (isStandardGeneralChat
                             || !string.IsNullOrWhiteSpace(candidate.Model.HuggingFaceRepoId)),
                         HorizontalAlignment = HorizontalAlignment.Left,
@@ -404,10 +404,10 @@ namespace PaRuX.Views
                         {
                             if (FirstModelStatusText != null)
                             {
-                                FirstModelStatusText.Text = "Opening Model Hub to inspect " + candidate.Model.Title + ". "
-                                    + "This does not download the model or change the general-chat starter. "
-                                    + "After choosing a file, add it to the " + routeRole
-                                    + " role in Model Intelligence & Routing if you want to use it there.";
+                                FirstModelStatusText.Text = T("Opening Model Hub to inspect ", "Apertura del Model Hub per ispezionare ") + candidate.Model.Title + ". "
+                                    + T("This does not download the model or change the general-chat starter. ", "Questo non scarica il modello né cambia il modello di partenza per la chat generale. ")
+                                    + T("After choosing a file, add it to the ", "Dopo aver scelto un file, aggiungilo al ruolo ") + routeRole
+                                    + T(" role in Model Intelligence & Routing if you want to use it there.", " in Intelligenza dei modelli e instradamento se vuoi usarlo lì.");
                                 FirstModelStatusText.Visibility = Visibility.Visible;
                             }
                             SuggestedQuantHintForHandoff = candidate.Model.QuantHint;
@@ -443,7 +443,7 @@ namespace PaRuX.Views
                 if (group.TextCandidates.Count == 0 && group.MediaCandidates.Count == 0)
                     section.Children.Add(new TextBlock
                     {
-                        Text = "No candidate is listed; PaRuX will not substitute a general-chat model for this task.",
+                        Text = T("No candidate is listed; PaRuX will not substitute a general-chat model for this task.", "Nessun candidato elencato; PaRuX non sostituirà un modello di chat generale a questa attività."),
                         TextWrapping = TextWrapping.Wrap,
                         Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"]
                     });
@@ -464,7 +464,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.GeneralChat,
-                    Title = "General chat",
+                    Title = T("General chat", "Chat generale"),
                     ContentProfileId = ModelContentProfileIds.Standard,
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "UI test: task quality and speed have not been measured.",
@@ -473,7 +473,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.Coding,
-                    Title = "Coding",
+                    Title = T("Coding", "Programmazione"),
                     ContentProfileId = ModelContentProfileIds.Standard,
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "UI test: coding quality has not been measured.",
@@ -482,7 +482,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.GeneralChat,
-                    Title = "General chat — uncensored preference",
+                    Title = T("General chat — uncensored preference", "Chat generale — preferenza senza censura"),
                     ContentProfileId = ModelContentProfileIds.Uncensored,
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "Explicit preference only; never selected implicitly.",
@@ -491,7 +491,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.ImageGenerate,
-                    Title = "Image generation",
+                    Title = T("Image generation", "Generazione di immagini"),
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "Image quality and generation time are unmeasured.",
                     MediaCandidates = new List<RecommendedCheckpoint>
@@ -502,7 +502,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.ImageEdit,
-                    Title = "Image editing",
+                    Title = T("Image editing", "Modifica di immagini"),
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "Edit fidelity and generation time are unmeasured.",
                     MediaCandidates = new List<RecommendedCheckpoint>
@@ -513,7 +513,7 @@ namespace PaRuX.Views
                 new()
                 {
                     CapabilityId = ModelCapabilityIds.VideoGenerate,
-                    Title = "Video generation",
+                    Title = T("Video generation", "Generazione di video"),
                     EvidenceState = ModelAdviceEvidenceStates.Provisional,
                     EvidenceNote = "No validated video candidate is available."
                 }
