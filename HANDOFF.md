@@ -1,3 +1,14 @@
+## 2026-11-11 — Claude continuation after Codex: merged, verified, Corporate strict gate PASS (NOT RELEASED)
+
+`main` = `aaf09c8e`+docs, pushed. Start from `docs/REQUIREMENT_MATRIX.md` and the top entry of `PARUX_EXECUTION_PLAN.md`.
+
+- Done and verified: see QA-027..QA-033. Packages on this PC (not signed, not published): `artifacts/portable/PaRuX-4.1.0-portable-win-x64.zip` (built at `502b1975`, older than the document-chat fixes - rebuild before any use) and `artifacts/corporate-lite/PaRuX-Corporate-Lite-Offline-win-x64.zip` (built at `aaf09c8e`, strict gate PASS).
+- Gate command: `pwsh -File tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance` (work folder `%USERPROFILE%\PaRuX-acceptance-work`, never `%TEMP%`: the Core asks consent for AppData). It asks in document mode, checks 4 sentinel facts + citation, a planted instruction, an unsupported question, non-loopback sockets and a clean exit through `PaRuX.exe --exit`. Evaluator self-test: `tests/corporate/test-grounded-acceptance.ps1` (40 cases).
+- Gotchas: PowerShell variables are case-insensitive (`$r` once replaced the `$R` results table); `Start-Process -PassThru` needs `$null = $p.Handle` before `ExitCode` on 5.1; source-contract tests read files from disk, so never edit sources or docs while a full xUnit run is active - use a worktree under `.claude/worktrees`; package builders overwrite their stage/ZIP paths.
+- Delegation that works here: Haiku/Sonnet subagents; Gemini through `agy --print` with a `--settings` allow-list for file tools only (it cannot run commands headless, so build/test its diff yourself); Codex CLI in `.sandbox-bin` cannot run tools (the Codex desktop app can). Local GGUFs for bulk text work: Qwen3-Coder-30B and a CUDA llama-server under `.ai/artifacts/hw-data3`.
+- Not done: everything listed as open in the plan entry; full xUnit and FlaUI regression on the final source were started after this note - check `.ai/artifacts/ac-20261111/`.
+
+---
 ## 2026-11-10 — Codex Windows continuation (PARTIAL, NOT RELEASED)
 
 Computer Use instance identity was subsequently hardened in `0932b3d3` and `61979720`: see the top entry in the execution plan. Focused tests 39/39 and App Release x64 build passed in `.ai/worktrees/codex-focus`; independent review led to and accepted the proof-reattestation follow-up. Real-window UIA, process replacement, access-denied/elevated compatibility and OS race checks remain pending. Package builds started at `7d6de205` precede these commits and cannot attest to the newer source.
