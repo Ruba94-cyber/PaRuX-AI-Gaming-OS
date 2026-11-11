@@ -11,11 +11,11 @@ public sealed class ProgressiveDisclosureUiContractTests
     public void Tool_creation_forms_keep_actions_but_hide_advanced_editors_by_default()
     {
         string source = ReadSource("ToolsAutomationView.cs");
-        Assert.Contains("Header = \"Add an MCP server\"", source, StringComparison.Ordinal);
-        Assert.Contains("Header = \"New automation\"", source, StringComparison.Ordinal);
-        Assert.Contains("Header = \"New workflow template\"", source, StringComparison.Ordinal);
-        Assert.Contains("Header = \"Advanced trigger configuration (JSON)\"", source, StringComparison.Ordinal);
-        Assert.Contains("Header = \"Edit workflow steps (JSON)\"", source, StringComparison.Ordinal);
+        Assert.Contains("Header = T(\"Add an MCP server\", \"Aggiungi un server MCP\")", source, StringComparison.Ordinal);
+        Assert.Contains("Header = T(\"New automation\", \"Nuova automazione\")", source, StringComparison.Ordinal);
+        Assert.Contains("Header = T(\"New workflow template\", \"Nuovo modello di workflow\")", source, StringComparison.Ordinal);
+        Assert.Contains("Header = T(\"Advanced trigger configuration (JSON)\", \"Configurazione avanzata del trigger (JSON)\")", source, StringComparison.Ordinal);
+        Assert.Contains("Header = T(\"Edit workflow steps (JSON)\", \"Modifica i passaggi del workflow (JSON)\")", source, StringComparison.Ordinal);
         Assert.Contains("IsExpanded = false", source, StringComparison.Ordinal);
         Assert.Contains("await AddMcpAsync()", source, StringComparison.Ordinal);
         Assert.Contains("await CreateAutomationAsync()", source, StringComparison.Ordinal);
