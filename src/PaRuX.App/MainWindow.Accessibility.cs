@@ -292,13 +292,13 @@ namespace PaRuX
                 string markdown = AccessibleKeyboardRegistry.Default.GenerateCheatSheetMarkdown();
                 var dialog = new ContentDialog
                 {
-                    Title = "Keyboard Shortcuts",
+                    Title = T("Keyboard Shortcuts", "Scorciatoie da tastiera"),
                     Content = new ScrollViewer
                     {
                         MaxHeight = 450,
                         Content = RenderMarkdownPanel(markdown)
                     },
-                    CloseButtonText = "Close",
+                    CloseButtonText = T("Close", "Chiudi"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = Content.XamlRoot
                 };

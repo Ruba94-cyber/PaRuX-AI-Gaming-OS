@@ -33,6 +33,8 @@ public sealed class UiLocalizationHookTests
         "Views/SettingsView.xaml",
         "Views/ChatView.xaml",
         "Views/OnboardingView.xaml",
+        "MainWindow.xaml",
+        "Windows/BubbleWindow.xaml",
     };
 
     // Visible English values that are intentionally identical in Italian (brand names, product names, units,

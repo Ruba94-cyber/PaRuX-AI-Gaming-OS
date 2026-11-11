@@ -3,6 +3,7 @@
     x:Class="PaRuX.Shell.BubbleWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="using:PaRuX.Views"
     mc:Ignorable="d"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -147,7 +148,7 @@
                         <Button
                             x:Name="BubbleOpenInMain"
                             Grid.Column="1"
-                            Content="Open in PaRuX"
+                            Content="Open in PaRuX" loc:Loc.ItContent="Apri in PaRuX"
                             FontSize="{StaticResource PaRuXFontSizeCaption}"
                             Background="Transparent"
                             BorderThickness="0"
@@ -156,7 +157,7 @@
                             Padding="8,4,8,4"
                             Height="28"
                             Click="OpenInMain_Click"
-                            ToolTipService.ToolTip="Continue this thread in the main window" />
+                            ToolTipService.ToolTip="Continue this thread in the main window" loc:Loc.ItToolTip="Continua questa conversazione nella finestra principale" />
 
                         <Button
                             x:Name="BubbleCollapse"
@@ -169,8 +170,8 @@
                             Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
                             CornerRadius="{StaticResource PaRuXRadiusSmall}"
                             Click="Collapse_Click"
-                            AutomationProperties.Name="Close Quick Chat"
-                            ToolTipService.ToolTip="Close  (Esc)">
+                            AutomationProperties.Name="Close Quick Chat" loc:Loc.ItName="Chiudi la Chat rapida"
+                            ToolTipService.ToolTip="Close  (Esc)" loc:Loc.ItToolTip="Chiudi  (Esc)">
                             <FontIcon Glyph="&#xE711;" FontSize="12" />
                         </Button>
                     </Grid>
@@ -200,13 +201,13 @@
                         HorizontalAlignment="Center" />
                     <TextBlock
                         x:Name="BubbleEmptyTitle"
-                        Text="Ask me something"
+                        Text="Ask me something" loc:Loc.ItText="Chiedimi qualcosa"
                         Style="{StaticResource PaRuXBodyStrongTextStyle}"
                         Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
                         HorizontalAlignment="Center" />
                     <TextBlock
                         x:Name="BubbleEmptyDescription"
-                        Text="Answers stay on this machine."
+                        Text="Answers stay on this machine." loc:Loc.ItText="Le risposte restano su questa macchina."
                         Style="{StaticResource PaRuXCaptionTextStyle}"
                         Foreground="{ThemeResource PaRuXTextTertiaryBrush}"
                         HorizontalAlignment="Center"
@@ -270,7 +271,7 @@
                                 Background="Transparent"
                                 Padding="6,6,10,6"
                                 FontSize="{StaticResource PaRuXFontSizeBody}"
-                                PlaceholderText="Quick question…"
+                                PlaceholderText="Quick question…" loc:Loc.ItPlaceholder="Domanda veloce…"
                                 PreviewKeyDown="BubbleInput_PreviewKeyDown" />
                             <Button
                                 x:Name="BubbleSend"
@@ -286,8 +287,8 @@
                                 HorizontalAlignment="Right"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Click="BubbleSend_Click"
-                                AutomationProperties.Name="Send from Quick Chat"
-                                ToolTipService.ToolTip="Send  (Enter)">
+                                AutomationProperties.Name="Send from Quick Chat" loc:Loc.ItName="Invia dalla Chat rapida"
+                                ToolTipService.ToolTip="Send  (Enter)" loc:Loc.ItToolTip="Invia  (Invio)">
                                 <FontIcon Glyph="&#xE724;" FontSize="13" />
                             </Button>
                         </Grid>
