@@ -20,13 +20,14 @@ namespace PaRuX.Views
     /// </summary>
     public sealed partial class CreateWorkspaceView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly DispatcherQueue _dispatcher;
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly ProgressBar _progress = new ProgressBar { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
         private readonly TextBlock _lastOutput = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.72 };
-        private readonly Button _cancelActiveJobButton = new Button { Content = "Cancel active job", Visibility = Visibility.Collapsed };
+        private readonly Button _cancelActiveJobButton = new Button { Content = T("Cancel active job", "Annulla il job in corso"), Visibility = Visibility.Collapsed };
         private readonly TextBlock _provenanceText = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
-        private readonly Button _provenanceDetailsButton = new Button { Content = "Details" };
+        private readonly Button _provenanceDetailsButton = new Button { Content = T("Details", "Dettagli") };
         private readonly StackPanel _provenanceDetailsPanel = new StackPanel { Spacing = 4, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 4, 0, 4) };
         private readonly TextBlock _provenanceDetailsContent = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.75, FontSize = 12 };
         // One job at a time: starting a second is refused, and the run buttons stay disabled while a job runs.
@@ -34,11 +35,11 @@ namespace PaRuX.Views
         private readonly List<Button> _runButtons = new();
         private readonly List<MediaSetupCard> _setupCards = new();
 
-        private readonly TextBox _imagePrompt = new TextBox { PlaceholderText = "Describe the image to create", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
+        private readonly TextBox _imagePrompt = new TextBox { PlaceholderText = T("Describe the image to create", "Descrivi l'immagine da creare"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
         private readonly NumberBox _imageWidth = DimensionBox(1024);
         private readonly NumberBox _imageHeight = DimensionBox(1024);
 
-        private readonly TextBox _videoPrompt = new TextBox { PlaceholderText = "Describe the video to create", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
+        private readonly TextBox _videoPrompt = new TextBox { PlaceholderText = T("Describe the video to create", "Descrivi il video da creare"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
         private readonly NumberBox _videoWidth = DimensionBox(1280);
         private readonly NumberBox _videoHeight = DimensionBox(720);
         private readonly NumberBox _videoDuration = new NumberBox { Minimum = 1, Maximum = 60, Value = 5, SmallChange = 1, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
@@ -46,27 +47,27 @@ namespace PaRuX.Views
         private readonly NumberBox _videoSteps = new NumberBox { Minimum = 1, Maximum = 100, Value = 30, SmallChange = 1, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
         // Optional start image (image-to-video): becomes the first frame of clip one. Empty means text-to-video.
         private string? _videoStartImagePath;
-        private readonly TextBlock _videoStartLabel = new TextBlock { Text = "No start image: text-to-video", FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
+        private readonly TextBlock _videoStartLabel = new TextBlock { Text = T("No start image: text-to-video", "Nessuna immagine iniziale: da testo a video"), FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _videoStartCheck = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
 
-        private readonly TextBox _editPrompt = new TextBox { PlaceholderText = "Describe the edit", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 64 };
-        private readonly TextBlock _editSourceLabel = new TextBlock { Text = "No source image selected", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
+        private readonly TextBox _editPrompt = new TextBox { PlaceholderText = T("Describe the edit", "Descrivi la modifica"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 64 };
+        private readonly TextBlock _editSourceLabel = new TextBlock { Text = T("No source image selected", "Nessuna immagine di origine selezionata"), TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         private readonly ComboBox _editMode = new ComboBox { MinWidth = 220 };
         private readonly TextBlock _editModeDescription = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
         private readonly StackPanel _variationStrengthPanel = new StackPanel { Spacing = 3, Visibility = Visibility.Collapsed };
-        private readonly Button _editRunButton = new Button { Content = "Edit image" };
+        private readonly Button _editRunButton = new Button { Content = T("Edit image", "Modifica l'immagine") };
         private readonly NumberBox _editStrength = new NumberBox { Minimum = 0.05, Maximum = 1, Value = 0.6, SmallChange = 0.05, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
         private string? _editSourcePath;
 
-        private readonly TextBlock _threedSourceLabel = new TextBlock { Text = "No source image selected", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
+        private readonly TextBlock _threedSourceLabel = new TextBlock { Text = T("No source image selected", "Nessuna immagine di origine selezionata"), TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         private string? _threedSourcePath;
 
-        private readonly TextBox _ttsText = new TextBox { PlaceholderText = "Text to synthesize locally", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
-        private readonly TextBox _ttsVoice = new TextBox { PlaceholderText = "Voice id (optional, e.g. if_sara)" };
+        private readonly TextBox _ttsText = new TextBox { PlaceholderText = T("Text to synthesize locally", "Testo da sintetizzare in locale"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72 };
+        private readonly TextBox _ttsVoice = new TextBox { PlaceholderText = T("Voice id (optional, e.g. if_sara)", "ID della voce (facoltativo, ad es. if_sara)") };
         private readonly TextBlock _ttsStatus = new TextBlock { TextWrapping = TextWrapping.Wrap };
 
-        private readonly TextBlock _sttSourceLabel = new TextBlock { Text = "No audio file selected", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
-        private readonly TextBox _transcription = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90, PlaceholderText = "Transcription appears here" };
+        private readonly TextBlock _sttSourceLabel = new TextBlock { Text = T("No audio file selected", "Nessun file audio selezionato"), TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
+        private readonly TextBox _transcription = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90, PlaceholderText = T("Transcription appears here", "La trascrizione appare qui") };
         private string? _sttSourcePath;
 
         public CreateWorkspaceView()
@@ -106,10 +107,10 @@ namespace PaRuX.Views
             };
             scroll.Content = body;
 
-            body.Children.Add(new TextBlock { Text = "Create", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            body.Children.Add(new TextBlock { Text = T("Create", "Crea"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             body.Children.Add(new TextBlock
             {
-                Text = "Create images, videos, music, speech and more with local AI. Each tool has its own tab; finished results stay in your gallery.",
+                Text = T("Create images, videos, music, speech and more with local AI. Each tool has its own tab; finished results stay in your gallery.", "Crea immagini, video, musica, voce e altro con l'IA locale. Ogni strumento ha la sua scheda; i risultati finiti restano nella tua galleria."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -134,7 +135,7 @@ namespace PaRuX.Views
             provenanceRow.Children.Add(_provenanceText);
 
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_provenanceDetailsButton, MediaProvenanceFormatter.ProvenanceDetailsButtonAutomationId);
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceDetailsButton, "Details");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceDetailsButton, T("Details", "Dettagli"));
             _provenanceDetailsButton.Click += (_, _) => ToggleProvenanceDetails();
             provenanceRow.Children.Add(_provenanceDetailsButton);
             statusBlock.Children.Add(provenanceRow);
@@ -175,7 +176,7 @@ namespace PaRuX.Views
         private static UIElement ExampleChips(TextBox target, string idPrefix, params string[] examples)
         {
             var row = new StackPanel { Spacing = 6 };
-            row.Children.Add(new TextBlock { Text = "Try an example, or just ask in Chat (\"create an image of…\", \"crea un'immagine di…\")", FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+            row.Children.Add(new TextBlock { Text = T("Try an example, or just ask in Chat (\"create an image of…\", \"crea un'immagine di…\")", "Prova un esempio oppure chiedi direttamente in Chat (\"crea un'immagine di…\", \"create an image of…\")"), FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
             var chips = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             int i = 0;
             foreach (string example in examples)
@@ -195,7 +196,7 @@ namespace PaRuX.Views
         private static UIElement SizePresets(string idPrefix, NumberBox width, NumberBox height, params (string Label, int W, int H)[] presets)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            row.Children.Add(new TextBlock { Text = "Size", FontSize = 12, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
+            row.Children.Add(new TextBlock { Text = T("Size", "Dimensione"), FontSize = 12, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
             foreach ((string label, int w, int h) in presets)
             {
                 var button = new Button { Content = label + " " + w + "×" + h, Padding = new Thickness(10, 3, 10, 3), FontSize = 12 };
@@ -242,7 +243,7 @@ namespace PaRuX.Views
             panel.Children.Add(BuildLoraStackPanel());
             panel.Children.Add(SizePresets("Create_Image_Size", _imageWidth, _imageHeight,
                 ("Square", 1024, 1024), ("Portrait", 896, 1152), ("Landscape", 1344, 768), ("Phone", 768, 1344)));
-            var run = new Button { Content = "Generate image" };
+            var run = new Button { Content = T("Generate image", "Genera l'immagine") };
             run.Click += async (_, _) => await GenerateMediaAsync("image");
             _runButtons.Add(run);
             panel.Children.Add(run);
@@ -262,9 +263,9 @@ namespace PaRuX.Views
         {
             _pendingEnhancementDetails = null;
             if (toggle.IsChecked != true) return true;
-            _status.Text = "Enhancing prompt with the local text model…";
+            _status.Text = T("Enhancing prompt with the local text model…", "Miglioramento del prompt con il modello di testo locale…");
             MediaPromptEnhancerUi.Outcome? outcome = await MediaPromptEnhancerUi.ReviewAsync(XamlRoot, kind, request.Prompt, CancellationToken.None);
-            if (outcome == null) { _status.Text = "Generation cancelled."; return false; }
+            if (outcome == null) { _status.Text = T("Generation cancelled.", "Generazione annullata."); return false; }
             request.Prompt = outcome.PromptToUse;
             request.PromptAlreadyReviewed = true; // the reviewed text runs verbatim; server skips its silent rewrite
             _pendingEnhancementDetails = outcome.Result.ToProvenanceDetails(outcome.UsedEnhanced);
@@ -295,13 +296,13 @@ namespace PaRuX.Views
             row.Children.Add(Labeled("Steps", _videoSteps));
             panel.Children.Add(row);
             var startRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var chooseStart = new Button { Content = "Choose start image…" };
+            var chooseStart = new Button { Content = T("Choose start image…", "Scegli l'immagine iniziale…") };
             chooseStart.Click += async (_, _) =>
             {
                 _videoStartImagePath = await PickFileAsync(new[] { ".png", ".jpg", ".jpeg", ".webp" });
                 await RefreshVideoStartImageCheckAsync();
             };
-            var clearStart = new Button { Content = "Clear start image" };
+            var clearStart = new Button { Content = T("Clear start image", "Cancella l'immagine iniziale") };
             clearStart.Click += async (_, _) =>
             {
                 _videoStartImagePath = null;
@@ -312,7 +313,7 @@ namespace PaRuX.Views
             panel.Children.Add(startRow);
             panel.Children.Add(_videoStartLabel);
             panel.Children.Add(_videoStartCheck);
-            var run = new Button { Content = "Generate video" };
+            var run = new Button { Content = T("Generate video", "Genera il video") };
             run.Click += async (_, _) => await GenerateMediaAsync("video");
             _runButtons.Add(run);
             panel.Children.Add(run);
@@ -325,7 +326,7 @@ namespace PaRuX.Views
         {
             if (string.IsNullOrEmpty(_videoStartImagePath))
             {
-                _videoStartLabel.Text = "No start image: text-to-video";
+                _videoStartLabel.Text = T("No start image: text-to-video", "Nessuna immagine iniziale: da testo a video");
                 _videoStartCheck.Text = string.Empty;
                 return;
             }
@@ -341,12 +342,12 @@ namespace PaRuX.Views
                 int videoHeight = IntValue(_videoHeight, 720);
                 double ratioDifference = Math.Abs(((double)width / height) / ((double)videoWidth / videoHeight) - 1.0);
                 _videoStartCheck.Text = ratioDifference <= 0.02
-                    ? $"Start image {width}×{height} matches the {videoWidth}×{videoHeight} aspect ratio."
-                    : $"Start image {width}×{height} does not match the {videoWidth}×{videoHeight} aspect ratio. Choose an image with the same proportions; PaRuX does not stretch or crop it.";
+                    ? T($"Start image {width}×{height} matches the {videoWidth}×{videoHeight} aspect ratio.", $"L'immagine iniziale {width}×{height} corrisponde alle proporzioni {videoWidth}×{videoHeight}.")
+                    : T($"Start image {width}×{height} does not match the {videoWidth}×{videoHeight} aspect ratio. Choose an image with the same proportions; PaRuX does not stretch or crop it.", $"L'immagine iniziale {width}×{height} non corrisponde alle proporzioni {videoWidth}×{videoHeight}. Scegli un'immagine con le stesse proporzioni; PaRuX non la stira né la ritaglia.");
             }
             catch (Exception ex)
             {
-                _videoStartCheck.Text = "This file could not be read as an image: " + ex.Message;
+                _videoStartCheck.Text = T("This file could not be read as an image: ", "Impossibile leggere questo file come immagine: ") + ex.Message;
             }
         }
 
@@ -355,9 +356,9 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(NewSetupCard("edit", "image editing"));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_editMode, "Create_EditMode_ComboBox");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_editMode, "Edit mode");
-            var instructionEdit = new ComboBoxItem { Content = "Instruction edit", Tag = "edit" };
-            var imageVariation = new ComboBoxItem { Content = "Image variation", Tag = "img2img" };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_editMode, T("Edit mode", "Modalità di modifica"));
+            var instructionEdit = new ComboBoxItem { Content = T("Instruction edit", "Modifica con istruzioni"), Tag = "edit" };
+            var imageVariation = new ComboBoxItem { Content = T("Image variation", "Variazione dell'immagine"), Tag = "img2img" };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(instructionEdit, "Create_EditMode_InstructionEdit_Item");
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(imageVariation, "Create_EditMode_ImageVariation_Item");
             var maskInpaint = new ComboBoxItem { Content = CreateInpaintPresenter.ModeLabel, Tag = CreateInpaintPresenter.ModeTag };
@@ -370,11 +371,11 @@ namespace PaRuX.Views
             panel.Children.Add(Labeled("Edit mode", _editMode));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_editModeDescription, "Create_EditMode_Description_Text");
             panel.Children.Add(_editModeDescription);
-            var choose = new Button { Content = "Choose source image…" };
+            var choose = new Button { Content = T("Choose source image…", "Scegli l'immagine di origine…") };
             choose.Click += async (_, _) =>
             {
                 _editSourcePath = await PickFileAsync(new[] { ".png", ".jpg", ".jpeg", ".webp" });
-                _editSourceLabel.Text = _editSourcePath ?? "No source image selected";
+                _editSourceLabel.Text = _editSourcePath ?? T("No source image selected", "Nessuna immagine di origine selezionata");
                 await LoadInpaintSourceAsync();
             };
             panel.Children.Add(choose);
@@ -384,14 +385,14 @@ namespace PaRuX.Views
             panel.Children.Add(_editModelRow);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_variationStrengthPanel, "Create_EditVariationStrength_Panel");
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_editStrength, "Create_EditVariationStrength_NumberBox");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_editStrength, "Variation strength");
-            _variationStrengthPanel.Children.Add(new TextBlock { Text = "Variation strength", FontSize = 11, Opacity = 0.68 });
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_editStrength, T("Variation strength", "Intensità della variazione"));
+            _variationStrengthPanel.Children.Add(new TextBlock { Text = T("Variation strength", "Intensità della variazione"), FontSize = 11, Opacity = 0.68 });
             _variationStrengthPanel.Children.Add(_editStrength);
             panel.Children.Add(_variationStrengthPanel);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_editRunButton, "Create_Edit_Run_Button");
             _editRunButton.Click += async (_, _) => await GenerateMediaAsync(SelectedEditType());
             panel.Children.Add(_editRunButton);
-            panel.Children.Add(new TextBlock { Text = "Or cut the subject out and keep a transparent background:", Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+            panel.Children.Add(new TextBlock { Text = T("Or cut the subject out and keep a transparent background:", "Oppure ritaglia il soggetto e mantieni lo sfondo trasparente:"), Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
             panel.Children.Add(BuildCutoutControls());
             UpdateEditModeDescription();
             return panel;
@@ -410,12 +411,12 @@ namespace PaRuX.Views
             bool inpaint = SelectedEditType() == CreateInpaintPresenter.ModeTag;
             _ = _editModelRow.SetTypeAsync(variation ? "image" : "edit");
             _variationStrengthPanel.Visibility = variation ? Visibility.Visible : Visibility.Collapsed;
-            _editRunButton.Content = variation ? "Create variation" : inpaint ? "Repaint masked area" : "Edit image";
+            _editRunButton.Content = variation ? T("Create variation", "Crea la variazione") : inpaint ? T("Repaint masked area", "Ridipingi l'area mascherata") : T("Edit image", "Modifica l'immagine");
             _editModeDescription.Text = variation
-                ? "Create a variation of your source image. Strength controls how far the result can move from the original."
+                ? T("Create a variation of your source image. Strength controls how far the result can move from the original.", "Crea una variazione dell'immagine di origine. L'intensità controlla quanto il risultato può allontanarsi dall'originale.")
                 : inpaint
                     ? CreateInpaintPresenter.ModeDescription
-                    : "Describe the changes you want. The source image guides the edit while your instructions shape the result.";
+                    : T("Describe the changes you want. The source image guides the edit while your instructions shape the result.", "Descrivi le modifiche che vuoi. L'immagine di origine guida la modifica mentre le tue istruzioni danno forma al risultato.");
             ApplyInpaintModeVisibility();
         }
 
@@ -424,19 +425,19 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock
             {
-                Text = "Uses the managed local 3D engine. If the engine is not installed, Runtime/Settings can install it before generation.",
+                Text = T("Uses the managed local 3D engine. If the engine is not installed, Runtime/Settings can install it before generation.", "Usa il motore 3D locale gestito. Se il motore non è installato, Runtime/Impostazioni possono installarlo prima della generazione."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.72
             });
-            var choose = new Button { Content = "Choose source image…" };
+            var choose = new Button { Content = T("Choose source image…", "Scegli l'immagine di origine…") };
             choose.Click += async (_, _) =>
             {
                 _threedSourcePath = await PickFileAsync(new[] { ".png", ".jpg", ".jpeg", ".webp" });
-                _threedSourceLabel.Text = _threedSourcePath ?? "No source image selected";
+                _threedSourceLabel.Text = _threedSourcePath ?? T("No source image selected", "Nessuna immagine di origine selezionata");
             };
             panel.Children.Add(choose);
             panel.Children.Add(_threedSourceLabel);
-            var run = new Button { Content = "Generate 3D model" };
+            var run = new Button { Content = T("Generate 3D model", "Genera il modello 3D") };
             run.Click += async (_, _) => await GenerateThreedAsync();
             _runButtons.Add(run);
             panel.Children.Add(run);
@@ -450,7 +451,7 @@ namespace PaRuX.Views
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_ttsVoice, "Create_TTS_Voice_Box");
             panel.Children.Add(_ttsText);
             panel.Children.Add(_ttsVoice);
-            var run = new Button { Content = "Synthesize speech" };
+            var run = new Button { Content = T("Synthesize speech", "Sintetizza la voce") };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(run, "Create_TTS_Run_Button");
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_ttsStatus, SpeechTimingPresenter.StatusTextAutomationId);
             run.Click += async (_, _) => await SynthesizeAsync();
@@ -463,15 +464,15 @@ namespace PaRuX.Views
         private UIElement BuildSttPanel()
         {
             var panel = new StackPanel { Spacing = 8 };
-            var choose = new Button { Content = "Choose audio file…" };
+            var choose = new Button { Content = T("Choose audio file…", "Scegli il file audio…") };
             choose.Click += async (_, _) =>
             {
                 _sttSourcePath = await PickFileAsync(new[] { ".wav", ".mp3", ".m4a", ".flac", ".ogg" });
-                _sttSourceLabel.Text = _sttSourcePath ?? "No audio file selected";
+                _sttSourceLabel.Text = _sttSourcePath ?? T("No audio file selected", "Nessun file audio selezionato");
             };
             panel.Children.Add(choose);
             panel.Children.Add(_sttSourceLabel);
-            var run = new Button { Content = "Transcribe" };
+            var run = new Button { Content = T("Transcribe", "Trascrivi") };
             run.Click += async (_, _) => await TranscribeAsync();
             _runButtons.Add(run);
             panel.Children.Add(run);
@@ -531,9 +532,9 @@ namespace PaRuX.Views
                 });
                 MediaAsset asset = await RunWithCompanionConsentAsync(request, type, progress, ticket.Token);
                 string path = await SaveMediaAssetAsync(asset, type, ticket.Token);
-                _lastOutput.Text = "Output: " + path;
+                _lastOutput.Text = T("Output: ", "Output: ") + path;
                 ShowResult(path);
-                _status.Text = "Generation completed locally and registered in Artifact Workspace.";
+                _status.Text = T("Generation completed locally and registered in Artifact Workspace.", "Generazione completata in locale e registrata nell'area di lavoro degli artefatti.");
                 if (type == "inpaint") await ShowInpaintResultAsync(path);
                 // The model the router/override actually chose comes from the server's job provenance; the output file name is only a fallback.
                 string modelName = !string.IsNullOrWhiteSpace(jobProvenance?.ModelFileName) ? jobProvenance!.ModelFileName!
@@ -598,10 +599,10 @@ namespace PaRuX.Views
                 };
                 var dialog = new ContentDialog
                 {
-                    Title = "Missing media components",
+                    Title = T("Missing media components", "Componenti multimediali mancanti"),
                     Content = content,
-                    PrimaryButtonText = "Fetch and retry once",
-                    CloseButtonText = "Not now",
+                    PrimaryButtonText = T("Fetch and retry once", "Scarica e riprova una volta"),
+                    CloseButtonText = T("Not now", "Non ora"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
@@ -639,7 +640,7 @@ namespace PaRuX.Views
                     throw new MediaDependencyJobException(error, "The job was not retried because the companion fetch did not complete.");
 
                 _progress.Value = 0;
-                _status.Text = "Companions installed. Retrying the media job once…";
+                _status.Text = T("Companions installed. Retrying the media job once…", "Componenti installati. Nuovo tentativo del job multimediale una volta…");
                 return await MediaJobClient.Current.RunAsync(request, progress, ct);
             }
         }
@@ -683,14 +684,14 @@ namespace PaRuX.Views
         private async Task GenerateThreedAsync()
         {
             string source = _threedSourcePath ?? string.Empty;
-            if (source.Length == 0) { _status.Text = "Choose a source image first."; return; }
+            if (source.Length == 0) { _status.Text = T("Choose a source image first.", "Scegli prima un'immagine di origine."); return; }
             CreateOperationTicket? ticket = BeginOperation("Generating local 3D model…");
             if (ticket == null) return;
             try
             {
                 ThreedGenerateResponse result = await ThreedClient.Current.GenerateAsync(source, ticket.Token);
-                _status.Text = "3D generation completed and registered in Artifact Workspace.";
-                _lastOutput.Text = "Generated: " + (string.IsNullOrWhiteSpace(result.FileName) ? "model.glb" : result.FileName)
+                _status.Text = T("3D generation completed and registered in Artifact Workspace.", "Generazione 3D completata e registrata nell'area di lavoro degli artefatti.");
+                _lastOutput.Text = T("Generated: ", "Generato: ") + (string.IsNullOrWhiteSpace(result.FileName) ? "model.glb" : result.FileName)
                     + " · " + result.DurationSeconds.ToString("0.0") + "s";
                 FinishOperation(ticket);
             }
@@ -722,9 +723,9 @@ namespace PaRuX.Views
 
                 _ttsStatus.Text = SpeechTimingPresenter.FormatTtfa(result.TtfaMilliseconds);
                 _status.Text = result.ArtifactRegistered
-                    ? "Speech synthesis completed and registered in Artifact Workspace."
-                    : "Speech synthesis completed and saved locally, but Artifact Workspace registration failed.";
-                _lastOutput.Text = "Generated: " + (string.IsNullOrWhiteSpace(result.FileName) ? "speech.wav" : result.FileName)
+                    ? T("Speech synthesis completed and registered in Artifact Workspace.", "Sintesi vocale completata e registrata nell'area di lavoro degli artefatti.")
+                    : T("Speech synthesis completed and saved locally, but Artifact Workspace registration failed.", "Sintesi vocale completata e salvata in locale, ma la registrazione nell'area di lavoro degli artefatti non è riuscita.");
+                _lastOutput.Text = T("Generated: ", "Generato: ") + (string.IsNullOrWhiteSpace(result.FileName) ? "speech.wav" : result.FileName)
                     + " · " + result.DurationSeconds.ToString("0.0") + "s";
                 FinishOperation(ticket);
             }
@@ -745,7 +746,7 @@ namespace PaRuX.Views
         private async Task TranscribeAsync()
         {
             string source = _sttSourcePath ?? string.Empty;
-            if (source.Length == 0) { _status.Text = "Choose an audio file first."; return; }
+            if (source.Length == 0) { _status.Text = T("Choose an audio file first.", "Scegli prima un file audio."); return; }
             CreateOperationTicket? ticket = BeginOperation("Transcribing locally…");
             if (ticket == null) return;
             try
@@ -754,9 +755,9 @@ namespace PaRuX.Views
                 TranscribeResponse result = await SpeechClient.Current.TranscribeAsync(
                     Convert.ToBase64String(bytes), Path.GetFileName(source), ticket.Token);
                 _transcription.Text = result.Text;
-                _status.Text = "Transcription completed locally"
-                    + (string.IsNullOrWhiteSpace(result.LanguageDetected) ? "." : " · language " + result.LanguageDetected + ".");
-                _lastOutput.Text = "Transcribed: " + Path.GetFileName(source) + " · " + result.DurationSeconds.ToString("0.0") + "s";
+                _status.Text = T("Transcription completed locally", "Trascrizione completata in locale")
+                    + (string.IsNullOrWhiteSpace(result.LanguageDetected) ? "." : T(" · language ", " · lingua ") + result.LanguageDetected + ".");
+                _lastOutput.Text = T("Transcribed: ", "Trascritto: ") + Path.GetFileName(source) + " · " + result.DurationSeconds.ToString("0.0") + "s";
                 FinishOperation(ticket);
             }
             catch (OperationCanceledException) { FinishOperation(ticket, "Transcription cancelled."); }
@@ -772,7 +773,7 @@ namespace PaRuX.Views
             CreateOperationTicket? ticket = _operations.TryBegin();
             if (ticket == null)
             {
-                _status.Text = "A Create job is still running. Cancel it first, or wait for it to finish.";
+                _status.Text = T("A Create job is still running. Cancel it first, or wait for it to finish.", "Un job di Crea è ancora in esecuzione. Annullalo prima oppure attendi che finisca.");
                 return null;
             }
             _operationMessageSticky = false;
@@ -820,8 +821,8 @@ namespace PaRuX.Views
 
         private void CancelActive()
         {
-            if (!_operations.CancelActive()) { _status.Text = "No Create job is active."; return; }
-            _status.Text = "Cancellation requested…";
+            if (!_operations.CancelActive()) { _status.Text = T("No Create job is active.", "Nessun job di Crea è attivo."); return; }
+            _status.Text = T("Cancellation requested…", "Annullamento richiesto…");
         }
 
         public void SetProvenance(MediaProvenanceRecord? record)

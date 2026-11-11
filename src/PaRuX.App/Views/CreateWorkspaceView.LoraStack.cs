@@ -26,7 +26,7 @@ namespace PaRuX.Views
         private readonly StackPanel[] _loraStackRows = new StackPanel[CreateLoraStackPresenter.MaxSlots];
         private readonly TextBlock _loraStackStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8, FontSize = 12 };
         private readonly TextBlock _loraStackIntro = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.72, FontSize = 12 };
-        private readonly Button _loraStackAdd = new Button { Content = "Add another LoRA" };
+        private readonly Button _loraStackAdd = new Button { Content = T("Add another LoRA", "Aggiungi un'altra LoRA") };
         private List<InstalledLoraChoice> _loraStackChoices = new();
         private int _loraStackVisibleRows = 1;
         private bool _loraStackLoading;
@@ -35,7 +35,7 @@ namespace PaRuX.Views
         {
             var panel = new StackPanel { Spacing = 6 };
             AutomationProperties.SetAutomationId(panel, CreateLoraStackPresenter.Panel);
-            panel.Children.Add(new TextBlock { Text = "LoRA stack (optional)", FontSize = 12, Opacity = 0.72 });
+            panel.Children.Add(new TextBlock { Text = T("LoRA stack (optional)", "Pila di LoRA (facoltativa)"), FontSize = 12, Opacity = 0.72 });
             panel.Children.Add(_loraStackIntro);
 
             for (int i = 0; i < CreateLoraStackPresenter.MaxSlots; i++)
@@ -48,11 +48,11 @@ namespace PaRuX.Views
                     StepFrequency = 0.05, Value = CreateLoraStackPresenter.DefaultStrength, Width = 200
                 };
                 var text = new TextBlock { FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center };
-                var remove = new Button { Content = "Remove" };
+                var remove = new Button { Content = T("Remove", "Rimuovi") };
                 AutomationProperties.SetAutomationId(combo, CreateLoraStackPresenter.SlotCombo(index));
-                AutomationProperties.SetName(combo, "LoRA " + (index + 1));
+                AutomationProperties.SetName(combo, T("LoRA ", "LoRA ") + (index + 1));
                 AutomationProperties.SetAutomationId(slider, CreateLoraStackPresenter.SlotStrength(index));
-                AutomationProperties.SetName(slider, "LoRA " + (index + 1) + " strength");
+                AutomationProperties.SetName(slider, T("LoRA ", "LoRA ") + (index + 1) + T(" strength", " intensità"));
                 AutomationProperties.SetAutomationId(text, CreateLoraStackPresenter.SlotStrengthText(index));
                 AutomationProperties.SetAutomationId(remove, CreateLoraStackPresenter.SlotRemove(index));
                 slider.ValueChanged += (_, _) => { text.Text = CreateLoraStackPresenter.StrengthText(slider.Value); UpdateLoraStackStatus(); };
@@ -78,7 +78,7 @@ namespace PaRuX.Views
                 if (_loraStackVisibleRows < CreateLoraStackPresenter.MaxSlots) _loraStackVisibleRows++;
                 ApplyLoraStackRowVisibility();
             };
-            var refresh = new Button { Content = "Refresh LoRAs" };
+            var refresh = new Button { Content = T("Refresh LoRAs", "Aggiorna le LoRA") };
             AutomationProperties.SetAutomationId(refresh, CreateLoraStackPresenter.RefreshButton);
             refresh.Click += async (_, _) => await RefreshLoraStackAsync();
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -143,7 +143,7 @@ namespace PaRuX.Views
                 var (ok, body) = await SendAsync(HttpMethod.Get, "/api/v1/media/loras/installed", null, CancellationToken.None);
                 if (!ok)
                 {
-                    _loraStackStatus.Text = "The LoRA list could not be read from PaRuX Core. " + ErrorOf(body, "Try Refresh LoRAs again.");
+                    _loraStackStatus.Text = T("The LoRA list could not be read from PaRuX Core. ", "Impossibile leggere l'elenco delle LoRA da PaRuX Core. ") + ErrorOf(body, T("Try Refresh LoRAs again.", "Prova ad Aggiornare le LoRA di nuovo."));
                     return;
                 }
                 var (family, choices) = CreateLoraStackPresenter.ParseInstalled(body);
@@ -168,7 +168,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _loraStackStatus.Text = "The LoRA list is unavailable: " + ex.Message;
+                _loraStackStatus.Text = T("The LoRA list is unavailable: ", "L'elenco delle LoRA non è disponibile: ") + ex.Message;
             }
             finally { _loraStackLoading = false; }
         }

@@ -30,7 +30,7 @@ namespace PaRuX.Views
         };
         private readonly Button _resultVideoPreviewButton = new Button
         {
-            Content = "Preview video", Visibility = Visibility.Collapsed
+            Content = T("Preview video", "Anteprima del video"), Visibility = Visibility.Collapsed
         };
         private readonly System.Collections.Generic.List<Button> _imageOnlyResultButtons = new();
         private string? _resultPath;
@@ -65,16 +65,16 @@ namespace PaRuX.Views
         {
             var panel = new StackPanel { Spacing = 8 };
             AutomationProperties.SetAutomationId(_resultImage, "Create_Result_Image");
-            AutomationProperties.SetName(_resultImage, "Generated result");
+            AutomationProperties.SetName(_resultImage, T("Generated result", "Risultato generato"));
             panel.Children.Add(_resultImage);
             AutomationProperties.SetAutomationId(_resultAudio, "Create_Result_Audio");
-            AutomationProperties.SetName(_resultAudio, "Generated audio player");
+            AutomationProperties.SetName(_resultAudio, T("Generated audio player", "Lettore audio del risultato generato"));
             panel.Children.Add(_resultAudio);
             AutomationProperties.SetAutomationId(_resultVideo, "Create_Result_VideoPreview");
-            AutomationProperties.SetName(_resultVideo, "Generated local video preview");
+            AutomationProperties.SetName(_resultVideo, T("Generated local video preview", "Anteprima locale del video generato"));
             panel.Children.Add(_resultVideo);
             AutomationProperties.SetAutomationId(_resultVideoPreviewButton, "Create_Result_PreviewVideo_Button");
-            AutomationProperties.SetName(_resultVideoPreviewButton, "Preview generated video locally");
+            AutomationProperties.SetName(_resultVideoPreviewButton, T("Preview generated video locally", "Mostra l'anteprima locale del video generato"));
             _resultVideoPreviewButton.Click += (_, _) => OpenInlineVideoPreview();
             panel.Children.Add(_resultVideoPreviewButton);
             _resultActions.Children.Add(ResultButton("Open", "Create_Result_Open_Button", (_, _) => LaunchResult(false)));
@@ -84,7 +84,7 @@ namespace PaRuX.Views
                 if (_resultPath == null || !IsImageFile(_resultPath)) return;
                 _editSourcePath = _resultPath;
                 _editSourceLabel.Text = _resultPath;
-                _status.Text = "Result set as the source image in IMAGE EDIT below.";
+                _status.Text = T("Result set as the source image in IMAGE EDIT below.", "Risultato impostato come immagine di origine in MODIFICA IMMAGINE qui sotto.");
             }));
             _imageOnlyResultButtons.Add(ResultButton("Remove background", "Create_Result_RemoveBackground_Button", async (_, _) =>
             {
@@ -95,8 +95,8 @@ namespace PaRuX.Views
             {
                 if (_resultPath == null || !IsImageFile(_resultPath)) return;
                 _videoStartImagePath = _resultPath;
-                _videoStartLabel.Text = "Start image: " + Path.GetFileName(_resultPath);
-                _status.Text = "Result set as the first frame in VIDEO below.";
+                _videoStartLabel.Text = T("Start image: ", "Immagine iniziale: ") + Path.GetFileName(_resultPath);
+                _status.Text = T("Result set as the first frame in VIDEO below.", "Risultato impostato come primo fotogramma in VIDEO qui sotto.");
             }));
             _imageOnlyResultButtons.Add(ResultButton("Make 3D", "Create_Result_3D_Button", (_, _) =>
             {
@@ -104,7 +104,7 @@ namespace PaRuX.Views
                 _threedSourcePath = _resultPath;
                 _threedSourceLabel.Text = _resultPath;
                 SelectMode("3D");
-                _status.Text = "Result set as the source image in IMAGE → 3D.";
+                _status.Text = T("Result set as the source image in IMAGE → 3D.", "Risultato impostato come immagine di origine in IMMAGINE → 3D.");
             }));
             foreach (Button b in _imageOnlyResultButtons) _resultActions.Children.Add(b);
             panel.Children.Add(_resultActions);
@@ -152,7 +152,7 @@ namespace PaRuX.Views
             {
                 _resultImage.Source = null;
                 _resultImage.Visibility = Visibility.Collapsed;
-                _status.Text = "Generated image preview is unavailable; the original output was not changed.";
+                _status.Text = T("Generated image preview is unavailable; the original output was not changed.", "L'anteprima dell'immagine generata non è disponibile; l'output originale non è stato modificato.");
             }
         }
 
@@ -164,7 +164,7 @@ namespace PaRuX.Views
             ReleaseInlineVideoPreview();
             if (GamingManager.Current.IsActive || LocalAiController.Current.IsGameActive())
             {
-                _status.Text = "Video preview is unavailable during Gaming. Leave the game first.";
+                _status.Text = T("Video preview is unavailable during Gaming. Leave the game first.", "L'anteprima del video non è disponibile durante il Gaming. Esci prima dal gioco.");
                 return;
             }
 
@@ -184,8 +184,8 @@ namespace PaRuX.Views
             };
             if (MediaGalleryPreviewPolicy.KindFor(candidate) != MediaGalleryPreviewKind.Video)
             {
-                _status.Text = "This video output is missing, empty or not a supported local file. "
-                    + "Check the generation job or open the Gallery to recheck it.";
+                _status.Text = T("This video output is missing, empty or not a supported local file. ", "Questo output video manca, è vuoto o non è un file locale supportato. ")
+                    + T("Check the generation job or open the Gallery to recheck it.", "Controlla il job di generazione oppure apri la Galleria per ricontrollarlo.");
                 return;
             }
 
@@ -193,13 +193,13 @@ namespace PaRuX.Views
             {
                 _resultVideo.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(path));
                 _resultVideo.Visibility = Visibility.Visible;
-                _status.Text = "Local video preview is ready. Press Play to start; the original output is unchanged.";
+                _status.Text = T("Local video preview is ready. Press Play to start; the original output is unchanged.", "L'anteprima locale del video è pronta. Premi Riproduci per avviarla; l'output originale non è modificato.");
             }
             catch (Exception ex)
             {
                 ReleaseInlineVideoPreview();
-                _status.Text = "Video preview is unavailable: " + ex.GetType().Name
-                    + ". The original output is unchanged.";
+                _status.Text = T("Video preview is unavailable: ", "L'anteprima del video non è disponibile: ") + ex.GetType().Name
+                    + T(". The original output is unchanged.", ". L'output originale non è modificato.");
             }
         }
 
@@ -218,12 +218,12 @@ namespace PaRuX.Views
                 return;
             ReleaseInlineVideoPreview();
             if (_resultPath != null && IsVideoFile(_resultPath))
-                _status.Text = "Gaming started: the video preview was stopped to leave the GPU free.";
+                _status.Text = T("Gaming started: the video preview was stopped to leave the GPU free.", "Gaming avviato: l'anteprima del video è stata fermata per lasciare libera la GPU.");
         }
 
         private void LaunchResult(bool inFolder)
         {
-            if (_resultPath == null || !File.Exists(_resultPath)) { _status.Text = "The result file is no longer at " + _resultPath; return; }
+            if (_resultPath == null || !File.Exists(_resultPath)) { _status.Text = T("The result file is no longer at ", "Il file del risultato non si trova più in ") + _resultPath; return; }
             try
             {
                 var start = inFolder
@@ -233,7 +233,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
             {
-                _status.Text = "Could not open the result: " + ex.Message;
+                _status.Text = T("Could not open the result: ", "Impossibile aprire il risultato: ") + ex.Message;
             }
         }
     }
