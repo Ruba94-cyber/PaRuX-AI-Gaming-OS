@@ -42,7 +42,13 @@ namespace PaRuX.Services
             typeof(AppUpdateClient).Assembly.GetName().Version?.ToString() ?? "0.0.0");
 
         public Task<AppReleaseStatus> CheckLatestAsync(CancellationToken ct)
-            => PaRuX.Contracts.CorporateMode.IsActive
+            => !PaRuX.Contracts.PackageIdentity.AllowsInAppSelfUpdate
+              ? Task.FromResult(new AppReleaseStatus
+              {
+                  CurrentVersion = CurrentVersion, CheckSucceeded = false, DiscoveryState = "managed-by-store",
+                  Message = "This is the Microsoft Store edition. The Microsoft Store installs and updates PaRuX; no update check is made from inside the app."
+              })
+            : PaRuX.Contracts.CorporateMode.IsActive
                 ? Task.FromResult(new AppReleaseStatus
                 {
                     CurrentVersion = CurrentVersion, CheckSucceeded = false, DiscoveryState = "disabled-corporate-offline",
@@ -210,6 +216,8 @@ namespace PaRuX.Services
             CancellationToken ct)
         {
             if (release == null) throw new ArgumentNullException(nameof(release));
+            if (!PaRuX.Contracts.PackageIdentity.AllowsInAppSelfUpdate)
+                throw new InvalidOperationException("In-app application updates are disabled in the Microsoft Store edition; the Store updates PaRuX.");
             if (!release.SecureInstallerReady || release.SignedManifest == null
                 || string.IsNullOrWhiteSpace(release.SignedEnvelopeJson))
                 throw new InvalidOperationException("This release has not passed signed MSI verification.");

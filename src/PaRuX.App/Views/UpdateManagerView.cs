@@ -130,6 +130,9 @@ namespace PaRuX.Views
             }
             if (actions.Children.Count > 0) _app.Children.Add(actions);
 
+            // Store edition: no MSI/GitHub self-update story to explain; the Store owns app updates.
+            if (!PaRuX.Contracts.PackageIdentity.AllowsInAppSelfUpdate) return;
+
             _app.Children.Add(new TextBlock
             {
                 Text = "Security boundary: a trusted in-app upgrade requires the detached PaRuX release signature, an exact GitHub version/asset match and MSI SHA-256 verification. After UAC, the installed Update Helper independently re-verifies that same signed envelope, copies the MSI into Program Files protected staging, verifies the protected copy again, waits for PaRuX to exit, and only then starts Windows Installer. Project/model/runtime state lives outside Program Files and is not part of the MSI replacement.",

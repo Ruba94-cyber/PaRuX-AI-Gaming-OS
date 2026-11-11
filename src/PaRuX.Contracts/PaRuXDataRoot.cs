@@ -56,12 +56,12 @@ public static class PaRuXDataRoot
     /// <summary>The location computed without touching the disk, so the naming rule can be
     /// asserted directly.</summary>
     internal static string DefaultLocation() => ResolveDefaultLocation(
-        AppContext.BaseDirectory, Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"));
+        AppContext.BaseDirectory, Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"), PackageIdentity.FamilyName);
 
     /// <summary>Portable marker wins over inherited/machine-wide environment
     /// overrides, which must not silently redirect a USB edition into some
     /// unrelated host user's profile. Pure with respect to process environment.</summary>
-    internal static string ResolveDefaultLocation(string baseDirectory, string? overrideRoot)
+    internal static string ResolveDefaultLocation(string baseDirectory, string? overrideRoot, string? packageFamilyName = null)
     {
         string? portableRoot = FindPortableDataRoot(baseDirectory);
         if (portableRoot != null) return portableRoot;
@@ -69,8 +69,13 @@ public static class PaRuXDataRoot
         if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
             return System.IO.Path.GetFullPath(overrideRoot);
 
-        return System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), FolderName);
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        // Microsoft Store (MSIX) edition: use the real per-package folder so Desktop, Core and child
+        // processes share one location and nothing lands in an unpackaged install's %LOCALAPPDATA%\PaRuX.
+        if (PackageIdentity.IsValidFamilyName(packageFamilyName))
+            return PackageIdentity.PackagedDataRoot(localAppData, packageFamilyName!);
+
+        return System.IO.Path.Combine(localAppData, FolderName);
     }
 
     /// <summary>Pure directory boundary for tests and normal executable/server startup.

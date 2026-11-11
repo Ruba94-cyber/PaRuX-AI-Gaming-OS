@@ -16,8 +16,7 @@ public sealed class ControllerProfileStore
     private string? _loadError;
 
     public ControllerProfileStore()
-        : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PaRuX", "server", "controller-profile.json")) { }
+        : this(PaRuX.Contracts.PaRuXDataRoot.Combine("server", "controller-profile.json")) { }
 
     public ControllerProfileStore(string path)
     {

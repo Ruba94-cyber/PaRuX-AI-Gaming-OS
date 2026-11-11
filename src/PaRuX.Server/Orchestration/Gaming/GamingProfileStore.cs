@@ -26,7 +26,7 @@ public sealed class GamingProfileStore
     public string? LoadError { get { lock (_gate) return _loadError; } }
 
     public GamingProfileStore()
-        : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PaRuX", "server", "gaming-profiles.json"))
+        : this(PaRuX.Contracts.PaRuXDataRoot.Combine("server", "gaming-profiles.json"))
     {
     }
 
