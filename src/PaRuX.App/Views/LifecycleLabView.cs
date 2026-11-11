@@ -19,13 +19,14 @@ namespace PaRuX.Views
     /// </summary>
     public sealed partial class LifecycleLabView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
         private readonly ProgressBar _busy = new() { IsIndeterminate = true, Visibility = Visibility.Collapsed };
 
-        private readonly TextBox _datasetSearch = new() { PlaceholderText = "Search Hugging Face datasets" };
+        private readonly TextBox _datasetSearch = new() { PlaceholderText = T("Search Hugging Face datasets", "Cerca dataset su Hugging Face") };
         private readonly StackPanel _datasetResults = new() { Spacing = 8 };
         private readonly StackPanel _datasetDownloads = new() { Spacing = 8 };
-        private readonly TextBox _sourcePath = new() { PlaceholderText = "Downloaded CSV, JSON, JSONL or Parquet path" };
+        private readonly TextBox _sourcePath = new() { PlaceholderText = T("Downloaded CSV, JSON, JSONL or Parquet path", "Percorso di un file CSV, JSON, JSONL o Parquet scaricato") };
         private readonly TextBlock _inspectSummary = new() { TextWrapping = TextWrapping.Wrap };
         // IsEnabled starts false: confirmed live that clicking an empty ComboBox (zero items,
         // nothing to select before Inspect has run) can leave its ExpandCollapse automation state
@@ -35,20 +36,20 @@ namespace PaRuX.Views
         // refresh happens to reset it. Disabling until PopulateColumnMappings gives it real items
         // both fixes the stuck-blank rendering (a disabled control can't open a popup at all) and
         // is more honest UX: there is nothing to choose here until a dataset has been inspected.
-        private readonly ComboBox _promptColumn = new() { PlaceholderText = "Prompt column", MinWidth = 220, IsEnabled = false };
-        private readonly ComboBox _expectedColumn = new() { PlaceholderText = "Expected behavior column", MinWidth = 220, IsEnabled = false };
-        private readonly ComboBox _systemColumn = new() { PlaceholderText = "Optional system-prompt column", MinWidth = 220, IsEnabled = false };
+        private readonly ComboBox _promptColumn = new() { PlaceholderText = T("Prompt column", "Colonna del prompt"), MinWidth = 220, IsEnabled = false };
+        private readonly ComboBox _expectedColumn = new() { PlaceholderText = T("Expected behavior column", "Colonna del comportamento atteso"), MinWidth = 220, IsEnabled = false };
+        private readonly ComboBox _systemColumn = new() { PlaceholderText = T("Optional system-prompt column", "Colonna facoltativa del prompt di sistema"), MinWidth = 220, IsEnabled = false };
         private readonly ComboBox _recipeMethod = new() { MinWidth = 155 };
         private readonly ComboBox _recipeExtraColumn = new()
-        { PlaceholderText = "Rejected / boolean label column", MinWidth = 210, IsEnabled = false };
+        { PlaceholderText = T("Rejected / boolean label column", "Colonna rejected / etichetta booleana"), MinWidth = 210, IsEnabled = false };
         private readonly TextBlock _recipeSummary = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.76 };
         private readonly Button _createTrainingRecipeButton = new()
-        { Content = "Create training JSONL from mapped columns", MinHeight = 40 };
+        { Content = T("Create training JSONL from mapped columns", "Crea il JSONL di training dalle colonne mappate"), MinHeight = 40 };
         private bool _recipeInProgress;
         private CancellationTokenSource? _recipeCts;
 
-        private readonly ComboBox _evalDataset = new() { PlaceholderText = "Eval dataset", MinWidth = 260, IsEnabled = false };
-        private readonly TextBox _newEvalName = new() { PlaceholderText = "New Eval dataset name", MinWidth = 260 };
+        private readonly ComboBox _evalDataset = new() { PlaceholderText = T("Eval dataset", "Dataset di valutazione"), MinWidth = 260, IsEnabled = false };
+        private readonly TextBox _newEvalName = new() { PlaceholderText = T("New Eval dataset name", "Nome del nuovo dataset di valutazione"), MinWidth = 260 };
         // Same closed, server-validated role set as the promote dialog: offer the real roles
         // rather than asking the user to remember and retype one. The first entry keeps the
         // documented default of running against whatever model is already loaded.
@@ -57,11 +58,11 @@ namespace PaRuX.Views
         private readonly StackPanel _evalSummary = new() { Spacing = 6 };
 
         private readonly TextBlock _trainingEngine = new() { TextWrapping = TextWrapping.Wrap };
-        private readonly TextBox _trainingPath = new() { PlaceholderText = "SFT chat-format or DPO JSONL path" };
+        private readonly TextBox _trainingPath = new() { PlaceholderText = T("SFT chat-format or DPO JSONL path", "Percorso JSONL in formato chat SFT o DPO") };
         private readonly TextBox _baseModel = new()
         {
             Text = "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit",
-            PlaceholderText = "Unsloth base model id"
+            PlaceholderText = T("Unsloth base model id", "ID del modello base Unsloth")
         };
         private readonly ComboBox _trainingMethod = new() { MinWidth = 140 };
         private readonly NumberBox _steps = new() { Value = 60, Minimum = 1, Maximum = 100000, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact, MinWidth = 120 };
@@ -71,7 +72,7 @@ namespace PaRuX.Views
         private readonly TextBlock _conversionStatus = new() { TextWrapping = TextWrapping.Wrap };
         private readonly StackPanel _adapters = new() { Spacing = 8 };
 
-        private readonly TextBox _sweepRoles = new() { Text = "standard,reasoning,coding", PlaceholderText = "Comma-separated text roles" };
+        private readonly TextBox _sweepRoles = new() { Text = "standard,reasoning,coding", PlaceholderText = T("Comma-separated text roles", "Ruoli di testo separati da virgola") };
         private readonly StackPanel _experiments = new() { Spacing = 8 };
         private string? _recommendedExperimentId;
         private string? _lastEvalRunId;
@@ -83,16 +84,16 @@ namespace PaRuX.Views
             _trainingMethod.Items.Add(new ComboBoxItem { Content = "SFT", Tag = TrainingMethod.Sft });
             _trainingMethod.Items.Add(new ComboBoxItem { Content = "DPO", Tag = TrainingMethod.Dpo });
             _trainingMethod.SelectedIndex = 0;
-            _recipeMethod.Items.Add(new ComboBoxItem { Content = "SFT · chat", Tag = TrainingMethod.Sft });
-            _recipeMethod.Items.Add(new ComboBoxItem { Content = "DPO · paired choices", Tag = TrainingMethod.Dpo });
-            _recipeMethod.Items.Add(new ComboBoxItem { Content = "KTO · binary feedback", Tag = TrainingMethod.Kto });
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = T("SFT · chat", "SFT · chat"), Tag = TrainingMethod.Sft });
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = T("DPO · paired choices", "DPO · scelte in coppia"), Tag = TrainingMethod.Dpo });
+            _recipeMethod.Items.Add(new ComboBoxItem { Content = T("KTO · binary feedback", "KTO · feedback binario"), Tag = TrainingMethod.Kto });
             _recipeMethod.SelectedIndex = 0;
             _recipeMethod.SelectionChanged += (_, _) =>
             {
                 string kind = SelectedTag(_recipeMethod) ?? TrainingMethod.Sft;
                 _recipeExtraColumn.IsEnabled = kind != TrainingMethod.Sft && _recipeExtraColumn.Items.Count > 0;
                 _recipeExtraColumn.PlaceholderText = kind == TrainingMethod.Kto
-                    ? "Boolean label: true / false" : "Rejected response column";
+                    ? T("Boolean label: true / false", "Etichetta booleana: true / false") : T("Rejected response column", "Colonna della risposta rifiutata");
             };
             _evalRole.Items.Add(EvalRoleAutomatic);
             foreach (string known in ModelRoleCatalog.TextRoles) _evalRole.Items.Add(known);
@@ -179,17 +180,17 @@ namespace PaRuX.Views
             var titleRow = new Grid { ColumnSpacing = 8 };
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var title = new TextBlock { Text = "Lifecycle Lab", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            var title = new TextBlock { Text = T("Lifecycle Lab", "Lifecycle Lab"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
             Id(title, "LifecycleLab_Title_Text");
             Grid.SetColumn(title, 0); titleRow.Children.Add(title);
-            var refresh = new Button { Content = "Refresh all" };
+            var refresh = new Button { Content = T("Refresh all", "Aggiorna tutto") };
             Id(refresh, "LifecycleLab_RefreshAll_Button");
             refresh.Click += async (_, _) => await RefreshAllAsync();
             Grid.SetColumn(refresh, 1); titleRow.Children.Add(refresh);
             body.Children.Add(titleRow);
             body.Children.Add(new TextBlock
             {
-                Text = "Curate data, build reproducible Eval/SFT datasets, train locally, inspect adapters, compare real roles and explicitly promote evidence-backed results.",
+                Text = T("Curate data, build reproducible Eval/SFT datasets, train locally, inspect adapters, compare real roles and explicitly promote evidence-backed results.", "Cura i dati, costruisci dataset di valutazione/SFT riproducibili, addestra in locale, ispeziona gli adapter, confronta ruoli reali e promuovi esplicitamente i risultati supportati da evidenze."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -207,7 +208,7 @@ namespace PaRuX.Views
         {
             var content = new StackPanel { Spacing = 10 };
             var searchRow = Horizontal(_datasetSearch);
-            var search = new Button { Content = "Search" };
+            var search = new Button { Content = T("Search", "Cerca") };
             Id(search, "LifecycleLab_DatasetSearch_Button");
             search.Click += async (_, _) => await SearchDatasetsAsync();
             searchRow.Children.Add(search);
@@ -219,10 +220,10 @@ namespace PaRuX.Views
             content.Children.Add(_sourcePath);
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var inspect = new Button { Content = "Inspect" };
+            var inspect = new Button { Content = T("Inspect", "Ispeziona") };
             Id(inspect, "LifecycleLab_Inspect_Button");
             inspect.Click += async (_, _) => await InspectDatasetAsync();
-            var split = new Button { Content = "Deterministic 80/10/10 split" };
+            var split = new Button { Content = T("Deterministic 80/10/10 split", "Divisione deterministica 80/10/10") };
             Id(split, "LifecycleLab_Split_Button");
             split.Click += async (_, _) => await SplitDatasetAsync();
             actions.Children.Add(inspect);
@@ -235,7 +236,7 @@ namespace PaRuX.Views
             mappings.Children.Add(_expectedColumn);
             mappings.Children.Add(_systemColumn);
             content.Children.Add(mappings);
-            var import = new Button { Content = "Import mapped rows into selected Eval dataset" };
+            var import = new Button { Content = T("Import mapped rows into selected Eval dataset", "Importa le righe mappate nel dataset di valutazione selezionato") };
             Id(import, "LifecycleLab_ImportToEval_Button");
             import.Click += async (_, _) => await ImportIntoEvalAsync();
             content.Children.Add(import);
@@ -243,7 +244,7 @@ namespace PaRuX.Views
             content.Children.Add(Label("CREATE TRAINING JSONL · EXPLICIT COLUMN MAPPING"));
             content.Children.Add(new TextBlock
             {
-                Text = "Use the prompt + expected/response selectors above. For DPO additionally choose a REAL rejected-response column; for KTO choose a boolean true/false label column. No generated answers or labels. No file is modified and no training starts automatically.",
+                Text = T("Use the prompt + expected/response selectors above. For DPO additionally choose a REAL rejected-response column; for KTO choose a boolean true/false label column. No generated answers or labels. No file is modified and no training starts automatically.", "Usa i selettori prompt + atteso/risposta qui sopra. Per DPO scegli in più una VERA colonna di risposta rifiutata; per KTO scegli una colonna di etichetta booleana true/false. Nessuna risposta o etichetta generata. Nessun file viene modificato e nessun training parte in automatico."),
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.76
             });
             var recipeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -256,7 +257,7 @@ namespace PaRuX.Views
             content.Children.Add(_recipeSummary);
             content.Children.Add(new TextBlock
             {
-                Text = "PaRuX never guesses semantic columns. Inspect first, then explicitly choose prompt and expected-behavior mappings.",
+                Text = T("PaRuX never guesses semantic columns. Inspect first, then explicitly choose prompt and expected-behavior mappings.", "PaRuX non indovina mai le colonne semantiche. Ispeziona prima, poi scegli esplicitamente le mappature di prompt e comportamento atteso."),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
@@ -269,24 +270,24 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 10 };
             var select = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             select.Children.Add(_evalDataset);
-            var refresh = new Button { Content = "Refresh datasets" };
+            var refresh = new Button { Content = T("Refresh datasets", "Aggiorna i dataset") };
             Id(refresh, "LifecycleLab_RefreshDatasets_Button");
             refresh.Click += async (_, _) => await RefreshEvalAsync(CancellationToken.None);
             select.Children.Add(refresh);
             content.Children.Add(select);
 
             var createRow = Horizontal(_newEvalName);
-            var create = new Button { Content = "Create Eval dataset" };
+            var create = new Button { Content = T("Create Eval dataset", "Crea il dataset di valutazione") };
             Id(create, "LifecycleLab_CreateEval_Button");
             create.Click += async (_, _) => await CreateEvalDatasetAsync();
             createRow.Children.Add(create);
             content.Children.Add(createRow);
 
             var runRow = Horizontal(_evalRole);
-            var run = new Button { Content = "Run selected dataset" };
+            var run = new Button { Content = T("Run selected dataset", "Esegui il dataset selezionato") };
             Id(run, "LifecycleLab_RunEval_Button");
             run.Click += async (_, _) => await StartEvalRunAsync();
-            var prepareSft = new Button { Content = "Prepare SFT JSONL from mapped Eval cases" };
+            var prepareSft = new Button { Content = T("Prepare SFT JSONL from mapped Eval cases", "Prepara il JSONL SFT dai casi di valutazione mappati") };
             Id(prepareSft, "LifecycleLab_PrepareSft_Button");
             prepareSft.Click += async (_, _) => await PrepareSftFromEvalAsync();
             runRow.Children.Add(run);
@@ -303,25 +304,25 @@ namespace PaRuX.Views
             // Training dependencies are always optional and removable. Neither portable nor
             // Corporate editions silently install a multi-GB GPU/Python stack.
             var runtimeActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var install = new Button { Content = "Install/repair managed Training runtime" };
+            var install = new Button { Content = T("Install/repair managed Training runtime", "Installa/ripara il runtime di training gestito") };
             Id(install, "LifecycleLab_InstallRuntime_Button");
             install.Click += async (_, _) => await InstallTrainingEngineAsync();
             runtimeActions.Children.Add(install);
 
-            var remove = new Button { Content = "Remove runtime (frees ~5 GB)" };
+            var remove = new Button { Content = T("Remove runtime (frees ~5 GB)", "Rimuovi il runtime (libera ~5 GB)") };
             Id(remove, "LifecycleLab_RemoveRuntime_Button");
             remove.Click += async (_, _) => await RemoveTrainingEngineAsync();
             runtimeActions.Children.Add(remove);
             content.Children.Add(runtimeActions);
             content.Children.Add(_trainingPath);
-            var browseJsonl = new Button { Content = "Choose local JSONL…", MinHeight = 40 };
+            var browseJsonl = new Button { Content = T("Choose local JSONL…", "Scegli un JSONL locale…"), MinHeight = 40 };
             Id(browseJsonl, "LifecycleLab_BrowseTrainingDataset_Button");
             browseJsonl.Click += async (_, _) => await PickTrainingDatasetAsync();
             content.Children.Add(browseJsonl);
             content.Children.Add(_baseModel);
             content.Children.Add(new TextBlock
             {
-                Text = "QUICK TRAINING · Select a local JSONL dataset and a trainable Hugging Face base model. PaRuX checks the data and GPU, chooses SFT or DPO from actual records, and proposes a capped LoRA/QLoRA run. No training begins without your click.",
+                Text = T("QUICK TRAINING · Select a local JSONL dataset and a trainable Hugging Face base model. PaRuX checks the data and GPU, chooses SFT or DPO from actual records, and proposes a capped LoRA/QLoRA run. No training begins without your click.", "TRAINING RAPIDO · Seleziona un dataset JSONL locale e un modello base Hugging Face addestrabile. PaRuX controlla dati e GPU, sceglie SFT o DPO in base ai record effettivi e propone un'esecuzione LoRA/QLoRA limitata. Nessun training parte senza il tuo clic."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12, Opacity = 0.78
             });
@@ -332,9 +333,9 @@ namespace PaRuX.Views
             var advanced = new StackPanel { Spacing = 10 };
             var options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             options.Children.Add(_trainingMethod);
-            options.Children.Add(new TextBlock { Text = "Steps", VerticalAlignment = VerticalAlignment.Center });
+            options.Children.Add(new TextBlock { Text = T("Steps", "Passaggi"), VerticalAlignment = VerticalAlignment.Center });
             options.Children.Add(_steps);
-            options.Children.Add(new TextBlock { Text = "LoRA rank", VerticalAlignment = VerticalAlignment.Center });
+            options.Children.Add(new TextBlock { Text = T("LoRA rank", "Rango LoRA"), VerticalAlignment = VerticalAlignment.Center });
             options.Children.Add(_rank);
             advanced.Children.Add(options);
             advanced.Children.Add(BuildTrainingWizardControls());
@@ -344,13 +345,13 @@ namespace PaRuX.Views
             advanced.Children.Add(_startTrainingButton);
             advanced.Children.Add(new TextBlock
             {
-                Text = "Advanced: SFT uses messages[] JSONL; DPO uses genuine prompt/chosen/rejected pairs. Preference examples are never fabricated from Eval cases. Vision/TTS and GRPO require their method-specific data.",
+                Text = T("Advanced: SFT uses messages[] JSONL; DPO uses genuine prompt/chosen/rejected pairs. Preference examples are never fabricated from Eval cases. Vision/TTS and GRPO require their method-specific data.", "Avanzate: SFT usa JSONL con messages[]; DPO usa vere coppie prompt/chosen/rejected. Gli esempi di preferenza non vengono mai fabbricati dai casi di valutazione. Visione/TTS e GRPO richiedono dati specifici del metodo."),
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7
             });
 
             var advancedExpander = new Expander
             {
-                Header = "Advanced training · methods, hyperparameters and detailed preflight",
+                Header = T("Advanced training · methods, hyperparameters and detailed preflight", "Training avanzato · metodi, iperparametri e controllo preliminare dettagliato"),
                 IsExpanded = false,
                 Content = advanced
             };
@@ -367,7 +368,7 @@ namespace PaRuX.Views
             content.Children.Add(_conversionStatus);
             content.Children.Add(new TextBlock
             {
-                Text = "Completed PaRuX jobs auto-register adapters with source job/dataset provenance. GGUF conversion is explicit and only needed for runtime LoRA attachment.",
+                Text = T("Completed PaRuX jobs auto-register adapters with source job/dataset provenance. GGUF conversion is explicit and only needed for runtime LoRA attachment.", "I job PaRuX completati registrano automaticamente gli adapter con la provenienza di job/dataset di origine. La conversione in GGUF è esplicita e serve solo per collegare LoRA al runtime."),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
@@ -381,12 +382,12 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 10 };
             content.Children.Add(new TextBlock
             {
-                Text = "AutoLab evaluates the selected dataset sequentially across real Smart Router roles, records exact model/adapter identity, compares completed runs and recommends without auto-promoting.",
+                Text = T("AutoLab evaluates the selected dataset sequentially across real Smart Router roles, records exact model/adapter identity, compares completed runs and recommends without auto-promoting.", "AutoLab valuta in sequenza il dataset selezionato sui ruoli reali di Smart Router, registra l'identità esatta di modello/adapter, confronta le esecuzioni completate e consiglia senza promuovere in automatico."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
             content.Children.Add(_sweepRoles);
-            var sweep = new Button { Content = "Run comparison sweep" };
+            var sweep = new Button { Content = T("Run comparison sweep", "Esegui il confronto a campione") };
             Id(sweep, "LifecycleLab_RunSweep_Button");
             sweep.Click += async (_, _) => await RunSweepAsync();
             content.Children.Add(sweep);
@@ -408,10 +409,10 @@ namespace PaRuX.Views
                 await RefreshTrainingAsync(ct);
                 await RefreshAdaptersAsync(ct);
                 await RefreshExperimentsAsync(ct);
-                _status.Text = "Lifecycle state refreshed.";
+                _status.Text = T("Lifecycle state refreshed.", "Stato del ciclo di vita aggiornato.");
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { _status.Text = "Refresh failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Refresh failed: ", "Aggiornamento non riuscito: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -427,16 +428,16 @@ namespace PaRuX.Views
                 foreach (DatasetSearchResult repo in results)
                 {
                     var row = ActionRow(repo.RepoId + " · ↓ " + repo.Downloads + " · ♥ " + repo.Likes);
-                    var choose = new Button { Content = "Choose file" };
+                    var choose = new Button { Content = T("Choose file", "Scegli il file") };
                     Id(choose, "LifecycleLab_ChooseFile_Button");
                     choose.Click += async (_, _) => await ChooseDatasetFileAsync(repo.RepoId);
                     Grid.SetColumn(choose, 1); row.Children.Add(choose);
                     _datasetResults.Children.Add(row);
                 }
-                if (results.Count == 0) _datasetResults.Children.Add(new TextBlock { Text = "No dataset repositories matched." });
-                _status.Text = results.Count + " dataset result(s).";
+                if (results.Count == 0) _datasetResults.Children.Add(new TextBlock { Text = T("No dataset repositories matched.", "Nessun repository di dataset corrisponde.") });
+                _status.Text = results.Count + T(" dataset result(s).", " risultati di dataset.");
             }
-            catch (Exception ex) { _status.Text = "Dataset search failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Dataset search failed: ", "Ricerca dei dataset non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -453,21 +454,21 @@ namespace PaRuX.Views
                     .ThenBy(f => f.FileName, StringComparer.OrdinalIgnoreCase))
                     combo.Items.Add(new ComboBoxItem
                     {
-                        Content = file.FileName + " · " + (file.SizeBytes > 0 ? FormatBytes(file.SizeBytes) : "size unknown"),
+                        Content = file.FileName + " · " + (file.SizeBytes > 0 ? FormatBytes(file.SizeBytes) : T("size unknown", "dimensione sconosciuta")),
                         Tag = file
                     });
                 if (combo.Items.Count == 0) throw new InvalidOperationException("This dataset has no supported CSV, JSON, JSONL or Parquet files.");
                 combo.SelectedIndex = 0;
                 var panel = new StackPanel { Spacing = 8 };
                 panel.Children.Add(new TextBlock { Text = repoId, TextWrapping = TextWrapping.Wrap });
-                panel.Children.Add(new TextBlock { Text = "License: " + (details.License ?? "not declared by source"), TextWrapping = TextWrapping.Wrap, Opacity = 0.72 });
+                panel.Children.Add(new TextBlock { Text = T("License: ", "Licenza: ") + (details.License ?? T("not declared by source", "non dichiarata dalla fonte")), TextWrapping = TextWrapping.Wrap, Opacity = 0.72 });
                 panel.Children.Add(combo);
                 var dialog = new ContentDialog
                 {
-                    Title = "Download dataset file",
+                    Title = T("Download dataset file", "Scarica il file del dataset"),
                     Content = panel,
-                    PrimaryButtonText = "Download",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Download", "Download"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = XamlRoot
                 };
@@ -480,10 +481,10 @@ namespace PaRuX.Views
                     DownloadUrl = selected.DownloadUrl,
                     SizeBytes = selected.SizeBytes
                 }, CancellationToken.None);
-                _status.Text = "Queued dataset file " + selected.FileName + ".";
+                _status.Text = T("Queued dataset file ", "File del dataset in coda: ") + selected.FileName + ".";
                 await RefreshDatasetDownloadsAsync(CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "Dataset download setup failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Dataset download setup failed: ", "Impostazione del download del dataset non riuscita: ") + ex.Message; }
         }
 
         private async Task RefreshDatasetDownloadsAsync(CancellationToken ct)
@@ -496,25 +497,25 @@ namespace PaRuX.Views
                 var row = ActionRow(job.RepoId + " · " + job.FileName + " · " + job.Status + progress);
                 if (job.Status is "queued" or "downloading")
                 {
-                    var cancel = new Button { Content = "Cancel" };
+                    var cancel = new Button { Content = T("Cancel", "Annulla") };
                     Id(cancel, "LifecycleLab_CancelDownload_Button");
                     cancel.Click += async (_, _) =>
                     {
                         try { await DatasetHubClient.Current.CancelDownloadAsync(job.Id, CancellationToken.None); await RefreshDatasetDownloadsAsync(CancellationToken.None); }
-                        catch (Exception ex) { _status.Text = "Cancel failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Cancel failed: ", "Annullamento non riuscito: ") + ex.Message; }
                     };
                     Grid.SetColumn(cancel, 1); row.Children.Add(cancel);
                 }
                 else if (job.Status == "completed" && !string.IsNullOrWhiteSpace(job.LocalPath))
                 {
-                    var curate = new Button { Content = "Curate" };
+                    var curate = new Button { Content = T("Curate", "Cura") };
                     Id(curate, "LifecycleLab_Curate_Button");
                     curate.Click += (_, _) => _sourcePath.Text = job.LocalPath;
                     Grid.SetColumn(curate, 1); row.Children.Add(curate);
                 }
                 _datasetDownloads.Children.Add(row);
             }
-            if (jobs.Count == 0) _datasetDownloads.Children.Add(new TextBlock { Text = "No dataset downloads yet." });
+            if (jobs.Count == 0) _datasetDownloads.Children.Add(new TextBlock { Text = T("No dataset downloads yet.", "Nessun download di dataset per ora.") });
         }
 
         private async Task InspectDatasetAsync()
@@ -527,11 +528,11 @@ namespace PaRuX.Views
                 DatasetCurationReport report = await DatasetHubClient.Current.InspectAsync(path, CancellationToken.None);
                 _inspectSummary.Text = report.Error != null
                     ? report.DetectedFormat + " · " + report.Error
-                    : report.DetectedFormat + " · " + report.RowCount + " rows · " + report.DuplicateRowCount + " duplicates · " + report.EmptyFieldCount + " empty fields";
+                    : report.DetectedFormat + " · " + report.RowCount + T(" rows · ", " righe · ") + report.DuplicateRowCount + T(" duplicates · ", " duplicati · ") + report.EmptyFieldCount + T(" empty fields", " campi vuoti");
                 PopulateColumnMappings(report.Columns);
-                _status.Text = report.Error == null ? "Dataset inspected; choose semantic mappings explicitly." : "Dataset inspection returned a parsing/format issue.";
+                _status.Text = report.Error == null ? T("Dataset inspected; choose semantic mappings explicitly.", "Dataset ispezionato; scegli esplicitamente le mappature semantiche.") : T("Dataset inspection returned a parsing/format issue.", "L'ispezione del dataset ha restituito un problema di parsing/formato.");
             }
-            catch (Exception ex) { _status.Text = "Inspection failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Inspection failed: ", "Ispezione non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -551,10 +552,10 @@ namespace PaRuX.Views
                     Seed = 42
                 }, CancellationToken.None);
                 _sourcePath.Text = split.TrainPath;
-                _status.Text = "Split created: " + split.TrainCount + " train / " + split.ValidationCount + " validation / " + split.TestCount + " test. The train split is now the curation source; inspect/map it before Training.";
+                _status.Text = T("Split created: ", "Divisione creata: ") + split.TrainCount + T(" train / ", " training / ") + split.ValidationCount + T(" validation / ", " validazione / ") + split.TestCount + T(" test. The train split is now the curation source; inspect/map it before Training.", " test. La divisione di training è ora la fonte della cura; ispezionala/mappala prima del training.");
                 await InspectDatasetAsync();
             }
-            catch (Exception ex) { _status.Text = "Split failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Split failed: ", "Divisione non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -564,7 +565,7 @@ namespace PaRuX.Views
             _expectedColumn.Items.Clear();
             _systemColumn.Items.Clear();
             _recipeExtraColumn.Items.Clear();
-            _systemColumn.Items.Add(new ComboBoxItem { Content = "(none)", Tag = string.Empty });
+            _systemColumn.Items.Add(new ComboBoxItem { Content = T("(none)", "(nessuna)"), Tag = string.Empty });
             foreach (string column in columns)
             {
                 _promptColumn.Items.Add(new ComboBoxItem { Content = column, Tag = column });
@@ -591,7 +592,7 @@ namespace PaRuX.Views
             if (path.Length == 0 || string.IsNullOrWhiteSpace(prompt) || string.IsNullOrWhiteSpace(response)
                 || (method != TrainingMethod.Sft && string.IsNullOrWhiteSpace(extra)))
             {
-                _recipeSummary.Text = "Inspect the source dataset first, then choose prompt and answer columns. DPO also needs rejected; KTO needs a true/false label column.";
+                _recipeSummary.Text = T("Inspect the source dataset first, then choose prompt and answer columns. DPO also needs rejected; KTO needs a true/false label column.", "Ispeziona prima il dataset di origine, poi scegli le colonne di prompt e risposta. DPO richiede anche rejected; KTO richiede una colonna di etichetta true/false.");
                 return;
             }
             _recipeInProgress = true;
@@ -609,8 +610,8 @@ namespace PaRuX.Views
                         ExtraColumn = method == TrainingMethod.Sft ? null : extra,
                         SystemColumn = method == TrainingMethod.Sft ? SelectedTag(_systemColumn) : null
                     }, cts.Token);
-                _recipeSummary.Text = "Created " + result.WrittenRows.ToString("N0") + " " + method.ToUpperInvariant()
-                    + " example(s); skipped " + result.SkippedRows + ". Local only. SHA-256: "
+                _recipeSummary.Text = T("Created ", "Creati ") + result.WrittenRows.ToString("N0") + " " + method.ToUpperInvariant()
+                    + T(" example(s); skipped ", " esempi; saltati ") + result.SkippedRows + T(". Local only. SHA-256: ", ". Solo in locale. SHA-256: ")
                     + result.Sha256[..Math.Min(result.Sha256.Length, 16)] + "…";
                 _trainingPath.Text = result.TrainJsonlPath;
                 for (int i = 0; i < _trainingMethod.Items.Count; i++)
@@ -622,15 +623,15 @@ namespace PaRuX.Views
                         break;
                     }
                 }
-                _status.Text = "Training dataset is ready for preflight in section 3. No GPU job was started.";
+                _status.Text = T("Training dataset is ready for preflight in section 3. No GPU job was started.", "Il dataset di training è pronto per il controllo preliminare nella sezione 3. Nessun job GPU è stato avviato.");
             }
             catch (OperationCanceledException)
             {
-                _recipeSummary.Text = "Recipe creation was cancelled. No GPU training started.";
+                _recipeSummary.Text = T("Recipe creation was cancelled. No GPU training started.", "Creazione della ricetta annullata. Nessun training GPU è partito.");
             }
             catch (Exception ex)
             {
-                _recipeSummary.Text = "Training recipe refused: " + ex.Message;
+                _recipeSummary.Text = T("Training recipe refused: ", "Ricetta di training rifiutata: ") + ex.Message;
             }
             finally
             {
@@ -651,7 +652,7 @@ namespace PaRuX.Views
             string? system = SelectedTag(_systemColumn);
             if (source.Length == 0 || string.IsNullOrWhiteSpace(evalId) || string.IsNullOrWhiteSpace(prompt) || string.IsNullOrWhiteSpace(expected))
             {
-                _status.Text = "Choose source file, Eval dataset, prompt column and expected-behavior column first.";
+                _status.Text = T("Choose source file, Eval dataset, prompt column and expected-behavior column first.", "Scegli prima file di origine, dataset di valutazione, colonna del prompt e colonna del comportamento atteso.");
                 return;
             }
             SetBusy(true, "Importing mapped Eval cases…");
@@ -665,10 +666,10 @@ namespace PaRuX.Views
                     ExpectedBehaviorColumn = expected,
                     SystemPromptColumn = string.IsNullOrWhiteSpace(system) ? null : system
                 }, CancellationToken.None);
-                _status.Text = "Imported " + result.CasesCreated + " Eval case(s); skipped " + result.RowsSkipped + " incomplete row(s).";
+                _status.Text = T("Imported ", "Importati ") + result.CasesCreated + T(" Eval case(s); skipped ", " casi di valutazione; saltate ") + result.RowsSkipped + T(" incomplete row(s).", " righe incomplete.");
                 await RefreshEvalAsync(CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "Eval import failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Eval import failed: ", "Importazione della valutazione non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -697,9 +698,9 @@ namespace PaRuX.Views
                 await RefreshEvalAsync(CancellationToken.None);
                 SelectEvalDataset(created.Id);
                 await RenderSelectedEvalSummaryAsync(CancellationToken.None);
-                _status.Text = "Created Eval dataset " + created.Name + ".";
+                _status.Text = T("Created Eval dataset ", "Dataset di valutazione creato: ") + created.Name + ".";
             }
-            catch (Exception ex) { _status.Text = "Create Eval dataset failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Create Eval dataset failed: ", "Creazione del dataset di valutazione non riuscita: ") + ex.Message; }
         }
 
         private async Task StartEvalRunAsync()
@@ -713,11 +714,11 @@ namespace PaRuX.Views
                 EvalRunDto run = await EvalLabClient.Current.StartRunAsync(id, role.Length == 0 ? null : role, CancellationToken.None);
                 _lastEvalRunId = run.Id;
                 _lastEvalRunDatasetId = id;
-                _status.Text = "Eval run " + run.Id + " started" + (role.Length == 0 ? "." : " for role " + role + ".")
-                    + " Waiting for the run to finish…";
+                _status.Text = T("Eval run ", "Esecuzione di valutazione ") + run.Id + T(" started", " avviata") + (role.Length == 0 ? "." : T(" for role ", " per il ruolo ") + role + ".")
+                    + T(" Waiting for the run to finish…", " In attesa che l'esecuzione finisca…");
                 await AwaitEvalRunAsync(run.Id, CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "Eval start failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Eval start failed: ", "Avvio della valutazione non riuscito: ") + ex.Message; }
         }
 
         /// <summary>
@@ -735,18 +736,18 @@ namespace PaRuX.Views
                 await Task.Delay(1000, ct);
                 EvalRunDto run;
                 try { run = await EvalLabClient.Current.GetRunAsync(runId, ct); }
-                catch (Exception ex) { _status.Text = "Eval run status unavailable: " + ex.Message; return; }
+                catch (Exception ex) { _status.Text = T("Eval run status unavailable: ", "Stato dell'esecuzione di valutazione non disponibile: ") + ex.Message; return; }
 
                 if (run.Status == EvalRunStatus.Running) continue;
 
                 await RenderEvalRunAsync(run, ct);
                 _status.Text = run.Status == EvalRunStatus.Completed
-                    ? "Eval run finished: " + DescribeRun(run)
-                    : "Eval run ended with status '" + run.Status + "': " + DescribeRun(run);
+                    ? T("Eval run finished: ", "Esecuzione di valutazione terminata: ") + DescribeRun(run)
+                    : T("Eval run ended with status '", "L'esecuzione di valutazione è terminata con stato '") + run.Status + "': " + DescribeRun(run);
                 return;
             }
-            _status.Text = "Eval run " + runId + " is still running after "
-                + maxAttempts + "s; use Refresh datasets to check it again later.";
+            _status.Text = T("Eval run ", "Esecuzione di valutazione ") + runId + T(" is still running after ", " è ancora in corso dopo ")
+                + maxAttempts + T("s; use Refresh datasets to check it again later.", "s; usa Aggiorna i dataset per ricontrollare più tardi.");
         }
 
         private static string DescribeRun(EvalRunDto run)
@@ -765,7 +766,7 @@ namespace PaRuX.Views
         {
             _evalSummary.Children.Add(new TextBlock
             {
-                Text = "Run " + run.Id + " · " + run.Status + " · " + DescribeRun(run),
+                Text = T("Run ", "Esecuzione ") + run.Id + " · " + run.Status + " · " + DescribeRun(run),
                 TextWrapping = TextWrapping.Wrap,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
@@ -775,7 +776,7 @@ namespace PaRuX.Views
             {
                 _evalSummary.Children.Add(new TextBlock
                 {
-                    Text = "Per-case results unavailable: " + ex.Message,
+                    Text = T("Per-case results unavailable: ", "Risultati per caso non disponibili: ") + ex.Message,
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
                 });
                 return;
@@ -800,7 +801,7 @@ namespace PaRuX.Views
         {
             if (_evalDataset.SelectedItem is not ComboBoxItem item || item.Tag is not EvalDatasetDto dataset)
             {
-                _status.Text = "Select an Eval dataset first.";
+                _status.Text = T("Select an Eval dataset first.", "Seleziona prima un dataset di valutazione.");
                 return;
             }
             SetBusy(true, "Preparing deterministic SFT JSONL…");
@@ -810,9 +811,9 @@ namespace PaRuX.Views
                 string path = await EvalTrainingDatasetExporter.ExportSftAsync(dataset, cases.Cases, CancellationToken.None);
                 _trainingPath.Text = path;
                 SelectTrainingMethod(TrainingMethod.Sft);
-                _status.Text = "SFT dataset prepared from " + cases.Cases.Count + " explicitly mapped Eval case(s). Training path is ready.";
+                _status.Text = T("SFT dataset prepared from ", "Dataset SFT preparato da ") + cases.Cases.Count + T(" explicitly mapped Eval case(s). Training path is ready.", " casi di valutazione mappati esplicitamente. Il percorso di training è pronto.");
             }
-            catch (Exception ex) { _status.Text = "SFT preparation failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("SFT preparation failed: ", "Preparazione SFT non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -822,11 +823,11 @@ namespace PaRuX.Views
             string? id = SelectedEvalDatasetId();
             if (string.IsNullOrWhiteSpace(id))
             {
-                _evalSummary.Children.Add(new TextBlock { Text = "Create or select an Eval dataset." });
+                _evalSummary.Children.Add(new TextBlock { Text = T("Create or select an Eval dataset.", "Crea o seleziona un dataset di valutazione.") });
                 return;
             }
             EvalCaseListResponse cases = await EvalLabClient.Current.ListCasesAsync(id, ct);
-            _evalSummary.Children.Add(new TextBlock { Text = cases.Cases.Count + " mapped case(s). These cases can be evaluated directly or exported as deterministic SFT chat JSONL." });
+            _evalSummary.Children.Add(new TextBlock { Text = cases.Cases.Count + T(" mapped case(s). These cases can be evaluated directly or exported as deterministic SFT chat JSONL.", " casi mappati. Questi casi possono essere valutati direttamente o esportati come JSONL chat SFT deterministico.") });
 
             // Keep the last run for this dataset visible across refreshes, so its verdicts survive
             // a Refresh instead of being replaced by the bare case count.
@@ -840,7 +841,7 @@ namespace PaRuX.Views
             {
                 _evalSummary.Children.Add(new TextBlock
                 {
-                    Text = "Last run unavailable: " + ex.Message,
+                    Text = T("Last run unavailable: ", "Ultima esecuzione non disponibile: ") + ex.Message,
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
                 });
             }
@@ -850,8 +851,8 @@ namespace PaRuX.Views
         {
             TrainingEngineStatus engine = await TrainingLabClient.Current.GetEngineStatusAsync(ct);
             _trainingEngine.Text = engine.Installed
-                ? "Managed training runtime installed · CUDA " + (engine.CudaVerified ? "verified" : "not verified") + (string.IsNullOrWhiteSpace(engine.TorchVersion) ? string.Empty : " · torch " + engine.TorchVersion)
-                : "Managed training runtime is not installed.";
+                ? T("Managed training runtime installed · CUDA ", "Runtime di training gestito installato · CUDA ") + (engine.CudaVerified ? T("verified", "verificato") : T("not verified", "non verificato")) + (string.IsNullOrWhiteSpace(engine.TorchVersion) ? string.Empty : T(" · torch ", " · torch ") + engine.TorchVersion)
+                : T("Managed training runtime is not installed.", "Il runtime di training gestito non è installato.");
             List<TrainingJobStatus> jobs = await TrainingLabClient.Current.ListJobsAsync(ct);
             _trainingJobs.Children.Clear();
             foreach (TrainingJobStatus job in jobs.OrderByDescending(j => j.CreatedUtc).Take(20))
@@ -860,18 +861,18 @@ namespace PaRuX.Views
                 var row = ActionRow(job.Method.ToUpperInvariant() + " · " + job.Status + " · " + job.Stage + " · " + job.CurrentStep + "/" + job.TotalSteps + metrics + (string.IsNullOrWhiteSpace(job.AdapterPath) ? string.Empty : " · adapter ready"));
                 if (job.Status is "queued" or "running")
                 {
-                    var cancel = new Button { Content = "Cancel" };
+                    var cancel = new Button { Content = T("Cancel", "Annulla") };
                     Id(cancel, "LifecycleLab_CancelTraining_Button");
                     cancel.Click += async (_, _) =>
                     {
                         try { await TrainingLabClient.Current.CancelJobAsync(job.Id, CancellationToken.None); await RefreshTrainingAsync(CancellationToken.None); }
-                        catch (Exception ex) { _status.Text = "Training cancel failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Training cancel failed: ", "Annullamento del training non riuscito: ") + ex.Message; }
                     };
                     Grid.SetColumn(cancel, 1); row.Children.Add(cancel);
                 }
                 _trainingJobs.Children.Add(row);
             }
-            if (jobs.Count == 0) _trainingJobs.Children.Add(new TextBlock { Text = "No training jobs yet." });
+            if (jobs.Count == 0) _trainingJobs.Children.Add(new TextBlock { Text = T("No training jobs yet.", "Nessun job di training per ora.") });
         }
 
         private async Task InstallTrainingEngineAsync()
@@ -886,9 +887,9 @@ namespace PaRuX.Views
             {
                 await TrainingLabClient.Current.InstallEngineAsync(CancellationToken.None);
                 await RefreshTrainingAsync(CancellationToken.None);
-                _status.Text = "Training runtime installation completed; status refreshed.";
+                _status.Text = T("Training runtime installation completed; status refreshed.", "Installazione del runtime di training completata; stato aggiornato.");
             }
-            catch (Exception ex) { _status.Text = "Training runtime install failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Training runtime install failed: ", "Installazione del runtime di training non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -896,12 +897,12 @@ namespace PaRuX.Views
         {
             var confirm = new ContentDialog
             {
-                Title = "Remove the training runtime?",
-                Content = "This deletes PaRuX's managed Python environment for local fine-tuning - "
-                    + "roughly 5 GB, most of it PyTorch. Datasets, adapters and job history are kept, "
-                    + "and the runtime can be installed again whenever you want to train.",
-                PrimaryButtonText = "Remove",
-                CloseButtonText = "Cancel",
+                Title = T("Remove the training runtime?", "Rimuovere il runtime di training?"),
+                Content = T("This deletes PaRuX's managed Python environment for local fine-tuning - ", "Questo elimina l'ambiente Python gestito da PaRuX per il fine-tuning locale: ")
+                    + T("roughly 5 GB, most of it PyTorch. Datasets, adapters and job history are kept, ", "circa 5 GB, per lo più PyTorch. Dataset, adapter e cronologia dei job vengono conservati ")
+                    + T("and the runtime can be installed again whenever you want to train.", "e il runtime può essere reinstallato ogni volta che vuoi addestrare."),
+                PrimaryButtonText = T("Remove", "Rimuovi"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -914,10 +915,10 @@ namespace PaRuX.Views
                     await TrainingLabClient.Current.UninstallEngineAsync(CancellationToken.None);
                 await RefreshTrainingAsync(CancellationToken.None);
                 _status.Text = result.Removed
-                    ? "Training runtime removed; " + FormatBytes(result.FreedBytes) + " freed."
+                    ? T("Training runtime removed; ", "Runtime di training rimosso; ") + FormatBytes(result.FreedBytes) + T(" freed.", " liberati.")
                     : result.Detail;
             }
-            catch (Exception ex) { _status.Text = "Training runtime removal failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Training runtime removal failed: ", "Rimozione del runtime di training non riuscita: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -931,7 +932,7 @@ namespace PaRuX.Views
             string method = SelectedTag(_trainingMethod) ?? TrainingMethod.Sft;
             if (path.Length == 0 || model.Length == 0)
             {
-                _status.Text = "Choose a training dataset and base model before starting.";
+                _status.Text = T("Choose a training dataset and base model before starting.", "Scegli un dataset di training e un modello base prima di iniziare.");
                 return;
             }
 
@@ -960,7 +961,7 @@ namespace PaRuX.Views
             _startTrainingButton.IsEnabled = false;
             try
             {
-                _status.Text = "Validating advanced training settings…";
+                _status.Text = T("Validating advanced training settings…", "Convalida delle impostazioni di training avanzato…");
                 TrainingPlanResult plan = await TrainingLabClient.Current.PlanAsync(new TrainingPlanRequest
                 {
                     TrainJsonlPath = request.TrainJsonlPath, BaseModel = request.BaseModel, Method = request.Method,
@@ -974,17 +975,17 @@ namespace PaRuX.Views
                 RenderPlan(plan);
                 if (!plan.CanStart)
                 {
-                    _status.Text = "Advanced training blocked by preflight; resolve the highlighted issues first.";
+                    _status.Text = T("Advanced training blocked by preflight; resolve the highlighted issues first.", "Training avanzato bloccato dal controllo preliminare; risolvi prima i problemi evidenziati.");
                     return;
                 }
 
                 TrainingJobStatus job = await TrainingLabClient.Current
                     .CreateJobExplicitAsync(request, CancellationToken.None);
-                _status.Text = "Training job " + job.Id
-                    + " queued. Successful output auto-registers in Adapter Manager with provenance.";
+                _status.Text = T("Training job ", "Job di training ") + job.Id
+                    + T(" queued. Successful output auto-registers in Adapter Manager with provenance.", " messo in coda. L'output riuscito si registra automaticamente in Adapter Manager con la provenienza.");
                 await RefreshTrainingAsync(CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "Training start failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Training start failed: ", "Avvio del training non riuscito: ") + ex.Message; }
             finally
             {
                 _trainingSubmissionInProgress = false;
@@ -996,32 +997,32 @@ namespace PaRuX.Views
         private async Task RefreshAdaptersAsync(CancellationToken ct)
         {
             LoraConversionEngineStatus conversion = await AdapterManagerClient.Current.GetConversionStatusAsync(ct);
-            _conversionStatus.Text = "LoRA→GGUF: scripts " + (conversion.ScriptsAvailable ? "available" : "missing") + " · runtime " + (conversion.Installed ? "installed" : "not installed") + " · dependencies " + (conversion.DependenciesVerified ? "verified" : "not verified");
+            _conversionStatus.Text = T("LoRA→GGUF: scripts ", "LoRA→GGUF: script ") + (conversion.ScriptsAvailable ? T("available", "disponibili") : T("missing", "mancanti")) + T(" · runtime ", " · runtime ") + (conversion.Installed ? T("installed", "installato") : T("not installed", "non installato")) + T(" · dependencies ", " · dipendenze ") + (conversion.DependenciesVerified ? T("verified", "verificato") : T("not verified", "non verificato"));
             List<AdapterDto> adapters = await AdapterManagerClient.Current.ListAsync(ct);
             _adapters.Children.Clear();
             foreach (AdapterDto adapter in adapters.OrderByDescending(a => a.CreatedUtc))
             {
                 var card = new StackPanel { Spacing = 4 };
-                card.Children.Add(new TextBlock { Text = adapter.Name + " · " + adapter.Method + " · " + (adapter.Enabled ? "enabled" : "disabled"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+                card.Children.Add(new TextBlock { Text = adapter.Name + " · " + adapter.Method + " · " + (adapter.Enabled ? T("enabled", "abilitate") : T("disabled", "disabilitate")), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
                 card.Children.Add(new TextBlock
                 {
-                    Text = adapter.BaseModel + (string.IsNullOrWhiteSpace(adapter.SourceDatasetPath) ? string.Empty : " · dataset " + adapter.SourceDatasetPath) + (string.IsNullOrWhiteSpace(adapter.GgufPath) ? " · PEFT only" : " · GGUF ready"),
+                    Text = adapter.BaseModel + (string.IsNullOrWhiteSpace(adapter.SourceDatasetPath) ? string.Empty : T(" · dataset ", " · dataset ") + adapter.SourceDatasetPath) + (string.IsNullOrWhiteSpace(adapter.GgufPath) ? T(" · PEFT only", " · solo PEFT") : T(" · GGUF ready", " · GGUF pronto")),
                     FontSize = 12,
                     TextWrapping = TextWrapping.Wrap,
                     Opacity = 0.72
                 });
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var enabled = new Button { Content = adapter.Enabled ? "Disable" : "Enable" };
+                var enabled = new Button { Content = adapter.Enabled ? T("Disable", "Disabilita") : T("Enable", "Abilita") };
                 Id(enabled, "LifecycleLab_AdapterEnabled_Button");
                 enabled.Click += async (_, _) =>
                 {
                     try { await AdapterManagerClient.Current.SetEnabledAsync(adapter.Id, !adapter.Enabled, CancellationToken.None); await RefreshAdaptersAsync(CancellationToken.None); }
-                    catch (Exception ex) { _status.Text = "Adapter update failed: " + ex.Message; }
+                    catch (Exception ex) { _status.Text = T("Adapter update failed: ", "Aggiornamento dell'adapter non riuscito: ") + ex.Message; }
                 };
                 actions.Children.Add(enabled);
                 if (string.IsNullOrWhiteSpace(adapter.GgufPath))
                 {
-                    var convert = new Button { Content = "Convert to GGUF" };
+                    var convert = new Button { Content = T("Convert to GGUF", "Converti in GGUF") };
                     Id(convert, "LifecycleLab_ConvertGguf_Button");
                     convert.Click += async (_, _) =>
                     {
@@ -1030,9 +1031,9 @@ namespace PaRuX.Views
                         {
                             await AdapterManagerClient.Current.ConvertAsync(adapter.Id, "f16", CancellationToken.None);
                             await RefreshAdaptersAsync(CancellationToken.None);
-                            _status.Text = "Adapter converted to GGUF.";
+                            _status.Text = T("Adapter converted to GGUF.", "Adapter convertito in GGUF.");
                         }
-                        catch (Exception ex) { _status.Text = "Adapter conversion failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Adapter conversion failed: ", "Conversione dell'adapter non riuscita: ") + ex.Message; }
                         finally { SetBusy(false); }
                     };
                     actions.Children.Add(convert);
@@ -1040,7 +1041,7 @@ namespace PaRuX.Views
                 card.Children.Add(actions);
                 _adapters.Children.Add(card);
             }
-            if (adapters.Count == 0) _adapters.Children.Add(new TextBlock { Text = "No adapters registered yet." });
+            if (adapters.Count == 0) _adapters.Children.Add(new TextBlock { Text = T("No adapters registered yet.", "Nessun adapter ancora registrato.") });
         }
 
         private async Task RunSweepAsync()
@@ -1048,7 +1049,7 @@ namespace PaRuX.Views
             string? datasetId = SelectedEvalDatasetId();
             if (string.IsNullOrWhiteSpace(datasetId))
             {
-                _status.Text = "Select an Eval dataset before running AutoLab.";
+                _status.Text = T("Select an Eval dataset before running AutoLab.", "Seleziona un dataset di valutazione prima di eseguire AutoLab.");
                 return;
             }
             List<string> roles = (_sweepRoles.Text ?? string.Empty)
@@ -1061,10 +1062,10 @@ namespace PaRuX.Views
             {
                 ComparisonSweepResponse response = await AutoLabClient.Current.SweepAsync(new CreateComparisonSweepRequest { DatasetId = datasetId, Roles = roles }, CancellationToken.None);
                 _recommendedExperimentId = response.RecommendedExperimentId;
-                _status.Text = response.RecommendationReason ?? "Sweep completed without a promotable recommendation yet.";
+                _status.Text = response.RecommendationReason ?? T("Sweep completed without a promotable recommendation yet.", "Il confronto a campione è terminato senza ancora una raccomandazione promuovibile.");
                 await RefreshExperimentsAsync(CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "AutoLab sweep failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("AutoLab sweep failed: ", "Confronto AutoLab non riuscito: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -1085,14 +1086,14 @@ namespace PaRuX.Views
                 var row = ActionRow(entry.Name + " · " + entry.RunStatus + " · pass " + entry.PassRate.ToString("P0") + " (" + entry.PassCount + "/" + scored + ")" + (string.IsNullOrWhiteSpace(entry.AdapterPath) ? string.Empty : " · adapter") + recommended);
                 if (entry.ExperimentId == _recommendedExperimentId)
                 {
-                    var promote = new Button { Content = "Promote…" };
+                    var promote = new Button { Content = T("Promote…", "Promuovi…") };
                     Id(promote, "LifecycleLab_Promote_Button");
                     promote.Click += async (_, _) => await PromoteExperimentAsync(entry.ExperimentId);
                     Grid.SetColumn(promote, 1); row.Children.Add(promote);
                 }
                 _experiments.Children.Add(row);
             }
-            if (experiments.Count == 0) _experiments.Children.Add(new TextBlock { Text = "No AutoLab experiments yet." });
+            if (experiments.Count == 0) _experiments.Children.Add(new TextBlock { Text = T("No AutoLab experiments yet.", "Nessun esperimento AutoLab per ora.") });
         }
 
         private async Task PromoteExperimentAsync(string experimentId)
@@ -1107,10 +1108,10 @@ namespace PaRuX.Views
             role.SelectedItem = ModelRoleCatalog.TextRoles.Contains("standard") ? "standard" : ModelRoleCatalog.TextRoles[0];
             var dialog = new ContentDialog
             {
-                Title = "Promote evidence-backed experiment",
+                Title = T("Promote evidence-backed experiment", "Promuovi l'esperimento supportato da evidenze"),
                 Content = role,
-                PrimaryButtonText = "Promote",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Promote", "Promuovi"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -1120,9 +1121,9 @@ namespace PaRuX.Views
             try
             {
                 await AutoLabClient.Current.PromoteAsync(experimentId, target, CancellationToken.None);
-                _status.Text = "Promoted recommended experiment to role " + target + ". AutoLab never promotes automatically.";
+                _status.Text = T("Promoted recommended experiment to role ", "Esperimento consigliato promosso al ruolo ") + target + T(". AutoLab never promotes automatically.", ". AutoLab non promuove mai in automatico.");
             }
-            catch (Exception ex) { _status.Text = "Promotion failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Promotion failed: ", "Promozione non riuscita: ") + ex.Message; }
         }
 
         private string? SelectedEvalDatasetId() =>
