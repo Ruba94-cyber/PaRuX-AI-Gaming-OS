@@ -1491,6 +1491,10 @@ public sealed class LocalAiProcessManager
         // Leave cores to Teams/Outlook/Excel: half the logical cores, at least 2 and at most 8.
         "--threads", Math.Clamp(logicalCores / 2, 2, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
         "--sleep-idle-seconds", CorporateIdleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        // Repacking keeps a second, private copy of the weights next to the memory-mapped file. Measured with the bundled
+        // Qwen3-4B Q4_K_M on an 8-core laptop CPU: private memory 2.5 GB -> 0.8 GB, same generation speed, faster prompt
+        // processing. On an 8 GB office PC that copy is the difference between fitting and paging.
+        "--no-repack",
         "--no-webui"
     ];
 

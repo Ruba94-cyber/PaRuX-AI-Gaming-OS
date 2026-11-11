@@ -194,6 +194,7 @@ public sealed class CorporateLiteCoreTests : IDisposable
         Assert.DoesNotContain("--device", a);
         Assert.DoesNotContain("-ngl", a);
         Assert.Contains("--no-webui", a);
+        Assert.Contains("--no-repack", a); // no second private copy of the weights (low-RAM PCs)
     }
 
     [Fact]
