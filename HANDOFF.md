@@ -1,3 +1,14 @@
+## 2026-11-11 (second tranche) — Store MSIX edition, SEC-M1..M3, 30,000-page PDF gate, CPU memory (NOT RELEASED)
+
+`main` pushed. Start from the top entry of `PARUX_EXECUTION_PLAN.md` and `docs/REQUIREMENT_MATRIX.md`; evidence rows QA-037..QA-042.
+
+- Packages on this PC (not signed, not published): `artifacts/corporate-lite/PaRuX-Corporate-Lite-Offline-win-x64.zip` built at `9300cd59` (gate PASS, QA-042). The Standard Portable ZIP is still the `3743a820` build (older than the engine pin and `--no-repack`). The MSIX from the agent worktree predates the Store gating; rebuild it with `./scripts/build-msix.ps1 -IdentityFile .ai\store\store-identity.local.json -RuntimeCacheDir artifacts\cacheuntime`.
+- Store identity values live only in `.ai/store/store-identity.local.json` (ignored by `*.local.json`). Never write them into tracked files. The owner approved UAC for the MSIX install test and the certification kit; the exact commands are in `docs/store/SUBMISSION_CHECKLIST.md` section C.
+- Large-document gate: `pwsh -File tests/corporate/measure-corporate-lite.ps1 -EnforceAcceptance -LargePdfPages 30000 -WorkRoot %USERPROFILE%\PaRuX-acceptance-work` (about 50 minutes; 2,000 pages takes 3).
+- Gotchas found today: `tools/check-public-safety.ps1` in its default Working mode walks every untracked file including agent worktrees and takes many minutes - use `-Mode Range -Range origin/main..HEAD`; a harness variable named `$r` replaces the results table `$R` (again); the knowledge search API returns `page` at the top level of a hit; agent worktrees created by the Agent tool start from the commit that was HEAD when the session began, so tell the agent which commit to build on; a new upstream llama.cpp tag now needs a reviewed pin in `packaging/llama-cpu-archive.lock.json` (or pass `-RuntimeTag b12282`).
+- Delegation used: Sonnet (Store MSIX, SEC-M1..M3, Store gating), Haiku (dependency audit). Codex CLI still cannot run tools; LM Studio daemon was not running.
+
+---
 ## 2026-11-11 — Claude continuation after Codex: merged, verified, Corporate strict gate PASS (NOT RELEASED)
 
 `main` = `1c79733d`+docs, pushed (update 11 Nov, later: full xUnit 13,160/0 QA-034; FlaUI 310/311 + one test fix QA-035; Standard Portable real acceptance 12/12 QA-036; second localization batch merged). Start from `docs/REQUIREMENT_MATRIX.md` and the top entry of `PARUX_EXECUTION_PLAN.md`.

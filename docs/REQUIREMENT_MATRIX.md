@@ -126,10 +126,13 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | 2026-11-06 UX recovery phase 1 (onboarding, Model Hub) | PARTIAL | PARTIAL | YES | YES | NOT RUN | BLOCKED-HW | NO | EV-01, EV-02 |
 | 2026-11-06 Portable Standard regression and essential packaging | PARTIAL | PARTIAL | YES | YES | NOT RUN | BLOCKED-HW | NO | EV-01, EV-02 |
 
-| SEC-M1 llama.cpp CPU archive digest is trust-on-first-use | NO | NO | N/A | N/A | N/A | N/A | NO | Independent review 2026-11-10: digest comes from the same GitHub release response as the download; a reviewed tag->SHA-256 pin is missing |
-| SEC-M2 Onboarding "starter included" check ignores the Core's bundled-model decision | NO | NO | N/A | N/A | NOT RUN | N/A | NO | Independent review 2026-11-10 (OnboardingView.FirstModel.cs) |
-| SEC-M3 CPU fallback after a failed GPU launch has no RAM admission | NO | NO | N/A | N/A | N/A | NOT RUN | NO | Independent review 2026-11-10 (LocalAiProcessManager) |
+| SEC-M1 llama.cpp CPU archive digest is trust-on-first-use | YES | YES | YES | YES | N/A | N/A | NO | Fixed in `bdc190d4`: `packaging/llama-cpu-archive.lock.json` pins tag -> archive -> SHA-256 (b12282, b12283, both equal to the upstream release digest); an unpinned tag fails the build. Corporate package rebuilt with the pin (QA-042); Standard Portable builder not re-run |
+| SEC-M2 Onboarding "starter included" check ignores the Core's bundled-model decision | YES | YES | YES | YES | NOT RUN | N/A | NO | Fixed in `bdc190d4`: the UI reads `BundledPortableStarterModel` from the Core. Not seen on screen |
+| SEC-M3 CPU fallback after a failed GPU launch has no RAM admission | YES | YES | YES | YES | N/A | NOT RUN | NO | Fixed in `bdc190d4` (`CpuFallbackAdmission`); refusal text is English only. Not exercised on a low-RAM PC |
 | ROUTE-KW Keyword heuristics outside document mode ("access code" read as coding; skill triggers by substring) | PARTIAL | PARTIAL | YES | YES | NOT RUN | N/A | NO | Fixed for document mode only (c4b0560b, f87a2c16); plain chat unchanged |
+| PKG-STORE Microsoft Store MSIX package | YES | PARTIAL | YES | YES | NOT RUN | NOT RUN | NO | QA-041. Full-trust MSIX; identity read from a Git-ignored file; no self-update, no torrent and no executable downloads when packaged (`d1988d94`). Install, first run, WACK and Partner Center NOT RUN |
+| RAG-03 30,000-page PDF: streamed indexing, page citations | YES | YES | YES | YES | N/A | PARTIAL | NO | QA-037 (synthetic text PDF on the reference PC). OCR, resume after cancel, disk-full and low-RAM PCs not covered |
+| PERF-CPU CPU engine memory (`--no-repack`) | YES | YES | YES | YES | N/A | PARTIAL | NO | QA-039, QA-042 (packaged Corporate peak 6.4 -> 4.65 GB); one CPU model measured, no 8 GB PC |
 | RAG-02 Context sized to the model window; relevance filter; named-subject abstention; row-level lookup | YES | YES | YES | YES | N/A | PARTIAL | NO | 125e0ab3, 7772c22f, aaf09c8e; EV-09. Margin and 2.5 chars/token are first settings, not tuned on a large corpus |
 
 ## Gate status
