@@ -30,6 +30,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\PaRuX.App\Services\ChatDocumentScopeState.cs" Link="Linked\ChatDocumentScopeState.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\HistoryBackupSafety.cs" Link="Linked\HistoryBackupSafety.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\UiLanguage.cs" Link="Linked\UiLanguage.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\UiText.cs" Link="Linked\UiText.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PaRuX.Server\PaRuX.Server.csproj" />
