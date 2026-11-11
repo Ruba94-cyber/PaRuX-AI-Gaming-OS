@@ -11,6 +11,7 @@ namespace PaRuX.Server;
 public sealed class SkillRouter
 {
     private const string RetiredCodingSkillId = "coding";
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> TriggerRegexes = new();
     private readonly SkillRegistryService _registry;
 
     public SkillRouter(SkillRegistryService registry) => _registry = registry;
@@ -58,7 +59,11 @@ public sealed class SkillRouter
             foreach (string trigger in skill.TriggerExamples)
             {
                 if (string.IsNullOrWhiteSpace(trigger)) continue;
-                if (lowered.Contains(trigger.ToLowerInvariant()))
+                // Whole-word/phrase match: "word" must not select a skill for "password" (ROUTE-KW).
+                // Left boundary only (Latin letters/digits): inflections (summarizing, fatture) and CJK text still match.
+                if (TriggerRegexes.GetOrAdd(trigger.Trim().ToLowerInvariant(), t => new System.Text.RegularExpressions.Regex(
+                        @"(?<![A-Za-z0-9À-ɏ])" + System.Text.RegularExpressions.Regex.Escape(t),
+                        System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled)).IsMatch(lowered))
                 {
                     best = skill;
                     matchedPhrase = trigger;
