@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -262,9 +262,14 @@ public sealed class ChatProxyService
         }
         else
         {
+            // Size the retrieved context to the window of the model that will answer: a fixed
+            // 12,000-character pack overflowed the 4,096-token CPU profile on one document question.
+            int windowForContext = await ChatContextWindowSnapshot.CaptureAsync(
+                Http, _runtime.ProviderEndpoint, modelRoute, cancellationToken).ConfigureAwait(false);
             ChatContextResult context = await _context.BuildForChatAsync(
                 lastUser?.Content ?? string.Empty, routed.Skill, request.ConversationId,
-                request.IncludeConversationHistory, cancellationToken, request.Documents);
+                request.IncludeConversationHistory, cancellationToken, request.Documents,
+                ContextEngineService.CharactersForContextWindow(windowForContext, ReplyReserveTokens));
             ApplyContextPack(request, context.Pack);
             if (documentMode) PaRuX.Server.Knowledge.DocumentChatPlanner.ApplyGrounding(request);
             sources = DisplaySources(context.Pack);

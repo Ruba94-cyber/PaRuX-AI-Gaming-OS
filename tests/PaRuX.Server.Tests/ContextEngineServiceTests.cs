@@ -35,6 +35,15 @@ public sealed class ContextEngineServiceTests : IDisposable
     /// and Artifacts are backed by separate SQLite databases with no dependency on one another's
     /// result, so running them concurrently must still combine every source's real evidence into
     /// one pack - exactly like the sequential version already did.</summary>
+    [Theory]
+    [InlineData(0, 12_000)]        // window unknown: keep the default
+    [InlineData(4096, 5_430)]      // CPU profile: (4096 - 1024 - 900) * 2.5
+    [InlineData(8192, 12_000)]     // (8192 - 1024 - 900) * 2.5 = 15,670 -> capped at the default
+    [InlineData(32768, 12_000)]
+    [InlineData(2048, 1_000)]      // tiny window: the floor, never negative
+    public void Retrieved_context_is_sized_to_the_model_window(int contextTokens, int expectedCharacters) =>
+        Assert.Equal(expectedCharacters, ContextEngineService.CharactersForContextWindow(contextTokens, replyReserveTokens: 1024));
+
     [Fact]
     public async Task BuildForChatAsync_combines_memory_graph_and_artifact_evidence_from_independent_stores()
     {

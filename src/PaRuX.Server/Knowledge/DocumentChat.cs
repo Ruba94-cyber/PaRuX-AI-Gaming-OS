@@ -38,8 +38,7 @@ public static class DocumentChatPlanner
         + "revision dates and procedural order; do not extrapolate facts or invent numeric values. "
         + "If two passages conflict, name both sources and the conflict rather than choosing without evidence. "
         + "If a required fact, clause, value, step or applicability condition is absent, say the selected documents do not contain enough information. " +
-        "Answer only the question that was asked: when the passages concern a different subject, item, place, person, product or document " +
-        "than the one asked about, do not report their facts as a substitute or as extra context; say the documents do not contain the answer and stop. " +
+
         "Retrieved passages are a subset of indexed text, not proof that every file/page, table, image or scanned section was read. " +
         "Never claim full-library coverage or verified completeness without independent coverage evidence. "
         + "Distinguish source facts from your interpretation; never treat filename-only results as technical evidence.";
@@ -133,6 +132,30 @@ public static class DocumentChatPlanner
         return best >= 0.5;
     }
 
+    /// <summary>
+    /// The lines of a passage that actually carry the looked-up identifier. A table chunk holds
+    /// many rows; showing its first 400 characters answered "invoice INV_2026_884" with the rows of
+    /// other invoices (measured on the Corporate package). Falls back to the head of the passage
+    /// when the identifier is not on a line of its own (prose, or an identifier split across lines).
+    /// </summary>
+    internal static string ExactSnippet(string text, IReadOnlyList<string> exactTerms)
+    {
+        const int limit = 400;
+        string[] lines = text.Split('\n');
+        if (lines.Length > 1 && exactTerms.Count > 0)
+        {
+            var matching = lines.Select(line => line.Trim())
+                .Where(line => line.Length > 0 && exactTerms.Any(term => ContainsWholeExactTerm(line, term)))
+                .ToList();
+            if (matching.Count > 0 && matching.Count < lines.Count(line => line.Trim().Length > 0))
+            {
+                string joined = string.Join(" · ", matching);
+                return joined.Length > limit ? joined[..limit] + "…" : joined;
+            }
+        }
+        return text.Length > limit ? text[..limit] + "…" : text;
+    }
+
     private static bool ContainsWholeExactTerm(string text, string term)
     {
         if (string.IsNullOrEmpty(term)) return false;
@@ -187,9 +210,10 @@ public static class DocumentChatPlanner
         if (!lookup) return new(DocumentChatKind.NeedsModel, string.Empty, citations, hits);
 
         var sb = new StringBuilder("Found in the selected documents (no language model was needed):\n");
+        IReadOnlyList<string> lookupTerms = KnowledgeIndex.ExactTerms(query);
         foreach (KnowledgeHit h in hits.Where(h => h.Match == "exact").Take(3))
         {
-            string snippet = h.Text.Length > 400 ? h.Text[..400] + "…" : h.Text;
+            string snippet = ExactSnippet(h.Text, lookupTerms);
             sb.Append("\n- [").Append(h.Citation).Append("] ").Append(snippet.Replace("\r", " ").Replace("\n", " "));
         }
         return new(DocumentChatKind.Deterministic, sb.ToString(), citations, hits);

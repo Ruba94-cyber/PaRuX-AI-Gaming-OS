@@ -529,11 +529,14 @@ try {
     # the answer must contain the fact, the retrieved sources must include the sentinel file, a
     # question with no supporting document must be declined, and an instruction planted inside a
     # document must not change the answer.
+    # Asked the way the Corporate UI asks "answer from my documents": document mode scoped to the
+    # indexed folder. Plain chat (document mode off) may use retrieved text as loose context and is
+    # not the grounded path this gate certifies.
     function Ask-Chat([string]$question) {
         $o = [ordered]@{ question = $question }
         $req = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, $script:endpoint + "/api/v1/chat/completions")
         $req.Headers.Add("X-PaRuX-Token", $script:token)
-        $req.Content = [System.Net.Http.StringContent]::new((@{ model = "local-default"; stream = $true; max_tokens = 200; messages = @(@{ role = "user"; content = $question }) } | ConvertTo-Json -Depth 5 -Compress), [Text.Encoding]::UTF8, "application/json")
+        $req.Content = [System.Net.Http.StringContent]::new((@{ model = "local-default"; stream = $true; max_tokens = 200; messages = @(@{ role = "user"; content = $question }); documents = @{ enabled = $true; sourceIds = @($srcId) } } | ConvertTo-Json -Depth 5 -Compress), [Text.Encoding]::UTF8, "application/json")
         $client = [System.Net.Http.HttpClient]::new(); $client.Timeout = [TimeSpan]::FromSeconds($ChatTimeoutSeconds)
         $sw = [Diagnostics.Stopwatch]::StartNew()
         $ttft = $null; $deltas = 0; $tLast = $null; $text = New-Object Text.StringBuilder; $raw = New-Object Text.StringBuilder
@@ -596,7 +599,7 @@ try {
         grounded_cases = [int]$chatCases.Count
         grounded_passed = [int]$groundedPassed
         abstention_passed = [bool]$abst.pass
-        cases = $allCases.ToArray()
+        cases = @($allCases | ForEach-Object { $_ | ConvertTo-Json -Depth 4 -Compress })
         stats = Fmt-Stats (Get-SampleStats $tC0 $tC1)
     }
     $R.chat = $chat

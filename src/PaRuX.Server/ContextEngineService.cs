@@ -77,6 +77,27 @@ public sealed class ContextEngineService
         return BuildCoreAsync(request, skill: null, webRequired: false, cancellationToken);
     }
 
+    /// <summary>Tokens kept for PaRuX's own system prompt, the document-mode grounding rules, the
+    /// question and the chat template when sizing retrieved context for a small window.</summary>
+    internal const int FixedPromptAllowanceTokens = 900;
+
+    /// <summary>
+    /// The retrieved-context budget in characters for a model whose context window is known.
+    /// The default 12,000 characters assume a large window; on the CPU profile (4,096 tokens, 1,024
+    /// reserved for the reply) a single document question produced a 3,085-token prompt against a
+    /// 3,072 limit and was refused, because retrieved passages cannot be compacted like a
+    /// conversation. Tables, identifiers and JSON run close to 2.5 characters per token, so that is
+    /// the conversion used: lower-ranked passages are dropped rather than the question being refused.
+    /// An unknown window (0) keeps the default.
+    /// </summary>
+    internal static int CharactersForContextWindow(int contextTokens, int replyReserveTokens)
+    {
+        if (contextTokens <= 0) return DefaultMaxCharacters;
+        long room = (long)contextTokens - replyReserveTokens - FixedPromptAllowanceTokens;
+        long characters = room * 5 / 2;
+        return (int)Math.Clamp(characters, MinimumMaxCharacters, DefaultMaxCharacters);
+    }
+
     internal Task<ChatContextResult> BuildForChatAsync(
         string query, SkillManifest? skill, CancellationToken cancellationToken) =>
         BuildForChatAsync(query, skill, conversationId: null, includeConversationHistory: null, cancellationToken);
@@ -87,7 +108,7 @@ public sealed class ContextEngineService
 
     internal async Task<ChatContextResult> BuildForChatAsync(
         string query, SkillManifest? skill, string? conversationId, bool? includeConversationHistory,
-        CancellationToken cancellationToken, ChatDocumentScope? documents = null)
+        CancellationToken cancellationToken, ChatDocumentScope? documents = null, int maxCharacters = DefaultMaxCharacters)
     {
         bool documentMode = documents is { Enabled: true };
         query = ValidateQuery(query, rejectOversized: false);
@@ -101,7 +122,7 @@ public sealed class ContextEngineService
         ContextBuildRequest buildRequest = new()
         {
             Query = query,
-            MaxCharacters = DefaultMaxCharacters,
+            MaxCharacters = maxCharacters,
             IncludeMemory = includeMemory,
             IncludeRag = includeRag,
             DocumentScope = documentMode ? documents : null,
