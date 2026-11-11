@@ -307,14 +307,14 @@
 
   <Target Name="StageOverheadRuntimeStub" AfterTargets="Build">
     <ItemGroup>
-      <_OverheadRuntimeStub Include="$(MSBuildProjectDirectory)\..\PaRuX.RuntimeStub\bin\$(Configuration)\net8.0\llama-server*" />
+      <_OverheadRuntimeStub Include="$(MSBuildProjectDirectory)\..\PaRuX.RuntimeStub\bin\$(Configuration)\net10.0\llama-server*" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)runtime-stub" />
     <Copy SourceFiles="@(_OverheadRuntimeStub)" DestinationFolder="$(OutDir)runtime-stub" SkipUnchangedFiles="true" />
   </Target>
   <Target Name="StageWinMlWorkerStub" AfterTargets="Build">
     <ItemGroup>
-      <_WinMlWorkerStub Include="$(MSBuildProjectDirectory)\..\PaRuX.WinMlWorkerStub\bin\$(Configuration)\net8.0\PaRuX.WinMlWorkerStub*" />
+      <_WinMlWorkerStub Include="$(MSBuildProjectDirectory)\..\PaRuX.WinMlWorkerStub\bin\$(Configuration)\net10.0\PaRuX.WinMlWorkerStub*" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)winml-worker-stub" />
     <Copy SourceFiles="@(_WinMlWorkerStub)" DestinationFolder="$(OutDir)winml-worker-stub" SkipUnchangedFiles="true" />
