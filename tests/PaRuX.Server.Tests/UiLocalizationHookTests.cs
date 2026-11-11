@@ -30,6 +30,7 @@ public sealed class UiLocalizationHookTests
 
     private static readonly string[] LocalizedXaml =
     {
+        "Views/SettingsView.xaml",
     };
 
     // Visible English values that are intentionally identical in Italian (brand names, product names, units,

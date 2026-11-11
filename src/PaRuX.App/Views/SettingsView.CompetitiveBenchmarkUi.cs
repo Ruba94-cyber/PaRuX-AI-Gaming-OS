@@ -23,33 +23,33 @@ namespace PaRuX.Views
             _competitiveBenchmarkUiApplied = true;
 
             if (ClearExternalBackendButton != null)
-                ClearExternalBackendButton.Content = "Clear benchmark target";
+                ClearExternalBackendButton.Content = T("Clear benchmark target", "Cancella la destinazione del benchmark");
             if (DetectBackendsButton != null)
-                DetectBackendsButton.Content = "Detect competitors";
+                DetectBackendsButton.Content = T("Detect competitors", "Rileva i concorrenti");
             if (ManualBackendNameBox != null)
-                ManualBackendNameBox.PlaceholderText = "Competitor label (e.g. Ollama)";
+                ManualBackendNameBox.PlaceholderText = T("Competitor label (e.g. Ollama)", "Etichetta del concorrente (ad es. Ollama)");
             if (ManualBackendEndpointBox != null)
-                ManualBackendEndpointBox.PlaceholderText = "Benchmark endpoint, e.g. http://127.0.0.1:11434";
+                ManualBackendEndpointBox.PlaceholderText = T("Benchmark endpoint, e.g. http://127.0.0.1:11434", "Endpoint del benchmark, ad es. http://127.0.0.1:11434");
 
             // Retitle the existing card without duplicating a second copy of the large Settings XAML.
             StackPanel? content = FindVisualAncestor<StackPanel>(ExternalBackendStatusText);
             if (content != null && content.Children.Count > 0 && content.Children[0] is TextBlock explanation)
             {
-                explanation.Text = "Ollama, LM Studio and other OpenAI-compatible launchers are competitor targets only. "
-                    + "PaRuX sends benchmark/probe traffic to the selected endpoint under controlled workloads; "
-                    + "chat, coding and model lifecycle always stay on the PaRuX-managed runtime.";
+                explanation.Text = T("Ollama, LM Studio and other OpenAI-compatible launchers are competitor targets only. ", "Ollama, LM Studio e altri launcher compatibili con OpenAI sono solo destinazioni concorrenti. ")
+                    + T("PaRuX sends benchmark/probe traffic to the selected endpoint under controlled workloads; ", "PaRuX invia il traffico di benchmark/prova all'endpoint selezionato con carichi di lavoro controllati; ")
+                    + T("chat, coding and model lifecycle always stay on the PaRuX-managed runtime.", "chat, programmazione e ciclo di vita dei modelli restano sempre sul runtime gestito da PaRuX.");
             }
             Border? card = content == null ? null : FindVisualAncestor<Border>(content);
             StackPanel? section = card == null ? null : FindVisualAncestor<StackPanel>(card);
             if (section != null && section.Children.Count > 0 && section.Children[0] is TextBlock heading)
-                heading.Text = "COMPETITIVE BENCHMARK TARGET";
+                heading.Text = T("COMPETITIVE BENCHMARK TARGET", "DESTINAZIONE DEL BENCHMARK COMPETITIVO");
 
             // The manual action is intentionally "Set target", never "Use".
             if (ManualBackendEndpointBox != null
                 && FindVisualAncestor<Grid>(ManualBackendEndpointBox) is Grid manualRow)
             {
                 foreach (UIElement child in manualRow.Children)
-                    if (child is Button button) button.Content = "Set target";
+                    if (child is Button button) button.Content = T("Set target", "Imposta la destinazione");
             }
 
             ExternalBackendStatusText.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
@@ -61,15 +61,15 @@ namespace PaRuX.Views
             // surface for the SAME PaRuX task/worktree, not a separate agent host.
             if (VsCodeCommandBox != null)
             {
-                VsCodeCommandBox.Header = "VS Code / editor command";
+                VsCodeCommandBox.Header = T("VS Code / editor command", "Comando di VS Code / editor");
                 if (FindVisualAncestor<Grid>(VsCodeCommandBox) is Grid codingRow)
                 {
                     if (codingRow.Children.Count > 0 && codingRow.Children[0] is StackPanel copy)
                     {
                         if (copy.Children.Count > 0 && copy.Children[0] is TextBlock title)
-                            title.Text = "Editor for PaRuX Coding Agent worktrees";
+                            title.Text = T("Editor for PaRuX Coding Agent worktrees", "Editor per i worktree dell'agente di programmazione PaRuX");
                         if (copy.Children.Count > 1 && copy.Children[1] is TextBlock detail)
-                            detail.Text = "The native PaRuX agent owns execution, sandboxing, checkpoints and verification. This command only opens its reviewable worktree.";
+                            detail.Text = T("The native PaRuX agent owns execution, sandboxing, checkpoints and verification. This command only opens its reviewable worktree.", "L'agente nativo di PaRuX gestisce esecuzione, sandbox, checkpoint e verifica. Questo comando apre soltanto il suo worktree da rivedere.");
                     }
                     if (codingRow.ColumnDefinitions.Count > 2)
                         codingRow.ColumnDefinitions[2].Width = new GridLength(0);
@@ -128,7 +128,7 @@ namespace PaRuX.Views
             {
                 if (element is not Grid row) continue;
                 foreach (UIElement child in row.Children)
-                    if (child is Button button) button.Content = "Set target";
+                    if (child is Button button) button.Content = T("Set target", "Imposta la destinazione");
             }
         }
 

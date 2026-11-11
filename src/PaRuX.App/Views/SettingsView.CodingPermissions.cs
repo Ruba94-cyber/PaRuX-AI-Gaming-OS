@@ -30,7 +30,7 @@ namespace PaRuX.Views
 
             section.Children.Add(new TextBlock
             {
-                Text = "CODING AGENT PERMISSIONS",
+                Text = T("CODING AGENT PERMISSIONS", "PERMESSI DELL'AGENTE DI PROGRAMMAZIONE"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(4, 0, 0, 0)
             });
@@ -48,7 +48,7 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 10 };
             content.Children.Add(new TextBlock
             {
-                Text = "Choose the authority copied into newly created Coding Agent tasks. Existing tasks keep the exact permissions they were created with. Normal shell commands stay inside the AppContainer with network disabled in every profile.",
+                Text = T("Choose the authority copied into newly created Coding Agent tasks. Existing tasks keep the exact permissions they were created with. Normal shell commands stay inside the AppContainer with network disabled in every profile.", "Scegli l'autorità copiata nelle nuove attività dell'agente di programmazione. Le attività esistenti mantengono esattamente i permessi con cui sono state create. I normali comandi shell restano dentro l'AppContainer con la rete disattivata in ogni profilo."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -56,21 +56,21 @@ namespace PaRuX.Views
             var picker = new ComboBox
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                PlaceholderText = "Coding permission profile"
+                PlaceholderText = T("Coding permission profile", "Profilo dei permessi di programmazione")
             };
             picker.Items.Add(new ComboBoxItem
             {
-                Content = "Offline — no dependency downloads",
+                Content = T("Offline — no dependency downloads", "Offline: nessun download di dipendenze"),
                 Tag = CodingPermissionProfile.Offline
             });
             picker.Items.Add(new ComboBoxItem
             {
-                Content = "Package Fetch — frozen/no-script dependency fetch only",
+                Content = T("Package Fetch — frozen/no-script dependency fetch only", "Recupero pacchetti: solo recupero di dipendenze bloccate e senza script"),
                 Tag = CodingPermissionProfile.PackageFetch
             });
             picker.Items.Add(new ComboBoxItem
             {
-                Content = "Trusted Restore — allow restore paths that may execute project/plugin code",
+                Content = T("Trusted Restore — allow restore paths that may execute project/plugin code", "Ripristino attendibile: consente percorsi di ripristino che possono eseguire codice di progetto/plugin"),
                 Tag = CodingPermissionProfile.TrustedRestore
             });
 
@@ -95,7 +95,7 @@ namespace PaRuX.Views
                     CodingPermissionProfile.TrustedRestore =>
                         "Trusted Restore additionally permits PaRuX-discovered restore/configuration flows that may execute repository-controlled build backends, MSBuild targets or plugins. It still does not give network access to arbitrary run_command actions, and the global Internet switch remains authoritative.",
                     _ =>
-                        "Offline is the safest default. Coding can use repository-local and already-cached dependencies, but PaRuX will not download packages for the task."
+                        T("Offline is the safest default. Coding can use repository-local and already-cached dependencies, but PaRuX will not download packages for the task.", "Offline è l'impostazione predefinita più sicura. La programmazione può usare dipendenze locali al repository e già in cache, ma PaRuX non scaricherà pacchetti per l'attività.")
                 };
             }
             RefreshDetail(current);

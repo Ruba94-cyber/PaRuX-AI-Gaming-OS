@@ -44,7 +44,7 @@ namespace PaRuX.Views
                 Log.Write("RefreshAutoCheckAsync failed: " + ex.Message);
                 _autoCheckLoading = false;
                 if (Settings_AutoCheck_Status_Text != null)
-                    Settings_AutoCheck_Status_Text.Text = "Automatic checks could not be read: " + ex.Message;
+                    Settings_AutoCheck_Status_Text.Text = T("Automatic checks could not be read: ", "Impossibile leggere i controlli automatici: ") + ex.Message;
             }
         }
 
@@ -97,7 +97,7 @@ namespace PaRuX.Views
             _mediaOptimizeBusy = true;
             Settings_AutoCheck_MediaOptimize_Button.IsEnabled = false;
             Settings_AutoCheck_MediaOptimizeCancel_Button.Visibility = Visibility.Visible;
-            Settings_AutoCheck_MediaOptimize_Text.Text = "Optimizing the media engine: starting...";
+            Settings_AutoCheck_MediaOptimize_Text.Text = T("Optimizing the media engine: starting...", "Ottimizzazione del motore multimediale: avvio in corso...");
             try
             {
                 MediaOptimizationStatusDto status = await AutoMaintenanceClient.Current.StartMediaOptimizationAsync(CancellationToken.None);
@@ -112,7 +112,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Settings_AutoCheck_MediaOptimize_Text.Text = "Media engine optimisation failed: " + ex.Message;
+                Settings_AutoCheck_MediaOptimize_Text.Text = T("Media engine optimisation failed: ", "Ottimizzazione del motore multimediale non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -135,18 +135,18 @@ namespace PaRuX.Views
             if (_runtimeUpdateBusy) return;
             _runtimeUpdateBusy = true;
             Settings_AutoCheck_RuntimeUpdate_Button.IsEnabled = false;
-            Settings_AutoCheck_Status_Text.Text = "Updating PaRuX-managed runtimes…";
+            Settings_AutoCheck_Status_Text.Text = T("Updating PaRuX-managed runtimes…", "Aggiornamento dei runtime gestiti da PaRuX…");
             try
             {
                 RuntimeUpdateRunDto run = await AutoMaintenanceClient.Current.RunRuntimeUpdateNowAsync(CancellationToken.None);
                 await RefreshAutoCheckAsync();
                 Settings_AutoCheck_Status_Text.Text = run.Outcome == "busy"
-                    ? "Another runtime update is already running."
-                    : (run.Steps.Count > 0 ? run.Steps[^1] : "Runtime update finished.");
+                    ? T("Another runtime update is already running.", "Un altro aggiornamento dei runtime è già in corso.")
+                    : (run.Steps.Count > 0 ? run.Steps[^1] : T("Runtime update finished.", "Aggiornamento dei runtime terminato."));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Settings_AutoCheck_Status_Text.Text = "Runtime update failed: " + ex.Message;
+                Settings_AutoCheck_Status_Text.Text = T("Runtime update failed: ", "Aggiornamento dei runtime non riuscito: ") + ex.Message;
             }
             finally
             {
@@ -183,11 +183,11 @@ namespace PaRuX.Views
                     Settings_AutoCheck_Interval_Box.IsEnabled = saved.Enabled;
                 }
                 finally { _autoCheckLoading = false; }
-                Settings_AutoCheck_Status_Text.Text = "Saved.";
+                Settings_AutoCheck_Status_Text.Text = T("Saved.", "Salvato.");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Settings_AutoCheck_Status_Text.Text = "Could not save: " + ex.Message;
+                Settings_AutoCheck_Status_Text.Text = T("Could not save: ", "Impossibile salvare: ") + ex.Message;
                 await RefreshAutoCheckAsync();
             }
         }
@@ -197,18 +197,18 @@ namespace PaRuX.Views
             if (_autoCheckBusy) return;
             _autoCheckBusy = true;
             Settings_AutoCheck_CheckNow_Button.IsEnabled = false;
-            Settings_AutoCheck_Status_Text.Text = "Checking…";
+            Settings_AutoCheck_Status_Text.Text = T("Checking…", "Controllo in corso…");
             try
             {
                 MaintenanceLastReportDto report = await AutoMaintenanceClient.Current.RunNowAsync(CancellationToken.None);
                 await RefreshAutoCheckAsync();
                 Settings_AutoCheck_Status_Text.Text = report.Outcome == "busy"
-                    ? "Another check is already running."
-                    : "Check finished.";
+                    ? T("Another check is already running.", "Un altro controllo è già in corso.")
+                    : T("Check finished.", "Controllo terminato.");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Settings_AutoCheck_Status_Text.Text = "Check failed: " + ex.Message;
+                Settings_AutoCheck_Status_Text.Text = T("Check failed: ", "Controllo non riuscito: ") + ex.Message;
             }
             finally
             {

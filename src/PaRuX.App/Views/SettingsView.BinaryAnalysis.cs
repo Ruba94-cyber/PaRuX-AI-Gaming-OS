@@ -45,7 +45,7 @@ namespace PaRuX.Views
 
             var heading = new TextBlock
             {
-                Text = "BINARY ANALYSIS / REVERSE ENGINEERING",
+                Text = T("BINARY ANALYSIS / REVERSE ENGINEERING", "ANALISI BINARIA / REVERSE ENGINEERING"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(4, 0, 0, 0)
             };
@@ -64,7 +64,7 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 8 };
             content.Children.Add(new TextBlock
             {
-                Text = "Dedicated local workspace used by Binary Analysis when a target file is not attached directly in Chat. Keep this explicit: PaRuX no longer borrows the legacy global Coding Agent workspace for new work.",
+                Text = T("Dedicated local workspace used by Binary Analysis when a target file is not attached directly in Chat. Keep this explicit: PaRuX no longer borrows the legacy global Coding Agent workspace for new work.", "Area di lavoro locale dedicata usata dall'Analisi binaria quando un file di destinazione non è allegato direttamente in Chat. Resta esplicita: PaRuX non prende più in prestito la vecchia area di lavoro globale dell'agente di programmazione per i nuovi lavori."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.75
             });
@@ -77,8 +77,8 @@ namespace PaRuX.Views
             content.Children.Add(pathBox);
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var browse = new Button { Content = "Browse…" };
-            var clear = new Button { Content = "Clear" };
+            var browse = new Button { Content = T("Browse…", "Sfoglia…") };
+            var clear = new Button { Content = T("Clear", "Cancella") };
             buttons.Children.Add(browse);
             buttons.Children.Add(clear);
             content.Children.Add(buttons);
@@ -93,8 +93,8 @@ namespace PaRuX.Views
                 SettingsStore.Current.Save();
                 pathBox.Text = normalized;
                 status.Text = normalized.Length == 0
-                    ? "No Binary Analysis workspace is configured. PaRuX will ask for one instead of silently borrowing another agent's repository."
-                    : "Binary Analysis workspace saved.";
+                    ? T("No Binary Analysis workspace is configured. PaRuX will ask for one instead of silently borrowing another agent's repository.", "Nessuna area di lavoro per l'Analisi binaria è configurata. PaRuX ne chiederà una invece di prendere in prestito in silenzio il repository di un altro agente.")
+                    : T("Binary Analysis workspace saved.", "Area di lavoro per l'Analisi binaria salvata.");
             }
 
             pathBox.LostFocus += (sender, args) => SavePath(pathBox.Text);
@@ -113,7 +113,7 @@ namespace PaRuX.Views
                 catch (Exception ex)
                 {
                     Log.Write("Binary Analysis workspace picker failed: " + ex.Message);
-                    status.Text = "Couldn't choose the folder: " + ex.Message;
+                    status.Text = T("Couldn't choose the folder: ", "Impossibile scegliere la cartella: ") + ex.Message;
                 }
             };
 

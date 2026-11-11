@@ -40,7 +40,7 @@ namespace PaRuX.Views
             };
             section.Children.Add(new TextBlock
             {
-                Text = "PLUGIN BUNDLES",
+                Text = T("PLUGIN BUNDLES", "BUNDLE DI PLUGIN"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(4, 0, 0, 0)
             });
@@ -54,7 +54,7 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 9 };
             content.Children.Add(new TextBlock
             {
-                Text = "Inspect signed declarative .parux-plugin bundles before installation. Bundles cannot execute installer code; imported Skills and Automations start disabled and MCP definitions remain staged/inert until explicitly activated.",
+                Text = T("Inspect signed declarative .parux-plugin bundles before installation. Bundles cannot execute installer code; imported Skills and Automations start disabled and MCP definitions remain staged/inert until explicitly activated.", "Ispeziona i bundle .parux-plugin dichiarativi e firmati prima dell'installazione. I bundle non possono eseguire codice di installazione; Skill e Automazioni importate partono disattivate e le definizioni MCP restano preparate e inerti finché non vengono attivate esplicitamente."),
                 TextWrapping = TextWrapping.Wrap, Opacity = 0.75
             });
 
@@ -63,28 +63,28 @@ namespace PaRuX.Views
             content.Children.Add(_pluginBundlePath);
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var browse = new Button { Content = "Browse…" };
+            var browse = new Button { Content = T("Browse…", "Sfoglia…") };
             browse.Click += async (_, _) => await PickPluginBundleAsync();
             actions.Children.Add(browse);
-            var inspect = new Button { Content = "Inspect" };
+            var inspect = new Button { Content = T("Inspect", "Ispeziona") };
             inspect.Click += async (_, _) => await InspectPluginBundleAsync();
             actions.Children.Add(inspect);
-            _pluginInstallButton = new Button { Content = "Install", IsEnabled = false };
+            _pluginInstallButton = new Button { Content = T("Install", "Installa"), IsEnabled = false };
             _pluginInstallButton.Click += async (_, _) => await InstallPluginBundleAsync();
             actions.Children.Add(_pluginInstallButton);
             content.Children.Add(actions);
 
             _pluginAllowUnsigned = new ToggleSwitch
             {
-                Header = "Allow unsigned / unverifiable bundle",
-                OnContent = "Explicitly allowed", OffContent = "Blocked",
+                Header = T("Allow unsigned / unverifiable bundle", "Consenti bundle non firmati / non verificabili"),
+                OnContent = T("Explicitly allowed", "Consentito esplicitamente"), OffContent = T("Blocked", "Bloccato"),
                 IsOn = false
             };
             content.Children.Add(_pluginAllowUnsigned);
             _pluginTrustPublisher = new ToggleSwitch
             {
-                Header = "Trust this verified publisher fingerprint during install",
-                OnContent = "Trust", OffContent = "Do not trust",
+                Header = T("Trust this verified publisher fingerprint during install", "Considera attendibile l'impronta di questo editore verificato durante l'installazione"),
+                OnContent = T("Trust", "Considera attendibile"), OffContent = T("Do not trust", "Non considerare attendibile"),
                 IsOn = false
             };
             content.Children.Add(_pluginTrustPublisher);
@@ -96,13 +96,13 @@ namespace PaRuX.Views
 
             content.Children.Add(new TextBlock
             {
-                Text = "TRUSTED PUBLISHERS",
+                Text = T("TRUSTED PUBLISHERS", "EDITORI ATTENDIBILI"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(0, 8, 0, 0)
             });
             _trustedPublisherList = new StackPanel { Spacing = 6 };
             content.Children.Add(_trustedPublisherList);
-            var refreshTrust = new Button { Content = "Refresh publishers", HorizontalAlignment = HorizontalAlignment.Left };
+            var refreshTrust = new Button { Content = T("Refresh publishers", "Aggiorna gli editori"), HorizontalAlignment = HorizontalAlignment.Left };
             refreshTrust.Click += async (_, _) => await RefreshTrustedPublishersAsync();
             content.Children.Add(refreshTrust);
 
@@ -127,7 +127,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Plugin bundle picker failed: " + ex.Message);
-                if (_pluginStatus != null) _pluginStatus.Text = "Couldn't choose plugin bundle: " + ex.Message;
+                if (_pluginStatus != null) _pluginStatus.Text = T("Couldn't choose plugin bundle: ", "Impossibile scegliere il bundle del plugin: ") + ex.Message;
             }
         }
 
@@ -145,25 +145,25 @@ namespace PaRuX.Views
             string path = (_pluginBundlePath?.Text ?? string.Empty).Trim();
             if (path.Length == 0)
             {
-                if (_pluginStatus != null) _pluginStatus.Text = "Choose a .parux-plugin bundle first.";
+                if (_pluginStatus != null) _pluginStatus.Text = T("Choose a .parux-plugin bundle first.", "Scegli prima un bundle .parux-plugin.");
                 return;
             }
             try
             {
-                if (_pluginStatus != null) _pluginStatus.Text = "Inspecting in PaRuX Core…";
+                if (_pluginStatus != null) _pluginStatus.Text = T("Inspecting in PaRuX Core…", "Ispezione in PaRuX Core…");
                 PluginBundleInspection inspection = await PluginBundleClient.Current.InspectAsync(path, CancellationToken.None);
                 _lastPluginInspection = inspection;
                 if (_pluginInstallButton != null) _pluginInstallButton.IsEnabled = inspection.Valid;
                 RenderPluginInspection(inspection);
                 if (_pluginStatus != null) _pluginStatus.Text = inspection.Valid
-                    ? "Inspection complete. Review signature, permissions and warnings before Install."
-                    : "Installation blocked: " + (inspection.Error ?? "bundle validation failed");
+                    ? T("Inspection complete. Review signature, permissions and warnings before Install.", "Ispezione completata. Controlla firma, permessi e avvisi prima di Installa.")
+                    : T("Installation blocked: ", "Installazione bloccata: ") + (inspection.Error ?? T("bundle validation failed", "validazione del bundle non riuscita"));
             }
             catch (Exception ex)
             {
                 Log.Write("Plugin inspection failed: " + ex.Message);
                 ResetPluginInspection();
-                if (_pluginStatus != null) _pluginStatus.Text = "Inspection failed: " + ex.Message;
+                if (_pluginStatus != null) _pluginStatus.Text = T("Inspection failed: ", "Ispezione non riuscita: ") + ex.Message;
             }
         }
 
@@ -187,10 +187,10 @@ namespace PaRuX.Views
             string fingerprint = string.IsNullOrWhiteSpace(inspection.PublisherKeyFingerprint)
                 ? "n/a" : inspection.PublisherKeyFingerprint;
             _pluginInspectionSummary.Text =
-                $"{inspection.Manifest.DisplayName} {inspection.Manifest.Version} · publisher {inspection.Manifest.Publisher} · {signature}\n" +
-                $"SHA-256: {inspection.BundleSha256}\nFingerprint: {fingerprint}\n" +
-                $"Components: {inspection.SkillCount} skill(s), {inspection.AutomationCount} automation(s), {inspection.McpCount} staged MCP definition(s)\n" +
-                $"Effective permissions: {permissionText}\nWarnings: {warnings}";
+                T($"{inspection.Manifest.DisplayName} {inspection.Manifest.Version} · publisher {inspection.Manifest.Publisher} · {signature}\n", $"{inspection.Manifest.DisplayName} {inspection.Manifest.Version} · editore {inspection.Manifest.Publisher} · {signature}\n") +
+                T($"SHA-256: {inspection.BundleSha256}\nFingerprint: {fingerprint}\n", $"SHA-256: {inspection.BundleSha256}\nImpronta: {fingerprint}\n") +
+                T($"Components: {inspection.SkillCount} skill(s), {inspection.AutomationCount} automation(s), {inspection.McpCount} staged MCP definition(s)\n", $"Componenti: {inspection.SkillCount} skill, {inspection.AutomationCount} automazioni, {inspection.McpCount} definizioni MCP preparate\n") +
+                T($"Effective permissions: {permissionText}\nWarnings: {warnings}", $"Permessi effettivi: {permissionText}\nAvvisi: {warnings}");
         }
 
         private async Task InstallPluginBundleAsync()
@@ -199,7 +199,7 @@ namespace PaRuX.Views
             string path = _pluginBundlePath.Text.Trim();
             try
             {
-                if (_pluginStatus != null) _pluginStatus.Text = "Installing declarative components…";
+                if (_pluginStatus != null) _pluginStatus.Text = T("Installing declarative components…", "Installazione dei componenti dichiarativi…");
                 PluginInstallResult result = await PluginBundleClient.Current.InstallAsync(
                     path,
                     _pluginAllowUnsigned?.IsOn == true,
@@ -212,7 +212,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Plugin install failed: " + ex.Message);
-                if (_pluginStatus != null) _pluginStatus.Text = "Install blocked/failed: " + ex.Message;
+                if (_pluginStatus != null) _pluginStatus.Text = T("Install blocked/failed: ", "Installazione bloccata o non riuscita: ") + ex.Message;
             }
         }
 
@@ -225,7 +225,7 @@ namespace PaRuX.Views
                 _trustedPublisherList.Children.Clear();
                 if (publishers.Count == 0)
                 {
-                    _trustedPublisherList.Children.Add(new TextBlock { Text = "No publisher fingerprint is trusted yet.", Opacity = 0.70 });
+                    _trustedPublisherList.Children.Add(new TextBlock { Text = T("No publisher fingerprint is trusted yet.", "Nessuna impronta di editore è ancora considerata attendibile."), Opacity = 0.70 });
                     return;
                 }
                 foreach (PluginPublisherTrustDto publisher in publishers.OrderBy(x => x.Publisher, StringComparer.OrdinalIgnoreCase))
@@ -235,12 +235,12 @@ namespace PaRuX.Views
                     grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     var text = new TextBlock
                     {
-                        Text = publisher.Publisher + " · " + publisher.Fingerprint + " · trusted " + publisher.TrustedUtc.ToLocalTime().ToString("g"),
+                        Text = publisher.Publisher + " · " + publisher.Fingerprint + T(" · trusted ", " · attendibile ") + publisher.TrustedUtc.ToLocalTime().ToString("g"),
                         TextWrapping = TextWrapping.Wrap, Opacity = 0.75
                     };
                     grid.Children.Add(text);
                     string fingerprint = publisher.Fingerprint;
-                    var revoke = new Button { Content = "Revoke", Padding = new Thickness(8, 2, 8, 2) };
+                    var revoke = new Button { Content = T("Revoke", "Revoca"), Padding = new Thickness(8, 2, 8, 2) };
                     revoke.Click += async (_, _) =>
                     {
                         try
@@ -251,7 +251,7 @@ namespace PaRuX.Views
                         catch (Exception ex)
                         {
                             Log.Write("Revoke plugin publisher failed: " + ex.Message);
-                            if (_pluginStatus != null) _pluginStatus.Text = "Couldn't revoke publisher: " + ex.Message;
+                            if (_pluginStatus != null) _pluginStatus.Text = T("Couldn't revoke publisher: ", "Impossibile revocare l'editore: ") + ex.Message;
                         }
                     };
                     Grid.SetColumn(revoke, 1);
@@ -263,7 +263,7 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshTrustedPublishersAsync failed: " + ex.Message);
                 _trustedPublisherList.Children.Clear();
-                _trustedPublisherList.Children.Add(new TextBlock { Text = "Trusted publishers unavailable: " + ex.Message, Opacity = 0.70 });
+                _trustedPublisherList.Children.Add(new TextBlock { Text = T("Trusted publishers unavailable: ", "Editori attendibili non disponibili: ") + ex.Message, Opacity = 0.70 });
             }
         }
     }
