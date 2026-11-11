@@ -88,7 +88,7 @@ namespace PaRuX.Services
         {
             Cancel();
             Persist();
-            Conversation = new Conversation { Title = "Incognito chat", IsIncognito = true };
+            Conversation = new Conversation { Title = T("Incognito chat", "Chat in incognito"), IsIncognito = true };
             Action? h = ConversationChanged;
             if (h != null) h();
         }
@@ -326,7 +326,7 @@ namespace PaRuX.Services
         /// </summary>
         private async Task EnsureVisionProfileReadyAsync(CancellationToken ct)
         {
-            Status = "Loading the local vision profile…";
+            Status = T("Loading the local vision profile…", "Caricamento del profilo di visione locale…");
             RaiseState();
             string profile = SettingsStore.Current.Data.DefaultProfile;
             if (profile == "AUTO" && File.Exists(AppPaths.TextProfileFile))
@@ -471,17 +471,17 @@ namespace PaRuX.Services
             }
             catch (OperationCanceledException)
             {
-                targetAssistant.Content += "\n\n_Stopped._";
+                targetAssistant.Content += "\n\n" + T("_Stopped._", "_Interrotto._");
             }
             catch (LocalAiException ex)
             {
-                targetAssistant.Content += "\n\n_Couldn't continue: " + ex.Message + "_";
+                targetAssistant.Content += "\n\n" + T("_Couldn't continue: ", "_Impossibile continuare: ") + ex.Message + "_";
                 targetAssistant.IsError = true;
             }
             catch (Exception ex)
             {
                 Log.Write("Continue turn failed: " + ex);
-                targetAssistant.Content += "\n\n_Couldn't continue: " + ex.Message + "_";
+                targetAssistant.Content += "\n\n" + T("_Couldn't continue: ", "_Impossibile continuare: ") + ex.Message + "_";
                 targetAssistant.IsError = true;
             }
             finally
@@ -514,13 +514,13 @@ namespace PaRuX.Services
             {
                 Role = "assistant",
                 Content = simpleLaunch
-                    ? "PaRuX wants permission to open **" + launchTarget + "** on this PC. Nothing will run until you approve this request. "
-                      + "Select **Allow once** below, or enable **Full Computer Use** in Settings to pre-authorize future Computer Use requests."
-                    : "PaRuX wants permission to control this PC's screen, mouse, and keyboard for this task. "
-                      + "Approval applies only to this goal, is capped at " + ComputerUseAgentService.MaxSteps + " steps, and can be stopped at any time. "
-                      + "Select **Allow once** below, or enable **Full Computer Use** in Settings to pre-authorize future Computer Use requests.",
+                    ? T("PaRuX wants permission to open **", "PaRuX richiede l'autorizzazione per aprire **") + launchTarget + T("** on this PC. Nothing will run until you approve this request. ", "** su questo PC. Non verrà eseguito nulla senza la tua autorizzazione. ")
+                      + T("Select **Allow once** below, or enable **Full Computer Use** in Settings to pre-authorize future Computer Use requests.", "Seleziona **Consenti una volta** di seguito o abilita **Uso completo del computer** nelle Impostazioni per pre-autorizzare le future richieste.")
+                    : T("PaRuX wants permission to control this PC's screen, mouse, and keyboard for this task. ", "PaRuX richiede l'autorizzazione per controllare lo schermo, il mouse e la tastiera del PC per questa attività. ")
+                      + T("Approval applies only to this goal, is capped at ", "L'autorizzazione vale solo per questo obiettivo, per un massimo di ") + ComputerUseAgentService.MaxSteps + T(" steps, and can be stopped at any time. ", " passaggi, e può essere interrotta in qualsiasi momento. ")
+                      + T("Select **Allow once** below, or enable **Full Computer Use** in Settings to pre-authorize future Computer Use requests.", "Seleziona **Consenti una volta** di seguito o abilita **Uso completo del computer** nelle Impostazioni per pre-autorizzare le future richieste."),
                 ActionKind = simpleLaunch ? "computer-launch" : "computer-agent",
-                ActionLabel = simpleLaunch ? "Allow once · Open " + launchTarget : "Allow once · Start Computer Use",
+                ActionLabel = simpleLaunch ? T("Allow once · Open ", "Consenti una volta · Apri ") + launchTarget : T("Allow once · Start Computer Use", "Consenti una volta · Avvia Computer Use"),
                 ActionPayload = plan != null ? ComputerUseService.SerializePlan(plan) : goal
             };
             Conversation.Messages.Add(approval);
@@ -533,7 +533,7 @@ namespace PaRuX.Services
             var reply = new ChatMessage
             {
                 Role = "assistant",
-                Content = "Opening **" + plan.Name + "**…",
+                Content = T("Opening **", "Apertura di **") + plan.Name + "**…",
                 IsStreaming = true
             };
             Conversation.Messages.Add(reply);
@@ -542,7 +542,7 @@ namespace PaRuX.Services
             var cts = new CancellationTokenSource();
             _cts = cts;
             IsBusy = true;
-            Status = "Computer Use · opening " + plan.Name + "…";
+            Status = T("Computer Use · opening ", "Computer Use · apertura di ") + plan.Name + "…";
             RaiseState();
 
             try
@@ -555,7 +555,7 @@ namespace PaRuX.Services
             catch (Exception ex)
             {
                 Log.Write("Pre-authorized Computer Use launch failed: " + ex);
-                reply.Content = "Couldn't open " + plan.Name + ": " + ex.Message;
+                reply.Content = T("Couldn't open ", "Impossibile aprire ") + plan.Name + ": " + ex.Message;
                 reply.IsError = true;
             }
             finally
@@ -585,7 +585,7 @@ namespace PaRuX.Services
             var cts = new CancellationTokenSource();
             _cts = cts;
             IsBusy = true;
-            Status = "Computer Use · controlling the PC…";
+            Status = T("Computer Use · controlling the PC…", "Computer Use · controllo del PC in corso…");
             RaiseState();
             Guid cancellationRegistration = LocalAgentCancellationRegistry.Register(cts);
             var log = new System.Text.StringBuilder();
@@ -593,7 +593,7 @@ namespace PaRuX.Services
             try
             {
                 await EnsureVisionProfileReadyAsync(cts.Token).ConfigureAwait(false);
-                Status = "Computer Use · controlling the PC…";
+                Status = T("Computer Use · controlling the PC…", "Computer Use · controllo del PC in corso…");
                 RaiseState();
 
                 ComputerUseAgentResult result = await ComputerUseAgentService.RunAsync(
@@ -612,7 +612,7 @@ namespace PaRuX.Services
                 if (result.Cancelled || cts.IsCancellationRequested)
                 {
                     if (log.Length > 0) log.AppendLine().AppendLine();
-                    log.Append("_Computer Use stopped._");
+                    log.Append(T("_Computer Use stopped._", "_Computer Use interrotto._"));
                     reply.Content = log.ToString();
                 }
                 else
@@ -626,14 +626,14 @@ namespace PaRuX.Services
             catch (OperationCanceledException)
             {
                 if (log.Length > 0) log.AppendLine().AppendLine();
-                log.Append("_Computer Use stopped._");
+                log.Append(T("_Computer Use stopped._", "_Computer Use interrotto._"));
                 reply.Content = log.ToString();
             }
             catch (Exception ex)
             {
                 Log.Write("Pre-authorized Computer Use agent failed: " + ex);
                 if (log.Length > 0) log.AppendLine().AppendLine();
-                log.Append("Computer Use failed: ").Append(ex.Message);
+                log.Append(T("Computer Use failed: ", "Computer Use non riuscito: ")).Append(ex.Message);
                 reply.Content = log.ToString();
                 reply.IsError = true;
             }
@@ -672,7 +672,7 @@ namespace PaRuX.Services
             var cts = new CancellationTokenSource();
             _cts = cts;
             IsBusy = true;
-            Status = "Binary Analysis · collecting local evidence…";
+            Status = T("Binary Analysis · collecting local evidence…", "Analisi binaria · raccolta prove locali in corso…");
             RaiseState();
             Guid cancellationRegistration = LocalAgentCancellationRegistry.Register(cts);
             var log = new System.Text.StringBuilder();
@@ -717,7 +717,7 @@ namespace PaRuX.Services
                         RaiseState();
                     }), cts.Token).ConfigureAwait(false);
 
-                Status = "Binary Analysis · local agent running…";
+                Status = T("Binary Analysis · local agent running…", "Analisi binaria · agente locale in esecuzione…");
                 RaiseState();
 
                 BinaryAnalysisAgentResult result = await BinaryAnalysisAgentService.RunAsync(
@@ -735,11 +735,11 @@ namespace PaRuX.Services
                 if (log.Length > 0) log.AppendLine().AppendLine();
                 if (result.Cancelled || cts.IsCancellationRequested)
                 {
-                    log.Append("_Binary Analysis stopped._");
+                    log.Append(T("_Binary Analysis stopped._", "_Analisi binaria interrotta._"));
                 }
                 else
                 {
-                    log.Append("**").Append(result.GoalReported ? "Done" : "Stopped").Append(":** ")
+                    log.Append("**").Append(result.GoalReported ? T("Done", "Fatto") : T("Stopped", "Interrotto")).Append(":** ")
                         .Append(result.Summary);
                     reply.IsError = !result.GoalReported;
                 }
@@ -748,14 +748,14 @@ namespace PaRuX.Services
             catch (OperationCanceledException)
             {
                 if (log.Length > 0) log.AppendLine().AppendLine();
-                log.Append("_Binary Analysis stopped._");
+                log.Append(T("_Binary Analysis stopped._", "_Analisi binaria interrotta._"));
                 reply.Content = log.ToString();
             }
             catch (Exception ex)
             {
                 Log.Write("Direct Binary Analysis failed: " + ex);
                 if (log.Length > 0) log.AppendLine().AppendLine();
-                log.Append("Binary Analysis failed: ").Append(ex.Message);
+                log.Append(T("Binary Analysis failed: ", "Analisi binaria non riuscita: ")).Append(ex.Message);
                 reply.Content = log.ToString();
                 reply.IsError = true;
             }
@@ -780,7 +780,7 @@ namespace PaRuX.Services
                 var blocked = new ChatMessage
                 {
                     Role = "assistant",
-                    Content = "**AI paused by Gaming — Return to AI.** Use the Return to AI button in the chat header (or Settings > Gaming). PaRuX will not reload a model automatically; it loads on your next message after you return."
+                    Content = T("**AI paused by Gaming — Return to AI.** Use the Return to AI button in the chat header (or Settings > Gaming). PaRuX will not reload a model automatically; it loads on your next message after you return.", "**AI in pausa per il Gaming — Torna all'AI.** Usa il pulsante Torna all'AI nell'intestazione della chat (o Impostazioni > Gaming). PaRuX non ricaricherà automaticamente un modello: verrà caricato al tuo prossimo messaggio dopo il ritorno.")
                 };
                 Conversation.Messages.Add(blocked);
                 MessageAdded?.Invoke(blocked);
@@ -821,7 +821,7 @@ namespace PaRuX.Services
                     Role = "assistant",
                     Content = RouterService.DeferredReply(route),
                     ActionKind = route == RouteKind.CodeHandoff ? "code-handoff" : null,
-                    ActionLabel = route == RouteKind.CodeHandoff ? "Start PaRuX Coding Agent" : null,
+                    ActionLabel = route == RouteKind.CodeHandoff ? T("Start PaRuX Coding Agent", "Avvia PaRuX Coding Agent") : null,
                     ActionPayload = null
                 };
                 Conversation.Messages.Add(deferred);
@@ -867,7 +867,7 @@ namespace PaRuX.Services
                 string? chainedVideoSourceBase64 = null;
                 if (route == RouteKind.Image)
                 {
-                    Status = "Generating your image locally…";
+                    Status = T("Generating your image locally…", "Generazione dell'immagine in corso localmente…");
                     RaiseState();
                     ChatMessage request = Conversation.Messages.Last(m => m.Role == "user");
                     AppSettings settings = SettingsStore.Current.Data;
@@ -875,7 +875,7 @@ namespace PaRuX.Services
                     {
                         if (job.Status == "completed")
                         {
-                            Status = "Saving image locally…";
+                            Status = T("Saving image locally…", "Salvataggio dell'immagine localmente…");
                             RaiseState();
                             return;
                         }
@@ -926,13 +926,13 @@ namespace PaRuX.Services
                             && !string.IsNullOrWhiteSpace(a.LocalPath) && File.Exists(a.LocalPath));
                     if (videoSource != null)
                         videoSourceBase64 = Convert.ToBase64String(await File.ReadAllBytesAsync(videoSource.LocalPath, cts.Token).ConfigureAwait(false));
-                    Status = "Generating your video locally…";
+                    Status = T("Generating your video locally…", "Generazione del video in corso localmente…");
                     RaiseState();
                     var mediaProgress = new Progress<PaRuX.Contracts.MediaJobStatus>(job =>
                     {
                         if (job.Status == "completed")
                         {
-                            Status = "Saving video locally…";
+                            Status = T("Saving video locally…", "Salvataggio del video localmente…");
                             RaiseState();
                             return;
                         }
@@ -972,13 +972,13 @@ namespace PaRuX.Services
                         && !string.IsNullOrWhiteSpace(a.LocalPath) && File.Exists(a.LocalPath));
                     if (sourceAttachment == null)
                     {
-                        reply.Content = "I need an attached image to edit - attach one and describe the change.";
+                        reply.Content = T("I need an attached image to edit - attach one and describe the change.", "È necessaria un'immagine allegata da modificare: allegala e descrivi la modifica.");
                         reply.IsError = true;
                     }
                     else if (CutoutPhrasing.IsBackgroundRemoval(request.Content))
                     {
                         // "Remove the background" / "rimuovi lo sfondo" is a cutout (transparent PNG), not a diffusion edit.
-                        Status = "Removing the background locally…";
+                        Status = T("Removing the background locally…", "Rimozione dello sfondo localmente…");
                         RaiseState();
                         PaRuX.Contracts.MediaAsset cutout = await CutoutClient.Current.RemoveAsync(sourceAttachment.LocalPath, cts.Token).ConfigureAwait(false);
                         AppSettings cutoutSettings = SettingsStore.Current.Data;
@@ -995,14 +995,14 @@ namespace PaRuX.Services
                     }
                     else
                     {
-                        Status = "Editing your image locally…";
+                        Status = T("Editing your image locally…", "Modifica dell'immagine in corso localmente…");
                         RaiseState();
                         string sourceBase64 = Convert.ToBase64String(await File.ReadAllBytesAsync(sourceAttachment.LocalPath, cts.Token).ConfigureAwait(false));
                         var mediaProgress = new Progress<PaRuX.Contracts.MediaJobStatus>(job =>
                         {
                             if (job.Status == "completed")
                             {
-                                Status = "Saving edited image locally…";
+                                Status = T("Saving edited image locally…", "Salvataggio dell'immagine modificata localmente…");
                                 RaiseState();
                                 return;
                             }
@@ -1040,7 +1040,7 @@ namespace PaRuX.Services
                 else if (route == RouteKind.Music)
                 {
                     ChatMessage request = Conversation.Messages.Last(m => m.Role == "user");
-                    Status = "Composing your music locally…";
+                    Status = T("Composing your music locally…", "Composizione della musica in corso localmente…");
                     RaiseState();
                     PaRuX.Contracts.MediaAsset song = await MusicClient.Current.GenerateAsync(new PaRuX.Contracts.MusicGenerateRequest
                     {
@@ -1052,14 +1052,14 @@ namespace PaRuX.Services
                     {
                         FileName = song.FileName, LocalPath = songPath, MediaType = song.MediaType, SizeBytes = new FileInfo(songPath).Length
                     }, reply.MediaJobId ?? Guid.NewGuid().ToString("N"),
-                    "Composed locally · ACE-Step 1.5 · " + song.DurationSeconds.ToString("0") + "s · seed " + song.Seed);
+                    T("Composed locally · ", "Composto localmente · ") + "ACE-Step 1.5 · " + song.DurationSeconds.ToString("0") + "s · seed " + song.Seed);
                     Persist();
                 }
                 else if (route != RouteKind.Image)
                 {
                     if (route == RouteKind.Vision)
                     {
-                        Status = "Analyzing visual media locally…";
+                        Status = T("Analyzing visual media locally…", "Analisi dei contenuti visivi in corso localmente…");
                         RaiseState();
                     }
                     var history = Conversation.Messages.Where(m => !ReferenceEquals(m, reply)).ToList();
@@ -1072,7 +1072,7 @@ namespace PaRuX.Services
                     // The intent step already knows this is a Computer Use request: ask before anything is sent.
                     if (ModalityIntent.IsComputerUse(modalityTask))
                     {
-                        Status = "Waiting for your Computer Use decision…";
+                        Status = T("Waiting for your Computer Use decision…", "In attesa della tua decisione per Computer Use…");
                         RaiseState();
                         computerUseConsent = await AskComputerUseConsentAsync(modalityTask).ConfigureAwait(false);
                         computerUseDeclined = !computerUseConsent;
@@ -1081,7 +1081,7 @@ namespace PaRuX.Services
                     }
                     if (computerUseDeclined)
                     {
-                        reply.Content = "Computer Use was not started because you did not approve it.";
+                        reply.Content = T("Computer Use was not started because you did not approve it.", "Computer Use non avviato: autorizzazione non concessa.");
                     }
                     else
                     for (int attempt = 0; ; attempt++)
@@ -1150,7 +1150,7 @@ namespace PaRuX.Services
                         computerUseConsent = await AskComputerUseConsentAsync(modalityTask).ConfigureAwait(false);
                         if (!computerUseConsent)
                         {
-                            reply.Content = "Computer Use was not started because you did not approve it.";
+                            reply.Content = T("Computer Use was not started because you did not approve it.", "Computer Use non avviato: autorizzazione non concessa.");
                             break;
                         }
                         buffer.Clear();
@@ -1166,8 +1166,8 @@ namespace PaRuX.Services
                     // Repeating that beats the bare notice, which left a user with no way to tell a
                     // model quirk from a window too small to hold their question.
                     reply.Content = contextCompactedDetail == null
-                        ? "_The model returned an empty response._"
-                        : "_The model returned an empty response. " + contextCompactedDetail.TrimEnd('.') + "._";
+                        ? T("_The model returned an empty response._", "_Il modello ha restituito una risposta vuota._")
+                        : T("_The model returned an empty response. ", "_Il modello ha restituito una risposta vuota. ") + contextCompactedDetail.TrimEnd('.') + "._";
                 }
             }
             catch (OperationCanceledException) when (ChatMediaJobReconciler.NeedsReconcile(reply))
@@ -1187,12 +1187,12 @@ namespace PaRuX.Services
             {
                 if (reply.Content.Length == 0)
                 {
-                    reply.Content = "_Stopped._";
+                    reply.Content = T("_Stopped._", "_Interrotto._");
                     reply.IsError = true;
                 }
                 else
                 {
-                    reply.Content += "\n\n_Stopped._";
+                    reply.Content += "\n\n" + T("_Stopped._", "_Interrotto._");
                 }
             }
             catch (LocalAiException ex)
@@ -1203,7 +1203,7 @@ namespace PaRuX.Services
             catch (Exception ex)
             {
                 Log.Write("Chat turn failed: " + ex);
-                reply.Content = "Something went wrong talking to the local model: " + ex.Message;
+                reply.Content = T("Something went wrong talking to the local model: ", "Si è verificato un errore durante la comunicazione con il modello locale: ") + ex.Message;
                 reply.IsError = true;
             }
             finally

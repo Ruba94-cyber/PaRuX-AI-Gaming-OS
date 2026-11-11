@@ -37,6 +37,9 @@ namespace PaRuX.Views
             return element;
         }
 
+        private static string T(string en, string it) =>
+            System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? it : en;
+
         private readonly Dictionary<ChatMessage, Border> _codingTaskCards = new();
         private readonly Dictionary<string, CancellationTokenSource> _activeCodingMonitors = new(StringComparer.Ordinal);
         private readonly HashSet<ChatMessage> _autoLaunchingCodingTasks = new();
@@ -245,7 +248,7 @@ namespace PaRuX.Views
                 FontSize = 14
             });
             string taskDisplay = !string.IsNullOrWhiteSpace(message.CodeTaskId)
-                ? ("Task " + message.CodeTaskId[..Math.Min(8, message.CodeTaskId.Length)])
+                ? (T("Task ", "Attività ") + message.CodeTaskId[..Math.Min(8, message.CodeTaskId.Length)])
                 : "PaRuX Coding Agent";
             titleStack.Children.Add(AutoId(new TextBlock
             {
@@ -257,7 +260,7 @@ namespace PaRuX.Views
             {
                 var bindButton = AutoId(new HyperlinkButton
                 {
-                    Content = "Bind repository…",
+                    Content = T("Bind repository…", "Collega repository…"),
                     FontSize = 11,
                     Padding = new Thickness(0, 2, 0, 0)
                 }, "Chat_CodingTask_BindRepository_Button");
@@ -280,7 +283,7 @@ namespace PaRuX.Views
 
             if (!hasTask)
             {
-                badgeText.Text = string.IsNullOrWhiteSpace(currentRoot) ? "Waiting for folder" : "Starting...";
+                badgeText.Text = string.IsNullOrWhiteSpace(currentRoot) ? T("Waiting for folder", "In attesa della cartella") : T("Starting...", "Avvio in corso...");
                 if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
@@ -292,33 +295,33 @@ namespace PaRuX.Views
                 CodingVerificationPresentation verification = CodingVerificationPresentation.For(task?.VerificationStatus);
                 bool isAccepted = verification.IsVerified && CodingTaskApplyAdmissionPolicy.CanApply(task, message.CodeTaskId);
                 badgeText.Text = isAccepted ? verification.Badge
-                    : verification.IsVerified ? "Completed · evidence not approved" : verification.Badge;
+                    : verification.IsVerified ? T("Completed · evidence not approved", "Completato · prove non approvate") : verification.Badge;
                 string brush = isAccepted ? "SystemFillColorSuccessBackgroundBrush" : "SystemFillColorCautionBackgroundBrush";
                 if (Application.Current.Resources.TryGetValue(brush, out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
             else if (string.Equals(statusStr, "awaiting-user-input", StringComparison.OrdinalIgnoreCase))
             {
-                badgeText.Text = "Waiting for answer";
+                badgeText.Text = T("Waiting for answer", "In attesa di risposta");
                 if (Application.Current.Resources.TryGetValue("SystemFillColorCautionBackgroundBrush", out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
             else if (string.Equals(statusStr, AgentTaskStatus.Failed, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(statusStr, AgentTaskStatus.Blocked, StringComparison.OrdinalIgnoreCase))
             {
-                badgeText.Text = "Failed";
+                badgeText.Text = T("Failed", "Non riuscito");
                 if (Application.Current.Resources.TryGetValue("SystemFillColorCriticalBackgroundBrush", out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
             else if (string.Equals(statusStr, AgentTaskStatus.Cancelled, StringComparison.OrdinalIgnoreCase))
             {
-                badgeText.Text = "Cancelled";
+                badgeText.Text = T("Cancelled", "Annullato");
                 if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
             else
             {
-                badgeText.Text = "Running";
+                badgeText.Text = T("Running", "In esecuzione");
                 if (Application.Current.Resources.TryGetValue("SystemFillColorAttentionBackgroundBrush", out object? b) && b is Brush bb)
                     badge.Background = bb;
             }
@@ -334,14 +337,14 @@ namespace PaRuX.Views
                 {
                     panel.Children.Add(new TextBlock
                     {
-                        Text = "Choose the code folder or repository PaRuX should work in so it can start the autonomous task.",
+                        Text = T("Choose the code folder or repository PaRuX should work in so it can start the autonomous task.", "Scegli la cartella di codice o il repository in cui PaRuX deve operare per avviare l'attività autonoma."),
                         TextWrapping = TextWrapping.Wrap,
                         Opacity = 0.8
                     });
 
                     var pickButton = new Button
                     {
-                        Content = "Choose code folder…",
+                        Content = T("Choose code folder…", "Scegli cartella di codice…"),
                         Padding = new Thickness(14, 6, 14, 6)
                     };
                     if (Application.Current.Resources.TryGetValue("AccentButtonStyle", out object? ab) && ab is Style as_)
@@ -354,7 +357,7 @@ namespace PaRuX.Views
                     panel.Children.Add(new ProgressBar { IsIndeterminate = true, HorizontalAlignment = HorizontalAlignment.Stretch });
                     panel.Children.Add(new TextBlock
                     {
-                        Text = "Preparing the isolated workspace and starting the task…",
+                        Text = T("Preparing the isolated workspace and starting the task…", "Preparazione dell'area di lavoro isolata e avvio dell'attività in corso…"),
                         FontSize = 12,
                         Opacity = 0.75
                     });
@@ -362,7 +365,7 @@ namespace PaRuX.Views
                 return;
             }
 
-            string stage = !string.IsNullOrWhiteSpace(task?.Stage) ? task.Stage : (task?.Status ?? "Running");
+            string stage = !string.IsNullOrWhiteSpace(task?.Stage) ? task.Stage : (task?.Status ?? T("Running", "In esecuzione"));
             panel.Children.Add(AutoId(new TextBlock
             {
                 Text = stage,
@@ -396,7 +399,7 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Live activity · plan, actions and evidence",
+                    Text = T("Live activity · plan, actions and evidence", "Attività in tempo reale · piano, azioni e prove"),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     FontSize = 12
                 });
@@ -438,7 +441,7 @@ namespace PaRuX.Views
                 panel.Children.Add(logBox);
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Shows the operating plan, commands and verifiable results. The model's private internal reasoning is not exposed.",
+                    Text = T("Shows the operating plan, commands and verifiable results. The model's private internal reasoning is not exposed.", "Mostra il piano operativo, i comandi e i risultati verificabili. Il ragionamento interno del modello non è esposto."),
                     FontSize = 10,
                     Opacity = 0.6,
                     TextWrapping = TextWrapping.Wrap
@@ -462,7 +465,7 @@ namespace PaRuX.Views
                 var qStack = new StackPanel { Spacing = 8 };
                 qStack.Children.Add(new TextBlock
                 {
-                    Text = "The agent needs your feedback:",
+                    Text = T("The agent needs your feedback:", "L'agente ha bisogno del tuo feedback:"),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 });
                 qStack.Children.Add(new TextBlock { Text = q.Question, TextWrapping = TextWrapping.Wrap });
@@ -472,7 +475,7 @@ namespace PaRuX.Views
                 {
                     optionsCombo = new ComboBox
                     {
-                        Header = "Select an option",
+                        Header = T("Select an option", "Seleziona un'opzione"),
                         HorizontalAlignment = HorizontalAlignment.Stretch
                     };
                     foreach (string opt in q.Options) optionsCombo.Items.Add(new ComboBoxItem { Content = opt, Tag = opt });
@@ -485,8 +488,8 @@ namespace PaRuX.Views
                 {
                     otherText = new TextBox
                     {
-                        Header = q.Options.Count > 0 ? "Or type another answer" : "Your answer",
-                        PlaceholderText = "Type your answer here…",
+                        Header = q.Options.Count > 0 ? T("Or type another answer", "O inserisci un'altra risposta") : T("Your answer", "La tua risposta"),
+                        PlaceholderText = T("Type your answer here…", "Scrivi la tua risposta qui…"),
                         AcceptsReturn = true,
                         MinHeight = 54
                     };
@@ -495,7 +498,7 @@ namespace PaRuX.Views
 
                 var sendAnswerButton = new Button
                 {
-                    Content = "Send answer",
+                    Content = T("Send answer", "Invia risposta"),
                     Padding = new Thickness(12, 4, 12, 4)
                 };
                 if (Application.Current.Resources.TryGetValue("AccentButtonStyle", out object? ab) && ab is Style as_)
@@ -507,7 +510,7 @@ namespace PaRuX.Views
                     string finalAnswer = typed.Length > 0 ? typed : selected;
                     if (string.IsNullOrWhiteSpace(finalAnswer))
                     {
-                        ShowTransientStatus("Enter an answer before sending.");
+                        ShowTransientStatus(T("Enter an answer before sending.", "Inserisci una risposta prima di inviare."));
                         return;
                     }
 
@@ -518,12 +521,12 @@ namespace PaRuX.Views
                             message.CodeTaskId!,
                             new AnswerAgentUserQuestionRequest { QuestionId = q.Id, Answer = finalAnswer },
                             CancellationToken.None);
-                        ShowTransientStatus("Answer sent; the agent has resumed work.");
+                        ShowTransientStatus(T("Answer sent; the agent has resumed work.", "Risposta inviata; l'agente ha ripreso il lavoro."));
                     }
                     catch (Exception ex)
                     {
                         Log.Write("Send answer to coding task question failed: " + ex);
-                        ShowTransientStatus(UserFailureRecoveryMapper.Map(ex, "Sending the answer failed").FormatStatusLine());
+                        ShowTransientStatus(UserFailureRecoveryMapper.Map(ex, T("Sending the answer failed", "Invio della risposta non riuscito")).FormatStatusLine());
                         sendAnswerButton.IsEnabled = true;
                     }
                 };
@@ -540,13 +543,13 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Apply is disabled: there is not enough evidence from independent verification or tests. Review the worktree before deciding how to proceed.",
+                    Text = T("Apply is disabled: there is not enough evidence from independent verification or tests. Review the worktree before deciding how to proceed.", "L'applicazione è disabilitata: le prove di test o verifica indipendente non sono sufficienti. Rivedi il worktree prima di decidere come procedere."),
                     TextWrapping = TextWrapping.Wrap,
                     Opacity = 0.8
                 });
                 var reviewUnverified = new Button
                 {
-                    Content = "Review unverified changes in VS Code",
+                    Content = T("Review unverified changes in VS Code", "Rivedi le modifiche non verificate in VS Code"),
                     Padding = new Thickness(12, 6, 12, 6)
                 };
                 AutomationProperties.SetAutomationId(
@@ -557,7 +560,7 @@ namespace PaRuX.Views
                     if (string.IsNullOrWhiteSpace(reviewRoot)
                         || !Directory.Exists(reviewRoot)
                         || !StartConfiguredVsCode(reviewRoot))
-                        ShowTransientStatus("Could not open the worktree for review.");
+                        ShowTransientStatus(T("Could not open the worktree for review.", "Impossibile aprire il worktree per la revisione."));
                 };
                 panel.Children.Add(reviewUnverified);
             }
@@ -604,14 +607,14 @@ namespace PaRuX.Views
 
                     var selectAllLink = AutoId(new HyperlinkButton
                     {
-                        Content = "Accept all",
+                        Content = T("Accept all", "Accetta tutti"),
                         FontSize = 11,
                         Padding = new Thickness(2, 0, 2, 0)
                     }, "Chat_CodingTask_AcceptAll_Button");
 
                     var deselectAllLink = AutoId(new HyperlinkButton
                     {
-                        Content = "Reject all",
+                        Content = T("Reject all", "Rifiuta tutti"),
                         FontSize = 11,
                         Padding = new Thickness(2, 0, 2, 0)
                     }, "Chat_CodingTask_RejectAll_Button");
@@ -674,7 +677,7 @@ namespace PaRuX.Views
 
                 var applyButton = AutoId(new Button
                 {
-                    Content = "Apply changes to project",
+                    Content = T("Apply changes to project", "Applica modifiche al progetto"),
                     Padding = new Thickness(16, 6, 16, 6),
                     IsEnabled = reviewModel.TotalFiles == 0 || reviewModel.HasAcceptedFiles
                 }, "Chat_CodingTask_Apply_Button");
@@ -697,7 +700,7 @@ namespace PaRuX.Views
 
                 var vsCodeButton = AutoId(new Button
                 {
-                    Content = "Review in VS Code",
+                    Content = T("Review in VS Code", "Rivedi in VS Code"),
                     Padding = new Thickness(12, 6, 12, 6)
                 }, "Chat_CodingTask_ReviewInVsCode_Button");
                 vsCodeButton.Click += async (_, _) =>
@@ -706,7 +709,7 @@ namespace PaRuX.Views
                     if (!string.IsNullOrWhiteSpace(worktree) && Directory.Exists(worktree))
                     {
                         if (!StartConfiguredVsCode(worktree))
-                            ShowTransientStatus("Unable to launch VS Code.");
+                            ShowTransientStatus(T("Unable to launch VS Code.", "Impossibile avviare VS Code."));
                     }
                 };
                 AutomationProperties.SetAutomationId(vsCodeButton, "parux-coding-review-vscode");
@@ -722,7 +725,7 @@ namespace PaRuX.Views
 
                 var stopButton = AutoId(new Button
                 {
-                    Content = "Stop now",
+                    Content = T("Stop now", "Interrompi ora"),
                     Padding = new Thickness(12, 4, 12, 4)
                 }, "Chat_CodingTask_Stop_Button");
                 stopButton.Click += async (_, _) => await StopCodingTaskAsync(message, stopButton);
@@ -731,7 +734,7 @@ namespace PaRuX.Views
 
                 var vsCodeLive = new Button
                 {
-                    Content = "Open in VS Code",
+                    Content = T("Open in VS Code", "Apri in VS Code"),
                     Padding = new Thickness(12, 4, 12, 4)
                 };
                 vsCodeLive.Click += async (_, _) =>
@@ -740,7 +743,7 @@ namespace PaRuX.Views
                     if (!string.IsNullOrWhiteSpace(worktree) && Directory.Exists(worktree))
                         StartConfiguredVsCode(worktree);
                     else
-                        ShowTransientStatus("Worktree not ready yet.");
+                        ShowTransientStatus(T("Worktree not ready yet.", "Worktree non ancora pronto."));
                 };
                 AutomationProperties.SetAutomationId(vsCodeLive, "parux-coding-live-vscode");
                 runButtons.Children.Add(vsCodeLive);
@@ -774,7 +777,7 @@ namespace PaRuX.Views
                 var findingsStack = new StackPanel { Spacing = 2, Margin = new Thickness(0, 4, 0, 4) };
                 findingsStack.Children.Add(new TextBlock
                 {
-                    Text = "Review findings (" + status.Findings.Count(f => f.State == "open") + " open of " + status.Findings.Count + ")",
+                    Text = T("Review findings (", "Risultati revisione (") + status.Findings.Count(f => f.State == "open") + T(" open of ", " aperti su ") + status.Findings.Count + ")",
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     FontSize = 12
                 });
@@ -799,7 +802,7 @@ namespace PaRuX.Views
                 var timelineStack = new StackPanel { Spacing = 2, Margin = new Thickness(0, 4, 0, 4) };
                 timelineStack.Children.Add(new TextBlock
                 {
-                    Text = "Delegated work timeline",
+                    Text = T("Delegated work timeline", "Cronologia attività delegate"),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     FontSize = 12
                 });
@@ -825,7 +828,7 @@ namespace PaRuX.Views
                 {
                     panel.Children.Add(new TextBlock
                     {
-                        Text = "Agent changes reverted: " + string.Join(", ", revert.Items.Select(i => i.Path + " (" + i.Outcome + ")")),
+                        Text = T("Agent changes reverted: ", "Modifiche dell'agente ripristinate: ") + string.Join(", ", revert.Items.Select(i => i.Path + " (" + i.Outcome + ")")),
                         FontSize = 11,
                         TextWrapping = TextWrapping.Wrap,
                         Opacity = 0.85
@@ -835,26 +838,26 @@ namespace PaRuX.Views
                 {
                     var revertButton = AutoId(new Button
                     {
-                        Content = revert.Requested ? "Reverting..." : "Revert my changes",
+                        Content = revert.Requested ? T("Reverting...", "Ripristino in corso...") : T("Revert my changes", "Ripristina le mie modifiche"),
                         Padding = new Thickness(12, 4, 12, 4),
                         IsEnabled = !revert.Requested
                     }, "CodingTask_Revert_Button");
                     ToolTipService.SetToolTip(revertButton,
-                        "Verification failed. Undo only the " + revert.OwnChangedFiles
-                        + " file(s) the agent changed; your own edits are never touched.");
+                        T("Verification failed. Undo only the ", "Verifica non riuscita. Annulla solo i ") + revert.OwnChangedFiles
+                        + T(" file(s) the agent changed; your own edits are never touched.", " file modificati dall'agente; le tue modifiche non vengono toccate."));
                     revertButton.Click += async (_, _) =>
                     {
                         revertButton.IsEnabled = false;
                         try
                         {
                             await AgentOrchestratorClient.Current.RequestRevertOwnChangesAsync(message.CodeTaskId!, CancellationToken.None);
-                            revertButton.Content = "Reverting...";
-                            ShowTransientStatus("Reverting the agent's changes.");
+                            revertButton.Content = T("Reverting...", "Ripristino in corso...");
+                            ShowTransientStatus(T("Reverting the agent's changes.", "Ripristino delle modifiche dell'agente in corso."));
                         }
                         catch (Exception ex)
                         {
                             Log.Write("Revert agent changes request failed: " + ex);
-                            ShowTransientStatus(UserFailureRecoveryMapper.Map(ex, "Reverting the agent's changes failed").FormatStatusLine());
+                            ShowTransientStatus(UserFailureRecoveryMapper.Map(ex, T("Reverting the agent's changes failed", "Ripristino delle modifiche dell'agente non riuscito")).FormatStatusLine());
                             revertButton.IsEnabled = true;
                         }
                     };
@@ -938,12 +941,12 @@ namespace PaRuX.Views
         {
             try
             {
-                ShowTransientStatus("Starting PaRuX Coding Agent on the project…");
+                ShowTransientStatus(T("Starting PaRuX Coding Agent on the project…", "Avvio di PaRuX Coding Agent sul progetto in corso…"));
                 Conversation conversation = ChatSession.Current.Conversation;
                 string? permissionMode = await ChooseCodingRunPermissionModeAsync(conversation);
                 if (permissionMode == null)
                 {
-                    ShowTransientStatus("Coding task cancelled.");
+                    ShowTransientStatus(T("Coding task cancelled.", "Attività di codice annullata."));
                     _autoLaunchingCodingTasks.Remove(message);
                     RefreshCodingTaskCardUi(message, card);
                     return;
@@ -952,7 +955,7 @@ namespace PaRuX.Views
                     .PrepareAndLaunchAsync(conversation, permissionMode);
                 if (result.Cancelled)
                 {
-                    ShowTransientStatus("Coding task cancelled.");
+                    ShowTransientStatus(T("Coding task cancelled.", "Attività di codice annullata."));
                     _autoLaunchingCodingTasks.Remove(message);
                     RefreshCodingTaskCardUi(message, card);
                     return;
@@ -961,7 +964,7 @@ namespace PaRuX.Views
                 message.CodeTaskId = result.TaskId;
                 message.CodeWorkspacePath = result.WorkspacePath;
                 ChatSession.Current.Persist();
-                ShowTransientStatus("PaRuX Coding Agent started.");
+                ShowTransientStatus(T("PaRuX Coding Agent started.", "PaRuX Coding Agent avviato."));
 
                 StartCodingTaskMonitoring(message, card);
             }
@@ -978,9 +981,9 @@ namespace PaRuX.Views
         private async Task<string?> ChooseCodingRunPermissionModeAsync(Conversation conversation)
         {
             var picker = new ComboBox { MinWidth = 260, HorizontalAlignment = HorizontalAlignment.Stretch };
-            picker.Items.Add(new ComboBoxItem { Content = "Ask (default) — approve commands and file changes", Tag = CodingAgentPermissionMode.Ask });
-            picker.Items.Add(new ComboBoxItem { Content = "Bypass — no approval prompts; the agent changes files and runs commands on its own", Tag = CodingAgentPermissionMode.Bypass });
-            picker.Items.Add(new ComboBoxItem { Content = "Plan — read-only actions", Tag = CodingAgentPermissionMode.Plan });
+            picker.Items.Add(new ComboBoxItem { Content = T("Ask (default) — approve commands and file changes", "Chiedi (predefinito) — approva comandi e modifiche ai file"), Tag = CodingAgentPermissionMode.Ask });
+            picker.Items.Add(new ComboBoxItem { Content = T("Bypass — no approval prompts; the agent changes files and runs commands on its own", "Bypass — nessuna richiesta di approvazione; l'agente modifica i file ed esegue i comandi da solo"), Tag = CodingAgentPermissionMode.Bypass });
+            picker.Items.Add(new ComboBoxItem { Content = T("Plan — read-only actions", "Pianifica — solo azioni di lettura"), Tag = CodingAgentPermissionMode.Plan });
             string current = CodingAgentPermissionMode.NormalizeStored(conversation.CodingRunPermissionMode);
             picker.SelectedIndex = current switch
             {
@@ -992,7 +995,7 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 8 };
             content.Children.Add(new TextBlock
             {
-                Text = "Choose permissions for coding tasks in this conversation. This choice does not change other conversations or global settings.",
+                Text = T("Choose permissions for coding tasks in this conversation. This choice does not change other conversations or global settings.", "Scegli le autorizzazioni per le attività di codice in questa conversazione. Questa scelta non modifica le altre conversazioni né le impostazioni globali."),
                 TextWrapping = TextWrapping.Wrap
             });
             content.Children.Add(picker);
@@ -1000,10 +1003,10 @@ namespace PaRuX.Views
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "Coding run permissions",
+                Title = T("Coding run permissions", "Autorizzazioni esecuzione codice"),
                 Content = content,
-                PrimaryButtonText = "Start coding",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Start coding", "Avvia codice"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary
             };
             AutomationProperties.SetAutomationId(dialog, "parux-coding-permission-mode-dialog");
@@ -1095,7 +1098,7 @@ namespace PaRuX.Views
             try
             {
                 await AgentOrchestratorClient.Current.CancelAsync(message.CodeTaskId, CancellationToken.None);
-                ShowTransientStatus("Cancellation requested for task " + message.CodeTaskId + ".");
+                ShowTransientStatus(T("Cancellation requested for task ", "Richiesta di annullamento inviata per l'attività ") + message.CodeTaskId + ".");
             }
             catch (Exception ex)
             {
@@ -1166,7 +1169,7 @@ namespace PaRuX.Views
             {
                 if (!await IsFreshCodingTaskApplyApprovedAsync(message.CodeTaskId))
                 {
-                    ShowTransientStatus("Apply blocked: the task is not verified by Core with accepted tests.");
+                    ShowTransientStatus(T("Apply blocked: the task is not verified by Core with accepted tests.", "Applicazione bloccata: l'attività non è verificata da Core con test superati."));
                     return;
                 }
 #if DEBUG
@@ -1175,7 +1178,7 @@ namespace PaRuX.Views
                 string? worktree = await ResolveTaskWorktreeAsync(message.CodeTaskId);
                 if (string.IsNullOrWhiteSpace(worktree) || !Directory.Exists(worktree))
                 {
-                    ShowTransientStatus("No worktree available to apply for this task.");
+                    ShowTransientStatus(T("No worktree available to apply for this task.", "Nessun worktree disponibile da applicare per questa attività."));
                     return;
                 }
 
@@ -1206,12 +1209,12 @@ namespace PaRuX.Views
                         repositories, worktree, CancellationToken.None);
                     if (!multiReview.Success)
                     {
-                        ShowTransientStatus("Multi-repository review incomplete: " + (multiReview.Error ?? multiReview.Summary));
+                        ShowTransientStatus(T("Multi-repository review incomplete: ", "Revisione multi-repository incompleta: ") + (multiReview.Error ?? multiReview.Summary));
                         return;
                     }
                     if (!multiReview.HasChanges)
                     {
-                        ShowTransientStatus("No changes to apply.");
+                        ShowTransientStatus(T("No changes to apply.", "Nessuna modifica da applicare."));
                         return;
                     }
                     reviewText = multiReview.DiffStat;
@@ -1222,8 +1225,8 @@ namespace PaRuX.Views
                     if (!check.HasChanges)
                     {
                         ShowTransientStatus(string.IsNullOrWhiteSpace(check.Error)
-                            ? "No changes to apply."
-                            : "Review incomplete: " + check.Error);
+                            ? T("No changes to apply.", "Nessuna modifica da applicare.")
+                            : T("Review incomplete: ", "Revisione incompleta: ") + check.Error);
                         return;
                     }
                     reviewText = check.DiffStat;
@@ -1233,12 +1236,12 @@ namespace PaRuX.Views
                     repositories, worktree, multiMode, CancellationToken.None);
                 if (string.IsNullOrWhiteSpace(reviewedDiffFingerprint))
                 {
-                    ShowTransientStatus("The diff is no longer available for a verifiable review.");
+                    ShowTransientStatus(T("The diff is no longer available for a verifiable review.", "Il diff non è più disponibile per una revisione verificabile."));
                     return;
                 }
 
                 bool isShadow = false;
-                string targetName = "original repository";
+                string targetName = T("original repository", "repository originale");
                 string? repositoryRoot = null;
                 if (!multiMode)
                 {
@@ -1258,12 +1261,12 @@ namespace PaRuX.Views
                     {
                         isShadow = true;
                         string? orig = ShadowWorkspaceService.TryGetOriginalPath(repositoryRoot);
-                        targetName = !string.IsNullOrWhiteSpace(orig) ? System.IO.Path.GetFileName(orig) : "target folder";
+                        targetName = !string.IsNullOrWhiteSpace(orig) ? System.IO.Path.GetFileName(orig) : T("target folder", "cartella di destinazione");
                     }
                     else if (Directory.Exists(repositoryRoot))
                     {
                         targetName = CodingTaskSandboxWorkspacePolicy.IsDefaultSandboxWorkspace(repositoryRoot)
-                            ? "sandbox workspace"
+                            ? T("sandbox workspace", "area di lavoro sandbox")
                             : System.IO.Path.GetFileName(repositoryRoot.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
                     }
                 }
@@ -1283,27 +1286,27 @@ namespace PaRuX.Views
                 CodingTaskReviewModel? reviewModel = _codingTaskReviewModels.TryGetValue(message, out CodingTaskReviewModel? rm) ? rm : null;
                 if (reviewModel != null && reviewModel.TotalFiles > 0 && reviewModel.NoneAccepted)
                 {
-                    ShowTransientStatus("No changes selected to apply.");
+                    ShowTransientStatus(T("No changes selected to apply.", "Nessuna modifica selezionata da applicare."));
                     return;
                 }
 
                 string confirmationText = reviewModel != null && reviewModel.TotalFiles > 0
                     ? reviewModel.FormatConfirmationSummary(targetName, multiMode, isShadow)
                     : (multiMode
-                        ? "PaRuX will apply reviewed changes as uncommitted local modifications. No git commit or push will be executed.\n\n" + reviewText
+                        ? T("PaRuX will apply reviewed changes as uncommitted local modifications. No git commit or push will be executed.\n\n", "PaRuX applicherà le modifiche revisionate come modifiche locali non salvate su commit. Nessun git commit o push verrà eseguito.\n\n") + reviewText
                         : isShadow
 
 
-                            ? "Changes will be applied directly to folder '" + targetName + "'. No git repository will be created in the folder.\n\n" + reviewText
-                            : "Changes will be applied to the repository as uncommitted local modifications. No git commit or push will be executed.\n\n" + reviewText);
+                            ? T("Changes will be applied directly to folder '", "Le modifiche verranno applicate direttamente alla cartella '") + targetName + T("'. No git repository will be created in the folder.\n\n", "'. Nessun repository git verrà creato nella cartella.\n\n") + reviewText
+                            : T("Changes will be applied to the repository as uncommitted local modifications. No git commit or push will be executed.\n\n", "Le modifiche verranno applicate al repository come modifiche locali non salvate su commit. Nessun git commit o push verrà eseguito.\n\n") + reviewText);
 
                 var confirmation = new ContentDialog
                 {
                     XamlRoot = applyButton.XamlRoot,
-                    Title = multiMode ? "Apply the changes to all repositories?" : "Apply the changes to the project?",
+                    Title = multiMode ? T("Apply the changes to all repositories?", "Applicare le modifiche a tutti i repository?") : T("Apply the changes to the project?", "Applicare le modifiche al progetto?"),
                     Content = verificationWarning + confirmationText,
-                    PrimaryButtonText = "Apply changes",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Apply changes", "Applica modifiche"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Primary
                 };
                 AutoId(confirmation, "Chat_CodingTask_ApplyConfirm_Dialog");
@@ -1314,7 +1317,7 @@ namespace PaRuX.Views
                     await GetFreshCodingTaskApplyApprovalAsync(message.CodeTaskId);
                 if (!approvedNow)
                 {
-                    ShowTransientStatus("Apply blocked: task verification status changed.");
+                    ShowTransientStatus(T("Apply blocked: task verification status changed.", "Applicazione bloccata: lo stato di verifica dell'attività è cambiato."));
                     return;
                 }
                 string? currentFingerprint = await FingerprintReviewedTaskDiffAsync(
@@ -1322,7 +1325,7 @@ namespace PaRuX.Views
                 if (currentFingerprint == null
                     || !string.Equals(currentFingerprint, reviewedDiffFingerprint, StringComparison.Ordinal))
                 {
-                    ShowTransientStatus("Diff changed after review. Please re-review before applying.");
+                    ShowTransientStatus(T("Diff changed after review. Please re-review before applying.", "Il diff è cambiato dopo la revisione. Rivedi prima di applicare."));
                     return;
                 }
 
@@ -1340,11 +1343,11 @@ namespace PaRuX.Views
                     ShowTransientStatus(!result.Success
                         ? UserFailureRecoveryMapper.MapCodingApplyResult(result.Message).FormatStatusLine()
                         : result.AppliedCount == 0 && result.AlreadyPresentCount > 0
-                            ? "Changes were already present across repositories: nothing was modified."
+                            ? T("Changes were already present across repositories: nothing was modified.", "Le modifiche erano già presenti nei vari repository: non è stato modificato nulla.")
                             : result.AppliedCount > 0 && result.AlreadyPresentCount > 0
-                                ? "Changes applied to " + result.AppliedCount + " repositories; "
-                                  + result.AlreadyPresentCount + " already present, not modified."
-                                : "Changes applied successfully as uncommitted local modifications.");
+                                ? T("Changes applied to ", "Modifiche applicate a ") + result.AppliedCount + T(" repositories; ", " repository; ")
+                                  + result.AlreadyPresentCount + T(" already present, not modified.", " già presenti, non modificati.")
+                                : T("Changes applied successfully as uncommitted local modifications.", "Modifiche applicate con successo come modifiche locali non salvate su commit."));
                     // Latch the card after any successful multi-repository apply, as the single-repository path does, so
                     // a second click cannot re-run a patch that is already present.
                     applied = result.Success;
@@ -1353,7 +1356,7 @@ namespace PaRuX.Views
                 {
                     if (repositoryRoot == null || !Directory.Exists(repositoryRoot))
                     {
-                        ShowTransientStatus("Repository authority is unavailable.");
+                        ShowTransientStatus(T("Repository authority is unavailable.", "Autorità del repository non disponibile."));
                         return;
                     }
                     CodeApplyResult result = await CodeWorktreeApplyService.ApplyAsync(
@@ -1369,14 +1372,14 @@ namespace PaRuX.Views
                     ShowTransientStatus(!result.Success
                         ? UserFailureRecoveryMapper.MapCodingApplyResult(result.Message).FormatStatusLine()
                         : alreadyPresent
-                            ? "Changes were already present in the project: nothing was changed."
-                            : "Changes applied successfully to the project as uncommitted local changes.");
+                            ? T("Changes were already present in the project: nothing was changed.", "Le modifiche erano già presenti nel progetto: non è stato modificato nulla.")
+                            : T("Changes applied successfully to the project as uncommitted local changes.", "Modifiche applicate con successo al progetto come modifiche locali non salvate su commit."));
                     applied = result.Success;
                     if (!result.Success && !string.IsNullOrWhiteSpace(result.UnresolvedRecoveryDirectory))
                     {
                         string? originalRoot = ShadowWorkspaceService.TryGetOriginalPath(repositoryRoot);
                         if (string.IsNullOrWhiteSpace(originalRoot))
-                            ShowTransientStatus("Recovery is unavailable: original folder cannot be verified.");
+                            ShowTransientStatus(T("Recovery is unavailable: original folder cannot be verified.", "Ripristino non disponibile: la cartella originale non può essere verificata."));
                         else
                             await ResolveUnresolvedShadowRecoveryAsync(applyButton.XamlRoot, originalRoot,
                                 result.UnresolvedRecoveryDirectory);
@@ -1393,7 +1396,7 @@ namespace PaRuX.Views
             {
                 // After a successful apply the card shows the final state instead of inviting a re-apply.
                 applyButton.IsEnabled = !applied;
-                if (applied) applyButton.Content = "Changes applied to project";
+                if (applied) applyButton.Content = T("Changes applied to project", "Modifiche applicate al progetto");
             }
         }
 
@@ -1412,7 +1415,7 @@ namespace PaRuX.Views
                 string.Equals(item.RecoveryDirectory, journalDirectory, StringComparison.OrdinalIgnoreCase));
             if (assessment == null)
             {
-                ShowTransientStatus("The recovery journal is no longer present. You can try applying the changes again.");
+                ShowTransientStatus(T("The recovery journal is no longer present. You can try applying the changes again.", "Il registro di ripristino non è più presente. Puoi provare ad applicare nuovamente le modifiche."));
                 return;
             }
 
@@ -1443,7 +1446,7 @@ namespace PaRuX.Views
             });
             content.Children.Add(new TextBlock
             {
-                Text = "Recovery folder: " + folder,
+                Text = T("Recovery folder: ", "Cartella di ripristino: ") + folder,
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72,
@@ -1513,12 +1516,12 @@ namespace PaRuX.Views
             try
             {
                 if (!await global::Windows.System.Launcher.LaunchFolderPathAsync(folder))
-                    ShowTransientStatus("Could not open the recovery folder.");
+                    ShowTransientStatus(T("Could not open the recovery folder.", "Impossibile aprire la cartella di ripristino."));
             }
             catch (Exception ex)
             {
                 Log.Write("Open shadow recovery folder failed: " + ex.Message);
-                ShowTransientStatus("Could not open the recovery folder.");
+                ShowTransientStatus(T("Could not open the recovery folder.", "Impossibile aprire la cartella di ripristino."));
             }
         }
 

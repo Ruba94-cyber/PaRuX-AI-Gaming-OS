@@ -25,10 +25,10 @@ namespace PaRuX.Views
         private DispatcherTimer? _enginePoll;
         private bool _enginePollInFlight;
 
-        private readonly TextBox _hfRepo = new TextBox { PlaceholderText = "owner/name (Hugging Face repository)", MinWidth = 260 };
-        private readonly TextBox _hfFile = new TextBox { PlaceholderText = "path/inside/repo/model.safetensors", MinWidth = 320 };
+        private readonly TextBox _hfRepo = new TextBox { PlaceholderText = StartItalian ? "proprietario/nome (repository Hugging Face)" : "owner/name (Hugging Face repository)", MinWidth = 260 };
+        private readonly TextBox _hfFile = new TextBox { PlaceholderText = StartItalian ? "percorso/nel/repo/modello.safetensors" : "path/inside/repo/model.safetensors", MinWidth = 320 };
         private readonly ComboBox _hfType = new ComboBox { MinWidth = 130 };
-        private readonly Button _hfButton = new Button { Content = "Check and download" };
+        private readonly Button _hfButton = new Button { Content = StartItalian ? "Verifica e scarica" : "Check and download" };
         private readonly TextBlock _hfStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         private readonly StackPanel _hfRows = new StackPanel { Spacing = 8 };
         // File name -> workflow type of the checkpoints queued from this form, so their download state and Install buttons can be shown.
@@ -48,7 +48,7 @@ namespace PaRuX.Views
             }
 
             var mediaPanel = new StackPanel { Spacing = 18 };
-            mediaPanel.Children.Add(Section("ENGINES · COMFYUI (IMAGE / VIDEO / EDIT), SPEECH, IMAGE-TO-3D, MUSIC", _engines));
+            mediaPanel.Children.Add(Section(StartItalian ? "MOTORI · COMFYUI (IMMAGINE / VIDEO / MODIFICA), VOCE, IMMAGINE-A-3D, MUSICA" : "ENGINES · COMFYUI (IMAGE / VIDEO / EDIT), SPEECH, IMAGE-TO-3D, MUSIC", _engines));
             mediaPanel.Children.Add(_mediaSection!);
             mediaPanel.Children.Add(BuildHuggingFaceSection());
             var downloadsPanel = new StackPanel { Spacing = 18 };
@@ -115,7 +115,7 @@ namespace PaRuX.Views
             };
             AutomationProperties.SetAutomationId(card, MediaEngineHubPresenter.AutomationIdFor(engine.Type));
             AutomationProperties.SetName(card, engine.Title);
-            RenderEngineCard(card, MediaEngineHubPresenter.Unavailable(engine, "Checking…") with { ButtonEnabled = false, StatusLine = "Checking" });
+            RenderEngineCard(card, MediaEngineHubPresenter.Unavailable(engine, StartItalian ? "Controllo in corso…" : "Checking…") with { ButtonEnabled = false, StatusLine = StartItalian ? "Controllo in corso" : "Checking" });
             return card;
         }
 
@@ -164,7 +164,7 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 4 };
             var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             head.Children.Add(new TextBlock { Text = model.Title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            var state = new TextBlock { Text = (model.Installed ? "Installed" : model.StatusLine), FontSize = 12, Opacity = model.Installed ? 1.0 : 0.8 };
+            var state = new TextBlock { Text = (model.Installed ? (StartItalian ? "Installato" : "Installed") : model.StatusLine), FontSize = 12, Opacity = model.Installed ? 1.0 : 0.8 };
             AutomationProperties.SetAutomationId(state, id + "_Status");
             head.Children.Add(state);
             panel.Children.Add(head);
@@ -204,7 +204,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _status.Text = "Engine request failed: " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                _status.Text = (StartItalian ? "Richiesta motore non riuscita: " : "Engine request failed: ") + CustomCheckpointPresenter.ExtractServerError(ex.Message);
                 button.IsEnabled = true;
             }
         }
@@ -216,7 +216,9 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock
             {
-                Text = "Add a fine-tune (including uncensored ones) of a model family PaRuX can run. Enter the repository and the exact file path inside it. "
+                Text = StartItalian
+                    ? "Aggiungi un fine-tune (compresi quelli non censurati) di una famiglia di modelli che PaRuX può eseguire. Inserisci il repository e il percorso esatto del file al suo interno. PaRuX legge l'elenco del repository, blocca il commit, chiede di rivedere la licenza, lo scarica e verifica la famiglia di modelli al termine. Un file di una famiglia non supportata dal flusso di lavoro viene rifiutato ed eliminato."
+                    : "Add a fine-tune (including uncensored ones) of a model family PaRuX can run. Enter the repository and the exact file path inside it. "
                     + "PaRuX reads the repository listing itself, pins the commit, asks you to review the licence, downloads it and checks the model family when it finishes. "
                     + "A file from a family the workflow cannot run is refused and deleted.",
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.78
@@ -224,11 +226,11 @@ namespace PaRuX.Views
             foreach (string type in HuggingFaceCheckpointForm.Types) _hfType.Items.Add(type);
             _hfType.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_hfRepo, "ModelHub_HfCheckpoint_Repo");
-            AutomationProperties.SetName(_hfRepo, "Hugging Face repository");
+            AutomationProperties.SetName(_hfRepo, StartItalian ? "Repository Hugging Face" : "Hugging Face repository");
             AutomationProperties.SetAutomationId(_hfFile, "ModelHub_HfCheckpoint_File");
-            AutomationProperties.SetName(_hfFile, "File path inside the repository");
+            AutomationProperties.SetName(_hfFile, StartItalian ? "Percorso del file nel repository" : "File path inside the repository");
             AutomationProperties.SetAutomationId(_hfType, "ModelHub_HfCheckpoint_Type");
-            AutomationProperties.SetName(_hfType, "Capability type");
+            AutomationProperties.SetName(_hfType, StartItalian ? "Tipo di funzionalità" : "Capability type");
             AutomationProperties.SetAutomationId(_hfButton, "ModelHub_HfCheckpoint_Button");
             AutomationProperties.SetAutomationId(_hfStatus, "ModelHub_HfCheckpoint_Status");
             _hfButton.Click += async (_, _) => await AddHuggingFaceCheckpointAsync();
@@ -256,7 +258,7 @@ namespace PaRuX.Views
             panel.Children.Add(row);
             panel.Children.Add(_hfStatus);
             panel.Children.Add(_hfRows);
-            return Section("ADD A CHECKPOINT FROM HUGGING FACE", panel);
+            return Section(StartItalian ? "AGGIUNGI UN CHECKPOINT DA HUGGING FACE" : "ADD A CHECKPOINT FROM HUGGING FACE", panel);
         }
 
         private async Task AddHuggingFaceCheckpointAsync()
@@ -268,7 +270,7 @@ namespace PaRuX.Views
             if (invalid != null) { _hfStatus.Text = invalid; return; }
 
             _hfButton.IsEnabled = false;
-            _hfStatus.Text = "Reading the repository listing…";
+            _hfStatus.Text = StartItalian ? "Lettura dell'elenco del repository in corso…" : "Reading the repository listing…";
             try
             {
                 HuggingFaceCheckpointResolution resolved = await MediaCheckpointsClient.Current.ResolveHuggingFaceAsync(repo, file, CancellationToken.None);
@@ -277,7 +279,7 @@ namespace PaRuX.Views
                     async (revision, licenseEvidence) =>
                     {
                         if (!string.Equals(revision, resolved.Revision, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidOperationException("The repository changed while you were reviewing it. Try again.");
+                            throw new InvalidOperationException(StartItalian ? "Il repository è cambiato durante la revisione. Riprova." : "The repository changed while you were reviewing it. Try again.");
                         var download = new ModelDownloadRequest
                         {
                             RepoId = resolved.RepoId,
@@ -290,14 +292,14 @@ namespace PaRuX.Views
                         ModelDownloadClient.PinRequestToRevision(download, resolved.Revision);
                         await ModelDownloadClient.Current.StartDownloadAsync(download, CancellationToken.None);
                     });
-                if (!queued) { _hfStatus.Text = "Cancelled. Nothing was downloaded."; return; }
+                if (!queued) { _hfStatus.Text = StartItalian ? "Annullato. Nessun file è stato scaricato." : "Cancelled. Nothing was downloaded."; return; }
                 _hfQueued[resolved.FileName] = type;
-                _hfStatus.Text = "Queued " + resolved.FileName + " (" + MediaHubPresenter.FormatBytes(resolved.SizeBytes) + ", commit " + resolved.Revision[..8] + "). Progress is shown below and in Downloads.";
+                _hfStatus.Text = (StartItalian ? "Accodato " : "Queued ") + resolved.FileName + " (" + MediaHubPresenter.FormatBytes(resolved.SizeBytes) + ", commit " + resolved.Revision[..8] + (StartItalian ? "). L'avanzamento è mostrato di seguito e in Download." : "). Progress is shown below and in Downloads.");
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
-                _hfStatus.Text = "Could not add the checkpoint: " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                _hfStatus.Text = (StartItalian ? "Impossibile aggiungere il checkpoint: " : "Could not add the checkpoint: ") + CustomCheckpointPresenter.ExtractServerError(ex.Message);
             }
             finally { _hfButton.IsEnabled = true; }
         }
@@ -318,11 +320,11 @@ namespace PaRuX.Views
                 {
                     var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                     string name = queued.Key, type = queued.Value;
-                    var auto = new Button { Content = "Install for automatic use" };
-                    AutomationProperties.SetName(auto, "Install " + name + " for automatic use");
+                    var auto = new Button { Content = StartItalian ? "Installa per uso automatico" : "Install for automatic use" };
+                    AutomationProperties.SetName(auto, (StartItalian ? "Installa " : "Install ") + name + (StartItalian ? " per uso automatico" : " for automatic use"));
                     auto.Click += async (_, _) => await InstallCustomCheckpointAsync(name, type, pin: false);
-                    var use = new Button { Content = "Install and use this model" };
-                    AutomationProperties.SetName(use, "Install " + name + " and use it");
+                    var use = new Button { Content = StartItalian ? "Installa e usa questo modello" : "Install and use this model" };
+                    AutomationProperties.SetName(use, (StartItalian ? "Installa " : "Install ") + name + (StartItalian ? " e usalo" : " and use it"));
                     use.Click += async (_, _) => await InstallCustomCheckpointAsync(name, type, pin: true);
                     buttons.Children.Add(auto);
                     buttons.Children.Add(use);
@@ -330,7 +332,7 @@ namespace PaRuX.Views
                 }
                 else if (row.Failed)
                 {
-                    var dismiss = new Button { Content = "Dismiss" };
+                    var dismiss = new Button { Content = StartItalian ? "Ignora" : "Dismiss" };
                     string name = queued.Key;
                     dismiss.Click += (_, _) => { _hfQueued.Remove(name); RenderHuggingFaceRows(_downloadJobs); };
                     item.Children.Add(dismiss);
@@ -343,16 +345,16 @@ namespace PaRuX.Views
         {
             try
             {
-                SetBusy(true, "Installing " + fileName + "…");
+                SetBusy(true, (StartItalian ? "Installazione di " : "Installing ") + fileName + "…");
                 if (pin) await MediaCheckpointsClient.Current.ActivateAsync(type, fileName, CancellationToken.None);
                 else await MediaCheckpointsClient.Current.InstallForAutomaticAsync(type, fileName, CancellationToken.None);
                 _hfQueued.Remove(fileName);
-                _status.Text = fileName + (pin ? " is installed and in use for " : " is installed for automatic use for ") + type + ".";
+                _status.Text = fileName + (pin ? (StartItalian ? " è installato e in uso per " : " is installed and in use for ") : (StartItalian ? " è installato per l'uso automatico per " : " is installed for automatic use for ")) + type + ".";
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
-                _status.Text = "Install failed: " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                _status.Text = (StartItalian ? "Installazione non riuscita: " : "Install failed: ") + CustomCheckpointPresenter.ExtractServerError(ex.Message);
                 SetBusy(false, _status.Text);
             }
         }

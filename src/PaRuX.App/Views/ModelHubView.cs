@@ -22,7 +22,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed partial class ModelHubView : UserControl
     {
-        private readonly TextBox _search = new TextBox { PlaceholderText = "Search Hugging Face GGUF models" };
+        private readonly TextBox _search = new TextBox { PlaceholderText = StartItalian ? "Cerca modelli GGUF su Hugging Face" : "Search Hugging Face GGUF models" };
         private readonly ComboBox _category = new ComboBox { MinWidth = 150 };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _candidateUtilityStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
@@ -101,12 +101,12 @@ namespace PaRuX.Views
         private readonly List<UIElement> _debugFixtures = new List<UIElement>();
         private bool _isAdvancedMode;
         private readonly TextBox _candidateFilter = new TextBox
-        { PlaceholderText = "Filter by repository or GGUF file", MaxLength = 256, MinWidth = 300 };
+        { PlaceholderText = StartItalian ? "Filtra per repository o file GGUF" : "Filter by repository or GGUF file", MaxLength = 256, MinWidth = 300 };
         private readonly TextBlock _candidateFilterCount = new TextBlock
         { VerticalAlignment = VerticalAlignment.Center, Opacity = 0.75 };
         private readonly TextBlock _explicitDiscoveryStatus = new TextBlock
         { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
-        private readonly Button _explicitDiscoveryButton = new Button { Content = "Check specific repositories" };
+        private readonly Button _explicitDiscoveryButton = new Button { Content = StartItalian ? "Controlla repository specifici" : "Check specific repositories" };
         private readonly List<ModelSearchResult> _lastSearch = new List<ModelSearchResult>();
         private readonly Dictionary<string, string> _candidateJobIds = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly Dictionary<string, CandidateEvaluationJobStatus> _candidateJobStatuses = new Dictionary<string, CandidateEvaluationJobStatus>(StringComparer.Ordinal);
@@ -356,7 +356,7 @@ namespace PaRuX.Views
             _category.MinHeight = 44;
             _category.HorizontalAlignment = HorizontalAlignment.Stretch;
             AutomationProperties.SetAutomationId(_category, "ModelHub_Category_ComboBox");
-            AutomationProperties.SetName(_category, "Model category");
+            AutomationProperties.SetName(_category, StartItalian ? "Categoria modello" : "Model category");
             searchActions.Children.Add(_category);
             var searchButton = new Button
             {
@@ -392,11 +392,11 @@ namespace PaRuX.Views
             body.Children.Add(_hardwareSummary);
             AutomationProperties.SetAutomationId(_hardwareDetailsButton, "ModelHub_HardwareDetails_Button");
             _hardwareDetailsButton.HorizontalAlignment = HorizontalAlignment.Left;
-            _hardwareDetailsButton.Click += async (_, _) => await ShowModelDetailsAsync("Hardware fit details",
-                new (string Label, string? Value)[] { ("Detected hardware and fit rules", _hardwareDetailText) });
+            _hardwareDetailsButton.Click += async (_, _) => await ShowModelDetailsAsync(StartItalian ? "Dettagli idoneità hardware" : "Hardware fit details",
+                new (string Label, string? Value)[] { (StartItalian ? "Hardware rilevato e regole di idoneità" : "Detected hardware and fit rules", _hardwareDetailText) });
             body.Children.Add(_hardwareDetailsButton);
 
-            _suggestionsSection = Section("SUGGESTED FOR THIS PC · CANDIDATES, NOT VALIDATED", _suggestions);
+            _suggestionsSection = Section(StartItalian ? "SUGGERITI PER QUESTO PC · CANDIDATI, NON CONVALIDATI" : "SUGGESTED FOR THIS PC · CANDIDATES, NOT VALIDATED", _suggestions);
             AutomationProperties.SetAutomationId(_suggestionsSection, ModelSuggestionPresenter.SectionAutomationId);
             body.Children.Add(_suggestionsSection);
             RenderSuggestions();
@@ -404,7 +404,7 @@ namespace PaRuX.Views
             var cohortRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             cohortRow.Children.Add(new TextBlock
             {
-                Text = "Discovery feed:",
+                Text = StartItalian ? "Feed di rilevamento:" : "Discovery feed:",
                 VerticalAlignment = VerticalAlignment.Center,
                 Opacity = 0.75
             });
@@ -445,7 +445,7 @@ namespace PaRuX.Views
             candidateActions.Children.Add(_explicitDiscoveryButton);
             candidateActions.Children.Add(new TextBlock
             {
-                Text = "Publisher metadata is unverified. Evaluation does not install, recommend, promote, or change routing.",
+                Text = StartItalian ? "I metadati dell'autore non sono verificati. La valutazione non installa, raccomanda, promuove né modifica il routing." : "Publisher metadata is unverified. Evaluation does not install, recommend, promote, or change routing.",
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
                 Opacity = 0.75
@@ -485,7 +485,7 @@ namespace PaRuX.Views
             body.Children.Add(candidateUtilityActions);
             AutomationProperties.SetAutomationId(_candidateUtilityStatus, "ModelHub_CandidateUtilityPolicyStatus_Text");
             body.Children.Add(_candidateUtilityStatus);
-            _candidatesSection = Section("DISCOVERED CANDIDATES · NOT RECOMMENDATIONS", _candidates);
+            _candidatesSection = Section(StartItalian ? "CANDIDATI RILEVATI · NON RACCOMANDAZIONI" : "DISCOVERED CANDIDATES · NOT RECOMMENDATIONS", _candidates);
             body.Children.Add(_candidatesSection);
 
 #if DEBUG
@@ -779,12 +779,12 @@ namespace PaRuX.Views
             body.Children.Add(_capabilityAcquireCard);
             // Kept so ApplyInterfaceMode can retitle and reorder them for Simple vs Advanced.
             _body = body;
-            _recommendedSection = Section("RECOMMENDED TEXT MODELS", _recommended);
+            _recommendedSection = Section(StartItalian ? "MODELLI DI TESTO CONSIGLIATI" : "RECOMMENDED TEXT MODELS", _recommended);
             _recommendedTitle = (TextBlock)((StackPanel)_recommendedSection.Child).Children[0];
-            _searchSection = Section("SEARCH / COMPARE GGUF", _results);
-            _mediaSection = Section("MEDIA MODELS · IMAGE / VIDEO / EDIT", _media);
-            _downloadsSection = Section("DOWNLOAD QUEUE", _downloads);
-            _installedSection = Section("INSTALLED TEXT MODEL LIBRARY", _installed);
+            _searchSection = Section(StartItalian ? "CERCA / CONFRONTA GGUF" : "SEARCH / COMPARE GGUF", _results);
+            _mediaSection = Section(StartItalian ? "MODELLI MULTIMEDIALI · IMMAGINI / VIDEO / MODIFICA" : "MEDIA MODELS · IMAGE / VIDEO / EDIT", _media);
+            _downloadsSection = Section(StartItalian ? "CODA DI DOWNLOAD" : "DOWNLOAD QUEUE", _downloads);
+            _installedSection = Section(StartItalian ? "LIBRERIA MODELLI DI TESTO INSTALLATI" : "INSTALLED TEXT MODEL LIBRARY", _installed);
             body.Children.Add(_recommendedSection);
             body.Children.Add(_searchSection);
             body.Children.Add(_installedSection);
@@ -922,7 +922,7 @@ namespace PaRuX.Views
             _refreshCts?.Dispose();
             _refreshCts = new CancellationTokenSource();
             CancellationToken ct = _refreshCts.Token;
-            SetBusy(true, "Refreshing Model Hub…");
+            SetBusy(true, StartItalian ? "Aggiornamento di Model Hub…" : "Refreshing Model Hub…");
             try
             {
                 Task<List<RecommendedModel>> recommendedTask = CorporateMode.IsActive
@@ -1018,7 +1018,9 @@ namespace PaRuX.Views
                 if (_catalogStale) _status.Text += " · " + StaleCatalogMessage;
                 ShowActiveTransfer(downloadsTask.Result);
                 if (_candidateJobHistoryRefreshFailed && !downloadsTask.Result.Any(IsActive))
-                    _status.Text += " · Candidate evaluation history unavailable; local state was preserved.";
+                    _status.Text += StartItalian
+                        ? " · Cronologia di valutazione dei candidati non disponibile; lo stato locale è stato mantenuto."
+                        : " · Candidate evaluation history unavailable; local state was preserved.";
                 UpdateDownloadPolling(downloadsTask.Result);
                 UpdateCandidateEvaluationPolling();
                 _ = RefreshStartAsync();
@@ -1027,7 +1029,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 if (generation == _refreshGeneration)
-                    _status.Text = "Model Hub refresh failed: " + ex.Message;
+                    _status.Text = (StartItalian ? "Aggiornamento di Model Hub non riuscito: " : "Model Hub refresh failed: ") + ex.Message;
             }
             finally
             {
@@ -1059,8 +1061,11 @@ namespace PaRuX.Views
             if (running != null)
             {
                 running.Cancel();
-                _explicitDiscoveryStatus.Text = "Specific repository check was interrupted before its outcome was shown. "
-                    + "Existing cards remain; no model action was taken.";
+                _explicitDiscoveryStatus.Text = StartItalian
+                    ? "Il controllo del repository specifico è stato interrotto prima di mostrare il risultato. "
+                      + "Le schede esistenti rimangono; nessuna azione è stata eseguita sui modelli."
+                    : "Specific repository check was interrupted before its outcome was shown. "
+                      + "Existing cards remain; no model action was taken.";
             }
             _explicitDiscoveryButton.IsEnabled = true;
         }
@@ -1084,17 +1089,17 @@ namespace PaRuX.Views
             string detail = active.TotalBytes > 0
                 ? FormatBytes(active.BytesDownloaded) + " / " + FormatBytes(active.TotalBytes)
                   + " (" + (active.BytesDownloaded * 100 / active.TotalBytes) + "%)"
-                : FormatBytes(active.BytesDownloaded) + " so far";
+                : FormatBytes(active.BytesDownloaded) + (StartItalian ? " finora" : " so far");
 
             string state = active.Status switch
             {
-                "queued" => "Queued: ",
-                "retrying" => "Retrying ",
-                _ => "Downloading "
+                "queued" => StartItalian ? "In coda: " : "Queued: ",
+                "retrying" => StartItalian ? "Nuovo tentativo " : "Retrying ",
+                _ => StartItalian ? "Download in corso: " : "Downloading "
             };
             _status.Text = state
                 + active.FileName + " · " + detail
-                + (jobs.Count(IsActive) > 1 ? " · " + (jobs.Count(IsActive) - 1) + " more active" : string.Empty);
+                + (jobs.Count(IsActive) > 1 ? " · " + (jobs.Count(IsActive) - 1) + (StartItalian ? " altri attivi" : " more active") : string.Empty);
             string transferDetails = ModelDownloadPresentationPolicy.FormatDetails(active);
             if (transferDetails.Length > 0) _status.Text += " · " + transferDetails;
         }
@@ -1211,7 +1216,9 @@ namespace PaRuX.Views
 
             if (_candidateUtilityPolicyUnavailable)
             {
-                _candidateUtilityStatus.Text = "Candidate comparison policy readiness is unavailable. Comparison stays disabled until Core confirms the explicit policy state.";
+                _candidateUtilityStatus.Text = StartItalian
+                    ? "Disponibilità dei criteri di confronto candidati non disponibile. Il confronto rimane disabilitato fino a quando Core non conferma lo stato dei criteri espliciti."
+                    : "Candidate comparison policy readiness is unavailable. Comparison stays disabled until Core confirms the explicit policy state.";
                 return;
             }
 
@@ -1219,15 +1226,24 @@ namespace PaRuX.Views
             {
                 string? reason = _candidateUtilityPolicy?.ReasonCode;
                 _candidateUtilityStatus.Text = string.IsNullOrWhiteSpace(reason) || reason == "not_configured"
-                    ? "Candidate comparison policy: not configured. No thresholds are assumed; comparisons and recommendations are unavailable."
-                    : "Candidate comparison policy is not ready (" + LimitDisplay(reason, 60)
-                        + "). Comparison stays disabled; no thresholds are assumed.";
+                    ? (StartItalian
+                        ? "Criteri di confronto candidati: non configurati. Nessuna soglia impostata; confronti e raccomandazioni non sono disponibili."
+                        : "Candidate comparison policy: not configured. No thresholds are assumed; comparisons and recommendations are unavailable.")
+                    : (StartItalian
+                        ? "I criteri di confronto candidati non sono pronti (" + LimitDisplay(reason, 60)
+                            + "). Il confronto rimane disabilitato; nessuna soglia impostata."
+                        : "Candidate comparison policy is not ready (" + LimitDisplay(reason, 60)
+                            + "). Comparison stays disabled; no thresholds are assumed.");
                 return;
             }
 
-            _candidateUtilityStatus.Text = "Explicit Candidate utility policy loaded for "
-                + LimitDisplay(status.Policy.Capability, 80)
-                + ". Comparison requires separate quality/reliability floors plus TTFT and final-response latency margins; any result requires human review and is not a recommendation or best-in-class claim.";
+            _candidateUtilityStatus.Text = StartItalian
+                ? "Criteri espliciti di utilità dei candidati caricati per "
+                  + LimitDisplay(status.Policy.Capability, 80)
+                  + ". Il confronto richiede soglie minime separate di qualità/affidabilità e margini di latenza TTFT e risposta finale; ogni risultato richiede revisione umana e non costituisce una raccomandazione o affermazione di eccellenza assoluta."
+                : "Explicit Candidate utility policy loaded for "
+                  + LimitDisplay(status.Policy.Capability, 80)
+                  + ". Comparison requires separate quality/reliability floors plus TTFT and final-response latency margins; any result requires human review and is not a recommendation or best-in-class claim.";
         }
 
         private async Task ConfigureCandidateUtilityPolicyAsync(bool useTestContextFixture = false)
@@ -1266,19 +1282,27 @@ namespace PaRuX.Views
                 bool generalChatScope = context.QualityProfileId == CandidateEvaluationScope.GeneralChatQualityProfileId;
                 content.Children.Add(new TextBlock
                 {
-                    Text = "These are explicit comparison criteria, not recommended thresholds. No values are filled in for a new policy. The selected evidence scope is "
+                    Text = (StartItalian
+                        ? "Questi sono criteri di confronto espliciti, non soglie consigliate. Nessun valore è precompilato per i nuovi criteri. L'ambito di evidenza selezionato è "
+                        : "These are explicit comparison criteria, not recommended thresholds. No values are filled in for a new policy. The selected evidence scope is ")
                         + context.Capability + " (" + context.QualityProfileId + " v"
                         + context.QualityProfileVersion.ToString(CultureInfo.InvariantCulture) + "). "
                         + (generalChatScope
-                            ? "It measures bounded standard × balanced general-chat tasks only; it does not establish coding, other modality or best-in-class quality. The policy must retain at least 90% quality, 95% fresh-process reliability and 5 distinct runs."
-                            : "It is the fixed quick-check smoke profile for comparison evidence only; it does not establish general-chat, coding, reasoning or best-in-class quality."),
+                            ? (StartItalian
+                                ? "Misura solo compiti limitati di chat generale standard × bilanciata; non stabilisce qualità di programmazione, altre modalità o eccellenza assoluta. I criteri devono mantenere almeno il 90% di qualità, il 95% di affidabilità su nuovo processo e 5 esecuzioni distinte."
+                                : "It measures bounded standard × balanced general-chat tasks only; it does not establish coding, other modality or best-in-class quality. The policy must retain at least 90% quality, 95% fresh-process reliability and 5 distinct runs.")
+                            : (StartItalian
+                                ? "È il profilo di smoke test rapido fisso solo per evidenza di confronto; non stabilisce qualità di chat generale, programmazione, ragionamento o eccellenza assoluta."
+                                : "It is the fixed quick-check smoke profile for comparison evidence only; it does not establish general-chat, coding, reasoning or best-in-class quality.")),
                     TextWrapping = TextWrapping.Wrap
                 });
                 if (existingPolicy != null && !sameScope)
                 {
                     content.Children.Add(new TextBlock
                     {
-                        Text = "The saved criteria belong to a different machine/runtime/build/configuration scope. They will not be carried over; enter all values again for this scope.",
+                        Text = StartItalian
+                            ? "I criteri salvati appartengono a un diverso ambito di macchina/runtime/build/configurazione. Non verranno trasferiti; inserisci nuovamente tutti i valori per questo ambito."
+                            : "The saved criteria belong to a different machine/runtime/build/configuration scope. They will not be carried over; enter all values again for this scope.",
                         TextWrapping = TextWrapping.Wrap,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     });
@@ -1287,34 +1311,38 @@ namespace PaRuX.Views
                 {
                     content.Children.Add(new TextBlock
                     {
-                        Text = "Showing the previously saved values for this exact scope. Saving replaces that explicit policy.",
+                        Text = StartItalian
+                            ? "Visualizzazione dei valori salvati in precedenza per questo esatto ambito. Il salvataggio sostituisce tali criteri espliciti."
+                            : "Showing the previously saved values for this exact scope. Saving replaces that explicit policy.",
                         TextWrapping = TextWrapping.Wrap,
                         Opacity = 0.8
                     });
                 }
 
-                string fingerprintText = "Exact Core-owned scope (read-only)\n"
+                string fingerprintText = (StartItalian ? "Ambito esatto gestito da Core (sola lettura)\n" : "Exact Core-owned scope (read-only)\n")
                     + "Hardware: " + context.QualityEnvironment.HardwareFingerprint + "\n"
                     + "Runtime: " + context.QualityEnvironment.RuntimeFingerprint + "\n"
-                    + "Runtime binary: " + context.QualityEnvironment.BinaryFingerprint + "\n"
-                    + "Evaluation configuration: " + context.QualityEnvironment.ConfigurationFingerprint + "\n"
-                    + "Context fingerprint: " + context.ContextFingerprint;
+                    + (StartItalian ? "File binario runtime: " : "Runtime binary: ") + context.QualityEnvironment.BinaryFingerprint + "\n"
+                    + (StartItalian ? "Configurazione di valutazione: " : "Evaluation configuration: ") + context.QualityEnvironment.ConfigurationFingerprint + "\n"
+                    + (StartItalian ? "Impronta contesto: " : "Context fingerprint: ") + context.ContextFingerprint;
                 content.Children.Add(new TextBlock { Text = fingerprintText, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
 
-                var passRate = AddPolicyCriteriaField(content, "Minimum task-quality pass rate (%)",
+                var passRate = AddPolicyCriteriaField(content,
+                    StartItalian ? "Tasso minimo di superamento qualità attività (%)" : "Minimum task-quality pass rate (%)",
                     "ModelHub_CandidateUtilityQualityFloor_TextBox", sameScope ? FormatBasisPoints(existingPolicy!.MinimumQualityPassRateBasisPoints) : null);
-                var reliability = AddPolicyCriteriaField(content, "Minimum fresh-process reliability (%)",
+                var reliability = AddPolicyCriteriaField(content,
+                    StartItalian ? "Affidabilità minima su nuovo processo (%)" : "Minimum fresh-process reliability (%)",
                     "ModelHub_CandidateUtilityReliabilityFloor_TextBox", sameScope ? FormatBasisPoints(existingPolicy!.MinimumQualityReliabilityBasisPoints) : null);
                 var runCount = AddPolicyCriteriaField(content,
-                    "Minimum distinct quality runs (2–" + context.MaximumQualityRunCount.ToString(CultureInfo.InvariantCulture) + ")",
+                    (StartItalian ? "Esecuzioni distinte minime di qualità (2–" : "Minimum distinct quality runs (2–") + context.MaximumQualityRunCount.ToString(CultureInfo.InvariantCulture) + ")",
                     "ModelHub_CandidateUtilityMinimumRuns_TextBox",
                     sameScope ? existingPolicy!.MinimumQualityRunCount?.ToString(CultureInfo.InvariantCulture) : null);
                 var ttftMargin = AddPolicyCriteriaField(content,
-                    "Minimum TTFT improvement over active model (%) · lower is better",
+                    StartItalian ? "Miglioramento minimo TTFT rispetto al modello attivo (%) · inferiore è migliore" : "Minimum TTFT improvement over active model (%) · lower is better",
                     "ModelHub_CandidateUtilityTtftMargin_TextBox",
                     sameScope ? FormatBasisPoints(existingPolicy!.MinimumTimeToFirstTokenMarginBasisPoints) : null);
                 var completionMargin = AddPolicyCriteriaField(content,
-                    "Minimum final-response latency improvement (%) · lower is better",
+                    StartItalian ? "Miglioramento minimo latenza risposta finale (%) · inferiore è migliore" : "Minimum final-response latency improvement (%) · lower is better",
                     "ModelHub_CandidateUtilityCompletionMargin_TextBox",
                     sameScope ? FormatBasisPoints(existingPolicy!.MinimumCompletionLatencyMarginBasisPoints) : null);
                 var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.IndianRed) };
@@ -1329,10 +1357,10 @@ namespace PaRuX.Views
                 };
                 var dialog = new ContentDialog
                 {
-                    Title = "Set explicit Candidate comparison criteria",
+                    Title = StartItalian ? "Imposta criteri espliciti di confronto candidati" : "Set explicit Candidate comparison criteria",
                     Content = scroll,
-                    PrimaryButtonText = "Save criteria",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = StartItalian ? "Salva criteri" : "Save criteria",
+                    CloseButtonText = StartItalian ? "Annulla" : "Cancel",
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = XamlRoot,
                     MaxWidth = 900
@@ -1356,8 +1384,12 @@ namespace PaRuX.Views
                                 Math.Min(context.MaximumMarginBasisPoints, 10000), out int completionBasisPoints))
                         {
                             error.Text = generalChatScope
-                                ? "Enter every required value. General chat criteria cannot be lower than 90.00% task quality, 95.00% fresh-process reliability or 5 distinct runs; other percentages and run count must also be within the displayed ranges."
-                                : "Enter every required value. Percentages must be between 0.01 and 100.00 with at most two decimals; run count must be within the displayed range.";
+                                ? (StartItalian
+                                    ? "Inserisci tutti i valori richiesti. I criteri per la chat generale non possono essere inferiori al 90,00% di qualità attività, al 95,00% di affidabilità su nuovo processo o a 5 esecuzioni distinte; anche le altre percentuali e il numero di esecuzioni devono rientrare negli intervalli indicati."
+                                    : "Enter every required value. General chat criteria cannot be lower than 90.00% task quality, 95.00% fresh-process reliability or 5 distinct runs; other percentages and run count must also be within the displayed ranges.")
+                                : (StartItalian
+                                    ? "Inserisci tutti i valori richiesti. Le percentuali devono essere comprese tra 0,01 e 100,00 con al massimo due decimali; il numero di esecuzioni deve rientrare nell'intervallo visualizzato."
+                                    : "Enter every required value. Percentages must be between 0.01 and 100.00 with at most two decimals; run count must be within the displayed range.");
                             return;
                         }
 
@@ -1373,7 +1405,9 @@ namespace PaRuX.Views
                             .ConfigureCandidateUtilityPolicyAsync(request, CancellationToken.None);
                         if (!saved.Configured || saved.Readiness != "WellFormed" || saved.Policy == null)
                         {
-                            error.Text = "Core did not confirm a complete policy. No success was assumed.";
+                            error.Text = StartItalian
+                                ? "Core non ha confermato criteri completi. Nessun esito positivo presunto."
+                                : "Core did not confirm a complete policy. No success was assumed.";
                             return;
                         }
 
@@ -1383,13 +1417,15 @@ namespace PaRuX.Views
                         _candidateUtilityStateVersion++;
                         RenderCandidateUtilityPolicyStatus();
                         RenderCandidates();
-                        _status.Text = "Explicit Candidate comparison criteria saved for the displayed hardware/runtime scope. No model was promoted and routing did not change.";
+                        _status.Text = StartItalian
+                            ? "Criteri espliciti di confronto candidati salvati per l'ambito hardware/runtime visualizzato. Nessun modello promosso e l'instradamento non è cambiato."
+                            : "Explicit Candidate comparison criteria saved for the displayed hardware/runtime scope. No model was promoted and routing did not change.";
                         dialog.Hide();
                     }
                     catch (Exception ex)
                     {
-                        error.Text = "Criteria were not saved: " + LimitDisplay(ex.Message, 220)
-                            + ". Refresh the Model Hub and retry if the hardware/runtime context changed.";
+                        error.Text = (StartItalian ? "I criteri non sono stati salvati: " : "Criteria were not saved: ") + LimitDisplay(ex.Message, 220)
+                            + (StartItalian ? ". Aggiorna il Model Hub e riprova se il contesto hardware/runtime è cambiato." : ". Refresh the Model Hub and retry if the hardware/runtime context changed.");
                     }
                     finally { deferral.Complete(); }
                 };
@@ -1397,8 +1433,8 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _status.Text = "Comparison criteria are unavailable: " + LimitDisplay(ex.Message, 180)
-                    + ". No policy or model state was changed.";
+                _status.Text = (StartItalian ? "Criteri di confronto non disponibili: " : "Comparison criteria are unavailable: ") + LimitDisplay(ex.Message, 180)
+                    + (StartItalian ? ". Nessun criterio o stato del modello modificato." : ". No policy or model state was changed.");
             }
             finally
             {
@@ -1417,10 +1453,12 @@ namespace PaRuX.Views
 
             var confirm = new ContentDialog
             {
-                Title = "Reset Candidate comparison criteria?",
-                Content = "This removes the locally saved comparison policy. It does not delete models or evidence, and it does not create replacement thresholds.",
-                PrimaryButtonText = "Reset criteria",
-                CloseButtonText = "Keep criteria",
+                Title = StartItalian ? "Reimpostare i criteri di confronto candidati?" : "Reset Candidate comparison criteria?",
+                Content = StartItalian
+                    ? "Questo rimuove i criteri di confronto salvati localmente. Non elimina modelli o evidenze e non crea soglie sostitutive."
+                    : "This removes the locally saved comparison policy. It does not delete models or evidence, and it does not create replacement thresholds.",
+                PrimaryButtonText = StartItalian ? "Reimposta criteri" : "Reset criteria",
+                CloseButtonText = StartItalian ? "Mantieni criteri" : "Keep criteria",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -1440,12 +1478,14 @@ namespace PaRuX.Views
                 _candidateUtilityPolicyUnavailable = false;
                 _candidateUtilityResultMessages.Clear();
                 _candidateUtilityStateVersion++;
-                _status.Text = "Candidate comparison criteria reset. No thresholds were restored or inferred; no model or routing changed.";
+                _status.Text = StartItalian
+                    ? "Criteri di confronto candidati reimpostati. Nessuna soglia ripristinata o dedotta; nessun modello o instradamento modificato."
+                    : "Candidate comparison criteria reset. No thresholds were restored or inferred; no model or routing changed.";
             }
             catch (Exception ex)
             {
-                _status.Text = "Comparison criteria were not reset: " + LimitDisplay(ex.Message, 180)
-                    + ". The previous displayed state is retained.";
+                _status.Text = (StartItalian ? "I criteri di confronto non sono stati reimpostati: " : "Comparison criteria were not reset: ") + LimitDisplay(ex.Message, 180)
+                    + (StartItalian ? ". Lo stato visualizzato precedente è stato mantenuto." : ". The previous displayed state is retained.");
             }
             finally
             {
@@ -1461,7 +1501,7 @@ namespace PaRuX.Views
             var field = new TextBox
             {
                 Header = label,
-                PlaceholderText = "Required",
+                PlaceholderText = StartItalian ? "Obbligatorio" : "Required",
                 Text = currentValue ?? string.Empty,
                 Width = 360
             };
@@ -1513,7 +1553,7 @@ namespace PaRuX.Views
             var input = new TextBox
             {
                 AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-                PlaceholderText = "owner/repository (one per line, at most two)",
+                PlaceholderText = StartItalian ? "proprietario/repository (uno per riga, al massimo due)" : "owner/repository (one per line, at most two)",
                 MaxLength = 400, MinWidth = 420, Height = 100
             };
             AutomationProperties.SetAutomationId(input, "ModelHub_CandidateExplicitRepos_TextBox");
@@ -1522,17 +1562,22 @@ namespace PaRuX.Views
             var content = new StackPanel { Spacing = 10 };
             content.Children.Add(new TextBlock
             {
-                Text = "Checking public repository metadata contacts Hugging Face. Publisher data is unverified. "
-                    + "This does not download a model or start an evaluation.",
+                Text = StartItalian
+                    ? "Il controllo dei metadati del repository pubblico contatta Hugging Face. I dati dell'autore non sono verificati. "
+                        + "Questa operazione non scarica un modello né avvia una valutazione."
+                    : "Checking public repository metadata contacts Hugging Face. Publisher data is unverified. "
+                        + "This does not download a model or start an evaluation.",
                 TextWrapping = TextWrapping.Wrap
             });
             content.Children.Add(input);
             content.Children.Add(error);
             var dialog = new ContentDialog
             {
-                Title = "Check specific repositories",
-                Content = content, PrimaryButtonText = "Check public metadata",
-                CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+                Title = StartItalian ? "Controlla repository specifici" : "Check specific repositories",
+                Content = content,
+                PrimaryButtonText = StartItalian ? "Controlla metadati pubblici" : "Check public metadata",
+                CloseButtonText = StartItalian ? "Annulla" : "Cancel",
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
             AutomationProperties.SetAutomationId(dialog, "ModelHub_CandidateExplicitRefresh_Dialog");
@@ -1541,8 +1586,11 @@ namespace PaRuX.Views
             {
                 if (!TryParseExplicitRepositoryIds(input.Text, out string[] parsed))
                 {
-                    error.Text = "Enter one or two distinct owner/repository IDs, one per line. "
-                        + "Do not enter a URL, revision, file, query, or token.";
+                    error.Text = StartItalian
+                        ? "Inserisci uno o due ID proprietario/repository distinti, uno per riga. "
+                            + "Non inserire un URL, una revisione, un file, una query o un token."
+                        : "Enter one or two distinct owner/repository IDs, one per line. "
+                            + "Do not enter a URL, revision, file, query, or token.";
                     args.Cancel = true;
                     return;
                 }
@@ -1554,8 +1602,11 @@ namespace PaRuX.Views
             catch (Exception)
             {
                 // WinUI allows one open ContentDialog per XamlRoot; another dialog wins and no request is sent.
-                _explicitDiscoveryStatus.Text = "The repository check could not open because another dialog is active. "
-                    + "No request was sent.";
+                _explicitDiscoveryStatus.Text = StartItalian
+                    ? "Impossibile aprire il controllo del repository perché è attiva un'altra finestra di dialogo. "
+                        + "Nessuna richiesta inviata."
+                    : "The repository check could not open because another dialog is active. "
+                        + "No request was sent.";
                 return;
             }
             finally { _explicitDiscoveryDialogOpen = false; }
@@ -1567,8 +1618,9 @@ namespace PaRuX.Views
             using var cts = new CancellationTokenSource();
             _explicitDiscoveryCts = cts;
             _explicitDiscoveryButton.IsEnabled = false;
-            _explicitDiscoveryStatus.Text = "Checking public metadata for " + repositoryIds.Length
-                + " repository ID(s)…";
+            _explicitDiscoveryStatus.Text = (StartItalian ? "Controllo dei metadati pubblici per " : "Checking public metadata for ")
+                + repositoryIds.Length
+                + (StartItalian ? " ID repository…" : " repository ID(s)…");
             try
             {
                 var request = new ModelDiscoveryExplicitRefreshRequest
@@ -1586,32 +1638,52 @@ namespace PaRuX.Views
                     if (operationId != _explicitDiscoveryOperationId || cts.IsCancellationRequested) return;
                     if (_refreshGeneration == refreshGeneration)
                         // RefreshAllAsync defers while a Candidate ignore is pending; it reloads afterwards.
-                        _explicitDiscoveryStatus.Text = "Public metadata checked. The catalog will reload after the "
-                            + "pending Candidate change finishes. No download or evaluation started.";
+                        _explicitDiscoveryStatus.Text = StartItalian
+                            ? "Metadati pubblici controllati. Il catalogo verrà ricaricato al termine della "
+                                + "modifica del candidato in sospeso. Nessun download o valutazione avviati."
+                            : "Public metadata checked. The catalog will reload after the "
+                                + "pending Candidate change finishes. No download or evaluation started.";
                     else if (_refreshGeneration != refreshGeneration + 1)
                         _explicitDiscoveryStatus.Text = _catalogStale
-                            ? "Public metadata checked, but a newer refresh could not reload the catalog. "
-                                + "Earlier cards remain. No download or evaluation started."
-                            : "Public metadata checked. A newer Model Hub refresh is "
-                                + "showing the latest catalog. No download or evaluation started.";
+                            ? (StartItalian
+                                ? "Metadati pubblici controllati, ma un aggiornamento più recente non ha potuto ricaricare il catalogo. "
+                                    + "Le schede precedenti rimangono. Nessun download o valutazione avviati."
+                                : "Public metadata checked, but a newer refresh could not reload the catalog. "
+                                    + "Earlier cards remain. No download or evaluation started.")
+                            : (StartItalian
+                                ? "Metadati pubblici controllati. Un aggiornamento più recente del Model Hub sta "
+                                    + "mostrando il catalogo più aggiornato. Nessun download o valutazione avviati."
+                                : "Public metadata checked. A newer Model Hub refresh is "
+                                    + "showing the latest catalog. No download or evaluation started.");
                     else _explicitDiscoveryStatus.Text = _catalogStale || ReferenceEquals(priorCatalog, _discoveryCatalog)
-                        ? "Public metadata was checked, but the catalog could not be reloaded. Earlier cards remain."
-                        : "Public metadata checked. The catalog now shows " + result.CandidateCount
-                            + " unverified Candidate record(s). No download or evaluation started.";
+                        ? (StartItalian
+                            ? "I metadati pubblici sono stati controllati, ma non è stato possibile ricaricare il catalogo. Le schede precedenti rimangono."
+                            : "Public metadata was checked, but the catalog could not be reloaded. Earlier cards remain.")
+                        : (StartItalian
+                            ? "Metadati pubblici controllati. Il catalogo mostra ora " + result.CandidateCount
+                                + " record di candidati non verificati. Nessun download o valutazione avviati."
+                            : "Public metadata checked. The catalog now shows " + result.CandidateCount
+                                + " unverified Candidate record(s). No download or evaluation started.");
                 }
                 else if (result.Outcome == "cooldown")
-                    _explicitDiscoveryStatus.Text = "Candidate metadata was checked recently. "
-                        + "No new request was made; existing cards remain.";
+                    _explicitDiscoveryStatus.Text = StartItalian
+                        ? "I metadati dei candidati sono stati controllati di recente. "
+                            + "Nessuna nuova richiesta effettuata; le schede esistenti rimangono."
+                        : "Candidate metadata was checked recently. "
+                            + "No new request was made; existing cards remain.";
                 else
-                    _explicitDiscoveryStatus.Text = "Repository metadata check failed ("
-                        + LimitDisplay(result.ErrorCode, 40) + "). Existing cards remain.";
+                    _explicitDiscoveryStatus.Text = (StartItalian ? "Controllo metadati repository non riuscito (" : "Repository metadata check failed (")
+                        + LimitDisplay(result.ErrorCode, 40) + (StartItalian ? "). Le schede esistenti rimangono." : "). Existing cards remain.");
             }
             catch (OperationCanceledException) { }
             catch (Exception)
             {
                 if (operationId == _explicitDiscoveryOperationId)
-                    _explicitDiscoveryStatus.Text = "Repository metadata check could not be confirmed. "
-                        + "Existing cards remain; no model action was taken.";
+                    _explicitDiscoveryStatus.Text = StartItalian
+                        ? "Impossibile confermare il controllo dei metadati del repository. "
+                            + "Le schede esistenti rimangono; nessuna azione è stata eseguita sui modelli."
+                        : "Repository metadata check could not be confirmed. "
+                            + "Existing cards remain; no model action was taken.";
             }
             finally
             {
@@ -1643,12 +1715,14 @@ namespace PaRuX.Views
             return true;
         }
 
-        private const string StaleCatalogMessage = "Candidate catalog could not be refreshed; showing earlier data.";
+        private static string StaleCatalogMessage => StartItalian
+            ? "Impossibile aggiornare il catalogo dei candidati; visualizzazione dei dati precedenti."
+            : "Candidate catalog could not be refreshed; showing earlier data.";
 
         private async Task RefreshCandidateCatalogAsync()
         {
             InvalidateExplicitDiscovery();
-            SetBusy(true, "Refreshing public model metadata…");
+            SetBusy(true, StartItalian ? "Aggiornamento dei metadati pubblici dei modelli…" : "Refreshing public model metadata…");
             string outcomeMessage;
             try
             {
@@ -1665,16 +1739,24 @@ namespace PaRuX.Views
                 }
                 outcomeMessage = result.Outcome switch
                 {
-                    "refreshed" => "Candidate catalog refreshed · " + result.CandidateCount + " metadata record(s).",
-                    "cooldown" => "Candidate catalog was checked recently; no new request was made.",
-                    "failed" => "Candidate metadata refresh failed (" + LimitDisplay(result.ErrorCode, 40)
-                        + "). Existing catalog data remains available; no model action was taken.",
-                    _ => "Candidate refresh returned an unrecognized outcome: " + LimitDisplay(result.Outcome, 40)
+                    "refreshed" => StartItalian
+                        ? "Catalogo dei candidati aggiornato · " + result.CandidateCount + " record di metadati."
+                        : "Candidate catalog refreshed · " + result.CandidateCount + " metadata record(s).",
+                    "cooldown" => StartItalian
+                        ? "Il catalogo dei candidati è stato controllato di recente; nessuna nuova richiesta effettuata."
+                        : "Candidate catalog was checked recently; no new request was made.",
+                    "failed" => (StartItalian ? "Aggiornamento dei metadati dei candidati non riuscito (" : "Candidate metadata refresh failed (")
+                        + LimitDisplay(result.ErrorCode, 40)
+                        + (StartItalian ? "). I dati del catalogo esistente rimangono disponibili; nessuna azione eseguita sui modelli." : "). Existing catalog data remains available; no model action was taken."),
+                    _ => (StartItalian ? "L'aggiornamento dei candidati ha restituito un risultato non riconosciuto: " : "Candidate refresh returned an unrecognized outcome: ")
+                        + LimitDisplay(result.Outcome, 40)
                 };
             }
             catch (Exception)
             {
-                outcomeMessage = "Candidate metadata refresh could not be confirmed. Existing catalog data, if any, was not replaced by this view.";
+                outcomeMessage = StartItalian
+                    ? "Impossibile confermare l'aggiornamento dei metadati dei candidati. I dati del catalogo esistente, se presenti, non sono stati sostituiti da questa visualizzazione."
+                    : "Candidate metadata refresh could not be confirmed. Existing catalog data, if any, was not replaced by this view.";
             }
             finally { SetBusy(false, string.Empty); }
 
@@ -1773,7 +1855,7 @@ namespace PaRuX.Views
                 card.Children.Add(chips);
                 card.Children.Add(new TextBlock
                 {
-                    Text = cardModel.CapabilityText + " · " + cardModel.SizeText + " · publisher data unverified",
+                    Text = cardModel.CapabilityText + " · " + cardModel.SizeText + (StartItalian ? " · dati dell'autore non verificati" : " · publisher data unverified"),
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.78
                 });
                 card.Children.Add(new TextBlock
@@ -1788,45 +1870,45 @@ namespace PaRuX.Views
                     card.Children.Add(notice);
                 }
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var details = new Button { Content = "Details", IsEnabled = !anyBusy };
+                var details = new Button { Content = StartItalian ? "Dettagli" : "Details", IsEnabled = !anyBusy };
                 AutomationProperties.SetAutomationId(details,
                     ModelSuggestionPresenter.CardAutomationId(cardModel.Key, "Details"));
                 details.Click += async (_, _) => await ShowModelDetailsAsync(cardModel.Title,
                     new (string Label, string? Value)[]
                     {
-                        ("Status", "Unverified Candidate; not an evaluated recommendation"),
-                        ("Reason", cardModel.ReasonText),
-                        ("Hardware estimate", cardModel.FitText),
-                        ("Capability", cardModel.CapabilityText),
-                        ("Download estimate", cardModel.SizeText),
-                        ("Licence", cardModel.LicenceText),
-                        ("Discovery cohort", string.Join(", ", cardModel.CohortChips)),
-                        ("Evidence", cardModel.LaneEvidenceText),
-                        ("Provenance", cardModel.ProvenanceText),
-                        ("Runtime requirement", cardModel.RuntimeNoticeText),
+                        (StartItalian ? "Stato" : "Status", StartItalian ? "Candidato non verificato; non è una raccomandazione valutata" : "Unverified Candidate; not an evaluated recommendation"),
+                        (StartItalian ? "Motivo" : "Reason", cardModel.ReasonText),
+                        (StartItalian ? "Stima hardware" : "Hardware estimate", cardModel.FitText),
+                        (StartItalian ? "Funzionalità" : "Capability", cardModel.CapabilityText),
+                        (StartItalian ? "Stima download" : "Download estimate", cardModel.SizeText),
+                        (StartItalian ? "Licenza" : "Licence", cardModel.LicenceText),
+                        (StartItalian ? "Coorte di scoperta" : "Discovery cohort", string.Join(", ", cardModel.CohortChips)),
+                        (StartItalian ? "Evidenza" : "Evidence", cardModel.LaneEvidenceText),
+                        (StartItalian ? "Provenienza" : "Provenance", cardModel.ProvenanceText),
+                        (StartItalian ? "Requisito di runtime" : "Runtime requirement", cardModel.RuntimeNoticeText),
                         ("Repository", cardModel.Repo)
                     });
                 actions.Children.Add(details);
                 if (cardModel.CanReviewAndDownload)
                 {
-                    var review = new Button { Content = "Review & download", IsEnabled = !anyBusy };
+                    var review = new Button { Content = StartItalian ? "Esamina e scarica" : "Review & download", IsEnabled = !anyBusy };
                     AutomationProperties.SetAutomationId(review, ModelSuggestionPresenter.CardAutomationId(cardModel.Key, "Review"));
                     review.Click += async (_, _) => await ReviewSuggestionAsync(cardModel);
                     actions.Children.Add(review);
                 }
                 if (cardModel.CanDefer)
                 {
-                    var later = new Button { Content = "Not now", IsEnabled = !anyBusy };
+                    var later = new Button { Content = StartItalian ? "Non ora" : "Not now", IsEnabled = !anyBusy };
                     AutomationProperties.SetAutomationId(later, ModelSuggestionPresenter.CardAutomationId(cardModel.Key, "NotNow"));
-                    ToolTipService.SetToolTip(later, "Hides this suggestion until PaRuX restarts. Nothing is changed.");
+                    ToolTipService.SetToolTip(later, StartItalian ? "Nasconde questo suggerimento fino al riavvio di PaRuX. Nessuna modifica applicata." : "Hides this suggestion until PaRuX restarts. Nothing is changed.");
                     later.Click += (_, _) => { _suggestionDeferredKeys.Add(cardModel.Key); RenderSuggestions(); };
                     actions.Children.Add(later);
                 }
                 if (cardModel.CanIgnore)
                 {
-                    var ignore = new Button { Content = "Ignore", IsEnabled = !anyBusy };
+                    var ignore = new Button { Content = StartItalian ? "Ignora" : "Ignore", IsEnabled = !anyBusy };
                     AutomationProperties.SetAutomationId(ignore, ModelSuggestionPresenter.CardAutomationId(cardModel.Key, "Ignore"));
-                    ToolTipService.SetToolTip(ignore, "Permanently hides this exact Candidate revision. Existing files are not deleted.");
+                    ToolTipService.SetToolTip(ignore, StartItalian ? "Nasconde definitivamente questa esatta revisione del candidato. I file esistenti non vengono eliminati." : "Permanently hides this exact Candidate revision. Existing files are not deleted.");
                     ignore.Click += async (_, _) => await IgnoreSuggestionAsync(cardModel.Key);
                     actions.Children.Add(ignore);
                 }
@@ -1844,18 +1926,20 @@ namespace PaRuX.Views
         {
             if (!_suggestionBusyKeys.Add(card.Key)) return;
             RenderSuggestions();
-            SetBusy(true, "Resolving a complete GGUF set for " + card.Repo + "…");
+            SetBusy(true, (StartItalian ? "Risoluzione di un set GGUF completo per " : "Resolving a complete GGUF set for ") + card.Repo + "…");
             try
             {
                 List<ModelSearchResult> matches = await ModelDownloadClient.Current.SearchAsync(card.Repo, 10, CancellationToken.None);
                 ModelHubSplitSetPresentation.RecommendedSetOption selected =
                     ModelHubSplitSetPresentation.PickRecommendedSet(matches, card.Repo, null)
                     ?? throw new InvalidOperationException(
-                        "This repository has no complete GGUF set available right now. Nothing was downloaded.");
-                SetBusy(false, "Review the quantization, licence and complete download plan.");
+                        StartItalian
+                            ? "Questo repository non ha un set GGUF completo disponibile al momento. Nessun elemento scaricato."
+                            : "This repository has no complete GGUF set available right now. Nothing was downloaded.");
+                SetBusy(false, StartItalian ? "Esamina la quantizzazione, la licenza e il piano di download completo." : "Review the quantization, licence and complete download plan.");
                 await ChooseQuantChoiceAsync(selected.RepoId, selected.Choice);
             }
-            catch (Exception ex) { _status.Text = "Could not open the suggestion for review: " + ex.Message; }
+            catch (Exception ex) { _status.Text = (StartItalian ? "Impossibile aprire il suggerimento per l'esame: " : "Could not open the suggestion for review: ") + ex.Message; }
             finally
             {
                 _suggestionBusyKeys.Remove(card.Key);
@@ -1873,7 +1957,9 @@ namespace PaRuX.Views
                 bool stillActive = _discoveryCatalog?.Candidates.Any(candidate =>
                     candidate.Key == key && candidate.Lifecycle == "Candidate" && candidate.Disposition == "active") != false;
                 if (!stillActive) _suggestionHiddenKeys.Add(key);
-                else _status.Text = "The ignore decision was not confirmed; the suggestion stays visible. Refresh candidates and retry.";
+                else _status.Text = StartItalian
+                    ? "La decisione di ignorare non è stata confermata; il suggerimento rimane visibile. Aggiorna i candidati e riprova."
+                    : "The ignore decision was not confirmed; the suggestion stays visible. Refresh candidates and retry.";
             }
             finally
             {
@@ -1888,10 +1974,12 @@ namespace PaRuX.Views
             _candidates.Children.Clear();
             if (_discoveryCatalog == null)
             {
-                _candidateFilterCount.Text = "Catalog unavailable";
+                _candidateFilterCount.Text = StartItalian ? "Catalogo non disponibile" : "Catalog unavailable";
                 _candidates.Children.Add(new TextBlock
                 {
-                    Text = "Candidate catalog is unavailable. Use Refresh candidates to retry; no model action was taken.",
+                    Text = StartItalian
+                        ? "Il catalogo dei candidati non è disponibile. Usa Aggiorna candidati per riprovare; nessuna azione eseguita sui modelli."
+                        : "Candidate catalog is unavailable. Use Refresh candidates to retry; no model action was taken.",
                     TextWrapping = TextWrapping.Wrap
                 });
                 return;
@@ -1911,18 +1999,24 @@ namespace PaRuX.Views
                     || candidate.RepoFilePath.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToArray();
             ModelDiscoveryCandidate[] activeCandidates = matchingCandidates.Take(50).ToArray();
             _candidateFilterCount.Text = (_catalogStale ? StaleCatalogMessage + " " : string.Empty)
-                + "Showing " + activeCandidates.Length + " of "
-                + matchingCandidates.Length + " matching Candidates (" + allActiveCandidates.Length
-                + " active total).";
+                + (StartItalian
+                    ? "Visualizzazione di " + activeCandidates.Length + " su " + matchingCandidates.Length + " candidati corrispondenti (" + allActiveCandidates.Length + " attivi in totale)."
+                    : "Showing " + activeCandidates.Length + " of " + matchingCandidates.Length + " matching Candidates (" + allActiveCandidates.Length + " active total).");
             if (activeCandidates.Length == 0)
             {
                 _candidates.Children.Add(new TextBlock
                 {
                     Text = filter.Length == 0 && _cohortFilter != ModelCohortFilter.All && allActiveCandidates.Length > 0
-                        ? "No local Candidates were listed by the " + ModelCohortFilterPresenter.Label(_cohortFilter) + " discovery feed. Choose All to see the catalog."
+                        ? (StartItalian
+                            ? "Nessun candidato locale è stato elencato dal feed di scoperta " + ModelCohortFilterPresenter.Label(_cohortFilter) + ". Scegli Tutti per vedere il catalogo."
+                            : "No local Candidates were listed by the " + ModelCohortFilterPresenter.Label(_cohortFilter) + " discovery feed. Choose All to see the catalog.")
                         : filter.Length == 0
-                        ? "No active Candidates in the local catalog. Refresh candidates makes an explicit public metadata request."
-                        : "No local Candidates match this filter. Clear the filter to see the catalog.",
+                        ? (StartItalian
+                            ? "Nessun candidato attivo nel catalogo locale. Aggiorna candidati invia una richiesta esplicita di metadati pubblici."
+                            : "No active Candidates in the local catalog. Refresh candidates makes an explicit public metadata request.")
+                        : (StartItalian
+                            ? "Nessun candidato locale corrisponde a questo filtro. Cancella il filtro per vedere il catalogo."
+                            : "No local Candidates match this filter. Clear the filter to see the catalog."),
                     TextWrapping = TextWrapping.Wrap
                 });
                 return;
@@ -1967,17 +2061,17 @@ namespace PaRuX.Views
                 });
                 var declaredMetadata = new List<string>
                 {
-                    "Unverified publisher metadata",
-                    "revision " + LimitDisplay(candidate.Revision, 64)
+                    StartItalian ? "Metadati dell'autore non verificati" : "Unverified publisher metadata",
+                    (StartItalian ? "revisione " : "revision ") + LimitDisplay(candidate.Revision, 64)
                 };
                 if (!string.IsNullOrWhiteSpace(candidate.DeclaredPipelineTag))
                     declaredMetadata.Add("pipeline " + LimitDisplay(candidate.DeclaredPipelineTag, 60));
                 if (candidate.DeclaredSizeBytes is > 0)
-                    declaredMetadata.Add("declared size " + candidate.DeclaredSizeBytes.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " bytes");
+                    declaredMetadata.Add((StartItalian ? "dimensione dichiarata " : "declared size ") + candidate.DeclaredSizeBytes.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + (StartItalian ? " byte" : " bytes"));
                 if (!string.IsNullOrWhiteSpace(candidate.DeclaredSha256))
                 {
                     string declaredHash = LimitDisplay(candidate.DeclaredSha256, 12);
-                    declaredMetadata.Add("publisher SHA-256 claim " + declaredHash + "… (not verified)");
+                    declaredMetadata.Add((StartItalian ? "SHA-256 dichiarato dall'autore " : "publisher SHA-256 claim ") + declaredHash + (StartItalian ? "… (non verificato)" : "… (not verified)"));
                 }
                 string[] declaredTags = (candidate.DeclaredTags ?? new List<string>())
                     .Where(tag => !string.IsNullOrWhiteSpace(tag))
@@ -1995,7 +2089,7 @@ namespace PaRuX.Views
                 var cohortText = new TextBlock
                 {
                     Text = ModelCohortFilterPresenter.CohortLine(candidate.DiscoveryCohorts)
-                        + " (discovery provenance only, not a quality signal).",
+                        + (StartItalian ? " (solo provenienza di scoperta, non un segnale di qualità)." : " (discovery provenance only, not a quality signal)."),
                     TextWrapping = TextWrapping.Wrap,
                     FontSize = 12,
                     Opacity = 0.72
@@ -2005,10 +2099,10 @@ namespace PaRuX.Views
                 card.Children.Add(cohortText);
                 card.Children.Add(new TextBlock
                 {
-                    Text = "Candidate · publisher metadata is unverified; this is not a validated model or recommendation."
+                    Text = (StartItalian ? "Candidato · i metadati dell'autore non sono verificati; questo non è un modello convalidato o una raccomandazione." : "Candidate · publisher metadata is unverified; this is not a validated model or recommendation.")
                         + (string.IsNullOrWhiteSpace(candidate.DeclaredLicense)
-                            ? " Licence not declared."
-                            : " Publisher-declared licence: " + LimitDisplay(candidate.DeclaredLicense, 80) + "."),
+                            ? (StartItalian ? " Licenza non dichiarata." : " Licence not declared.")
+                            : (StartItalian ? " Licenza dichiarata dall'autore: " : " Publisher-declared licence: ") + LimitDisplay(candidate.DeclaredLicense, 80) + "."),
                     TextWrapping = TextWrapping.Wrap,
                     Opacity = 0.78
                 });
@@ -2024,21 +2118,21 @@ namespace PaRuX.Views
 
                 string readiness = managedMatch != null
                     ? candidateDownloadActive || candidateDownloadStarting
-                        ? "A pinned Candidate transfer or byte verification is in progress. Evaluation is paused until it finishes."
+                        ? (StartItalian ? "Trasferimento o verifica byte del candidato bloccato in corso. La valutazione è in pausa fino al termine." : "A pinned Candidate transfer or byte verification is in progress. Evaluation is paused until it finishes.")
                         : candidateEvaluationUncertain
-                            ? "Core did not confirm whether Candidate evaluation started; a job may still be active. File repair is blocked until a later evaluation request is confirmed."
-                        : "A PaRuX-managed file has matching repository, revision and file provenance. Core rechecks current bytes before evaluation; use Verify / repair pinned file if that check fails."
+                            ? (StartItalian ? "Core non ha confermato l'avvio della valutazione del candidato; un processo potrebbe essere ancora attivo. Il ripristino del file è bloccato fino alla conferma di una successiva richiesta di valutazione." : "Core did not confirm whether Candidate evaluation started; a job may still be active. File repair is blocked until a later evaluation request is confirmed.")
+                        : (StartItalian ? "Un file gestito da PaRuX ha repository, revisione e provenienza del file corrispondenti. Core ricontrolla i byte correnti prima della valutazione; usa Verifica / ripara file bloccato se il controllo non riesce." : "A PaRuX-managed file has matching repository, revision and file provenance. Core rechecks current bytes before evaluation; use Verify / repair pinned file if that check fails.")
                     : textGguf
                         ? !pinnedSourceValid
-                            ? "The Candidate's pinned source identity could not be confirmed. Refresh metadata; no download or evaluation is available."
+                            ? (StartItalian ? "Impossibile confermare l'identità dell'origine bloccata del candidato. Aggiorna i metadati; nessun download o valutazione disponibile." : "The Candidate's pinned source identity could not be confirmed. Refresh metadata; no download or evaluation is available.")
                             : !metadataTimeValid
-                                ? "Refresh Candidate metadata before downloading so the exact licence observation can be recorded."
+                                ? (StartItalian ? "Aggiorna i metadati del candidato prima del download in modo da poter registrare l'esatta osservazione della licenza." : "Refresh Candidate metadata before downloading so the exact licence observation can be recorded.")
                                 : candidateDownloadActive
-                                    ? "A PaRuX download for this file and revision is already active. Evaluation becomes available after exact provenance is verified."
+                                    ? (StartItalian ? "Un download PaRuX per questo file e revisione è già attivo. La valutazione diventa disponibile dopo la verifica dell'esatta provenienza." : "A PaRuX download for this file and revision is already active. Evaluation becomes available after exact provenance is verified.")
                                     : candidateDownloadCompleted
-                                        ? "A prior transfer reports completion, but this file's Candidate provenance is not currently verified. The pinned download can be retried; Core will reuse it only if its exact bytes still match."
-                                    : "No managed file matches this exact revision yet. Downloading is a separate, explicit action and will use the pinned file plus the current licence decision. Evaluation stays disabled until provenance and bytes match."
-                        : "This evaluation workflow currently supports text GGUF files only.";
+                                        ? (StartItalian ? "Un trasferimento precedente segnala il completamento, ma la provenienza di questo candidato non è attualmente verificata. Il download bloccato può essere ritentato; Core lo riutilizzerà solo se i byte esatti corrispondono ancora." : "A prior transfer reports completion, but this file's Candidate provenance is not currently verified. The pinned download can be retried; Core will reuse it only if its exact bytes still match.")
+                                    : (StartItalian ? "Nessun file gestito corrisponde ancora a questa esatta revisione. Il download è un'azione separata ed esplicita e utilizzerà il file bloccato più l'attuale decisione di licenza. La valutazione rimane disabilitata fino a quando la provenienza e i byte non corrispondono." : "No managed file matches this exact revision yet. Downloading is a separate, explicit action and will use the pinned file plus the current licence decision. Evaluation stays disabled until provenance and bytes match.")
+                        : (StartItalian ? "Questo flusso di lavoro di valutazione supporta attualmente solo file GGUF di testo." : "This evaluation workflow currently supports text GGUF files only.");
                 card.Children.Add(new TextBlock { Text = readiness, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
 
                 var jobText = new TextBlock
@@ -2058,8 +2152,8 @@ namespace PaRuX.Views
                     {
                         var verifying = new Button
                         {
-                            Content = _candidateDownloadUnknown.Contains(candidate.Key) ? "Download status unavailable"
-                                : candidateDownloadStarting ? "Starting pinned verification…" : "Pinned transfer in progress…",
+                            Content = _candidateDownloadUnknown.Contains(candidate.Key) ? (StartItalian ? "Stato download non disponibile" : "Download status unavailable")
+                                : candidateDownloadStarting ? (StartItalian ? "Avvio verifica file bloccato…" : "Starting pinned verification…") : (StartItalian ? "Trasferimento file bloccato in corso…" : "Pinned transfer in progress…"),
                             IsEnabled = false
                         };
                         actions.Children.Add(verifying);
@@ -2070,7 +2164,7 @@ namespace PaRuX.Views
                             || NormalizeCandidateJobValue(jobStatus!.Status) == "cancelling";
                         var cancel = new Button
                         {
-                            Content = cancelling ? "Cancelling…" : "Cancel evaluation",
+                            Content = cancelling ? (StartItalian ? "Annullamento in corso…" : "Cancelling…") : (StartItalian ? "Annulla valutazione" : "Cancel evaluation"),
                             IsEnabled = !cancelling
                         };
                         AutomationProperties.SetAutomationId(cancel, "ModelHub_CandidateCancel_" + candidate.Key);
@@ -2081,7 +2175,7 @@ namespace PaRuX.Views
                     {
                         actions.Children.Add(new Button
                         {
-                            Content = "Evaluation status unavailable",
+                            Content = StartItalian ? "Stato valutazione non disponibile" : "Evaluation status unavailable",
                             IsEnabled = false
                         });
                     }
@@ -2093,9 +2187,9 @@ namespace PaRuX.Views
                             jobStatus?.ErrorCode, "start_unconfirmed", StringComparison.Ordinal);
                         var start = new Button
                         {
-                            Content = startUnconfirmed ? "Start status unavailable"
-                                : requestUnconfirmed ? "Retry evaluation request"
-                                : jobStatus == null ? "Evaluate locally" : "Evaluate again",
+                            Content = startUnconfirmed ? (StartItalian ? "Stato avvio non disponibile" : "Start status unavailable")
+                                : requestUnconfirmed ? (StartItalian ? "Riprova richiesta di valutazione" : "Retry evaluation request")
+                                : jobStatus == null ? (StartItalian ? "Valuta localmente" : "Evaluate locally") : (StartItalian ? "Valuta di nuovo" : "Evaluate again"),
                             IsEnabled = !startUnconfirmed && !anotherJobActive && !_candidateEvaluationStartInFlight
                                 && !anyCandidateUtilityComparisonInFlight && !anyCandidateIgnoreInFlight
                         };
@@ -2109,7 +2203,7 @@ namespace PaRuX.Views
                         && !_candidateEvaluationStartInFlight && !anyCandidateUtilityComparisonInFlight
                         && !anyCandidateIgnoreInFlight)
                     {
-                        var verify = new Button { Content = "Verify / repair pinned file" };
+                        var verify = new Button { Content = StartItalian ? "Verifica / ripara file bloccato" : "Verify / repair pinned file" };
                         AutomationProperties.SetAutomationId(verify, "ModelHub_CandidateDownload_" + candidate.Key);
                         verify.Click += async (_, _) => await DownloadCandidateAsync(candidate);
                         actions.Children.Add(verify);
@@ -2124,8 +2218,8 @@ namespace PaRuX.Views
                     var compare = new Button
                     {
                         Content = candidateUtilityComparisonInFlight
-                            ? "Comparing stored evidence…"
-                            : "Compare with active model",
+                            ? (StartItalian ? "Confronto evidenza salvata in corso…" : "Comparing stored evidence…")
+                            : (StartItalian ? "Confronta con modello attivo" : "Compare with active model"),
                         IsEnabled = utilityPolicyReady && completedEligibleEvaluation
                             && !candidateEvaluationActive && !candidateEvaluationUncertain
                             && !candidateDownloadActive && !candidateDownloadStarting
@@ -2143,7 +2237,7 @@ namespace PaRuX.Views
                     {
                         var promote = new Button
                         {
-                            Content = "Make recommended for Chat…",
+                            Content = StartItalian ? "Rendi consigliato per la Chat…" : "Make recommended for Chat…",
                             IsEnabled = !_recommendationTransitionInFlight && !anyCandidateUtilityComparisonInFlight
                         };
                         AutomationProperties.SetAutomationId(promote, "ModelHub_CandidatePromote_" + candidate.Key);
@@ -2155,7 +2249,7 @@ namespace PaRuX.Views
                     {
                         var rollback = new Button
                         {
-                            Content = "Go back to the previous recommendation…",
+                            Content = StartItalian ? "Torna alla raccomandazione precedente…" : "Go back to the previous recommendation…",
                             IsEnabled = !_recommendationTransitionInFlight
                         };
                         AutomationProperties.SetAutomationId(rollback, "ModelHub_CandidateRollback_" + candidate.Key);
@@ -2174,10 +2268,10 @@ namespace PaRuX.Views
                     bool starting = candidateDownloadStarting;
                     var download = new Button
                     {
-                        Content = starting ? "Preparing download…"
-                            : _candidateDownloadUnknown.Contains(candidate.Key) ? "Download status unavailable"
-                            : candidateDownloadCompleted ? "Retry pinned download"
-                            : "Download pinned Candidate",
+                        Content = starting ? (StartItalian ? "Preparazione download…" : "Preparing download…")
+                            : _candidateDownloadUnknown.Contains(candidate.Key) ? (StartItalian ? "Stato download non disponibile" : "Download status unavailable")
+                            : candidateDownloadCompleted ? (StartItalian ? "Riprova download file bloccato" : "Retry pinned download")
+                            : (StartItalian ? "Scarica candidato bloccato" : "Download pinned Candidate"),
                         IsEnabled = canDownload && !starting
                     };
                     AutomationProperties.SetAutomationId(download, "ModelHub_CandidateDownload_" + candidate.Key);
@@ -2191,7 +2285,7 @@ namespace PaRuX.Views
                 {
                     var ignore = new Button
                     {
-                        Content = candidateIgnoreInFlight ? "Ignoring Candidate…" : "Ignore Candidate",
+                        Content = candidateIgnoreInFlight ? (StartItalian ? "Esclusione candidato…" : "Ignoring Candidate…") : (StartItalian ? "Ignora candidato" : "Ignore Candidate"),
                         IsEnabled = !candidateIgnoreInFlight && !_candidateIgnoreInFlight.Any()
                             && !candidateDownloadActive && !candidateDownloadStarting
                             && !_candidateDownloadUnknown.Contains(candidate.Key)
@@ -2200,7 +2294,9 @@ namespace PaRuX.Views
                     };
                     AutomationProperties.SetAutomationId(ignore, "ModelHub_CandidateIgnore_" + candidate.Key);
                     ToolTipService.SetToolTip(ignore,
-                        "Hide this Candidate from the active list. This does not delete a model file or evaluation evidence.");
+                        StartItalian
+                            ? "Nasconde questo candidato dall'elenco attivo. Non elimina i file del modello o le evidenze di valutazione."
+                            : "Hide this Candidate from the active list. This does not delete a model file or evaluation evidence.");
                     ignore.Click += async (_, _) => await IgnoreCandidateAsync(candidate.Key);
                     var lifecycleActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                     lifecycleActions.Children.Add(ignore);
@@ -2248,8 +2344,10 @@ namespace PaRuX.Views
             var heading = new TextBlock
             {
                 Text = allPendingNotices.Length == 1
-                    ? "A new model candidate was found"
-                    : allPendingNotices.Length + " new model candidates were found · showing " + notices.Length,
+                    ? (StartItalian ? "È stato trovato un nuovo candidato modello" : "A new model candidate was found")
+                    : (StartItalian
+                        ? (allPendingNotices.Length + " nuovi candidati modello trovati · visualizzati " + notices.Length)
+                        : (allPendingNotices.Length + " new model candidates were found · showing " + notices.Length)),
                 FontSize = 15,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             };
@@ -2257,7 +2355,9 @@ namespace PaRuX.Views
             group.Children.Add(heading);
             group.Children.Add(new TextBlock
             {
-                Text = "These are unverified publisher listings, not recommendations. PaRuX will not download, evaluate, or change routing unless you choose an action. The notice is grouped here; review each exact revision below.",
+                Text = StartItalian
+                    ? "Questi sono elenchi dell'autore non verificati, non raccomandazioni. PaRuX non eseguirà il download, la valutazione o il cambio di instradamento a meno che non si scelga un'azione. Gli avvisi sono raggruppati qui; esamina ogni esatta revisione sotto."
+                    : "These are unverified publisher listings, not recommendations. PaRuX will not download, evaluate, or change routing unless you choose an action. The notice is grouped here; review each exact revision below.",
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.8
             });
@@ -2276,7 +2376,7 @@ namespace PaRuX.Views
                 var identity = new TextBlock
                 {
                     Text = LimitDisplay(candidate.RepoId, 160) + " · " + LimitDisplay(candidate.RepoFilePath, 200)
-                        + " · revision " + LimitDisplay(candidate.Revision, 48),
+                        + (StartItalian ? " · revisione " : " · revision ") + LimitDisplay(candidate.Revision, 48),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     TextWrapping = TextWrapping.Wrap
                 };
@@ -2284,15 +2384,15 @@ namespace PaRuX.Views
                 card.Children.Add(identity);
 
                 string potential = string.IsNullOrWhiteSpace(candidate.DeclaredPipelineTag)
-                    ? "Publisher has not declared a task type."
-                    : "Publisher-declared task type: " + LimitDisplay(candidate.DeclaredPipelineTag, 60) + " (unverified).";
+                    ? (StartItalian ? "L'autore non ha dichiarato un tipo di attività." : "Publisher has not declared a task type.")
+                    : (StartItalian ? "Tipo di attività dichiarato dall'autore: " : "Publisher-declared task type: ") + LimitDisplay(candidate.DeclaredPipelineTag, 60) + (StartItalian ? " (non verificato)." : " (unverified).");
                 string size = candidate.DeclaredSizeBytes is > 0
-                    ? " Publisher-declared download size: " + candidate.DeclaredSizeBytes.Value.ToString("N0", CultureInfo.InvariantCulture) + " bytes."
-                    : " Download size is not declared.";
+                    ? (StartItalian ? " Dimensione download dichiarata dall'autore: " : " Publisher-declared download size: ") + candidate.DeclaredSizeBytes.Value.ToString("N0", CultureInfo.InvariantCulture) + (StartItalian ? " byte." : " bytes.")
+                    : (StartItalian ? " Dimensione download non dichiarata." : " Download size is not declared.");
                 string license = string.IsNullOrWhiteSpace(candidate.DeclaredLicense)
-                    ? " Licence is not declared; any download still requires the separate licence review."
-                    : " Publisher-declared licence: " + LimitDisplay(candidate.DeclaredLicense, 80)
-                        + "; verify it before any separate download.";
+                    ? (StartItalian ? " La licenza non è dichiarata; qualsiasi download richiede comunque la revisione separata della licenza." : " Licence is not declared; any download still requires the separate licence review.")
+                    : (StartItalian ? " Licenza dichiarata dall'autore: " : " Publisher-declared licence: ") + LimitDisplay(candidate.DeclaredLicense, 80)
+                        + (StartItalian ? "; verificala prima di qualsiasi download separato." : "; verify it before any separate download.");
                 card.Children.Add(new TextBlock
                 {
                     Text = potential + size + license,
@@ -2304,7 +2404,9 @@ namespace PaRuX.Views
                 {
                     var readiness = new TextBlock
                     {
-                        Text = "This exact revision is not installed and verified yet. If you choose to proceed, use the separate pinned-download action below; its licence review remains required. This notice will not start a transfer.",
+                        Text = StartItalian
+                            ? "Questa esatta revisione non è ancora installata e verificata. Se scegli di procedere, usa l'azione separata di download del file bloccato sotto; la revisione della licenza rimane obbligatoria. Questo avviso non avvierà un trasferimento."
+                            : "This exact revision is not installed and verified yet. If you choose to proceed, use the separate pinned-download action below; its licence review remains required. This notice will not start a transfer.",
                         TextWrapping = TextWrapping.Wrap,
                         FontSize = 12
                     };
@@ -2317,20 +2419,20 @@ namespace PaRuX.Views
                 {
                     var evaluate = new Button
                     {
-                        Content = decisionInFlight ? "Updating notice…" : "Evaluate now",
+                        Content = decisionInFlight ? (StartItalian ? "Aggiornamento avviso…" : "Updating notice…") : (StartItalian ? "Valuta ora" : "Evaluate now"),
                         IsEnabled = !decisionInFlight && !_candidateEvaluationStartInFlight
                             && !anotherJobActive && managedMatch != null
                     };
                     AutomationProperties.SetAutomationId(evaluate, "ModelHub_CandidateNoticeEvaluate_" + candidate.Key);
                     ToolTipService.SetToolTip(evaluate, managedMatch == null
-                        ? "This exact revision is not installed. Use the separate pinned-download action and licence review first; this button never downloads it."
-                        : "Run the explicit local evaluation for this already verified managed revision.");
+                        ? (StartItalian ? "Questa esatta revisione non è installata. Usa prima l'azione di download del file bloccato e la revisione della licenza; questo pulsante non esegue mai il download." : "This exact revision is not installed. Use the separate pinned-download action and licence review first; this button never downloads it.")
+                        : (StartItalian ? "Esegui la valutazione locale esplicita per questa revisione gestita già verificata." : "Run the explicit local evaluation for this already verified managed revision."));
                     evaluate.Click += async (_, _) => await EvaluateCandidateFromNoticeAsync(candidate.Key);
                     actions.Children.Add(evaluate);
 
                     var later = new Button
                     {
-                        Content = decisionInFlight ? "Updating notice…" : "Later",
+                        Content = decisionInFlight ? (StartItalian ? "Aggiornamento avviso…" : "Updating notice…") : (StartItalian ? "Più tardi" : "Later"),
                         IsEnabled = !decisionInFlight && _candidateIgnoreInFlight.Count == 0
                     };
                     AutomationProperties.SetAutomationId(later, "ModelHub_CandidateNoticeLater_" + candidate.Key);
@@ -2339,7 +2441,7 @@ namespace PaRuX.Views
 
                     var ignore = new Button
                     {
-                        Content = _candidateIgnoreInFlight.Contains(candidate.Key) ? "Ignoring…" : "Ignore this model",
+                        Content = _candidateIgnoreInFlight.Contains(candidate.Key) ? (StartItalian ? "Esclusione in corso…" : "Ignoring…") : (StartItalian ? "Ignora questo modello" : "Ignore this model"),
                         IsEnabled = !decisionInFlight && _candidateIgnoreInFlight.Count == 0
                     };
                     AutomationProperties.SetAutomationId(ignore, "ModelHub_CandidateNoticeIgnore_" + candidate.Key);
@@ -2366,7 +2468,9 @@ namespace PaRuX.Views
                 int remaining = allPendingNotices.Length - notices.Length;
                 var more = new Button
                 {
-                    Content = "Show more notices (" + remaining.ToString(CultureInfo.InvariantCulture) + " remaining)",
+                    Content = StartItalian
+                        ? "Mostra altri avvisi (" + remaining.ToString(CultureInfo.InvariantCulture) + " rimanenti)"
+                        : "Show more notices (" + remaining.ToString(CultureInfo.InvariantCulture) + " remaining)",
                     IsEnabled = _candidateNoticeVisibleCount < 1000
                 };
                 AutomationProperties.SetAutomationId(more, "ModelHub_CandidateNoticeShowMore_Button");
@@ -2401,7 +2505,9 @@ namespace PaRuX.Views
                 : null;
             if (managedMatch is null)
             {
-                _status.Text = "This exact revision is not installed and verified. Download it only through the separate pinned-download and licence-review actions below; no download or evaluation was started.";
+                _status.Text = StartItalian
+                    ? "Questa esatta revisione non è installata e verificata. Scaricala solo tramite le azioni separate di download del file bloccato e revisione della licenza sotto; nessun download o valutazione avviati."
+                    : "This exact revision is not installed and verified. Download it only through the separate pinned-download and licence-review actions below; no download or evaluation was started.";
                 return;
             }
             await StartCandidateEvaluationAsync(candidate, managedMatch.FileName, acknowledgeNoticeOnStart: true);
@@ -2465,19 +2571,31 @@ namespace PaRuX.Views
                             ? "UI fixture: the exact-revision notice was deferred for 24 hours; no download or evaluation was started."
                             : "UI fixture: the simulated evaluation was acknowledged; no model was run and no routing change was made."
                         : defer
-                            ? "This exact revision will be shown again in 24 hours. A newer revision can be surfaced sooner. No download or evaluation was started."
-                            : "The notice was cleared after evaluation was accepted. No recommendation, promotion, or routing change was made.";
+                            ? (StartItalian
+                                ? "Questa esatta revisione verrà mostrata nuovamente tra 24 ore. Una revisione più recente può essere presentata prima. Nessun download o valutazione avviati."
+                                : "This exact revision will be shown again in 24 hours. A newer revision can be surfaced sooner. No download or evaluation was started.")
+                            : (StartItalian
+                                ? "L'avviso è stato rimosso dopo l'accettazione della valutazione. Nessuna raccomandazione, promozione o cambio di instradamento effettuato."
+                                : "The notice was cleared after evaluation was accepted. No recommendation, promotion, or routing change was made.");
                 }
                 else
                 {
-                    _candidateNoticeResultMessages[candidateKey] = "PaRuX Core did not confirm this notice decision. The Candidate remains visible and retryable.";
-                    _status.Text = "The Candidate notice decision was not confirmed; it remains available for retry.";
+                    _candidateNoticeResultMessages[candidateKey] = StartItalian
+                        ? "PaRuX Core non ha confermato questa decisione sull'avviso. Il candidato rimane visibile e ritentabile."
+                        : "PaRuX Core did not confirm this notice decision. The Candidate remains visible and retryable.";
+                    _status.Text = StartItalian
+                        ? "La decisione sull'avviso del candidato non è stata confermata; rimane disponibile per un nuovo tentativo."
+                        : "The Candidate notice decision was not confirmed; it remains available for retry.";
                 }
             }
             catch (Exception)
             {
-                _candidateNoticeResultMessages[candidateKey] = "Notice decision could not be confirmed. The Candidate remains visible; retry is safe.";
-                _status.Text = "PaRuX Core did not confirm the Candidate notice decision. Nothing was downloaded.";
+                _candidateNoticeResultMessages[candidateKey] = StartItalian
+                    ? "Impossibile confermare la decisione sull'avviso. Il candidato rimane visibile; riprovare è sicuro."
+                    : "Notice decision could not be confirmed. The Candidate remains visible; retry is safe.";
+                _status.Text = StartItalian
+                    ? "PaRuX Core non ha confermato la decisione sull'avviso del candidato. Nessun elemento scaricato."
+                    : "PaRuX Core did not confirm the Candidate notice decision. Nothing was downloaded.";
             }
             finally
             {
@@ -2515,7 +2633,9 @@ namespace PaRuX.Views
                     || _candidateUtilityPolicy is not { Configured: true, Readiness: "WellFormed", Policy: not null })
                 {
                     if (stateVersion == _candidateUtilityStateVersion)
-                        _candidateUtilityResultMessages[candidateKey] = "Comparison unavailable: current managed provenance, eligible evaluation evidence or explicit policy readiness could not be confirmed. No model action occurred.";
+                        _candidateUtilityResultMessages[candidateKey] = StartItalian
+                            ? "Confronto non disponibile: la provenienza gestita corrente, l'evidenza di valutazione idonea o la disponibilità dei criteri espliciti non hanno potuto essere confermate. Nessuna azione sui modelli."
+                            : "Comparison unavailable: current managed provenance, eligible evaluation evidence or explicit policy readiness could not be confirmed. No model action occurred.";
                     return;
                 }
 
@@ -2528,14 +2648,18 @@ namespace PaRuX.Views
 
                 bool marginMet = string.Equals(response.Disposition, "CandidateMeetsReferenceMargin", StringComparison.Ordinal);
                 string result = marginMet
-                    ? "Configured evidence margin met for " + LimitDisplay(response.Capability, 80) + "; requires human review. This is not a recommendation."
-                    : "No comparison winner (" + LimitDisplay(response.ReasonCode, 80) + "). This is not a recommendation."
+                    ? (StartItalian
+                        ? "Margine di evidenza configurato raggiunto per " + LimitDisplay(response.Capability, 80) + "; richiede revisione umana. Questa non è una raccomandazione."
+                        : "Configured evidence margin met for " + LimitDisplay(response.Capability, 80) + "; requires human review. This is not a recommendation.")
+                    : (StartItalian
+                        ? "Nessun vincitore del confronto (" + LimitDisplay(response.ReasonCode, 80) + "). Questa non è una raccomandazione."
+                        : "No comparison winner (" + LimitDisplay(response.ReasonCode, 80) + "). This is not a recommendation.")
                         + (CandidateReasonText.Explain(response.ReasonCode) is { Length: > 0 } why && why != response.ReasonCode.Replace('_', ' ')
                             ? " " + LimitDisplay(why, 400) : string.Empty);
                 if (response.ManualPinReason is { Length: > 0 } pinReason)
                     result += " " + LimitDisplay(CandidateReasonText.Explain(pinReason), 400);
                 if (stateVersion == _candidateUtilityStateVersion)
-                    _candidateUtilityResultMessages[candidateKey] = result + " No model was promoted and routing did not change.";
+                    _candidateUtilityResultMessages[candidateKey] = result + (StartItalian ? " Nessun modello promosso e l'instradamento non è cambiato." : " No model was promoted and routing did not change.");
                 _candidatePromotable.Remove(candidateKey);
                 if (marginMet)
                 {
@@ -2552,8 +2676,8 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 if (stateVersion == _candidateUtilityStateVersion)
-                    _candidateUtilityResultMessages[candidateKey] = "Comparison unavailable: "
-                        + LimitDisplay(ex.Message, 120) + ". No model was promoted and routing did not change.";
+                    _candidateUtilityResultMessages[candidateKey] = (StartItalian ? "Confronto non disponibile: " : "Comparison unavailable: ")
+                        + LimitDisplay(ex.Message, 120) + (StartItalian ? ". Nessun modello promosso e l'instradamento non è cambiato." : ". No model was promoted and routing did not change.");
             }
             finally
             {
@@ -2594,11 +2718,13 @@ namespace PaRuX.Views
             if (_recommendationTransitionInFlight || _recommendationStatus is not { CanPromote: true } status) return;
             var confirm = new ContentDialog
             {
-                Title = "Make this the recommended model for Chat?",
-                Content = "Automatic mode (Balanced, Standard) will prefer this model. The model running now is replaced, and you can go back"
-                    + " to the previous one. Your own model choices are never changed, and nothing is promoted unless every check still passes.",
-                PrimaryButtonText = "Make recommended",
-                CloseButtonText = "Not now",
+                Title = StartItalian ? "Rendere questo il modello consigliato per la Chat?" : "Make this the recommended model for Chat?",
+                Content = StartItalian
+                    ? "La modalità automatica (Bilanciata, Standard) preferirà questo modello. Il modello attualmente in esecuzione viene sostituito ed è possibile tornare a quello precedente. Le tue scelte personali dei modelli non vengono mai modificate e nulla viene promosso a meno che tutti i controlli continuino a riuscire."
+                    : "Automatic mode (Balanced, Standard) will prefer this model. The model running now is replaced, and you can go back"
+                        + " to the previous one. Your own model choices are never changed, and nothing is promoted unless every check still passes.",
+                PrimaryButtonText = StartItalian ? "Rendi consigliato" : "Make recommended",
+                CloseButtonText = StartItalian ? "Non ora" : "Not now",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -2614,11 +2740,13 @@ namespace PaRuX.Views
             if (_recommendationTransitionInFlight || _recommendationStatus is not { CanRollback: true } status) return;
             var confirm = new ContentDialog
             {
-                Title = "Go back to the previous recommendation?",
-                Content = "The previously recommended model is loaded again after its files and settings are re-checked."
-                    + " Your own model choices are never changed.",
-                PrimaryButtonText = "Go back",
-                CloseButtonText = "Keep current",
+                Title = StartItalian ? "Tornare alla raccomandazione precedente?" : "Go back to the previous recommendation?",
+                Content = StartItalian
+                    ? "Il modello precedentemente consigliato viene caricato nuovamente dopo aver ricontrollato i suoi file e impostazioni. Le tue scelte personali dei modelli non vengono mai modificate."
+                    : "The previously recommended model is loaded again after its files and settings are re-checked."
+                        + " Your own model choices are never changed.",
+                PrimaryButtonText = StartItalian ? "Torna indietro" : "Go back",
+                CloseButtonText = StartItalian ? "Mantieni corrente" : "Keep current",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -2638,10 +2766,10 @@ namespace PaRuX.Views
             {
                 CandidateRecommendationTransitionResponse response = await send();
                 message = string.Equals(response.Outcome, "Committed", StringComparison.Ordinal)
-                    ? "Recommendation updated."
+                    ? (StartItalian ? "Raccomandazione aggiornata." : "Recommendation updated.")
                     : LimitDisplay(response.Message, 400);
             }
-            catch (Exception ex) { message = "Recommendation change unavailable: " + LimitDisplay(ex.Message, 120) + ". Nothing was changed."; }
+            catch (Exception ex) { message = (StartItalian ? "Modifica della raccomandazione non disponibile: " : "Recommendation change unavailable: ") + LimitDisplay(ex.Message, 120) + (StartItalian ? ". Nessuna modifica apportata." : ". Nothing was changed."); }
             finally { _candidatePromotable.Clear(); }
             try { _recommendationStatus = await ModelDownloadClient.Current.GetCandidateRecommendationStatusAsync(CancellationToken.None); }
             catch (Exception) { _recommendationStatus = null; }
@@ -2666,7 +2794,9 @@ namespace PaRuX.Views
             int generation = _refreshGeneration;
             _candidateIgnoreInFlight.Add(candidateKey);
             _candidateIgnoreResultMessages.Remove(candidateKey);
-            _candidateIgnoreResultMessages[candidateKey] = "Sending the explicit ignore decision to PaRuX Core…";
+            _candidateIgnoreResultMessages[candidateKey] = StartItalian
+                ? "Invio della decisione esplicita di esclusione a PaRuX Core…"
+                : "Sending the explicit ignore decision to PaRuX Core…";
             string? completionStatus = null;
             RenderCandidates();
 
@@ -2711,14 +2841,19 @@ namespace PaRuX.Views
                 {
                     _discoveryCatalog = authoritativeCatalog;
                     _candidateIgnoreResultMessages.Remove(candidateKey);
-                    completionStatus = "Candidate ignored and hidden from the active list. Existing model files and evaluation evidence were not deleted.";
+                    completionStatus = StartItalian
+                        ? "Candidato ignorato e nascosto dall'elenco attivo. I file del modello e le evidenze di valutazione esistenti non sono stati eliminati."
+                        : "Candidate ignored and hidden from the active list. Existing model files and evaluation evidence were not deleted.";
                     _status.Text = completionStatus;
                 }
                 else
                 {
-                    _candidateIgnoreResultMessages[candidateKey] =
-                        "PaRuX Core did not confirm the ignored disposition. This Candidate remains visible; retry is safe.";
-                    _status.Text = "Candidate ignore was not confirmed; the active Candidate remains available.";
+                    _candidateIgnoreResultMessages[candidateKey] = StartItalian
+                        ? "PaRuX Core non ha confermato la disposizione ignorata. Questo candidato rimane visibile; riprovare è sicuro."
+                        : "PaRuX Core did not confirm the ignored disposition. This Candidate remains visible; retry is safe.";
+                    _status.Text = StartItalian
+                        ? "L'esclusione del candidato non è stata confermata; il candidato attivo rimane disponibile."
+                        : "Candidate ignore was not confirmed; the active Candidate remains available.";
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -2726,9 +2861,11 @@ namespace PaRuX.Views
             {
                 if (generation == _refreshGeneration)
                 {
-                    _candidateIgnoreResultMessages[candidateKey] = "Ignore failed: " + LimitDisplay(ex.Message, 120)
-                        + ". The Candidate remains visible; retrying this idempotent action is safe.";
-                    _status.Text = "Candidate ignore failed. The Candidate remains available; no file or evidence was deleted.";
+                    _candidateIgnoreResultMessages[candidateKey] = (StartItalian ? "Esclusione non riuscita: " : "Ignore failed: ") + LimitDisplay(ex.Message, 120)
+                        + (StartItalian ? ". Il candidato rimane visibile; riprovare questa azione idempotente è sicuro." : ". The Candidate remains visible; retrying this idempotent action is safe.");
+                    _status.Text = StartItalian
+                        ? "Esclusione del candidato non riuscita. Il candidato rimane disponibile; nessun file o evidenza è stata eliminata."
+                        : "Candidate ignore failed. The Candidate remains available; no file or evidence was deleted.";
                 }
             }
             finally
@@ -2918,12 +3055,16 @@ namespace PaRuX.Views
         {
             if (_candidateUtilityCompareInFlight.Count > 0)
             {
-                _status.Text = "Candidate file changes are blocked while an evidence comparison is running.";
+                _status.Text = StartItalian
+                    ? "Le modifiche ai file dei candidati sono bloccate mentre è in corso un confronto dell'evidenza."
+                    : "Candidate file changes are blocked while an evidence comparison is running.";
                 return;
             }
             if (IsCandidateEvaluationFileMutationBlocked(selectedCandidate.Key))
             {
-                _status.Text = "Candidate file change is blocked while evaluation may be active or unconfirmed.";
+                _status.Text = StartItalian
+                    ? "La modifica del file del candidato è bloccata finché la valutazione può essere attiva o non confermata."
+                    : "Candidate file change is blocked while evaluation may be active or unconfirmed.";
                 RenderCandidates();
                 return;
             }
@@ -2939,14 +3080,18 @@ namespace PaRuX.Views
                 if (candidate == null || managedFileName == null
                     || !IsCandidatePinnedSourceValid(candidate, managedFileName))
                 {
-                    _status.Text = "Candidate identity changed or could not be verified. Refresh candidates; no download was started.";
+                    _status.Text = StartItalian
+                        ? "L'identità del candidato è cambiata o non è stato possibile verificarla. Aggiorna i candidati; nessun download avviato."
+                        : "Candidate identity changed or could not be verified. Refresh candidates; no download was started.";
                     return;
                 }
 
                 if (_discoveryCatalog?.LastSuccessUtc is not DateTime metadataObservedUtc
                     || metadataObservedUtc.Kind != DateTimeKind.Utc)
                 {
-                    _status.Text = "Candidate licence metadata has no verified observation time. Refresh candidates before downloading.";
+                    _status.Text = StartItalian
+                        ? "I metadati della licenza del candidato non hanno un orario di osservazione verificato. Aggiorna i candidati prima del download."
+                        : "Candidate licence metadata has no verified observation time. Refresh candidates before downloading.";
                     return;
                 }
 
@@ -2971,7 +3116,7 @@ namespace PaRuX.Views
                             return;
                         }
 #endif
-                        SetBusy(true, "Starting pinned Candidate download…");
+                        SetBusy(true, StartItalian ? "Avvio del download del candidato bloccato…" : "Starting pinned Candidate download…");
                         try
                         {
                             if (!string.Equals(revision, candidate.Revision, StringComparison.Ordinal))
@@ -2984,7 +3129,7 @@ namespace PaRuX.Views
 
                 if (!queued)
                 {
-                    _status.Text = "Candidate download cancelled. No transfer was started.";
+                    _status.Text = StartItalian ? "Download del candidato annullato. Nessun trasferimento avviato." : "Candidate download cancelled. No transfer was started.";
                     return;
                 }
 
@@ -2997,7 +3142,9 @@ namespace PaRuX.Views
                 }
 #endif
                 await RefreshAllAsync();
-                _status.Text = "Pinned Candidate download queued. Evaluation remains disabled until the completed file's provenance and bytes match.";
+                _status.Text = StartItalian
+                    ? "Download del candidato bloccato in coda. La valutazione rimane disabilitata fino a quando la provenienza e i byte del file completato non corrispondono."
+                    : "Pinned Candidate download queued. Evaluation remains disabled until the completed file's provenance and bytes match.";
             }
             catch (Exception ex)
             {
@@ -3005,10 +3152,12 @@ namespace PaRuX.Views
                 if (!reconciled)
                     _candidateDownloadUnknown.Add(selectedCandidate.Key);
                 _status.Text = reconciled
-                    ? "Candidate start response was not confirmed (" + LimitDisplay(ex.Message, 180)
-                        + "). The Core queue and managed library were refreshed; retry is safe if no matching transfer is active."
-                    : "Candidate start status is unknown because the Core queue could not be refreshed. PaRuX has blocked another start until Model Hub can reconcile it. Details: "
-                        + LimitDisplay(ex.Message, 180);
+                    ? (StartItalian
+                        ? "La risposta di avvio del candidato non è stata confermata (" + LimitDisplay(ex.Message, 180) + "). La coda di Core e la libreria gestita sono state aggiornate; riprovare è sicuro se non è attivo alcun trasferimento corrispondente."
+                        : "Candidate start response was not confirmed (" + LimitDisplay(ex.Message, 180) + "). The Core queue and managed library were refreshed; retry is safe if no matching transfer is active.")
+                    : (StartItalian
+                        ? "Lo stato di avvio del candidato è sconosciuto perché non è stato possibile aggiornare la coda di Core. PaRuX ha bloccato un altro avvio fino a quando il Model Hub non potrà riconciliarlo. Dettagli: " + LimitDisplay(ex.Message, 180)
+                        : "Candidate start status is unknown because the Core queue could not be refreshed. PaRuX has blocked another start until Model Hub can reconcile it. Details: " + LimitDisplay(ex.Message, 180));
             }
             finally
             {
@@ -3050,14 +3199,18 @@ namespace PaRuX.Views
                     && string.Equals(job.FileName, managedFileName, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(job.Revision, candidate.Revision, StringComparison.OrdinalIgnoreCase)))
             {
-                _status.Text = "Candidate evaluation is blocked while its pinned file is being transferred or reconciled.";
+                _status.Text = StartItalian
+                    ? "La valutazione del candidato è bloccata durante il trasferimento o la riconciliazione del file bloccato."
+                    : "Candidate evaluation is blocked while its pinned file is being transferred or reconciled.";
                 RenderCandidates();
                 return;
             }
             if (_candidateJobStatuses.Any(pair => IsCandidateJobActive(pair.Value)
                 && !IsCandidateEvaluationFixtureKey(pair.Key)))
             {
-                _status.Text = "Another local Candidate evaluation is already running. Wait for it to finish before starting another.";
+                _status.Text = StartItalian
+                    ? "Un'altra valutazione locale del candidato è già in esecuzione. Attendi che finisca prima di avviarne un'altra."
+                    : "Another local Candidate evaluation is already running. Wait for it to finish before starting another.";
                 return;
             }
 
@@ -3094,7 +3247,7 @@ namespace PaRuX.Views
             _candidateEvaluationStartInFlight = true;
             DateTime attemptStartedUtc = DateTime.UtcNow;
             RenderCandidates();
-            SetBusy(true, "Starting local Candidate evaluation…");
+            SetBusy(true, StartItalian ? "Avvio della valutazione locale del candidato…" : "Starting local Candidate evaluation…");
             try
             {
 #if DEBUG
@@ -3114,12 +3267,18 @@ namespace PaRuX.Views
                         StartedUtc = attemptStartedUtc,
                         ErrorCode = "invalid_job_identity"
                     };
-                    _status.Text = "Core response did not contain a usable job identity. Checking retained history before allowing a manual retry.";
+                    _status.Text = StartItalian
+                        ? "La risposta di Core non contiene un'identità di processo utilizzabile. Controllo della cronologia conservata prima di consentire un nuovo tentativo manuale."
+                        : "Core response did not contain a usable job identity. Checking retained history before allowing a manual retry.";
                     bool foundJob = await TryReconcileCandidateJobHistoryForStartAsync(candidate.Key);
                     if (foundJob)
-                        _status.Text = "Core returned an unusable job identity, but a matching recent job was found and will be tracked without retrying.";
+                        _status.Text = StartItalian
+                            ? "Core ha restituito un'identità di processo inutilizzabile, ma è stato trovato un processo recente corrispondente che verrà monitorato senza riprovare."
+                            : "Core returned an unusable job identity, but a matching recent job was found and will be tracked without retrying.";
                     else
-                        _status.Text = "Core response did not contain a usable job identity; no matching recent job could be confirmed. Status remains uncertain; no automatic retry occurred.";
+                        _status.Text = StartItalian
+                            ? "La risposta di Core non contiene un'identità di processo utilizzabile; nessun processo recente corrispondente confermato. Lo stato rimane incerto; nessun nuovo tentativo automatico."
+                            : "Core response did not contain a usable job identity; no matching recent job could be confirmed. Status remains uncertain; no automatic retry occurred.";
                     return;
                 }
                 _candidateJobIds[candidate.Key] = accepted.JobId;
@@ -3130,14 +3289,18 @@ namespace PaRuX.Views
                     JobId = accepted.JobId, CandidateKey = candidate.Key,
                     Status = "Running", Phase = "Quality", StartedUtc = attemptStartedUtc
                 });
-                _status.Text = "Local Candidate evaluation started. It does not install, recommend, promote, or change routing.";
+                _status.Text = StartItalian
+                    ? "Valutazione locale del candidato avviata. Non installa, consiglia, promuove o modifica l'instradamento."
+                    : "Local Candidate evaluation started. It does not install, recommend, promote, or change routing.";
                 if (acknowledgeNoticeOnStart)
                     await AcknowledgeCandidateNoticeAsync(candidate.Key);
                 try { await RefreshCandidateEvaluationStatusAsync(candidate.Key, accepted.JobId); }
                 catch (Exception)
                 {
                     _candidateStatusRefreshFailures.Add(candidate.Key);
-                    _status.Text = "Core accepted the evaluation, but its current status could not be checked. The last known state is shown and may be stale.";
+                    _status.Text = StartItalian
+                        ? "Core ha accettato la valutazione, ma il suo stato attuale non ha potuto essere verificato. Viene mostrato l'ultimo stato noto e potrebbe essere obsoleto."
+                        : "Core accepted the evaluation, but its current status could not be checked. The last known state is shown and may be stale.";
                 }
             }
             catch (CandidateEvaluationStartRejectedException exception)
@@ -3160,12 +3323,18 @@ namespace PaRuX.Views
                     StartedUtc = attemptStartedUtc,
                     ErrorCode = "start_unconfirmed"
                 };
-                _status.Text = "Core did not confirm whether evaluation started. Checking retained job history before allowing a manual retry.";
+                _status.Text = StartItalian
+                    ? "Core non ha confermato se la valutazione è stata avviata. Controllo della cronologia dei processi conservata prima di consentire un nuovo tentativo manuale."
+                    : "Core did not confirm whether evaluation started. Checking retained job history before allowing a manual retry.";
                 bool foundJob = await TryReconcileCandidateJobHistoryForStartAsync(candidate.Key);
                 if (foundJob)
-                    _status.Text = "The start response was interrupted, but a matching recent evaluation job was found and will be tracked without retrying.";
+                    _status.Text = StartItalian
+                        ? "La risposta di avvio è stata interrotta, ma è stato trovato un processo di valutazione recente corrispondente che verrà monitorato senza riprovare."
+                        : "The start response was interrupted, but a matching recent evaluation job was found and will be tracked without retrying.";
                 else
-                    _status.Text = "Core did not confirm whether evaluation started. No matching recent job could be confirmed; status remains unknown and no automatic retry occurred.";
+                    _status.Text = StartItalian
+                        ? "Core non ha confermato se la valutazione è stata avviata. Nessun processo recente corrispondente confermato; lo stato rimane sconosciuto e nessun nuovo tentativo automatico."
+                        : "Core did not confirm whether evaluation started. No matching recent job could be confirmed; status remains unknown and no automatic retry occurred.";
             }
             finally
             {
@@ -3182,25 +3351,33 @@ namespace PaRuX.Views
             content.Children.Add(new TextBlock
             {
                 Text = forPolicyConfiguration
-                    ? "Choose which evidence scope to use for explicit comparison criteria. Quick checks are comparison-only. General chat is bounded to standard × balanced text tasks and does not establish coding, other modality or best-in-class quality."
-                    : "Choose the evaluation scope to run on this local model. A general-chat qualification run checks 30 held-out standard × balanced text tasks and starts the local runtime once. Promotion requires at least 5 separate fresh-process runs; those must be started individually. This does not establish coding, other modality or best-in-class quality.",
+                    ? (StartItalian
+                        ? "Scegli quale ambito di evidenza utilizzare per i criteri di confronto espliciti. I controlli rapidi sono solo per il confronto. La chat generale è limitata ad attività di testo standard × bilanciate e non stabilisce qualità di programmazione, altre modalità o eccellenza assoluta."
+                        : "Choose which evidence scope to use for explicit comparison criteria. Quick checks are comparison-only. General chat is bounded to standard × balanced text tasks and does not establish coding, other modality or best-in-class quality.")
+                    : (StartItalian
+                        ? "Scegli l'ambito di valutazione da eseguire su questo modello locale. Un'esecuzione di qualificazione per la chat generale verifica 30 attività di testo standard × bilanciate riservate e avvia il runtime locale una volta. La promozione richiede almeno 5 esecuzioni distinte su nuovo processo; queste devono essere avviate singolarmente. Questo non stabilisce qualità di programmazione, altre modalità o eccellenza assoluta."
+                        : "Choose the evaluation scope to run on this local model. A general-chat qualification run checks 30 held-out standard × balanced text tasks and starts the local runtime once. Promotion requires at least 5 separate fresh-process runs; those must be started individually. This does not establish coding, other modality or best-in-class quality."),
                 TextWrapping = TextWrapping.Wrap
             });
             if (forPolicyConfiguration)
             {
                 content.Children.Add(new TextBlock
                 {
-                    Text = "General-chat criteria require at least 90% task quality, 95% fresh-process reliability and 5 distinct runs. This screen only configures criteria; it does not start a model.",
+                    Text = StartItalian
+                        ? "I criteri per la chat generale richiedono almeno il 90% di qualità attività, il 95% di affidabilità su nuovo processo e 5 esecuzioni distinte. Questa schermata configura solo i criteri; non avvia un modello."
+                        : "General-chat criteria require at least 90% task quality, 95% fresh-process reliability and 5 distinct runs. This screen only configures criteria; it does not start a model.",
                     TextWrapping = TextWrapping.Wrap
                 });
             }
             var dialog = new ContentDialog
             {
-                Title = forPolicyConfiguration ? "Choose Candidate evidence scope" : "Choose Candidate evaluation scope",
+                Title = forPolicyConfiguration
+                    ? (StartItalian ? "Scegli l'ambito di evidenza del candidato" : "Choose Candidate evidence scope")
+                    : (StartItalian ? "Scegli l'ambito di valutazione del candidato" : "Choose Candidate evaluation scope"),
                 Content = content,
-                PrimaryButtonText = "General chat qualification (30 cases)",
-                SecondaryButtonText = "Quick checks (4-case smoke)",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = StartItalian ? "Qualificazione chat generale (30 casi)" : "General chat qualification (30 cases)",
+                SecondaryButtonText = StartItalian ? "Controlli rapidi (smoke test di 4 casi)" : "Quick checks (4-case smoke)",
+                CloseButtonText = StartItalian ? "Annulla" : "Cancel",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot,
                 MaxWidth = 640
@@ -3218,11 +3395,21 @@ namespace PaRuX.Views
 
         private static string CandidateEvaluationStartRejectionMessage(string errorCode) => errorCode switch
         {
-            "candidate_license_evidence_missing" => "Evaluation blocked: this installed revision has no saved licence-review evidence. No evaluation started and the installed file was left unchanged. Use the explicit Candidate terms-review flow before retrying.",
-            "candidate_license_metadata_changed" => "Evaluation blocked: the publisher's declared licence no longer matches the saved evidence for this revision. No evaluation started and the installed file was left unchanged. Refresh discovery and review the current pinned model-card terms before retrying.",
-            "candidate_license_review_required" => "Evaluation blocked: the required review is not recorded for this exact revision. No evaluation started and the installed file was left unchanged. Review its pinned model-card terms and confirm them through the explicit Candidate flow.",
-            "candidate_provenance_unavailable" => "Evaluation blocked: Core could not confirm the exact source and local bytes after restart. No evaluation started and the installed file was left unchanged.",
-            _ => "Evaluation was rejected before it started. No model action occurred; refresh Model Hub and retry if appropriate."
+            "candidate_license_evidence_missing" => StartItalian
+                ? "Valutazione bloccata: questa revisione installata non ha evidenza di revisione della licenza salvata. Nessuna valutazione avviata e il file installato è rimasto invariato. Usa il flusso esplicito di revisione dei termini del candidato prima di riprovare."
+                : "Evaluation blocked: this installed revision has no saved licence-review evidence. No evaluation started and the installed file was left unchanged. Use the explicit Candidate terms-review flow before retrying.",
+            "candidate_license_metadata_changed" => StartItalian
+                ? "Valutazione bloccata: la licenza dichiarata dall'autore non corrisponde più all'evidenza salvata per questa revisione. Nessuna valutazione avviata e il file installato è rimasto invariato. Aggiorna la scoperta ed esamina i termini correnti della scheda del modello bloccato prima di riprovare."
+                : "Evaluation blocked: the publisher's declared licence no longer matches the saved evidence for this revision. No evaluation started and the installed file was left unchanged. Refresh discovery and review the current pinned model-card terms before retrying.",
+            "candidate_license_review_required" => StartItalian
+                ? "Valutazione bloccata: la revisione richiesta non è registrata per questa esatta revisione. Nessuna valutazione avviata e il file installato è rimasto invariato. Esamina i termini della scheda del modello bloccato e confermali tramite il flusso esplicito del candidato."
+                : "Evaluation blocked: the required review is not recorded for this exact revision. No evaluation started and the installed file was left unchanged. Review its pinned model-card terms and confirm them through the explicit Candidate flow.",
+            "candidate_provenance_unavailable" => StartItalian
+                ? "Valutazione bloccata: Core non ha potuto confermare l'origine esatta e i byte locali dopo il riavvio. Nessuna valutazione avviata e il file installato è rimasto invariato."
+                : "Evaluation blocked: Core could not confirm the exact source and local bytes after restart. No evaluation started and the installed file was left unchanged.",
+            _ => StartItalian
+                ? "La valutazione è stata rifiutata prima dell'avvio. Nessuna azione sui modelli; aggiorna il Model Hub e riprova se opportuno."
+                : "Evaluation was rejected before it started. No model action occurred; refresh Model Hub and retry if appropriate."
         };
 
         private bool IsCandidateEvaluationFileMutationBlocked(string candidateKey)
@@ -3257,7 +3444,7 @@ namespace PaRuX.Views
             currentStatus.Status = "Cancelling";
             currentStatus.Phase = "Cancelling";
             RenderCandidates();
-            SetBusy(true, "Cancelling local Candidate evaluation…");
+            SetBusy(true, StartItalian ? "Annullamento della valutazione locale del candidato…" : "Cancelling local Candidate evaluation…");
             try
             {
                 CandidateEvaluationJobStatus? status =
@@ -3272,12 +3459,22 @@ namespace PaRuX.Views
                     ? NormalizeCandidateJobValue(latest.Status) : "unavailable";
                 _status.Text = confirmedState switch
                 {
-                    "cancelled" => "Candidate evaluation cancelled.",
-                    "cancelling" or "running" or "queued" => "Cancellation requested. Core is stopping the active evaluation safely.",
-                    "completed" => "Core completed the evaluation before cancellation took effect; final results are shown.",
-                    "failed" => "Core reports the evaluation had already failed; its sanitized result is shown.",
-                    "unavailable" => "Core no longer has this job summary; the in-memory registry may have restarted or expired.",
-                    _ => "Core returned an unrecognized state. The displayed status is authoritative for this response."
+                    "cancelled" => StartItalian ? "Valutazione del candidato annullata." : "Candidate evaluation cancelled.",
+                    "cancelling" or "running" or "queued" => StartItalian
+                        ? "Annullamento richiesto. Core sta interrompendo la valutazione attiva in sicurezza."
+                        : "Cancellation requested. Core is stopping the active evaluation safely.",
+                    "completed" => StartItalian
+                        ? "Core ha completato la valutazione prima che l'annullamento avesse effetto; vengono mostrati i risultati finali."
+                        : "Core completed the evaluation before cancellation took effect; final results are shown.",
+                    "failed" => StartItalian
+                        ? "Core segnala che la valutazione era già fallita; viene mostrato il risultato sanitizzato."
+                        : "Core reports the evaluation had already failed; its sanitized result is shown.",
+                    "unavailable" => StartItalian
+                        ? "Core non ha più questo riepilogo del processo; il registro in memoria potrebbe essersi riavviato o essere scaduto."
+                        : "Core no longer has this job summary; the in-memory registry may have restarted or expired.",
+                    _ => StartItalian
+                        ? "Core ha restituito uno stato non riconosciuto. Lo stato visualizzato è autorevole per questa risposta."
+                        : "Core returned an unrecognized state. The displayed status is authoritative for this response."
                 };
             }
             catch (Exception)
@@ -3289,7 +3486,9 @@ namespace PaRuX.Views
                     latest.Phase = previousPhase;
                 }
                 _candidateStatusRefreshFailures.Add(candidateKey);
-                _status.Text = "Cancellation could not be confirmed. The last known state is shown and may be stale.";
+                _status.Text = StartItalian
+                    ? "Impossibile confermare l'annullamento. Viene mostrato l'ultimo stato noto e potrebbe essere obsoleto."
+                    : "Cancellation could not be confirmed. The last known state is shown and may be stale.";
             }
             finally
             {
@@ -3339,14 +3538,18 @@ namespace PaRuX.Views
                 if (_candidateJobStatuses.TryGetValue(active.Key, out CandidateEvaluationJobStatus? status)
                     && NormalizeCandidateJobValue(status.Status) == "unavailable"
                     && status.ErrorCode == "job_status_not_found")
-                    _status.Text = "Core no longer has this job summary. The in-memory job registry may have restarted or expired; no recommendation or routing change was made.";
+                    _status.Text = StartItalian
+                        ? "Core non dispone più di questo riepilogo del processo. Il registro dei processi in memoria potrebbe essere stato riavviato o essere scaduto; nessuna raccomandazione o modifica di instradamento apportata."
+                        : "Core no longer has this job summary. The in-memory job registry may have restarted or expired; no recommendation or routing change was made.";
             }
             catch (Exception)
             {
                 if (MarkCandidateStatusRefreshFailed(active.Key, polledJobId))
                 {
                     RenderCandidates();
-                    _status.Text = "Evaluation status could not be refreshed. The last known state is shown and may be stale.";
+                    _status.Text = StartItalian
+                        ? "Impossibile aggiornare lo stato della valutazione. Viene mostrato l'ultimo stato noto e potrebbe essere obsoleto."
+                        : "Evaluation status could not be refreshed. The last known state is shown and may be stale.";
                 }
             }
             finally
@@ -3482,47 +3685,51 @@ namespace PaRuX.Views
 
         private string FormatCandidateJobStatus(CandidateEvaluationJobStatus? status)
         {
-            if (status == null) return "Evaluation: not run in this app session.";
+            if (status == null) return StartItalian ? "Valutazione: non eseguita in questa sessione dell'app." : "Evaluation: not run in this app session.";
             string state = NormalizeCandidateJobValue(status.Status);
             string phase = NormalizeCandidateJobValue(status.Phase);
             if (state == "unknown" && status.ErrorCode == "invalid_job_identity")
-                return "Core did not provide a usable job identity; evaluation start cannot be tracked safely.";
+                return StartItalian
+                    ? "Core non ha fornito un'identità di processo utilizzabile; l'avvio della valutazione non può essere monitorato in sicurezza."
+                    : "Core did not provide a usable job identity; evaluation start cannot be tracked safely.";
             if (state == "unknown" && status.ErrorCode == "start_unconfirmed")
-                return "Core did not confirm whether evaluation started; a job may be active. Retrying remains protected by Core's one-job-at-a-time rule.";
+                return StartItalian
+                    ? "Core non ha confermato se la valutazione è stata avviata; un processo potrebbe essere attivo. I tentativi successivi restano protetti dalla regola di un processo alla volta di Core."
+                    : "Core did not confirm whether evaluation started; a job may be active. Retrying remains protected by Core's one-job-at-a-time rule.";
             string result = state switch
             {
-                "queued" => "Evaluation queued",
-                "running" => "Evaluation running",
-                "cancelling" => "Cancellation requested; Core is stopping the evaluation",
-                "completed" => "Evaluation completed",
-                "cancelled" => "Evaluation cancelled",
-                "failed" => "Evaluation failed",
-                "interrupted" => "Evaluation interrupted by Core restart; the outcome is unknown and the run was not resumed",
+                "queued" => StartItalian ? "Valutazione in coda" : "Evaluation queued",
+                "running" => StartItalian ? "Valutazione in corso" : "Evaluation running",
+                "cancelling" => StartItalian ? "Annullamento richiesto; Core sta interrompendo la valutazione" : "Cancellation requested; Core is stopping the evaluation",
+                "completed" => StartItalian ? "Valutazione completata" : "Evaluation completed",
+                "cancelled" => StartItalian ? "Valutazione annullata" : "Evaluation cancelled",
+                "failed" => StartItalian ? "Valutazione non riuscita" : "Evaluation failed",
+                "interrupted" => StartItalian ? "Valutazione interrotta dal riavvio di Core; il risultato è sconosciuto e l'esecuzione non è stata ripresa" : "Evaluation interrupted by Core restart; the outcome is unknown and the run was not resumed",
                 "unavailable" => status.ErrorCode == "job_status_not_found"
-                    ? "Evaluation status unavailable after Core restart or expiry"
-                    : "Evaluation unavailable on this runtime or configuration",
-                _ => "Evaluation status is unknown"
+                    ? (StartItalian ? "Stato della valutazione non disponibile dopo il riavvio o la scadenza di Core" : "Evaluation status unavailable after Core restart or expiry")
+                    : (StartItalian ? "Valutazione non disponibile in questo runtime o configurazione" : "Evaluation unavailable on this runtime or configuration"),
+                _ => StartItalian ? "Lo stato della valutazione è sconosciuto" : "Evaluation status is unknown"
             };
-            if (state == "interrupted") result += " · last recorded phase: " + phase;
+            if (state == "interrupted") result += (StartItalian ? " · ultima fase registrata: " : " · last recorded phase: ") + phase;
             if (state == "running")
                 result += phase switch
                 {
-                    "quality" => " · checking task quality",
-                    "performance" => " · measuring local performance",
-                    "eligibility" => " · checking evidence eligibility",
+                    "quality" => StartItalian ? " · verifica della qualità dell'attività" : " · checking task quality",
+                    "performance" => StartItalian ? " · misurazione delle prestazioni locali" : " · measuring local performance",
+                    "eligibility" => StartItalian ? " · verifica dell'idoneità dell'evidenza" : " · checking evidence eligibility",
                     _ => string.Empty
                 };
             if (status.QualityPassCount.HasValue && status.QualityExpectedCount.HasValue)
-                result += " · quality checks " + status.QualityPassCount.Value + "/" + status.QualityExpectedCount.Value;
+                result += (StartItalian ? " · controlli di qualità " : " · quality checks ") + status.QualityPassCount.Value + "/" + status.QualityExpectedCount.Value;
             result += CandidateEvaluationStatusText.FormatMetrics(status);
             result += CandidateEvaluationStatusText.FormatLaunch(status);
             result += CandidateEvaluationStatusText.FormatFailedChecks(status);
             if (status.Eligibility == "EligibleForFurtherReview")
-                result += " · eligible for further review only, not a recommendation";
+                result += StartItalian ? " · idoneo solo per ulteriore revisione, non è una raccomandazione" : " · eligible for further review only, not a recommendation";
             if (state == "failed" && !string.IsNullOrWhiteSpace(status.ErrorCode))
-                result += " · error code " + LimitDisplay(status.ErrorCode, 40);
+                result += (StartItalian ? " · codice errore " : " · error code ") + LimitDisplay(status.ErrorCode, 40);
             if (_candidateStatusRefreshFailures.Contains(status.CandidateKey))
-                result += " · last status check failed; this state may be stale";
+                result += StartItalian ? " · ultimo controllo di stato non riuscito; questo stato potrebbe essere obsoleto" : " · last status check failed; this state may be stale";
             return result;
         }
 
@@ -3530,71 +3737,83 @@ namespace PaRuX.Views
         {
             var explanation = new List<string>
             {
-                "Provisional fit · why this Candidate · not a recommendation."
+                StartItalian ? "Idoneità provvisoria · motivo di questo candidato · non è una raccomandazione." : "Provisional fit · why this Candidate · not a recommendation."
             };
 
             long? declaredSize = candidate.DeclaredSizeBytes is > 0 ? candidate.DeclaredSizeBytes : null;
             explanation.Add(declaredSize.HasValue
-                ? "Publisher-declared file size: " + FormatObservedBytes(declaredSize)
-                    + " (estimate only; Core checks authoritative transfer size before download)."
-                : "Publisher-declared file size: unknown; no size-based estimate is available.");
+                ? (StartItalian ? "Dimensione file dichiarata dall'autore: " : "Publisher-declared file size: ") + FormatObservedBytes(declaredSize)
+                    + (StartItalian ? " (solo stima; Core controlla la dimensione effettiva del trasferimento prima del download)." : " (estimate only; Core checks authoritative transfer size before download).")
+                : (StartItalian ? "Dimensione file dichiarata dall'autore: sconosciuta; nessuna stima basata sulla dimensione disponibile." : "Publisher-declared file size: unknown; no size-based estimate is available."));
 
             long? quotaHeadroom = _storageBudget?.QuotaHeadroomBytes;
             long? destinationFree = _storageBudget?.DestinationFreeBytes;
-            explanation.Add("Storage snapshot (not reserved): PaRuX shared AI-quota headroom: "
-                + FormatObservedBytes(quotaHeadroom) + "; managed-model destination-volume free space: "
-                + FormatObservedBytes(destinationFree) + ". These observations may change before a transfer.");
-            explanation.Add(CompareDeclaredSizeWithResource("Quota estimate", declaredSize, quotaHeadroom));
-            explanation.Add(CompareDeclaredSizeWithResource("Destination-space estimate", declaredSize, destinationFree));
+            explanation.Add((StartItalian ? "Istantanea archiviazione (non riservata): margine quota AI condivisa PaRuX: " : "Storage snapshot (not reserved): PaRuX shared AI-quota headroom: ")
+                + FormatObservedBytes(quotaHeadroom) + (StartItalian ? "; spazio libero sul volume di destinazione del modello gestito: " : "; managed-model destination-volume free space: ")
+                + FormatObservedBytes(destinationFree) + (StartItalian ? ". Queste osservazioni potrebbero cambiare prima del trasferimento." : ". These observations may change before a transfer."));
+            explanation.Add(CompareDeclaredSizeWithResource(StartItalian ? "Stima quota" : "Quota estimate", declaredSize, quotaHeadroom));
+            explanation.Add(CompareDeclaredSizeWithResource(StartItalian ? "Stima spazio di destinazione" : "Destination-space estimate", declaredSize, destinationFree));
 
             DateTime? metadataObservedUtc = _discoveryCatalog?.LastSuccessUtc is DateTime observedUtc
                 && observedUtc.Kind == DateTimeKind.Utc ? observedUtc : null;
             ModelLicenseConsentPolicy.Decision license = ModelLicenseConsentPolicy.Evaluate(
                 candidate.DeclaredLicense, metadataRetrieved: metadataObservedUtc.HasValue, metadataObservedUtc);
             string licenseState = !license.MetadataRetrieved
-                ? "publisher licence metadata unavailable; terms review is required before download"
+                ? (StartItalian ? "metadati licenza dell'autore non disponibili; revisione dei termini richiesta prima del download" : "publisher licence metadata unavailable; terms review is required before download")
                 : license.RequiresReview
-                    ? "publisher-declared licence requires review under PaRuX's conservative policy before download"
-                    : "no additional terms review is required under PaRuX's conservative allow-list";
+                    ? (StartItalian ? "la licenza dichiarata dall'autore richiede una revisione secondo la politica conservativa di PaRuX prima del download" : "publisher-declared licence requires review under PaRuX's conservative policy before download")
+                    : (StartItalian ? "nessuna revisione aggiuntiva dei termini richiesta secondo la lista consentita conservativa di PaRuX" : "no additional terms review is required under PaRuX's conservative allow-list");
             if (!string.IsNullOrWhiteSpace(candidate.DeclaredLicense))
-                licenseState += " (publisher-declared ID: " + LimitDisplay(candidate.DeclaredLicense, 80) + ")";
-            explanation.Add("License gate: " + licenseState
-                + "; metadata is not independently verified and this is not a legal assessment.");
+                licenseState += (StartItalian ? " (ID dichiarato dall'autore: " : " (publisher-declared ID: ") + LimitDisplay(candidate.DeclaredLicense, 80) + ")";
+            explanation.Add((StartItalian ? "Controllo licenza: " : "License gate: ") + licenseState
+                + (StartItalian ? "; i metadati non sono verificati in modo indipendente e questa non è una valutazione legale." : "; metadata is not independently verified and this is not a legal assessment."));
 
-            explanation.Add("Hardware/runtime fit: " + ModelHubRowPresentation.HardwareFit(
+            explanation.Add((StartItalian ? "Idoneità hardware/runtime: " : "Hardware/runtime fit: ") + ModelHubRowPresentation.HardwareFit(
                 ModelFitVerdict.Unknown,
-                "not evaluated for this exact Candidate; detected GPU/VRAM alone does not establish compatibility or performance."));
+                StartItalian ? "non valutato per questo esatto candidato; la GPU/VRAM rilevata da sola non garantisce compatibilità o prestazioni." : "not evaluated for this exact Candidate; detected GPU/VRAM alone does not establish compatibility or performance."));
             explanation.Add(FormatCandidateEvidenceScope(jobStatus));
             if (_candidateUtilityPolicyUnavailable)
             {
-                explanation.Add("Utility policy: readiness is unavailable; no capability/profile quality or reliability claim is made, and no recommendation is available.");
+                explanation.Add(StartItalian
+                    ? "Criteri di utilità: disponibilità non disponibile; nessuna affermazione di qualità o affidabilità su capacità/profilo, e nessuna raccomandazione disponibile."
+                    : "Utility policy: readiness is unavailable; no capability/profile quality or reliability claim is made, and no recommendation is available.");
             }
             else if (_candidateUtilityPolicy is { Configured: true, Readiness: "WellFormed", Policy: not null } policyStatus)
             {
-                explanation.Add("Utility policy: an explicit policy is configured for " + LimitDisplay(policyStatus.Policy.Capability, 80)
-                    + "; a manual comparison can only report whether its margin is met, requires human review, and is not a recommendation.");
+                explanation.Add((StartItalian ? "Criteri di utilità: criteri espliciti configurati per " : "Utility policy: an explicit policy is configured for ") + LimitDisplay(policyStatus.Policy.Capability, 80)
+                    + (StartItalian ? "; un confronto manuale può solo indicare se il margine è raggiunto, richiede revisione umana e non è una raccomandazione." : "; a manual comparison can only report whether its margin is met, requires human review, and is not a recommendation."));
             }
             else
             {
-                explanation.Add("Utility policy: no capability/profile quality and reliability floors or comparable incumbent-margin rule are configured; evidence eligibility alone cannot rank or recommend a Candidate.");
+                explanation.Add(StartItalian
+                    ? "Criteri di utilità: nessuna soglia di qualità e affidabilità di capacità/profilo o regola di margine configurata; l'idoneità dell'evidenza da sola non può classificare o consigliare un candidato."
+                    : "Utility policy: no capability/profile quality and reliability floors or comparable incumbent-margin rule are configured; evidence eligibility alone cannot rank or recommend a Candidate.");
             }
             if (jobStatus != null && IsCandidateJobActive(jobStatus))
             {
-                explanation.Add("Task evidence: evaluation is in progress; no completed quality/performance result is eligible for review yet.");
+                explanation.Add(StartItalian
+                    ? "Evidenza attività: valutazione in corso; nessun risultato di qualità/prestazioni completato è ancora idoneo per la revisione."
+                    : "Task evidence: evaluation is in progress; no completed quality/performance result is eligible for review yet.");
             }
             else if (jobStatus != null
                 && NormalizeCandidateJobValue(jobStatus.Status) == "completed"
                 && jobStatus.Eligibility == "EligibleForFurtherReview")
             {
-                explanation.Add("Task evidence: the last retained evaluation reported eligibility for further review at run time; this explanation does not revalidate current bytes or runtime, and is not a recommendation.");
+                explanation.Add(StartItalian
+                    ? "Evidenza attività: l'ultima valutazione conservata ha segnalato idoneità per ulteriore revisione al momento dell'esecuzione; questa spiegazione non riconvalida i byte attuali o il runtime e non è una raccomandazione."
+                    : "Task evidence: the last retained evaluation reported eligibility for further review at run time; this explanation does not revalidate current bytes or runtime, and is not a recommendation.");
             }
             else if (jobStatus == null)
             {
-                explanation.Add("Task evidence: no retained evaluation result is shown in this view; other persisted evidence may exist, and no current quality/performance conclusion is made.");
+                explanation.Add(StartItalian
+                    ? "Evidenza attività: nessun risultato di valutazione conservato mostrato in questa visualizzazione; potrebbero esistere altre evidenze persistenti, e nessuna conclusione attuale su qualità/prestazioni viene espressa."
+                    : "Task evidence: no retained evaluation result is shown in this view; other persisted evidence may exist, and no current quality/performance conclusion is made.");
             }
             else
             {
-                explanation.Add("Task evidence: the latest retained job summary shown here does not establish eligibility for further review; earlier or separately persisted evidence may exist, and no current quality/performance conclusion is made.");
+                explanation.Add(StartItalian
+                    ? "Evidenza attività: il riepilogo del processo più recente conservato mostrato qui non stabilisce idoneità per ulteriore revisione; potrebbero esistere evidenze precedenti o persistite separatamente, e nessuna conclusione attuale su qualità/prestazioni viene espressa."
+                    : "Task evidence: the latest retained job summary shown here does not establish eligibility for further review; earlier or separately persisted evidence may exist, and no current quality/performance conclusion is made.");
             }
 
             return string.Join(" ", explanation);
@@ -3655,18 +3874,22 @@ namespace PaRuX.Views
         }
 
         private static string FormatObservedBytes(long? bytes) => bytes is >= 0
-            ? bytes.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " bytes"
-            : "unknown";
+            ? bytes.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + (StartItalian ? " byte" : " bytes")
+            : (StartItalian ? "sconosciuto" : "unknown");
 
         private static string CompareDeclaredSizeWithResource(string label, long? declaredSize, long? availableBytes)
         {
             if (!declaredSize.HasValue)
-                return label + ": unknown because the publisher-declared file size is unavailable.";
+                return label + (StartItalian ? ": sconosciuto poiché la dimensione file dichiarata dall'autore non è disponibile." : ": unknown because the publisher-declared file size is unavailable.");
             if (!availableBytes.HasValue || availableBytes.Value < 0)
-                return label + ": unknown because this resource measurement is unavailable.";
+                return label + (StartItalian ? ": sconosciuto poiché la misurazione di questa risorsa non è disponibile." : ": unknown because this resource measurement is unavailable.");
 
-            string relation = declaredSize.Value <= availableBytes.Value ? "does not exceed" : "exceeds";
-            return label + ": the publisher's size estimate " + relation + " the current observed resource value. This is not transfer admission; Core rechecks authoritative size and budget when download is explicitly requested.";
+            string relation = declaredSize.Value <= availableBytes.Value
+                ? (StartItalian ? "non supera" : "does not exceed")
+                : (StartItalian ? "supera" : "exceeds");
+            return label + (StartItalian
+                ? ": la stima della dimensione dell'autore " + relation + " il valore della risorsa rilevato attualmente. Questa non è un'ammissione al trasferimento; Core ricontrolla la dimensione effettiva e il budget quando il download viene esplicitamente richiesto."
+                : ": the publisher's size estimate " + relation + " the current observed resource value. This is not transfer admission; Core rechecks authoritative size and budget when download is explicitly requested.");
         }
 
         private static bool IsCandidateEvaluationFixtureKey(string candidateKey)
