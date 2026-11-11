@@ -23,6 +23,16 @@ public static class AdaptiveReasoningPolicy
         // This explicit per-turn contract outranks the durable quality profile.
         if (request.PreferLowLatency) return new Decision("minimal", 0, demand);
 
+        // A document question is answered from the retrieved passages. The keyword heuristics below
+        // read "What is the access code for the records vault?" as a coding task (the word "code")
+        // and gave a 4B model a 4,096-token hidden-reasoning budget: it took twice as long and
+        // invented a second sub-question it then declared unanswerable (measured on the Corporate
+        // package; the same model answers the other document questions correctly with thinking
+        // off). Questions that ask for an explanation or comparison keep the adaptive decision.
+        if (request.Documents is { Enabled: true }
+            && !PaRuX.Server.Knowledge.DocumentChatPlanner.NeedsReasoning(prompt))
+            return new Decision("minimal", 0, demand);
+
         Decision adaptive = Decide(demand, role);
         ModelExecutionProfile profile = ExecutionProfileStore.Current.Get(request.Model).Effective;
         return ApplyExecutionProfile(adaptive, profile);
