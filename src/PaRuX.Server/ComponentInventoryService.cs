@@ -369,7 +369,11 @@ public sealed class ComponentInventoryService
                 return null;
             }
 
-            string combined = (await stdoutTask) + "\n" + (await stderrTask);
+            // The process has exited, but a grandchild may still hold the redirected pipes open; bound the drain
+            // with the same timeout so a stalled pipe cannot hang the probe.
+            string combined;
+            try { combined = (await stdoutTask.WaitAsync(timeoutCts.Token)) + "\n" + (await stderrTask.WaitAsync(timeoutCts.Token)); }
+            catch (OperationCanceledException) { return null; }
             string? firstLine = combined.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.Length > 0);
             if (string.IsNullOrWhiteSpace(firstLine)) return null;
             return firstLine.Length <= 300 ? firstLine : firstLine[..300];

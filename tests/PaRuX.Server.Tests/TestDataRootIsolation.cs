@@ -59,9 +59,15 @@ internal static class TestDataRootIsolation
         string parent = Path.Combine(Path.GetTempPath(), "parux-tests");
         string directory = Path.Combine(parent, "root-" + Environment.ProcessId.ToString());
 
+        // Harness children (CrashHarnessProgram: `dotnet PaRuX.Server.Tests.dll <mode> ...`) load this assembly as
+        // the process entry point, not under a testhost. They are short-lived and are waited on with tight timeouts,
+        // so they must not pay for the temp sweeps (seconds with thousands of entries); the owning test run does it.
+        bool harnessChild = ReferenceEquals(System.Reflection.Assembly.GetEntryAssembly(), typeof(TestDataRootIsolation).Assembly);
+
         // Each run gets its own root, so without this every run would leave one behind - the same
         // uncontrolled temp growth the suite checks the product itself for. A root still held by a
         // concurrent run simply fails to delete and is left alone.
+        if (!harnessChild)
         try
         {
             foreach (string stale in Directory.Exists(parent)
@@ -87,7 +93,7 @@ internal static class TestDataRootIsolation
         // Individual tests may still create nested root scopes; RootScope restores this baseline.
         _localAiRootScope = LocalAiPaths.UseRootForTests(Path.Combine(directory, "localai-root"));
 
-        SweepAbandonedTestDirectories();
+        if (!harnessChild) SweepAbandonedTestDirectories();
     }
 
     /// <summary>True when a <c>root-&lt;pid&gt;</c> directory belongs to a process that is still running.
