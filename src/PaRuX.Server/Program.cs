@@ -30,6 +30,9 @@ LocalApiServerService.VendorModelDefault = gatewaySettings.VendorModelDefault;
 int? gatewayPort = gatewaySettings.Enabled && PaRuX.Server.Gateway.GatewaySettings.IsPortFree(gatewaySettings.Port)
     ? gatewaySettings.Port : null;
 int corePort = ServerState.ChooseCorePort();
+// Hosting's "Request starting ..." line prints the full query string, which would write a browser launch code
+// (/app?code=...) to every log sink. Warnings and errors from this category are still emitted.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 64L * 1024 * 1024;
