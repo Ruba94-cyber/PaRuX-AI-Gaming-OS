@@ -41,13 +41,13 @@ The MSI build copies this notice, the NVIDIA CUDA notice, the PaRuX FSL-1.1-MIT 
 
 ## Bundled in Standard Portable / Corporate Lite ZIPs — not in the MSI
 
-These artifacts are staged by `scripts/portable-offline-assets.ps1` and `scripts/build-corporate-lite.ps1`. The licence cells below were not verified against upstream model cards or licence files in this audit (no package metadata is available for them). Owner review is required before these ZIPs are published.
+These artifacts are staged by `scripts/portable-offline-assets.ps1` and `scripts/build-corporate-lite.ps1`. The model licences below were read from the upstream Hugging Face model metadata on 2026-11-11.
 
 | Component | Source (pinned in script) | License | Notes |
 |---|---|---|---|
-| Qwen3-4B-Q4_K_M.gguf (starter chat model) | `Qwen/Qwen3-4B-GGUF`, sha256 pinned (`scripts/build-corporate-lite.ps1:174`, `scripts/portable-offline-assets.ps1:137`) | UNKNOWN - NEEDS REVIEW | `build-corporate-lite.ps1:300` states Apache-2.0; upstream model card not verified |
-| all-MiniLM-L6-v2 (ONNX embedding model) | `sentence-transformers/all-MiniLM-L6-v2`, revision `1110a243...`, sha256 pinned (`scripts/build-corporate-lite.ps1:179-181`) | UNKNOWN - NEEDS REVIEW | `build-corporate-lite.ps1:300` states Apache-2.0; upstream licence not verified |
-| ms-marco-MiniLM-L-6-v2 (ONNX reranker, optional) | `Xenova/ms-marco-MiniLM-L-6-v2`, revision `a0914435...`, sha256 pinned (`scripts/build-corporate-lite.ps1:189-191`) | UNKNOWN - NEEDS REVIEW | `build-corporate-lite.ps1:300` itself says to review the source licence before redistribution |
+| Qwen3-4B-Q4_K_M.gguf (starter chat model) | `Qwen/Qwen3-4B-GGUF`, sha256 pinned (`scripts/build-corporate-lite.ps1:174`, `scripts/portable-offline-assets.ps1:137`) | Apache-2.0 | Licence tag of `Qwen/Qwen3-4B-GGUF` and of its base model `Qwen/Qwen3-4B` |
+| all-MiniLM-L6-v2 (ONNX embedding model) | `sentence-transformers/all-MiniLM-L6-v2`, revision `1110a243...`, sha256 pinned (`scripts/build-corporate-lite.ps1:179-181`) | Apache-2.0 | Licence tag of `sentence-transformers/all-MiniLM-L6-v2` |
+| ms-marco-MiniLM-L-6-v2 (ONNX reranker, optional) | `Xenova/ms-marco-MiniLM-L-6-v2`, revision `a0914435...`, sha256 pinned (`scripts/build-corporate-lite.ps1:189-191`) | Apache-2.0 (base model) | The `Xenova` ONNX conversion carries no licence tag of its own; its declared base model `cross-encoder/ms-marco-MiniLM-L6-v2` is Apache-2.0 |
 | llama.cpp CPU x64 runtime (`llama-server.exe` and DLLs) | Latest `ggml-org/llama.cpp` release asset matching `llama-*-bin-win-cpu-x64.zip`, **not version- or hash-pinned** (`scripts/portable-offline-assets.ps1:108-113`, `scripts/build-corporate-lite.ps1:145-148`) | MIT (llama.cpp upstream; see the MSI table) | The exact build is not recorded, so the notice cannot name a version |
 
 ## Agent Platform V2 interoperability — not redistributed
@@ -84,8 +84,8 @@ MIT obligations apply if MIT source is actually copied/distributed, not merely b
 | kotlinx-coroutines | Apache-2.0 | Async/concurrency |
 | kotlinx-serialization | Apache-2.0 | JSON contracts |
 | Coil | Apache-2.0 | Authenticated image loading |
-| Kotlin standard library (`kotlin-stdlib`, transitive) | UNKNOWN - NEEDS REVIEW (cached JAR has no licence file; POM not in local Gradle cache) | Kotlin runtime used by the APK |
-| okio-jvm (transitive of OkHttp) | UNKNOWN - NEEDS REVIEW (cached JAR has no licence file; POM not in local Gradle cache) | I/O primitives used by OkHttp |
+| Kotlin standard library (`kotlin-stdlib`, transitive) | Apache-2.0 (Maven Central POM) | Kotlin runtime used by the APK |
+| okio-jvm (transitive of OkHttp) | Apache-2.0 (Maven Central POM) | I/O primitives used by OkHttp |
 
 The Android app does not embed a local LLM or proprietary cloud inference provider. QR decoding is local, and paired application traffic is HTTPS with certificate pinning. Android is a control plane for the user's PaRuX Server, not a cloud-AI client.
 

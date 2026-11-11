@@ -22,7 +22,11 @@ param(
     [int]$ChatTimeoutSeconds = 420,
     [switch]$KeepWorkDir,
     [string]$WorkRoot = "",
-    [switch]$EnforceAcceptance
+    [switch]$EnforceAcceptance,
+    # Optional large-document stage: a synthetic PDF with this many pages (0 = skipped) is written to
+    # disk page by page, indexed as its own source and searched for facts planted on known pages.
+    [int]$LargePdfPages = 0,
+    [int]$LargePdfIndexTimeoutSeconds = 14400
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem, System.Net.Http
@@ -184,6 +188,48 @@ function New-Pdf($path, $lines) {
     foreach ($o in $offs) { [void]$sb.Append(("{0:D10} 00000 n `n" -f $o)) }
     [void]$sb.Append("trailer`n<< /Size $($objs.Count + 1) /Root 1 0 R >>`nstartxref`n$xref`n%%EOF`n")
     [IO.File]::WriteAllText($path, $sb.ToString(), [Text.Encoding]::ASCII)
+}
+# Writes a valid multi-page PDF straight to disk, one page at a time (nothing but the page offsets is
+# kept in memory). $sentinels maps a 1-based page number to a line that appears on that page only.
+function New-LargePdf([string]$path, [int]$pages, [hashtable]$sentinels) {
+    $fs = [IO.FileStream]::new($path, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None, 1MB)
+    $ascii = [Text.Encoding]::ASCII
+    $offsets = [long[]]::new(2 * $pages + 4)   # index = object number
+    $write ={ param([string]$s) $b = $ascii.GetBytes($s); $fs.Write($b, 0, $b.Length); $script:lpPos += $b.Length }
+    $script:lpPos = [long]0
+    try {
+        & $write "%PDF-1.4`n"
+        $offsets[1] = $script:lpPos; & $write "1 0 obj`n<< /Type /Catalog /Pages 2 0 R >>`nendobj`n"
+        $offsets[3] = $script:lpPos; & $write "3 0 obj`n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`nendobj`n"
+        $pageRng = [Random]::new(30000)
+        $sb = [Text.StringBuilder]::new(4096)
+        for ($p = 1; $p -le $pages; $p++) {
+            $topic = $topics[$p % $topics.Count]
+            [void]$sb.Clear().Append("BT /F1 10 Tf 50 790 Td 13 TL`n")
+            [void]$sb.Append("(Operations handbook - section $p - $($topic.n)) Tj T*`n")
+            if ($sentinels.ContainsKey($p)) { [void]$sb.Append("(" + $sentinels[$p] + ") Tj T*`n") }
+            for ($l = 0; $l -lt 24; $l++) {
+                [void]$sb.Append("(")
+                for ($w = 0; $w -lt 11; $w++) { [void]$sb.Append($words[$pageRng.Next($words.Count)]).Append(' ') }
+                [void]$sb.Append(") Tj T*`n")
+            }
+            [void]$sb.Append("ET")
+            $content = $sb.ToString()
+            $pageObj = 2 * $p + 2; $contentObj = $pageObj + 1
+            $offsets[$pageObj] = $script:lpPos
+            & $write "$pageObj 0 obj`n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents $contentObj 0 R /Resources << /Font << /F1 3 0 R >> >> >>`nendobj`n"
+            $offsets[$contentObj] = $script:lpPos
+            & $write "$contentObj 0 obj`n<< /Length $($content.Length) >>`nstream`n$content`nendstream`nendobj`n"
+        }
+        $offsets[2] = $script:lpPos
+        & $write "2 0 obj`n<< /Type /Pages /Count $pages /Kids ["
+        for ($p = 1; $p -le $pages; $p++) { & $write "$(2 * $p + 2) 0 R`n" }
+        & $write "] >>`nendobj`n"
+        $xref = $script:lpPos; $objCount = 2 * $pages + 4
+        & $write "xref`n0 $objCount`n0000000000 65535 f `n"
+        for ($o = 1; $o -lt $objCount; $o++) { & $write ("{0:D10} 00000 n `n" -f $offsets[$o]) }
+        & $write "trailer`n<< /Size $objCount /Root 1 0 R >>`nstartxref`n$xref`n%%EOF`n"
+    } finally { $fs.Dispose() }
 }
 function New-Corpus($root, $count) {
     New-Item -ItemType Directory -Force $root | Out-Null
@@ -521,6 +567,58 @@ try {
     Say "Robustness: $($rob | ConvertTo-Json -Compress)"
 
     # ------------------------------------------------------------------------------------------------------------------------
+    # 4b. Optional: one very large PDF as its own source
+    # ------------------------------------------------------------------------------------------------------------------------
+    if ($LargePdfPages -gt 0) {
+        $lp = [ordered]@{ pages = $LargePdfPages }
+        $lpDir = Join-Path $work "large-pdf"; New-Item -ItemType Directory $lpDir | Out-Null
+        $lpFile = Join-Path $lpDir "operations-handbook.pdf"
+        $sentinelPages = @(1, 16, 17, 512, [int]($LargePdfPages / 2), ($LargePdfPages - 16), $LargePdfPages) | Where-Object { $_ -ge 1 -and $_ -le $LargePdfPages } | Sort-Object -Unique
+        $sentinels = @{}
+        foreach ($sp in $sentinelPages) { $sentinels[[int]$sp] = "Clause HBK-{0:D5}-KZ sets the inspection interval to {1} days." -f $sp, (30 + ($sp % 400)) }
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        New-LargePdf $lpFile $LargePdfPages $sentinels
+        $lp.generate_s = [math]::Round($sw.Elapsed.TotalSeconds, 1); $lp.file_mb = [math]::Round((Get-Item $lpFile).Length / 1MB, 1)
+        Say "Large PDF: $LargePdfPages pages, $($lp.file_mb) MB, written in $($lp.generate_s)s"
+        $a = Api POST "/api/v1/rag/sources" @{ folderPath = $lpDir }; $lpId = $a.Json.id
+        $tL0 = Get-Date
+        $st = Api POST "/api/v1/knowledge/sources/$lpId/index"
+        $lp.index_start_status = $st.Status
+        $f = Wait-Index $lpId $LargePdfIndexTimeoutSeconds
+        $tL1 = Get-Date
+        $lp.index_state = if ($f) { "$($f.job.state)" } else { "TIMEOUT" }
+        $lp.index_s = [math]::Round(($tL1 - $tL0).TotalSeconds, 1)
+        $lp.index_files = if ($f) { $f.files } else { $null }; $lp.index_chunks = if ($f) { $f.chunks } else { $null }
+        $lp.index_problems = if ($f) { @($f.problems | ForEach-Object { "$($_.relativePath) [$($_.kind)] $($_.reason)" }) } else { @() }
+        $lp.pages_per_s = if ($lp.index_s -gt 0) { [math]::Round($LargePdfPages / $lp.index_s, 1) } else { $null }
+        $lp.index_stats = Fmt-Stats (Get-SampleStats $tL0 $tL1)
+        $lp.core_alive = -not $appProc.HasExited
+        Say "Large PDF indexed: $($lp.index_state), chunks $($lp.index_chunks), $($lp.index_s)s ($($lp.pages_per_s) pages/s). $($lp.index_stats)"
+        # Every planted clause must come back from the right file with the right page number.
+        $found = @(); $lat = @()
+        foreach ($sp in $sentinelPages) {
+            $code = "HBK-{0:D5}-KZ" -f $sp
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $lookup = Api GET ("/api/v1/knowledge/search?q=" + [uri]::EscapeDataString($code) + "&mode=Exact&k=10")
+            $sw.Stop(); $lat += $sw.Elapsed.TotalMilliseconds
+            $hit = @($lookup.Json | Where-Object { $_.text -like "*$code*" -and $_.fileName -eq "operations-handbook.pdf" }) | Select-Object -First 1
+            $found += [pscustomobject]@{ page = $sp; found = [bool]$hit; cited_page = $(if ($hit) { $hit.page } else { $null }); citation = $(if ($hit) { $hit.citation } else { $null }); page_correct = ($hit -and $null -ne $hit.page -and [int]$hit.page -eq $sp) }
+        }
+        $lp.sentinels = @($found | ForEach-Object { "p.$($_.page): found=$($_.found) cited=$($_.citation)" })
+        $lp.sentinels_found = @($found | Where-Object { $_.found }).Count
+        $lp.sentinels_page_correct = @($found | Where-Object { $_.page_correct }).Count
+        $lp.sentinel_total = $sentinelPages.Count
+        $lp.sentinel_lookup_p95_ms = [math]::Round((Percentile $lat 95), 1)
+        # Codes that are in no document must return nothing in exact mode.
+        $falsePos = 0
+        1..100 | ForEach-Object { $code = "HBK-{0:D5}-QX" -f (40000 + $_); if (@((Api GET ("/api/v1/knowledge/search?q=$code&mode=Exact&k=5")).Json | Where-Object { $_.text -like "*$code*" }).Count -gt 0) { $falsePos++ } }
+        $lp.negative_queries = 100; $lp.negative_false_positives = $falsePos
+        $lp.natural_question = Measure-Search @([pscustomobject]@{ Q = "inspection interval clause HBK-{0:D5}-KZ" -f $sentinelPages[-1] }) "Hybrid" { param($q, $hits) @($hits | Where-Object { $_.fileName -eq "operations-handbook.pdf" }).Count -gt 0 }
+        $R.large_pdf = $lp
+        Say "Large PDF search: $($lp.sentinels_page_correct)/$($lp.sentinel_total) clauses on the right page, false positives $falsePos/100, p95 $($lp.sentinel_lookup_p95_ms) ms"
+    }
+
+    # ------------------------------------------------------------------------------------------------------------------------
     # 5. Chat with the bundled model + citations
     # ------------------------------------------------------------------------------------------------------------------------
     # The bulk corpus is deliberately scrambled (a document titled with one topic carries paragraphs
@@ -691,6 +789,17 @@ finally {
         }
         if ($R.nonloopback_outbound_connections -gt 0 -or @($R.listeners_on_non_loopback).Count -gt 0) {
             $acceptanceFailures.Add("Corporate package had observed non-loopback traffic or listeners.")
+        }
+        if ($LargePdfPages -gt 0) {
+            $lpr = $R.large_pdf
+            if (-not $lpr -or $lpr.index_state -ne "done" -or -not $lpr.core_alive) {
+                $acceptanceFailures.Add("The $LargePdfPages-page PDF was not indexed to completion with the Core still running.")
+            } elseif ($lpr.sentinels_page_correct -lt $lpr.sentinel_total) {
+                $acceptanceFailures.Add("Only $($lpr.sentinels_page_correct) of $($lpr.sentinel_total) clauses planted in the large PDF were found with the right page number.")
+            }
+            if ($lpr -and $lpr.negative_false_positives -gt 0) {
+                $acceptanceFailures.Add("Exact lookup returned $($lpr.negative_false_positives) codes that exist in no document.")
+            }
         }
     }
     $R.acceptance = [ordered]@{
