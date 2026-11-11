@@ -23,7 +23,10 @@
       "Microsoft.ML.OnnxRuntime": "1.29.0",
       "Microsoft.ML.Tokenizers": "2.0.0",
       "Parquet.Net": "6.1.0",
-      "SharpCompress": "0.50.4"
+      "SharpCompress": "0.50.4",
+      "PdfPig": "0.1.16",
+      "MonoTorrent": "3.0.2",
+      "System.Drawing.Common": "8.0.0"
     }
   },
   "vendored_license_files": [
