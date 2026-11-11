@@ -1,6 +1,6 @@
 # Microsoft Store listing - English (en-US)
 
-Draft for Partner Center. The product name must equal the name the owner reserves in Partner Center (the build default is "PaRuX AI Studio"). Every claim below is limited to what `docs/REQUIREMENT_MATRIX.md` shows as implemented and tested; the evidence column says what that is. Do not add speed numbers, rankings or "best" wording. Remove the "(evidence: ...)" and "(EV-06)" references before pasting into Partner Center.
+Draft for Partner Center. The product name must equal the name the owner reserves in Partner Center (the build default is "PaRuX AI & Gaming OS"). Every claim below is limited to what `docs/REQUIREMENT_MATRIX.md` shows as implemented and tested; the evidence column says what that is. Do not add speed numbers, rankings or "best" wording. Remove the "(evidence: ...)" and "(EV-06)" references before pasting into Partner Center.
 
 ## Short description (max 100 characters)
 
@@ -8,7 +8,7 @@ Chat with AI models and ask questions about your own files, running on your own 
 
 ## Full description
 
-PaRuX AI Studio is a local-first AI workspace for Windows. Chat with language models that run on your own PC, and ask questions about the documents you choose.
+PaRuX AI & Gaming OS is a local-first AI workspace for Windows. Chat with language models that run on your own PC, and ask questions about the documents you choose.
 
 Important to know before you install:
 - PaRuX needs an AI model to answer. The Store package contains the app and a local inference engine, but no model files. The first time you chat, PaRuX helps you choose a model and downloads it only after you say yes (models are large, often several GB).
@@ -49,7 +49,7 @@ Memory: a 4-billion-parameter model peaked at 6.7 GB RAM in the reference-PC tes
 
 ## Notes for certification (Partner Center "Notes for certification")
 
-PaRuX AI Studio requires the runFullTrust capability because the desktop app starts its own local server process (PaRuX.Server.exe) and local inference engines as child processes. It does not require an account. To test: start the app, choose "Skip" or a small model in the first-run screen; no sign-in is needed. Model files are downloaded from public model hosts only after the user confirms. The app does not download or install executable code (no additional engines, no Python tooling, no installers) and has no torrent engine. Non-Microsoft dependencies: the llama.cpp inference engine (MIT license) is included in the package.
+PaRuX AI & Gaming OS requires the runFullTrust capability because the desktop app starts its own local server process (PaRuX.Server.exe) and local inference engines as child processes. It does not require an account. To test: start the app, choose "Skip" or a small model in the first-run screen; no sign-in is needed. Model files are downloaded from public model hosts only after the user confirms. The app does not download or install executable code (no additional engines, no Python tooling, no installers) and has no torrent engine. Non-Microsoft dependencies: the llama.cpp inference engine (MIT license) is included in the package.
 
 ## Age rating notes (answer the IARC questionnaire yourself)
 

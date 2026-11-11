@@ -5,7 +5,7 @@ Nothing here has been submitted. Items marked OWNER need the owner's Partner Cen
 ## A. Account and identity (OWNER)
 
 1. DONE (owner) Register a free developer account (individual) at https://storedeveloper.microsoft.com (Partner Center).
-2. DONE (owner) Reserve the app name. The build default display name is "PaRuX AI Studio"; if you reserve a different name, put it in the identity file as `appDisplayName`.
+2. DONE (owner) Reserve the app name. The build default display name is "PaRuX AI & Gaming OS"; if you reserve a different name, put it in the identity file as `appDisplayName`.
 3. DONE (owner, 2026-11-11) In Partner Center open Product management > Product identity and copy **Package/Identity/Name**, **Package/Identity/Publisher** and **Package/Properties/PublisherDisplayName** into the Git-ignored file `<main checkout>\.ai\store\store-identity.local.json` (keys `identityName`, `identityPublisher`, `publisherDisplayName`; optional `appDisplayName`). Values are case- and punctuation-sensitive. Never commit this file (`*.local.json` is ignored).
 4. TODO Pricing: Free. Markets: choose. Availability: public.
 
@@ -51,7 +51,7 @@ Capture on the reference PC with a model installed, from the packaged app, 1920x
 
 ## F. Restricted capability justification (paste into the `runFullTrust` field)
 
-> PaRuX AI Studio is a desktop app (WinUI 3 / .NET) that runs AI language models locally on the user's PC. The app starts its own local server process (PaRuX.Server.exe) and the local inference engine (llama.cpp, MIT license) as child processes, reads and writes files the user chooses (documents to index, model files), and uses native GPU libraries (Vulkan) that cannot run inside a UWP/AppContainer sandbox. It therefore needs the runFullTrust capability. It does not install services or drivers, does not run elevated, does not change Windows settings, registers no startup entries, and does not collect telemetry. Network use is user-initiated: model downloads, optional web search, and an optional local-network pairing feature that is off by default.
+> PaRuX AI & Gaming OS is a desktop app (WinUI 3 / .NET) that runs AI language models locally on the user's PC. The app starts its own local server process (PaRuX.Server.exe) and the local inference engine (llama.cpp, MIT license) as child processes, reads and writes files the user chooses (documents to index, model files), and uses native GPU libraries (Vulkan) that cannot run inside a UWP/AppContainer sandbox. It therefore needs the runFullTrust capability. It does not install services or drivers, does not run elevated, does not change Windows settings, registers no startup entries, and does not collect telemetry. Network use is user-initiated: model downloads, optional web search, and an optional local-network pairing feature that is off by default.
 
 Network capabilities declared: `internetClient`, `internetClientServer`, `privateNetworkClientServer` (justify the last two as the optional local-network pairing listener).
 

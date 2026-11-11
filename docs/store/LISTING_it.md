@@ -1,6 +1,6 @@
 # Scheda Microsoft Store - Italiano (it-IT)
 
-Bozza per Partner Center. Il nome del prodotto deve coincidere con il nome riservato dal proprietario in Partner Center (predefinito della build: "PaRuX AI Studio"). Le affermazioni sono limitate a cio che `docs/REQUIREMENT_MATRIX.md` indica come implementato e testato. Non aggiungere numeri di velocita, classifiche o "il migliore". Rimuovi i riferimenti "(evidenza: ...)" e "(EV-06)" prima di incollare in Partner Center.
+Bozza per Partner Center. Il nome del prodotto deve coincidere con il nome riservato dal proprietario in Partner Center (predefinito della build: "PaRuX AI & Gaming OS"). Le affermazioni sono limitate a cio che `docs/REQUIREMENT_MATRIX.md` indica come implementato e testato. Non aggiungere numeri di velocita, classifiche o "il migliore". Rimuovi i riferimenti "(evidenza: ...)" e "(EV-06)" prima di incollare in Partner Center.
 
 ## Descrizione breve (max 100 caratteri)
 
@@ -8,7 +8,7 @@ Chatta con modelli AI e interroga i tuoi file, direttamente sul tuo PC.
 
 ## Descrizione completa
 
-PaRuX AI Studio e uno spazio di lavoro AI "local-first" per Windows. Chatta con modelli linguistici che girano sul tuo PC e fai domande sui documenti che scegli tu.
+PaRuX AI & Gaming OS e uno spazio di lavoro AI "local-first" per Windows. Chatta con modelli linguistici che girano sul tuo PC e fai domande sui documenti che scegli tu.
 
 Da sapere prima di installare:
 - PaRuX ha bisogno di un modello AI per rispondere. Il pacchetto dello Store contiene l'app e un motore di inferenza locale, ma nessun file modello. Alla prima chat PaRuX ti aiuta a scegliere un modello e lo scarica solo dopo la tua conferma (i modelli sono grandi, spesso diversi GB).

@@ -1,4 +1,4 @@
-# PaRuX AI Studio - Support
+# PaRuX AI & Gaming OS - Support
 
 Draft support page for the Store listing's "Support contact info" field (Partner Center needs a web page or e-mail address; the owner supplies it - no personal contact data is stored in this public repository).
 

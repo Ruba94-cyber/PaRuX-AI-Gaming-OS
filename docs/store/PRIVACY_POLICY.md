@@ -1,4 +1,4 @@
-# PaRuX AI Studio - Privacy Policy
+# PaRuX AI & Gaming OS - Privacy Policy
 
 Draft for the owner to review before publishing at a public URL (Partner Center requires one). Effective date: set on publication. Applies to the Microsoft Store edition of PaRuX 4.1.x. Statements about the software were checked against the source code at the commit this file was written; they must be re-checked when features change.
 

@@ -7,7 +7,7 @@
     Windows App SDK), laid out as an MSIX package:
       * the Store IDENTITY (Name, Publisher, PublisherDisplayName) comes from a Git-ignored local JSON file (-IdentityFile);
         it is never written to a tracked file. Required keys: identityName, identityPublisher, publisherDisplayName.
-        Optional: appDisplayName (must equal the name reserved in Partner Center; default "PaRuX AI Studio").
+        Optional: appDisplayName (must equal the name reserved in Partner Center; default "PaRuX AI & Gaming OS").
       * AppxManifest.xml is generated from packaging/msix/AppxManifest.template.xml (runFullTrust, internet / LAN capabilities).
       * Logo assets are derived from the repository's approved PRX Orbit artwork (src/PaRuX.App/Assets); nothing new is invented.
       * The package carries the pinned baseline Vulkan llama.cpp runtime (same hash-locked staging as the MSI/Portable) so base
@@ -62,7 +62,7 @@ foreach ($key in @("identityName", "identityPublisher", "publisherDisplayName"))
 $identityName = [string]$identity.identityName
 $identityPublisher = [string]$identity.identityPublisher
 $publisherDisplayName = [string]$identity.publisherDisplayName
-$appDisplayName = if (($identity.PSObject.Properties.Name -contains "appDisplayName") -and -not [string]::IsNullOrWhiteSpace([string]$identity.appDisplayName)) { [string]$identity.appDisplayName } else { "PaRuX AI Studio" }
+$appDisplayName = if (($identity.PSObject.Properties.Name -contains "appDisplayName") -and -not [string]::IsNullOrWhiteSpace([string]$identity.appDisplayName)) { [string]$identity.appDisplayName } else { "PaRuX AI & Gaming OS" }
 if ($identityName -notmatch '^[A-Za-z0-9][A-Za-z0-9.\-]{2,49}$') { throw "identityName is not a valid package identity name." }
 if ($identityPublisher -notmatch '^CN=.+') { throw "identityPublisher must be the distinguished name copied from Partner Center (starts with 'CN=')." }
 
