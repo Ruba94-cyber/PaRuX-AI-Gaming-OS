@@ -135,15 +135,20 @@ public static class AdaptiveReasoningPolicy
     // or "legit" (git), "report" (repo) and "improve" (prove) were read as coding/reasoning tasks.
     // Stems (implement, debug, ...) must start a word; short ambiguous words (code, test, git, repo)
     // must be whole words; "code" is ignored after a non-programming qualifier (access code, ...).
+    // Boundaries only look at Latin letters/digits so that keywords glued to CJK text still match.
+    private const string LatinBefore = @"(?<![A-Za-z0-9À-ɏ])";
+    private const string LatinAfter = @"(?![A-Za-z0-9À-ɏ])";
+
     private static readonly System.Text.RegularExpressions.Regex CodingSignals = new(
-        @"(?<![\p{L}\p{N}])(?:(?:implement|refactor|debug|compile|patch|coding|repositor)\w*"
-        + @"|(?:tests?|git|repos?)(?![\p{L}\p{N}])"
-        + @"|(?<!(?:access|promo|promotional|postal|zip|area|dress|pin|discount|coupon|voucher|door|security|verification|tax|country|morse|gift)\s)codes?(?:base)?(?![\p{L}\p{N}]))",
+        LatinBefore + @"(?:(?:implement|refactor|debug|compile|patch|coding|repositor)\w*"
+        + @"|(?:tests?|testing|tested|tester|testers|git|github|gitlab|gitignore|repos?)" + LatinAfter
+        + @"|(?<!(?:access|promo|promotional|postal|zip|area|dress|pin|discount|coupon|voucher|door|security|verification|tax|country|morse|gift)[\s\-]+)codes?(?:base)?" + LatinAfter + ")",
         System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled);
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> SignalRegexes = new();
+
     private static bool ContainsAny(string value, params string[] signals) =>
-        signals.Any(signal => System.Text.RegularExpressions.Regex.IsMatch(
-            value,
-            @"(?<![\p{L}\p{N}])" + System.Text.RegularExpressions.Regex.Escape(signal),
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant));
+        signals.Any(signal => SignalRegexes.GetOrAdd(signal, s => new System.Text.RegularExpressions.Regex(
+            LatinBefore + System.Text.RegularExpressions.Regex.Escape(s),
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled)).IsMatch(value));
 }
