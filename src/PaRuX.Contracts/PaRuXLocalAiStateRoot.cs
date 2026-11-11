@@ -12,18 +12,20 @@ public static class PaRuXLocalAiStateRoot
     /// isolated integration/UI-test child processes; normal launches never set it.
     /// </summary>
     public static string Path => Resolve(AppContext.BaseDirectory,
-        Environment.GetEnvironmentVariable(OverrideEnvironmentVariable));
+        Environment.GetEnvironmentVariable(OverrideEnvironmentVariable), PackageIdentity.FamilyName);
 
     /// <summary>Portable marker wins over inherited process overrides; all
     /// coordination files stay inside the same movable PaRuXData directory.</summary>
-    internal static string Resolve(string baseDirectory, string? overrideRoot)
+    internal static string Resolve(string baseDirectory, string? overrideRoot, string? packageFamilyName = null)
     {
         string? portableData = PaRuXDataRoot.FindPortableDataRoot(baseDirectory);
         if (portableData != null) return portableData;
         if (!string.IsNullOrWhiteSpace(overrideRoot) && System.IO.Path.IsPathFullyQualified(overrideRoot))
             return System.IO.Path.GetFullPath(overrideRoot);
-        return System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalAI");
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (PackageIdentity.IsValidFamilyName(packageFamilyName))
+            return PackageIdentity.PackagedLocalAiStateRoot(localAppData, packageFamilyName!);
+        return System.IO.Path.Combine(localAppData, "LocalAI");
     }
 
 }

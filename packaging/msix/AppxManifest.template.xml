@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Template for the Microsoft Store (MSIX) edition of PaRuX. scripts/build-msix.ps1 replaces the double-@ placeholders.
+  The real Store identity (Name / Publisher / PublisherDisplayName) is NEVER stored in this repository: it is read from
+  a Git-ignored local file passed with -IdentityFile. Do not hard-code Store values here.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity Name="@@IDENTITY_NAME@@"
+            Publisher="@@IDENTITY_PUBLISHER@@"
+            Version="@@VERSION@@"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>@@APP_DISPLAY_NAME@@</DisplayName>
+    <PublisherDisplayName>@@PUBLISHER_DISPLAY_NAME@@</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 10 1809 is the Windows App SDK 1.8 / app minimum. The .NET runtime and the Windows App SDK
+         are self-contained inside the package, so no framework package dependency is declared. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+    <Resource Language="it-IT" />
+  </Resources>
+
+  <Applications>
+    <Application Id="PaRuX" Executable="PaRuX.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="@@APP_DISPLAY_NAME@@"
+                          Description="Local-first AI workspace: chat, documents, coding and media with models that run on your own PC."
+                          BackgroundColor="transparent"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
+                         Square71x71Logo="Assets\SmallTile.png"
+                         Square310x310Logo="Assets\LargeTile.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Restricted: the Desktop starts the local Core (PaRuX.Server.exe) and local inference engines as child
+         processes and uses unrestricted file access chosen by the user. See docs/store/SUBMISSION_CHECKLIST.md. -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Model / runtime downloads and optional web access, only on user action. -->
+    <Capability Name="internetClient" />
+    <!-- Optional LAN server for the user's own paired devices (off unless enabled in Settings). -->
+    <Capability Name="internetClientServer" />
+    <Capability Name="privateNetworkClientServer" />
+  </Capabilities>
+
+@@EXTENSIONS@@
+</Package>
