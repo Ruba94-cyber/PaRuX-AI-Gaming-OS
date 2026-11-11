@@ -176,7 +176,12 @@ public sealed class ChatProxyService
             ApplyContinuation(new JsonObject(), request, _runtime.UsesExternalProvider);
 
         ChatCompletionMessage? lastUser = request.Messages.LastOrDefault(m => m.Role == "user");
-        SkillRouteResult routed = _skills.Route(lastUser?.Content ?? string.Empty, request.SkillId);
+        // A document question is grounded question answering, whatever words it contains. Skill
+        // triggers are substring matches: "What is the access CODE for the RECORDS vault?" selected
+        // a document-authoring skill and the model offered to "create a Word document" instead of
+        // answering (measured on the Corporate package). An explicitly chosen skill is still honoured.
+        string? skillForTurn = documentMode && string.IsNullOrWhiteSpace(request.SkillId) ? "general" : request.SkillId;
+        SkillRouteResult routed = _skills.Route(lastUser?.Content ?? string.Empty, skillForTurn);
         if (routed.Skill != null) ApplySkillPromptShaping(request, routed.Skill, request.SkillParameters);
 
         LocalStructuredOutputRequest? structuredOutput = StructuredOutputRequestTransport.TryRead(request);
