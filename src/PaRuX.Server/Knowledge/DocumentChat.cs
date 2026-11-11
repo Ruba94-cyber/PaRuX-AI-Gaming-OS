@@ -186,6 +186,27 @@ public static class DocumentChatPlanner
                 && hit.Text.Contains("\nSize: ", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>How far below the best passage a passage may score and still be shown to the model.</summary>
+    internal const double RelevanceMargin = 4.0;
+
+    /// <summary>
+    /// Drops the passages the cross-encoder judged irrelevant. The index returns the best k hits
+    /// even when only one of them answers the question; measured on the Corporate package, a 4B
+    /// model given the vault passage plus five unrelated ones (printers, pallets) summarised all of
+    /// them instead of answering. A passage stays when it scored at or above zero (the model's own
+    /// "relevant" boundary) or within <see cref="RelevanceMargin"/> of the best one; the best one
+    /// always stays. Hits without a cross-encoder score (exact identifiers, no reranker) are untouched.
+    /// </summary>
+    public static IReadOnlyList<KnowledgeHit> FocusOnRelevant(IReadOnlyList<KnowledgeHit> hits)
+    {
+        if (hits.Count < 2 || !hits.Any(h => h.Relevance.HasValue)) return hits;
+        double best = hits.Where(h => h.Relevance.HasValue).Max(h => h.Relevance!.Value);
+        var kept = hits.Where(h => !h.Relevance.HasValue
+            || h.Relevance.Value >= 0
+            || h.Relevance.Value >= best - RelevanceMargin).ToList();
+        return kept.Count == 0 ? hits : kept;
+    }
+
     public static bool NeedsReasoning(string query)
     {
         string lower = query.ToLowerInvariant();
@@ -234,7 +255,7 @@ public static class DocumentChatPlanner
         {
             IReadOnlyCollection<string> allowed = service.ScopedSourceIds(sourceIds);
             if (allowed.Count == 0) return Array.Empty<KnowledgeHit>();
-            return service.Index.Search(query, KnowledgeSearchMode.Auto, topK, allowed);
+            return FocusOnRelevant(service.Index.Search(query, KnowledgeSearchMode.Auto, topK, allowed));
         }
         catch (Exception) { return Array.Empty<KnowledgeHit>(); }
     }

@@ -11,7 +11,10 @@ namespace PaRuX.Server.Knowledge;
 
 public enum KnowledgeSearchMode { Auto, Exact, Lexical, Semantic, Hybrid }
 
-public sealed record KnowledgeHit(long ChunkId, string FilePath, string FileName, string Text, DocumentPosition Position, double Score, string Match)
+/// <param name="Relevance">Cross-encoder score of this passage for the query (a logit: above zero means
+/// "answers the query"), set only when the reranker scored it. Null for exact hits and unreranked searches.</param>
+public sealed record KnowledgeHit(long ChunkId, string FilePath, string FileName, string Text, DocumentPosition Position, double Score, string Match,
+    double? Relevance = null)
 {
     /// <summary>"Report.pdf, p. 4" - what a citation shows.</summary>
     public string Citation => FileName + ", " + Position.Describe();
@@ -954,7 +957,9 @@ FROM kn_chunks k JOIN kn_files f ON f.id=k.file_id WHERE f.duplicate_of IS NULL 
                 .OrderByDescending(i => scores[i].HasValue && float.IsFinite(scores[i]!.Value))
                 .ThenByDescending(i => scores[i].HasValue && float.IsFinite(scores[i]!.Value) ? scores[i]!.Value : float.MinValue)
                 .ThenBy(i => i)
-                .Select(i => fused[i]);
+                .Select(i => scores[i].HasValue && float.IsFinite(scores[i]!.Value)
+                    ? fused[i] with { Relevance = scores[i]!.Value }
+                    : fused[i]);
             IEnumerable<KnowledgeHit> ranked = order;
             if (exactTerms.Count > 0)
                 ranked = ranked.Where(h => HasWholeToken(h.Text, exactTerms)).Concat(ranked.Where(h => !HasWholeToken(h.Text, exactTerms)));

@@ -422,6 +422,31 @@ public sealed class KnowledgeLksTests : IDisposable
     // ------------------------------------------------------------------------------------------------ 7) smart search + benchmark
 
     [Fact]
+    public void Passages_the_cross_encoder_judged_irrelevant_are_not_shown_to_the_model()
+    {
+        KnowledgeHit Scored(string text, double? relevance) => Hit(text) with { Relevance = relevance };
+
+        // One passage answers the question, five are about something else.
+        var mixed = new[] { Scored("vault", 8.1), Scored("printers", -9.4), Scored("pallets", -10.2), Scored("badges", -8.8) };
+        Assert.Equal(new[] { "vault" }, DocumentChatPlanner.FocusOnRelevant(mixed).Select(h => h.Text));
+
+        // Several relevant passages all stay, in order.
+        var several = new[] { Scored("a", 6.0), Scored("b", 2.5), Scored("c", 0.1), Scored("d", -7.0) };
+        Assert.Equal(new[] { "a", "b", "c" }, DocumentChatPlanner.FocusOnRelevant(several).Select(h => h.Text));
+
+        // A weak but close field is kept whole: nothing is clearly better than the rest.
+        var weak = new[] { Scored("a", -1.0), Scored("b", -2.0), Scored("c", -4.5), Scored("d", -6.0) };
+        Assert.Equal(new[] { "a", "b", "c" }, DocumentChatPlanner.FocusOnRelevant(weak).Select(h => h.Text));
+
+        // No cross-encoder scores (exact identifier hits, reranker absent): unchanged.
+        var unscored = new[] { Hit("a"), Hit("b") };
+        Assert.Same(unscored, DocumentChatPlanner.FocusOnRelevant(unscored));
+        // An exact hit without a score is never dropped next to scored ones.
+        var withExact = new[] { Hit("exact row", "exact"), Scored("x", 5.0), Scored("y", -9.0) };
+        Assert.Equal(new[] { "exact row", "x" }, DocumentChatPlanner.FocusOnRelevant(withExact).Select(h => h.Text));
+    }
+
+    [Fact]
     public void Deterministic_lookup_quotes_the_row_with_the_identifier_not_its_neighbours()
     {
         const string table = "columns: invoice | supplier | amount\n"
