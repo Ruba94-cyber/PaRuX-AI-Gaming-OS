@@ -58,7 +58,11 @@ public sealed class SkillRouter
             foreach (string trigger in skill.TriggerExamples)
             {
                 if (string.IsNullOrWhiteSpace(trigger)) continue;
-                if (lowered.Contains(trigger.ToLowerInvariant()))
+                // Whole-word/phrase match: "word" must not select a skill for "password" (ROUTE-KW).
+                if (System.Text.RegularExpressions.Regex.IsMatch(
+                        lowered,
+                        @"(?<![\p{L}\p{N}])" + System.Text.RegularExpressions.Regex.Escape(trigger.Trim().ToLowerInvariant()) + @"(?![\p{L}\p{N}])",
+                        System.Text.RegularExpressions.RegexOptions.CultureInvariant))
                 {
                     best = skill;
                     matchedPhrase = trigger;

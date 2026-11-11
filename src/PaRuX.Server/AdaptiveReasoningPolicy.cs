@@ -108,7 +108,7 @@ public static class AdaptiveReasoningPolicy
     internal static string InferRole(string? prompt)
     {
         string value = (prompt ?? string.Empty).ToLowerInvariant();
-        if (ContainsAny(value, "implement", "refactor", "debug", "code", "coding", "compile", "test", "repository", "repo", "git", "patch"))
+        if (CodingSignals.IsMatch(value))
             return "coding";
         if (ContainsAny(value, "analyze", "analyse", "analizza", "reason", "ragiona", "research", "ricerca", "architecture", "architettura", "prove", "dimostra"))
             return "reasoning";
@@ -131,6 +131,19 @@ public static class AdaptiveReasoningPolicy
         return "standard";
     }
 
+    // ROUTE-KW: signals used to be plain substrings, so "access code", "latest" (test), "digital"
+    // or "legit" (git), "report" (repo) and "improve" (prove) were read as coding/reasoning tasks.
+    // Stems (implement, debug, ...) must start a word; short ambiguous words (code, test, git, repo)
+    // must be whole words; "code" is ignored after a non-programming qualifier (access code, ...).
+    private static readonly System.Text.RegularExpressions.Regex CodingSignals = new(
+        @"(?<![\p{L}\p{N}])(?:(?:implement|refactor|debug|compile|patch|coding|repositor)\w*"
+        + @"|(?:tests?|git|repos?)(?![\p{L}\p{N}])"
+        + @"|(?<!(?:access|promo|promotional|postal|zip|area|dress|pin|discount|coupon|voucher|door|security|verification|tax|country|morse|gift)\s)codes?(?:base)?(?![\p{L}\p{N}]))",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static bool ContainsAny(string value, params string[] signals) =>
-        signals.Any(signal => value.Contains(signal, StringComparison.Ordinal));
+        signals.Any(signal => System.Text.RegularExpressions.Regex.IsMatch(
+            value,
+            @"(?<![\p{L}\p{N}])" + System.Text.RegularExpressions.Regex.Escape(signal),
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant));
 }

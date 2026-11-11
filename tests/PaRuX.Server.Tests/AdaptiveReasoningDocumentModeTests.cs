@@ -30,7 +30,9 @@ public sealed class AdaptiveReasoningDocumentModeTests
     [Fact]
     public void The_same_words_outside_document_mode_keep_the_adaptive_decision()
     {
-        const string question = "What is the access code for the Kestrel records vault? Answer briefly and cite the source filename.";
+        // ROUTE-KW: "access code" is no longer read as coding outside document mode either, so this
+        // case uses words that genuinely are coding signals (test, repository).
+        const string question = "Which test applies to DTC P0420 in the repository of procedures?";
 
         Assert.Equal("coding", AdaptiveReasoningPolicy.InferRole(question));
         Assert.True(AdaptiveReasoningPolicy.Decide(Ask(question, documents: false)).Budget > 0);
