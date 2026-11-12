@@ -16,6 +16,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class MediaSetupCard : StackPanel
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly string _type;
         private readonly string _label;
         private readonly DispatcherQueue _dispatcher;
@@ -82,7 +83,7 @@ namespace PaRuX.Views
                     _dispatcher.TryEnqueue(() =>
                     {
                         Visibility = Visibility.Visible;
-                        _headline.Text = "The " + _label + " setup status is unavailable";
+                        _headline.Text = T("The ", "Lo stato di configurazione di ") + _label + T(" setup status is unavailable", " non è disponibile");
                         _detail.Text = ex.Message;
                     });
                     try { await Task.Delay(5000, ct).ConfigureAwait(false); } catch (OperationCanceledException) { return; }
@@ -116,7 +117,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _detail.Text = "The setup request failed: " + ex.Message;
+                _detail.Text = T("The setup request failed: ", "La richiesta di configurazione non è riuscita: ") + ex.Message;
             }
         }
     }
