@@ -309,17 +309,23 @@
     <Compile Include="..\..\src\PaRuX.App\Services\WorkspaceResponsivenessAuditor.cs" Link="Responsive\WorkspaceResponsivenessAuditor.cs" />
   </ItemGroup>
 
+  <!-- Stub staging resolves both output layouts (bin\<Configuration> and bin\<Platform>\<Configuration>) and fails the build
+       when a stub is missing, so a platform-specific build can never silently stage nothing. -->
   <Target Name="StageOverheadRuntimeStub" AfterTargets="Build">
     <ItemGroup>
-      <_OverheadRuntimeStub Include="$(MSBuildProjectDirectory)\..\PaRuX.RuntimeStub\bin\$(Configuration)\net10.0\llama-server*" />
+      <_OverheadRuntimeStub Include="$(MSBuildProjectDirectory)\..\PaRuX.RuntimeStub\bin\$(Configuration)\$(TargetFramework)\llama-server*" />
+      <_OverheadRuntimeStub Include="$(MSBuildProjectDirectory)\..\PaRuX.RuntimeStub\bin\$(Platform)\$(Configuration)\$(TargetFramework)\llama-server*" />
     </ItemGroup>
+    <Error Condition="'@(_OverheadRuntimeStub)' == ''" Text="PaRuX.RuntimeStub output (llama-server*) not found for $(Configuration)|$(Platform)|$(TargetFramework); the runtime-stub staging would be empty." />
     <MakeDir Directories="$(OutDir)runtime-stub" />
     <Copy SourceFiles="@(_OverheadRuntimeStub)" DestinationFolder="$(OutDir)runtime-stub" SkipUnchangedFiles="true" />
   </Target>
   <Target Name="StageWinMlWorkerStub" AfterTargets="Build">
     <ItemGroup>
-      <_WinMlWorkerStub Include="$(MSBuildProjectDirectory)\..\PaRuX.WinMlWorkerStub\bin\$(Configuration)\net10.0\PaRuX.WinMlWorkerStub*" />
+      <_WinMlWorkerStub Include="$(MSBuildProjectDirectory)\..\PaRuX.WinMlWorkerStub\bin\$(Configuration)\$(TargetFramework)\PaRuX.WinMlWorkerStub*" />
+      <_WinMlWorkerStub Include="$(MSBuildProjectDirectory)\..\PaRuX.WinMlWorkerStub\bin\$(Platform)\$(Configuration)\$(TargetFramework)\PaRuX.WinMlWorkerStub*" />
     </ItemGroup>
+    <Error Condition="'@(_WinMlWorkerStub)' == ''" Text="PaRuX.WinMlWorkerStub output not found for $(Configuration)|$(Platform)|$(TargetFramework); the winml-worker-stub staging would be empty." />
     <MakeDir Directories="$(OutDir)winml-worker-stub" />
     <Copy SourceFiles="@(_WinMlWorkerStub)" DestinationFolder="$(OutDir)winml-worker-stub" SkipUnchangedFiles="true" />
   </Target>
