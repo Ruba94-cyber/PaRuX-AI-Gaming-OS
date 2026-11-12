@@ -493,6 +493,14 @@ app.Use(async (context, next) =>
                 }
             }
 
+            // SEC-F05: default-deny. A browser session reaches only the routes the served client uses.
+            if (!WebSessionEndpointPolicy.IsAllowed(context.Request.Method, context.Request.Path))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = "This route is not available to a browser session. Use the PaRuX desktop app." });
+                return;
+            }
+
             context.Items["PaRuXOwner"] = "web:" + session.Id;
             context.Items["PaRuXWebSession"] = session;
             await next();

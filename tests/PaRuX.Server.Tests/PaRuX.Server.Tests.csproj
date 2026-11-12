@@ -23,6 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Fixtures\performance-stream\*.sse" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\web-session-route-decisions.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\comfy-node-specs.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\comfy-combo-options.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\ltx-video-2b-v0.9.5-header.json" CopyToOutputDirectory="PreserveNewest" />
