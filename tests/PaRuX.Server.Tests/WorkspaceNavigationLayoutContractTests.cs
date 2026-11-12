@@ -51,7 +51,7 @@ public sealed class WorkspaceNavigationLayoutContractTests
         Assert.Contains("NavView.MenuItems.Add(WorkspaceSectionHeader)", shell, StringComparison.Ordinal);
         Assert.Contains("foreach (NavigationViewItem workspaceItem in WorkspaceNavigationItems())", shell, StringComparison.Ordinal);
         Assert.Contains("NavView.MenuItems.Add(workspaceItem)", shell, StringComparison.Ordinal);
-        Assert.Contains("new NavigationViewItemHeader { Content = \"Recent\" }", shell, StringComparison.Ordinal);
+        Assert.Contains("new NavigationViewItemHeader { Content = T(\"Recent\", \"Recenti\") }", shell, StringComparison.Ordinal);
         Assert.Contains("previousSelection ?? (liveConversationItem ?? ChatNavItem)", shell, StringComparison.Ordinal);
     }
 

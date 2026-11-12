@@ -66,12 +66,12 @@ public sealed class ChatViewBranchNavigatorLifecycleTests
         Assert.True(File.Exists(path), "ChatView.ConversationBranches.cs is missing: " + path);
         string text = File.ReadAllText(path);
 
-        Assert.Contains("AutomationProperties.SetName(previous, \"Previous conversation version\");", text, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(previous, T(\"Previous conversation version\", \"Versione precedente della conversazione\"));", text, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetAcceleratorKey(previous, \"Ctrl+Alt+Left\");", text, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.SetName(next, \"Next conversation version\");", text, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(next, T(\"Next conversation version\", \"Versione successiva della conversazione\"));", text, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetAcceleratorKey(next, \"Ctrl+Alt+Right\");", text, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetLiveSetting(counter, AutomationLiveSetting.Polite);", text, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.SetName(versions, \"Conversation version history\");", text, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(versions, T(\"Conversation version history\", \"Cronologia delle versioni della conversazione\"));", text, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetName(_conversationBranchCounter,", text, StringComparison.Ordinal);
     }
 
