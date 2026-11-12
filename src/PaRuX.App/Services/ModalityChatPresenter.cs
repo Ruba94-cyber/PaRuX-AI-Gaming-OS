@@ -160,6 +160,23 @@ namespace PaRuX.Services
         public const string Confirm = "Allow once";
         public const string Cancel = "Cancel";
 
+        // Localized wording for the dialog. The constants above stay the English source text.
+        public static string TitleText => UiText.Pick(Title, "Consentire l'uso del computer per questa richiesta?");
+        public static string ConfirmText => UiText.Pick(Confirm, "Consenti una volta");
+        public static string CancelText => UiText.Pick(Cancel, "Annulla");
+
+        public static string BodyText(string? task)
+        {
+            if (!UiText.IsItalian) return Body(task);
+            string shown = string.IsNullOrWhiteSpace(task) ? "(nessun testo dell'attività)" : task!.Trim();
+            if (shown.Length > 240) shown = shown.Substring(0, 240) + "...";
+            return "Attività: " + shown + "\n\n"
+                + "Se acconsenti, l'agente PaRuX può vedere lo schermo e usare mouse e tastiera per eseguire solo questa attività. "
+                + "Gli screenshot vengono elaborati in locale su questo PC e non vengono inviati a nessun servizio cloud.\n\n"
+                + "Si ferma a un limite di passaggi e puoi interromperlo in qualsiasi momento. La modalità Gaming blocca l'uso del computer. "
+                + "La tua approvazione vale solo per questa richiesta.";
+        }
+
         public static string Body(string? task)
         {
             string shown = string.IsNullOrWhiteSpace(task) ? "(no task text)" : task!.Trim();

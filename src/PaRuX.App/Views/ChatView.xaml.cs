@@ -2391,21 +2391,21 @@ namespace PaRuX.Views
             {
                 try
                 {
-                    var body = new TextBlock { Text = ComputerUseConsentText.Body(task), TextWrapping = TextWrapping.Wrap };
+                    var body = new TextBlock { Text = ComputerUseConsentText.BodyText(task), TextWrapping = TextWrapping.Wrap };
                     var dialog = new ContentDialog
                     {
                         XamlRoot = XamlRoot,
-                        Title = ComputerUseConsentText.Title,
+                        Title = ComputerUseConsentText.TitleText,
                         Content = body,
-                        PrimaryButtonText = ComputerUseConsentText.Confirm,
-                        CloseButtonText = ComputerUseConsentText.Cancel,
+                        PrimaryButtonText = ComputerUseConsentText.ConfirmText,
+                        CloseButtonText = ComputerUseConsentText.CancelText,
                         DefaultButton = ContentDialogButton.Close
                     };
                     AutomationProperties.SetAutomationId(dialog, "Chat_ComputerUse_Consent_Dialog");
                     // Template parts are not reachable via FindName; walk the realized visual tree once the dialog is open.
                     dialog.Opened += (s, e) =>
                     {
-                        Button? primary = FindDialogButton(dialog, ComputerUseConsentText.Confirm);
+                        Button? primary = FindDialogButton(dialog, ComputerUseConsentText.ConfirmText);
                         if (primary != null)
                             AutomationProperties.SetAutomationId(primary, "Chat_ComputerUse_Consent_Confirm_Button");
                     };

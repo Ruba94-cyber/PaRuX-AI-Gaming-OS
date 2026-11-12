@@ -57,6 +57,9 @@ function Remove-ItalianSlots([string]$Text) {
 function Get-Hits([string]$Text, [string]$File) {
     $out = New-Object System.Collections.Generic.List[object]
     $Text = Remove-ItalianSlots $Text
+    # XAML: loc:Loc.ItXxx="..." attributes are the Italian slot of the inline convention (English stays in the normal attribute).
+    if ($File -like '*.xaml') { $Text = [regex]::Replace($Text, 'loc:Loc\.It\w+="[^"]*"', { param($m) $m.Value -replace '[^
+]', ' ' }) }
     $n = 0
     $lines = $Text -split "`r?`n"
     foreach ($line in $lines) {
@@ -124,3 +127,27 @@ foreach ($f in ($files | Where-Object { $_.Extension -eq '.cs' -and $_.FullName 
 if ($ListAll) { $eng | ForEach-Object { "EN-ONLY {0}:{1}: {2}" -f $_.File, $_.Line, $_.Text } }
 $eng | Group-Object File | Sort-Object Count -Descending | Select-Object -First 15 | ForEach-Object { "{0,5}  EN-only  {1}" -f $_.Count, $_.Name }
 Write-Host "[audit-ui-italian] TOTAL English-only visible literals in language-aware files: $($eng.Count) in $(($eng | Group-Object File).Count) files"
+
+
+# ---- Measure 3: English-only visible attributes in XAML ------------------------------------------------------
+# A visible attribute (Text/Content/Header/...) with English words and no matching loc:Loc.ItXxx attribute on the same element.
+# Values that are identical in both languages (product/technology names, units, single shared words, URLs, model ids) are ignored.
+$xamlMap = [ordered]@{ 'Text'='ItText'; 'Content'='ItContent'; 'Header'='ItHeader'; 'PlaceholderText'='ItPlaceholder'; 'Title'='ItTitle'; 'OnContent'='ItOnContent'; 'OffContent'='ItOffContent'; 'ToolTipService.ToolTip'='ItToolTip'; 'AutomationProperties.Name'='ItName'; 'AutomationProperties.HelpText'='ItHelpText' }
+$sameInBoth = '^(PaRuX.*|Chat|Gaming|Auto|AUTO|Standard|Incognito|Autopilot|Provider|Trigger|Dataset|Runtime|FPS|GAMING|INTERNET|PERSONAS|AVATAR STUDIO|GPU / VRAM|VS Code|OpenCode|English|Italiano|Model Hub|Lifecycle Lab|Console / TV|AI \(Ctrl\+1\)|Gaming \(Ctrl\+2\)|parux-\w+|\* \(default\)|https?://.*|[\w./-]+/[\w.-]+)$'
+$xl = New-Object System.Collections.Generic.List[object]
+foreach ($f in (Get-ChildItem -LiteralPath (Join-Path $Root 'src/PaRuX.App') -Recurse -File -Filter *.xaml | Where-Object { $_.FullName -notmatch '[\/](obj|bin)[\/]' })) {
+    $t = [IO.File]::ReadAllText($f.FullName)
+    foreach ($em in [regex]::Matches($t, '<[A-Za-z][^<>]*?>', 'Singleline')) {
+        $el = $em.Value; $ln = ($t.Substring(0, $em.Index) -split "`n").Count
+        foreach ($k in $xamlMap.Keys) {
+            foreach ($am in [regex]::Matches($el, '(?<![\w.])' + [regex]::Escape($k) + '="([^"{][^"]*)"')) {
+                $v = $am.Groups[1].Value
+                if ($v -notmatch '[A-Za-z]{3}' -or $v -match $sameInBoth) { continue }
+                if ($el -match ('loc:Loc\.' + $xamlMap[$k] + '=')) { continue }
+                $xl.Add([pscustomobject]@{ File = $f.FullName.Substring($Root.Length + 1).Replace('\','/'); Line = $ln; Text = "$k=$v" })
+            }
+        }
+    }
+}
+if ($ListAll) { $xl | ForEach-Object { "XAML-EN-ONLY {0}:{1}: {2}" -f $_.File, $_.Line, $_.Text } }
+Write-Host "[audit-ui-italian] TOTAL English-only visible XAML attributes without loc:Loc.It*: $($xl.Count)"
