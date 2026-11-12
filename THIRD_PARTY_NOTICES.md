@@ -10,7 +10,7 @@ The GitHub MSI includes the self-contained WinUI desktop application, self-conta
 
 | Component | License | Used by | Purpose |
 |---|---|---|---|
-| .NET 8 / ASP.NET Core | MIT and accompanying .NET third-party notices | PaRuX Desktop/Server/CLI/Update Helper | Managed runtime, base libraries and local web host |
+| .NET 10 / ASP.NET Core | MIT and accompanying .NET third-party notices | PaRuX Desktop/Server/CLI/Update Helper | Managed runtime, base libraries and local web host |
 | Microsoft.WindowsAppSDK | Microsoft Software License Terms - Windows App SDK (not MIT; text shipped in the NuGet package as `license.txt`, verified 1.8.260804001) | PaRuX Desktop | WinUI 3 application runtime |
 | H.NotifyIcon.WinUI | MIT | PaRuX Desktop | System tray |
 | Microsoft.Data.Sqlite | MIT | Desktop/Server | Durable local stores |

@@ -4,7 +4,7 @@ internal static class Repository
 {
     internal static string Root { get; } = FindRoot();
     internal static string AppExecutable => Environment.GetEnvironmentVariable("PARUX_UI_APP_PATH")
-        ?? Path.Combine(Root, "src", "PaRuX.App", "bin", "x64", "Debug", "net8.0-windows10.0.19041.0", "win-x64", "PaRuX.exe");
+        ?? Path.Combine(Root, "src", "PaRuX.App", "bin", "x64", "Debug", "net10.0-windows10.0.19041.0", "win-x64", "PaRuX.exe");
 
     private static string FindRoot()
     {

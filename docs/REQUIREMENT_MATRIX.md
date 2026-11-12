@@ -44,7 +44,7 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | SEC-F04 Paired device Internet/task authority | PARTIAL | PARTIAL | YES | YES | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md (Fixed, partial), QA-021 |
 | SEC-F05 Browser session deny-list | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
 | SEC-F06 Coding default permission bypass | YES | YES | YES | YES | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md (Fixed), QA-021 |
-| SEC-F07 .NET 8 end of support | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md, docs/RELEASE_CANDIDATE_4.1.0.md (not planned) |
+| SEC-F07 .NET 8 end of support | YES (retargeted to net10.0) | NO | Release build 0 errors; Server.Tests run recorded in docs/SECURITY_REVIEW.md | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md; packaging scripts not re-run on .NET 10 |
 | SEC-F08a Secrets at rest (review finding, open Low) | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md review finding, open Low |
 | SEC-F08b Corporate/Portable bootstrap token protection | YES | YES | YES | YES | N/A | NOT RUN | NO | EV-01, EV-02, EV-07 (High finding fixed in 9973463d) |
 | SEC-F09 Pairing guessing and token expiry | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
@@ -57,7 +57,7 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | SEC-F16 Torrent listener and gating | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
 | SEC-F17 Self-signed LAN certificate rotation | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
 | SEC-F18 Layer-3 egress proof not run | NO | NO | NOT RUN | NOT RUN | N/A | NOT RUN | NO | docs/SECURITY_REVIEW.md (open) |
-| SEC-F19 Untracked evidence and .gitignore hygiene | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
+| SEC-F19 Untracked evidence and .gitignore hygiene | YES (.ai/* ignored) | NO | tools/check-public-safety.ps1 OK | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (resolved) |
 | SEC-F20 Tracked public identity data | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open, confirm intent) |
 | UX-001 Scaling 100-200%, QHD/4K/TV, multi-monitor | PARTIAL | PARTIAL | YES | N/A | PARTIAL | BLOCKED-HW | NO | docs/RELEASE_READINESS.md (gate 2) |
 | BIC-01 Ledger state beyond 1,000 events | YES | YES | NOT RUN | NOT RUN | NOT RUN | N/A | NO | none (plan status DONE only) |

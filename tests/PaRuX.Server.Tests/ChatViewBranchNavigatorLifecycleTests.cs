@@ -11,8 +11,8 @@ namespace PaRuX.Server.Tests;
 /// InitializeConversationBranchHistory() (and InitializeBoundedChatRendering()). SkillSelector.Parent
 /// is also still null immediately after InitializeComponent() in the constructor, so calling the
 /// initializers there is too early too - ChatView.OnLoaded is the first point where the element is
-/// actually attached to the live visual tree. PaRuX.App itself (WinUI/net8.0-windows) can't be
-/// referenced from this net8.0 xunit project, so this test guards the fix the same way the rest of
+/// actually attached to the live visual tree. PaRuX.App itself (WinUI/net10.0-windows) can't be
+/// referenced from this net10.0 xunit project, so this test guards the fix the same way the rest of
 /// this file's siblings guard doc/contract text: by asserting on the real source, not a compiled
 /// type. It intentionally does NOT assert that OnApplyTemplate calls them (that override is proven
 /// dead and kept only as a harmless defensive no-op) - only that OnLoaded, the call site that is

@@ -31,7 +31,7 @@ function Invoke-GosStep {
 }
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    throw 'The .NET SDK is missing; install the supported .NET 8 Windows build prerequisites.'
+    throw 'The .NET SDK is missing; install the supported .NET 10 Windows build prerequisites.'
 }
 if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
     throw 'This GOS checkpoint gate requires Windows (WinUI and optional FlaUI).'
@@ -57,15 +57,15 @@ try {
         Invoke-GosStep 'Server Debug build for FlaUI' @('build', $server, '-c', 'Debug', '-p:Platform=x64')
         Invoke-GosStep 'WinUI App Debug build for FlaUI' @('build', $app, '-c', 'Debug', '-p:Platform=x64')
         # Stage matching freshly built Core beside Debug app; no installation.
-        $appDir = Join-Path $root 'src/PaRuX.App/bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64'
-        $coreOut = Join-Path $root 'src/PaRuX.Server/bin/x64/Debug/net8.0'
+        $appDir = Join-Path $root 'src/PaRuX.App/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64'
+        $coreOut = Join-Path $root 'src/PaRuX.Server/bin/x64/Debug/net10.0'
         if ((Test-Path (Join-Path $coreOut 'PaRuX.Server.exe')) -and (Test-Path $appDir)) {
             robocopy $coreOut (Join-Path $appDir 'PaRuX.Server') /E /NFL /NDL /NJH /NJS /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw '[GOS] FAIL: could not stage the Core beside the app' }
             $global:LASTEXITCODE = 0
         }
         if ([string]::IsNullOrWhiteSpace($env:PARUX_UI_APP_PATH)) {
-            $env:PARUX_UI_APP_PATH = Join-Path $root 'src/PaRuX.App/bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/PaRuX.exe'
+            $env:PARUX_UI_APP_PATH = Join-Path $root 'src/PaRuX.App/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/PaRuX.exe'
         }
         Invoke-GosStep 'Chat Home FlaUI acceptance' @('test', $uiTests, '-c', 'Debug', '-p:Platform=x64', '--filter', 'FullyQualifiedName~ChatHomeStarterTests|FullyQualifiedName~CodingVerificationHonestyTests|FullyQualifiedName~ConsoleModeUiTests|FullyQualifiedName~ManualGameLibraryUiTests|FullyQualifiedName~AdvancedGameManagementUiTests|FullyQualifiedName~GamingDownloadsAndDevicesUiTests|FullyQualifiedName~ConsoleAndLanguageUiTests|FullyQualifiedName~GamingHomeUiTests|FullyQualifiedName~QuickResumeAndMetadataUiTests')
     } else {

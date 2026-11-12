@@ -12,7 +12,7 @@ namespace PaRuX.Server.Tests;
 /// screen actually allows and clamping a perfectly legitimate saved position down incorrectly.
 /// BubblePlacementPolicyTests.Clamp_leaves_a_saved_bottom_right_position_untouched_when_it_already_fits
 /// pins the pure clamp math's own correctness given the real collapsed size; PaRuX.App itself
-/// (WinUI/net8.0-windows) can't be referenced from this net8.0 xunit project, so this test guards
+/// (WinUI/net10.0-windows) can't be referenced from this net10.0 xunit project, so this test guards
 /// the caller-side ordering fix the same way the rest of this file's siblings guard doc/contract
 /// text - by asserting on the real source, not a compiled type.
 /// </summary>

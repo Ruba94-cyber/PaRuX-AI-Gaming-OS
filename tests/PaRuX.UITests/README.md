@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Windows interactive desktop session; do not run while the desktop is locked.
-- .NET 8 SDK and the WinUI prerequisites needed by PaRuX.
+- .NET 10 SDK and the WinUI prerequisites needed by PaRuX.
 - No other PaRuX instance running. Each test creates a new temporary `PARUX_DATA_ROOT`, so user settings, chats and models are not modified.
 
 ## Commands

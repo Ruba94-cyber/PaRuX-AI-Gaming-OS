@@ -5,17 +5,17 @@
     "src/PaRuX.App/PaRuX.App.csproj": {
       "Microsoft.WindowsAppSDK": "1.8.260804001",
       "H.NotifyIcon.WinUI": "2.1.0",
-      "Microsoft.Data.Sqlite": "8.0.30",
+      "Microsoft.Data.Sqlite": "10.0.15",
       "DocumentFormat.OpenXml": "3.5.1",
       "ExcelDataReader": "3.9.0",
       "QRCoder": "1.6.0",
-      "System.Security.Cryptography.ProtectedData": "8.0.0",
-      "System.Drawing.Common": "8.0.10",
-      "System.Management": "8.0.0"
+      "System.Security.Cryptography.ProtectedData": "10.0.15",
+      "System.Drawing.Common": "10.0.15",
+      "System.Management": "10.0.15"
     },
     "src/PaRuX.Server/PaRuX.Server.csproj": {
-      "Microsoft.Data.Sqlite": "8.0.30",
-      "System.Security.Cryptography.ProtectedData": "8.0.0",
+      "Microsoft.Data.Sqlite": "10.0.15",
+      "System.Security.Cryptography.ProtectedData": "10.0.15",
       "DocumentFormat.OpenXml": "3.5.1",
       "ExcelDataReader": "3.9.0",
       "ModelContextProtocol.AspNetCore": "2.2.0",
@@ -26,7 +26,7 @@
       "SharpCompress": "0.50.4",
       "PdfPig": "0.1.16",
       "MonoTorrent": "3.0.2",
-      "System.Drawing.Common": "8.0.0"
+      "System.Drawing.Common": "10.0.15"
     }
   },
   "vendored_license_files": [

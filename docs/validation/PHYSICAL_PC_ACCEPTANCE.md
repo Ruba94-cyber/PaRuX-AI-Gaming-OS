@@ -70,7 +70,7 @@ The fixture first exposes its original nonce-bound main HWND and native process 
 
 The app lease now treats a registered executable launched by `open_app` as **provisional**, never as proof of the current PID. Explicit `focus_window` must observe a unique authorized title, then verify OS HWND/PID/EXE before/after focusing and bind that specific PID *inside the verified focus operation*. A different running copy of the same EXE must not receive later UIA or keyboard actions. Another top-level form or owned popup in the same verified process is allowed; a distinct helper PID requires its own user-configured executable approval and an explicit new focus. Test an unapproved secondary EXE, two same-title windows, a revoked app approval and STOP/Gaming Mode refusal. Do not count path equality or the model's assertion as proof.
 
-**Opt-in native WinApp dialog fixture, separate from the LLM-driven test:** On a disposable Windows interactive development PC, with .NET 8 SDK and WinApp CLI installed, run from the repo root:
+**Opt-in native WinApp dialog fixture, separate from the LLM-driven test:** On a disposable Windows interactive development PC, with .NET 10 SDK and WinApp CLI installed, run from the repo root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\test-agent-platform-v2.ps1 -RunNativeDialogE2E -WinAppCli winapp
@@ -120,7 +120,7 @@ powershell -ExecutionPolicy Bypass -File tools\test-agent-validation-syntax.ps1
 
 This parses five local validation scripts and fails if the main runner has duplicated structural blocks. It is a syntax check, not functionality. The old duplicated runner was repaired on 2026-10-31.
 
-**Opt-in real WinApp fixture regression:** On an interactive disposable Windows x64 development PC with .NET 8 SDK and an already installed WinApp CLI executable:
+**Opt-in real WinApp fixture regression:** On an interactive disposable Windows x64 development PC with .NET 10 SDK and an already installed WinApp CLI executable:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\test-agent-platform-v2.ps1 -RunNativeUiRecovery -WinAppCli winapp
