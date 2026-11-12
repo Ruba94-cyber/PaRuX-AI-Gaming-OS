@@ -100,7 +100,7 @@ namespace PaRuX.Views
                         CloudFallbackLastUsedText.Visibility = Visibility.Visible;
                         CloudFallbackLastUsedText.Text = T("Last used ", "Ultimo utilizzo ")
                             + status.LastUsedUtc.Value.ToLocalTime().ToString("g")
-                            + " (" + status.UseCount + T(" turn", " turno") + (status.UseCount == 1 ? "" : "s") + T(" total). Reason: ", " in totale). Motivo: ")
+                            + " (" + (status.UseCount == 1 ? T("1 turn total). Reason: ", "1 turno in totale). Motivo: ") : T($"{status.UseCount} turns total). Reason: ", $"{status.UseCount} turni in totale). Motivo: "))
                             + (status.LastUsedReason ?? T("not recorded", "non registrato"));
                     }
                     else

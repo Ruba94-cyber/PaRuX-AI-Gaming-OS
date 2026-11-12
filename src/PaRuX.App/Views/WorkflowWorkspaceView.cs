@@ -328,7 +328,7 @@ namespace PaRuX.Views
             var dialog = new ContentDialog
             {
                 Title = T("Delete current workflow version?", "Eliminare la versione attuale del workflow?"),
-                Content = T("Delete v", "Elimina la v") + workflow.VersionNumber + " of “" + workflow.Name + T("”? Earlier immutable versions remain. A version with a successor cannot be deleted.", "”? Le versioni immutabili precedenti restano. Una versione con un successore non può essere eliminata."),
+                Content = T($"Delete v{workflow.VersionNumber} of “{workflow.Name}”? Earlier immutable versions remain. A version with a successor cannot be deleted.", $"Elimina la v{workflow.VersionNumber} di “{workflow.Name}”? Le versioni immutabili precedenti restano. Una versione con un successore non può essere eliminata."),
                 PrimaryButtonText = T("Delete current leaf", "Elimina l'ultima versione attuale"),
                 CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,

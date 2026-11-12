@@ -52,7 +52,7 @@ namespace PaRuX.Views
                 DesktopIntegrationsStatusText.Text = connected == 0
                     ? (detected == 0
                         ? T("Nothing connected. Choose a folder below to connect an app.", "Nulla è collegato. Scegli una cartella qui sotto per collegare un'app.")
-                        : detected + T(" app", " app") + (detected == 1 ? "" : "s") + T(" found on this PC and not connected.", " trovata su questo PC e non collegata."))
+                        : (detected == 1 ? T("1 app found on this PC and not connected.", "1 app trovata su questo PC e non collegata.") : T($"{detected} apps found on this PC and not connected.", $"{detected} app trovate su questo PC e non collegate.")))
                     : connected + T(" connected", " collegata") + (detected > 0 ? ", " + detected + T(" more found on this PC.", " altre trovate su questo PC.") : ".");
             }
 

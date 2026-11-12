@@ -173,7 +173,7 @@ namespace PaRuX.Views
             _conversationVersionsButton.IsEnabled = !ChatSession.Current.IsBusy && state.HasRetainedVersions;
             ToolTipService.SetToolTip(_conversationBranchCounter,
                 state.HasRetainedVersions
-                    ? T("Alternative ", "Alternativa ") + (state.ActiveIndex + 1) + " of " + state.Paths.Count + T(" at the nearest retained fork", " nella diramazione conservata più vicina")
+                    ? T($"Alternative {state.ActiveIndex + 1} of {state.Paths.Count} at the nearest retained fork", $"Alternativa {state.ActiveIndex + 1} di {state.Paths.Count} nella diramazione conservata più vicina")
                     : T("No retained alternatives at the current path", "Nessuna alternativa conservata nel percorso attuale"));
         }
 

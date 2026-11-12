@@ -1401,7 +1401,7 @@ namespace PaRuX.Views
                 ExternalTextProviderStatus status = await ExternalBackendClient.Current.GetStatusAsync(CancellationToken.None);
                 if (status.Configured)
                 {
-                    ExternalBackendStatusText.Text = T("Using ", "Uso di ") + status.ProviderName + " at " + status.Endpoint
+                    ExternalBackendStatusText.Text = T($"Using {status.ProviderName} at {status.Endpoint}", $"Uso di {status.ProviderName} su {status.Endpoint}")
                         + (status.Reachable ? T(" - reachable.", " - raggiungibile.") : T(" - not reachable right now.", " - al momento non raggiungibile."));
                     if (ClearExternalBackendButton != null) ClearExternalBackendButton.Visibility = Visibility.Visible;
                 }
@@ -4034,8 +4034,8 @@ namespace PaRuX.Views
                                 capturedName, role, CancellationToken.None, persistRoleAssignment: true);
                             if (RuntimeManagerStatusText != null)
                                 RuntimeManagerStatusText.Text = result.Success
-                                    ? T("Loaded ", "Caricato ") + capturedName + " as " + role + "."
-                                    : T("Couldn't load ", "Impossibile caricare ") + capturedName + " as " + role + ": " + result.Message;
+                                    ? T($"Loaded {capturedName} as {role}.", $"Caricato {capturedName} come {role}.")
+                                    : T($"Couldn't load {capturedName} as {role}: ", $"Impossibile caricare {capturedName} come {role}: ") + result.Message;
                             await RefreshRuntimeManagerStatusAsync();
                         }
                         catch (Exception ex) { Log.Write("Load managed model failed: " + ex.Message); }
