@@ -507,7 +507,7 @@ mandatory before BIC/release completion. No GitHub Actions, merge or release.
   the action response must be valid nonerror JSON; and the independent
   `ui wait-for` output must contain `found:true` without timeout.
   Malformed/negative evidence is a failure.
-- Added `tools/PaRuX.UiAcceptanceFixture/` — a disposable, isolated .NET 8
+- Added `tools/PaRuX.UiAcceptanceFixture/` — a disposable, isolated .NET 10
   WinForms executable with stable AutomationIds, unique nonce, and a
   button-to-readonly-textbox state transition. Optional
   `tools/test-agent-native-ui-e2e.ps1 -ConfirmFunctionalTest` builds and

@@ -1,3 +1,7 @@
+## 2026-11-12 - Integration: .NET 10 migration + uniform English/Italian UI
+
+Branch `integration/net10-l10n` merges `chore/net10-migration` (current stack is now .NET 10: every `src`, `tests` and `tools` project targets `net10.0`/`net10.0-windows`; `.ai/` is git-ignored) and `fix/l10n-uniform-ui` (`loc:T` / `T(en,it)` / `UiText.Pick`, `tools/audit-ui-italian.ps1`; run it with `pwsh -ExecutionPolicy Bypass`). GUI/FlaUI tests were not run.
+
 ## 2026-11-11 — Cross-PC checkpoint: WIP, validation incomplete
 
 **Status: NOT RELEASE READY.** This checkpoint deliberately includes unfinished changes. Start by inspecting the current branch, commit, status and diff. The repository is public: Store identity is local to `.ai/store/store-identity.local.json`, ignored by Git, and must never be committed. No release, tag, Store submission, or production signing is authorized. The owner authorized a temporary signature on a local test copy of the MSIX only. No GitHub Actions. Before every push run `pwsh -File tools/check-public-safety.ps1 -Mode Range -Range origin/main..HEAD`.

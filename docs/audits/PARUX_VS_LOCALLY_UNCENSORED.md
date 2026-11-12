@@ -13,7 +13,7 @@ Three options were compared on features already present, code quality, performan
 | | A. Continue PaRuX, integrate selectively | B. Fork Locally Uncensored | C. Hybrid with interchangeable backends |
 |---|---|---|---|
 | Licence | Compatible: only original code and MIT/Apache components | **Blocked**: LU is AGPL-3.0-only; a fork forces the whole product under AGPL-3.0, incompatible with PaRuX's MIT licence | Compatible if adapters stay separate processes/interfaces |
-| Stack | .NET 8 + WinUI 3 + ASP.NET Core Core (kept) | Tauri/Rust + React/TypeScript (different runtime, UI toolkit and test stack) | Kept |
+| Stack | .NET 10 + WinUI 3 + ASP.NET Core Core (kept) | Tauri/Rust + React/TypeScript (different runtime, UI toolkit and test stack) | Kept |
 | Existing PaRuX value | Preserved: AppContainer coding sandbox, transactional apply with crash recovery, durable checkpoints, explicit local-first grants, Gaming hard-off, process identity checks, pinned downloads with provenance | Lost or re-implemented (about 690 commits of hardening) | Preserved |
 | LU strengths gained | Re-implemented from behavioural specs where a gap is proven | Immediate but encumbered | Via adapters |
 | Regression risk | Low (incremental, each slice tested) | Very high | Low-medium |
