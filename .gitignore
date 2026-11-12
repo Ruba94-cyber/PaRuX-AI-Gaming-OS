@@ -15,11 +15,8 @@ installer/output/
 
 # Runtime state and private machine configuration
 # .ai/ holds local agent evidence (logs, manual-corp/, manual-test-data/, worktrees/, store identity).
-# Never publish it; only the three versioned protocol docs below are tracked.
-.ai/*
-!.ai/.gitignore
-!.ai/README.md
-!.ai/SHORT_START.md
+# Never publish it; nothing under .ai/ is tracked.
+.ai/
 data/
 logs/
 backups/
