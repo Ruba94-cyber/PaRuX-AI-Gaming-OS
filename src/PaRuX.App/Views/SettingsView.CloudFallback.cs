@@ -39,7 +39,7 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshCloudFallbackAsync failed: " + ex.Message);
                 if (requestVersion != _cloudFallbackUserActionVersion || _cloudFallbackSetupPending) return;
-                CloudFallbackStatusText.Text = "Couldn't load cloud fallback status: " + ex.Message;
+                CloudFallbackStatusText.Text = T("Couldn't load cloud fallback status: ", "Impossibile caricare lo stato del fallback nel cloud: ") + ex.Message;
             }
         }
 
@@ -80,28 +80,28 @@ namespace PaRuX.Views
                     // means "a key is stored, leave it alone"; typing replaces it.
                     CloudFallbackApiKeyBox.Password = string.Empty;
                     CloudFallbackApiKeyBox.PlaceholderText = status.HasApiKey
-                        ? "A key is saved - type to replace it"
-                        : "Paste the provider API key";
+                        ? T("A key is saved - type to replace it", "Una chiave è salvata: digita per sostituirla")
+                        : T("Paste the provider API key", "Incolla la chiave API del provider");
                 }
 
                 ApplyCloudFallbackProviderDefaults(fillEmptyFieldsOnly: true);
 
                 CloudFallbackStatusText.Text = status.Armed
-                    ? "Armed: if local inference fails, one turn may be answered by "
-                        + status.ProviderDisplayName + " (" + status.Model + ") and leave this device."
+                    ? T("Armed: if local inference fails, one turn may be answered by ", "Attivo: se l'inferenza locale fallisce, un turno può ricevere risposta da ")
+                        + status.ProviderDisplayName + " (" + status.Model + T(") and leave this device.", ") e lasciare questo dispositivo.")
                     : status.Enabled
-                        ? "Not armed - " + (status.NotArmedReason ?? "the fallback is incomplete.")
-                        : "Off. Every turn stays on this device; a local failure stays a failure.";
+                        ? T("Not armed - ", "Non attivo - ") + (status.NotArmedReason ?? T("the fallback is incomplete.", "il fallback è incompleto."))
+                        : T("Off. Every turn stays on this device; a local failure stays a failure.", "Disattivato. Ogni turno resta su questo dispositivo; un errore locale resta un errore.");
 
                 if (CloudFallbackLastUsedText != null)
                 {
                     if (status.LastUsedUtc.HasValue)
                     {
                         CloudFallbackLastUsedText.Visibility = Visibility.Visible;
-                        CloudFallbackLastUsedText.Text = "Last used "
+                        CloudFallbackLastUsedText.Text = T("Last used ", "Ultimo utilizzo ")
                             + status.LastUsedUtc.Value.ToLocalTime().ToString("g")
-                            + " (" + status.UseCount + " turn" + (status.UseCount == 1 ? "" : "s") + " total). Reason: "
-                            + (status.LastUsedReason ?? "not recorded");
+                            + " (" + status.UseCount + T(" turn", " turno") + (status.UseCount == 1 ? "" : "s") + T(" total). Reason: ", " in totale). Motivo: ")
+                            + (status.LastUsedReason ?? T("not recorded", "non registrato"));
                     }
                     else
                     {
@@ -207,7 +207,7 @@ namespace PaRuX.Views
                         if (CloudFallbackDetailPanel != null)
                             CloudFallbackDetailPanel.Visibility = recovered.Displayed ? Visibility.Visible : Visibility.Collapsed;
                         CloudFallbackStatusText.Text = failure
-                            + " The server could not confirm whether the fallback is still armed; the switch keeps its last known state.";
+                            + T(" The server could not confirm whether the fallback is still armed; the switch keeps its last known state.", " Il server non ha potuto confermare se il fallback è ancora attivo; l'interruttore mantiene l'ultimo stato noto.");
                     }
                 }
                 return;
@@ -217,7 +217,7 @@ namespace PaRuX.Views
             // a model, so flipping this switch by itself can never send anything anywhere.
             _cloudFallbackSetupPending = true;
             if (CloudFallbackDetailPanel != null) CloudFallbackDetailPanel.Visibility = Visibility.Visible;
-            CloudFallbackStatusText.Text = "Choose a provider, paste an API key and a model id, then Save.";
+            CloudFallbackStatusText.Text = T("Choose a provider, paste an API key and a model id, then Save.", "Scegli un provider, incolla una chiave API e un ID modello, poi premi Salva.");
         }
 
         private async void SaveCloudFallback_Click(object sender, RoutedEventArgs e)
@@ -225,7 +225,7 @@ namespace PaRuX.Views
             CloudFallbackProviderOption? option = SelectedCloudFallbackProvider();
             if (option == null)
             {
-                CloudFallbackStatusText.Text = "Choose a provider first.";
+                CloudFallbackStatusText.Text = T("Choose a provider first.", "Scegli prima un provider.");
                 return;
             }
 
@@ -257,7 +257,7 @@ namespace PaRuX.Views
             {
                 if (actionVersion != _cloudFallbackUserActionVersion) return;
                 Log.Write("SaveCloudFallback_Click failed: " + ex.Message);
-                CloudFallbackStatusText.Text = "Couldn't save the fallback: " + ex.Message;
+                CloudFallbackStatusText.Text = T("Couldn't save the fallback: ", "Impossibile salvare il fallback: ") + ex.Message;
             }
             finally
             {
@@ -279,7 +279,7 @@ namespace PaRuX.Views
                 _cloudFallbackTestOperations++;
                 if (TestCloudFallbackButton != null) TestCloudFallbackButton.IsEnabled = false;
                 if (SaveCloudFallbackButton != null) SaveCloudFallbackButton.IsEnabled = false;
-                CloudFallbackStatusText.Text = "Checking the provider...";
+                CloudFallbackStatusText.Text = T("Checking the provider...", "Controllo del provider...");
                 CloudFallbackTestResult result = await CloudFallbackClient.Current.TestAsync(CancellationToken.None);
                 if (actionVersion != _cloudFallbackUserActionVersion) return;
                 CloudFallbackStatusText.Text = result.Detail;
@@ -289,7 +289,7 @@ namespace PaRuX.Views
             {
                 if (actionVersion != _cloudFallbackUserActionVersion) return;
                 Log.Write("TestCloudFallback_Click failed: " + ex.Message);
-                CloudFallbackStatusText.Text = "Couldn't reach the provider: " + ex.Message;
+                CloudFallbackStatusText.Text = T("Couldn't reach the provider: ", "Impossibile raggiungere il provider: ") + ex.Message;
             }
             finally
             {

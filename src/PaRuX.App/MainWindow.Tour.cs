@@ -208,15 +208,15 @@ namespace PaRuX
                 string markdown = InAppHelpCatalog.Default.GenerateHelpSummaryMarkdown();
                 var dialog = new ContentDialog
                 {
-                    Title = "PaRuX Help & Guided Tour",
+                    Title = T("PaRuX Help & Guided Tour", "Guida e visita guidata di PaRuX"),
                     Content = new ScrollViewer
                     {
                         MaxHeight = 480,
                         Content = RenderMarkdownPanel(markdown)
                     },
-                    PrimaryButtonText = "Replay Guided Tour",
-                    SecondaryButtonText = "Keyboard Shortcuts",
-                    CloseButtonText = "Close",
+                    PrimaryButtonText = T("Replay Guided Tour", "Rivedi la visita guidata"),
+                    SecondaryButtonText = T("Keyboard Shortcuts", "Scorciatoie da tastiera"),
+                    CloseButtonText = T("Close", "Chiudi"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = Content.XamlRoot
                 };

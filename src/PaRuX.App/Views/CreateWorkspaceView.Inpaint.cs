@@ -28,8 +28,8 @@ namespace PaRuX.Views
         private readonly Image _inpaintOverlayImage = new Image { Stretch = Microsoft.UI.Xaml.Media.Stretch.Fill, Opacity = 0.55, IsHitTestVisible = false };
         private readonly Slider _inpaintBrush = new Slider { Minimum = 1, Maximum = 100, Value = 12, Width = 240 };
         private readonly TextBlock _inpaintBrushLabel = new TextBlock { FontSize = 12, Opacity = 0.75 };
-        private readonly RadioButton _inpaintPaintTool = new RadioButton { Content = "Paint", GroupName = "CreateInpaintTool", IsChecked = true };
-        private readonly RadioButton _inpaintEraseTool = new RadioButton { Content = "Erase", GroupName = "CreateInpaintTool" };
+        private readonly RadioButton _inpaintPaintTool = new RadioButton { Content = T("Paint", "Disegna"), GroupName = "CreateInpaintTool", IsChecked = true };
+        private readonly RadioButton _inpaintEraseTool = new RadioButton { Content = T("Erase", "Cancella"), GroupName = "CreateInpaintTool" };
         private readonly NumberBox _inpaintGrow = new NumberBox { Minimum = 0, Maximum = 64, Value = 6, SmallChange = 2, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
         private readonly TextBlock _inpaintCoverage = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
         private readonly StackPanel _inpaintResultStrip = new StackPanel { Spacing = 4, Visibility = Visibility.Collapsed };
@@ -44,17 +44,17 @@ namespace PaRuX.Views
         {
             AutomationProperties.SetAutomationId(_inpaintPanel, CreateInpaintPresenter.Panel);
             AutomationProperties.SetAutomationId(_inpaintCanvas, CreateInpaintPresenter.Canvas);
-            AutomationProperties.SetName(_inpaintCanvas, "Mask canvas: paint over the area to replace");
+            AutomationProperties.SetName(_inpaintCanvas, T("Mask canvas: paint over the area to replace", "Tela della maschera: dipingi sull'area da sostituire"));
             AutomationProperties.SetAutomationId(_inpaintBrush, CreateInpaintPresenter.BrushSlider);
-            AutomationProperties.SetName(_inpaintBrush, "Brush size");
+            AutomationProperties.SetName(_inpaintBrush, T("Brush size", "Dimensione del pennello"));
             AutomationProperties.SetAutomationId(_inpaintPaintTool, CreateInpaintPresenter.PaintTool);
             AutomationProperties.SetAutomationId(_inpaintEraseTool, CreateInpaintPresenter.EraseTool);
             AutomationProperties.SetAutomationId(_inpaintGrow, CreateInpaintPresenter.GrowBox);
-            AutomationProperties.SetName(_inpaintGrow, "Edge blend in pixels");
+            AutomationProperties.SetName(_inpaintGrow, T("Edge blend in pixels", "Sfumatura dei bordi in pixel"));
             AutomationProperties.SetAutomationId(_inpaintCoverage, CreateInpaintPresenter.CoverageText);
             AutomationProperties.SetAutomationId(_inpaintResultStrip, CreateInpaintPresenter.ResultStrip);
             AutomationProperties.SetAutomationId(_inpaintResultImage, CreateInpaintPresenter.ResultImage);
-            AutomationProperties.SetName(_inpaintResultImage, "Inpainted result");
+            AutomationProperties.SetName(_inpaintResultImage, T("Inpainted result", "Risultato dell'inpainting"));
 
             _inpaintCanvas.Children.Add(_inpaintSourceImage);
             _inpaintCanvas.Children.Add(_inpaintOverlayImage);
@@ -70,10 +70,10 @@ namespace PaRuX.Views
             var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             tools.Children.Add(_inpaintPaintTool);
             tools.Children.Add(_inpaintEraseTool);
-            var invert = new Button { Content = "Invert mask" };
+            var invert = new Button { Content = T("Invert mask", "Inverti la maschera") };
             AutomationProperties.SetAutomationId(invert, CreateInpaintPresenter.InvertButton);
             invert.Click += (_, _) => { _inpaintMask?.Invert(); RefreshInpaintOverlay(); };
-            var clear = new Button { Content = "Clear mask" };
+            var clear = new Button { Content = T("Clear mask", "Cancella la maschera") };
             AutomationProperties.SetAutomationId(clear, CreateInpaintPresenter.ClearButton);
             clear.Click += (_, _) => { _inpaintMask?.Clear(); RefreshInpaintOverlay(); };
             tools.Children.Add(invert);
@@ -89,7 +89,7 @@ namespace PaRuX.Views
             _inpaintPanel.Children.Add(Labeled("Edge blend (pixels)", _inpaintGrow));
             _inpaintPanel.Children.Add(_inpaintCoverage);
 
-            _inpaintResultStrip.Children.Add(new TextBlock { Text = "Result", FontSize = 12, Opacity = 0.68 });
+            _inpaintResultStrip.Children.Add(new TextBlock { Text = T("Result", "Risultato"), FontSize = 12, Opacity = 0.68 });
             _inpaintResultStrip.Children.Add(_inpaintResultImage);
             _inpaintResultStrip.Children.Add(_inpaintResultCaption);
 
@@ -134,7 +134,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 _inpaintMask = null;
-                _inpaintCoverage.Text = "This file could not be opened for masking: " + ex.Message;
+                _inpaintCoverage.Text = T("This file could not be opened for masking: ", "Impossibile aprire questo file per la mascheratura: ") + ex.Message;
             }
         }
 
@@ -235,7 +235,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _inpaintResultCaption.Text = "The result was saved but could not be previewed: " + ex.Message;
+                _inpaintResultCaption.Text = T("The result was saved but could not be previewed: ", "Il risultato è stato salvato ma non è stato possibile mostrarne l'anteprima: ") + ex.Message;
                 _inpaintResultStrip.Visibility = Visibility.Visible;
             }
         }

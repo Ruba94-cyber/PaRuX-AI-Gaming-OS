@@ -13,14 +13,14 @@ namespace PaRuX.Views
     /// <summary>Create &gt; Edit &gt; Remove background: BiRefNet-lite cutout, locally, returning a transparent PNG.</summary>
     public sealed partial class CreateWorkspaceView
     {
-        private readonly Button _removeBackgroundButton = new Button { Content = "Remove background" };
+        private readonly Button _removeBackgroundButton = new Button { Content = T("Remove background", "Rimuovi lo sfondo") };
 
         private UIElement BuildCutoutControls()
         {
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(NewSetupCard("cutout", "background removal"));
             AutomationProperties.SetAutomationId(_removeBackgroundButton, "Create_Edit_RemoveBackground_Button");
-            ToolTipService.SetToolTip(_removeBackgroundButton, "Cuts the subject out of the source image and saves a transparent PNG. Runs on this PC.");
+            ToolTipService.SetToolTip(_removeBackgroundButton, T("Cuts the subject out of the source image and saves a transparent PNG. Runs on this PC.", "Ritaglia il soggetto dall'immagine di origine e salva un PNG trasparente. Funziona su questo PC."));
             _removeBackgroundButton.Click += async (_, _) => await RemoveBackgroundAsync(_editSourcePath);
             _runButtons.Add(_removeBackgroundButton);
             panel.Children.Add(_removeBackgroundButton);
@@ -31,7 +31,7 @@ namespace PaRuX.Views
         {
             if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath) || !IsImageFile(sourcePath))
             {
-                _status.Text = "Choose a source image first (PNG, JPEG or WebP).";
+                _status.Text = T("Choose a source image first (PNG, JPEG or WebP).", "Scegli prima un'immagine di origine (PNG, JPEG o WebP).");
                 return;
             }
             CreateOperationTicket? ticket = BeginOperation("Removing the background locally… (a few seconds to a minute on the CPU)");
@@ -44,7 +44,7 @@ namespace PaRuX.Views
                     path, "image", string.IsNullOrWhiteSpace(asset.FileName) ? Path.GetFileName(path) : asset.FileName, "create-workspace",
                     new { operation = "cutout", source = Path.GetFileName(sourcePath), mediaType = asset.MediaType, width = asset.Width, height = asset.Height, seconds = asset.DurationSeconds },
                     markFinal: true, CancellationToken.None);
-                _lastOutput.Text = "Output: " + path;
+                _lastOutput.Text = T("Output: ", "Output: ") + path;
                 ShowResult(path);
                 SetProvenance(new MediaProvenanceRecord { EngineFamily = "Local Cutout Engine", Model = "BiRefNet-lite (ONNX, MIT)", IsLocal = true });
                 FinishOperation(ticket, "Background removed locally; the transparent PNG is registered in Artifact Workspace.");

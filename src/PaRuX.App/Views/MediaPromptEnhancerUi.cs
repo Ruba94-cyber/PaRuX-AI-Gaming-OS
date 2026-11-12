@@ -12,6 +12,7 @@ namespace PaRuX.Views
     /// <summary>Optional "Enhance prompt" step for the Create workspace: toggle (default OFF) + review dialog.</summary>
     internal static class MediaPromptEnhancerUi
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         public const string ToggleAutomationId = "Create_EnhancePrompt_Toggle";
         public const string EnhancedBoxAutomationId = "Create_EnhancePrompt_Enhanced_Box";
 
@@ -19,7 +20,7 @@ namespace PaRuX.Views
         public static CheckBox CreateToggle(string idSuffix = "") =>
             Named(new CheckBox
             {
-                Content = "Enhance prompt with the local text model (review before generating)",
+                Content = T("Enhance prompt with the local text model (review before generating)", "Migliora il prompt con il modello di testo locale (controlla prima di generare)"),
                 IsChecked = false
             }, ToggleAutomationId + idSuffix);
 
@@ -55,11 +56,11 @@ namespace PaRuX.Views
                 return answer.ToString();
             }, localOnly: false, modelIsLocal: modelIsLocal, cloudConsent: false, ct: ct);
 
-            var original = new TextBlock { Text = "Your prompt", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            var original = new TextBlock { Text = T("Your prompt", "Il tuo prompt"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
             var originalText = new TextBlock { Text = prompt, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
             var enhancedLabel = new TextBlock
             {
-                Text = result.UsedFallback ? "Enhancement not applied (nothing was sent to a model): " + result.FallbackReason + ". Your original will be used unless you edit it." : "Enhanced prompt (editable)",
+                Text = result.UsedFallback ? T("Enhancement not applied (nothing was sent to a model): ", "Miglioramento non applicato (nulla è stato inviato a un modello): ") + result.FallbackReason + T(". Your original will be used unless you edit it.", ". Verrà usato l'originale a meno che tu non lo modifichi.") : T("Enhanced prompt (editable)", "Prompt migliorato (modificabile)"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -73,11 +74,11 @@ namespace PaRuX.Views
             var dialog = new ContentDialog
             {
                 XamlRoot = root,
-                Title = "Review prompt",
+                Title = T("Review prompt", "Controlla il prompt"),
                 Content = panel,
-                PrimaryButtonText = "Generate with this prompt",
-                SecondaryButtonText = "Use my original",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Generate with this prompt", "Genera con questo prompt"),
+                SecondaryButtonText = T("Use my original", "Usa il mio originale"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Secondary
             };
             ContentDialogResult choice = await dialog.ShowAsync();

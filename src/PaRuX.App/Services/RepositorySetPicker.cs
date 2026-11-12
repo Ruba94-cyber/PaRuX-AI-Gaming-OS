@@ -23,6 +23,7 @@ namespace PaRuX.Services
     /// </summary>
     public static class RepositorySetPicker
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private static readonly Regex AliasPattern = new("^[A-Za-z][A-Za-z0-9._-]{0,31}$", RegexOptions.Compiled);
         private const int MaxRepositories = 8;
 
@@ -40,12 +41,12 @@ namespace PaRuX.Services
                 var choice = new ContentDialog
                 {
                     XamlRoot = xamlRoot,
-                    Title = "Project repositories",
+                    Title = T("Project repositories", "Repository del progetto"),
                     Content = additional.Count == 0
-                        ? "Use only the primary repository, or add another independent Git repository? PaRuX writes nothing until you finish the whole set."
-                        : "Add another repository, or finish this complete authority set?",
-                    PrimaryButtonText = "Add repository",
-                    CloseButtonText = "Finish",
+                        ? T("Use only the primary repository, or add another independent Git repository? PaRuX writes nothing until you finish the whole set.", "Usare solo il repository principale o aggiungerne un altro indipendente? PaRuX non scrive nulla finché non completi l'intero insieme.")
+                        : T("Add another repository, or finish this complete authority set?", "Aggiungere un altro repository o completare questo insieme di autorità?"),
+                    PrimaryButtonText = T("Add repository", "Aggiungi repository"),
+                    CloseButtonText = T("Finish", "Fine"),
                     DefaultButton = ContentDialogButton.Close
                 };
                 ContentDialogResult result = await choice.ShowAsync();
@@ -87,10 +88,10 @@ namespace PaRuX.Services
                 var dialog = new ContentDialog
                 {
                     XamlRoot = xamlRoot,
-                    Title = "Repository alias",
+                    Title = T("Repository alias", "Alias del repository"),
                     Content = input,
-                    PrimaryButtonText = "Use alias",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Use alias", "Usa l'alias"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Primary
                 };
                 ContentDialogResult result = await dialog.ShowAsync();

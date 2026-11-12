@@ -21,18 +21,18 @@ namespace PaRuX.Views
         {
             var card = new Border { Padding = new Thickness(16), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12) };
             AutomationProperties.SetAutomationId(card, "RuntimeManager_Suggestion_Card");
-            AutomationProperties.SetName(card, "Suggested for this PC");
+            AutomationProperties.SetName(card, T("Suggested for this PC", "Consigliato per questo PC"));
             var body = new StackPanel { Spacing = 8 };
             card.Child = body;
             body.Children.Add(new TextBlock
             {
-                Text = "Suggested for this PC",
+                Text = T("Suggested for this PC", "Consigliato per questo PC"),
                 FontSize = 20,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Optional changes for this PC. Nothing is installed without your approval.",
+                Text = T("Optional changes for this PC. Nothing is installed without your approval.", "Modifiche facoltative per questo PC. Nulla viene installato senza la tua approvazione."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -123,7 +123,7 @@ namespace PaRuX.Views
             {
                 details.Children.Add(new TextBlock
                 {
-                    Text = "Evidence",
+                    Text = T("Evidence", "Evidenze"),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 });
                 foreach (string evidence in suggestion.Evidence)
@@ -132,14 +132,14 @@ namespace PaRuX.Views
             if (suggestion.Informational && suggestion.Action == "none")
                 details.Children.Add(new TextBlock
                 {
-                    Text = "Informational only: PaRuX will not change this runtime.",
+                    Text = T("Informational only: PaRuX will not change this runtime.", "Solo informativo: PaRuX non modificherà questo runtime."),
                     TextWrapping = TextWrapping.Wrap
                 });
             var dialog = new ContentDialog
             {
                 Title = suggestion.Title,
                 Content = new ScrollViewer { Content = details, MaxHeight = 380 },
-                CloseButtonText = "Close",
+                CloseButtonText = T("Close", "Chiudi"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -151,7 +151,7 @@ namespace PaRuX.Views
             ComponentStatus? component = _lastComponents.FirstOrDefault(c => string.Equals(c.Id, suggestion.ComponentId, StringComparison.Ordinal));
             if (component == null || !component.Actions.Contains("install"))
             {
-                _status.Text = "This runtime cannot be installed by PaRuX on this PC.";
+                _status.Text = T("This runtime cannot be installed by PaRuX on this PC.", "Questo runtime non può essere installato da PaRuX su questo PC.");
                 return;
             }
             await InstallAsync(component);

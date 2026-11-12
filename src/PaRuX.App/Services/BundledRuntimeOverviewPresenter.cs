@@ -54,6 +54,7 @@ namespace PaRuX.Services
     /// </summary>
     public static class BundledRuntimeOverviewPresenter
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         public const string BundledVulkanId = "llama-server-vulkan";
         public const string BundledUvId = "uv";
         public const string BundledAppId = "parux-engine";
@@ -90,7 +91,7 @@ namespace PaRuX.Services
                     Category = "Text Runtime",
                     BundledSizeText = "~45 MB",
                     IsStaged = vulkanDetected,
-                    Description = "Included llama.cpp Vulkan engine. No separate runtime download is needed, but a chat model must still be installed and verified."
+                    Description = T("Included llama.cpp Vulkan engine. No separate runtime download is needed, but a chat model must still be installed and verified.", "Motore llama.cpp Vulkan incluso. Non serve un download separato del runtime, ma un modello di chat deve comunque essere installato e verificato.")
                 },
                 new()
                 {
@@ -99,7 +100,7 @@ namespace PaRuX.Services
                     Category = "Package Tooling",
                     BundledSizeText = "~15 MB",
                     IsStaged = uvDetected,
-                    Description = "Verified fast package manager bundled to provision managed Python environments on demand."
+                    Description = T("Verified fast package manager bundled to provision managed Python environments on demand.", "Gestore di pacchetti veloce e verificato, incluso per predisporre ambienti Python gestiti su richiesta.")
                 },
                 new()
                 {
@@ -108,7 +109,7 @@ namespace PaRuX.Services
                     Category = "Application Core",
                     BundledSizeText = "~120 MB",
                     IsStaged = true,
-                    Description = "Windows desktop UI, authenticated loopback server, and local-first execution manager."
+                    Description = T("Windows desktop UI, authenticated loopback server, and local-first execution manager.", "Interfaccia desktop Windows, server loopback autenticato e gestore di esecuzione local-first.")
                 }
             };
 
@@ -127,7 +128,7 @@ namespace PaRuX.Services
                     EstimatedSizeText = "Varies by model",
                     IsRequired = true,
                     WhenDownloaded = "Download only after choosing a compatible model in Model Hub.",
-                    Description = "Weights are stored in your LocalAI models folder. Nothing downloads until you choose it."
+                    Description = T("Weights are stored in your LocalAI models folder. Nothing downloads until you choose it.", "I pesi sono salvati nella cartella dei modelli LocalAI. Nulla viene scaricato finché non lo scegli.")
                 },
                 new()
                 {
@@ -138,7 +139,7 @@ namespace PaRuX.Services
                     EstimatedSizeText = FormatSize(CudaRuntimeSizeBytes),
                     IsRequired = false,
                     WhenDownloaded = "Optional. Only downloaded for older NVIDIA GPUs, if you choose 'Install with PaRuX' for CUDA acceleration.",
-                    Description = "Heavy GPU acceleration for NVIDIA cards. GPUs that support it (RTX 50 series with driver 580 or newer) already get an included CUDA 13.4 engine; this pack is the CUDA 12.4 build for older cards. The bundled Vulkan runtime is sufficient for chat."
+                    Description = T("Heavy GPU acceleration for NVIDIA cards. GPUs that support it (RTX 50 series with driver 580 or newer) already get an included CUDA 13.4 engine; this pack is the CUDA 12.4 build for older cards. The bundled Vulkan runtime is sufficient for chat.", "Accelerazione GPU pesante per schede NVIDIA. Le GPU che la supportano (serie RTX 50 con driver 580 o successivo) hanno già un motore CUDA 13.4 incluso; questo pacchetto è la build CUDA 12.4 per schede più vecchie. Il runtime Vulkan incluso basta per la chat.")
                 },
                 new()
                 {
@@ -149,7 +150,7 @@ namespace PaRuX.Services
                     EstimatedSizeText = FormatSize(ComfyUiSizeBytes),
                     IsRequired = false,
                     WhenDownloaded = "Optional. Only downloaded if you choose to install local image or video generation tools.",
-                    Description = "Required only for local image and video workflows. Not needed for text chat."
+                    Description = T("Required only for local image and video workflows. Not needed for text chat.", "Serve solo per i flussi locali di immagini e video. Non serve per la chat di testo.")
                 }
             };
 

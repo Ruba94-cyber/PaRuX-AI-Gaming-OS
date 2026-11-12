@@ -37,7 +37,7 @@ namespace PaRuX.Views
                 RenderComponentsSettings(components);
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = components.Count + " component(s) checked. Detection never installs or changes software.";
+                    ComponentsSettingsStatusText.Text = components.Count + T(" component(s) checked. Detection never installs or changes software.", " componenti controllati. Il rilevamento non installa né modifica mai il software.");
                 }
             }
             catch (Exception ex)
@@ -46,7 +46,7 @@ namespace PaRuX.Views
                 if (ComponentsSettingsList != null) ComponentsSettingsList.Children.Clear();
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = "Component discovery failed: " + ex.Message;
+                    ComponentsSettingsStatusText.Text = T("Component discovery failed: ", "Rilevamento dei componenti non riuscito: ") + ex.Message;
                 }
             }
             finally
@@ -261,7 +261,7 @@ namespace PaRuX.Views
 
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = "Installing " + component.DisplayName + " " + selected.Tag
+                    ComponentsSettingsStatusText.Text = T("Installing ", "Installazione di ") + component.DisplayName + " " + selected.Tag
                         + (string.IsNullOrWhiteSpace(selected.Variant) ? string.Empty : " (" + selected.Variant + ")") + "…";
                 }
 
@@ -334,7 +334,7 @@ namespace PaRuX.Views
                 await RuntimeManagerClient.Current.LocateAsync(component.Id, path, CancellationToken.None);
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = component.DisplayName + " location registered.";
+                    ComponentsSettingsStatusText.Text = component.DisplayName + T(" location registered.", " posizione registrata.");
                 }
             }
             finally
@@ -352,7 +352,7 @@ namespace PaRuX.Views
                 await RuntimeManagerClient.Current.RemoveLocationAsync(component.Id, CancellationToken.None);
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = component.DisplayName + " location forgotten.";
+                    ComponentsSettingsStatusText.Text = component.DisplayName + T(" location forgotten.", " posizione dimenticata.");
                 }
             }
             finally
@@ -370,7 +370,7 @@ namespace PaRuX.Views
                 await RuntimeManagerClient.Current.SkipAsync(component.Id, CancellationToken.None);
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = component.DisplayName + " skipped for now.";
+                    ComponentsSettingsStatusText.Text = component.DisplayName + T(" skipped for now.", " saltato per ora.");
                 }
             }
             finally
@@ -388,7 +388,7 @@ namespace PaRuX.Views
                 await RuntimeManagerClient.Current.UnskipAsync(component.Id, CancellationToken.None);
                 if (ComponentsSettingsStatusText != null)
                 {
-                    ComponentsSettingsStatusText.Text = component.DisplayName + " setup re-enabled.";
+                    ComponentsSettingsStatusText.Text = component.DisplayName + T(" setup re-enabled.", " configurazione riabilitata.");
                 }
             }
             finally

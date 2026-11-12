@@ -46,7 +46,7 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(_mediaLoraList, "ModelHub_Media_InstalledLoras");
             if (_mediaLoras is not { } loras)
             {
-                _mediaLoraList.Children.Add(new TextBlock { Text = "Installed LoRAs could not be read from PaRuX Core.", Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+                _mediaLoraList.Children.Add(new TextBlock { Text = T("Installed LoRAs could not be read from PaRuX Core.", "Impossibile leggere le LoRA installate da PaRuX Core."), Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
                 _media.Children.Add(_mediaLoraList);
                 return;
             }
@@ -59,7 +59,7 @@ namespace PaRuX.Views
                 _mediaLoraList.Children.Add(new TextBlock { Text = CreateLoraStackPresenter.HubLine(choice), TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8 });
             _mediaLoraList.Children.Add(new TextBlock
             {
-                Text = "Pick up to " + CreateLoraStackPresenter.MaxSlots + " of these in Create > Image. A LoRA only works with the model family it was made for.",
+                Text = T("Pick up to ", "Scegli fino a ") + CreateLoraStackPresenter.MaxSlots + T(" of these in Create > Image. A LoRA only works with the model family it was made for.", " di queste in Crea > Immagine. Una LoRA funziona solo con la famiglia di modelli per cui è stata creata."),
                 TextWrapping = TextWrapping.Wrap, FontSize = 11, Opacity = 0.65
             });
             _media.Children.Add(_mediaLoraList);
@@ -73,7 +73,7 @@ namespace PaRuX.Views
             _media.Children.Clear();
             _media.Children.Add(new TextBlock
             {
-                Text = "Best model per capability for this PC (" + _mediaCatalogue.HardwareSummary + "). Fit is an estimate and the tier is declared by the catalogue, not measured. Models PaRuX cannot run yet are listed but cannot be downloaded.",
+                Text = T("Best model per capability for this PC (", "Miglior modello per capacità su questo PC (") + _mediaCatalogue.HardwareSummary + T("). Fit is an estimate and the tier is declared by the catalogue, not measured. Models PaRuX cannot run yet are listed but cannot be downloaded.", "). La compatibilità è una stima e il livello è dichiarato dal catalogo, non misurato. I modelli che PaRuX non può ancora eseguire sono elencati ma non scaricabili."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -83,7 +83,7 @@ namespace PaRuX.Views
                 string label = status.Type switch { "image" => "Image", "video" => "Video", "edit" => "Image Edit", _ => status.Type };
                 _media.Children.Add(new TextBlock
                 {
-                    Text = label + " · active: " + (string.IsNullOrWhiteSpace(status.CurrentFile) ? "not configured" : status.CurrentFile)
+                    Text = label + T(" · active: ", " · attivo: ") + (string.IsNullOrWhiteSpace(status.CurrentFile) ? T("not configured", "non configurato") : status.CurrentFile)
                         + " · " + MediaSelectionPresenter.SummarySource(status),
                     TextWrapping = TextWrapping.Wrap,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
@@ -92,8 +92,8 @@ namespace PaRuX.Views
 
             // Discovery: the user decides when to look on Hugging Face; this only lists models and never downloads one.
             var discoveryRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 8, 0, 0) };
-            var refresh = new Button { Content = "Refresh from Hugging Face" };
-            AutomationProperties.SetName(refresh, "Refresh media models from Hugging Face");
+            var refresh = new Button { Content = T("Refresh from Hugging Face", "Aggiorna da Hugging Face") };
+            AutomationProperties.SetName(refresh, T("Refresh media models from Hugging Face", "Aggiorna i modelli multimediali da Hugging Face"));
             AutomationProperties.SetAutomationId(refresh, "ModelHub_MediaDiscoveryRefresh");
             var refreshLine = new TextBlock
             {
@@ -116,7 +116,7 @@ namespace PaRuX.Views
                     FontWeight = lane == _mediaLane ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
                     Opacity = lane == _mediaLane ? 1.0 : 0.65
                 };
-                AutomationProperties.SetName(tab, "Media lane " + MediaHubPresenter.LaneLabel(lane));
+                AutomationProperties.SetName(tab, T("Media lane ", "Corsia multimediale ") + MediaHubPresenter.LaneLabel(lane));
                 AutomationProperties.SetAutomationId(tab, "ModelHub_MediaLane_" + MediaHubPresenter.LaneLabel(lane));
                 tab.Click += (_, _) => { _mediaLane = captured; RenderMediaCatalogue(current); };
                 laneRow.Children.Add(tab);
@@ -151,12 +151,12 @@ namespace PaRuX.Views
                 if (cap.Best != null) _media.Children.Add(BuildMediaCatalogueCard(cap.Best, capCurrent));
                 if (cap.Alternatives.Count > 0)
                 {
-                    _media.Children.Add(new TextBlock { Text = "Alternatives", FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 6, 0, 0) });
+                    _media.Children.Add(new TextBlock { Text = T("Alternatives", "Alternative"), FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 6, 0, 0) });
                     foreach (MediaHubCard alt in cap.Alternatives) _media.Children.Add(BuildMediaCatalogueCard(alt, capCurrent));
                 }
                 _media.Children.Add(new TextBlock
                 {
-                    Text = "Found on Hugging Face (" + MediaHubPresenter.DiscoveredNote + ")", FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 6, 0, 0)
+                    Text = T("Found on Hugging Face (", "Trovati su Hugging Face (") + MediaHubPresenter.DiscoveredNote + ")", FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 6, 0, 0)
                 });
                 if (cap.DiscoveredCards.Count == 0)
                     _media.Children.Add(new TextBlock { Text = cap.DiscoveredMessage, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.72 });
@@ -185,7 +185,7 @@ namespace PaRuX.Views
                 if (w.CanShowMore)
                 {
                     var more = new Button { Content = w.ShowMoreLabel };
-                    AutomationProperties.SetName(more, "Show more discovered " + cap.Label + " models");
+                    AutomationProperties.SetName(more, T("Show more discovered ", "Mostra altri modelli scoperti: ") + cap.Label + T(" models", " modelli"));
                     AutomationProperties.SetAutomationId(more, "ModelHub_Discovered_ShowMore_" + cap.CapabilityId + "_" + _mediaLane);
                     more.Click += (_, _) => { _discoveredLimits[key] = DiscoveredListWindow.Expand(limit); Rebuild(); };
                     row.Children.Add(more);
@@ -193,7 +193,7 @@ namespace PaRuX.Views
                 if (w.CanShowFewer)
                 {
                     var fewer = new Button { Content = w.ShowFewerLabel };
-                    AutomationProperties.SetName(fewer, "Show fewer discovered " + cap.Label + " models");
+                    AutomationProperties.SetName(fewer, T("Show fewer discovered ", "Mostra meno modelli scoperti: ") + cap.Label + T(" models", " modelli"));
                     AutomationProperties.SetAutomationId(fewer, "ModelHub_Discovered_ShowFewer_" + cap.CapabilityId + "_" + _mediaLane);
                     fewer.Click += (_, _) => { _discoveredLimits[key] = DiscoveredListWindow.Collapse(limit); Rebuild(); };
                     row.Children.Add(fewer);
@@ -209,7 +209,7 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 4, Margin = new Thickness(0, 6, 0, 0) };
             panel.Children.Add(new TextBlock
             {
-                Text = (card.Badge.Length > 0 ? card.Badge + " · " : card.IsBest ? "Recommended · " : string.Empty) + card.Title,
+                Text = (card.Badge.Length > 0 ? card.Badge + " · " : card.IsBest ? T("Recommended · ", "Consigliato · ") : string.Empty) + card.Title,
                 TextWrapping = TextWrapping.Wrap,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
@@ -224,7 +224,7 @@ namespace PaRuX.Views
                 if (selection.ActiveLine.Length > 0)
                     panel.Children.Add(new TextBlock { Text = selection.ActiveLine, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
                 var use = new Button { Content = selection.UseLabel, IsEnabled = selection.UseEnabled };
-                AutomationProperties.SetName(use, "Use " + card.Title);
+                AutomationProperties.SetName(use, T("Use ", "Usa ") + card.Title);
                 AutomationProperties.SetAutomationId(use, "ModelHub_UseModel_" + card.VariantId);
                 string useType = MediaSelectionPresenter.TypeFor(card.Entry.CapabilityId)!;
                 string useFile = card.Entry.FileName;
@@ -237,10 +237,10 @@ namespace PaRuX.Views
             {
                 var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 var get = new Button { Content = "1. " + card.ActionLabel };
-                AutomationProperties.SetName(get, "Download " + card.Title);
+                AutomationProperties.SetName(get, T("Download ", "Scarica ") + card.Title);
                 get.Click += async (_, _) => await DownloadMediaCheckpointAsync(download, get);
-                var install = new Button { Content = "2. Install for automatic use" };
-                AutomationProperties.SetName(install, "Install " + card.Title + " for automatic use");
+                var install = new Button { Content = T("2. Install for automatic use", "2. Installa per l'uso automatico") };
+                AutomationProperties.SetName(install, T("Install ", "Installa ") + card.Title + T(" for automatic use", " per l'uso automatico"));
                 install.Click += async (_, _) => await InstallMediaCheckpointForAutomaticAsync(download);
                 buttons.Children.Add(get);
                 buttons.Children.Add(install);
@@ -261,7 +261,7 @@ namespace PaRuX.Views
             var line = new TextBlock { Text = activeLine, TextWrapping = TextWrapping.Wrap, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
             AutomationProperties.SetAutomationId(line, "ModelHub_ActiveModel_" + type);
             var automatic = new Button { Content = automaticLabel, IsEnabled = automaticEnabled };
-            AutomationProperties.SetName(automatic, "Use Automatic model for " + type);
+            AutomationProperties.SetName(automatic, T("Use Automatic model for ", "Usa il modello automatico per ") + type);
             AutomationProperties.SetAutomationId(automatic, "ModelHub_Automatic_" + type);
             automatic.Click += async (_, _) =>
             {
@@ -269,12 +269,12 @@ namespace PaRuX.Views
                 try
                 {
                     await MediaCheckpointsClient.Current.ResetCheckpointAsync(type, CancellationToken.None);
-                    _status.Text = "Automatic mode restored for " + type + ".";
+                    _status.Text = T("Automatic mode restored for ", "Modalità automatica ripristinata per ") + type + ".";
                     await RefreshAllAsync();
                 }
                 catch (Exception ex)
                 {
-                    _status.Text = "Could not restore Automatic: " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                    _status.Text = T("Could not restore Automatic: ", "Impossibile ripristinare l'Automatico: ") + CustomCheckpointPresenter.ExtractServerError(ex.Message);
                     automatic.IsEnabled = true;
                 }
             };
@@ -289,13 +289,13 @@ namespace PaRuX.Views
             try
             {
                 await MediaCheckpointsClient.Current.SetCheckpointAsync(type, fileName, CancellationToken.None);
-                _status.Text = title + " is now used for " + type + ".";
+                _status.Text = title + T(" is now used for ", " ora è usato per ") + type + ".";
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
                 // The server refuses a family the workflow cannot run with a typed reason; show it as is.
-                _status.Text = "Could not use " + title + ": " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                _status.Text = T("Could not use ", "Impossibile usare ") + title + ": " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
                 button.IsEnabled = true;
             }
         }
@@ -303,7 +303,7 @@ namespace PaRuX.Views
         private async Task RefreshMediaDiscoveryAsync(Button button, TextBlock statusLine)
         {
             button.IsEnabled = false;
-            statusLine.Text = "Reading Hugging Face (public listings only, this can take a minute)…";
+            statusLine.Text = T("Reading Hugging Face (public listings only, this can take a minute)…", "Lettura di Hugging Face (solo elenchi pubblici, può richiedere un minuto)…");
             try
             {
                 MediaDiscoveryRefreshResultDto result = await MediaCheckpointsClient.Current.RefreshDiscoveryAsync(CancellationToken.None);
@@ -312,7 +312,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _status.Text = "Could not refresh from Hugging Face: " + CustomCheckpointPresenter.ExtractServerError(ex.Message);
+                _status.Text = T("Could not refresh from Hugging Face: ", "Impossibile aggiornare da Hugging Face: ") + CustomCheckpointPresenter.ExtractServerError(ex.Message);
                 statusLine.Text = _status.Text;
                 button.IsEnabled = true;
             }
@@ -324,12 +324,12 @@ namespace PaRuX.Views
             {
                 SetBusy(true, "Installing " + checkpoint.Title + "…");
                 await MediaCheckpointsClient.Current.InstallForAutomaticAsync(checkpoint.Type, checkpoint.FileName, CancellationToken.None);
-                _status.Text = checkpoint.Title + " is installed. Automatic mode for " + checkpoint.CapabilityId + " can now choose it.";
+                _status.Text = checkpoint.Title + T(" is installed. Automatic mode for ", " è installato. La modalità automatica per ") + checkpoint.CapabilityId + T(" can now choose it.", " ora può sceglierlo.");
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
-                _status.Text = "Install failed. Download the checkpoint completely first. " + ex.Message;
+                _status.Text = T("Install failed. Download the checkpoint completely first. ", "Installazione non riuscita. Scarica prima completamente il checkpoint. ") + ex.Message;
                 SetBusy(false, _status.Text);
             }
         }

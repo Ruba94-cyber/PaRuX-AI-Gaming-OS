@@ -24,6 +24,7 @@ namespace PaRuX.Shell
     /// </summary>
     public sealed partial class BubbleWindow : Window
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         // --- Win32 ---
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT { public int X; public int Y; }
@@ -711,11 +712,11 @@ namespace PaRuX.Shell
         {
             var menu = new MenuFlyout();
 
-            var hide = new MenuFlyoutItem { Text = "Hide bubble" };
+            var hide = new MenuFlyoutItem { Text = T("Hide bubble", "Nascondi la bolla") };
             hide.Click += (s, args) => HideBubble();
             menu.Items.Add(hide);
 
-            var open = new MenuFlyoutItem { Text = "Open PaRuX" };
+            var open = new MenuFlyoutItem { Text = T("Open PaRuX", "Apri PaRuX") };
             open.Click += (s, args) => App.ShowMainWindow();
             menu.Items.Add(open);
 

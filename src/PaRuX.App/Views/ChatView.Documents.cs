@@ -134,7 +134,7 @@ namespace PaRuX.Views
             bool on = ChatDocumentScopeState.Enabled;
             DocumentsButton.Background = on ? (Brush?)Application.Current.Resources["AccentFillColorDefaultBrush"] ?? new SolidColorBrush(Microsoft.UI.Colors.SteelBlue)
                 : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-            AutomationProperties.SetHelpText(DocumentsButton, on ? "On" : "Off");
+            AutomationProperties.SetHelpText(DocumentsButton, on ? "On" : T("Off", "No"));
         }
 
         /// <summary>Synchronise the existing document toggle after a scoped

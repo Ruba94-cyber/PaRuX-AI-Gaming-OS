@@ -27,6 +27,7 @@ namespace PaRuX
 {
     public sealed partial class MainWindow : Window
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private const int MaxVisibleRecentConversations = 50;
 
         private sealed class ActionCommand : ICommand
@@ -354,7 +355,7 @@ namespace PaRuX
                 foreach (NavigationViewItem workspaceItem in WorkspaceNavigationItems())
                     NavView.MenuItems.Add(workspaceItem);
 
-                var header = new NavigationViewItemHeader { Content = "Recent" };
+                var header = new NavigationViewItemHeader { Content = T("Recent", "Recenti") };
                 NavView.MenuItems.Add(header);
 
                 int shown = 0;
@@ -402,8 +403,8 @@ namespace PaRuX
                     // The content is a Grid, so without an explicit name screen readers (and UI
                     // automation) only announce "NavigationViewItem" for every conversation.
                     AutomationProperties.SetName(item, title
-                        + (c.IsFavorite ? ", favourite" : string.Empty)
-                        + (isWorking ? ", working" : string.Empty));
+                        + (c.IsFavorite ? T(", favourite", ", preferita") : string.Empty)
+                        + (isWorking ? T(", working", ", in elaborazione") : string.Empty));
                     AutomationProperties.SetAutomationId(item, "History_Conversation_Item");
 
                     NavView.MenuItems.Add(item);
@@ -417,7 +418,7 @@ namespace PaRuX
                     // rather than a blank gap under the "Recent" header.
                     var empty = new NavigationViewItem
                     {
-                        Content = _searchFilter.Length > 0 ? "No matching chats" : "No chats yet",
+                        Content = _searchFilter.Length > 0 ? T("No matching chats", "Nessuna chat corrispondente") : T("No chats yet", "Ancora nessuna chat"),
                         IsEnabled = false,
                         SelectsOnInvoked = false
                     };
@@ -433,7 +434,7 @@ namespace PaRuX
                 {
                     var limitNotice = new NavigationViewItem
                     {
-                        Content = $"Showing {shown} of {matchingConversations.Count} chats. Search above to find older chats.",
+                        Content = T($"Showing {shown} of {matchingConversations.Count} chats. Search above to find older chats.", $"Mostrate {shown} di {matchingConversations.Count} chat. Cerca qui sopra per trovare chat più vecchie."),
                         IsEnabled = false,
                         SelectsOnInvoked = false
                     };
@@ -515,7 +516,7 @@ namespace PaRuX
 
             var label = new TextBlock
             {
-                Text = "Active",
+                Text = T("Active", "Attiva"),
                 FontSize = 10,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
@@ -527,7 +528,7 @@ namespace PaRuX
             stack.Children.Add(label);
 
             badgeBorder.Child = stack;
-            ToolTipService.SetToolTip(badgeBorder, "This conversation is actively processing...");
+            ToolTipService.SetToolTip(badgeBorder, T("This conversation is actively processing...", "Questa conversazione è in elaborazione..."));
             return badgeBorder;
         }
 
@@ -608,11 +609,11 @@ namespace PaRuX
         {
             var flyout = new MenuFlyout();
 
-            var rename = new MenuFlyoutItem { Text = "Rename" };
+            var rename = new MenuFlyoutItem { Text = T("Rename", "Rinomina") };
             rename.Click += async (s, e) => await RenameConversationAsync(conversation);
             flyout.Items.Add(rename);
 
-            var favorite = new MenuFlyoutItem { Text = conversation.IsFavorite ? "Remove from favorites" : "Add to favorites" };
+            var favorite = new MenuFlyoutItem { Text = conversation.IsFavorite ? T("Remove from favorites", "Rimuovi dai preferiti") : T("Add to favorites", "Aggiungi ai preferiti") };
             favorite.Click += (s, e) =>
             {
                 conversation.IsFavorite = !conversation.IsFavorite;
@@ -621,20 +622,20 @@ namespace PaRuX
             };
             flyout.Items.Add(favorite);
 
-            var duplicate = new MenuFlyoutItem { Text = "Duplicate" };
+            var duplicate = new MenuFlyoutItem { Text = T("Duplicate", "Duplica") };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(duplicate, "Chat_History_Duplicate_Item");
             duplicate.Click += (s, e) => { ChatSession.Current.DuplicateConversation(conversation.Id); RefreshHistory(); };
             flyout.Items.Add(duplicate);
 
-            var exportMarkdown = new MenuFlyoutItem { Text = "Export as Markdown" };
+            var exportMarkdown = new MenuFlyoutItem { Text = T("Export as Markdown", "Esporta come Markdown") };
             exportMarkdown.Click += async (s, e) => await ExportConversationAsync(conversation, false);
             flyout.Items.Add(exportMarkdown);
 
-            var exportJson = new MenuFlyoutItem { Text = "Export as JSON" };
+            var exportJson = new MenuFlyoutItem { Text = T("Export as JSON", "Esporta come JSON") };
             exportJson.Click += async (s, e) => await ExportConversationAsync(conversation, true);
             flyout.Items.Add(exportJson);
 
-            var delete = new MenuFlyoutItem { Text = "Delete" };
+            var delete = new MenuFlyoutItem { Text = T("Delete", "Elimina") };
             delete.Click += async (s, e) => await DeleteConversationAsync(conversation);
             flyout.Items.Add(delete);
 
@@ -693,15 +694,15 @@ namespace PaRuX
             {
                 Text = conversation.Title ?? string.Empty,
                 SelectionStart = 0,
-                PlaceholderText = "Conversation name"
+                PlaceholderText = T("Conversation name", "Nome della conversazione")
             };
 
             var dialog = new ContentDialog
             {
-                Title = "Rename chat",
+                Title = T("Rename chat", "Rinomina la chat"),
                 Content = input,
-                PrimaryButtonText = "Rename",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Rename", "Rinomina"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             };
@@ -724,10 +725,10 @@ namespace PaRuX
         {
             var dialog = new ContentDialog
             {
-                Title = "Delete chat?",
-                Content = "\"" + (conversation.Title ?? "This chat") + "\" will be permanently deleted. This cannot be undone.",
-                PrimaryButtonText = "Delete",
-                CloseButtonText = "Cancel",
+                Title = T("Delete chat?", "Eliminare la chat?"),
+                Content = "\"" + (conversation.Title ?? T("This chat", "Questa chat")) + T("\" will be permanently deleted. This cannot be undone.", "\" verrà eliminata definitivamente. L'operazione non può essere annullata."),
+                PrimaryButtonText = T("Delete", "Elimina"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             };

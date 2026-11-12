@@ -54,8 +54,8 @@ namespace PaRuX.Views
             _diagTimer.Interval = TimeSpan.FromSeconds(3);
             _diagTimer.Tick += OnDiagTick;
 
-            DiagEndpoint.Text = "Endpoint unavailable"
-                              + "   ·   settings at " + AppPaths.SettingsFile;
+            DiagEndpoint.Text = T("Endpoint unavailable", "Endpoint non disponibile")
+                              + T("   ·   settings at ", "   ·   impostazioni in ") + AppPaths.SettingsFile;
 
             AboutVersion.Text = "PaRuX · " + typeof(SettingsView).Assembly.GetName().Version;
 
@@ -85,6 +85,24 @@ namespace PaRuX.Views
         private static readonly string[] SettingsCategories =
         {
             "General", "Models", "Chat Behavior", "Your PC apps", "Media Generation", "Automation", "Agents", "Integrations", "Gaming & AI Sharing", "PaRuX Platform", "Privacy & Network", "Data", "Advanced"
+        };
+
+        private static string CategoryLabel(string category) => category switch
+        {
+            "General" => T("General", "Generale"),
+            "Models" => T("Models", "Modelli"),
+            "Chat Behavior" => T("Chat Behavior", "Comportamento della chat"),
+            "Your PC apps" => T("Your PC apps", "App del tuo PC"),
+            "Media Generation" => T("Media Generation", "Generazione multimediale"),
+            "Automation" => T("Automation", "Automazione"),
+            "Agents" => T("Agents", "Agenti"),
+            "Integrations" => T("Integrations", "Integrazioni"),
+            "Gaming & AI Sharing" => T("Gaming & AI Sharing", "Gaming e condivisione IA"),
+            "PaRuX Platform" => T("PaRuX Platform", "Piattaforma PaRuX"),
+            "Privacy & Network" => T("Privacy & Network", "Privacy e rete"),
+            "Data" => T("Data", "Dati"),
+            "Advanced" => T("Advanced", "Avanzate"),
+            _ => category
         };
 
         private readonly Dictionary<string, Button> _categoryButtons = new Dictionary<string, Button>();
@@ -124,7 +142,7 @@ namespace PaRuX.Views
             {
                 var button = new Button
                 {
-                    Content = category,
+                    Content = CategoryLabel(category),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Left,
                     Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0)),
@@ -138,7 +156,7 @@ namespace PaRuX.Views
                 button.Click += (s, e) => SelectSettingsCategory(capturedCategory);
                 _categoryButtons[category] = button;
                 SettingsCategoryRail.Children.Add(button);
-                SettingsCompactCategoryPicker.Items.Add(new ComboBoxItem { Content = category, Tag = category });
+                SettingsCompactCategoryPicker.Items.Add(new ComboBoxItem { Content = CategoryLabel(category), Tag = category });
             }
 
             SelectSettingsCategory(_selectedSettingsCategory);
@@ -173,7 +191,7 @@ namespace PaRuX.Views
             return AvailableSettingsCategories
                 .Where(category =>
                 {
-                    string searchable = category + " "
+                    string searchable = category + " " + CategoryLabel(category) + " "
                         + (_settingsSearchIndex.TryGetValue(category, out string? labels) ? labels : string.Empty);
                     return terms.All(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
                 })
@@ -227,8 +245,8 @@ namespace PaRuX.Views
             sender.ItemsSource = query.Length == 0 ? null : matches;
             SettingsSearchFeedback.Visibility = query.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             SettingsSearchFeedback.Text = matches.Count == 0
-                ? "No matching settings. Try a shorter term."
-                : matches.Count + (matches.Count == 1 ? " matching category." : " matching categories.");
+                ? T("No matching settings. Try a shorter term.", "Nessuna impostazione corrispondente. Prova un termine più breve.")
+                : matches.Count + (matches.Count == 1 ? T(" matching category.", " categoria corrispondente.") : T(" matching categories.", " categorie corrispondenti."));
             foreach (KeyValuePair<string, Button> entry in _categoryButtons)
                 entry.Value.Visibility = query.Length == 0 || matches.Contains(entry.Key)
                     ? Visibility.Visible : Visibility.Collapsed;
@@ -446,7 +464,7 @@ namespace PaRuX.Views
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 var text = new StackPanel { Spacing = 1 };
-                var name = new TextBlock { Text = persona.Name + (persona.IsBuiltIn ? "" : "  ·  custom") };
+                var name = new TextBlock { Text = persona.Name + (persona.IsBuiltIn ? "" : T("  ·  custom", "  ·  personalizzato")) };
                 ApplyBodyStrongStyle(name);
                 text.Children.Add(name);
                 if (!string.IsNullOrEmpty(persona.SystemPrompt))
@@ -516,13 +534,13 @@ namespace PaRuX.Views
                 if (file == null) return;
                 byte[] data = await System.IO.File.ReadAllBytesAsync(file.Path);
                 Persona imported = await PersonaClient.Current.ImportCardAsync(file.Name, data, CancellationToken.None);
-                if (PersonaStatus != null) PersonaStatus.Text = "Imported \"" + imported.Name + "\" from " + file.Name + ". Set it active to use it in Chat.";
+                if (PersonaStatus != null) PersonaStatus.Text = T("Imported \"", "Importato \"") + imported.Name + T("\" from ", "\" da ") + file.Name + T(". Set it active to use it in Chat.", ". Impostalo come attivo per usarlo in Chat.");
                 await RefreshPersonasAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("ImportPersonaCard failed: " + ex.Message);
-                if (PersonaStatus != null) PersonaStatus.Text = "Couldn't import the card: " + ex.Message;
+                if (PersonaStatus != null) PersonaStatus.Text = T("Couldn't import the card: ", "Impossibile importare la scheda: ") + ex.Message;
             }
         }
 
@@ -540,13 +558,13 @@ namespace PaRuX.Views
                 await PersonaClient.Current.CreateAsync(name, prompt, CancellationToken.None);
                 if (NewPersonaNameBox != null) NewPersonaNameBox.Text = string.Empty;
                 if (NewPersonaPromptBox != null) NewPersonaPromptBox.Text = string.Empty;
-                if (PersonaStatus != null) PersonaStatus.Text = "Created \"" + name + "\".";
+                if (PersonaStatus != null) PersonaStatus.Text = T("Created \"", "Creato \"") + name + "\".";
                 await RefreshPersonasAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("CreatePersona failed: " + ex.Message);
-                if (PersonaStatus != null) PersonaStatus.Text = "Couldn't create persona: " + ex.Message;
+                if (PersonaStatus != null) PersonaStatus.Text = T("Couldn't create persona: ", "Impossibile creare la persona: ") + ex.Message;
             }
         }
 
@@ -648,7 +666,7 @@ namespace PaRuX.Views
             string? args = (NewMcpArgsBox?.Text ?? string.Empty).Trim();
             if (name.Length == 0 || command.Length == 0)
             {
-                if (McpStatus != null) McpStatus.Text = "Both a name and a launch command are required.";
+                if (McpStatus != null) McpStatus.Text = T("Both a name and a launch command are required.", "Servono sia un nome sia un comando di avvio.");
                 return;
             }
             try
@@ -658,14 +676,14 @@ namespace PaRuX.Views
                 if (NewMcpCommandBox != null) NewMcpCommandBox.Text = string.Empty;
                 if (NewMcpArgsBox != null) NewMcpArgsBox.Text = string.Empty;
                 if (McpPresetCombo != null) McpPresetCombo.SelectedItem = null;
-                if (McpStatus != null) McpStatus.Text = "Added \"" + name + "\" - checking connection…";
+                if (McpStatus != null) McpStatus.Text = T("Added \"", "Aggiunto \"") + name + T("\" - checking connection…", "\" - controllo della connessione…");
                 await RefreshMcpServersAsync();
                 if (McpStatus != null) McpStatus.Text = string.Empty;
             }
             catch (Exception ex)
             {
                 Log.Write("AddMcpServer failed: " + ex.Message);
-                if (McpStatus != null) McpStatus.Text = "Couldn't add server: " + ex.Message;
+                if (McpStatus != null) McpStatus.Text = T("Couldn't add server: ", "Impossibile aggiungere il server: ") + ex.Message;
             }
         }
 
@@ -685,7 +703,7 @@ namespace PaRuX.Views
             _ = EnsureKnowledgeSettingsPanelAsync();
             if (sources.Count == 0)
             {
-                var empty = new TextBlock { Text = "No folders indexed yet." };
+                var empty = new TextBlock { Text = T("No folders indexed yet.", "Nessuna cartella ancora indicizzata.") };
                 ApplyCaptionStyle(empty);
                 RagSourcesList.Children.Add(empty);
                 return;
@@ -702,14 +720,14 @@ namespace PaRuX.Views
                 var text = new StackPanel { Spacing = 1 };
                 var path = new TextBlock { Text = source.FolderPath, TextWrapping = TextWrapping.Wrap };
                 text.Children.Add(path);
-                var meta = new TextBlock { Text = source.DocumentCount + " documents · " + source.ChunkCount + " chunks" };
+                var meta = new TextBlock { Text = source.DocumentCount + T(" documents · ", " documenti · ") + source.ChunkCount + T(" chunks", " frammenti") };
                 ApplyCaptionStyle(meta);
                 text.Children.Add(meta);
                 AddKnowledgeStatusRows(text, source);
                 Grid.SetColumn(text, 0);
                 row.Children.Add(text);
 
-                var enabledSwitch = new ToggleSwitch { IsOn = source.Enabled, OnContent = "On", OffContent = "Off" };
+                var enabledSwitch = new ToggleSwitch { IsOn = source.Enabled, OnContent = "On", OffContent = T("Off", "No") };
                 enabledSwitch.Toggled += async (s, e) =>
                 {
                     if (_switchesBeingReverted.Contains(enabledSwitch)) return;
@@ -726,12 +744,12 @@ namespace PaRuX.Views
                 Grid.SetColumn(enabledSwitch, 1);
                 row.Children.Add(enabledSwitch);
 
-                var reindex = new Button { Content = "Reindex" };
+                var reindex = new Button { Content = T("Reindex", "Reindicizza") };
                 reindex.Click += async (s, e) => await ReindexRagSourceAsync(source);
                 Grid.SetColumn(reindex, 2);
                 row.Children.Add(reindex);
 
-                var remove = new Button { Content = "Remove" };
+                var remove = new Button { Content = T("Remove", "Rimuovi") };
                 remove.Click += async (s, e) =>
                 {
                     try { await RagClient.Current.RemoveSourceAsync(source.Id, CancellationToken.None); }
@@ -774,7 +792,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshEmbeddingEngineStatusAsync failed: " + ex.Message);
-                EmbeddingEngineStatusText.Text = "Could not reach the embedding engine: " + ex.Message;
+                EmbeddingEngineStatusText.Text = T("Could not reach the embedding engine: ", "Impossibile raggiungere il motore di embedding: ") + ex.Message;
             }
         }
 
@@ -797,7 +815,7 @@ namespace PaRuX.Views
         {
             _embeddingInstallFailure = null;
             if (InstallEmbeddingEngineButton != null) InstallEmbeddingEngineButton.IsEnabled = false;
-            if (EmbeddingEngineStatusText != null) EmbeddingEngineStatusText.Text = "Downloading (~90 MB)…";
+            if (EmbeddingEngineStatusText != null) EmbeddingEngineStatusText.Text = T("Downloading (~90 MB)…", "Download in corso (~90 MB)…");
             try
             {
                 await EmbeddingClient.Current.InstallEngineAsync(CancellationToken.None);
@@ -838,7 +856,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RAG reindex failed: " + ex.Message);
-                if (RagIndexStatus != null) RagIndexStatus.Text = "Indexing failed: " + ex.Message;
+                if (RagIndexStatus != null) RagIndexStatus.Text = T("Indexing failed: ", "Indicizzazione non riuscita: ") + ex.Message;
             }
             await RefreshRagSourcesAsync();
         }
@@ -859,9 +877,9 @@ namespace PaRuX.Views
                 {
                     var dialog = new ContentDialog
                     {
-                        XamlRoot = XamlRoot, Title = "Index this broad location?",
+                        XamlRoot = XamlRoot, Title = T("Index this broad location?", "Indicizzare questa posizione ampia?"),
                         Content = new TextBlock { Text = consent.Message + "\n\n" + folder.Path, TextWrapping = TextWrapping.Wrap },
-                        PrimaryButtonText = "Index it", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+                        PrimaryButtonText = T("Index it", "Indicizza"), CloseButtonText = T("Cancel", "Annulla"), DefaultButton = ContentDialogButton.Close
                     };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(dialog, "Settings_Rag_Consent_Dialog");
                     if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -872,12 +890,12 @@ namespace PaRuX.Views
             }
             catch (SensitiveFolderException blocked)
             {
-                if (RagIndexStatus != null) RagIndexStatus.Text = "This folder is not indexed: " + blocked.Message;
+                if (RagIndexStatus != null) RagIndexStatus.Text = T("This folder is not indexed: ", "Questa cartella non è indicizzata: ") + blocked.Message;
             }
             catch (Exception ex)
             {
                 Log.Write("AddRagSource failed: " + ex.Message);
-                if (RagIndexStatus != null) RagIndexStatus.Text = "Couldn't add the folder: " + ex.Message;
+                if (RagIndexStatus != null) RagIndexStatus.Text = T("Couldn't add the folder: ", "Impossibile aggiungere la cartella: ") + ex.Message;
             }
         }
 
@@ -892,13 +910,13 @@ namespace PaRuX.Views
             {
                 LocalAiRootStatus status = await LocalAiRootClient.Current.GetAsync(CancellationToken.None);
                 LocalAiRootBox.Text = status.Root;
-                LocalAiRootText.Text = (status.Configured ? "Explicitly configured. " : "Auto-detected. ")
-                    + (status.LooksConfigured ? "A runtime looks installed there." : "No runtime found there yet.");
+                LocalAiRootText.Text = (status.Configured ? T("Explicitly configured. ", "Configurata esplicitamente. ") : T("Auto-detected. ", "Rilevata automaticamente. "))
+                    + (status.LooksConfigured ? T("A runtime looks installed there.", "Sembra che lì sia installato un runtime.") : T("No runtime found there yet.", "Nessun runtime trovato lì per ora."));
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshLocalAiRootAsync failed: " + ex.Message);
-                LocalAiRootText.Text = "Couldn't reach PaRuX Core to read this.";
+                LocalAiRootText.Text = T("Couldn't reach PaRuX Core to read this.", "Impossibile raggiungere PaRuX Core per leggerlo.");
             }
         }
 
@@ -933,7 +951,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("LocalAiRootSave failed: " + ex.Message);
-                LocalAiRootText.Text = "Couldn't save: " + ex.Message;
+                LocalAiRootText.Text = T("Couldn't save: ", "Impossibile salvare: ") + ex.Message;
             }
         }
 
@@ -954,7 +972,7 @@ namespace PaRuX.Views
             MemoryList.Children.Clear();
             if (entries.Count == 0)
             {
-                var empty = new TextBlock { Text = filter == null ? "No memory saved yet." : "No matches." };
+                var empty = new TextBlock { Text = filter == null ? T("No memory saved yet.", "Nessun ricordo salvato per ora.") : T("No matches.", "Nessuna corrispondenza.") };
                 ApplyCaptionStyle(empty);
                 MemoryList.Children.Add(empty);
                 return;
@@ -982,7 +1000,7 @@ namespace PaRuX.Views
                 Grid.SetColumn(text, 0);
                 row.Children.Add(text);
 
-                var enabledSwitch = new ToggleSwitch { IsOn = entry.Enabled, OnContent = "On", OffContent = "Off" };
+                var enabledSwitch = new ToggleSwitch { IsOn = entry.Enabled, OnContent = "On", OffContent = T("Off", "No") };
                 enabledSwitch.Toggled += async (s, e) =>
                 {
                     if (_switchesBeingReverted.Contains(enabledSwitch)) return;
@@ -999,12 +1017,12 @@ namespace PaRuX.Views
                 Grid.SetColumn(enabledSwitch, 1);
                 row.Children.Add(enabledSwitch);
 
-                var edit = new Button { Content = "Edit" };
+                var edit = new Button { Content = T("Edit", "Modifica") };
                 edit.Click += async (s, e) => await EditMemoryAsync(entry);
                 Grid.SetColumn(edit, 2);
                 row.Children.Add(edit);
 
-                var delete = new Button { Content = "Delete" };
+                var delete = new Button { Content = T("Delete", "Elimina") };
                 delete.Click += async (s, e) =>
                 {
                     try { await MemoryClient.Current.DeleteAsync(entry.Id, CancellationToken.None); }
@@ -1024,10 +1042,10 @@ namespace PaRuX.Views
             var box = new TextBox { Text = entry.Content, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
             var dialog = new ContentDialog
             {
-                Title = "Edit memory",
+                Title = T("Edit memory", "Modifica il ricordo"),
                 Content = box,
-                PrimaryButtonText = "Save",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Save", "Salva"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -1115,10 +1133,10 @@ namespace PaRuX.Views
         {
             var confirm = new ContentDialog
             {
-                Title = "Clear all memory?",
-                Content = "This permanently deletes every saved memory entry. This cannot be undone.",
-                PrimaryButtonText = "Clear all",
-                CloseButtonText = "Cancel",
+                Title = T("Clear all memory?", "Cancellare tutta la memoria?"),
+                Content = T("This permanently deletes every saved memory entry. This cannot be undone.", "Questo elimina definitivamente ogni voce di memoria salvata. L'operazione non può essere annullata."),
+                PrimaryButtonText = T("Clear all", "Cancella tutto"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -1296,7 +1314,7 @@ namespace PaRuX.Views
                 Windows.Storage.StorageFile file = await picker.PickSingleFileAsync();
                 if (file == null) return;
 
-                if (ChatImportStatus != null) ChatImportStatus.Text = "Reading " + file.Name + "…";
+                if (ChatImportStatus != null) ChatImportStatus.Text = T("Reading ", "Lettura di ") + file.Name + "…";
                 byte[] bytes = (await Windows.Storage.FileIO.ReadBufferAsync(file)).ToArray();
 
                 // The server parses the export (ChatGPT, Claude or Gemini Takeout), skips duplicates and reports
@@ -1310,7 +1328,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("ImportChatHistory failed: " + ex.Message);
-                if (ChatImportStatus != null) ChatImportStatus.Text = "Import failed: " + ex.Message;
+                if (ChatImportStatus != null) ChatImportStatus.Text = T("Import failed: ", "Importazione non riuscita: ") + ex.Message;
             }
         }
 
@@ -1325,7 +1343,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("FindModelsFromOtherApps failed: " + ex.Message);
-                if (ExternalModelsStatus != null) ExternalModelsStatus.Text = "Could not search other apps: " + ex.Message;
+                if (ExternalModelsStatus != null) ExternalModelsStatus.Text = T("Could not search other apps: ", "Impossibile cercare in altre app: ") + ex.Message;
             }
         }
 
@@ -1362,16 +1380,16 @@ namespace PaRuX.Views
                 if (TrainingExportStatus != null)
                 {
                     TrainingExportStatus.Text = stats.TotalCandidates == 0
-                        ? "No rated or saved replies found yet — thumbs-up or flag a reply first."
-                        : stats.TrainCount + " train / " + stats.ValidationCount + " validation examples written "
-                          + "(" + stats.DuplicatesSkipped + " duplicates, " + stats.MalformedSkipped + " malformed skipped).\n"
+                        ? T("No rated or saved replies found yet — thumbs-up or flag a reply first.", "Nessuna risposta valutata o salvata finora: metti prima un pollice in su o una bandiera a una risposta.")
+                        : stats.TrainCount + T(" train / ", " training / ") + stats.ValidationCount + T(" validation examples written ", " esempi di validazione scritti ")
+                          + "(" + stats.DuplicatesSkipped + T(" duplicates, ", " duplicati, ") + stats.MalformedSkipped + T(" malformed skipped).\n", " malformati saltati).\n")
                           + trainPath + "\n" + validationPath;
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("ExportTrainingDataset failed: " + ex.Message);
-                if (TrainingExportStatus != null) TrainingExportStatus.Text = "Export failed: " + ex.Message;
+                if (TrainingExportStatus != null) TrainingExportStatus.Text = T("Export failed: ", "Esportazione non riuscita: ") + ex.Message;
             }
         }
 
@@ -1383,20 +1401,20 @@ namespace PaRuX.Views
                 ExternalTextProviderStatus status = await ExternalBackendClient.Current.GetStatusAsync(CancellationToken.None);
                 if (status.Configured)
                 {
-                    ExternalBackendStatusText.Text = "Using " + status.ProviderName + " at " + status.Endpoint
-                        + (status.Reachable ? " - reachable." : " - not reachable right now.");
+                    ExternalBackendStatusText.Text = T("Using ", "Uso di ") + status.ProviderName + " at " + status.Endpoint
+                        + (status.Reachable ? T(" - reachable.", " - raggiungibile.") : T(" - not reachable right now.", " - al momento non raggiungibile."));
                     if (ClearExternalBackendButton != null) ClearExternalBackendButton.Visibility = Visibility.Visible;
                 }
                 else
                 {
-                    ExternalBackendStatusText.Text = "Using PaRuX's own local model.";
+                    ExternalBackendStatusText.Text = T("Using PaRuX's own local model.", "Uso del modello locale di PaRuX.");
                     if (ClearExternalBackendButton != null) ClearExternalBackendButton.Visibility = Visibility.Collapsed;
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshExternalBackendAsync failed: " + ex.Message);
-                ExternalBackendStatusText.Text = "Couldn't load backend status: " + ex.Message;
+                ExternalBackendStatusText.Text = T("Couldn't load backend status: ", "Impossibile caricare lo stato del backend: ") + ex.Message;
             }
         }
 
@@ -1407,7 +1425,7 @@ namespace PaRuX.Views
             {
                 if (DetectBackendsButton != null) DetectBackendsButton.IsEnabled = false;
                 DetectedBackendsList.Children.Clear();
-                var scanning = new TextBlock { Text = "Scanning well-known ports…" };
+                var scanning = new TextBlock { Text = T("Scanning well-known ports…", "Scansione delle porte più comuni…") };
                 ApplyCaptionStyle(scanning);
                 DetectedBackendsList.Children.Add(scanning);
 
@@ -1415,7 +1433,7 @@ namespace PaRuX.Views
                 DetectedBackendsList.Children.Clear();
                 if (found.Count == 0)
                 {
-                    var none = new TextBlock { Text = "Nothing found answering on Ollama/LM Studio/koboldcpp/text-generation-webui's default ports." };
+                    var none = new TextBlock { Text = T("Nothing found answering on Ollama/LM Studio/koboldcpp/text-generation-webui's default ports.", "Nessuna risposta trovata sulle porte predefinite di Ollama/LM Studio/koboldcpp/text-generation-webui.") };
                     ApplyCaptionStyle(none);
                     DetectedBackendsList.Children.Add(none);
                     return;
@@ -1428,7 +1446,7 @@ namespace PaRuX.Views
                     var label = new TextBlock { Text = backend.Name + " · " + backend.Endpoint, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetColumn(label, 0);
                     row.Children.Add(label);
-                    var useButton = new Button { Content = "Use", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var useButton = new Button { Content = T("Use", "Usa"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     Grid.SetColumn(useButton, 1);
                     string capturedName = backend.Name, capturedEndpoint = backend.Endpoint;
                     useButton.Click += async (s, e2) => await SetExternalBackendAsync(capturedName, capturedEndpoint);
@@ -1440,7 +1458,7 @@ namespace PaRuX.Views
             {
                 Log.Write("DetectBackends_Click failed: " + ex.Message);
                 DetectedBackendsList.Children.Clear();
-                var error = new TextBlock { Text = "Detection failed: " + ex.Message };
+                var error = new TextBlock { Text = T("Detection failed: ", "Rilevamento non riuscito: ") + ex.Message };
                 ApplyCaptionStyle(error);
                 DetectedBackendsList.Children.Add(error);
             }
@@ -1456,7 +1474,7 @@ namespace PaRuX.Views
             string? name = ManualBackendNameBox?.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(endpoint))
             {
-                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = "Enter an endpoint first.";
+                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = T("Enter an endpoint first.", "Inserisci prima un endpoint.");
                 return;
             }
             await SetExternalBackendAsync(string.IsNullOrWhiteSpace(name) ? "custom" : name, endpoint);
@@ -1472,7 +1490,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("SetExternalBackendAsync failed: " + ex.Message);
-                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = "Couldn't set that backend: " + ex.Message;
+                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = T("Couldn't set that backend: ", "Impossibile impostare quel backend: ") + ex.Message;
             }
         }
 
@@ -1486,7 +1504,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("ClearExternalBackend_Click failed: " + ex.Message);
-                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = "Couldn't clear that backend: " + ex.Message;
+                if (ExternalBackendStatusText != null) ExternalBackendStatusText.Text = T("Couldn't clear that backend: ", "Impossibile rimuovere quel backend: ") + ex.Message;
             }
         }
 
@@ -1536,7 +1554,7 @@ namespace PaRuX.Views
             DetectedModelsList.Children.Clear();
             if (models.Count == 0)
             {
-                var empty = new TextBlock { Text = "No .gguf models found in the PaRuX model library or the Local AI model folder." };
+                var empty = new TextBlock { Text = T("No .gguf models found in the PaRuX model library or the Local AI model folder.", "Nessun modello .gguf trovato nella libreria modelli di PaRuX o nella cartella dei modelli di Local AI.") };
                 ApplyCaptionStyle(empty);
                 DetectedModelsList.Children.Add(empty);
                 return;
@@ -1606,7 +1624,7 @@ namespace PaRuX.Views
                 {
                     var badge = new TextBlock
                     {
-                        Text = "Currently: Standard",
+                        Text = T("Currently: Standard", "Attuale: Standard"),
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(badge,
@@ -1620,7 +1638,7 @@ namespace PaRuX.Views
                 {
                     var badge = new TextBlock
                     {
-                        Text = "Currently: Uncensored",
+                        Text = T("Currently: Uncensored", "Attuale: Senza censura"),
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     };
                     Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(badge,
@@ -1632,7 +1650,7 @@ namespace PaRuX.Views
                 {
                     var badge = new TextBlock
                     {
-                        Text = "Fallback only · never assigned as Standard",
+                        Text = T("Fallback only · never assigned as Standard", "Solo di ripiego · mai assegnato come Standard"),
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     };
                     ApplyCaptionStyle(badge);
@@ -1643,7 +1661,7 @@ namespace PaRuX.Views
                     string capturedPath = model.FilePath;
                     if (!isStandard)
                     {
-                        var setStandard = new Button { Content = "Set as Standard", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                        var setStandard = new Button { Content = T("Set as Standard", "Imposta come Standard"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(setStandard,
                             "Settings_ModelRole_SetStandard_" + modelAutomationKey + "_Button");
                         setStandard.Click += async (s, e2) => await SetModelRoleAsync("standard", capturedPath);
@@ -1652,7 +1670,7 @@ namespace PaRuX.Views
 
                     if (!isUncensored)
                     {
-                        var setUncensored = new Button { Content = "Set as Uncensored", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                        var setUncensored = new Button { Content = T("Set as Uncensored", "Imposta come Senza censura"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(setUncensored,
                             "Settings_ModelRole_SetUncensored_" + modelAutomationKey + "_Button");
                         setUncensored.Click += async (s, e2) => await SetModelRoleAsync("uncensored", capturedPath);
@@ -1674,7 +1692,7 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshMediaCheckpointsAsync failed: " + ex.Message);
                 MediaCheckpointsList.Children.Clear();
-                var error = new TextBlock { Text = "Couldn't load checkpoint info: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var error = new TextBlock { Text = T("Couldn't load checkpoint info: ", "Impossibile caricare le informazioni sul checkpoint: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(error);
                 MediaCheckpointsList.Children.Add(error);
                 return;
@@ -1726,14 +1744,14 @@ namespace PaRuX.Views
                     foreach (string file in alternatives)
                     {
                         string capturedType = status.Type, capturedFile = file;
-                        var button = new Button { Content = "Use " + file, FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                        var button = new Button { Content = T("Use ", "Usa ") + file, FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                         button.Click += async (s, e2) => await SetMediaCheckpointAsync(capturedType, capturedFile);
                         row.Children.Add(button);
                     }
                     if (status.IsCheckpointPinned)
                     {
                         string capturedType = status.Type;
-                        var resetButton = new Button { Content = "Clear pinned model", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                        var resetButton = new Button { Content = T("Clear pinned model", "Cancella il modello fissato"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                         resetButton.Click += async (s, e2) => await ResetMediaCheckpointAsync(capturedType);
                         row.Children.Add(resetButton);
                     }
@@ -1753,7 +1771,7 @@ namespace PaRuX.Views
                 }
                 else if (status.AvailableFiles.Count <= 1)
                 {
-                    var note = new TextBlock { Text = "Only this checkpoint was found - nothing else to switch to yet." };
+                    var note = new TextBlock { Text = T("Only this checkpoint was found - nothing else to switch to yet.", "È stato trovato solo questo checkpoint: per ora non c'è altro a cui passare.") };
                     ApplyCaptionStyle(note);
                     card.Children.Add(note);
                 }
@@ -1771,7 +1789,7 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshCustomWorkflowsAsync failed: " + ex.Message);
                 CustomWorkflowsList.Children.Clear();
-                var error = new TextBlock { Text = "Couldn't load custom workflows: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var error = new TextBlock { Text = T("Couldn't load custom workflows: ", "Impossibile caricare i workflow personalizzati: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(error);
                 CustomWorkflowsList.Children.Add(error);
                 return;
@@ -1780,7 +1798,7 @@ namespace PaRuX.Views
             CustomWorkflowsList.Children.Clear();
             if (workflows.Count == 0)
             {
-                var empty = new TextBlock { Text = "No custom workflows imported yet." };
+                var empty = new TextBlock { Text = T("No custom workflows imported yet.", "Nessun workflow personalizzato importato per ora.") };
                 ApplyCaptionStyle(empty);
                 CustomWorkflowsList.Children.Add(empty);
                 return;
@@ -1796,7 +1814,7 @@ namespace PaRuX.Views
                 var title = new TextBlock { Text = workflow.Name, Style = (Style)Application.Current.Resources["PaRuXBodyStrongTextStyle"] };
                 Grid.SetColumn(title, 0);
                 titleRow.Children.Add(title);
-                var removeButton = new Button { Content = "Remove", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                var removeButton = new Button { Content = T("Remove", "Rimuovi"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                 Grid.SetColumn(removeButton, 1);
                 string capturedId = workflow.Id;
                 removeButton.Click += async (s, e2) => await DeleteCustomWorkflowAsync(capturedId);
@@ -1830,12 +1848,12 @@ namespace PaRuX.Views
                 if (ImportWorkflowButton != null) ImportWorkflowButton.IsEnabled = false;
                 await CustomWorkflowClient.Current.ImportAsync(name, json, CancellationToken.None);
                 await RefreshCustomWorkflowsAsync();
-                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = "Imported \"" + name + "\".";
+                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = T("Imported \"", "Importato \"") + name + "\".";
             }
             catch (Exception ex)
             {
                 Log.Write("ImportWorkflow_Click failed: " + ex.Message);
-                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = "Couldn't import that workflow: " + ex.Message;
+                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = T("Couldn't import that workflow: ", "Impossibile importare quel workflow: ") + ex.Message;
             }
             finally
             {
@@ -1853,7 +1871,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("DeleteCustomWorkflowAsync failed: " + ex.Message);
-                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = "Couldn't remove that workflow: " + ex.Message;
+                if (ImportWorkflowStatus != null) ImportWorkflowStatus.Text = T("Couldn't remove that workflow: ", "Impossibile rimuovere quel workflow: ") + ex.Message;
             }
         }
 
@@ -1897,7 +1915,7 @@ namespace PaRuX.Views
                 List<RecommendedCheckpoint> recommended = await MediaCheckpointsClient.Current.GetRecommendedAsync(CancellationToken.None);
                 if (recommended.Count == 0)
                 {
-                    var empty = new TextBlock { Text = "No verified alternatives to recommend yet." };
+                    var empty = new TextBlock { Text = T("No verified alternatives to recommend yet.", "Nessuna alternativa verificata da consigliare per ora.") };
                     ApplyCaptionStyle(empty);
                     RecommendedCheckpointsList.Children.Add(empty);
                     return;
@@ -1917,7 +1935,7 @@ namespace PaRuX.Views
 
                     string capturedType = rec.Type, capturedFile = rec.FileName, capturedUrl = rec.DownloadUrl, capturedRepo = rec.HuggingFaceRepoId;
                     long capturedSize = rec.EstimatedSizeBytes;
-                    var downloadButton = new Button { Content = "Download" };
+                    var downloadButton = new Button { Content = T("Download", "Download") };
                     downloadButton.Click += async (s, e2) =>
                     {
                         downloadButton.IsEnabled = false;
@@ -1962,7 +1980,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshRecommendedCheckpointsAsync failed: " + ex.Message);
-                var error = new TextBlock { Text = "Couldn't load recommended checkpoints: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var error = new TextBlock { Text = T("Couldn't load recommended checkpoints: ", "Impossibile caricare i checkpoint consigliati: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(error);
                 RecommendedCheckpointsList.Children.Add(error);
             }
@@ -1977,11 +1995,11 @@ namespace PaRuX.Views
             var row = new Grid { ColumnSpacing = 8 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var label = new TextBlock { Text = "Starting…" };
+            var label = new TextBlock { Text = T("Starting…", "Avvio…") };
             ApplyCaptionStyle(label);
             Grid.SetColumn(label, 0);
             row.Children.Add(label);
-            var cancel = new Button { Content = "Cancel" };
+            var cancel = new Button { Content = T("Cancel", "Annulla") };
             cancel.Click += async (s, e) => await CancelDownloadRowAsync(id, label, cancel);
             Grid.SetColumn(cancel, 1);
             row.Children.Add(cancel);
@@ -2005,7 +2023,7 @@ namespace PaRuX.Views
                 try
                 {
                     await MediaCheckpointsClient.Current.ActivateAsync(type, fileName, CancellationToken.None);
-                    label.Text = fileName + "  ·  activated for " + type;
+                    label.Text = fileName + T("  ·  activated for ", "  ·  attivato per ") + type;
                     await RefreshMediaCheckpointsAsync();
                 }
                 catch (Exception ex)
@@ -2148,7 +2166,7 @@ namespace PaRuX.Views
                     InternetSwitch.IsOn = status.Enabled;
                     _loading = false;
                     InternetSwitch.IsEnabled = true;
-                    InternetSwitch.OffContent = "Off";
+                    InternetSwitch.OffContent = T("Off", "No");
                     return;
                 }
                 catch (Exception ex)
@@ -2169,7 +2187,7 @@ namespace PaRuX.Views
             InternetSwitch.IsOn = false;
             _loading = false;
             InternetSwitch.IsEnabled = false;
-            InternetSwitch.OffContent = "Unavailable — PaRuX Core did not answer";
+            InternetSwitch.OffContent = T("Unavailable — PaRuX Core did not answer", "Non disponibile: PaRuX Core non ha risposto");
         }
 
         private async void InternetSwitch_Toggled(object sender, RoutedEventArgs e)
@@ -2241,9 +2259,9 @@ namespace PaRuX.Views
                 // owned by another app. Showing the saved value alone would present a shortcut that
                 // does nothing as if it were working.
                 HotkeyHint.Text = App.Hotkey.IsRegistered
-                    ? "Active: press " + s.Hotkey + " anywhere to open Quick Chat."
-                    : "Not active: Windows refused " + s.Hotkey + " — another app already owns it. "
-                      + "Pick a different combination and press Apply.";
+                    ? T("Active: press ", "Attiva: premi ") + s.Hotkey + T(" anywhere to open Quick Chat.", " ovunque per aprire la Chat rapida.")
+                    : T("Not active: Windows refused ", "Non attiva: Windows ha rifiutato ") + s.Hotkey + T(" — another app already owns it. ", " — un'altra app la usa già. ")
+                      + T("Pick a different combination and press Apply.", "Scegli una combinazione diversa e premi Applica.");
                 ImageWidthBox.Value = s.GeneratedImageWidth;
                 ImageHeightBox.Value = s.GeneratedImageHeight;
                 SelectImagePreset(s.GeneratedImageWidth, s.GeneratedImageHeight);
@@ -2361,7 +2379,7 @@ namespace PaRuX.Views
 
             if (!ok)
             {
-                StartupHint.Text = "Couldn't update the Windows startup entry — see parux.log.";
+                StartupHint.Text = T("Couldn't update the Windows startup entry — see parux.log.", "Impossibile aggiornare la voce di avvio di Windows — vedi parux.log.");
                 _loading = true;
                 StartupSwitch.IsOn = StartupService.IsEnabled();
                 _loading = false;
@@ -2369,8 +2387,8 @@ namespace PaRuX.Views
             }
 
             StartupHint.Text = wanted
-                ? "PaRuX will start automatically when you sign in."
-                : "Adds PaRuX to the Windows startup list";
+                ? T("PaRuX will start automatically when you sign in.", "PaRuX si avvierà automaticamente quando accedi.")
+                : T("Adds PaRuX to the Windows startup list", "Aggiunge PaRuX all'elenco di avvio di Windows");
 
             SettingsStore.Current.Data.StartWithWindows = wanted;
             SettingsStore.Current.Save();
@@ -2488,7 +2506,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Choose image folder failed: " + ex.Message);
-                ImageFolderPath.Text = "Couldn't use that folder.";
+                ImageFolderPath.Text = T("Couldn't use that folder.", "Impossibile usare quella cartella.");
             }
         }
 
@@ -2503,7 +2521,7 @@ namespace PaRuX.Views
         {
             string configured = SettingsStore.Current.Data.GeneratedImagesFolder;
             ImageFolderPath.Text = string.IsNullOrWhiteSpace(configured)
-                ? "PaRuX managed local folder"
+                ? T("PaRuX managed local folder", "Cartella locale gestita da PaRuX")
                 : configured;
         }
 
@@ -2600,7 +2618,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Choose video folder failed: " + ex.Message);
-                VideoFolderPath.Text = "Couldn't use that folder.";
+                VideoFolderPath.Text = T("Couldn't use that folder.", "Impossibile usare quella cartella.");
             }
         }
 
@@ -2614,7 +2632,7 @@ namespace PaRuX.Views
         private void UpdateVideoFolderText()
         {
             string configured = SettingsStore.Current.Data.GeneratedVideosFolder;
-            VideoFolderPath.Text = string.IsNullOrWhiteSpace(configured) ? "PaRuX managed local folder" : configured;
+            VideoFolderPath.Text = string.IsNullOrWhiteSpace(configured) ? T("PaRuX managed local folder", "Cartella locale gestita da PaRuX") : configured;
         }
 
         private async void ChooseRunningComputerApp_Click(object sender, RoutedEventArgs e)
@@ -2630,8 +2648,8 @@ namespace PaRuX.Views
                 {
                     await new ContentDialog
                     {
-                        Title = "No eligible open apps found",
-                        Content = "Open a desktop app and try again, or select Browse EXE. Protected and packaged app hosts may be unavailable.",
+                        Title = T("No eligible open apps found", "Nessuna app aperta idonea trovata"),
+                        Content = T("Open a desktop app and try again, or select Browse EXE. Protected and packaged app hosts may be unavailable.", "Apri un'app desktop e riprova, oppure scegli Sfoglia EXE. Gli host di app protetti e in pacchetto potrebbero non essere disponibili."),
                         CloseButtonText = "OK",
                         XamlRoot = XamlRoot
                     }.ShowAsync();
@@ -2640,8 +2658,8 @@ namespace PaRuX.Views
 
                 var chooser = new ComboBox
                 {
-                    Header = "Open desktop application",
-                    PlaceholderText = "Choose the application to allow",
+                    Header = T("Open desktop application", "Apri applicazione desktop"),
+                    PlaceholderText = T("Choose the application to allow", "Scegli l'applicazione da consentire"),
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
                 foreach (ComputerUseRunningAppDiscovery.DiscoveredApp app in found)
@@ -2649,31 +2667,31 @@ namespace PaRuX.Views
 
                 var executable = new TextBlock
                 {
-                    Text = "Select an application to review its executable path.",
+                    Text = T("Select an application to review its executable path.", "Seleziona un'applicazione per vedere il percorso del suo eseguibile."),
                     TextWrapping = TextWrapping.Wrap
                 };
                 chooser.SelectionChanged += (s, args) =>
                 {
                     executable.Text = (chooser.SelectedItem as ComboBoxItem)?.Tag is
                         ComputerUseRunningAppDiscovery.DiscoveredApp selected
-                        ? "Executable: " + selected.ExecutablePath
-                        : "Select an application to review its executable path.";
+                        ? T("Executable: ", "Eseguibile: ") + selected.ExecutablePath
+                        : T("Select an application to review its executable path.", "Seleziona un'applicazione per vedere il percorso del suo eseguibile.");
                 };
 
                 var panel = new StackPanel { Spacing = 10 };
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Only the executable you approve is added to your Computer Use allowlist. No application is started or controlled during discovery.",
+                    Text = T("Only the executable you approve is added to your Computer Use allowlist. No application is started or controlled during discovery.", "Solo l'eseguibile che approvi viene aggiunto all'elenco consentito di Uso del computer. Durante il rilevamento nessuna applicazione viene avviata o controllata."),
                     TextWrapping = TextWrapping.Wrap
                 });
                 panel.Children.Add(chooser);
                 panel.Children.Add(executable);
                 var dialog = new ContentDialog
                 {
-                    Title = "Approve desktop app",
+                    Title = T("Approve desktop app", "Approva applicazione desktop"),
                     Content = panel,
-                    PrimaryButtonText = "Allow selected app",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Allow selected app", "Consenti l'app selezionata"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
@@ -2700,8 +2718,8 @@ namespace PaRuX.Views
                 {
                     await new ContentDialog
                     {
-                        Title = "App already approved",
-                        Content = "An app with this name or executable is already in the allowlist. Remove that entry first if you want to replace it.",
+                        Title = T("App already approved", "App già approvata"),
+                        Content = T("An app with this name or executable is already in the allowlist. Remove that entry first if you want to replace it.", "Un'app con questo nome o eseguibile è già nell'elenco consentito. Rimuovi prima quella voce se vuoi sostituirla."),
                         CloseButtonText = "OK",
                         XamlRoot = XamlRoot
                     }.ShowAsync();
@@ -2733,17 +2751,17 @@ namespace PaRuX.Views
                 Windows.Storage.StorageFile file = await picker.PickSingleFileAsync();
                 if (file == null) return;
 
-                var name = new TextBox { Header = "Display name", Text = Path.GetFileNameWithoutExtension(file.Name) };
-                var aliases = new TextBox { Header = "Aliases", PlaceholderText = "Comma-separated names used in chat" };
-                var arguments = new TextBox { Header = "Optional launch arguments", PlaceholderText = "Stored locally; not inferred from chat" };
+                var name = new TextBox { Header = T("Display name", "Nome visualizzato"), Text = Path.GetFileNameWithoutExtension(file.Name) };
+                var aliases = new TextBox { Header = T("Aliases", "Alias"), PlaceholderText = T("Comma-separated names used in chat", "Nomi separati da virgola usati in chat") };
+                var arguments = new TextBox { Header = T("Optional launch arguments", "Argomenti di avvio facoltativi"), PlaceholderText = T("Stored locally; not inferred from chat", "Salvati in locale; non dedotti dalla chat") };
                 var content = new StackPanel { Spacing = 10 };
                 content.Children.Add(name); content.Children.Add(aliases); content.Children.Add(arguments);
                 var dialog = new ContentDialog
                 {
-                    Title = "Allow a Computer Use app",
+                    Title = T("Allow a Computer Use app", "Consenti un'app per Uso del computer"),
                     Content = content,
-                    PrimaryButtonText = "Add",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Add", "Aggiungi"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = XamlRoot
                 };
@@ -2762,8 +2780,8 @@ namespace PaRuX.Views
                 {
                     await new ContentDialog
                     {
-                        Title = "Cannot approve this app",
-                        Content = "Select a local GUI executable with a unique name. Shell interpreters, scripts and already approved executables are not permitted.",
+                        Title = T("Cannot approve this app", "Impossibile approvare questa app"),
+                        Content = T("Select a local GUI executable with a unique name. Shell interpreters, scripts and already approved executables are not permitted.", "Seleziona un eseguibile GUI locale con un nome univoco. Interpreti di shell, script ed eseguibili già approvati non sono consentiti."),
                         CloseButtonText = "OK",
                         XamlRoot = XamlRoot
                     }.ShowAsync();
@@ -2878,8 +2896,8 @@ namespace PaRuX.Views
                 ApiKeyList.Children.Clear();
 
                 ApiKeyStatusText.Text = keys.Count == 0
-                    ? "No API keys yet. Create one to let another app use this PC's models."
-                    : (keys.Count == 1 ? "1 key" : keys.Count + " keys") + " · revoking a key stops it working at once.";
+                    ? T("No API keys yet. Create one to let another app use this PC's models.", "Nessuna chiave API per ora. Creane una per permettere a un'altra app di usare i modelli di questo PC.")
+                    : (keys.Count == 1 ? T("1 key", "1 chiave") : keys.Count + T(" keys", " chiavi")) + T(" · revoking a key stops it working at once.", " · revocare una chiave la ferma subito.");
 
                 foreach (ApiKeyInfo key in keys)
                 {
@@ -2895,16 +2913,16 @@ namespace PaRuX.Views
                     });
                     text.Children.Add(new TextBlock
                     {
-                        Text = "Created " + key.CreatedUtc.ToLocalTime().ToString("d MMM yyyy") + " · "
+                        Text = T("Created ", "Creata il ") + key.CreatedUtc.ToLocalTime().ToString("d MMM yyyy") + " · "
                             + (key.LastUsedUtc.HasValue
-                                ? "last used " + key.LastUsedUtc.Value.ToLocalTime().ToString("d MMM yyyy HH:mm")
-                                : "never used"),
+                                ? T("last used ", "ultimo utilizzo ") + key.LastUsedUtc.Value.ToLocalTime().ToString("d MMM yyyy HH:mm")
+                                : T("never used", "mai usata")),
                         Style = (Style)FindResource("PaRuXCaptionTextStyle"),
                         TextWrapping = TextWrapping.Wrap
                     });
                     Grid.SetColumn(text, 0);
 
-                    var revoke = new Button { Content = "Revoke", VerticalAlignment = VerticalAlignment.Center };
+                    var revoke = new Button { Content = T("Revoke", "Revoca"), VerticalAlignment = VerticalAlignment.Center };
                     string id = key.Id;
                     revoke.Click += async (_, _) =>
                     {
@@ -2917,7 +2935,7 @@ namespace PaRuX.Views
                         catch (Exception ex)
                         {
                             Log.Write("Revoke API key failed: " + ex);
-                            ApiKeyStatusText.Text = "Couldn't revoke that key: " + ex.Message;
+                            ApiKeyStatusText.Text = T("Couldn't revoke that key: ", "Impossibile revocare quella chiave: ") + ex.Message;
                             revoke.IsEnabled = true;
                         }
                     };
@@ -2931,7 +2949,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Refresh API keys failed: " + ex);
-                ApiKeyStatusText.Text = "API key list unavailable — PaRuX Core did not answer.";
+                ApiKeyStatusText.Text = T("API key list unavailable — PaRuX Core did not answer.", "Elenco delle chiavi API non disponibile: PaRuX Core non ha risposto.");
             }
         }
 
@@ -2950,7 +2968,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Create API key failed: " + ex);
-                ApiKeyStatusText.Text = "Couldn't create a key: " + ex.Message;
+                ApiKeyStatusText.Text = T("Couldn't create a key: ", "Impossibile creare una chiave: ") + ex.Message;
             }
             finally { CreateApiKeyButton.IsEnabled = true; }
         }
@@ -2962,12 +2980,12 @@ namespace PaRuX.Views
                 var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
                 package.SetText(NewApiKeyText.Text ?? string.Empty);
                 Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-                CopyApiKeyButton.Content = "Copied";
+                CopyApiKeyButton.Content = T("Copied", "Copiata");
             }
             catch (Exception ex)
             {
                 Log.Write("Copy API key failed: " + ex);
-                ApiKeyStatusText.Text = "Couldn't copy to the clipboard: " + ex.Message;
+                ApiKeyStatusText.Text = T("Couldn't copy to the clipboard: ", "Impossibile copiare negli appunti: ") + ex.Message;
             }
         }
 
@@ -2993,21 +3011,21 @@ namespace PaRuX.Views
 
                 if (!status.PassphraseSet)
                 {
-                    WebAccessStatusText.Text = "Off · set a passphrase first. It is stored only as a hash and never leaves this PC.";
+                    WebAccessStatusText.Text = T("Off · set a passphrase first. It is stored only as a hash and never leaves this PC.", "Disattivato · imposta prima una passphrase. Viene conservata solo come hash e non lascia mai questo PC.");
                     return;
                 }
 
                 WebAccessStatusText.Text = status.Enabled
                     ? "On · " + status.LocalUrl + " · "
-                        + (status.ActiveSessions == 1 ? "1 browser signed in" : status.ActiveSessions + " browsers signed in")
-                        + " · a browser session can chat, load models and change settings, but never change this passphrase."
-                    : "Off · PaRuX serves the web interface only to this PC's own desktop app.";
+                        + (status.ActiveSessions == 1 ? T("1 browser signed in", "1 browser connesso") : status.ActiveSessions + T(" browsers signed in", " browser connessi"))
+                        + T(" · a browser session can chat, load models and change settings, but never change this passphrase.", " · una sessione del browser può chattare, caricare modelli e cambiare impostazioni, ma non può mai cambiare questa passphrase.")
+                    : T("Off · PaRuX serves the web interface only to this PC's own desktop app.", "Disattivato · PaRuX serve l'interfaccia web solo all'app desktop di questo PC.");
             }
             catch (Exception ex)
             {
                 Log.Write("Refresh web access failed: " + ex);
                 WebAccessSwitch.IsEnabled = false;
-                WebAccessStatusText.Text = "Browser-access status unavailable — PaRuX Core did not answer.";
+                WebAccessStatusText.Text = T("Browser-access status unavailable — PaRuX Core did not answer.", "Stato dell'accesso dal browser non disponibile: PaRuX Core non ha risposto.");
             }
         }
 
@@ -3020,13 +3038,13 @@ namespace PaRuX.Views
                 await RemoteAccessClient.Current.SaveWebAccessAsync(
                     new WebAccessConfigRequest { Passphrase = passphrase }, CancellationToken.None);
                 WebAccessPassphraseBox.Password = string.Empty;
-                WebAccessStatusText.Text = "Passphrase set. Any browser already signed in has been signed out.";
+                WebAccessStatusText.Text = T("Passphrase set. Any browser already signed in has been signed out.", "Passphrase impostata. Ogni browser già connesso è stato disconnesso.");
                 await RefreshWebAccessAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("Set web passphrase failed: " + ex);
-                WebAccessStatusText.Text = "Couldn't set the passphrase: " + ex.Message;
+                WebAccessStatusText.Text = T("Couldn't set the passphrase: ", "Impossibile impostare la passphrase: ") + ex.Message;
             }
             finally { SetWebPassphraseButton.IsEnabled = true; }
         }
@@ -3041,13 +3059,13 @@ namespace PaRuX.Views
                 {
                     var confirmation = new ContentDialog
                     {
-                        Title = "Serve PaRuX to a browser?",
-                        Content = "PaRuX will serve its web interface on this PC's loopback address so a reverse "
-                            + "proxy can publish it. Anyone who reaches that proxy and knows the passphrase can "
-                            + "chat, read your saved conversations, load models and change settings on this PC. "
-                            + "PaRuX does not open a firewall port or configure the proxy for you.",
-                        PrimaryButtonText = "Turn on",
-                        CloseButtonText = "Cancel",
+                        Title = T("Serve PaRuX to a browser?", "Servire PaRuX a un browser?"),
+                        Content = T("PaRuX will serve its web interface on this PC's loopback address so a reverse ", "PaRuX servirà la sua interfaccia web sull'indirizzo di loopback di questo PC in modo che un reverse ")
+                            + T("proxy can publish it. Anyone who reaches that proxy and knows the passphrase can ", "proxy possa pubblicarla. Chiunque raggiunga quel proxy e conosca la passphrase può ")
+                            + T("chat, read your saved conversations, load models and change settings on this PC. ", "chattare, leggere le tue conversazioni salvate, caricare modelli e cambiare impostazioni su questo PC. ")
+                            + T("PaRuX does not open a firewall port or configure the proxy for you.", "PaRuX non apre una porta del firewall né configura il proxy al posto tuo."),
+                        PrimaryButtonText = T("Turn on", "Attiva"),
+                        CloseButtonText = T("Cancel", "Annulla"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = XamlRoot
                     };
@@ -3067,7 +3085,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Toggle web access failed: " + ex);
-                WebAccessStatusText.Text = "Couldn't change browser access: " + ex.Message;
+                WebAccessStatusText.Text = T("Couldn't change browser access: ", "Impossibile cambiare l'accesso dal browser: ") + ex.Message;
                 await RefreshWebAccessAsync();
             }
         }
@@ -3078,13 +3096,13 @@ namespace PaRuX.Views
             try
             {
                 await RemoteAccessClient.Current.SignOutAllBrowsersAsync(CancellationToken.None);
-                WebAccessStatusText.Text = "Every browser has been signed out.";
+                WebAccessStatusText.Text = T("Every browser has been signed out.", "Ogni browser è stato disconnesso.");
                 await RefreshWebAccessAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("Sign out web sessions failed: " + ex);
-                WebAccessStatusText.Text = "Couldn't sign browsers out: " + ex.Message;
+                WebAccessStatusText.Text = T("Couldn't sign browsers out: ", "Impossibile disconnettere i browser: ") + ex.Message;
             }
         }
 
@@ -3098,7 +3116,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Open web client failed: " + ex);
-                WebAccessStatusText.Text = "Couldn't open the browser: " + ex.Message;
+                WebAccessStatusText.Text = T("Couldn't open the browser: ", "Impossibile aprire il browser: ") + ex.Message;
             }
         }
 
@@ -3110,7 +3128,7 @@ namespace PaRuX.Views
                 string? address = (LanAddressCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty;
                 if (LanEnabledSwitch.IsOn && string.IsNullOrWhiteSpace(address))
                 {
-                    LanStatusText.Text = "No private IPv4 interface is available. Connect this PC to the local network first.";
+                    LanStatusText.Text = T("No private IPv4 interface is available. Connect this PC to the local network first.", "Nessuna interfaccia IPv4 privata disponibile. Collega prima questo PC alla rete locale.");
                     return;
                 }
                 var request = new RemoteAccessConfigRequest
@@ -3123,10 +3141,10 @@ namespace PaRuX.Views
                 {
                     var confirmation = new ContentDialog
                     {
-                        Title = "Enable local-network access?",
-                        Content = "PaRuX will listen only on " + address + " over HTTPS. It will never open your router or accept public Internet addresses. If Windows Firewall asks, allow Private networks only — never Public networks.",
-                        PrimaryButtonText = "Enable LAN only",
-                        CloseButtonText = "Cancel",
+                        Title = T("Enable local-network access?", "Attivare l'accesso alla rete locale?"),
+                        Content = T("PaRuX will listen only on ", "PaRuX resterà in ascolto solo su ") + address + T(" over HTTPS. It will never open your router or accept public Internet addresses. If Windows Firewall asks, allow Private networks only — never Public networks.", " tramite HTTPS. Non aprirà mai il tuo router né accetterà indirizzi Internet pubblici. Se Windows Firewall lo chiede, consenti solo le reti Private, mai le reti Pubbliche."),
+                        PrimaryButtonText = T("Enable LAN only", "Attiva solo LAN"),
+                        CloseButtonText = T("Cancel", "Annulla"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = XamlRoot
                     };
@@ -3139,7 +3157,7 @@ namespace PaRuX.Views
                     PairingCodeText.Text = string.Empty;
                     PairingQrBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
                     PairingQrImage.Source = null;
-                    LanStatusText.Text = "Restarting PaRuX Core with the new local-network boundary…";
+                    LanStatusText.Text = T("Restarting PaRuX Core with the new local-network boundary…", "Riavvio di PaRuX Core con il nuovo confine di rete locale…");
                     await PaRuXServerController.Current.RestartAsync(null, CancellationToken.None);
                 }
                 await RefreshRemoteAccessAsync();
@@ -3147,7 +3165,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Apply remote access failed: " + ex);
-                LanStatusText.Text = "Couldn't apply local-network access: " + ex.Message;
+                LanStatusText.Text = T("Couldn't apply local-network access: ", "Impossibile applicare l'accesso alla rete locale: ") + ex.Message;
             }
             finally { ApplyLanButton.IsEnabled = true; }
         }
@@ -3158,9 +3176,9 @@ namespace PaRuX.Views
             try
             {
                 PairingStartResponse pairing = await RemoteAccessClient.Current.StartPairingAsync(CancellationToken.None);
-                PairingCodeText.Text = "Code " + pairing.Code + "  ·  expires "
+                PairingCodeText.Text = T("Code ", "Codice ") + pairing.Code + T("  ·  expires ", "  ·  scade ")
                     + pairing.ExpiresUtc.ToLocalTime().ToString("t") + "\n"
-                    + pairing.Endpoint + "\nCertificate SHA-256: " + FormatFingerprint(pairing.CertificateFingerprint);
+                    + pairing.Endpoint + T("\nCertificate SHA-256: ", "\nSHA-256 del certificato: ") + FormatFingerprint(pairing.CertificateFingerprint);
                 PairingCodeText.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
 
                 PairingQrImage.Source = await BuildPairingQrImageAsync(pairing);
@@ -3169,7 +3187,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Create pairing code failed: " + ex.Message);
-                PairingCodeText.Text = "Couldn't create a pairing code: " + ex.Message;
+                PairingCodeText.Text = T("Couldn't create a pairing code: ", "Impossibile creare un codice di associazione: ") + ex.Message;
                 PairingCodeText.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                 PairingQrBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             }
@@ -3231,16 +3249,16 @@ namespace PaRuX.Views
                     PairingQrImage.Source = null;
                 }
                 LanStatusText.Text = status.Enabled
-                    ? "LAN only · HTTPS · " + status.Endpoint + " · certificate SHA-256 "
+                    ? T("LAN only · HTTPS · ", "Solo LAN · HTTPS · ") + status.Endpoint + T(" · certificate SHA-256 ", " · SHA-256 del certificato ")
                         + FormatFingerprint(status.CertificateFingerprint) + " · " + DescribeFirewallNeed(status.NetworkCategory)
-                    : "Off · PaRuX accepts connections only from this PC (127.0.0.1).";
+                    : T("Off · PaRuX accepts connections only from this PC (127.0.0.1).", "Disattivato · PaRuX accetta connessioni solo da questo PC (127.0.0.1).");
                 RenderPairedDevices(status.Devices);
             }
             catch (Exception ex)
             {
                 _loading = false;
                 PairDeviceButton.IsEnabled = false;
-                LanStatusText.Text = "Local-network status unavailable: " + ex.Message;
+                LanStatusText.Text = T("Local-network status unavailable: ", "Stato della rete locale non disponibile: ") + ex.Message;
             }
         }
 
@@ -3251,7 +3269,7 @@ namespace PaRuX.Views
             {
                 PairedDevicesList.Children.Add(new TextBlock
                 {
-                    Text = "No paired devices.",
+                    Text = T("No paired devices.", "Nessun dispositivo associato."),
                     Opacity = 0.7
                 });
                 return;
@@ -3265,7 +3283,7 @@ namespace PaRuX.Views
                     ? "Last seen " + device.LastSeenUtc.Value.ToLocalTime().ToString("g")
                     : "Never connected";
                 row.Children.Add(new TextBlock { Text = device.Name + " · " + lastSeen, TextWrapping = TextWrapping.Wrap });
-                var revoke = new Button { Content = "Revoke", Tag = device.Id };
+                var revoke = new Button { Content = T("Revoke", "Revoca"), Tag = device.Id };
                 revoke.Click += async (s, e) =>
                 {
                     try
@@ -3273,7 +3291,7 @@ namespace PaRuX.Views
                         await RemoteAccessClient.Current.RevokeAsync((string)((Button)s).Tag, CancellationToken.None);
                         await RefreshRemoteAccessAsync();
                     }
-                    catch (Exception ex) { LanStatusText.Text = "Couldn't revoke device: " + ex.Message; }
+                    catch (Exception ex) { LanStatusText.Text = T("Couldn't revoke device: ", "Impossibile revocare il dispositivo: ") + ex.Message; }
                 };
                 Grid.SetColumn(revoke, 1);
                 row.Children.Add(revoke);
@@ -3322,7 +3340,7 @@ namespace PaRuX.Views
             {
                 ComputerAppsList.Children.Add(new TextBlock
                 {
-                    Text = "No additional apps. Notepad, Calculator, File Explorer, and Windows Settings are built in.",
+                    Text = T("No additional apps. Notepad, Calculator, File Explorer, and Windows Settings are built in.", "Nessuna app aggiuntiva. Blocco note, Calcolatrice, Esplora file e Impostazioni di Windows sono integrati."),
                     TextWrapping = TextWrapping.Wrap,
                     Opacity = 0.7
                 });
@@ -3337,7 +3355,7 @@ namespace PaRuX.Views
                 info.Children.Add(new TextBlock { Text = app.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
                 info.Children.Add(new TextBlock { Text = app.ExecutablePath, TextTrimming = TextTrimming.CharacterEllipsis, Opacity = 0.68 });
                 row.Children.Add(info);
-                var remove = new Button { Content = "Remove", Tag = app.Id };
+                var remove = new Button { Content = T("Remove", "Rimuovi"), Tag = app.Id };
                 Grid.SetColumn(remove, 1);
                 remove.Click += (s, e) =>
                 {
@@ -3400,8 +3418,8 @@ namespace PaRuX.Views
         {
             if (StorageUsageText == null) return;
             StorageBreakdown breakdown = await Task.Run(StorageQuotaService.GetBreakdown);
-            StorageUsageText.Text = StorageQuotaService.FormatBytes(breakdown.ManagedBytes) + " used of "
-                + SettingsStore.Current.Data.StorageQuotaGigabytes + " GB. Custom output folders are outside this managed quota.";
+            StorageUsageText.Text = StorageQuotaService.FormatBytes(breakdown.ManagedBytes) + T(" used of ", " usati su ")
+                + SettingsStore.Current.Data.StorageQuotaGigabytes + T(" GB. Custom output folders are outside this managed quota.", " GB. Le cartelle di output personalizzate sono fuori da questa quota gestita.");
 
             if (StorageBreakdownList == null) return;
             StorageBreakdownList.Children.Clear();
@@ -3413,7 +3431,7 @@ namespace PaRuX.Views
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var label = new TextBlock { Text = category.Name + (category.PaRuXManaged ? string.Empty : "  ·  not counted toward the quota") };
+                var label = new TextBlock { Text = category.Name + (category.PaRuXManaged ? string.Empty : T("  ·  not counted toward the quota", "  ·  non conteggiato nella quota")) };
                 ApplyCaptionStyle(label);
                 Grid.SetColumn(label, 0);
                 row.Children.Add(label);
@@ -3430,7 +3448,7 @@ namespace PaRuX.Views
             {
                 AppSettings s = SettingsStore.Current.Data;
                 long totalGb = (breakdown.ManagedBytes + breakdown.ExternalBytes) / 1024 / 1024 / 1024;
-                AiStorageBudgetText.Text = "AI storage: " + StorageQuotaService.FormatBytes(breakdown.ManagedBytes + breakdown.ExternalBytes)
+                AiStorageBudgetText.Text = T("AI storage: ", "Archiviazione IA: ") + StorageQuotaService.FormatBytes(breakdown.ManagedBytes + breakdown.ExternalBytes)
                     + " / " + s.AiStorageBudgetGigabytes + " GB";
 
                 string? brushKey = totalGb >= s.AiStorageWarningGigabytes ? "PaRuXDangerTextBrush"
@@ -3482,11 +3500,11 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshSkillsAsync failed: " + ex.Message);
-                if (SkillsCountLabel != null) SkillsCountLabel.Text = "Failed to load skills: " + ex.Message;
+                if (SkillsCountLabel != null) SkillsCountLabel.Text = T("Failed to load skills: ", "Impossibile caricare le skill: ") + ex.Message;
                 return;
             }
 
-            if (SkillsCountLabel != null) SkillsCountLabel.Text = skills.Count + " skills";
+            if (SkillsCountLabel != null) SkillsCountLabel.Text = skills.Count + T(" skills", " skill");
             SkillsList.Children.Clear();
             foreach (SkillManifest skill in skills.OrderBy(s => s.Category).ThenBy(s => s.DisplayName))
                 SkillsList.Children.Add(BuildSkillCard(skill));
@@ -3498,8 +3516,8 @@ namespace PaRuX.Views
         {
             var guide = new ContentDialog
             {
-                Title = "What are Skills?",
-                CloseButtonText = "Close",
+                Title = T("What are Skills?", "Cosa sono le skill?"),
+                CloseButtonText = T("Close", "Chiudi"),
                 XamlRoot = XamlRoot,
                 Content = new ScrollViewer
                 {
@@ -3508,21 +3526,21 @@ namespace PaRuX.Views
                     {
                         TextWrapping = TextWrapping.Wrap,
                         Text =
-                            "A Skill is a declarative capability, not a saved prompt. Each one declares its "
-                            + "preferred model role, which tools it can use, its Internet/Memory/RAG policy, its "
-                            + "file/shell/Computer-Use permissions, a step-by-step workflow, and a timeout — all "
-                            + "visible right here, nothing hidden.\n\n"
-                            + "AUTO: by default, PaRuX matches your message against each skill's trigger phrases "
-                            + "and picks the best match (or General, for open-ended chat). This happens for every "
-                            + "message, automatically.\n\n"
-                            + "FORCED: pick a skill from the composer's \"Skill: Auto\" selector to force every "
-                            + "message to that skill until you switch back to Auto.\n\n"
-                            + "SLASH: type a recognized slash command (e.g. \"/research …\", \"/grill …\") to force "
-                            + "that one message to the matching skill — it strips itself from what's actually sent.\n\n"
-                            + "Built-in skills are read-only here (Enable/Disable only). \"New skill…\" creates a "
-                            + "custom skill of your own, stored server-side so it's available from any paired "
-                            + "device too. An imported skill is treated as untrusted until you review its "
-                            + "permissions and explicitly enable it."
+                            T("A Skill is a declarative capability, not a saved prompt. Each one declares its ", "Una skill è una capacità dichiarativa, non un prompt salvato. Ognuna dichiara il ")
+                            + T("preferred model role, which tools it can use, its Internet/Memory/RAG policy, its ", "ruolo di modello preferito, quali strumenti può usare, i criteri per Internet/Memoria/RAG, i ")
+                            + T("file/shell/Computer-Use permissions, a step-by-step workflow, and a timeout — all ", "permessi su file/shell/Uso del computer, un flusso di lavoro passo per passo e un timeout, tutto ")
+                            + T("visible right here, nothing hidden.\n\n", "visibile proprio qui, senza nulla di nascosto.\n\n")
+                            + T("AUTO: by default, PaRuX matches your message against each skill's trigger phrases ", "AUTO: per impostazione predefinita PaRuX confronta il tuo messaggio con le frasi di attivazione di ogni skill ")
+                            + T("and picks the best match (or General, for open-ended chat). This happens for every ", "e sceglie la migliore (oppure Generale, per le chat aperte). Succede per ogni ")
+                            + T("message, automatically.\n\n", "messaggio, in automatico.\n\n")
+                            + T("FORCED: pick a skill from the composer's \"Skill: Auto\" selector to force every ", "FORZATA: scegli una skill dal selettore \"Skill: Auto\" del compositore per forzare ogni ")
+                            + T("message to that skill until you switch back to Auto.\n\n", "messaggio su quella skill finché non torni ad Auto.\n\n")
+                            + T("SLASH: type a recognized slash command (e.g. \"/research …\", \"/grill …\") to force ", "SLASH: digita un comando slash riconosciuto (ad es. \"/research …\", \"/grill …\") per forzare ")
+                            + T("that one message to the matching skill — it strips itself from what's actually sent.\n\n", "quel singolo messaggio sulla skill corrispondente; il comando viene tolto da ciò che viene realmente inviato.\n\n")
+                            + T("Built-in skills are read-only here (Enable/Disable only). \"New skill…\" creates a ", "Le skill integrate qui sono di sola lettura (solo Abilita/Disabilita). \"Nuova skill…\" crea una ")
+                            + T("custom skill of your own, stored server-side so it's available from any paired ", "skill personalizzata tua, salvata lato server così è disponibile anche da qualsiasi dispositivo ")
+                            + T("device too. An imported skill is treated as untrusted until you review its ", "associato. Una skill importata è considerata non attendibile finché non ne controlli i ")
+                            + T("permissions and explicitly enable it.", "permessi e non la abiliti esplicitamente.")
                     }
                 }
             };
@@ -3531,14 +3549,14 @@ namespace PaRuX.Views
 
         private async void CreateSkill_Click(object sender, RoutedEventArgs e)
         {
-            var nameBox = new TextBox { PlaceholderText = "Display name, e.g. Meeting Notes" };
-            var descriptionBox = new TextBox { PlaceholderText = "What does it do?", AcceptsReturn = true, Height = 60, TextWrapping = TextWrapping.Wrap };
-            var slashBox = new TextBox { PlaceholderText = "Slash command, e.g. /notes (optional)" };
-            var roleCombo = new ComboBox { PlaceholderText = "Preferred model role", HorizontalAlignment = HorizontalAlignment.Stretch };
+            var nameBox = new TextBox { PlaceholderText = T("Display name, e.g. Meeting Notes", "Nome visualizzato, ad es. Note di riunione") };
+            var descriptionBox = new TextBox { PlaceholderText = T("What does it do?", "Cosa fa?"), AcceptsReturn = true, Height = 60, TextWrapping = TextWrapping.Wrap };
+            var slashBox = new TextBox { PlaceholderText = T("Slash command, e.g. /notes (optional)", "Comando slash, ad es. /notes (facoltativo)") };
+            var roleCombo = new ComboBox { PlaceholderText = T("Preferred model role", "Ruolo di modello preferito"), HorizontalAlignment = HorizontalAlignment.Stretch };
             foreach (string role in new[] { "MAIN_LLM", "FAST_LLM", "UNCENSORED_LLM", "CODING_LLM", "VISION_LLM" })
                 roleCombo.Items.Add(role);
             roleCombo.SelectedIndex = 0;
-            var internetToggle = new ToggleSwitch { Header = "Needs Internet", OnContent = "Required", OffContent = "Off" };
+            var internetToggle = new ToggleSwitch { Header = T("Needs Internet", "Richiede Internet"), OnContent = T("Required", "Richiesto"), OffContent = T("Off", "No") };
 
             var form = new StackPanel { Spacing = 10, Width = 380 };
             form.Children.Add(nameBox);
@@ -3549,9 +3567,9 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "New custom skill",
-                PrimaryButtonText = "Create",
-                CloseButtonText = "Cancel",
+                Title = T("New custom skill", "Nuova skill personalizzata"),
+                PrimaryButtonText = T("Create", "Crea"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
                 Content = form
@@ -3580,7 +3598,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CreateSkill failed: " + ex.Message);
-                var error = new ContentDialog { Title = "Could not create skill", Content = ex.Message, CloseButtonText = "OK", XamlRoot = XamlRoot };
+                var error = new ContentDialog { Title = T("Could not create skill", "Impossibile creare la skill"), Content = ex.Message, CloseButtonText = "OK", XamlRoot = XamlRoot };
                 await error.ShowAsync();
             }
         }
@@ -3614,7 +3632,7 @@ namespace PaRuX.Views
             Grid.SetColumn(titleStack, 0);
             header.Children.Add(titleStack);
 
-            var enabledSwitch = new ToggleSwitch { IsOn = skill.Enabled, OnContent = "On", OffContent = "Off" };
+            var enabledSwitch = new ToggleSwitch { IsOn = skill.Enabled, OnContent = "On", OffContent = T("Off", "No") };
             enabledSwitch.Toggled += async (s, e) =>
             {
                 if (_switchesBeingReverted.Contains(enabledSwitch)) return;
@@ -3631,13 +3649,13 @@ namespace PaRuX.Views
             Grid.SetColumn(enabledSwitch, 1);
             header.Children.Add(enabledSwitch);
 
-            var detailsButton = new Button { Content = "Details" };
+            var detailsButton = new Button { Content = T("Details", "Dettagli") };
             Grid.SetColumn(detailsButton, 2);
             header.Children.Add(detailsButton);
 
             if (deletable)
             {
-                var deleteButton = new Button { Content = "Delete" };
+                var deleteButton = new Button { Content = T("Delete", "Elimina") };
                 deleteButton.Click += async (s, e) =>
                 {
                     try { await SkillsClient.Current.DeleteAsync(skill.Id, CancellationToken.None); }
@@ -3677,7 +3695,7 @@ namespace PaRuX.Views
             {
                 bool show = details.Visibility != Visibility.Visible;
                 details.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-                detailsButton.Content = show ? "Hide" : "Details";
+                detailsButton.Content = show ? T("Hide", "Nascondi") : T("Details", "Dettagli");
             };
 
             card.Child = stack;
@@ -3717,7 +3735,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Research failed: " + ex.Message);
-                ResearchAnswer.Text = "Research failed: " + ex.Message;
+                ResearchAnswer.Text = T("Research failed: ", "Ricerca non riuscita: ") + ex.Message;
                 ResearchAnswer.Visibility = Visibility.Visible;
             }
             finally
@@ -3770,7 +3788,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Presentation generation failed: " + ex.Message);
-                var errorBlock = new TextBlock { Text = "Generation failed: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var errorBlock = new TextBlock { Text = T("Generation failed: ", "Generazione non riuscita: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(errorBlock);
                 PresentationSlidesList.Children.Add(errorBlock);
             }
@@ -3810,13 +3828,13 @@ namespace PaRuX.Views
             try
             {
                 SpeechEngineStatus status = await SpeechClient.Current.GetStatusAsync(CancellationToken.None);
-                SpeechEngineStatusText.Text = "STT (Parakeet): " + (status.SttInstalled ? "installed" : "not installed")
-                    + "    ·    TTS (Kokoro): " + (status.TtsInstalled ? "installed" : "not installed");
+                SpeechEngineStatusText.Text = T("STT (Parakeet): ", "STT (Parakeet): ") + (status.SttInstalled ? T("installed", "installato") : T("not installed", "non installato"))
+                    + T("    ·    TTS (Kokoro): ", "    ·    TTS (Kokoro): ") + (status.TtsInstalled ? T("installed", "installato") : T("not installed", "non installato"));
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshSpeechEngineStatusAsync failed: " + ex.Message);
-                SpeechEngineStatusText.Text = "Could not reach the speech engine: " + ex.Message;
+                SpeechEngineStatusText.Text = T("Could not reach the speech engine: ", "Impossibile raggiungere il motore vocale: ") + ex.Message;
             }
         }
 
@@ -3825,7 +3843,7 @@ namespace PaRuX.Views
             string? text = (TtsTextBox?.Text ?? string.Empty).Trim();
             if (text.Length == 0) return;
             TtsSpeakButton.IsEnabled = false;
-            TtsStatus.Text = "Synthesizing locally…";
+            TtsStatus.Text = T("Synthesizing locally…", "Sintesi in locale…");
             try
             {
                 SynthesizeResponse result = await SpeechClient.Current.SynthesizeAsync(text, null, CancellationToken.None);
@@ -3835,12 +3853,12 @@ namespace PaRuX.Views
                 await File.WriteAllBytesAsync(path, bytes);
                 TtsPlayer.Source = MediaSource.CreateFromUri(new Uri(path));
                 TtsPlayer.MediaPlayer.Play();
-                TtsStatus.Text = "Spoken locally · " + result.DurationSeconds.ToString("0.0") + "s";
+                TtsStatus.Text = T("Spoken locally · ", "Pronunciato in locale · ") + result.DurationSeconds.ToString("0.0") + "s";
             }
             catch (Exception ex)
             {
                 Log.Write("TtsSpeak failed: " + ex.Message);
-                TtsStatus.Text = "Speech failed: " + ex.Message;
+                TtsStatus.Text = T("Speech failed: ", "Sintesi vocale non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -3863,16 +3881,16 @@ namespace PaRuX.Views
 
                 SttPickButton.IsEnabled = false;
                 SttResult.Visibility = Visibility.Visible;
-                SttResult.Text = "Transcribing locally…";
+                SttResult.Text = T("Transcribing locally…", "Trascrizione in locale…");
                 byte[] bytes = await File.ReadAllBytesAsync(file.Path);
                 TranscribeResponse result = await SpeechClient.Current.TranscribeAsync(Convert.ToBase64String(bytes), file.Name, CancellationToken.None);
-                SttResult.Text = result.Text + (string.IsNullOrEmpty(result.LanguageDetected) ? string.Empty : "\n\n(detected: " + result.LanguageDetected + ")");
+                SttResult.Text = result.Text + (string.IsNullOrEmpty(result.LanguageDetected) ? string.Empty : T("\n\n(detected: ", "\n\n(rilevato: ") + result.LanguageDetected + ")");
             }
             catch (Exception ex)
             {
                 Log.Write("SttPick failed: " + ex.Message);
                 SttResult.Visibility = Visibility.Visible;
-                SttResult.Text = "Transcription failed: " + ex.Message;
+                SttResult.Text = T("Transcription failed: ", "Trascrizione non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -3890,9 +3908,9 @@ namespace PaRuX.Views
             try
             {
                 AiStorageBudgetStatus budget = await ModelDownloadClient.Current.GetBudgetAsync(CancellationToken.None);
-                ModelBudgetText.Text = "Downloaded models: " + StorageQuotaService.FormatBytes(budget.UsedBytes)
+                ModelBudgetText.Text = T("Downloaded models: ", "Modelli scaricati: ") + StorageQuotaService.FormatBytes(budget.UsedBytes)
                     + " / " + StorageQuotaService.FormatBytes(budget.LimitBytes)
-                    + (budget.WithinBudget ? string.Empty : "  — over budget");
+                    + (budget.WithinBudget ? string.Empty : T("  — over budget", "  — oltre il budget"));
             }
             catch (Exception ex)
             {
@@ -3922,7 +3940,7 @@ namespace PaRuX.Views
                 List<ManagedModelInfo> models = await ModelDownloadClient.Current.ListManagedModelsAsync(CancellationToken.None);
                 if (models.Count == 0)
                 {
-                    var empty = new TextBlock { Text = "No managed GGUF models yet." };
+                    var empty = new TextBlock { Text = T("No managed GGUF models yet.", "Nessun modello GGUF gestito per ora.") };
                     ApplyCaptionStyle(empty);
                     ManagedModelsList.Children.Add(empty);
                     return;
@@ -3948,7 +3966,7 @@ namespace PaRuX.Views
                     row.Children.Add(label);
                     string capturedName = model.FileName;
                     long capturedSize = model.SizeBytes;
-                    var delete =new Button { Content = "Delete", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var delete =new Button { Content = T("Delete", "Elimina"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     delete.Click += async (s, e2) =>
                     {
                         delete.IsEnabled = false;
@@ -3972,10 +3990,10 @@ namespace PaRuX.Views
                     var aliasRow = new Grid { ColumnSpacing = 8 };
                     aliasRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     aliasRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    var aliasBox = new TextBox { PlaceholderText = "Alias (display name)…", Text = model.Alias ?? string.Empty };
+                    var aliasBox = new TextBox { PlaceholderText = T("Alias (display name)…", "Alias (nome visualizzato)…"), Text = model.Alias ?? string.Empty };
                     Grid.SetColumn(aliasBox, 0);
                     aliasRow.Children.Add(aliasBox);
-                    var saveAlias = new Button { Content = "Save alias", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var saveAlias = new Button { Content = T("Save alias", "Salva l'alias"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     saveAlias.Click += async (s, e2) =>
                     {
                         saveAlias.IsEnabled = false;
@@ -3994,13 +4012,13 @@ namespace PaRuX.Views
                     var loadRow = new Grid { ColumnSpacing = 8 };
                     loadRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     loadRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    var roleBox = new ComboBox { PlaceholderText = "Role…" };
+                    var roleBox = new ComboBox { PlaceholderText = T("Role…", "Ruolo…") };
                     foreach ((string role, string roleLabel) in LoadableRoles)
                         roleBox.Items.Add(new ComboBoxItem { Content = roleLabel, Tag = role });
                     roleBox.SelectedIndex = 0;
                     Grid.SetColumn(roleBox, 0);
                     loadRow.Children.Add(roleBox);
-                    var load = new Button { Content = "Load", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var load = new Button { Content = T("Load", "Carica"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     load.Click += async (s, e2) =>
                     {
                         if (roleBox.SelectedItem is not ComboBoxItem selected || selected.Tag is not string role) return;
@@ -4016,8 +4034,8 @@ namespace PaRuX.Views
                                 capturedName, role, CancellationToken.None, persistRoleAssignment: true);
                             if (RuntimeManagerStatusText != null)
                                 RuntimeManagerStatusText.Text = result.Success
-                                    ? "Loaded " + capturedName + " as " + role + "."
-                                    : "Couldn't load " + capturedName + " as " + role + ": " + result.Message;
+                                    ? T("Loaded ", "Caricato ") + capturedName + " as " + role + "."
+                                    : T("Couldn't load ", "Impossibile caricare ") + capturedName + " as " + role + ": " + result.Message;
                             await RefreshRuntimeManagerStatusAsync();
                         }
                         catch (Exception ex) { Log.Write("Load managed model failed: " + ex.Message); }
@@ -4033,7 +4051,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshManagedModelsAsync failed: " + ex.Message);
-                var error = new TextBlock { Text = "Couldn't load managed models: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var error = new TextBlock { Text = T("Couldn't load managed models: ", "Impossibile caricare i modelli gestiti: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(error);
                 ManagedModelsList.Children.Add(error);
             }
@@ -4065,7 +4083,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshRuntimeManagerStatusAsync failed: " + ex.Message);
-                RuntimeManagerStatusText.Text = "Runtime Manager status unavailable: " + ex.Message;
+                RuntimeManagerStatusText.Text = T("Runtime Manager status unavailable: ", "Stato del Runtime Manager non disponibile: ") + ex.Message;
             }
         }
 
@@ -4075,7 +4093,7 @@ namespace PaRuX.Views
             {
                 RuntimeLoadResult result = await ModelRolesClient.Current.UnloadManagedModelAsync(CancellationToken.None);
                 if (RuntimeManagerStatusText != null)
-                    RuntimeManagerStatusText.Text = result.Success ? "Stopped." : "Couldn't stop: " + result.Message;
+                    RuntimeManagerStatusText.Text = result.Success ? T("Stopped.", "Fermato.") : T("Couldn't stop: ", "Impossibile fermare: ") + result.Message;
                 await RefreshRuntimeManagerStatusAsync();
             }
             catch (Exception ex) { Log.Write("UnloadManagedModel_Click failed: " + ex.Message); }
@@ -4106,7 +4124,7 @@ namespace PaRuX.Views
                     ApplyBodyStrongStyle(title);
                     Grid.SetColumn(title, 0);
                     titleRow.Children.Add(title);
-                    var findButton = new Button { Content = "Find on Hugging Face" };
+                    var findButton = new Button { Content = T("Find on Hugging Face", "Trova su Hugging Face") };
                     findButton.Click += (s, e2) =>
                     {
                         ModelSearchBox.Text = rec.HuggingFaceRepoId;
@@ -4156,10 +4174,10 @@ namespace PaRuX.Views
                     var repoTitleRow = new Grid { ColumnSpacing = 8 };
                     repoTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     repoTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    var repoTitle = new TextBlock { Text = repo.RepoId + "   (" + repo.Downloads + " downloads, " + repo.Likes + " likes)", TextWrapping = TextWrapping.Wrap };
+                    var repoTitle = new TextBlock { Text = repo.RepoId + "   (" + repo.Downloads + T(" downloads, ", " download, ") + repo.Likes + T(" likes)", " mi piace)"), TextWrapping = TextWrapping.Wrap };
                     ApplyBodyStrongStyle(repoTitle);
                     repoTitleRow.Children.Add(repoTitle);
-                    var detailsButton = new Button { Content = "Details", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var detailsButton = new Button { Content = T("Details", "Dettagli"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     detailsButton.Click += async (s, e2) => await ShowModelDetailsAsync(repo.RepoId, repoStack, detailsButton);
                     Grid.SetColumn(detailsButton, 1);
                     repoTitleRow.Children.Add(detailsButton);
@@ -4173,7 +4191,7 @@ namespace PaRuX.Views
                         ApplyCaptionStyle(label);
                         Grid.SetColumn(label, 0);
                         row.Children.Add(label);
-                        var download = new Button { Content = "Download" };
+                        var download = new Button { Content = T("Download", "Download") };
                         download.Click += async (s, e2) =>
                         {
                             download.IsEnabled = false;
@@ -4211,7 +4229,7 @@ namespace PaRuX.Views
                 }
                 if (results.Count == 0)
                 {
-                    var empty = new TextBlock { Text = "No GGUF models found for that search." };
+                    var empty = new TextBlock { Text = T("No GGUF models found for that search.", "Nessun modello GGUF trovato per questa ricerca.") };
                     ApplyCaptionStyle(empty);
                     ModelSearchResults.Children.Add(empty);
                 }
@@ -4219,7 +4237,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("ModelSearch failed: " + ex.Message);
-                var errorBlock = new TextBlock { Text = "Search failed: " + ex.Message, TextWrapping = TextWrapping.Wrap };
+                var errorBlock = new TextBlock { Text = T("Search failed: ", "Ricerca non riuscita: ") + ex.Message, TextWrapping = TextWrapping.Wrap };
                 ApplyCaptionStyle(errorBlock);
                 ModelSearchResults.Children.Add(errorBlock);
             }
@@ -4281,7 +4299,7 @@ namespace PaRuX.Views
                 }
                 if (details.Files.Count > 12)
                 {
-                    var more = new TextBlock { Text = "+" + (details.Files.Count - 12) + " more variants" };
+                    var more = new TextBlock { Text = "+" + (details.Files.Count - 12) + T(" more variants", " altre varianti") };
                     ApplyCaptionStyle(more);
                     panel.Children.Add(more);
                 }
@@ -4307,11 +4325,11 @@ namespace PaRuX.Views
             var row = new Grid { ColumnSpacing = 8 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var label = new TextBlock { Text = "Starting…" };
+            var label = new TextBlock { Text = T("Starting…", "Avvio…") };
             ApplyCaptionStyle(label);
             Grid.SetColumn(label, 0);
             row.Children.Add(label);
-            var cancel = new Button { Content = "Cancel" };
+            var cancel = new Button { Content = T("Cancel", "Annulla") };
             cancel.Click += async (s, e) => await CancelDownloadRowAsync(id, label, cancel);
             Grid.SetColumn(cancel, 1);
             row.Children.Add(cancel);
@@ -4357,7 +4375,7 @@ namespace PaRuX.Views
                 status => status.Status is "completed" or "failed" or "cancelled",
                 ModelDownloadStatusPolicy.Follow,
                 status => label.Text = DownloadLine(status, cancel.Tag as string),
-                onFailure: (error, failures) => label.Text = "Status unavailable, retrying (" + failures + "): " + error,
+                onFailure: (error, failures) => label.Text = T("Status unavailable, retrying (", "Stato non disponibile, nuovo tentativo (") + failures + "): " + error,
                 delay: null,
                 CancellationToken.None);
 
@@ -4369,11 +4387,11 @@ namespace PaRuX.Views
             if (outcome.End == StatusPollEnd.NotListed)
             {
                 cancel.Visibility = Visibility.Collapsed;
-                label.Text = "No longer listed by the server.";
+                label.Text = T("No longer listed by the server.", "Non più elencato dal server.");
                 return null;
             }
-            label.Text = "Lost track of this download: " + (outcome.LastError ?? "no final state was reported")
-                + ". It may still be running; check the Model Hub.";
+            label.Text = T("Lost track of this download: ", "Perso il filo di questo download: ") + (outcome.LastError ?? T("no final state was reported", "nessuno stato finale è stato segnalato"))
+                + T(". It may still be running; check the Model Hub.", ". Potrebbe essere ancora in corso; controlla il Model Hub.");
             return null;
         }
 
@@ -4412,7 +4430,7 @@ namespace PaRuX.Views
                 ModelBenchmarksList.Children.Clear();
                 if (models.Count == 0)
                 {
-                    var empty = new TextBlock { Text = "No installed GGUF text models found." };
+                    var empty = new TextBlock { Text = T("No installed GGUF text models found.", "Nessun modello di testo GGUF installato trovato.") };
                     ApplyCaptionStyle(empty);
                     ModelBenchmarksList.Children.Add(empty);
                     return;
@@ -4434,7 +4452,7 @@ namespace PaRuX.Views
                     var title = new TextBlock { Text = model.Label + usage, TextWrapping = TextWrapping.Wrap,
                         Style = (Style)Application.Current.Resources["PaRuXBodyStrongTextStyle"] };
                     row.Children.Add(title);
-                    var button = new Button { Content = "Benchmark", FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
+                    var button = new Button { Content = T("Benchmark", "Benchmark"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2) };
                     bool active = model.LastRun?.Status is "queued" or "running";
                     button.IsEnabled = !active;
                     Grid.SetColumn(button, 1);
@@ -4452,7 +4470,7 @@ namespace PaRuX.Views
                     card.Children.Add(status);
 
                     // Shown only while this model's benchmark runs; the run id it cancels is kept in its Tag.
-                    var cancelRun = new Button { Content = "Cancel benchmark", FontSize = 12, Padding = new Thickness(8, 2, 8, 2), Visibility = Visibility.Collapsed };
+                    var cancelRun = new Button { Content = T("Cancel benchmark", "Annulla il benchmark"), FontSize = 12, Padding = new Thickness(8, 2, 8, 2), Visibility = Visibility.Collapsed };
                     card.Children.Add(cancelRun);
                     cancelRun.Click += async (s, e) => await CancelModelBenchmarkAsync(cancelRun, status);
 
@@ -4491,19 +4509,19 @@ namespace PaRuX.Views
                 ModelBenchmarkRun? final = outcome.Last;
                 statusText.Text = outcome.End switch
                 {
-                    StatusPollEnd.Terminal when final is { Status: "failed" } failed => "Benchmark failed: " + failed.Error,
-                    StatusPollEnd.Terminal when final is { Status: "cancelled" } => "Benchmark cancelled.",
-                    StatusPollEnd.Terminal => final?.Stage ?? "Benchmark completed.",
-                    StatusPollEnd.NotListed => LostTrackOfRun("the server no longer lists this benchmark"),
-                    StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? "the status request failed"),
-                    _ => LostTrackOfRun("no final result after about " + RunPollMinutes + " minutes; it may still be running on the server"),
+                    StatusPollEnd.Terminal when final is { Status: "failed" } failed => T("Benchmark failed: ", "Benchmark non riuscito: ") + failed.Error,
+                    StatusPollEnd.Terminal when final is { Status: "cancelled" } => T("Benchmark cancelled.", "Benchmark annullato."),
+                    StatusPollEnd.Terminal => final?.Stage ?? T("Benchmark completed.", "Benchmark completato."),
+                    StatusPollEnd.NotListed => LostTrackOfRun(T("the server no longer lists this benchmark", "il server non elenca più questo benchmark")),
+                    StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? T("the status request failed", "la richiesta di stato non è riuscita")),
+                    _ => LostTrackOfRun(T("no final result after about ", "nessun risultato finale dopo circa ") + RunPollMinutes + T(" minutes; it may still be running on the server", " minuti; potrebbe essere ancora in esecuzione sul server")),
                 };
                 await RefreshModelBenchmarksAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("RunModelBenchmarkAsync failed: " + ex.Message);
-                statusText.Text = "Benchmark failed: " + ex.Message;
+                statusText.Text = T("Benchmark failed: ", "Benchmark non riuscito: ") + ex.Message;
                 button.IsEnabled = true;
             }
             finally
@@ -4520,12 +4538,12 @@ namespace PaRuX.Views
             try
             {
                 await ModelDownloadClient.Current.CancelBenchmarkAsync(runId, CancellationToken.None);
-                statusText.Text = "Cancelling benchmark…";
+                statusText.Text = T("Cancelling benchmark…", "Annullamento del benchmark…");
             }
             catch (Exception ex)
             {
                 Log.Write("CancelModelBenchmark failed: " + ex.Message);
-                statusText.Text = "Couldn't cancel the benchmark: " + ex.Message;
+                statusText.Text = T("Couldn't cancel the benchmark: ", "Impossibile annullare il benchmark: ") + ex.Message;
                 cancelRun.IsEnabled = true;
             }
         }
@@ -4603,7 +4621,7 @@ namespace PaRuX.Views
             var modelB = (CompareModelBCombo?.SelectedItem as ComboBoxItem)?.Tag as ModelCompareAvailableModel;
             if (prompt.Length == 0 || modelA == null || modelB == null)
             {
-                CompareStageText.Text = "Pick a prompt and two models first.";
+                CompareStageText.Text = T("Pick a prompt and two models first.", "Scegli prima un prompt e due modelli.");
                 return;
             }
 
@@ -4612,9 +4630,9 @@ namespace PaRuX.Views
             CompareProgress.Visibility = Visibility.Visible;
             CompareResultsGrid.Visibility = Visibility.Collapsed;
             CompareRevealButton.Visibility = Visibility.Collapsed;
-            CompareALabel.Text = "Response A";
-            CompareBLabel.Text = "Response B";
-            CompareStageText.Text = "Starting…";
+            CompareALabel.Text = T("Response A", "Risposta A");
+            CompareBLabel.Text = T("Response B", "Risposta B");
+            CompareStageText.Text = T("Starting…", "Avvio…");
 
             try
             {
@@ -4633,7 +4651,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CompareRun failed: " + ex.Message);
-                CompareStageText.Text = "Failed to start: " + ex.Message;
+                CompareStageText.Text = T("Failed to start: ", "Avvio non riuscito: ") + ex.Message;
             }
             finally
             {
@@ -4664,17 +4682,17 @@ namespace PaRuX.Views
                 CompareResultsGrid.Visibility = Visibility.Visible;
                 CompareRevealButton.Visibility = Visibility.Visible;
                 CompareRevealButton.Tag = done;
-                CompareStageText.Text = "Done. Compare the two replies, then Reveal.";
+                CompareStageText.Text = T("Done. Compare the two replies, then Reveal.", "Fatto. Confronta le due risposte, poi premi Rivela.");
                 return;
             }
 
             CompareStageText.Text = outcome.End switch
             {
-                StatusPollEnd.Terminal when final is { Status: "failed" } failed => "Failed: " + failed.Error,
-                StatusPollEnd.Terminal => "Cancelled.",
-                StatusPollEnd.NotListed => LostTrackOfRun("the server no longer lists it"),
-                StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? "the status request failed"),
-                _ => LostTrackOfRun("no final result after about " + RunPollMinutes + " minutes; it may still be running on the server"),
+                StatusPollEnd.Terminal when final is { Status: "failed" } failed => T("Failed: ", "Non riuscito: ") + failed.Error,
+                StatusPollEnd.Terminal => T("Cancelled.", "Annullato."),
+                StatusPollEnd.NotListed => LostTrackOfRun(T("the server no longer lists it", "il server non lo elenca più")),
+                StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? T("the status request failed", "la richiesta di stato non è riuscita")),
+                _ => LostTrackOfRun(T("no final result after about ", "nessun risultato finale dopo circa ") + RunPollMinutes + T(" minutes; it may still be running on the server", " minuti; potrebbe essere ancora in esecuzione sul server")),
             };
         }
 
@@ -4686,12 +4704,12 @@ namespace PaRuX.Views
             try
             {
                 await ModelCompareClient.Current.CancelAsync(id, CancellationToken.None);
-                CompareStageText.Text = "Cancelling…";
+                CompareStageText.Text = T("Cancelling…", "Annullamento…");
             }
             catch (Exception ex)
             {
                 Log.Write("CompareCancel failed: " + ex.Message);
-                CompareStageText.Text = "Couldn't cancel the comparison: " + ex.Message;
+                CompareStageText.Text = T("Couldn't cancel the comparison: ", "Impossibile annullare il confronto: ") + ex.Message;
                 CompareCancelButton.IsEnabled = true;
             }
         }
@@ -4700,8 +4718,8 @@ namespace PaRuX.Views
         {
             if (CompareRevealButton.Tag is ModelCompareStatus status)
             {
-                CompareALabel.Text = "Response A — " + (status.ModelALabel ?? "unknown");
-                CompareBLabel.Text = "Response B — " + (status.ModelBLabel ?? "unknown");
+                CompareALabel.Text = T("Response A — ", "Risposta A — ") + (status.ModelALabel ?? T("unknown", "sconosciuto"));
+                CompareBLabel.Text = T("Response B — ", "Risposta B — ") + (status.ModelBLabel ?? T("unknown", "sconosciuto"));
                 CompareRevealButton.Visibility = Visibility.Collapsed;
             }
         }
@@ -4730,7 +4748,7 @@ namespace PaRuX.Views
                 {
                     combo.Items.Clear();
                     if (combo != GroupChatModel1Combo && combo != GroupChatModel2Combo)
-                        combo.Items.Add(new ComboBoxItem { Content = "(none)", Tag = null });
+                        combo.Items.Add(new ComboBoxItem { Content = T("(none)", "(nessuno)"), Tag = null });
                     foreach (ModelCompareAvailableModel model in models)
                         combo.Items.Add(new ComboBoxItem { Content = model.Label + "  ·  " + StorageQuotaService.FormatBytes(model.SizeBytes), Tag = model });
                 }
@@ -4775,7 +4793,7 @@ namespace PaRuX.Views
             GroupChatProgress.IsActive = true;
             GroupChatProgress.Visibility = Visibility.Visible;
             GroupChatResultsList.Children.Clear();
-            GroupChatStageText.Text = "Starting…";
+            GroupChatStageText.Text = T("Starting…", "Avvio…");
 
             try
             {
@@ -4794,7 +4812,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("GroupChatRun failed: " + ex.Message);
-                GroupChatStageText.Text = "Failed to start: " + ex.Message;
+                GroupChatStageText.Text = T("Failed to start: ", "Avvio non riuscito: ") + ex.Message;
             }
             finally
             {
@@ -4834,12 +4852,12 @@ namespace PaRuX.Views
             GroupChatStatus? final = outcome.Last;
             GroupChatStageText.Text = outcome.End switch
             {
-                StatusPollEnd.Terminal when final is { Status: "completed" } => "Done.",
-                StatusPollEnd.Terminal when final is { Status: "failed" } failed => "Failed: " + failed.Error,
-                StatusPollEnd.Terminal => "Cancelled.",
-                StatusPollEnd.NotListed => LostTrackOfRun("the server no longer lists it"),
-                StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? "the status request failed"),
-                _ => LostTrackOfRun("no final result after about " + RunPollMinutes + " minutes; it may still be running on the server"),
+                StatusPollEnd.Terminal when final is { Status: "completed" } => T("Done.", "Fatto."),
+                StatusPollEnd.Terminal when final is { Status: "failed" } failed => T("Failed: ", "Non riuscito: ") + failed.Error,
+                StatusPollEnd.Terminal => T("Cancelled.", "Annullato."),
+                StatusPollEnd.NotListed => LostTrackOfRun(T("the server no longer lists it", "il server non lo elenca più")),
+                StatusPollEnd.GaveUp => LostTrackOfRun(outcome.LastError ?? T("the status request failed", "la richiesta di stato non è riuscita")),
+                _ => LostTrackOfRun(T("no final result after about ", "nessun risultato finale dopo circa ") + RunPollMinutes + T(" minutes; it may still be running on the server", " minuti; potrebbe essere ancora in esecuzione sul server")),
             };
         }
 
@@ -4851,12 +4869,12 @@ namespace PaRuX.Views
             try
             {
                 await GroupChatClient.Current.CancelAsync(id, CancellationToken.None);
-                GroupChatStageText.Text = "Cancelling…";
+                GroupChatStageText.Text = T("Cancelling…", "Annullamento…");
             }
             catch (Exception ex)
             {
                 Log.Write("GroupChatCancel failed: " + ex.Message);
-                GroupChatStageText.Text = "Couldn't cancel the group chat: " + ex.Message;
+                GroupChatStageText.Text = T("Couldn't cancel the group chat: ", "Impossibile annullare la chat di gruppo: ") + ex.Message;
                 GroupChatCancelButton.IsEnabled = true;
             }
         }
@@ -4873,24 +4891,24 @@ namespace PaRuX.Views
                 AvatarProviderStatus status = await AvatarClient.Current.GetStatusAsync(CancellationToken.None);
                 if (status.Configured && status.Reachable)
                 {
-                    AvatarStatusText.Text = "Provider: " + status.ProviderName + " · reachable.";
+                    AvatarStatusText.Text = T("Provider: ", "Provider: ") + status.ProviderName + T(" · reachable.", " · raggiungibile.");
                     AvatarTextBox.IsEnabled = true;
                     AvatarGenerateButton.IsEnabled = true;
                 }
                 else if (status.Configured)
                 {
-                    AvatarStatusText.Text = "Provider " + status.ProviderName + " is configured but not reachable right now.";
+                    AvatarStatusText.Text = T("Provider ", "Provider ") + status.ProviderName + T(" is configured but not reachable right now.", " è configurato ma al momento non è raggiungibile.");
                 }
                 else
                 {
-                    AvatarStatusText.Text = "No avatar engine ready yet - install the local engine above (or configure an external "
-                        + "provider like Duix outside the repository) to enable Avatar Studio.";
+                    AvatarStatusText.Text = T("No avatar engine ready yet - install the local engine above (or configure an external ", "Nessun motore avatar pronto: installa qui sopra il motore locale (oppure configura ")
+                        + T("provider like Duix outside the repository) to enable Avatar Studio.", "un provider esterno come Duix fuori dal repository) per abilitare Avatar Studio.");
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshAvatarStatusAsync failed: " + ex.Message);
-                AvatarStatusText.Text = "Could not reach the avatar provider: " + ex.Message;
+                AvatarStatusText.Text = T("Could not reach the avatar provider: ", "Impossibile raggiungere il provider avatar: ") + ex.Message;
             }
         }
 
@@ -4902,21 +4920,21 @@ namespace PaRuX.Views
                 AvatarEngineStatus status = await AvatarClient.Current.GetEngineStatusAsync(CancellationToken.None);
                 if (status.Installed)
                 {
-                    AvatarEngineStatusText.Text = "Engine installed" + (status.HasDefaultPhoto ? " · reference photo set." : " · no reference photo set yet - use \"Set reference photo…\" below.");
+                    AvatarEngineStatusText.Text = T("Engine installed", "Motore installato") + (status.HasDefaultPhoto ? T(" · reference photo set.", " · foto di riferimento impostata.") : T(" · no reference photo set yet - use \"Set reference photo…\" below.", " · nessuna foto di riferimento impostata: usa \"Imposta la foto di riferimento…\" qui sotto."));
                     AvatarInstallButton.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
                     AvatarEngineStatusText.Text = string.IsNullOrEmpty(status.LastError)
-                        ? "Local engine not installed yet."
-                        : "Last install attempt failed: " + status.LastError;
+                        ? T("Local engine not installed yet.", "Motore locale non ancora installato.")
+                        : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
                     AvatarInstallButton.Visibility = Visibility.Visible;
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshAvatarEngineStatusAsync failed: " + ex.Message);
-                AvatarEngineStatusText.Text = "Could not reach the avatar engine: " + ex.Message;
+                AvatarEngineStatusText.Text = T("Could not reach the avatar engine: ", "Impossibile raggiungere il motore avatar: ") + ex.Message;
             }
             await RefreshAvatarStatusAsync();
         }
@@ -4926,7 +4944,7 @@ namespace PaRuX.Views
             AvatarInstallButton.IsEnabled = false;
             AvatarInstallProgress.IsActive = true;
             AvatarInstallProgress.Visibility = Visibility.Visible;
-            AvatarEngineStatusText.Text = "Installing (this clones the engine, installs its dependencies, and downloads a ~5 GB checkpoint - can take a long while)…";
+            AvatarEngineStatusText.Text = T("Installing (this clones the engine, installs its dependencies, and downloads a ~5 GB checkpoint - can take a long while)…", "Installazione in corso (clona il motore, installa le sue dipendenze e scarica un checkpoint da circa 5 GB: può richiedere parecchio tempo)…");
             try
             {
                 await AvatarClient.Current.InstallEngineAsync(CancellationToken.None);
@@ -4955,14 +4973,14 @@ namespace PaRuX.Views
                 if (file == null) return;
 
                 byte[] bytes = (await Windows.Storage.FileIO.ReadBufferAsync(file)).ToArray();
-                AvatarEngineStatusText.Text = "Setting reference photo…";
+                AvatarEngineStatusText.Text = T("Setting reference photo…", "Impostazione della foto di riferimento…");
                 await AvatarClient.Current.SetPhotoAsync(bytes, file.Name, CancellationToken.None);
                 await RefreshAvatarEngineStatusAsync();
             }
             catch (Exception ex)
             {
                 Log.Write("AvatarPhoto failed: " + ex.Message);
-                AvatarEngineStatusText.Text = "Couldn't set the reference photo: " + ex.Message;
+                AvatarEngineStatusText.Text = T("Couldn't set the reference photo: ", "Impossibile impostare la foto di riferimento: ") + ex.Message;
             }
         }
 
@@ -4985,7 +5003,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("AvatarGenerate failed: " + ex.Message);
-                AvatarStatusText.Text = "Avatar generation failed: " + ex.Message;
+                AvatarStatusText.Text = T("Avatar generation failed: ", "Generazione dell'avatar non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -5017,23 +5035,23 @@ namespace PaRuX.Views
                 ThreedEngineStatus status = await ThreedClient.Current.GetStatusAsync(CancellationToken.None);
                 if (status.Installed)
                 {
-                    ThreedEngineStatusText.Text = "Engine installed" + (string.IsNullOrEmpty(status.TorchVersion) ? string.Empty : " · torch " + status.TorchVersion)
-                        + (status.CudaVerified ? " · CUDA verified" : " · CUDA not verified");
+                    ThreedEngineStatusText.Text = T("Engine installed", "Motore installato") + (string.IsNullOrEmpty(status.TorchVersion) ? string.Empty : T(" · torch ", " · torch ") + status.TorchVersion)
+                        + (status.CudaVerified ? T(" · CUDA verified", " · CUDA verificato") : T(" · CUDA not verified", " · CUDA non verificato"));
                     ThreedInstallButton.Visibility = Visibility.Collapsed;
                     ThreedGenerateButton.IsEnabled = _threedSourceImagePath != null;
                 }
                 else
                 {
                     ThreedEngineStatusText.Text = string.IsNullOrEmpty(status.LastError)
-                        ? "3D engine not installed yet. TRELLIS needs custom CUDA extensions - install can genuinely fail on this machine."
-                        : "Last install attempt failed: " + status.LastError;
+                        ? T("3D engine not installed yet. TRELLIS needs custom CUDA extensions - install can genuinely fail on this machine.", "Motore 3D non ancora installato. TRELLIS richiede estensioni CUDA personalizzate: l'installazione può davvero fallire su questa macchina.")
+                        : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
                     ThreedInstallButton.Visibility = Visibility.Visible;
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshThreedEngineStatusAsync failed: " + ex.Message);
-                ThreedEngineStatusText.Text = "Could not reach the 3D engine: " + ex.Message;
+                ThreedEngineStatusText.Text = T("Could not reach the 3D engine: ", "Impossibile raggiungere il motore 3D: ") + ex.Message;
             }
         }
 
@@ -5042,7 +5060,7 @@ namespace PaRuX.Views
             ThreedInstallButton.IsEnabled = false;
             ThreedInstallProgress.IsActive = true;
             ThreedInstallProgress.Visibility = Visibility.Visible;
-            ThreedEngineStatusText.Text = "Installing (this downloads several GB and can take a while)…";
+            ThreedEngineStatusText.Text = T("Installing (this downloads several GB and can take a while)…", "Installazione in corso (scarica diversi GB e può richiedere un po' di tempo)…");
             try
             {
                 await ThreedClient.Current.InstallEngineAsync(CancellationToken.None);
@@ -5085,21 +5103,21 @@ namespace PaRuX.Views
             ThreedGenerateButton.IsEnabled = false;
             ThreedGenerateProgress.IsActive = true;
             ThreedGenerateProgress.Visibility = Visibility.Visible;
-            ThreedResultText.Text = "Generating locally (can take a few minutes)…";
+            ThreedResultText.Text = T("Generating locally (can take a few minutes)…", "Generazione in locale (può richiedere qualche minuto)…");
             ThreedActionsPanel.Visibility = Visibility.Collapsed;
             try
             {
                 ThreedGenerateResponse result = await ThreedClient.Current.GenerateAsync(_threedSourceImagePath, CancellationToken.None);
                 _threedLastGlbBytes = Convert.FromBase64String(result.Base64Data);
                 _threedLastGlbFileName = result.FileName;
-                ThreedResultText.Text = "Generated locally · " + result.DurationSeconds.ToString("0.0") + "s · " + _threedLastGlbBytes.Length / 1024 + " KB";
+                ThreedResultText.Text = T("Generated locally · ", "Generato in locale · ") + result.DurationSeconds.ToString("0.0") + "s · " + _threedLastGlbBytes.Length / 1024 + " KB";
                 ThreedActionsPanel.Visibility = Visibility.Visible;
                 await ShowThreedPreviewAsync(_threedLastGlbBytes);
             }
             catch (Exception ex)
             {
                 Log.Write("ThreedGenerate failed: " + ex.Message);
-                ThreedResultText.Text = "3D generation failed: " + ex.Message;
+                ThreedResultText.Text = T("3D generation failed: ", "Generazione 3D non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -5143,9 +5161,9 @@ namespace PaRuX.Views
             if (!internetAllowed)
             {
                 ThreedResultText.Text = ThreedResultText.Text
-                    + "\nThe model was generated locally. The inline 3D preview needs a web component "
-                    + "downloaded from the internet, which is currently switched off - use Save or "
-                    + "Open in Blender, which work offline.";
+                    + T("\nThe model was generated locally. The inline 3D preview needs a web component ", "\nIl modello è stato generato in locale. L'anteprima 3D incorporata richiede un componente web ")
+                    + T("downloaded from the internet, which is currently switched off - use Save or ", "scaricato da Internet, che al momento è disattivato: usa Salva o ")
+                    + T("Open in Blender, which work offline.", "Apri in Blender, che funzionano offline.");
                 return;
             }
 
@@ -5167,7 +5185,7 @@ namespace PaRuX.Views
                 Log.Write("3D preview failed (non-fatal, Save/Open in Blender still work): " + ex.Message);
                 ThreedViewer.Visibility = Visibility.Collapsed;
                 ThreedResultText.Text = ThreedResultText.Text
-                    + "\nThe model was generated locally, but the inline 3D preview could not load.";
+                    + T("\nThe model was generated locally, but the inline 3D preview could not load.", "\nIl modello è stato generato in locale, ma l'anteprima 3D incorporata non si è potuta caricare.");
             }
         }
 
@@ -5207,7 +5225,7 @@ namespace PaRuX.Views
                 string? blenderExe = FindBlenderExecutable();
                 if (blenderExe == null)
                 {
-                    ThreedResultText.Text = "Blender was not found on this PC. Use Save .glb and open it manually.";
+                    ThreedResultText.Text = T("Blender was not found on this PC. Use Save .glb and open it manually.", "Blender non è stato trovato su questo PC. Usa Salva .glb e aprilo a mano.");
                     return;
                 }
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -5220,7 +5238,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("ThreedOpenBlender failed: " + ex.Message);
-                ThreedResultText.Text = "Couldn't open Blender: " + ex.Message;
+                ThreedResultText.Text = T("Couldn't open Blender: ", "Impossibile aprire Blender: ") + ex.Message;
             }
         }
 
@@ -5244,14 +5262,14 @@ namespace PaRuX.Views
             {
                 TrainingEngineStatus status = await TrainingLabClient.Current.GetEngineStatusAsync(CancellationToken.None);
                 TrainingEngineStatusText.Text = status.Installed
-                    ? "Engine installed" + (string.IsNullOrEmpty(status.TorchVersion) ? string.Empty : " · torch " + status.TorchVersion)
-                        + (status.CudaVerified ? " · CUDA verified" : " · CUDA not verified")
-                    : "Training engine not installed yet — starting a job will install it first.";
+                    ? T("Engine installed", "Motore installato") + (string.IsNullOrEmpty(status.TorchVersion) ? string.Empty : T(" · torch ", " · torch ") + status.TorchVersion)
+                        + (status.CudaVerified ? T(" · CUDA verified", " · CUDA verificato") : T(" · CUDA not verified", " · CUDA non verificato"))
+                    : T("Training engine not installed yet — starting a job will install it first.", "Motore di training non ancora installato: avviare un job lo installerà prima.");
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshTrainingEngineStatusAsync failed: " + ex.Message);
-                TrainingEngineStatusText.Text = "Could not reach the training engine: " + ex.Message;
+                TrainingEngineStatusText.Text = T("Could not reach the training engine: ", "Impossibile raggiungere il motore di training: ") + ex.Message;
             }
         }
 
@@ -5282,7 +5300,7 @@ namespace PaRuX.Views
 
             TrainingStartButton.IsEnabled = false;
             TrainingJobProgress.Visibility = Visibility.Visible;
-            TrainingJobStatusText.Text = "Starting…";
+            TrainingJobStatusText.Text = T("Starting…", "Avvio…");
             try
             {
                 TrainingJobStatus job = await TrainingLabClient.Current.CreateJobAsync(new TrainingJobRequest
@@ -5294,7 +5312,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("TrainingStart failed: " + ex.Message);
-                TrainingJobStatusText.Text = "Failed to start: " + ex.Message;
+                TrainingJobStatusText.Text = T("Failed to start: ", "Avvio non riuscito: ") + ex.Message;
                 TrainingStartButton.IsEnabled = true;
             }
         }
@@ -5309,16 +5327,16 @@ namespace PaRuX.Views
 
                 double percent = job.TotalSteps > 0 ? 100.0 * job.CurrentStep / job.TotalSteps : 0;
                 TrainingJobProgress.Value = percent;
-                TrainingJobStatusText.Text = job.Stage + "  ·  step " + job.CurrentStep + "/" + job.TotalSteps
-                    + (job.LastLoss.HasValue ? "  ·  loss " + job.LastLoss.Value.ToString("0.000") : string.Empty);
+                TrainingJobStatusText.Text = job.Stage + T("  ·  step ", "  ·  passo ") + job.CurrentStep + "/" + job.TotalSteps
+                    + (job.LastLoss.HasValue ? T("  ·  loss ", "  ·  perdita ") + job.LastLoss.Value.ToString("0.000") : string.Empty);
 
                 if (job.Status == "completed")
                 {
-                    TrainingJobStatusText.Text = "Completed. Adapter: " + job.AdapterPath;
+                    TrainingJobStatusText.Text = T("Completed. Adapter: ", "Completato. Adapter: ") + job.AdapterPath;
                     break;
                 }
-                if (job.Status == "failed") { TrainingJobStatusText.Text = "Failed: " + job.Error; break; }
-                if (job.Status == "cancelled") { TrainingJobStatusText.Text = "Cancelled."; break; }
+                if (job.Status == "failed") { TrainingJobStatusText.Text = T("Failed: ", "Non riuscito: ") + job.Error; break; }
+                if (job.Status == "cancelled") { TrainingJobStatusText.Text = T("Cancelled.", "Annullato."); break; }
                 await Task.Delay(2000);
             }
             TrainingStartButton.IsEnabled = true;
@@ -5331,7 +5349,7 @@ namespace PaRuX.Views
             uint mods, key;
             if (!HotkeyService.TryParse(candidate, out mods, out key))
             {
-                HotkeyHint.Text = "That combination isn't valid. Use something like Ctrl+Alt+Space or Ctrl+Shift+N.";
+                HotkeyHint.Text = T("That combination isn't valid. Use something like Ctrl+Alt+Space or Ctrl+Shift+N.", "Quella combinazione non è valida. Usa qualcosa come Ctrl+Alt+Spazio o Ctrl+Maiusc+N.");
                 return;
             }
 
@@ -5339,7 +5357,7 @@ namespace PaRuX.Views
             bool registered = App.Hotkey.Register(candidate);
             if (!registered)
             {
-                HotkeyHint.Text = "Windows refused that combination — another app probably owns it. Try a different one.";
+                HotkeyHint.Text = T("Windows refused that combination — another app probably owns it. Try a different one.", "Windows ha rifiutato quella combinazione: probabilmente un'altra app la usa. Provane un'altra.");
                 // Put the previous, working hotkey back.
                 App.Hotkey.Register(SettingsStore.Current.Data.Hotkey);
                 HotkeyBox.Text = SettingsStore.Current.Data.Hotkey;
@@ -5348,7 +5366,7 @@ namespace PaRuX.Views
 
             SettingsStore.Current.Data.Hotkey = candidate;
             SettingsStore.Current.Save();
-            HotkeyHint.Text = "Active: press " + candidate + " anywhere to open Quick Chat.";
+            HotkeyHint.Text = T("Active: press ", "Attiva: premi ") + candidate + T(" anywhere to open Quick Chat.", " ovunque per aprire la Chat rapida.");
         }
 
         // ------------------------------------------------------------------
@@ -5368,8 +5386,8 @@ namespace PaRuX.Views
                     LocalAiController.Current.GetStateAsync(CancellationToken.None));
 
                 DiagHealth.Text = state.Healthy
-                    ? "healthy"
-                    : (state.ServerProcessPresent ? "process running, not answering yet" : "not running");
+                    ? T("healthy", "in salute")
+                    : (state.ServerProcessPresent ? T("process running, not answering yet", "processo in esecuzione, non ancora in risposta") : T("not running", "non in esecuzione"));
 
                 // The ring only spins until the first real answer arrives; after that
                 // a coloured dot carries the verdict, so nothing sits on "checking…".
@@ -5377,29 +5395,29 @@ namespace PaRuX.Views
                     ? "PaRuXDotOkBrush"
                     : (state.ServerProcessPresent ? "PaRuXDotWarnBrush" : "PaRuXDotOffBrush"));
 
-                DiagProfile.Text = string.IsNullOrWhiteSpace(state.ActiveProfile) ? "none loaded" : state.ActiveProfile;
+                DiagProfile.Text = string.IsNullOrWhiteSpace(state.ActiveProfile) ? T("none loaded", "nessuno caricato") : state.ActiveProfile;
                 DiagMode.Text = state.Mode;
                 DiagTextProfile.Text = state.TextProfile;
-                DiagGame.Text = state.GameActive ? "a game is active — AI stays unloaded" : "no game active";
+                DiagGame.Text = state.GameActive ? T("a game is active — AI stays unloaded", "un gioco è attivo: l'IA resta scaricata dalla memoria") : T("no game active", "nessun gioco attivo");
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshDiagnostics failed: " + ex.Message);
-                DiagHealth.Text = "unavailable";
+                DiagHealth.Text = T("unavailable", "non disponibile");
                 SetHealthDot("PaRuXDotOffBrush");
             }
 
             try
             {
                 string? endpoint = await LocalAiController.Current.GetManagedProviderEndpointAsync(CancellationToken.None);
-                DiagEndpoint.Text = "Endpoint " + (endpoint ?? "unavailable")
-                                  + "   ·   settings at " + AppPaths.SettingsFile;
+                DiagEndpoint.Text = T("Endpoint ", "Endpoint ") + (endpoint ?? T("unavailable", "non disponibile"))
+                                  + T("   ·   settings at ", "   ·   impostazioni in ") + AppPaths.SettingsFile;
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshManagedProviderEndpoint failed: " + ex.Message);
-                DiagEndpoint.Text = "Endpoint unavailable"
-                                  + "   ·   settings at " + AppPaths.SettingsFile;
+                DiagEndpoint.Text = T("Endpoint unavailable", "Endpoint non disponibile")
+                                  + T("   ·   settings at ", "   ·   impostazioni in ") + AppPaths.SettingsFile;
             }
 
             try
@@ -5409,18 +5427,18 @@ namespace PaRuX.Views
                 // knows the adapter and its installed VRAM but not what is in use right now.
                 string gpuDescription = ResourceHardwareSnapshotMapper.DescribeGpu(resources);
                 DiagVram.Text = resources.GpuUsageMeasured && !resources.GpuMemoryIsShared
-                    ? gpuDescription + " · " + resources.VramUsedMb.ToString("N0") + " MB used · "
-                        + resources.GpuUtilizationPercent + "% util"
-                    : gpuDescription + (resources.GpuAvailable ? " · live usage unavailable" : "");
+                    ? gpuDescription + " · " + resources.VramUsedMb.ToString("N0") + T(" MB used · ", " MB usati · ")
+                        + resources.GpuUtilizationPercent + T("% util", "% di utilizzo")
+                    : gpuDescription + (resources.GpuAvailable ? T(" · live usage unavailable", " · utilizzo in tempo reale non disponibile") : "");
                 DiagRam.Text = resources.RamAvailable
                     ? resources.RamUsedMb + " / " + resources.RamTotalMb + " MB"
-                    : "unavailable";
+                    : T("unavailable", "non disponibile");
             }
             catch (Exception ex)
             {
                 Log.Write("Resource snapshot failed: " + ex.Message);
-                DiagVram.Text = "unavailable";
-                DiagRam.Text = "unavailable";
+                DiagVram.Text = T("unavailable", "non disponibile");
+                DiagRam.Text = T("unavailable", "non disponibile");
             }
         }
 
@@ -5462,11 +5480,11 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshAgentTasksAsync failed: " + ex.Message);
-                if (AgentTasksCountLabel != null) AgentTasksCountLabel.Text = "Failed to load tasks: " + ex.Message;
+                if (AgentTasksCountLabel != null) AgentTasksCountLabel.Text = T("Failed to load tasks: ", "Impossibile caricare le attività: ") + ex.Message;
                 return;
             }
 
-            if (AgentTasksCountLabel != null) AgentTasksCountLabel.Text = response.Tasks.Count + " task(s)";
+            if (AgentTasksCountLabel != null) AgentTasksCountLabel.Text = response.Tasks.Count + T(" task(s)", " attività");
             AgentTasksList.Children.Clear();
             foreach (AgentTaskDto task in response.Tasks.OrderByDescending(t => t.CreatedUtc))
                 AgentTasksList.Children.Add(BuildAgentTaskCard(task));
@@ -5479,7 +5497,7 @@ namespace PaRuX.Views
             string? goal = AgentTaskGoalBox?.Text?.Trim();
             if (string.IsNullOrEmpty(goal))
             {
-                if (AgentTasksStatus != null) AgentTasksStatus.Text = "Enter a goal first.";
+                if (AgentTasksStatus != null) AgentTasksStatus.Text = T("Enter a goal first.", "Inserisci prima un obiettivo.");
                 return;
             }
             string? role = (AgentTaskRoleBox?.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -5495,8 +5513,8 @@ namespace PaRuX.Views
                 if (workspace.Length == 0)
                 {
                     if (AgentTasksStatus != null)
-                        AgentTasksStatus.Text = "Set the Coding agent workspace above first: a coding task runs in its "
-                            + "own worktree of a repository you name, and PaRuX will not pick one for it.";
+                        AgentTasksStatus.Text = T("Set the Coding agent workspace above first: a coding task runs in its ", "Imposta prima l'area di lavoro dell'agente di programmazione qui sopra: un'attività di programmazione viene eseguita nel ")
+                            + T("own worktree of a repository you name, and PaRuX will not pick one for it.", "proprio worktree di un repository che indichi tu, e PaRuX non ne sceglierà uno al posto tuo.");
                     return;
                 }
 
@@ -5514,7 +5532,7 @@ namespace PaRuX.Views
                 catch (Exception ex)
                 {
                     Log.Write("CreateCodingTask failed: " + ex.Message);
-                    if (AgentTasksStatus != null) AgentTasksStatus.Text = "Failed to create coding task: " + ex.Message;
+                    if (AgentTasksStatus != null) AgentTasksStatus.Text = T("Failed to create coding task: ", "Impossibile creare l'attività di programmazione: ") + ex.Message;
                 }
                 await RefreshAgentTasksAsync();
                 return;
@@ -5531,7 +5549,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CreateAgentTask failed: " + ex.Message);
-                if (AgentTasksStatus != null) AgentTasksStatus.Text = "Failed to create task: " + ex.Message;
+                if (AgentTasksStatus != null) AgentTasksStatus.Text = T("Failed to create task: ", "Impossibile creare l'attività: ") + ex.Message;
             }
             await RefreshAgentTasksAsync();
         }
@@ -5543,19 +5561,19 @@ namespace PaRuX.Views
             string? goal = ProjectGoalBox?.Text?.Trim();
             if (string.IsNullOrEmpty(goal))
             {
-                if (ProjectStatus != null) ProjectStatus.Text = "Enter a goal first.";
+                if (ProjectStatus != null) ProjectStatus.Text = T("Enter a goal first.", "Inserisci prima un obiettivo.");
                 return;
             }
             try
             {
                 ProjectDto project = await ProjectManagerClient.Current.CreateAsync(goal, CancellationToken.None);
                 if (ProjectGoalBox != null) ProjectGoalBox.Text = string.Empty;
-                if (ProjectStatus != null) ProjectStatus.Text = "Created project " + project.Id + " with " + project.TaskIds.Count + " task(s).";
+                if (ProjectStatus != null) ProjectStatus.Text = T("Created project ", "Progetto creato: ") + project.Id + T(" with ", " con ") + project.TaskIds.Count + T(" task(s).", " attività.");
             }
             catch (Exception ex)
             {
                 Log.Write("CreateProject failed: " + ex.Message);
-                if (ProjectStatus != null) ProjectStatus.Text = "Failed to create project: " + ex.Message;
+                if (ProjectStatus != null) ProjectStatus.Text = T("Failed to create project: ", "Impossibile creare il progetto: ") + ex.Message;
             }
             await RefreshProjectsAsync();
         }
@@ -5570,11 +5588,11 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshProjectsAsync failed: " + ex.Message);
-                if (ProjectsCountLabel != null) ProjectsCountLabel.Text = "Failed to load projects: " + ex.Message;
+                if (ProjectsCountLabel != null) ProjectsCountLabel.Text = T("Failed to load projects: ", "Impossibile caricare i progetti: ") + ex.Message;
                 return;
             }
 
-            if (ProjectsCountLabel != null) ProjectsCountLabel.Text = response.Entities.Count + " project(s)";
+            if (ProjectsCountLabel != null) ProjectsCountLabel.Text = response.Entities.Count + T(" project(s)", " progetti");
             ProjectsList.Children.Clear();
             foreach (ContextEntityDto project in response.Entities.OrderByDescending(p => p.CreatedUtc))
             {
@@ -5602,7 +5620,7 @@ namespace PaRuX.Views
             string? goal = AutopilotGoalBox?.Text?.Trim();
             if (string.IsNullOrEmpty(goal))
             {
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Enter a goal first.";
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Enter a goal first.", "Inserisci prima un obiettivo.");
                 return;
             }
             string? mode = (AutopilotModeBox?.SelectedItem as ComboBoxItem)?.Tag as string ?? AutopilotPermissionMode.Balanced;
@@ -5611,12 +5629,12 @@ namespace PaRuX.Views
             {
                 AutopilotRunDto run = await AutopilotClient.Current.StartRunAsync(goal, mode, CancellationToken.None);
                 if (AutopilotRunIdBox != null) AutopilotRunIdBox.Text = run.Id;
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Run " + run.Id + ": " + run.Status + " (" + run.TaskIds.Count + " task(s)).";
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + run.Id + ": " + run.Status + " (" + run.TaskIds.Count + T(" task(s)).", " attività).");
             }
             catch (Exception ex)
             {
                 Log.Write("StartAutopilotRun failed: " + ex.Message);
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Failed to start run: " + ex.Message;
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to start run: ", "Impossibile avviare l'esecuzione: ") + ex.Message;
             }
         }
 
@@ -5625,19 +5643,19 @@ namespace PaRuX.Views
             string? id = AutopilotRunIdBox?.Text?.Trim();
             if (string.IsNullOrEmpty(id))
             {
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Enter a run id first.";
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Enter a run id first.", "Inserisci prima un ID di esecuzione.");
                 return;
             }
             try
             {
                 AutopilotRunDto run = await AutopilotClient.Current.GetRunAsync(id, CancellationToken.None);
                 string report = run.FinalReportJson != null ? " Report: " + run.FinalReportJson : string.Empty;
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Run " + run.Id + ": " + run.Status + "." + report;
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + run.Id + ": " + run.Status + "." + report;
             }
             catch (Exception ex)
             {
                 Log.Write("CheckAutopilotRun failed: " + ex.Message);
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Failed to check run: " + ex.Message;
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to check run: ", "Impossibile controllare l'esecuzione: ") + ex.Message;
             }
         }
 
@@ -5646,18 +5664,18 @@ namespace PaRuX.Views
             string? id = AutopilotRunIdBox?.Text?.Trim();
             if (string.IsNullOrEmpty(id))
             {
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Enter a run id first.";
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Enter a run id first.", "Inserisci prima un ID di esecuzione.");
                 return;
             }
             try
             {
                 await AutopilotClient.Current.ApproveRunAsync(id, CancellationToken.None);
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Run " + id + " approved.";
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + id + T(" approved.", " approvata.");
             }
             catch (Exception ex)
             {
                 Log.Write("ApproveAutopilotRun failed: " + ex.Message);
-                if (AutopilotStatus != null) AutopilotStatus.Text = "Failed to approve run: " + ex.Message;
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to approve run: ", "Impossibile approvare l'esecuzione: ") + ex.Message;
             }
         }
 
@@ -5673,13 +5691,13 @@ namespace PaRuX.Views
             {
                 StopAllResult result = await AutopilotClient.Current.StopAllAsync(CancellationToken.None);
                 if (StopAllStatusText != null)
-                    StopAllStatusText.Text = "Stopped " + result.TasksCancelled + " task(s), cancelled " + result.AutopilotRunsCancelled
-                        + " Autopilot run(s), " + localAgentsCancelled + " local agent session(s), automations paused.";
+                    StopAllStatusText.Text = T("Stopped ", "Fermate ") + result.TasksCancelled + T(" task(s), cancelled ", " attività, annullate ") + result.AutopilotRunsCancelled
+                        + T(" Autopilot run(s), ", " esecuzioni Autopilot, ") + localAgentsCancelled + T(" local agent session(s), automations paused.", " sessioni dell'agente locale, automazioni sospese.");
             }
             catch (Exception ex)
             {
                 Log.Write("StopAllAgents failed: " + ex.Message);
-                if (StopAllStatusText != null) StopAllStatusText.Text = "STOP ALL failed: " + ex.Message;
+                if (StopAllStatusText != null) StopAllStatusText.Text = T("STOP ALL failed: ", "FERMA TUTTO non riuscito: ") + ex.Message;
             }
             await RefreshAgentTasksAsync();
         }
@@ -5689,12 +5707,12 @@ namespace PaRuX.Views
             try
             {
                 await AutopilotClient.Current.ResumeAutomationsAsync(CancellationToken.None);
-                if (StopAllStatusText != null) StopAllStatusText.Text = "Automations resumed.";
+                if (StopAllStatusText != null) StopAllStatusText.Text = T("Automations resumed.", "Automazioni riprese.");
             }
             catch (Exception ex)
             {
                 Log.Write("ResumeAutomations failed: " + ex.Message);
-                if (StopAllStatusText != null) StopAllStatusText.Text = "Failed to resume: " + ex.Message;
+                if (StopAllStatusText != null) StopAllStatusText.Text = T("Failed to resume: ", "Impossibile riprendere: ") + ex.Message;
             }
         }
 
@@ -5723,7 +5741,7 @@ namespace PaRuX.Views
             string? goalTemplate = AutomationGoalTemplateBox?.Text?.Trim();
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(goalTemplate))
             {
-                if (AutomationStatus != null) AutomationStatus.Text = "Enter a name and a task goal first.";
+                if (AutomationStatus != null) AutomationStatus.Text = T("Enter a name and a task goal first.", "Inserisci prima un nome e un obiettivo dell'attività.");
                 return;
             }
             string? triggerType = (AutomationTriggerTypeBox?.SelectedItem as ComboBoxItem)?.Tag as string ?? AutomationTriggerType.Schedule;
@@ -5735,7 +5753,7 @@ namespace PaRuX.Views
                 string? folderPath = AutomationFolderPathBox?.Text?.Trim();
                 if (string.IsNullOrEmpty(folderPath))
                 {
-                    if (AutomationStatus != null) AutomationStatus.Text = "Enter or browse to a folder for the File Created trigger.";
+                    if (AutomationStatus != null) AutomationStatus.Text = T("Enter or browse to a folder for the File Created trigger.", "Inserisci o scegli una cartella per il trigger File creato.");
                     return;
                 }
                 string? filter = string.IsNullOrWhiteSpace(AutomationFilterBox?.Text) ? "*" : AutomationFilterBox.Text.Trim();
@@ -5746,7 +5764,7 @@ namespace PaRuX.Views
                 string? repositoryPath = AutomationFolderPathBox?.Text?.Trim();
                 if (string.IsNullOrEmpty(repositoryPath))
                 {
-                    if (AutomationStatus != null) AutomationStatus.Text = "Enter or browse to a git repository for the Git Commit trigger.";
+                    if (AutomationStatus != null) AutomationStatus.Text = T("Enter or browse to a git repository for the Git Commit trigger.", "Inserisci o scegli un repository git per il trigger Commit Git.");
                     return;
                 }
                 string? branch = AutomationGitBranchBox?.Text?.Trim() ?? string.Empty;
@@ -5781,7 +5799,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CreateAutomation failed: " + ex.Message);
-                if (AutomationStatus != null) AutomationStatus.Text = "Failed to create automation: " + ex.Message;
+                if (AutomationStatus != null) AutomationStatus.Text = T("Failed to create automation: ", "Impossibile creare l'automazione: ") + ex.Message;
             }
             await RefreshAutomationsAsync();
         }
@@ -5796,11 +5814,11 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshAutomationsAsync failed: " + ex.Message);
-                if (AutomationsCountLabel != null) AutomationsCountLabel.Text = "Failed to load automations: " + ex.Message;
+                if (AutomationsCountLabel != null) AutomationsCountLabel.Text = T("Failed to load automations: ", "Impossibile caricare le automazioni: ") + ex.Message;
                 return;
             }
 
-            if (AutomationsCountLabel != null) AutomationsCountLabel.Text = response.Automations.Count + " automation(s)";
+            if (AutomationsCountLabel != null) AutomationsCountLabel.Text = response.Automations.Count + T(" automation(s)", " automazioni");
             AutomationsList.Children.Clear();
             foreach (AutomationDto automation in response.Automations.OrderByDescending(a => a.CreatedUtc))
                 AutomationsList.Children.Add(BuildAutomationCard(automation));
@@ -5827,7 +5845,7 @@ namespace PaRuX.Views
             Grid.SetColumn(nameBlock, 0);
             header.Children.Add(nameBlock);
 
-            var enabledSwitch = new ToggleSwitch { IsOn = automation.Enabled, OnContent = "On", OffContent = "Off" };
+            var enabledSwitch = new ToggleSwitch { IsOn = automation.Enabled, OnContent = "On", OffContent = T("Off", "No") };
             enabledSwitch.Toggled += async (s, e) =>
             {
                 if (_switchesBeingReverted.Contains(enabledSwitch)) return;
@@ -5844,7 +5862,7 @@ namespace PaRuX.Views
             Grid.SetColumn(enabledSwitch, 1);
             header.Children.Add(enabledSwitch);
 
-            var deleteButton = new Button { Content = "Delete" };
+            var deleteButton = new Button { Content = T("Delete", "Elimina") };
             deleteButton.Click += async (s, e) =>
             {
                 try { await AutomationClient.Current.DeleteAsync(automation.Id, CancellationToken.None); await RefreshAutomationsAsync(); }
@@ -5878,14 +5896,14 @@ namespace PaRuX.Views
         {
             if (CapabilityProfilerRunButton == null || CapabilityProfilerStatusText == null) return;
             CapabilityProfilerRunButton.IsEnabled = false;
-            CapabilityProfilerStatusText.Text = "Starting profile run…";
+            CapabilityProfilerStatusText.Text = T("Starting profile run…", "Avvio dell'esecuzione del profilo…");
             CapabilityProfilerResultsList?.Children.Clear();
             try
             {
                 CapabilityProfileRunDto run = await CapabilityProfilerClient.Current.StartRunAsync(CancellationToken.None);
                 if (run.Status == CapabilityProfileRunStatus.Error)
                 {
-                    CapabilityProfilerStatusText.Text = "Couldn't run: " + run.Error;
+                    CapabilityProfilerStatusText.Text = T("Couldn't run: ", "Impossibile eseguire: ") + run.Error;
                     return;
                 }
 
@@ -5895,18 +5913,18 @@ namespace PaRuX.Views
                     CapabilityProfileRunDetailDto detail = await CapabilityProfilerClient.Current.GetRunAsync(run.Id, CancellationToken.None);
                     if (detail.Run.Status == CapabilityProfileRunStatus.Running)
                     {
-                        CapabilityProfilerStatusText.Text = $"Running… {detail.Results.Count}/5 probes completed.";
+                        CapabilityProfilerStatusText.Text = T($"Running… {detail.Results.Count}/5 probes completed.", $"Esecuzione… {detail.Results.Count}/5 prove completate.");
                         continue;
                     }
                     RenderCapabilityProfileResult(detail);
                     return;
                 }
-                CapabilityProfilerStatusText.Text = "Still running after 10 minutes - check back later by running again.";
+                CapabilityProfilerStatusText.Text = T("Still running after 10 minutes - check back later by running again.", "Ancora in esecuzione dopo 10 minuti: riprova più tardi eseguendo di nuovo.");
             }
             catch (Exception ex)
             {
                 Log.Write("RunCapabilityProfile_Click failed: " + ex.Message);
-                CapabilityProfilerStatusText.Text = "Couldn't run capability profile: " + ex.Message;
+                CapabilityProfilerStatusText.Text = T("Couldn't run capability profile: ", "Impossibile eseguire il profilo delle capacità: ") + ex.Message;
             }
             finally
             {
@@ -5920,8 +5938,8 @@ namespace PaRuX.Views
             {
                 string modelName = string.IsNullOrEmpty(detail.Run.ModelPath) ? "unknown model" : Path.GetFileName(detail.Run.ModelPath);
                 CapabilityProfilerStatusText.Text = detail.Run.Status == CapabilityProfileRunStatus.Completed
-                    ? "Completed against " + modelName + (detail.Run.Role != null ? "  ·  role \"" + detail.Run.Role + "\"" : string.Empty)
-                    : "Run failed: " + detail.Run.Error;
+                    ? T("Completed against ", "Completato su ") + modelName + (detail.Run.Role != null ? T("  ·  role \"", "  ·  ruolo \"") + detail.Run.Role + "\"" : string.Empty)
+                    : T("Run failed: ", "Esecuzione non riuscita: ") + detail.Run.Error;
             }
             if (CapabilityProfilerResultsList == null) return;
             CapabilityProfilerResultsList.Children.Clear();
@@ -5944,14 +5962,14 @@ namespace PaRuX.Views
             string? repoId = LicenseTrustRepoIdBox?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(repoId) || !repoId.Contains('/'))
             {
-                LicenseTrustStatusText.Text = "Enter a repository id in owner/repository form.";
+                LicenseTrustStatusText.Text = T("Enter a repository id in owner/repository form.", "Inserisci un ID repository nella forma proprietario/repository.");
                 LicenseTrustResultText.Text = string.Empty;
                 return;
             }
 
             string? kind = (LicenseTrustKindBox?.SelectedItem as ComboBoxItem)?.Tag as string ?? "model";
             LicenseTrustInspectButton.IsEnabled = false;
-            LicenseTrustStatusText.Text = "Reading published Hugging Face metadata...";
+            LicenseTrustStatusText.Text = T("Reading published Hugging Face metadata...", "Lettura dei metadati pubblicati di Hugging Face...");
             LicenseTrustResultText.Text = string.Empty;
             try
             {
@@ -5972,13 +5990,13 @@ namespace PaRuX.Views
 
                 LicenseTrustStatusText.Text = repoId + "  ·  " + detail;
                 LicenseTrustResultText.Text = string.IsNullOrWhiteSpace(license)
-                    ? "No license declared in the repository metadata. Do not treat this as permission to use or redistribute."
-                    : "Declared license: " + license;
+                    ? T("No license declared in the repository metadata. Do not treat this as permission to use or redistribute.", "Nessuna licenza dichiarata nei metadati del repository. Non considerarlo un permesso di usare o ridistribuire.")
+                    : T("Declared license: ", "Licenza dichiarata: ") + license;
             }
             catch (Exception ex)
             {
                 Log.Write("InspectLicenseTrust_Click failed: " + ex.Message);
-                LicenseTrustStatusText.Text = "Metadata lookup failed: " + ex.Message;
+                LicenseTrustStatusText.Text = T("Metadata lookup failed: ", "Ricerca dei metadati non riuscita: ") + ex.Message;
                 LicenseTrustResultText.Text = string.Empty;
             }
             finally
@@ -5996,7 +6014,7 @@ namespace PaRuX.Views
             if (ObservabilityTimelineList == null || ObservabilityRefreshButton == null || ObservabilityCountText == null) return;
 
             ObservabilityRefreshButton.IsEnabled = false;
-            ObservabilityCountText.Text = "Loading timeline...";
+            ObservabilityCountText.Text = T("Loading timeline...", "Caricamento della timeline...");
             try
             {
                 TimelineResponse response = await ObservabilityClient.Current.GetTimelineAsync(50, CancellationToken.None);
@@ -6005,13 +6023,13 @@ namespace PaRuX.Views
                     ObservabilityTimelineList.Children.Add(BuildObservabilityCard(entry));
 
                 ObservabilityCountText.Text = response.Entries.Count == 0
-                    ? "No recorded activity"
-                    : response.Entries.Count + " most recent event(s)";
+                    ? T("No recorded activity", "Nessuna attività registrata")
+                    : response.Entries.Count + T(" most recent event(s)", " eventi più recenti");
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshObservabilityAsync failed: " + ex.Message);
-                ObservabilityCountText.Text = "Failed to load timeline: " + ex.Message;
+                ObservabilityCountText.Text = T("Failed to load timeline: ", "Impossibile caricare la timeline: ") + ex.Message;
             }
             finally
             {
@@ -6051,7 +6069,7 @@ namespace PaRuX.Views
             if (UniversalDiffCompareButton == null || UniversalDiffStatusText == null || UniversalDiffOutputBox == null) return;
 
             UniversalDiffCompareButton.IsEnabled = false;
-            UniversalDiffStatusText.Text = "Comparing locally...";
+            UniversalDiffStatusText.Text = T("Comparing locally...", "Confronto in locale...");
             try
             {
                 DiffResult result = await DiffClient.Current.CompareAsync(
@@ -6060,13 +6078,13 @@ namespace PaRuX.Views
                     CancellationToken.None);
 
                 UniversalDiffOutputBox.Text = UniversalDiffFormatter.Format(result);
-                UniversalDiffStatusText.Text = "+" + result.AddedCount + " added  ·  -" + result.RemovedCount
-                    + " removed  ·  " + result.UnchangedCount + " unchanged";
+                UniversalDiffStatusText.Text = "+" + result.AddedCount + T(" added  ·  -", " aggiunte  ·  -") + result.RemovedCount
+                    + T(" removed  ·  ", " rimosse  ·  ") + result.UnchangedCount + T(" unchanged", " invariate");
             }
             catch (Exception ex)
             {
                 Log.Write("CompareUniversalDiff_Click failed: " + ex.Message);
-                UniversalDiffStatusText.Text = "Comparison failed: " + ex.Message;
+                UniversalDiffStatusText.Text = T("Comparison failed: ", "Confronto non riuscito: ") + ex.Message;
             }
             finally
             {
@@ -6095,11 +6113,11 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshContextEntitiesAsync failed: " + ex.Message);
-                if (ContextEntitiesCountLabel != null) ContextEntitiesCountLabel.Text = "Failed to load entities: " + ex.Message;
+                if (ContextEntitiesCountLabel != null) ContextEntitiesCountLabel.Text = T("Failed to load entities: ", "Impossibile caricare le entità: ") + ex.Message;
                 return;
             }
 
-            if (ContextEntitiesCountLabel != null) ContextEntitiesCountLabel.Text = response.Entities.Count + " entities";
+            if (ContextEntitiesCountLabel != null) ContextEntitiesCountLabel.Text = response.Entities.Count + T(" entities", " entità");
             ContextEntitiesList.Children.Clear();
             foreach (ContextEntityDto entity in response.Entities.OrderByDescending(en => en.CreatedUtc).Take(20))
                 ContextEntitiesList.Children.Add(BuildContextEntityCard(entity));
@@ -6128,7 +6146,7 @@ namespace PaRuX.Views
             Grid.SetColumn(titleStack, 0);
             header.Children.Add(titleStack);
 
-            var viewButton = new Button { Content = "View neighborhood" };
+            var viewButton = new Button { Content = T("View neighborhood", "Vedi il vicinato") };
             viewButton.Click += async (s, e) => await ViewContextNeighborhoodAsync(entity.Id);
             Grid.SetColumn(viewButton, 1);
             header.Children.Add(viewButton);
@@ -6157,7 +6175,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("ViewContextNeighborhoodAsync failed: " + ex.Message);
-                ContextNeighborhoodText.Text = "Failed to load neighborhood: " + ex.Message;
+                ContextNeighborhoodText.Text = T("Failed to load neighborhood: ", "Impossibile caricare il vicinato: ") + ex.Message;
             }
         }
 
@@ -6167,7 +6185,7 @@ namespace PaRuX.Views
             string? name = ContextEntityNameBox?.Text?.Trim();
             if (string.IsNullOrEmpty(type) || string.IsNullOrEmpty(name))
             {
-                if (ContextGraphStatus != null) ContextGraphStatus.Text = "Enter both a type and a name first.";
+                if (ContextGraphStatus != null) ContextGraphStatus.Text = T("Enter both a type and a name first.", "Inserisci prima sia un tipo sia un nome.");
                 return;
             }
             try
@@ -6180,7 +6198,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CreateContextEntity failed: " + ex.Message);
-                if (ContextGraphStatus != null) ContextGraphStatus.Text = "Failed to add entity: " + ex.Message;
+                if (ContextGraphStatus != null) ContextGraphStatus.Text = T("Failed to add entity: ", "Impossibile aggiungere l'entità: ") + ex.Message;
             }
             await RefreshContextEntitiesAsync();
         }
@@ -6192,7 +6210,7 @@ namespace PaRuX.Views
             string? to = ContextRelationToBox?.Text?.Trim();
             if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(relationType) || string.IsNullOrEmpty(to))
             {
-                if (ContextGraphStatus != null) ContextGraphStatus.Text = "Enter from id, relation type, and to id first.";
+                if (ContextGraphStatus != null) ContextGraphStatus.Text = T("Enter from id, relation type, and to id first.", "Inserisci prima ID di partenza, tipo di relazione e ID di arrivo.");
                 return;
             }
             try
@@ -6207,7 +6225,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("CreateContextRelation failed: " + ex.Message);
-                if (ContextGraphStatus != null) ContextGraphStatus.Text = "Failed to add relation: " + ex.Message;
+                if (ContextGraphStatus != null) ContextGraphStatus.Text = T("Failed to add relation: ", "Impossibile aggiungere la relazione: ") + ex.Message;
             }
         }
 
@@ -6268,14 +6286,14 @@ namespace PaRuX.Views
             Grid.SetColumn(statusBlock, 1);
             header.Children.Add(statusBlock);
 
-            var logsButton = new Button { Content = "Logs" };
+            var logsButton = new Button { Content = T("Logs", "Log") };
             Grid.SetColumn(logsButton, 2);
             header.Children.Add(logsButton);
 
             if (!terminal)
             {
                 string capturedId = task.Id;
-                var cancelButton = new Button { Content = "Cancel" };
+                var cancelButton = new Button { Content = T("Cancel", "Annulla") };
                 cancelButton.Click += async (s, e) =>
                 {
                     try { await AgentOrchestratorClient.Current.CancelAsync(capturedId, CancellationToken.None); }
@@ -6332,7 +6350,7 @@ namespace PaRuX.Views
                     }
                     if (logs.Logs.Count == 0)
                     {
-                        var none = new TextBlock { Text = "No log entries yet." };
+                        var none = new TextBlock { Text = T("No log entries yet.", "Nessuna voce di log per ora.") };
                         ApplyCaptionStyle(none);
                         logsPanel.Children.Add(none);
                     }
@@ -6348,7 +6366,7 @@ namespace PaRuX.Views
                     }
                 }
                 logsPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-                logsButton.Content = show ? "Hide logs" : "Logs";
+                logsButton.Content = show ? T("Hide logs", "Nascondi i log") : T("Logs", "Log");
             };
 
             card.Child = stack;
@@ -6528,11 +6546,11 @@ namespace PaRuX.Views
                     }
                     if (GamingActiveLauncherLabel != null)
                     {
-                        GamingActiveLauncherLabel.Text = "Active Launcher: " + (status.ActiveLauncher ?? "None");
+                        GamingActiveLauncherLabel.Text = T("Active Launcher: ", "Launcher attivo: ") + (status.ActiveLauncher ?? T("None", "Nessuno"));
                     }
                     if (GamingActiveInputLabel != null)
                     {
-                        GamingActiveInputLabel.Text = "Active Input: " + (status.ActiveInput ?? "Native");
+                        GamingActiveInputLabel.Text = T("Active Input: ", "Input attivo: ") + (status.ActiveInput ?? T("Native", "Nativo"));
                     }
                     if (GamingVramLabel != null)
                     {
@@ -6540,17 +6558,17 @@ namespace PaRuX.Views
                         string gameVram = status.SuspendedVramMib is long usedMib
                             ? usedMib + " MB used by game"
                             : "game VRAM not reported by the driver";
-                        GamingVramLabel.Text = $"VRAM Allocation: {gameVram} / {status.SystemTotalVramMib} MB total";
+                        GamingVramLabel.Text = T($"VRAM Allocation: {gameVram} / {status.SystemTotalVramMib} MB total", $"Allocazione VRAM: {gameVram} / {status.SystemTotalVramMib} MB in totale");
                     }
                     if (GamingSuspendedGameLabel != null)
                     {
-                        GamingSuspendedGameLabel.Text = "Suspended Game: " + (status.SuspendedProcessName ?? "None");
+                        GamingSuspendedGameLabel.Text = T("Suspended Game: ", "Gioco sospeso: ") + (status.SuspendedProcessName ?? T("None", "Nessuno"));
                     }
                     if (GamingWorkloadsLabel != null)
                     {
                         GamingWorkloadsLabel.Text = status.IsGamingActive
-                            ? "AI Workloads: Releasing GPU resources for gaming"
-                            : "AI Workloads: Server active & ready";
+                            ? T("AI Workloads: Releasing GPU resources for gaming", "Carichi di lavoro IA: rilascio delle risorse GPU per il gaming")
+                            : T("AI Workloads: Server active & ready", "Carichi di lavoro IA: server attivo e pronto");
                     }
                 }
 
@@ -6578,7 +6596,7 @@ namespace PaRuX.Views
 
                         var badge = new TextBlock
                         {
-                            Text = p.Installed ? "[Detected]" : "[Not Installed]",
+                            Text = p.Installed ? T("[Detected]", "[Rilevato]") : T("[Not Installed]", "[Non installato]"),
                             Foreground = p.Installed ? (SolidColorBrush)FindResource("PaRuXDotOkBrush") : (SolidColorBrush)FindResource("PaRuXDotOffBrush"),
                             VerticalAlignment = VerticalAlignment.Center,
                             FontWeight = Microsoft.UI.Text.FontWeights.Bold

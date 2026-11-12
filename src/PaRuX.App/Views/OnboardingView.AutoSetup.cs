@@ -208,7 +208,7 @@ namespace PaRuX.Views
                     info.Offer = new AutoSetupRuntimeOffer
                     {
                         ComponentId = "llama-server-vulkan",
-                        Title = baseline?.DisplayName ?? "llama.cpp Vulkan runtime",
+                        Title = baseline?.DisplayName ?? T("llama.cpp Vulkan runtime", "Runtime llama.cpp Vulkan"),
                         Reason = "No text runtime was found. PaRuX can install its Vulkan runtime.",
                         Required = true
                     };
@@ -238,10 +238,10 @@ namespace PaRuX.Views
                     var dialog = new ContentDialog
                     {
                         XamlRoot = _view.XamlRoot,
-                        Title = "Install " + offer.Title + "?",
-                        Content = offer.Reason + "\n\nPaRuX will manage this install. Software you installed yourself is never changed.",
-                        PrimaryButtonText = "Install with PaRuX",
-                        CloseButtonText = offer.Required ? "Cancel" : "Keep current runtime",
+                        Title = T("Install ", "Installa ") + offer.Title + "?",
+                        Content = offer.Reason + T("\n\nPaRuX will manage this install. Software you installed yourself is never changed.", "\n\nPaRuX gestirà questa installazione. Il software che hai installato tu non viene mai modificato."),
+                        PrimaryButtonText = T("Install with PaRuX", "Installa con PaRuX"),
+                        CloseButtonText = offer.Required ? T("Cancel", "Annulla") : T("Keep current runtime", "Mantieni il runtime attuale"),
                         DefaultButton = ContentDialogButton.Primary
                     };
                     return await dialog.ShowAsync() == ContentDialogResult.Primary;

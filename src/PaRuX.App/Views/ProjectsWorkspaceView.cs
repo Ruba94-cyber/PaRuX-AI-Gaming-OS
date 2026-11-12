@@ -21,15 +21,16 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class ProjectsWorkspaceView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _active = new() { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _repository = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.76 };
-        private readonly Button _chooseRepository = new() { Content = "Choose Project repository…" };
-        private readonly Button _clearRepository = new() { Content = "Clear session repository" };
-        private readonly TextBox _goal = new() { PlaceholderText = "Goal for a new durable Project" };
+        private readonly Button _chooseRepository = new() { Content = T("Choose Project repository…", "Scegli il repository del progetto…") };
+        private readonly Button _clearRepository = new() { Content = T("Clear session repository", "Cancella il repository della sessione") };
+        private readonly TextBox _goal = new() { PlaceholderText = T("Goal for a new durable Project", "Obiettivo per un nuovo progetto duraturo") };
         private readonly TextBlock _newProjectRepository = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.76 };
-        private readonly Button _chooseNewProjectRepository = new() { Content = "Choose repository for new Project…" };
-        private readonly Button _clearNewProjectRepository = new() { Content = "Clear", IsEnabled = false };
+        private readonly Button _chooseNewProjectRepository = new() { Content = T("Choose repository for new Project…", "Scegli il repository per il nuovo progetto…") };
+        private readonly Button _clearNewProjectRepository = new() { Content = T("Clear", "Cancella"), IsEnabled = false };
         private string? _newProjectRepositoryRoot;
         private readonly StackPanel _projects = new() { Spacing = 8 };
         private readonly StackPanel _projectArtifacts = new() { Spacing = 8 };
@@ -60,10 +61,10 @@ namespace PaRuX.Views
             };
             scroll.Content = body;
 
-            body.Children.Add(new TextBlock { Text = "Projects & Artifacts", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            body.Children.Add(new TextBlock { Text = T("Projects & Artifacts", "Progetti e artefatti"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             body.Children.Add(new TextBlock
             {
-                Text = "Select a durable Project as the active workspace. Coding/Binary tasks and read-only repository-aware specialists receive explicit task-scoped repository authority; selecting another Project never reuses the previous Project's repository implicitly.",
+                Text = T("Select a durable Project as the active workspace. Coding/Binary tasks and read-only repository-aware specialists receive explicit task-scoped repository authority; selecting another Project never reuses the previous Project's repository implicitly.", "Seleziona un progetto duraturo come area di lavoro attiva. Le attività di programmazione/binarie e gli specialisti di sola lettura consapevoli del repository ricevono un'autorità esplicita sul repository, limitata all'attività; selezionare un altro progetto non riusa mai in modo implicito il repository del progetto precedente."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -83,7 +84,7 @@ namespace PaRuX.Views
 
             var create = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             create.Children.Add(_goal);
-            var createButton = new Button { Content = "Create Project" };
+            var createButton = new Button { Content = T("Create Project", "Crea il progetto") };
             createButton.Click += async (_, _) => await CreateProjectAsync();
             create.Children.Add(createButton);
             var createPanel = new StackPanel { Spacing = 8 };
@@ -100,7 +101,7 @@ namespace PaRuX.Views
 
             _mediaGallery.ItemReusedAsEditSource += (_, item) =>
             {
-                _status.Text = "Selected '" + item.Title + "' as source for Image Edit in Create Workspace.";
+                _status.Text = T("Selected '", "Selezionato '") + item.Title + T("' as source for Image Edit in Create Workspace.", "' come origine per Modifica immagine nell'area Crea.");
             };
             _mediaGallery.ItemDeleted += (_, _) =>
             {
@@ -124,10 +125,10 @@ namespace PaRuX.Views
                 await RefreshProjectsAsync(ct);
                 await _mediaGallery.RefreshAsync();
                 await RefreshArtifactsAsync(ct);
-                _status.Text = "Project workspace refreshed.";
+                _status.Text = T("Project workspace refreshed.", "Area di lavoro dei progetti aggiornata.");
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { _status.Text = "Project workspace refresh failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Project workspace refresh failed: ", "Aggiornamento dell'area di lavoro dei progetti non riuscito: ") + ex.Message; }
         }
 
         private async Task RefreshProjectsAsync(CancellationToken ct)
@@ -135,15 +136,15 @@ namespace PaRuX.Views
             List<ProjectDto> projects = await ProjectManagerClient.Current.ListProjectsAsync(ct);
             string? activeId = ProjectWorkspaceSession.Current.ProjectId;
             _active.Text = activeId == null
-                ? "Active project: none — new outputs remain unscoped until you explicitly select/link them."
-                : "Active project: " + ProjectWorkspaceSession.Current.Goal + " · " + activeId;
+                ? T("Active project: none — new outputs remain unscoped until you explicitly select/link them.", "Progetto attivo: nessuno — i nuovi output restano senza progetto finché non li selezioni o colleghi esplicitamente.")
+                : T("Active project: ", "Progetto attivo: ") + ProjectWorkspaceSession.Current.Goal + " · " + activeId;
 
             string? repository = ProjectWorkspaceSession.Current.RepositoryRoot;
             _repository.Text = activeId == null
-                ? "Select a Project before assigning a repository."
+                ? T("Select a Project before assigning a repository.", "Seleziona un progetto prima di assegnare un repository.")
                 : string.IsNullOrWhiteSpace(repository)
-                    ? "Session repository: none. Existing per-task assignments remain durable; choose a repository to authorize unassigned coding/binary tasks and read-only repository specialists in this Project."
-                    : "Session repository: " + repository;
+                    ? T("Session repository: none. Existing per-task assignments remain durable; choose a repository to authorize unassigned coding/binary tasks and read-only repository specialists in this Project.", "Repository della sessione: nessuno. Le assegnazioni per attività esistenti restano durature; scegli un repository per autorizzare in questo progetto le attività di programmazione/binarie non assegnate e gli specialisti di repository in sola lettura.")
+                    : T("Session repository: ", "Repository della sessione: ") + repository;
             _chooseRepository.IsEnabled = activeId != null;
             _clearRepository.IsEnabled = activeId != null && !string.IsNullOrWhiteSpace(repository);
 
@@ -151,13 +152,13 @@ namespace PaRuX.Views
             foreach (ProjectDto project in projects)
             {
                 var row = ActionRow(project.Goal + " · " + project.TaskIds.Count + " task(s) · updated " + project.UpdatedUtc.ToLocalTime().ToString("g"));
-                var select = new Button { Content = project.Id == activeId ? "Active" : "Select" };
+                var select = new Button { Content = project.Id == activeId ? T("Active", "Attivo") : T("Select", "Seleziona") };
                 select.IsEnabled = project.Id != activeId;
                 select.Click += (_, _) => ProjectWorkspaceSession.Current.Select(project.Id, project.Goal);
                 Grid.SetColumn(select, 1); row.Children.Add(select);
                 _projects.Children.Add(row);
             }
-            if (projects.Count == 0) _projects.Children.Add(new TextBlock { Text = "No durable Projects yet." });
+            if (projects.Count == 0) _projects.Children.Add(new TextBlock { Text = T("No durable Projects yet.", "Nessun progetto duraturo per ora.") });
         }
 
         private async Task CreateProjectAsync()
@@ -165,7 +166,7 @@ namespace PaRuX.Views
             string goal = (_goal.Text ?? string.Empty).Trim();
             if (goal.Length == 0)
             {
-                _status.Text = "Write a goal for the new Project first.";
+                _status.Text = T("Write a goal for the new Project first.", "Scrivi prima un obiettivo per il nuovo progetto.");
                 return;
             }
             try
@@ -176,13 +177,13 @@ namespace PaRuX.Views
                 ProjectWorkspaceSession.Current.Select(created.Id, created.Goal);
                 SetNewProjectRepository(null);
                 if (repositoryRoot != null) ProjectWorkspaceSession.Current.SetRepositoryRoot(repositoryRoot);
-                _status.Text = "Created and selected Project \"" + (created.Goal.Length > 60 ? created.Goal[..60] + "..." : created.Goal)
-                    + "\". PaRuX planned its tasks; they are listed as queued in Settings > Agents"
+                _status.Text = T("Created and selected Project \"", "Progetto creato e selezionato: \"") + (created.Goal.Length > 60 ? created.Goal[..60] + "..." : created.Goal)
+                    + T("\". PaRuX planned its tasks; they are listed as queued in Settings > Agents", "\". PaRuX ha pianificato le sue attività; sono elencate in coda in Impostazioni > Agenti")
                     + (repositoryRoot == null
-                        ? ". Choose its repository if the generated DAG contains coding/binary work or repository-aware specialist tasks."
-                        : ". Its repository authority was saved before the generated tasks were scheduled.");
+                        ? T(". Choose its repository if the generated DAG contains coding/binary work or repository-aware specialist tasks.", ". Scegli il suo repository se il DAG generato contiene lavoro di programmazione/binario o attività di specialisti consapevoli del repository.")
+                        : T(". Its repository authority was saved before the generated tasks were scheduled.", ". L'autorità sul suo repository è stata salvata prima che le attività generate venissero pianificate."));
             }
-            catch (Exception ex) { _status.Text = "Project creation failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Project creation failed: ", "Creazione del progetto non riuscita: ") + ex.Message; }
         }
 
         private async Task ChooseNewProjectRepositoryAsync()
@@ -200,7 +201,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _status.Text = "Couldn't select the new Project repository: " + ex.Message;
+                _status.Text = T("Couldn't select the new Project repository: ", "Impossibile selezionare il repository del nuovo progetto: ") + ex.Message;
             }
         }
 
@@ -208,8 +209,8 @@ namespace PaRuX.Views
         {
             _newProjectRepositoryRoot = repositoryRoot;
             _newProjectRepository.Text = string.IsNullOrWhiteSpace(repositoryRoot)
-                ? "New Project repository: none. Choose a Git working tree before creation to authorize repository tasks before they can run."
-                : "New Project repository: " + repositoryRoot;
+                ? T("New Project repository: none. Choose a Git working tree before creation to authorize repository tasks before they can run.", "Repository del nuovo progetto: nessuno. Scegli un working tree Git prima della creazione per autorizzare le attività sul repository prima che possano partire.")
+                : T("New Project repository: ", "Repository del nuovo progetto: ") + repositoryRoot;
             _clearNewProjectRepository.IsEnabled = !string.IsNullOrWhiteSpace(repositoryRoot);
         }
 
@@ -218,7 +219,7 @@ namespace PaRuX.Views
             string? projectId = ProjectWorkspaceSession.Current.ProjectId;
             if (string.IsNullOrWhiteSpace(projectId))
             {
-                _status.Text = "Select a Project first.";
+                _status.Text = T("Select a Project first.", "Seleziona prima un progetto.");
                 return;
             }
 
@@ -238,7 +239,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Project repository assignment failed: " + ex.Message);
-                _status.Text = "Couldn't assign the Project repository: " + ex.Message;
+                _status.Text = T("Couldn't assign the Project repository: ", "Impossibile assegnare il repository del progetto: ") + ex.Message;
             }
         }
 
@@ -293,10 +294,10 @@ namespace PaRuX.Views
             }
 
             await AgentOrchestratorClient.Current.ScheduleAsync(CancellationToken.None);
-            _status.Text = "Project repository applied: " + assigned + " task(s) newly authorized, "
-                + already + " already matched"
-                + (conflicts > 0 ? ", " + conflicts + " kept their existing immutable task authority" : string.Empty)
-                + ". Coding receives isolated write authority; specialist repository tools remain read-only.";
+            _status.Text = T("Project repository applied: ", "Repository del progetto applicato: ") + assigned + T(" task(s) newly authorized, ", " attività autorizzate di nuovo, ")
+                + already + T(" already matched", " già corrispondenti")
+                + (conflicts > 0 ? ", " + conflicts + T(" kept their existing immutable task authority", " hanno mantenuto la loro autorità immutabile esistente") : string.Empty)
+                + T(". Coding receives isolated write authority; specialist repository tools remain read-only.", ". La programmazione riceve un'autorità di scrittura isolata; gli strumenti dello specialista sul repository restano in sola lettura.");
         }
 
         private async Task RefreshArtifactsAsync(CancellationToken ct)
@@ -312,12 +313,12 @@ namespace PaRuX.Views
             foreach (ArtifactDto artifact in scoped)
                 _projectArtifacts.Children.Add(BuildArtifactRow(artifact, linked: true));
             if (scoped.Count == 0)
-                _projectArtifacts.Children.Add(new TextBlock { Text = projectId == null ? "Select a Project to see scoped artifacts." : "No artifact is linked to this Project yet." });
+                _projectArtifacts.Children.Add(new TextBlock { Text = projectId == null ? T("Select a Project to see scoped artifacts.", "Seleziona un progetto per vedere gli artefatti associati.") : T("No artifact is linked to this Project yet.", "Nessun artefatto è ancora collegato a questo progetto.") });
 
             _allArtifacts.Children.Clear();
             foreach (ArtifactDto artifact in all.Artifacts.OrderByDescending(a => a.UpdatedUtc))
                 _allArtifacts.Children.Add(BuildArtifactRow(artifact, scopedIds.Contains(artifact.Id)));
-            if (all.Artifacts.Count == 0) _allArtifacts.Children.Add(new TextBlock { Text = "Artifact Workspace is empty." });
+            if (all.Artifacts.Count == 0) _allArtifacts.Children.Add(new TextBlock { Text = T("Artifact Workspace is empty.", "L'area di lavoro degli artefatti è vuota.") });
         }
 
         private UIElement BuildArtifactRow(ArtifactDto artifact, bool linked)
@@ -341,7 +342,7 @@ namespace PaRuX.Views
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             if (string.Equals(artifact.ArtifactType, "image", StringComparison.OrdinalIgnoreCase))
             {
-                var reuse = new Button { Content = "Reuse as edit source" };
+                var reuse = new Button { Content = T("Reuse as edit source", "Riusa come origine di modifica") };
                 reuse.Click += async (_, _) =>
                 {
                     try
@@ -351,20 +352,20 @@ namespace PaRuX.Views
                         if (latest != null && File.Exists(latest.ContentRef))
                         {
                             MediaEditSourceBridge.Current.SetEditSource(latest.ContentRef, artifact.Title);
-                            _status.Text = "Selected '" + artifact.Title + "' as edit source for Create Workspace.";
+                            _status.Text = T("Selected '", "Selezionato '") + artifact.Title + T("' as edit source for Create Workspace.", "' come origine di modifica per l'area Crea.");
                         }
                     }
-                    catch (Exception ex) { _status.Text = "Reuse as edit source failed: " + ex.Message; }
+                    catch (Exception ex) { _status.Text = T("Reuse as edit source failed: ", "Riuso come origine di modifica non riuscito: ") + ex.Message; }
                 };
                 actions.Children.Add(reuse);
             }
             if (!linked && !string.IsNullOrWhiteSpace(ProjectWorkspaceSession.Current.ProjectId))
             {
-                var link = new Button { Content = "Link to active Project" };
+                var link = new Button { Content = T("Link to active Project", "Collega al progetto attivo") };
                 link.Click += async (_, _) => await LinkArtifactAsync(artifact);
                 actions.Children.Add(link);
             }
-            var status = new Button { Content = artifact.Status == "final" ? "Set draft" : "Set final" };
+            var status = new Button { Content = artifact.Status == "final" ? T("Set draft", "Imposta come bozza") : T("Set final", "Imposta come finale") };
             status.Click += async (_, _) =>
             {
                 try
@@ -372,7 +373,7 @@ namespace PaRuX.Views
                     await ArtifactWorkspaceClient.Current.SetStatusAsync(artifact.Id, artifact.Status == "final" ? "draft" : "final", CancellationToken.None);
                     await RefreshArtifactsAsync(CancellationToken.None);
                 }
-                catch (Exception ex) { _status.Text = "Artifact status update failed: " + ex.Message; }
+                catch (Exception ex) { _status.Text = T("Artifact status update failed: ", "Aggiornamento dello stato dell'artefatto non riuscito: ") + ex.Message; }
             };
             actions.Children.Add(status);
             Grid.SetColumn(actions, 1); row.Children.Add(actions);
@@ -386,10 +387,10 @@ namespace PaRuX.Views
             try
             {
                 await ProjectArtifactBridge.Current.LinkAsync(projectId, artifact, CancellationToken.None);
-                _status.Text = "Linked artifact " + artifact.Title + " to the active Project through Context Graph.";
+                _status.Text = T("Linked artifact ", "Artefatto collegato: ") + artifact.Title + T(" to the active Project through Context Graph.", " al progetto attivo tramite il Context Graph.");
                 await RefreshArtifactsAsync(CancellationToken.None);
             }
-            catch (Exception ex) { _status.Text = "Artifact link failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Artifact link failed: ", "Collegamento dell'artefatto non riuscito: ") + ex.Message; }
         }
 
         private async Task ShowVersionsAsync(ArtifactDto artifact)
@@ -404,24 +405,24 @@ namespace PaRuX.Views
                     var row = ActionRow("v" + version.VersionNumber + " · " + version.CreatedUtc.ToLocalTime().ToString("g") + " · " + version.ContentRef + (string.IsNullOrWhiteSpace(version.Comment) ? string.Empty : " · " + version.Comment));
                     if (version.VersionNumber != artifact.CurrentVersionNumber)
                     {
-                        var restore = new Button { Content = "Restore as new version" };
+                        var restore = new Button { Content = T("Restore as new version", "Ripristina come nuova versione") };
                         restore.Click += async (_, _) =>
                         {
                             try
                             {
                                 await ArtifactWorkspaceClient.Current.RestoreAsync(artifact.Id, version.VersionNumber, CancellationToken.None);
-                                _status.Text = "Restored v" + version.VersionNumber + " as a new head version; history was preserved.";
+                                _status.Text = T("Restored v", "Ripristinata la v") + version.VersionNumber + T(" as a new head version; history was preserved.", " come nuova versione di testa; la cronologia è stata conservata.");
                                 await RefreshArtifactsAsync(CancellationToken.None);
                                 await ShowVersionsAsync(await ArtifactWorkspaceClient.Current.GetAsync(artifact.Id, CancellationToken.None));
                             }
-                            catch (Exception ex) { _status.Text = "Artifact restore failed: " + ex.Message; }
+                            catch (Exception ex) { _status.Text = T("Artifact restore failed: ", "Ripristino dell'artefatto non riuscito: ") + ex.Message; }
                         };
                         Grid.SetColumn(restore, 1); row.Children.Add(restore);
                     }
                     _versions.Children.Add(row);
                 }
             }
-            catch (Exception ex) { _status.Text = "Version history failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Version history failed: ", "Cronologia delle versioni non riuscita: ") + ex.Message; }
         }
 
         private static Grid ActionRow(string text)

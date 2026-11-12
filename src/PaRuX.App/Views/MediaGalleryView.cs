@@ -30,23 +30,23 @@ namespace PaRuX.Views
 
         private readonly TextBox _searchBox = new()
         {
-            PlaceholderText = "Search outputs by prompt, model, title, or file name…",
+            PlaceholderText = T("Search outputs by prompt, model, title, or file name…", "Cerca output per prompt, modello, titolo o nome file…"),
             MinWidth = 280
         };
         private readonly ComboBox _filterCombo = new();
         private readonly ComboBox _sortCombo = new();
-        private readonly Button _refreshButton = new() { Content = "Refresh" };
+        private readonly Button _refreshButton = new() { Content = T("Refresh", "Aggiorna") };
         private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
         private readonly TextBlock _emptyState = new()
         {
-            Text = "No media outputs found in Artifact Workspace or generated folders.",
+            Text = T("No media outputs found in Artifact Workspace or generated folders.", "Nessun output multimediale trovato nell'area di lavoro degli artefatti o nelle cartelle generate."),
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.75,
             Margin = new Thickness(8, 12, 8, 12)
         };
         private readonly StackPanel _cardsPanel = new() { Spacing = 12 };
-        private readonly Button _previousPage = new() { Content = "Previous", MinHeight = 40 };
-        private readonly Button _nextPage = new() { Content = "Next", MinHeight = 40 };
+        private readonly Button _previousPage = new() { Content = T("Previous", "Precedente"), MinHeight = 40 };
+        private readonly Button _nextPage = new() { Content = T("Next", "Successivo"), MinHeight = 40 };
         private readonly TextBlock _pageStatus = new() { VerticalAlignment = VerticalAlignment.Center };
         private int _pageIndex;
         private readonly MediaGalleryDeleteCoordinator _deleteCoordinator = new();
@@ -860,7 +860,7 @@ namespace PaRuX.Views
 
             // Full metadata remains inspectable while preview is missing,
             // generating, empty, interrupted or has an unsupported codec.
-            details.Children.Add(new TextBlock { Text = "Prompt", FontWeight = FontWeights.SemiBold });
+            details.Children.Add(new TextBlock { Text = T("Prompt", "Prompt"), FontWeight = FontWeights.SemiBold });
             var prompt = new TextBox
             {
                 Text = item.Prompt ?? string.Empty,

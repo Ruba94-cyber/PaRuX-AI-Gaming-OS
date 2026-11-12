@@ -36,7 +36,7 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshDesktopIntegrationsAsync failed: " + ex.Message);
                 if (DesktopIntegrationsStatusText != null)
-                    DesktopIntegrationsStatusText.Text = "Couldn't read integration status: " + ex.Message;
+                    DesktopIntegrationsStatusText.Text = T("Couldn't read integration status: ", "Impossibile leggere lo stato delle integrazioni: ") + ex.Message;
             }
         }
 
@@ -51,9 +51,9 @@ namespace PaRuX.Views
             {
                 DesktopIntegrationsStatusText.Text = connected == 0
                     ? (detected == 0
-                        ? "Nothing connected. Choose a folder below to connect an app."
-                        : detected + " app" + (detected == 1 ? "" : "s") + " found on this PC and not connected.")
-                    : connected + " connected" + (detected > 0 ? ", " + detected + " more found on this PC." : ".");
+                        ? T("Nothing connected. Choose a folder below to connect an app.", "Nulla è collegato. Scegli una cartella qui sotto per collegare un'app.")
+                        : detected + T(" app", " app") + (detected == 1 ? "" : "s") + T(" found on this PC and not connected.", " trovata su questo PC e non collegata."))
+                    : connected + T(" connected", " collegata") + (detected > 0 ? ", " + detected + T(" more found on this PC.", " altre trovate su questo PC.") : ".");
             }
 
             // Connected first, then what was found, then the rest: the list should open on what the
@@ -81,7 +81,7 @@ namespace PaRuX.Views
             });
             heading.Children.Add(new TextBlock
             {
-                Text = status.Connected ? "Connected" : status.Detected ? "Found on this PC" : status.Kind,
+                Text = status.Connected ? T("Connected", "Collegata") : status.Detected ? T("Found on this PC", "Trovata su questo PC") : status.Kind,
                 Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"],
                 VerticalAlignment = VerticalAlignment.Center
             });
@@ -99,9 +99,9 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Reading: " + status.ConnectedPath
+                    Text = T("Reading: ", "Lettura: ") + status.ConnectedPath
                         + (status.LastReadUtc.HasValue
-                            ? "  ·  " + status.LastItemCount + " items at "
+                            ? "  ·  " + status.LastItemCount + T(" items at ", " elementi in ")
                               + status.LastReadUtc.Value.ToLocalTime().ToString("g")
                             : string.Empty),
                     TextWrapping = TextWrapping.Wrap,
@@ -112,7 +112,7 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Found at: " + status.DetectedPath,
+                    Text = T("Found at: ", "Trovata in: ") + status.DetectedPath,
                     TextWrapping = TextWrapping.Wrap,
                     Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"]
                 });
@@ -122,7 +122,7 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "Last read failed: " + status.LastError,
+                    Text = T("Last read failed: ", "Ultima lettura non riuscita: ") + status.LastError,
                     TextWrapping = TextWrapping.Wrap,
                     Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"]
                 });
@@ -138,11 +138,11 @@ namespace PaRuX.Views
 
             if (status.Connected)
             {
-                var preview = new Button { Content = "Show me what it reads" };
+                var preview = new Button { Content = T("Show me what it reads", "Mostrami cosa legge") };
                 preview.Click += async (_, _) => await PreviewDesktopIntegrationAsync(id, status.DisplayName);
                 buttons.Children.Add(preview);
 
-                var disconnect = new Button { Content = "Disconnect" };
+                var disconnect = new Button { Content = T("Disconnect", "Disconnetti") };
                 disconnect.Click += async (_, _) => await DisconnectDesktopIntegrationAsync(id);
                 buttons.Children.Add(disconnect);
             }
@@ -152,14 +152,14 @@ namespace PaRuX.Views
                 {
                     var connect = new Button
                     {
-                        Content = "Connect",
+                        Content = T("Connect", "Collega"),
                         Style = (Style)Application.Current.Resources["AccentButtonStyle"]
                     };
                     connect.Click += async (_, _) => await ConnectDesktopIntegrationAsync(id, null);
                     buttons.Children.Add(connect);
                 }
 
-                var choose = new Button { Content = status.Detected ? "Choose another folder…" : "Choose folder…" };
+                var choose = new Button { Content = status.Detected ? T("Choose another folder…", "Scegli un'altra cartella…") : T("Choose folder…", "Scegli la cartella…") };
                 choose.Click += async (_, _) => await ChooseDesktopIntegrationPathAsync(id, status.Kind);
                 buttons.Children.Add(choose);
             }
@@ -260,7 +260,7 @@ namespace PaRuX.Views
                 {
                     body.Children.Add(new TextBlock
                     {
-                        Text = "PaRuX found nothing to read there yet.",
+                        Text = T("PaRuX found nothing to read there yet.", "PaRuX non ha ancora trovato nulla da leggere lì."),
                         TextWrapping = TextWrapping.Wrap
                     });
                 }
@@ -296,8 +296,8 @@ namespace PaRuX.Views
                 var dialog = new ContentDialog
                 {
                     XamlRoot = XamlRoot,
-                    Title = "What PaRuX reads from " + displayName,
-                    CloseButtonText = "Close",
+                    Title = T("What PaRuX reads from ", "Cosa legge PaRuX da ") + displayName,
+                    CloseButtonText = T("Close", "Chiudi"),
                     Content = new ScrollViewer { Content = body, MaxHeight = 460 }
                 };
                 await dialog.ShowAsync();
@@ -325,7 +325,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("RefreshDocumentOutputAsync failed: " + ex.Message);
-                DocumentOutputText.Text = "Couldn't read the output folder: " + ex.Message;
+                DocumentOutputText.Text = T("Couldn't read the output folder: ", "Impossibile leggere la cartella di output: ") + ex.Message;
             }
         }
 
@@ -333,8 +333,8 @@ namespace PaRuX.Views
         {
             if (DocumentOutputText == null) return;
             DocumentOutputText.Text = status.IsDefault
-                ? "Saving to PaRuX's own folder: " + status.Folder
-                : "Saving to " + status.Folder;
+                ? T("Saving to PaRuX's own folder: ", "Salvataggio nella cartella di PaRuX: ") + status.Folder
+                : T("Saving to ", "Salvataggio in ") + status.Folder;
             if (ResetDocumentOutputButton != null) ResetDocumentOutputButton.IsEnabled = !status.IsDefault;
         }
 

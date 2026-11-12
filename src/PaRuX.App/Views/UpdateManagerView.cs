@@ -26,6 +26,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class UpdateManagerView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcher;
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly ProgressBar _busy = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
@@ -60,14 +61,14 @@ namespace PaRuX.Views
             var titleRow = new Grid { ColumnSpacing = 8 };
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            titleRow.Children.Add(new TextBlock { Text = "Update Manager", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            var refresh = new Button { Content = "Check again" };
+            titleRow.Children.Add(new TextBlock { Text = T("Update Manager", "Update Manager"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            var refresh = new Button { Content = T("Check again", "Controlla di nuovo") };
             refresh.Click += async (_, _) => await RefreshAsync();
             Grid.SetColumn(refresh, 1); titleRow.Children.Add(refresh);
             body.Children.Add(titleRow);
             body.Children.Add(new TextBlock
             {
-                Text = "Review application and runtime updates. PaRuX never modifies user-managed software or replaces models without approval.",
+                Text = T("Review application and runtime updates. PaRuX never modifies user-managed software or replaces models without approval.", "Controlla gli aggiornamenti di applicazione e runtime. PaRuX non modifica mai il software gestito dall'utente né sostituisce i modelli senza approvazione."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
@@ -87,9 +88,9 @@ namespace PaRuX.Views
                 await RefreshAppAsync();
                 await RefreshComponentsAsync();
                 await RefreshModelsAsync();
-                _status.Text = "Update state refreshed. No update is applied without an explicit action.";
+                _status.Text = T("Update state refreshed. No update is applied without an explicit action.", "Stato degli aggiornamenti aggiornato. Nessun aggiornamento viene applicato senza un'azione esplicita.");
             }
-            catch (Exception ex) { _status.Text = "Update state refresh failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Update state refresh failed: ", "Aggiornamento dello stato degli aggiornamenti non riuscito: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -99,8 +100,8 @@ namespace PaRuX.Views
             _app.Children.Clear();
             _app.Children.Add(new TextBlock
             {
-                Text = "Installed: " + release.CurrentVersion
-                    + (string.IsNullOrWhiteSpace(release.LatestVersion) ? string.Empty : " · Published: " + release.LatestVersion),
+                Text = T("Installed: ", "Installata: ") + release.CurrentVersion
+                    + (string.IsNullOrWhiteSpace(release.LatestVersion) ? string.Empty : T(" · Published: ", " · Pubblicata: ") + release.LatestVersion),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -113,18 +114,18 @@ namespace PaRuX.Views
                 Opacity = release.SecureInstallerReady ? 0.9 : 0.68
             });
             if (release.PublishedUtc.HasValue)
-                _app.Children.Add(new TextBlock { Text = "Published " + release.PublishedUtc.Value.ToLocalTime().ToString("g"), FontSize = 12, Opacity = 0.68 });
+                _app.Children.Add(new TextBlock { Text = T("Published ", "Pubblicata ") + release.PublishedUtc.Value.ToLocalTime().ToString("g"), FontSize = 12, Opacity = 0.68 });
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             if (release.UpdateAvailable && release.SecureInstallerReady)
             {
-                var install = new Button { Content = "Download & install verified MSI" };
+                var install = new Button { Content = T("Download & install verified MSI", "Scarica e installa l'MSI verificato") };
                 install.Click += async (_, _) => await InstallAppUpdateAsync(release);
                 actions.Children.Add(install);
             }
             if (release.UpdateAvailable && Uri.TryCreate(release.ReleaseUrl, UriKind.Absolute, out Uri? releaseUri))
             {
-                var open = new Button { Content = "Review GitHub Release" };
+                var open = new Button { Content = T("Review GitHub Release", "Vedi la GitHub Release") };
                 open.Click += async (_, _) => await Launcher.LaunchUriAsync(releaseUri);
                 actions.Children.Add(open);
             }
@@ -135,7 +136,7 @@ namespace PaRuX.Views
 
             _app.Children.Add(new TextBlock
             {
-                Text = "Security boundary: a trusted in-app upgrade requires the detached PaRuX release signature, an exact GitHub version/asset match and MSI SHA-256 verification. After UAC, the installed Update Helper independently re-verifies that same signed envelope, copies the MSI into Program Files protected staging, verifies the protected copy again, waits for PaRuX to exit, and only then starts Windows Installer. Project/model/runtime state lives outside Program Files and is not part of the MSI replacement.",
+                Text = T("Security boundary: a trusted in-app upgrade requires the detached PaRuX release signature, an exact GitHub version/asset match and MSI SHA-256 verification. After UAC, the installed Update Helper independently re-verifies that same signed envelope, copies the MSI into Program Files protected staging, verifies the protected copy again, waits for PaRuX to exit, and only then starts Windows Installer. Project/model/runtime state lives outside Program Files and is not part of the MSI replacement.", "Confine di sicurezza: un aggiornamento attendibile in-app richiede la firma di rilascio PaRuX separata, una corrispondenza esatta di versione/asset su GitHub e la verifica SHA-256 dell'MSI. Dopo l'UAC, l'Update Helper installato riverifica in modo indipendente la stessa busta firmata, copia l'MSI nella staging protetta di Program Files, verifica di nuovo la copia protetta, attende che PaRuX esca e solo allora avvia Windows Installer. I dati di progetti, modelli ed esecuzioni restano fuori dalla cartella di installazione dell'MSI."),
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.68
             });
         }
@@ -145,29 +146,29 @@ namespace PaRuX.Views
             if (!release.SecureInstallerReady || release.SignedManifest == null
                 || string.IsNullOrWhiteSpace(release.SignedEnvelopeJson))
             {
-                _status.Text = "This release is not eligible for secure in-app installation.";
+                _status.Text = T("This release is not eligible for secure in-app installation.", "Questa release non è idonea all'installazione sicura in-app.");
                 return;
             }
 
             var confirmation = new StackPanel { Spacing = 8 };
             confirmation.Children.Add(new TextBlock
             {
-                Text = "PaRuX " + release.SignedManifest.Version + " will be downloaded from the exact signed GitHub Release asset. Its signed envelope and MSI hash are checked before elevation and independently checked again by the installed Update Helper after UAC.",
+                Text = T("PaRuX ", "PaRuX ") + release.SignedManifest.Version + T(" will be downloaded from the exact signed GitHub Release asset. Its signed envelope and MSI hash are checked before elevation and independently checked again by the installed Update Helper after UAC.", " verrà scaricato dall'asset firmato esatto della GitHub Release. La busta firmata e l'hash dell'MSI vengono controllati prima dell'elevazione e controllati di nuovo in modo indipendente dall'Update Helper installato dopo l'UAC."),
                 TextWrapping = TextWrapping.Wrap
             });
             confirmation.Children.Add(new TextBlock
             {
-                Text = "Windows will request administrator approval for PaRuX Update Helper. The helper stages the verified MSI under Program Files, starts Windows Installer only from that protected copy, and waits for this PaRuX process to close before the Major Upgrade begins. Your Projects, models, settings, runtime data and generated files are outside the MSI install directory and are not intentionally removed by this upgrade.",
+                Text = T("Windows will request administrator approval for PaRuX Update Helper. The helper stages the verified MSI under Program Files, starts Windows Installer only from that protected copy, and waits for this PaRuX process to close before the Major Upgrade begins. Your Projects, models, settings, runtime data and generated files are outside the MSI install directory and are not intentionally removed by this upgrade.", "Windows chiederà l'approvazione dell'amministratore per PaRuX Update Helper. L'helper prepara l'MSI verificato in Program Files, avvia Windows Installer solo da quella copia protetta e attende la chiusura di questo processo PaRuX prima dell'aggiornamento maggiore. Progetti, modelli, impostazioni, dati dei runtime e file generati si trovano fuori dalla cartella di installazione dell'MSI e non vengono rimossi intenzionalmente da questo aggiornamento."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.75
             });
 
             var dialog = new ContentDialog
             {
-                Title = "Install verified PaRuX update?",
+                Title = T("Install verified PaRuX update?", "Installare l'aggiornamento verificato di PaRuX?"),
                 Content = confirmation,
-                PrimaryButtonText = "Download, verify & install",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Download, verify & install", "Scarica, verifica e installa"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -206,7 +207,7 @@ namespace PaRuX.Views
                 if (!File.Exists(helperPath))
                     throw new FileNotFoundException("The installed PaRuX Update Helper is missing. Repair/reinstall PaRuX before using in-app upgrades.", helperPath);
 
-                _status.Text = "MSI + signed envelope verified. Requesting protected updater elevation…";
+                _status.Text = T("MSI + signed envelope verified. Requesting protected updater elevation…", "MSI e busta firmata verificati. Richiesta di elevazione protetta dell'updater…");
                 var helperInfo = new ProcessStartInfo
                 {
                     FileName = helperPath,
@@ -234,22 +235,22 @@ namespace PaRuX.Views
                         "PaRuX Update Helper rejected the update before Windows Installer handoff (exit "
                         + bootstrap.ExitCode + "). No MSI was started.");
 
-                _status.Text = "Protected update staging verified. PaRuX is closing so Windows Installer can perform the Major Upgrade.";
+                _status.Text = T("Protected update staging verified. PaRuX is closing so Windows Installer can perform the Major Upgrade.", "Staging protetto dell'aggiornamento verificato. PaRuX si sta chiudendo così Windows Installer può eseguire l'aggiornamento maggiore.");
                 global::PaRuX.App.ExitApplication();
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "Application update download cancelled. Nothing was installed.";
+                _status.Text = T("Application update download cancelled. Nothing was installed.", "Download dell'aggiornamento dell'applicazione annullato. Nulla è stato installato.");
                 SetBusy(false);
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
             {
-                _status.Text = "Administrator approval was cancelled. PaRuX remains unchanged.";
+                _status.Text = T("Administrator approval was cancelled. PaRuX remains unchanged.", "Approvazione dell'amministratore annullata. PaRuX resta invariato.");
                 SetBusy(false);
             }
             catch (Exception ex)
             {
-                _status.Text = "Application update was not installed: " + ex.Message;
+                _status.Text = T("Application update was not installed: ", "Aggiornamento dell'applicazione non installato: ") + ex.Message;
                 SetBusy(false);
             }
         }
@@ -314,9 +315,9 @@ namespace PaRuX.Views
                 });
                 body.Children.Add(new TextBlock
                 {
-                    Text = (component.Detected ? component.Health : component.Skipped ? "skipped" : "not configured")
+                    Text = (component.Detected ? component.Health : component.Skipped ? T("skipped", "saltato") : T("not configured", "non configurato"))
                         + (string.IsNullOrWhiteSpace(component.Version) ? string.Empty : " · " + component.Version)
-                        + " · validation " + component.ValidationStatus,
+                        + T(" · validation ", " · validazione ") + component.ValidationStatus,
                     FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.72
                 });
 
@@ -324,12 +325,12 @@ namespace PaRuX.Views
                 if (component.Ownership == ComponentOwnership.PARUX_MANAGED && backend != null)
                 {
                     var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                    var update = new Button { Content = "Check / update…" };
+                    var update = new Button { Content = T("Check / update…", "Controlla / aggiorna…") };
                     update.Click += async (_, _) => await CheckRuntimeBuildsAsync(component, backend);
                     if (PaRuX.Contracts.StoreEditionPolicy.AllowsExecutableDownloads) actions.Children.Add(update);
                     if (component.Actions.Contains("rollback"))
                     {
-                        var rollback = new Button { Content = "Rollback…" };
+                        var rollback = new Button { Content = T("Rollback…", "Ripristina la versione precedente…") };
                         rollback.Click += async (_, _) => await RollbackAsync(component, backend);
                         actions.Children.Add(rollback);
                     }
@@ -339,7 +340,7 @@ namespace PaRuX.Views
                 {
                     body.Children.Add(new TextBlock
                     {
-                        Text = "Managed by you. PaRuX can use/validate this location but Update Manager will not modify it.",
+                        Text = T("Managed by you. PaRuX can use/validate this location but Update Manager will not modify it.", "Gestito da te. PaRuX può usare/convalidare questa posizione ma Update Manager non la modificherà."),
                         FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.68
                     });
                 }
@@ -347,7 +348,7 @@ namespace PaRuX.Views
                 {
                     body.Children.Add(new TextBlock
                     {
-                        Text = "System-detected dependency. Update it through the operating system or its own package source.",
+                        Text = T("System-detected dependency. Update it through the operating system or its own package source.", "Dipendenza rilevata dal sistema. Aggiornala tramite il sistema operativo o la sua fonte di pacchetti."),
                         FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.68
                     });
                 }
@@ -370,8 +371,8 @@ namespace PaRuX.Views
                     {
                         Content = build.Tag
                             + (string.IsNullOrWhiteSpace(build.Variant) ? string.Empty : " / " + build.Variant)
-                            + (build.Recommended ? " · recommended" : string.Empty)
-                            + (build.InstalledLocally ? " · already installed" : string.Empty),
+                            + (build.Recommended ? T(" · recommended", " · consigliato") : string.Empty)
+                            + (build.InstalledLocally ? T(" · already installed", " · già installato") : string.Empty),
                         Tag = build
                     });
                 }
@@ -379,10 +380,10 @@ namespace PaRuX.Views
                 combo.SelectedIndex = recommended >= 0 ? recommended : 0;
                 var dialog = new ContentDialog
                 {
-                    Title = "Install / update " + component.DisplayName,
+                    Title = T("Install / update ", "Installa / aggiorna ") + component.DisplayName,
                     Content = combo,
-                    PrimaryButtonText = "Install selected build",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Install selected build", "Installa la build selezionata"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
@@ -390,7 +391,7 @@ namespace PaRuX.Views
                 if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not RuntimeBuildOption selected) { SetBusy(false); return; }
                 await InstallRuntimeAsync(component, selected);
             }
-            catch (Exception ex) { _status.Text = "Runtime update failed: " + ex.Message; SetBusy(false); }
+            catch (Exception ex) { _status.Text = T("Runtime update failed: ", "Aggiornamento del runtime non riuscito: ") + ex.Message; SetBusy(false); }
         }
 
         private async Task InstallRuntimeAsync(ComponentStatus component, RuntimeBuildOption build)
@@ -419,7 +420,7 @@ namespace PaRuX.Views
                     });
                 }, ct);
                 if (final.Stage != "completed") throw new InvalidOperationException(final.Error ?? "Update ended as " + final.Stage + ".");
-                _status.Text = component.DisplayName + " updated to " + final.Tag + ".";
+                _status.Text = component.DisplayName + T(" updated to ", " aggiornato a ") + final.Tag + ".";
             }
             finally
             {
@@ -435,27 +436,27 @@ namespace PaRuX.Views
             {
                 List<RuntimeBuildOption> installed = await RuntimeManagerClient.Current.GetInstalledBuildsAsync(backend, CancellationToken.None);
                 List<RuntimeBuildOption> targets = installed.Where(x => !x.IsActive).ToList();
-                if (targets.Count == 0) { _status.Text = "No previous managed build is available for rollback."; return; }
+                if (targets.Count == 0) { _status.Text = T("No previous managed build is available for rollback.", "Nessuna build gestita precedente disponibile per il ripristino."); return; }
                 var combo = new ComboBox { MinWidth = 520 };
                 foreach (RuntimeBuildOption target in targets)
                     combo.Items.Add(new ComboBoxItem { Content = target.Tag + (string.IsNullOrWhiteSpace(target.Variant) ? string.Empty : " / " + target.Variant), Tag = target });
                 combo.SelectedIndex = 0;
                 var dialog = new ContentDialog
                 {
-                    Title = "Rollback " + component.DisplayName,
+                    Title = T("Rollback ", "Ripristino di ") + component.DisplayName,
                     Content = combo,
-                    PrimaryButtonText = "Rollback",
-                    CloseButtonText = "Cancel",
+                    PrimaryButtonText = T("Rollback", "Ripristina"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
                 if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
                 if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not RuntimeBuildOption selected) return;
                 await RuntimeManagerClient.Current.RollbackAsync(backend, selected.Tag, selected.Variant ?? string.Empty, CancellationToken.None);
-                _status.Text = component.DisplayName + " rolled back to " + selected.Tag + ".";
+                _status.Text = component.DisplayName + T(" rolled back to ", " ripristinato a ") + selected.Tag + ".";
                 await RefreshComponentsAsync();
             }
-            catch (Exception ex) { _status.Text = "Rollback failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Rollback failed: ", "Ripristino non riuscito: ") + ex.Message; }
         }
 
         private async Task RefreshModelsAsync()
@@ -464,7 +465,7 @@ namespace PaRuX.Views
             _models.Children.Clear();
             _models.Children.Add(new TextBlock
             {
-                Text = models.Count + " installed model file(s). Select a model below to inspect its quantization and source.",
+                Text = models.Count + T(" installed model file(s). Select a model below to inspect its quantization and source.", " file di modello installati. Seleziona un modello qui sotto per vedere quantizzazione e origine."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.75
             });
@@ -472,9 +473,9 @@ namespace PaRuX.Views
             {
                 var detail = new TextBlock
                 {
-                    Text = "File: " + model.FileName + "\n"
-                        + "Quantization: " + (string.IsNullOrWhiteSpace(model.Quantization) ? "unknown" : model.Quantization) + "\n"
-                        + "Source: " + (string.IsNullOrWhiteSpace(model.RepoId) ? "unknown" : model.RepoId),
+                    Text = T("File: ", "File: ") + model.FileName + "\n"
+                        + T("Quantization: ", "Quantizzazione: ") + (string.IsNullOrWhiteSpace(model.Quantization) ? T("unknown", "sconosciuto") : model.Quantization) + "\n"
+                        + T("Source: ", "Origine: ") + (string.IsNullOrWhiteSpace(model.RepoId) ? T("unknown", "sconosciuto") : model.RepoId),
                     TextWrapping = TextWrapping.Wrap,
                     FontSize = 12,
                     Opacity = 0.76
@@ -489,7 +490,7 @@ namespace PaRuX.Views
             if (models.Count > 30)
                 _models.Children.Add(new TextBlock
                 {
-                    Text = "Showing the first 30 files. Open Model Hub to browse all installed models.",
+                    Text = T("Showing the first 30 files. Open Model Hub to browse all installed models.", "Mostrati i primi 30 file. Apri il Model Hub per sfogliare tutti i modelli installati."),
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.72
                 });
         }

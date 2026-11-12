@@ -16,7 +16,7 @@ namespace PaRuX.Views
             var progress = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
             AutomationProperties.SetAutomationId(progress, "Chat_Media_Progress");
 
-            var cancel = new Button { Content = "Cancel", Padding = new Thickness(12, 4, 12, 4), HorizontalAlignment = HorizontalAlignment.Left };
+            var cancel = new Button { Content = T("Cancel", "Annulla"), Padding = new Thickness(12, 4, 12, 4), HorizontalAlignment = HorizontalAlignment.Left };
             AutomationProperties.SetAutomationId(cancel, "Chat_Media_Cancel_Button");
             cancel.Click += (s, e) =>
             {

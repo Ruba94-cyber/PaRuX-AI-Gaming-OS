@@ -15,6 +15,7 @@ namespace PaRuX.Views
 {
     public sealed partial class RuntimeManagerView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly DispatcherQueue _dispatcher;
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly ProgressBar _progress = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
@@ -58,25 +59,25 @@ namespace PaRuX.Views
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             scroll.Content = body;
-            body.Children.Add(new TextBlock { Text = "Runtime Manager", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            body.Children.Add(new TextBlock { Text = T("Runtime Manager", "Runtime Manager"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             AutomationProperties.SetAutomationId(_status, "RuntimeManager_Status_Text");
             AutomationProperties.SetAutomationId(_progress, "RuntimeManager_Progress_Bar");
             AutomationProperties.SetAutomationId(_performanceMode, "RuntimeManager_PerformanceMode_ComboBox");
-            AutomationProperties.SetName(_performanceMode, "Performance mode");
+            AutomationProperties.SetName(_performanceMode, T("Performance mode", "Modalità prestazioni"));
             AutomationProperties.SetAutomationId(_workload, "RuntimeManager_Workload_ComboBox");
-            AutomationProperties.SetName(_workload, "Workload");
+            AutomationProperties.SetName(_workload, T("Workload", "Carico di lavoro"));
             body.Children.Add(new TextBlock
             {
-                Text = "Manage local runtimes and optimize inference for this PC. User-managed tools are never changed automatically.",
+                Text = T("Manage local runtimes and optimize inference for this PC. User-managed tools are never changed automatically.", "Gestisci i runtime locali e ottimizza l'inferenza per questo PC. Gli strumenti gestiti dall'utente non vengono mai modificati automaticamente."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var refresh = new Button { Content = "Refresh" };
+            var refresh = new Button { Content = T("Refresh", "Aggiorna") };
             AutomationProperties.SetAutomationId(refresh, "RuntimeManager_Refresh_Button");
             refresh.Click += async (_, _) => await RefreshAsync();
             row.Children.Add(refresh);
-            var cancel = new Button { Content = "Cancel active install" };
+            var cancel = new Button { Content = T("Cancel active install", "Annulla l'installazione in corso") };
             AutomationProperties.SetAutomationId(cancel, "RuntimeManager_CancelInstall_Button");
             cancel.Click += async (_, _) => await CancelActiveInstallAsync();
             row.Children.Add(cancel);
@@ -87,7 +88,7 @@ namespace PaRuX.Views
             body.Children.Add(BuildPerformanceCard());
             var contextOptions = new Expander
             {
-                Header = "Advanced context and memory tuning",
+                Header = T("Advanced context and memory tuning", "Regolazione avanzata di contesto e memoria"),
                 Content = BuildContextCard(),
                 IsExpanded = false
             };
@@ -95,7 +96,7 @@ namespace PaRuX.Views
             body.Children.Add(contextOptions);
             body.Children.Add(new TextBlock
             {
-                Text = "Runtime components",
+                Text = T("Runtime components", "Componenti del runtime"),
                 FontSize = 20,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(0, 8, 0, 0)
@@ -111,51 +112,51 @@ namespace PaRuX.Views
             card.Child = body;
             body.Children.Add(new TextBlock
             {
-                Text = "Inference Performance Engine",
+                Text = T("Inference Performance Engine", "Motore di prestazioni dell'inferenza"),
                 FontSize = 20,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Compare measured speed and responsiveness, then apply an optimized local profile. PaRuX validates managed runtime updates before activating them.",
+                Text = T("Compare measured speed and responsiveness, then apply an optimized local profile. PaRuX validates managed runtime updates before activating them.", "Confronta velocità e reattività misurate, poi applica un profilo locale ottimizzato. PaRuX convalida gli aggiornamenti dei runtime gestiti prima di attivarli."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.76
             });
 
-            _performanceMode.Items.Add(new ComboBoxItem { Content = "Balanced", Tag = "balanced" });
-            _performanceMode.Items.Add(new ComboBoxItem { Content = "Turbo", Tag = "turbo" });
-            _performanceMode.Items.Add(new ComboBoxItem { Content = "Eco", Tag = "eco" });
+            _performanceMode.Items.Add(new ComboBoxItem { Content = T("Balanced", "Bilanciato"), Tag = "balanced" });
+            _performanceMode.Items.Add(new ComboBoxItem { Content = T("Turbo", "Turbo"), Tag = "turbo" });
+            _performanceMode.Items.Add(new ComboBoxItem { Content = T("Eco", "Eco"), Tag = "eco" });
             _performanceMode.SelectedIndex = 0;
-            _workload.Items.Add(new ComboBoxItem { Content = "Chat", Tag = "chat" });
-            _workload.Items.Add(new ComboBoxItem { Content = "Coding", Tag = "coding" });
-            _workload.Items.Add(new ComboBoxItem { Content = "Long context / RAG", Tag = "long-context" });
+            _workload.Items.Add(new ComboBoxItem { Content = T("Chat", "Chat"), Tag = "chat" });
+            _workload.Items.Add(new ComboBoxItem { Content = T("Coding", "Programmazione"), Tag = "coding" });
+            _workload.Items.Add(new ComboBoxItem { Content = T("Long context / RAG", "Contesto lungo / RAG"), Tag = "long-context" });
             _workload.SelectedIndex = 0;
 
             var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            controls.Children.Add(new TextBlock { Text = "Mode", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7 });
+            controls.Children.Add(new TextBlock { Text = T("Mode", "Modalità"), VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7 });
             controls.Children.Add(_performanceMode);
-            var applyMode = new Button { Content = "Apply mode" };
+            var applyMode = new Button { Content = T("Apply mode", "Applica la modalità") };
             AutomationProperties.SetAutomationId(applyMode, "RuntimeManager_ApplyMode_Button");
             applyMode.Click += async (_, _) => await ApplyPerformanceModeAsync();
             controls.Children.Add(applyMode);
-            controls.Children.Add(new TextBlock { Text = "Workload", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), Opacity = 0.7 });
+            controls.Children.Add(new TextBlock { Text = T("Workload", "Carico di lavoro"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), Opacity = 0.7 });
             controls.Children.Add(_workload);
             body.Children.Add(controls);
 
             var modelActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var choose = new Button { Content = "Choose GGUF…" };
+            var choose = new Button { Content = T("Choose GGUF…", "Scegli GGUF…") };
             AutomationProperties.SetAutomationId(choose, "RuntimeManager_ChooseModel_Button");
             choose.Click += async (_, _) => await ChoosePerformanceModelAsync();
             modelActions.Children.Add(choose);
-            var optimize = new Button { Content = "Optimize for this PC" };
+            var optimize = new Button { Content = T("Optimize for this PC", "Ottimizza per questo PC") };
             AutomationProperties.SetAutomationId(optimize, "RuntimeManager_Optimize_Button");
             optimize.Click += async (_, _) => await OptimizeAsync();
             modelActions.Children.Add(optimize);
-            var race = new Button { Content = "Race installed runtimes…" };
+            var race = new Button { Content = T("Race installed runtimes…", "Gara tra i runtime installati…") };
             AutomationProperties.SetAutomationId(race, "RuntimeManager_Race_Button");
             race.Click += async (_, _) => await RaceRuntimesAsync();
             modelActions.Children.Add(race);
-            var cancel = new Button { Content = "Cancel performance test" };
+            var cancel = new Button { Content = T("Cancel performance test", "Annulla il test di prestazioni") };
             AutomationProperties.SetAutomationId(cancel, "RuntimeManager_CancelPerformance_Button");
             cancel.Click += async (_, _) => await CancelPerformanceAsync();
             modelActions.Children.Add(cancel);
@@ -164,7 +165,7 @@ namespace PaRuX.Views
             body.Children.Add(_performanceSummary);
             body.Children.Add(new TextBlock
             {
-                Text = "PaRuX Optimization Advisor",
+                Text = T("PaRuX Optimization Advisor", "Consulente di ottimizzazione di PaRuX"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(0, 6, 0, 0)
             });
@@ -205,9 +206,9 @@ namespace PaRuX.Views
                 // so a list built once at open would offer settings that no longer fit.
                 await RefreshContextOptionsAsync(CancellationToken.None);
                 int ready = components.Count(c => c.Detected);
-                _status.Text = ready + " / " + components.Count + " component(s) detected or configured.";
+                _status.Text = ready + " / " + components.Count + T(" component(s) detected or configured.", " componenti rilevati o configurati.");
             }
-            catch (Exception ex) { _status.Text = "Runtime discovery failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Runtime discovery failed: ", "Rilevamento dei runtime non riuscito: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
@@ -222,8 +223,8 @@ namespace PaRuX.Views
             if (_selectedModelPath == null)
                 _selectedModelPath = performance.Profiles.FirstOrDefault()?.ModelPath;
             _selectedModelText.Text = _selectedModelPath == null
-                ? "Model: none selected. Choose an installed/configured GGUF before optimizing."
-                : "Model: " + _selectedModelPath;
+                ? T("Model: none selected. Choose an installed/configured GGUF before optimizing.", "Modello: nessuno selezionato. Scegli un GGUF installato/configurato prima di ottimizzare.")
+                : T("Model: ", "Modello: ") + _selectedModelPath;
 
 
             string gpu = performance.Gpus.Count == 0
@@ -253,7 +254,7 @@ namespace PaRuX.Views
                     + latestRegression.CandidateTag + " · active " + latestRegression.ActiveTag
                     + (latestRegression.ImprovementPercent.HasValue
                         ? " · " + latestRegression.ImprovementPercent.Value.ToString("+0.0;-0.0;0.0") + "%" : string.Empty);
-            _performanceSummary.Text = "Mode " + performance.Mode + " · runtime " + (performance.ActiveRuntimeTag ?? "unknown")
+            _performanceSummary.Text = T("Mode ", "Modalità ") + performance.Mode + T(" · runtime ", " · runtime ") + (performance.ActiveRuntimeTag ?? T("unknown", "sconosciuto"))
                 + "\n" + gpu + "\n" + measured + "\n" + regression;
             _advisorSummary.Text = BuildAdvisorSummary(runtime, latest);
         }
@@ -310,11 +311,11 @@ namespace PaRuX.Views
             try
             {
                 string applied = await RuntimeManagerClient.Current.SetPerformanceModeAsync(mode, CancellationToken.None);
-                _performanceSummary.Text = "Performance mode set to " + applied + ". Existing measured profiles are retained; new optimization runs use this scoring policy.";
+                _performanceSummary.Text = T("Performance mode set to ", "Modalità prestazioni impostata su ") + applied + T(". Existing measured profiles are retained; new optimization runs use this scoring policy.", ". I profili già misurati vengono conservati; le nuove ottimizzazioni usano questa politica di punteggio.");
             }
             catch (Exception ex)
             {
-                _performanceSummary.Text = "Applying performance mode failed: " + ex.Message;
+                _performanceSummary.Text = T("Applying performance mode failed: ", "Applicazione della modalità prestazioni non riuscita: ") + ex.Message;
             }
         }
 
@@ -328,11 +329,11 @@ namespace PaRuX.Views
                 Windows.Storage.StorageFile file = await picker.PickSingleFileAsync();
                 if (file == null) return;
                 _selectedModelPath = file.Path;
-                _selectedModelText.Text = "Model: " + file.Path;
+                _selectedModelText.Text = T("Model: ", "Modello: ") + file.Path;
             }
             catch (Exception ex)
             {
-                _performanceSummary.Text = "Choosing a GGUF file failed: " + ex.Message;
+                _performanceSummary.Text = T("Choosing a GGUF file failed: ", "Scelta del file GGUF non riuscita: ") + ex.Message;
             }
         }
 
@@ -346,10 +347,10 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Optimize local inference for this PC?",
-                Content = "PaRuX will temporarily stop/reload the text model, benchmark several safe llama.cpp configurations and may stress the GPU. Media generation and Gaming Mode must be idle. No clocks or driver power limits are changed.",
-                PrimaryButtonText = "Optimize",
-                CloseButtonText = "Cancel",
+                Title = T("Optimize local inference for this PC?", "Ottimizzare l'inferenza locale per questo PC?"),
+                Content = T("PaRuX will temporarily stop/reload the text model, benchmark several safe llama.cpp configurations and may stress the GPU. Media generation and Gaming Mode must be idle. No clocks or driver power limits are changed.", "PaRuX fermerà/ricaricherà temporaneamente il modello di testo, misurerà diverse configurazioni sicure di llama.cpp e potrebbe mettere sotto sforzo la GPU. La generazione multimediale e la Modalità Gaming devono essere inattive. Non vengono modificati clock né limiti di potenza del driver."),
+                PrimaryButtonText = T("Optimize", "Ottimizza"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -379,15 +380,15 @@ namespace PaRuX.Views
                 RuntimeOptimizationServerResult? winner = final.ServerCandidates
                     .FirstOrDefault(candidate => final.Winner != null
                         && RuntimeProfileSignature(candidate.Profile) == RuntimeProfileSignature(final.Winner));
-                _performanceSummary.Text = "Optimized: " + (final.Winner?.DisplayName ?? "winner")
-                    + (winner?.DecodeTokensPerSecond is double decode ? " · " + decode.ToString("0.0") + " decode tok/s" : string.Empty)
-                    + (winner?.PromptTokensPerSecond is double prompt ? " · " + prompt.ToString("0") + " prompt tok/s" : string.Empty)
-                    + (winner?.TimeToFirstTokenMilliseconds is double ttft ? " · TTFT " + ttft.ToString("0") + " ms" : string.Empty)
-                    + (final.SpeculativeEnabled ? " · speculative enabled by measurement" : " · speculative not beneficial");
+                _performanceSummary.Text = T("Optimized: ", "Ottimizzato: ") + (final.Winner?.DisplayName ?? T("winner", "vincitore"))
+                    + (winner?.DecodeTokensPerSecond is double decode ? " · " + decode.ToString("0.0") + T(" decode tok/s", " tok/s in decodifica") : string.Empty)
+                    + (winner?.PromptTokensPerSecond is double prompt ? " · " + prompt.ToString("0") + T(" prompt tok/s", " tok/s sul prompt") : string.Empty)
+                    + (winner?.TimeToFirstTokenMilliseconds is double ttft ? T(" · TTFT ", " · TTFT ") + ttft.ToString("0") + " ms" : string.Empty)
+                    + (final.SpeculativeEnabled ? T(" · speculative enabled by measurement", " · speculativa attivata dalla misurazione") : T(" · speculative not beneficial", " · speculativa non vantaggiosa"));
             }
             catch (Exception ex)
             {
-                _performanceSummary.Text = "Optimize for this PC failed: " + ex.Message;
+                _performanceSummary.Text = T("Optimize for this PC failed: ", "Ottimizzazione per questo PC non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -406,10 +407,10 @@ namespace PaRuX.Views
             string backend = _lastRuntimeStatus?.GpuDetected == true ? "text-cuda" : "text-vulkan";
             var dialog = new ContentDialog
             {
-                Title = "Race installed llama.cpp builds?",
-                Content = "Advanced regression guard: PaRuX benchmarks already-installed managed builds against the same GGUF and promotes another build only if it beats the current build by at least 3%. The text/media runtime must be stopped for the race.",
-                PrimaryButtonText = "Run race",
-                CloseButtonText = "Cancel",
+                Title = T("Race installed llama.cpp builds?", "Gara tra le build installate di llama.cpp?"),
+                Content = T("Advanced regression guard: PaRuX benchmarks already-installed managed builds against the same GGUF and promotes another build only if it beats the current build by at least 3%. The text/media runtime must be stopped for the race.", "Protezione avanzata dalle regressioni: PaRuX misura le build gestite già installate sullo stesso GGUF e promuove un'altra build solo se batte quella attuale di almeno il 3%. Il runtime di testo/multimediale deve essere fermo per la gara."),
+                PrimaryButtonText = T("Run race", "Avvia la gara"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 XamlRoot = XamlRoot
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -432,11 +433,11 @@ namespace PaRuX.Views
                     _dispatcher.TryEnqueue(() => _performanceSummary.Text = progress.Stage);
                 }, ct);
                 if (final.Status != "completed") throw new InvalidOperationException(final.Error ?? final.Stage);
-                _performanceSummary.Text = final.Stage + " Winner measured: " + (final.WinnerTag ?? "none") + ".";
+                _performanceSummary.Text = final.Stage + T(" Winner measured: ", " Vincitore misurato: ") + (final.WinnerTag ?? T("none", "nessuno")) + ".";
             }
             catch (Exception ex)
             {
-                _performanceSummary.Text = "Runtime build race failed: " + ex.Message;
+                _performanceSummary.Text = T("Runtime build race failed: ", "Gara tra le build del runtime non riuscita: ") + ex.Message;
             }
             finally
             {
@@ -454,9 +455,9 @@ namespace PaRuX.Views
                 if (_activeRaceId != null)
                     await RuntimeManagerClient.Current.CancelBuildRaceAsync(_activeRaceId, CancellationToken.None);
                 _performanceCts?.Cancel();
-                _performanceSummary.Text = "Performance cancellation requested.";
+                _performanceSummary.Text = T("Performance cancellation requested.", "Annullamento delle prestazioni richiesto.");
             }
-            catch (Exception ex) { _performanceSummary.Text = "Performance cancellation failed: " + ex.Message; }
+            catch (Exception ex) { _performanceSummary.Text = T("Performance cancellation failed: ", "Annullamento delle prestazioni non riuscito: ") + ex.Message; }
         }
 
         private void ResetPerformanceCancellation()
@@ -530,7 +531,7 @@ namespace PaRuX.Views
                     {
                         string backend = Backend(component.Id)!;
                         await RuntimeManagerClient.Current.RollbackAsync(backend, previousTag, null, CancellationToken.None, updater.PreviousToolkit);
-                        _status.Text = component.DisplayName + " rolled back to " + updater.Previous + ".";
+                        _status.Text = component.DisplayName + T(" rolled back to ", " ripristinato a ") + updater.Previous + ".";
                         await RefreshAsync();
                     }, "RuntimeManager_Component_" + component.Id + "_RollbackPrevious_Button"));
                 if (component.Actions.Contains("rollback"))
@@ -611,14 +612,14 @@ namespace PaRuX.Views
                 string variant = string.IsNullOrWhiteSpace(final.Variant) ? string.Empty : " / " + final.Variant;
                 if (backend == "media-comfyui" || string.IsNullOrWhiteSpace(final.PerformanceDecision))
                 {
-                    _status.Text = component.DisplayName + " installed and active: " + final.Tag + variant + ".";
+                    _status.Text = component.DisplayName + T(" installed and active: ", " installato e attivo: ") + final.Tag + variant + ".";
                 }
                 else
                 {
                     string active = string.IsNullOrWhiteSpace(final.ActiveTag) ? "unknown" : final.ActiveTag;
-                    _status.Text = component.DisplayName + " candidate installed: " + final.Tag
-                        + " · active: " + active
-                        + " · performance gate: " + final.PerformanceDecision
+                    _status.Text = component.DisplayName + T(" candidate installed: ", " candidato installato: ") + final.Tag
+                        + T(" · active: ", " · attivo: ") + active
+                        + T(" · performance gate: ", " · soglia di prestazioni: ") + final.PerformanceDecision
                         + (string.IsNullOrWhiteSpace(final.PerformanceMessage) ? string.Empty : " · " + final.PerformanceMessage);
                 }
             }
@@ -637,13 +638,13 @@ namespace PaRuX.Views
             RuntimeBuildOption? target = await PickBuildAsync("Rollback " + component.DisplayName, installed.Where(x => !x.IsActive).ToList(), preferRecommended: false);
             if (target == null) return;
             await RuntimeManagerClient.Current.RollbackAsync(backend, target.Tag, target.Variant, CancellationToken.None);
-            _status.Text = component.DisplayName + " rolled back to " + target.Tag + (string.IsNullOrWhiteSpace(target.Variant) ? string.Empty : " / " + target.Variant) + ".";
+            _status.Text = component.DisplayName + T(" rolled back to ", " ripristinato a ") + target.Tag + (string.IsNullOrWhiteSpace(target.Variant) ? string.Empty : " / " + target.Variant) + ".";
             await RefreshAsync();
         }
 
         private async Task<RuntimeBuildOption?> PickBuildAsync(string title, IReadOnlyList<RuntimeBuildOption> options, bool preferRecommended)
         {
-            if (options.Count == 0) { _status.Text = "No alternate installed build is available."; return null; }
+            if (options.Count == 0) { _status.Text = T("No alternate installed build is available.", "Nessuna build alternativa installata disponibile."); return null; }
             var combo = new ComboBox { MinWidth = 520 };
             foreach (RuntimeBuildOption option in options)
             {
@@ -665,8 +666,8 @@ namespace PaRuX.Views
             {
                 Title = title,
                 Content = combo,
-                PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Continue", "Continua"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -702,14 +703,14 @@ namespace PaRuX.Views
         private async Task CancelActiveInstallAsync()
         {
             string? id = _activeInstallId;
-            if (id == null) { _status.Text = "No Runtime Manager install is active in this view."; return; }
+            if (id == null) { _status.Text = T("No Runtime Manager install is active in this view.", "Nessuna installazione di Runtime Manager è attiva in questa vista."); return; }
             try
             {
                 await RuntimeManagerClient.Current.CancelInstallAsync(id, CancellationToken.None);
                 _operationCts?.Cancel();
-                _status.Text = "Cancellation requested.";
+                _status.Text = T("Cancellation requested.", "Annullamento richiesto.");
             }
-            catch (Exception ex) { _status.Text = "Cancellation failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Cancellation failed: ", "Annullamento non riuscito: ") + ex.Message; }
         }
 
         private void SetBusy(bool busy, string message)

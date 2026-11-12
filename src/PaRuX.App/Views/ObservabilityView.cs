@@ -17,6 +17,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class ObservabilityView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly ProgressBar _busy = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _summary = new TextBlock { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
@@ -30,8 +31,8 @@ namespace PaRuX.Views
 
         public ObservabilityView()
         {
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_category, "Event category");
-            _category.Items.Add(new ComboBoxItem { Content = "All categories", Tag = string.Empty });
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_category, T("Event category", "Categoria di evento"));
+            _category.Items.Add(new ComboBoxItem { Content = T("All categories", "Tutte le categorie"), Tag = string.Empty });
             _category.SelectedIndex = 0;
             _category.SelectionChanged += (_, _) => RenderTimeline();
             Content = BuildUi();
@@ -54,23 +55,23 @@ namespace PaRuX.Views
 
             body.Children.Add(new TextBlock
             {
-                Text = "Observability & Benchmarks",
+                Text = T("Observability & Benchmarks", "Osservabilità e benchmark"),
                 FontSize = 28,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Cross-surface operational evidence from the stores and benchmark runners PaRuX already owns. Values stay local and are refreshed from Core on demand.",
+                Text = T("Cross-surface operational evidence from the stores and benchmark runners PaRuX already owns. Values stay local and are refreshed from Core on demand.", "Evidenze operative trasversali provenienti dagli archivi e dai runner di benchmark che PaRuX già gestisce. I valori restano in locale e vengono aggiornati da Core su richiesta."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
 
             var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             controls.Children.Add(_category);
-            controls.Children.Add(new TextBlock { Text = "Recent events", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.72 });
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_limit, "Recent events limit");
+            controls.Children.Add(new TextBlock { Text = T("Recent events", "Eventi recenti"), VerticalAlignment = VerticalAlignment.Center, Opacity = 0.72 });
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_limit, T("Recent events limit", "Limite degli eventi recenti"));
             controls.Children.Add(_limit);
-            var refresh = new Button { Content = "Refresh" };
+            var refresh = new Button { Content = T("Refresh", "Aggiorna") };
             refresh.Click += async (_, _) => await RefreshAsync();
             controls.Children.Add(refresh);
             body.Children.Add(controls);
@@ -82,7 +83,7 @@ namespace PaRuX.Views
             body.Children.Add(SectionHeading("MODEL BENCHMARK LEADERBOARD"));
             body.Children.Add(new TextBlock
             {
-                Text = "Latest completed evidence per model + backend + hardware key. Throughput from different hardware keys is shown but never merged into one average.",
+                Text = T("Latest completed evidence per model + backend + hardware key. Throughput from different hardware keys is shown but never merged into one average.", "Ultima evidenza completata per ogni combinazione di modello + backend + hardware. La velocità di hardware diverso viene mostrata ma mai unita in un'unica media."),
                 TextWrapping = TextWrapping.Wrap, Opacity = 0.70, FontSize = 12
             });
             body.Children.Add(_benchmarks);
@@ -104,7 +105,7 @@ namespace PaRuX.Views
         private async Task RefreshAsync()
         {
             _busy.Visibility = Visibility.Visible;
-            _status.Text = "Refreshing local operational and benchmark evidence…";
+            _status.Text = T("Refreshing local operational and benchmark evidence…", "Aggiornamento delle evidenze operative e di benchmark locali…");
             try
             {
                 int limit = Math.Clamp((int)(_limit.Value > 0 ? _limit.Value : 100), 25, 200);
@@ -113,11 +114,11 @@ namespace PaRuX.Views
                 RebuildCategories();
                 RenderDashboard();
                 RenderTimeline();
-                _status.Text = "Dashboard refreshed from PaRuX Core · " + _dashboard.CapturedUtc.ToLocalTime().ToString("g") + ".";
+                _status.Text = T("Dashboard refreshed from PaRuX Core · ", "Dashboard aggiornata da PaRuX Core · ") + _dashboard.CapturedUtc.ToLocalTime().ToString("g") + ".";
             }
             catch (Exception ex)
             {
-                _status.Text = "Observability refresh failed: " + ex.Message;
+                _status.Text = T("Observability refresh failed: ", "Aggiornamento dell'osservabilità non riuscito: ") + ex.Message;
             }
             finally { _busy.Visibility = Visibility.Collapsed; }
         }
@@ -155,7 +156,7 @@ namespace PaRuX.Views
                     Header = header,
                     Content = new TextBlock
                     {
-                        Text = string.IsNullOrWhiteSpace(metric.Detail) ? "No further details." : metric.Detail,
+                        Text = string.IsNullOrWhiteSpace(metric.Detail) ? T("No further details.", "Nessun altro dettaglio.") : metric.Detail,
                         TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.76
                     },
                     IsExpanded = false
@@ -169,11 +170,11 @@ namespace PaRuX.Views
             string trainingStates = string.Join(" · ", _dashboard.TrainingStatuses.Select(item => item.Name + " " + item.Count));
             var stateDetails = new Expander
             {
-                Header = "Task and training states",
+                Header = T("Task and training states", "Stati di attività e training"),
                 Content = new TextBlock
                 {
-                    Text = "Task states: " + (taskStates.Length == 0 ? "none" : taskStates)
-                        + "\nTraining states: " + (trainingStates.Length == 0 ? "none" : trainingStates),
+                    Text = T("Task states: ", "Stati delle attività: ") + (taskStates.Length == 0 ? T("none", "nessuno") : taskStates)
+                        + T("\nTraining states: ", "\nStati del training: ") + (trainingStates.Length == 0 ? T("none", "nessuno") : trainingStates),
                     TextWrapping = TextWrapping.Wrap, FontSize = 12
                 },
                 IsExpanded = false
@@ -183,7 +184,7 @@ namespace PaRuX.Views
 
             if (_dashboard.ModelBenchmarks.Count == 0)
             {
-                _benchmarks.Children.Add(new TextBlock { Text = "No completed native model benchmark evidence yet.", Opacity = 0.70 });
+                _benchmarks.Children.Add(new TextBlock { Text = T("No completed native model benchmark evidence yet.", "Nessuna evidenza di benchmark nativo completata per ora."), Opacity = 0.70 });
                 return;
             }
 
@@ -202,7 +203,7 @@ namespace PaRuX.Views
                 });
                 var speed = new TextBlock
                 {
-                    Text = benchmark.TokensPerSecond.ToString("0.0") + " tok/s",
+                    Text = benchmark.TokensPerSecond.ToString("0.0") + T(" tok/s", " tok/s"),
                     FontSize = 17,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center
@@ -212,9 +213,9 @@ namespace PaRuX.Views
                 var detail = new TextBlock
                 {
                     Text = System.IO.Path.GetFileName(benchmark.ModelPath) + " · "
-                        + (benchmark.Backend.Length == 0 ? "unknown backend" : benchmark.Backend) + " · "
-                        + (benchmark.HardwareKey.Length == 0 ? "unknown hardware" : benchmark.HardwareKey)
-                        + " · " + benchmark.Repetitions + " repetition(s) · " + benchmark.MeasuredUtc.ToLocalTime().ToString("g"),
+                        + (benchmark.Backend.Length == 0 ? T("unknown backend", "backend sconosciuto") : benchmark.Backend) + " · "
+                        + (benchmark.HardwareKey.Length == 0 ? T("unknown hardware", "hardware sconosciuto") : benchmark.HardwareKey)
+                        + " · " + benchmark.Repetitions + T(" repetition(s) · ", " ripetizioni · ") + benchmark.MeasuredUtc.ToLocalTime().ToString("g"),
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.74
                 };
                 var card = new Expander { Header = header, Content = detail, IsExpanded = false };
@@ -228,7 +229,7 @@ namespace PaRuX.Views
         {
             string selected = (_category.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty;
             _category.Items.Clear();
-            _category.Items.Add(new ComboBoxItem { Content = "All categories", Tag = string.Empty });
+            _category.Items.Add(new ComboBoxItem { Content = T("All categories", "Tutte le categorie"), Tag = string.Empty });
             foreach (string category in _snapshot.Select(e => e.Category).Where(c => !string.IsNullOrWhiteSpace(c))
                          .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
                 _category.Items.Add(new ComboBoxItem { Content = Friendly(category), Tag = category });
@@ -285,8 +286,8 @@ namespace PaRuX.Views
             var counts = visible.GroupBy(e => e.Category, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(g => Friendly(g.Key) + ": " + g.Count());
-            _summary.Text = visible.Count + " visible event(s) · " + string.Join(" · ", counts);
-            if (visible.Count == 0) _entries.Children.Add(new TextBlock { Text = "No timeline records match this filter.", Opacity = 0.7 });
+            _summary.Text = visible.Count + T(" visible event(s) · ", " eventi visibili · ") + string.Join(" · ", counts);
+            if (visible.Count == 0) _entries.Children.Add(new TextBlock { Text = T("No timeline records match this filter.", "Nessun record della timeline corrisponde a questo filtro."), Opacity = 0.7 });
         }
 
         private static string Friendly(string value) => value switch

@@ -370,8 +370,8 @@ internal sealed class GamingDevicesPanel : StackPanel
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         });
         _rawA.Header = "A"; _rawB.Header = "B";
-        _rawLx.Header = "Left X"; _rawLy.Header = "Left Y";
-        _rawRx.Header = "Right X"; _rawRy.Header = "Right Y";
+        _rawLx.Header = T("Left X", "X sinistra"); _rawLy.Header = T("Left Y", "Y sinistra");
+        _rawRx.Header = T("Right X", "X destra"); _rawRy.Header = T("Right Y", "Y destra");
         _rawLt.Header = "LT"; _rawRt.Header = "RT";
         _rawDeadzone.Header = T("Stick deadzone", "Deadzone levette");
         _rawInvertY.Content = T("Invert vertical axes", "Inverti assi verticali");
@@ -522,8 +522,8 @@ internal sealed class GamingDevicesPanel : StackPanel
     {
         _rawX.Header = "X"; _rawY.Header = "Y";
         _rawLb.Header = "LB"; _rawRb.Header = "RB";
-        _rawBack.Header = "Back"; _rawStart.Header = "Start";
-        _rawL3.Header = "L3"; _rawR3.Header = "R3"; _rawGuide.Header = "Guide";
+        _rawBack.Header = T("Back", "Indietro"); _rawStart.Header = T("Start", "Start");
+        _rawL3.Header = "L3"; _rawR3.Header = "R3"; _rawGuide.Header = T("Guide", "Guida");
         _rawLtButton.Header = T("LT as button", "LT come pulsante");
         _rawRtButton.Header = T("RT as button", "RT come pulsante");
         _rawInvertX.Content = T("Invert horizontal axes", "Inverti assi orizzontali");

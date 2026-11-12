@@ -19,28 +19,29 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class ModelRoutingPanel : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly ComboBox _role = new ComboBox { MinWidth = 150 };
         private readonly ComboBox _mode = new ComboBox { MinWidth = 190 };
-        private readonly ComboBox _installed = new ComboBox { MinWidth = 260, PlaceholderText = "Choose a model…" };
-        private readonly Button _addInstalled = new Button { Content = "Add installed model to role", IsEnabled = false };
+        private readonly ComboBox _installed = new ComboBox { MinWidth = 260, PlaceholderText = T("Choose a model…", "Scegli un modello…") };
+        private readonly Button _addInstalled = new Button { Content = T("Add installed model to role", "Aggiungi il modello installato al ruolo"), IsEnabled = false };
         private readonly TextBlock _installedStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.78 };
         private readonly ListView _candidates = new ListView { SelectionMode = ListViewSelectionMode.Single, MinHeight = 180, MaxHeight = 420 };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.78 };
         private readonly ProgressBar _busy = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
         private readonly TextBox _externalEndpoint = new TextBox { PlaceholderText = "http://127.0.0.1:11434", MinWidth = 260 };
-        private readonly TextBox _externalModel = new TextBox { PlaceholderText = "External model id", MinWidth = 240 };
-        private readonly CheckBox _sameWeights = new CheckBox { Content = "Same weights + quantization confirmed" };
-        private readonly CheckBox _sustainedRace = new CheckBox { Content = "Sustained validation" };
+        private readonly TextBox _externalModel = new TextBox { PlaceholderText = T("External model id", "ID del modello esterno"), MinWidth = 240 };
+        private readonly CheckBox _sameWeights = new CheckBox { Content = T("Same weights + quantization confirmed", "Stessi pesi + quantizzazione confermati") };
+        private readonly CheckBox _sustainedRace = new CheckBox { Content = T("Sustained validation", "Convalida sostenuta") };
         private readonly TextBlock _backendRaceResult = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.78 };
-        private readonly CheckBox _codingAuto = new CheckBox { Content = "Choose the coding model automatically from measured local results" };
+        private readonly CheckBox _codingAuto = new CheckBox { Content = T("Choose the coding model automatically from measured local results", "Scegli automaticamente il modello di programmazione dai risultati locali misurati") };
         private readonly TextBlock _codingSelection = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.82 };
-        private readonly Button _codingDetailsButton = new Button { Content = "Comparison details", IsEnabled = false };
+        private readonly Button _codingDetailsButton = new Button { Content = T("Comparison details", "Dettagli del confronto"), IsEnabled = false };
         private string? _codingDetailsText;
         private bool _codingSelectionLoading;
         private readonly ComboBox _overrideMode = new ComboBox { MinWidth = 240 };
-        private readonly ComboBox _overrideModel = new ComboBox { MinWidth = 260, PlaceholderText = "Choose model for override…" };
+        private readonly ComboBox _overrideModel = new ComboBox { MinWidth = 260, PlaceholderText = T("Choose model for override…", "Scegli il modello per l'override…") };
         private readonly TextBlock _overrideStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.82 };
-        private readonly Button _saveOverride = new Button { Content = "Save override" };
+        private readonly Button _saveOverride = new Button { Content = T("Save override", "Salva l'override") };
         private bool _overrideEventsSuppressed;
         private List<CandidateEvidenceDto> _current = new List<CandidateEvidenceDto>();
         private List<ManagedModelInfo> _installedModels = new List<ManagedModelInfo>();
@@ -50,11 +51,11 @@ namespace PaRuX.Views
         public ModelRoutingPanel()
         {
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_role, "ModelRouting_Role_ComboBox");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_role, "Model role");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_role, T("Model role", "Ruolo del modello"));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_mode, "ModelRouting_Policy_ComboBox");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_mode, "Routing policy");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_mode, T("Routing policy", "Politica di instradamento"));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_installed, "ModelRouting_InstalledModel_ComboBox");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_installed, "Select a managed model for this role");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_installed, T("Select a managed model for this role", "Seleziona un modello gestito per questo ruolo"));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_candidates, "ModelRouting_Candidates_List");
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_status, "ModelRouting_Status_Text");
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_installedStatus, "ModelRouting_InstalledModelStatus_Text");
@@ -119,13 +120,13 @@ namespace PaRuX.Views
             var body = new StackPanel { Spacing = 8 };
             body.Children.Add(new TextBlock
             {
-                Text = "Coding agent model",
+                Text = T("Coding agent model", "Modello dell'agente di programmazione"),
                 FontSize = 18,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Automatic selection uses measured coding results when enough evidence is available.",
+                Text = T("Automatic selection uses measured coding results when enough evidence is available.", "La selezione automatica usa i risultati di programmazione misurati quando ci sono prove sufficienti."),
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.76
             });
             body.Children.Add(_codingAuto);
@@ -137,19 +138,19 @@ namespace PaRuX.Views
                 if (string.IsNullOrWhiteSpace(_codingDetailsText)) return;
                 var dialog = new ContentDialog
                 {
-                    Title = "Coding model comparison",
+                    Title = T("Coding model comparison", "Confronto dei modelli di programmazione"),
                     Content = new ScrollViewer
                     {
                         Content = new TextBlock
                         {
-                            Text = "Measured results: verified-task quality 50%, reliability 30%, speed 20%. "
-                                + "Only fitting models with enough local evidence are compared.\n\n"
+                            Text = T("Measured results: verified-task quality 50%, reliability 30%, speed 20%. ", "Risultati misurati: qualità sulle attività verificate 50%, affidabilità 30%, velocità 20%. ")
+                                + T("Only fitting models with enough local evidence are compared.\n\n", "Vengono confrontati solo i modelli compatibili con prove locali sufficienti.\n\n")
                                 + _codingDetailsText,
                             TextWrapping = TextWrapping.Wrap
                         },
                         MaxHeight = 440
                     },
-                    CloseButtonText = "Close",
+                    CloseButtonText = T("Close", "Chiudi"),
                     XamlRoot = XamlRoot,
                     MaxWidth = 700
                 };
@@ -169,9 +170,9 @@ namespace PaRuX.Views
                 _codingSelectionLoading = false;
                 _codingDetailsText = DescribeCodingSelection(decision);
                 _codingDetailsButton.IsEnabled = true;
-                _codingSelection.Text = "In use for /code: " + (decision.SelectedFileName ?? "(no coding model assigned)")
+                _codingSelection.Text = T("In use for /code: ", "In uso per /code: ") + (decision.SelectedFileName ?? T("(no coding model assigned)", "(nessun modello di programmazione assegnato)"))
                     + (decision.EffectiveSource == CodingModelSelectionMode.Auto
-                        ? " · automatic measured choice" : " · assigned model")
+                        ? T(" · automatic measured choice", " · scelta automatica misurata") : T(" · assigned model", " · modello assegnato"))
                     + "\n" + ModelHubRowPresentation.CompactDescription(decision.Reason, 150);
             }
             catch (Exception ex)
@@ -179,7 +180,7 @@ namespace PaRuX.Views
                 _codingSelectionLoading = false;
                 _codingDetailsText = null;
                 _codingDetailsButton.IsEnabled = false;
-                _codingSelection.Text = "Coding model selection is unavailable: " + ex.Message;
+                _codingSelection.Text = T("Coding model selection is unavailable: ", "La selezione del modello di programmazione non è disponibile: ") + ex.Message;
             }
         }
 
@@ -192,7 +193,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _codingSelection.Text = "Could not change coding model selection: " + ex.Message;
+                _codingSelection.Text = T("Could not change coding model selection: ", "Impossibile cambiare la selezione del modello di programmazione: ") + ex.Message;
                 return;
             }
             await RefreshCodingSelectionAsync();
@@ -239,13 +240,13 @@ namespace PaRuX.Views
             scroll.Content = body;
             body.Children.Add(new TextBlock
             {
-                Text = "Model Routing",
+                Text = T("Model Routing", "Instradamento dei modelli"),
                 FontSize = 28,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Automatic routing is the default. Pick a role or override it when needed.",
+                Text = T("Automatic routing is the default. Pick a role or override it when needed.", "L'instradamento automatico è il predefinito. Scegli un ruolo o sostituiscilo quando serve."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.76
             });
@@ -259,14 +260,14 @@ namespace PaRuX.Views
 
             var controls = new StackPanel { Spacing = 8 };
             var roleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            roleRow.Children.Add(new TextBlock { Text = "Role", Width = 56, VerticalAlignment = VerticalAlignment.Center });
+            roleRow.Children.Add(new TextBlock { Text = T("Role", "Ruolo"), Width = 56, VerticalAlignment = VerticalAlignment.Center });
             roleRow.Children.Add(_role);
             controls.Children.Add(roleRow);
             var policyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            policyRow.Children.Add(new TextBlock { Text = "Policy", Width = 56, VerticalAlignment = VerticalAlignment.Center });
+            policyRow.Children.Add(new TextBlock { Text = T("Policy", "Criterio"), Width = 56, VerticalAlignment = VerticalAlignment.Center });
             policyRow.Children.Add(_mode);
             controls.Children.Add(policyRow);
-            var refresh = new Button { Content = "Refresh evidence" };
+            var refresh = new Button { Content = T("Refresh evidence", "Aggiorna le evidenze") };
             refresh.Click += async (_, _) => await RefreshAsync();
             controls.Children.Add(refresh);
             body.Children.Add(controls);
@@ -281,7 +282,7 @@ namespace PaRuX.Views
 
             var capabilities = new Expander
             {
-                Header = "Advanced capability modes",
+                Header = T("Advanced capability modes", "Modalità avanzate delle capacità"),
                 Content = new CapabilityModesSection(),
                 IsExpanded = false
             };
@@ -290,7 +291,7 @@ namespace PaRuX.Views
 
             var arena = new Expander
             {
-                Header = "Compare models (Arena)",
+                Header = T("Compare models (Arena)", "Confronta i modelli (Arena)"),
                 Content = new ModelArenaSection(),
                 IsExpanded = false
             };
@@ -302,7 +303,7 @@ namespace PaRuX.Views
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_addInstalled, "ModelRouting_AddInstalledModel_Button");
             _addInstalled.Click += async (_, _) => await AddInstalledCandidateAsync();
             registration.Children.Add(_addInstalled);
-            var remove = new Button { Content = "Remove selected candidate" };
+            var remove = new Button { Content = T("Remove selected candidate", "Rimuovi il candidato selezionato") };
             remove.Click += async (_, _) => await RemoveSelectedCandidateAsync();
             registration.Children.Add(remove);
             var candidateEditor = new StackPanel { Spacing = 8 };
@@ -310,13 +311,13 @@ namespace PaRuX.Views
             candidateEditor.Children.Add(_installedStatus);
             candidateEditor.Children.Add(new TextBlock
             {
-                Text = "Only registered models are considered for the selected role. Downloads never change routing automatically.",
+                Text = T("Only registered models are considered for the selected role. Downloads never change routing automatically.", "Per il ruolo selezionato vengono considerati solo i modelli registrati. I download non cambiano mai l'instradamento in automatico."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12, Opacity = 0.70
             });
             var candidateExpander = new Expander
             {
-                Header = "Manage role candidates",
+                Header = T("Manage role candidates", "Gestisci i candidati del ruolo"),
                 Content = candidateEditor,
                 IsExpanded = false
             };
@@ -327,36 +328,36 @@ namespace PaRuX.Views
             body.Children.Add(_candidates);
 
             var actions = new StackPanel { Spacing = 8 };
-            var modelDetailsButton = new Button { Content = "Model details" };
+            var modelDetailsButton = new Button { Content = T("Model details", "Dettagli del modello") };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(modelDetailsButton, "ModelRouting_CandidateDetails_Button");
             modelDetailsButton.Click += async (_, _) => await ShowSelectedCandidateDetailsAsync();
             actions.Children.Add(modelDetailsButton);
             var immediateActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var auto = new Button { Content = "Use selected policy now" };
+            var auto = new Button { Content = T("Use selected policy now", "Usa subito il criterio selezionato") };
             auto.Click += async (_, _) => await ApplyPolicyAsync();
             immediateActions.Children.Add(auto);
-            var force = new Button { Content = "Force selected model now" };
+            var force = new Button { Content = T("Force selected model now", "Forza subito il modello selezionato") };
             force.Click += async (_, _) => await ForceSelectedAsync();
             immediateActions.Children.Add(force);
             actions.Children.Add(immediateActions);
             var defaultsActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var makeDefault = new Button { Content = "Set as role default" };
+            var makeDefault = new Button { Content = T("Set as role default", "Imposta come predefinito del ruolo") };
             makeDefault.Click += async (_, _) => await SetSelectedAsRoleDefaultAsync();
             defaultsActions.Children.Add(makeDefault);
-            var resetDefault = new Button { Content = "Reset role default" };
+            var resetDefault = new Button { Content = T("Reset role default", "Reimposta il predefinito del ruolo") };
             resetDefault.Click += async (_, _) => await ResetRoleDefaultAsync();
             defaultsActions.Children.Add(resetDefault);
             actions.Children.Add(defaultsActions);
             body.Children.Add(actions);
 
             var evidenceActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var profile = new Button { Content = "Profile selected model" };
+            var profile = new Button { Content = T("Profile selected model", "Profila il modello selezionato") };
             profile.Click += async (_, _) => await ProfileSelectedAsync();
             evidenceActions.Children.Add(profile);
             body.Children.Add(evidenceActions);
             body.Children.Add(new TextBlock
             {
-                Text = "Force applies once. Role defaults remain until reset. Profiling collects local evidence.",
+                Text = T("Force applies once. Role defaults remain until reset. Profiling collects local evidence.", "Forza vale una volta. I predefiniti del ruolo restano finché non li reimposti. La profilazione raccoglie prove locali."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.70
@@ -365,7 +366,7 @@ namespace PaRuX.Views
 
             var backendRace = new Expander
             {
-                Header = "Advanced: compare runtime backends",
+                Header = T("Advanced: compare runtime backends", "Avanzate: confronta i backend di runtime"),
                 Content = BuildBackendRaceUi(),
                 IsExpanded = false
             };
@@ -379,13 +380,13 @@ namespace PaRuX.Views
             var body = new StackPanel { Spacing = 9 };
             body.Children.Add(new TextBlock
             {
-                Text = "Backend Race · PaRuX vs local OpenAI-compatible runtime",
+                Text = T("Backend Race · PaRuX vs local OpenAI-compatible runtime", "Gara tra backend · PaRuX contro runtime locale compatibile con OpenAI"),
                 FontSize = 18,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             body.Children.Add(new TextBlock
             {
-                Text = "Select a registered PaRuX candidate above, then compare it with an already-running loopback backend such as Ollama or LM Studio. PaRuX only sends benchmark requests; it never starts, stops, updates or rewrites USER_MANAGED software. A winner is declared only when you confirm the exact same weights and quantization.",
+                Text = T("Select a registered PaRuX candidate above, then compare it with an already-running loopback backend such as Ollama or LM Studio. PaRuX only sends benchmark requests; it never starts, stops, updates or rewrites USER_MANAGED software. A winner is declared only when you confirm the exact same weights and quantization.", "Seleziona sopra un candidato PaRuX registrato, poi confrontalo con un backend loopback già in esecuzione come Ollama o LM Studio. PaRuX invia solo richieste di benchmark; non avvia, ferma, aggiorna né riscrive mai software USER_MANAGED. Un vincitore viene dichiarato solo se confermi esattamente gli stessi pesi e la stessa quantizzazione."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -397,7 +398,7 @@ namespace PaRuX.Views
             var options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             options.Children.Add(_sameWeights);
             options.Children.Add(_sustainedRace);
-            var run = new Button { Content = "Run read-only Backend Race" };
+            var run = new Button { Content = T("Run read-only Backend Race", "Esegui la gara tra backend in sola lettura") };
             run.Click += async (_, _) => await RunBackendRaceAsync();
             options.Children.Add(run);
             body.Children.Add(options);
@@ -468,18 +469,18 @@ namespace PaRuX.Views
                 await RefreshOverrideAsync(role);
                 _status.Text = candidateError != null
                     ? candidateError.Contains("401", StringComparison.Ordinal)
-                        ? "PaRuX Core rejected its saved local credentials (HTTP 401). " + candidateError
-                        : "Candidate evidence could not be loaded: " + candidateError
+                        ? T("PaRuX Core rejected its saved local credentials (HTTP 401). ", "PaRuX Core ha rifiutato le sue credenziali locali salvate (HTTP 401). ") + candidateError
+                        : T("Candidate evidence could not be loaded: ", "Impossibile caricare le evidenze dei candidati: ") + candidateError
                     : _current.Count == 0
-                        ? "No registered candidates for " + role + ". Choose an installed GGUF above and add it to this role."
-                        : _current.Count + " candidate(s). Capability and throughput are shown independently.";
+                        ? T("No registered candidates for ", "Nessun candidato registrato per ") + role + T(". Choose an installed GGUF above and add it to this role.", ". Scegli sopra un GGUF installato e aggiungilo a questo ruolo.")
+                        : _current.Count + T(" candidate(s). Capability and throughput are shown independently.", " candidati. Capacità e velocità sono mostrate separatamente.");
             }
             catch (Exception ex)
             {
                 _candidateEvidenceAvailable = false;
                 _addInstalled.IsEnabled = false;
                 _installed.IsEnabled = false;
-                _status.Text = "Model routing refresh failed: " + ex.Message;
+                _status.Text = T("Model routing refresh failed: ", "Aggiornamento dell'instradamento dei modelli non riuscito: ") + ex.Message;
             }
             finally { SetBusy(false, _status.Text); }
         }
@@ -506,21 +507,21 @@ namespace PaRuX.Views
         {
             if (!_candidateEvidenceAvailable)
             {
-                _installedStatus.Text = "Model selection is disabled until candidate evidence loads. "
-                    + (_candidateLoadError ?? error ?? "Refresh this view to retry.");
+                _installedStatus.Text = T("Model selection is disabled until candidate evidence loads. ", "La selezione del modello è disabilitata finché le evidenze dei candidati non si caricano. ")
+                    + (_candidateLoadError ?? error ?? T("Refresh this view to retry.", "Aggiorna questa vista per riprovare."));
                 return;
             }
             if (error != null)
             {
                 _installedStatus.Text = error.Contains("401", StringComparison.Ordinal)
-                    ? "PaRuX Core rejected its saved local credentials (HTTP 401). " + error
-                    : "Installed models could not be loaded: " + error;
+                    ? T("PaRuX Core rejected its saved local credentials (HTTP 401). ", "PaRuX Core ha rifiutato le sue credenziali locali salvate (HTTP 401). ") + error
+                    : T("Installed models could not be loaded: ", "Impossibile caricare i modelli installati: ") + error;
                 return;
             }
 
             _installedStatus.Text = _installed.Items.Count == 0
-                ? "No unassigned managed GGUF models are available for this role. Import or install a model in Model Hub, or choose another role."
-                : _installed.Items.Count + " installed model(s) available for this role.";
+                ? T("No unassigned managed GGUF models are available for this role. Import or install a model in Model Hub, or choose another role.", "Nessun modello GGUF gestito non assegnato è disponibile per questo ruolo. Importa o installa un modello nel Model Hub, oppure scegli un altro ruolo.")
+                : _installed.Items.Count + T(" installed model(s) available for this role.", " modelli installati disponibili per questo ruolo.");
         }
 
         private void RenderInstalledPicker()
@@ -539,7 +540,7 @@ namespace PaRuX.Views
                 };
                 ToolTipService.SetToolTip(item, model.FileName + " · " + model.Quantization
                     + (model.LastBenchmarkTokensPerSecond.HasValue
-                        ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + " tok/s" : string.Empty));
+                        ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + T(" tok/s", " tok/s") : string.Empty));
                 string key = string.Concat(model.FileName.Select(character => char.IsLetterOrDigit(character) ? character : '_'));
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(item, "ModelRouting_InstalledModel_" + key + "_Item");
                 _installed.Items.Add(item);
@@ -606,7 +607,7 @@ namespace PaRuX.Views
             CandidateEvidenceDto? candidate = SelectedCandidate();
             if (candidate == null)
             {
-                _status.Text = "Select a registered model first.";
+                _status.Text = T("Select a registered model first.", "Seleziona prima un modello registrato.");
                 return;
             }
 
@@ -639,7 +640,7 @@ namespace PaRuX.Views
                 });
                 section.Children.Add(new TextBlock
                 {
-                    Text = string.IsNullOrWhiteSpace(value) ? "Unknown" : value,
+                    Text = string.IsNullOrWhiteSpace(value) ? T("Unknown", "Sconosciuto") : value,
                     TextWrapping = TextWrapping.Wrap,
                     IsTextSelectionEnabled = true
                 });
@@ -663,7 +664,7 @@ namespace PaRuX.Views
                     MaxHeight = 440,
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto
                 },
-                CloseButtonText = "Close",
+                CloseButtonText = T("Close", "Chiudi"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -678,34 +679,34 @@ namespace PaRuX.Views
         {
             if (!_candidateEvidenceAvailable)
             {
-                _status.Text = "Candidate evidence is unavailable; refresh before adding a model to this role.";
+                _status.Text = T("Candidate evidence is unavailable; refresh before adding a model to this role.", "Le evidenze dei candidati non sono disponibili; aggiorna prima di aggiungere un modello a questo ruolo.");
                 return;
             }
             if (_installed.SelectedItem is not ComboBoxItem item || item.Tag is not string fileName)
             {
-                _status.Text = "No unregistered installed GGUF is selected.";
+                _status.Text = T("No unregistered installed GGUF is selected.", "Nessun GGUF installato non registrato è selezionato.");
                 return;
             }
             try
             {
                 await ModelRoutingClient.Current.AddCandidateAsync(SelectedRole(), fileName, CancellationToken.None);
-                _status.Text = fileName + " added to role " + SelectedRole() + ".";
+                _status.Text = fileName + T(" added to role ", " aggiunto al ruolo ") + SelectedRole() + ".";
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Could not add candidate: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not add candidate: ", "Impossibile aggiungere il candidato: ") + ex.Message; }
         }
 
         private async Task RemoveSelectedCandidateAsync()
         {
             CandidateEvidenceDto? selected = SelectedCandidate();
-            if (selected == null) { _status.Text = "Select a candidate first."; return; }
+            if (selected == null) { _status.Text = T("Select a candidate first.", "Seleziona prima un candidato."); return; }
             try
             {
                 await ModelRoutingClient.Current.RemoveCandidateAsync(SelectedRole(), selected.FileName, CancellationToken.None);
-                _status.Text = selected.FileName + " removed from role " + SelectedRole() + ".";
+                _status.Text = selected.FileName + T(" removed from role ", " rimosso dal ruolo ") + SelectedRole() + ".";
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Could not remove candidate: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not remove candidate: ", "Impossibile rimuovere il candidato: ") + ex.Message; }
         }
 
         private async Task ApplyPolicyAsync()
@@ -719,23 +720,23 @@ namespace PaRuX.Views
                 _status.Text = Describe(result);
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Routing failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Routing failed: ", "Instradamento non riuscito: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
         private async Task ForceSelectedAsync()
         {
             CandidateEvidenceDto? selected = SelectedCandidate();
-            if (selected == null) { _status.Text = "Select a registered candidate first."; return; }
+            if (selected == null) { _status.Text = T("Select a registered candidate first.", "Seleziona prima un candidato registrato."); return; }
 
             string role = SelectedRole();
             var dialog = new ContentDialog
             {
-                Title = "Force this model?",
-                Content = "The next attachment-free text message sent from Chat will use this local model once. If this conversation has earlier attachments, start a new chat first. Visual turns and external providers cannot use this forced route.\n\n"
-                    + selected.FileName + "\n\nIf it does not fit or cannot start, PaRuX will fail instead of silently substituting another model.",
-                PrimaryButtonText = "Force model",
-                CloseButtonText = "Cancel",
+                Title = T("Force this model?", "Forzare questo modello?"),
+                Content = T("The next attachment-free text message sent from Chat will use this local model once. If this conversation has earlier attachments, start a new chat first. Visual turns and external providers cannot use this forced route.\n\n", "Il prossimo messaggio di testo senza allegati inviato dalla Chat userà questo modello locale una volta. Se questa conversazione ha allegati precedenti, avvia prima una nuova chat. I turni visivi e i provider esterni non possono usare questo instradamento forzato.\n\n")
+                    + selected.FileName + T("\n\nIf it does not fit or cannot start, PaRuX will fail instead of silently substituting another model.", "\n\nSe non entra o non riesce ad avviarsi, PaRuX fallirà invece di sostituire in silenzio un altro modello."),
+                PrimaryButtonText = T("Force model", "Forza il modello"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -745,16 +746,16 @@ namespace PaRuX.Views
             try
             {
                 ModelRoutingClient.Current.QueueForcedNextChat(role, selected.FileName);
-                _status.Text = selected.FileName + " is queued for the next chat on the " + role + " role.";
+                _status.Text = selected.FileName + T(" is queued for the next chat on the ", " è in coda per la prossima chat con il ruolo ") + role + T(" role.", " .");
             }
-            catch (Exception ex) { _status.Text = "Forced model failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Forced model failed: ", "Modello forzato non riuscito: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
         private async Task SetSelectedAsRoleDefaultAsync()
         {
             CandidateEvidenceDto? selected = SelectedCandidate();
-            if (selected == null) { _status.Text = "Select a registered candidate first."; return; }
+            if (selected == null) { _status.Text = T("Select a registered candidate first.", "Seleziona prima un candidato registrato."); return; }
             string role = SelectedRole();
             try
             {
@@ -763,11 +764,11 @@ namespace PaRuX.Views
                 RouteDecisionDto loaded = await ModelRoutingClient.Current.ResolveAsync(
                     role, RouteMode.Manual, selected.FileName, CancellationToken.None);
                 if (!loaded.Success) throw new InvalidOperationException(loaded.Message);
-                _status.Text = selected.FileName + " is now the persistent default for " + role
-                    + (role == "standard" ? " and therefore ordinary Chat." : ".");
+                _status.Text = selected.FileName + T(" is now the persistent default for ", " è ora il predefinito persistente per ") + role
+                    + (role == "standard" ? T(" and therefore ordinary Chat.", " e quindi per la Chat ordinaria.") : ".");
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Could not persist role default: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not persist role default: ", "Impossibile rendere persistente il predefinito del ruolo: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
@@ -778,17 +779,17 @@ namespace PaRuX.Views
             {
                 SetBusy(true, "Resetting " + role + " to its built-in/default assignment…");
                 ModelRoleStatus reset = await ModelRolesClient.Current.ResetRoleAsync(role, CancellationToken.None);
-                _status.Text = role + " reset to " + (string.IsNullOrWhiteSpace(reset.ModelPath) ? "its default engine" : Path.GetFileName(reset.ModelPath)) + ".";
+                _status.Text = role + T(" reset to ", " reimpostato su ") + (string.IsNullOrWhiteSpace(reset.ModelPath) ? T("its default engine", "il suo motore predefinito") : Path.GetFileName(reset.ModelPath)) + ".";
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Could not reset role default: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not reset role default: ", "Impossibile reimpostare il predefinito del ruolo: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
         private async Task ProfileSelectedAsync()
         {
             CandidateEvidenceDto? selected = SelectedCandidate();
-            if (selected == null) { _status.Text = "Select a registered candidate first."; return; }
+            if (selected == null) { _status.Text = T("Select a registered candidate first.", "Seleziona prima un candidato registrato."); return; }
             string role = SelectedRole();
             SetBusy(true, "Loading exact model before capability profiling…");
             try
@@ -804,7 +805,7 @@ namespace PaRuX.Views
                     {
                         int passed = detail.Results.Count(result => result.Passed);
                         _ = DispatcherQueue.TryEnqueue(() =>
-                            _status.Text = "Capability profiling " + selected.FileName + " · " + passed + "/" + detail.Results.Count + " passed so far…");
+                            _status.Text = T("Capability profiling ", "Profilazione delle capacità ") + selected.FileName + " · " + passed + "/" + detail.Results.Count + T(" passed so far…", " superate finora…"));
                     },
                     CancellationToken.None);
 
@@ -817,29 +818,29 @@ namespace PaRuX.Views
                 int pass = final.Results.Count(result => result.Passed);
                 string categories = string.Join(", ", final.Results.Select(result =>
                     result.Category + "=" + (result.Passed ? "pass" : "fail")));
-                _status.Text = selected.FileName + " empirical capability: " + pass + "/" + total
+                _status.Text = selected.FileName + T(" empirical capability: ", " capacità empirica: ") + pass + "/" + total
                     + (total > 0 ? " (" + (100.0 * pass / total).ToString("0.0") + "%)" : string.Empty)
                     + " · " + categories;
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Capability profiling failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Capability profiling failed: ", "Profilazione delle capacità non riuscita: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
         private async Task RunBackendRaceAsync()
         {
             CandidateEvidenceDto? selected = SelectedCandidate();
-            if (selected == null) { _backendRaceResult.Text = "Select the PaRuX candidate to benchmark first."; return; }
+            if (selected == null) { _backendRaceResult.Text = T("Select the PaRuX candidate to benchmark first.", "Seleziona prima il candidato PaRuX da misurare."); return; }
             string endpoint = (_externalEndpoint.Text ?? string.Empty).Trim();
             string externalModel = (_externalModel.Text ?? string.Empty).Trim();
             if (endpoint.Length == 0 || externalModel.Length == 0)
             {
-                _backendRaceResult.Text = "Enter the loopback endpoint and exact external model id.";
+                _backendRaceResult.Text = T("Enter the loopback endpoint and exact external model id.", "Inserisci l'endpoint loopback e l'ID esatto del modello esterno.");
                 return;
             }
 
             SetBusy(true, "Running read-only Backend Race…");
-            _backendRaceResult.Text = "Measuring both serving paths…";
+            _backendRaceResult.Text = T("Measuring both serving paths…", "Misurazione di entrambi i percorsi di servizio…");
             try
             {
                 RuntimeBackendRaceResult result = await ModelRoutingClient.Current.RunBackendRaceAsync(
@@ -854,7 +855,7 @@ namespace PaRuX.Views
                     }, CancellationToken.None);
                 _backendRaceResult.Text = RenderBackendRace(result);
             }
-            catch (Exception ex) { _backendRaceResult.Text = "Backend Race failed: " + ex.Message; }
+            catch (Exception ex) { _backendRaceResult.Text = T("Backend Race failed: ", "Gara tra backend non riuscita: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
@@ -918,13 +919,13 @@ namespace PaRuX.Views
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock
             {
-                Text = "Advanced capability overrides",
+                Text = T("Advanced capability overrides", "Override avanzati delle capacità"),
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "Configure a scoped routing override for this role: Automatic (PaRuX decides), Prefer (compatible model with fallback), or Force (strict model, fails if incompatible).",
+                Text = T("Configure a scoped routing override for this role: Automatic (PaRuX decides), Prefer (compatible model with fallback), or Force (strict model, fails if incompatible).", "Configura un override di instradamento limitato per questo ruolo: Automatico (decide PaRuX), Preferisci (modello compatibile con ripiego) o Forza (modello rigido, fallisce se incompatibile)."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -985,7 +986,7 @@ namespace PaRuX.Views
             CapabilityOverrideValidationResult validation = CapabilityOverridePresenter.Validate(mode, selectedModel);
             if (!validation.IsValid)
             {
-                _overrideStatus.Text = validation.ErrorMessage ?? "Invalid override selection.";
+                _overrideStatus.Text = validation.ErrorMessage ?? T("Invalid override selection.", "Selezione dell'override non valida.");
                 return;
             }
 
@@ -995,16 +996,16 @@ namespace PaRuX.Views
                 {
                     Title = CapabilityOverridePresenter.ForceConfirmationTitle,
                     Content = CapabilityOverridePresenter.ForceWarningText + "\n\n"
-                        + "Requests for " + role + " will use only " + selectedModel
-                        + " and will fail rather than use another model if it cannot run.\n\nAre you sure you want to force this model?",
-                    PrimaryButtonText = "Force model",
-                    CloseButtonText = "Cancel",
+                        + T("Requests for ", "Le richieste per ") + role + T(" will use only ", " useranno solo ") + selectedModel
+                        + T(" and will fail rather than use another model if it cannot run.\n\nAre you sure you want to force this model?", " e falliranno invece di usare un altro modello se non può girare.\n\nVuoi davvero forzare questo modello?"),
+                    PrimaryButtonText = T("Force model", "Forza il modello"),
+                    CloseButtonText = T("Cancel", "Annulla"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = XamlRoot
                 };
                 if (await dialog.ShowAsync() != ContentDialogResult.Primary)
                 {
-                    _overrideStatus.Text = "Force override cancelled.";
+                    _overrideStatus.Text = T("Force override cancelled.", "Override forzato annullato.");
                     return;
                 }
             }
@@ -1024,7 +1025,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _overrideStatus.Text = "Could not save override: " + ex.Message;
+                _overrideStatus.Text = T("Could not save override: ", "Impossibile salvare l'override: ") + ex.Message;
             }
             finally
             {
@@ -1047,7 +1048,7 @@ namespace PaRuX.Views
                 }
                 catch (Exception ex)
                 {
-                    _overrideStatus.Text = "Override settings could not be loaded: " + ex.Message;
+                    _overrideStatus.Text = T("Override settings could not be loaded: ", "Impossibile caricare le impostazioni di override: ") + ex.Message;
                 }
 
                 if (existing != null)

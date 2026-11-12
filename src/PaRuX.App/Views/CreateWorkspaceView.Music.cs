@@ -13,8 +13,8 @@ namespace PaRuX.Views
     /// <summary>Create &gt; Music: ACE-Step 1.5 songs with optional lyrics, generated locally through the managed ComfyUI.</summary>
     public sealed partial class CreateWorkspaceView
     {
-        private readonly TextBox _musicPrompt = new TextBox { PlaceholderText = "Describe the music: style, instruments, mood", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 64 };
-        private readonly TextBox _musicLyrics = new TextBox { PlaceholderText = "Lyrics (optional, with [Verse] / [Chorus] tags). Leave empty for an instrumental.", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 96 };
+        private readonly TextBox _musicPrompt = new TextBox { PlaceholderText = T("Describe the music: style, instruments, mood", "Descrivi la musica: stile, strumenti, atmosfera"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 64 };
+        private readonly TextBox _musicLyrics = new TextBox { PlaceholderText = T("Lyrics (optional, with [Verse] / [Chorus] tags). Leave empty for an instrumental.", "Testo (facoltativo, con i tag [Verse] / [Chorus]). Lascia vuoto per un brano strumentale."), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 96 };
         private readonly NumberBox _musicSeconds = new NumberBox { Minimum = 10, Maximum = 240, Value = 30, SmallChange = 5, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
         private readonly ComboBox _musicLanguage = new ComboBox { MinWidth = 160 };
 
@@ -41,7 +41,7 @@ namespace PaRuX.Views
             options.Children.Add(Labeled("Lyrics language", _musicLanguage));
             panel.Children.Add(options);
 
-            var run = new Button { Content = "Compose music" };
+            var run = new Button { Content = T("Compose music", "Componi la musica") };
             AutomationProperties.SetAutomationId(run, "Create_Music_Run_Button");
             run.Click += async (_, _) => await GenerateMusicAsync();
             _runButtons.Add(run);
@@ -73,7 +73,7 @@ namespace PaRuX.Views
                     path, "audio", string.IsNullOrWhiteSpace(asset.FileName) ? Path.GetFileName(path) : asset.FileName, "create-workspace",
                     new { operation = "music", mediaType = asset.MediaType, durationSeconds = asset.DurationSeconds, steps = asset.Steps, seed = asset.Seed },
                     markFinal: true, CancellationToken.None);
-                _lastOutput.Text = "Output: " + path;
+                _lastOutput.Text = T("Output: ", "Output: ") + path;
                 ShowResult(path);
                 SetProvenance(new MediaProvenanceRecord { EngineFamily = "Local Media Engine", Model = "ACE-Step 1.5 turbo", IsLocal = true });
                 FinishOperation(ticket, "Music composed locally and registered in Artifact Workspace.");

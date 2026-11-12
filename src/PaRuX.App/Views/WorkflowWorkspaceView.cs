@@ -21,6 +21,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class WorkflowWorkspaceView : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             WriteIndented = true
@@ -34,9 +35,9 @@ namespace PaRuX.Views
         public WorkflowWorkspaceView()
         {
             AutomationProperties.SetAutomationId(_status, "Workflows_Status_Text");
-            AutomationProperties.SetName(_status, "Workflows status");
+            AutomationProperties.SetName(_status, T("Workflows status", "Stato dei workflow"));
             AutomationProperties.SetAutomationId(_busy, "Workflows_Busy_ProgressBar");
-            AutomationProperties.SetName(_busy, "Workflows loading indicator");
+            AutomationProperties.SetName(_busy, T("Workflows loading indicator", "Indicatore di caricamento dei workflow"));
             AutomationProperties.SetAutomationId(_families, "Workflows_Families_List");
             Content = BuildUi();
             Loaded += async (_, _) => { if (Visibility == Visibility.Visible) await RefreshAsync(); };
@@ -59,20 +60,20 @@ namespace PaRuX.Views
             var header = new Grid { ColumnSpacing = 8 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.Children.Add(new TextBlock { Text = "Workflows", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            header.Children.Add(new TextBlock { Text = T("Workflows", "Workflow"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             AutomationProperties.SetAutomationId((FrameworkElement)header.Children[0], "Workflows_Title_Text");
-            var refresh = new Button { Content = "Refresh" };
+            var refresh = new Button { Content = T("Refresh", "Aggiorna") };
             AutomationProperties.SetAutomationId(refresh, "Workflows_Refresh_Button");
             refresh.Click += async (_, _) => await RefreshAsync();
             Grid.SetColumn(refresh, 1); header.Children.Add(refresh);
             body.Children.Add(header);
             body.Children.Add(new TextBlock
             {
-                Text = "Reusable AgentTask graphs with immutable version history. Revising never overwrites a version; every saved change becomes the next version in the same lineage.",
+                Text = T("Reusable AgentTask graphs with immutable version history. Revising never overwrites a version; every saved change becomes the next version in the same lineage.", "Grafi AgentTask riutilizzabili con cronologia di versioni immutabili. Rivedere non sovrascrive mai una versione; ogni modifica salvata diventa la versione successiva nella stessa linea."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
-            var create = new Button { Content = "New workflow…" };
+            var create = new Button { Content = T("New workflow…", "Nuovo workflow…") };
             AutomationProperties.SetAutomationId(create, "Workflows_New_Button");
             create.Click += async (_, _) => await CreateOrReviseAsync(null);
             body.Children.Add(create);
@@ -90,10 +91,10 @@ namespace PaRuX.Views
                 _snapshot = await WorkflowClient.Current.ListAsync(CancellationToken.None);
                 Render();
                 _status.Text = _snapshot.Count == 0
-                    ? "No workflows yet."
-                    : _snapshot.Count + " immutable workflow version(s) loaded.";
+                    ? T("No workflows yet.", "Nessun workflow per ora.")
+                    : _snapshot.Count + T(" immutable workflow version(s) loaded.", " versioni di workflow immutabili caricate.");
             }
-            catch (Exception ex) { _status.Text = "Workflow refresh failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Workflow refresh failed: ", "Aggiornamento dei workflow non riuscito: ") + ex.Message; }
             finally { SetBusy(false); }
         }
 
@@ -102,7 +103,7 @@ namespace PaRuX.Views
             _families.Children.Clear();
             if (_snapshot.Count == 0)
             {
-                _families.Children.Add(new TextBlock { Text = "Create a workflow to start a version lineage.", Opacity = 0.7 });
+                _families.Children.Add(new TextBlock { Text = T("Create a workflow to start a version lineage.", "Crea un workflow per iniziare una linea di versioni."), Opacity = 0.7 });
                 return;
             }
 
@@ -130,7 +131,7 @@ namespace PaRuX.Views
 
             body.Children.Add(new TextBlock
             {
-                Text = latest.Name + " · current v" + latest.VersionNumber,
+                Text = latest.Name + T(" · current v", " · attuale v") + latest.VersionNumber,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 FontSize = 17,
                 TextWrapping = TextWrapping.Wrap
@@ -139,27 +140,27 @@ namespace PaRuX.Views
                 body.Children.Add(new TextBlock { Text = latest.Description, TextWrapping = TextWrapping.Wrap, Opacity = 0.74 });
             body.Children.Add(new TextBlock
             {
-                Text = latest.Steps.Count + " step(s) · " + lineage.Count + " saved version(s) · updated " + latest.UpdatedUtc.ToLocalTime().ToString("g"),
+                Text = latest.Steps.Count + T(" step(s) · ", " passaggi · ") + lineage.Count + T(" saved version(s) · updated ", " versioni salvate · aggiornato ") + latest.UpdatedUtc.ToLocalTime().ToString("g"),
                 FontSize = 12,
                 Opacity = 0.66
             });
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var run = new Button { Content = "Run current…" };
+            var run = new Button { Content = T("Run current…", "Esegui la versione attuale…") };
             AutomationProperties.SetAutomationId(run, "Workflows_RunCurrent_Button");
             run.Click += async (_, _) => await RunAsync(latest);
             actions.Children.Add(run);
-            var revise = new Button { Content = "Revise as v" + (latest.VersionNumber + 1) + "…" };
+            var revise = new Button { Content = T("Revise as v", "Rivedi come v") + (latest.VersionNumber + 1) + "…" };
             AutomationProperties.SetAutomationId(revise, "Workflows_Revise_Button");
             revise.Click += async (_, _) => await CreateOrReviseAsync(latest);
             actions.Children.Add(revise);
-            var delete = new Button { Content = "Delete current leaf" };
+            var delete = new Button { Content = T("Delete current leaf", "Elimina l'ultima versione attuale") };
             AutomationProperties.SetAutomationId(delete, "Workflows_DeleteLeaf_Button");
             delete.Click += async (_, _) => await DeleteLeafAsync(latest);
             actions.Children.Add(delete);
             body.Children.Add(actions);
 
-            var history = new Expander { Header = "Version history", IsExpanded = false };
+            var history = new Expander { Header = T("Version history", "Cronologia delle versioni"), IsExpanded = false };
             AutomationProperties.SetAutomationId(history, "Workflows_VersionHistory_Expander");
             var versions = new StackPanel { Spacing = 7, Margin = new Thickness(4, 8, 0, 0) };
             foreach (WorkflowDto version in lineage.OrderByDescending(v => v.VersionNumber))
@@ -178,21 +179,21 @@ namespace PaRuX.Views
             var text = new StackPanel { Spacing = 2 };
             text.Children.Add(new TextBlock
             {
-                Text = "v" + workflow.VersionNumber + (current ? " · current" : string.Empty) + " · " + workflow.Name,
+                Text = "v" + workflow.VersionNumber + (current ? T(" · current", " · attuale") : string.Empty) + " · " + workflow.Name,
                 FontWeight = current ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
                 TextWrapping = TextWrapping.Wrap
             });
             text.Children.Add(new TextBlock
             {
-                Text = workflow.Steps.Count + " step(s) · saved " + workflow.CreatedUtc.ToLocalTime().ToString("g")
-                    + (string.IsNullOrWhiteSpace(workflow.PreviousVersionId) ? " · root" : " · previous " + workflow.PreviousVersionId[..Math.Min(8, workflow.PreviousVersionId.Length)]),
+                Text = workflow.Steps.Count + T(" step(s) · saved ", " passaggi · salvato ") + workflow.CreatedUtc.ToLocalTime().ToString("g")
+                    + (string.IsNullOrWhiteSpace(workflow.PreviousVersionId) ? T(" · root", " · radice") : T(" · previous ", " · precedente ") + workflow.PreviousVersionId[..Math.Min(8, workflow.PreviousVersionId.Length)]),
                 FontSize = 11,
                 Opacity = 0.65,
                 TextWrapping = TextWrapping.Wrap
             });
             Grid.SetColumn(text, 0); grid.Children.Add(text);
 
-            var run = new Button { Content = "Run v" + workflow.VersionNumber, FontSize = 12 };
+            var run = new Button { Content = T("Run v", "Esegui la v") + workflow.VersionNumber, FontSize = 12 };
             AutomationProperties.SetAutomationId(run, "Workflows_RunVersion_Button");
             run.Click += async (_, _) => await RunAsync(workflow);
             Grid.SetColumn(run, 1); grid.Children.Add(run);
@@ -222,8 +223,8 @@ namespace PaRuX.Views
 
         private async Task CreateOrReviseAsync(WorkflowDto? previous)
         {
-            var name = new TextBox { Text = previous?.Name ?? string.Empty, PlaceholderText = "Workflow name" };
-            var description = new TextBox { Text = previous?.Description ?? string.Empty, PlaceholderText = "Optional description" };
+            var name = new TextBox { Text = previous?.Name ?? string.Empty, PlaceholderText = T("Workflow name", "Nome del workflow") };
+            var description = new TextBox { Text = previous?.Description ?? string.Empty, PlaceholderText = T("Optional description", "Descrizione (facoltativa)") };
             var steps = new TextBox
             {
                 AcceptsReturn = true,
@@ -236,7 +237,7 @@ namespace PaRuX.Views
             AutomationProperties.SetAutomationId(name, "Workflows_Name_TextBox");
             AutomationProperties.SetAutomationId(description, "Workflows_Description_TextBox");
             AutomationProperties.SetAutomationId(steps, "Workflows_StepsJson_TextBox");
-            AutomationProperties.SetName(steps, "Workflow steps JSON");
+            AutomationProperties.SetName(steps, T("Workflow steps JSON", "JSON dei passaggi del workflow"));
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(name);
             panel.Children.Add(description);
@@ -246,7 +247,7 @@ namespace PaRuX.Views
             // working graph to start from and edit; the JSON stays the source of truth.
             if (previous == null)
             {
-                var starter = new ComboBox { PlaceholderText = "Start from a template…", MinWidth = 260 };
+                var starter = new ComboBox { PlaceholderText = T("Start from a template…", "Parti da un modello…"), MinWidth = 260 };
                 foreach (WorkflowStarter template in WorkflowStarters)
                     starter.Items.Add(new ComboBoxItem { Content = template.Title, Tag = template.StepsJson });
                 AutomationProperties.SetAutomationId(starter, "Workflows_Template_ComboBox");
@@ -260,8 +261,8 @@ namespace PaRuX.Views
             panel.Children.Add(new TextBlock
             {
                 Text = previous == null
-                    ? "Steps JSON. Dependencies may point only to earlier step indexes."
-                    : "Editing creates v" + (previous.VersionNumber + 1) + ". v" + previous.VersionNumber + " remains immutable and runnable.",
+                    ? T("Steps JSON. Dependencies may point only to earlier step indexes.", "JSON dei passaggi. Le dipendenze possono puntare solo a indici di passaggi precedenti.")
+                    : T("Editing creates v", "La modifica crea la v") + (previous.VersionNumber + 1) + ". v" + previous.VersionNumber + T(" remains immutable and runnable.", " resta immutabile ed eseguibile."),
                 FontSize = 12,
                 Opacity = 0.72,
                 TextWrapping = TextWrapping.Wrap
@@ -270,10 +271,10 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = previous == null ? "Create workflow" : "Revise workflow · current v" + previous.VersionNumber,
+                Title = previous == null ? T("Create workflow", "Crea il workflow") : T("Revise workflow · current v", "Rivedi il workflow · attuale v") + previous.VersionNumber,
                 Content = panel,
-                PrimaryButtonText = previous == null ? "Create" : "Save new version",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = previous == null ? T("Create", "Crea") : T("Save new version", "Salva la nuova versione"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -292,24 +293,24 @@ namespace PaRuX.Views
                     PreviousVersionId = previous?.Id
                 }, CancellationToken.None);
                 _status.Text = previous == null
-                    ? "Workflow created as v1."
-                    : "Saved immutable workflow v" + created.VersionNumber + "; v" + previous.VersionNumber + " was preserved.";
+                    ? T("Workflow created as v1.", "Workflow creato come v1.")
+                    : T("Saved immutable workflow v", "Workflow immutabile salvato: v") + created.VersionNumber + "; v" + previous.VersionNumber + T(" was preserved.", " è stata conservata.");
                 await RefreshAsync();
             }
-            catch (JsonException ex) { _status.Text = "Workflow step JSON is invalid: " + ex.Message; }
-            catch (Exception ex) { _status.Text = "Workflow save rejected: " + ex.Message; }
+            catch (JsonException ex) { _status.Text = T("Workflow step JSON is invalid: ", "Il JSON dei passaggi del workflow non è valido: ") + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Workflow save rejected: ", "Salvataggio del workflow rifiutato: ") + ex.Message; }
         }
 
         private async Task RunAsync(WorkflowDto workflow)
         {
-            var input = new TextBox { PlaceholderText = "Optional {{input}} value", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90 };
+            var input = new TextBox { PlaceholderText = T("Optional {{input}} value", "Valore {{input}} facoltativo"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90 };
             AutomationProperties.SetAutomationId(input, "Workflows_RunInput_TextBox");
             var dialog = new ContentDialog
             {
-                Title = "Run " + workflow.Name + " · v" + workflow.VersionNumber,
+                Title = T("Run ", "Esegui ") + workflow.Name + " · v" + workflow.VersionNumber,
                 Content = input,
-                PrimaryButtonText = "Create tasks",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Create tasks", "Crea le attività"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -317,19 +318,19 @@ namespace PaRuX.Views
             try
             {
                 WorkflowRunResult result = await WorkflowClient.Current.RunAsync(workflow.Id, input.Text, CancellationToken.None);
-                _status.Text = "Workflow v" + workflow.VersionNumber + " created " + result.CreatedTaskIds.Count + " real AgentTask(s).";
+                _status.Text = T("Workflow v", "Workflow v") + workflow.VersionNumber + T(" created ", " creato ") + result.CreatedTaskIds.Count + T(" real AgentTask(s).", " AgentTask reali.");
             }
-            catch (Exception ex) { _status.Text = "Workflow run failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Workflow run failed: ", "Esecuzione del workflow non riuscita: ") + ex.Message; }
         }
 
         private async Task DeleteLeafAsync(WorkflowDto workflow)
         {
             var dialog = new ContentDialog
             {
-                Title = "Delete current workflow version?",
-                Content = "Delete v" + workflow.VersionNumber + " of “" + workflow.Name + "”? Earlier immutable versions remain. A version with a successor cannot be deleted.",
-                PrimaryButtonText = "Delete current leaf",
-                CloseButtonText = "Cancel",
+                Title = T("Delete current workflow version?", "Eliminare la versione attuale del workflow?"),
+                Content = T("Delete v", "Elimina la v") + workflow.VersionNumber + " of “" + workflow.Name + T("”? Earlier immutable versions remain. A version with a successor cannot be deleted.", "”? Le versioni immutabili precedenti restano. Una versione con un successore non può essere eliminata."),
+                PrimaryButtonText = T("Delete current leaf", "Elimina l'ultima versione attuale"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -337,10 +338,10 @@ namespace PaRuX.Views
             try
             {
                 await WorkflowClient.Current.DeleteAsync(workflow.Id, CancellationToken.None);
-                _status.Text = "Current workflow leaf deleted; previous version, if any, is current again.";
+                _status.Text = T("Current workflow leaf deleted; previous version, if any, is current again.", "Ultima versione del workflow eliminata; la versione precedente, se esiste, torna attuale.");
                 await RefreshAsync();
             }
-            catch (Exception ex) { _status.Text = "Workflow delete failed: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Workflow delete failed: ", "Eliminazione del workflow non riuscita: ") + ex.Message; }
         }
 
         private static List<WorkflowDto> BuildLineage(WorkflowDto leaf, IReadOnlyDictionary<string, WorkflowDto> byId)

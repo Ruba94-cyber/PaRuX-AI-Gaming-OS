@@ -74,21 +74,21 @@ namespace PaRuX.Views
             GatewayStatusInfo? status = _gatewayStatus;
             if (status == null)
             {
-                GatewayStateText.Text = "PaRuX Core is not reachable";
-                GatewayDetailText.Text = "Start PaRuX Core (it starts with the app) and press Refresh.";
+                GatewayStateText.Text = T("PaRuX Core is not reachable", "PaRuX Core non è raggiungibile");
+                GatewayDetailText.Text = T("Start PaRuX Core (it starts with the app) and press Refresh.", "Avvia PaRuX Core (parte con l'app) e premi Aggiorna.");
                 GenericOpenAiUrlText.Text = GenericAnthropicUrlText.Text = string.Empty;
                 return;
             }
             GatewayStateText.Text = status.Listening
-                ? "Gateway running at " + status.BaseUrl
-                : status.Enabled ? "Gateway port " + status.ConfiguredPort + " is in use by another program" : "Gateway is off";
+                ? T("Gateway running at ", "Gateway in esecuzione su ") + status.BaseUrl
+                : status.Enabled ? T("Gateway port ", "Porta del gateway ") + status.ConfiguredPort + T(" is in use by another program", " già in uso da un altro programma") : T("Gateway is off", "Il gateway è disattivato");
             string routing = status.LastRouting == null
                 ? "No external requests yet."
                 : "Last request: " + status.LastRouting.RequestedModel + " → " + status.LastRouting.Role
                   + (status.LastRouting.ModelFile != null ? " (" + status.LastRouting.ModelFile + ")" : string.Empty)
                   + " at " + status.LastRouting.Utc.ToLocalTime().ToString("HH:mm:ss") + ".";
-            GatewayDetailText.Text = "Models: " + string.Join(", ", status.Models.Select(m => m.Id)) + ". " + routing
-                + (status.RestartRequired ? " Restart PaRuX to apply the saved port or on/off change." : string.Empty);
+            GatewayDetailText.Text = T("Models: ", "Modelli: ") + string.Join(", ", status.Models.Select(m => m.Id)) + ". " + routing
+                + (status.RestartRequired ? T(" Restart PaRuX to apply the saved port or on/off change.", " Riavvia PaRuX per applicare la modifica a porta o attivazione salvata.") : string.Empty);
             GenericOpenAiUrlText.Text = status.BaseUrl + "/v1";
             GenericAnthropicUrlText.Text = status.BaseUrl;
 
@@ -130,7 +130,7 @@ namespace PaRuX.Views
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = (manifest.LastTestPassed == true ? "Last test passed: " : "Last test failed: ") + manifest.LastTestDetail
+                    Text = (manifest.LastTestPassed == true ? T("Last test passed: ", "Ultimo test riuscito: ") : T("Last test failed: ", "Ultimo test non riuscito: ")) + manifest.LastTestDetail
                            + " (" + manifest.LastTestUtc.Value.ToLocalTime().ToString("g") + ")",
                     TextWrapping = TextWrapping.Wrap,
                     Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"]
@@ -169,7 +169,7 @@ namespace PaRuX.Views
             if (!gatewayReady && detection.Installed)
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "The PaRuX gateway is not running, so Connect, Launch and Test are unavailable.",
+                    Text = T("The PaRuX gateway is not running, so Connect, Launch and Test are unavailable.", "Il gateway di PaRuX non è in esecuzione, quindi Connetti, Avvia e Prova non sono disponibili."),
                     TextWrapping = TextWrapping.Wrap,
                     Style = (Style)Application.Current.Resources["PaRuXSubtleCaptionStyle"]
                 });
@@ -247,10 +247,10 @@ namespace PaRuX.Views
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "Restore " + client.DisplayName + "'s original configuration?",
-                Content = "PaRuX will put back the file exactly as it was before the first Connect and revoke the PaRuX key. Changes you made to that file since then will be lost; Disconnect keeps them and removes only PaRuX's entry.",
-                PrimaryButtonText = "Restore",
-                CloseButtonText = "Cancel",
+                Title = T("Restore ", "Ripristinare la configurazione originale di ") + client.DisplayName + T("'s original configuration?", "?"),
+                Content = T("PaRuX will put back the file exactly as it was before the first Connect and revoke the PaRuX key. Changes you made to that file since then will be lost; Disconnect keeps them and removes only PaRuX's entry.", "PaRuX rimetterà il file esattamente com'era prima della prima connessione e revocherà la chiave PaRuX. Le modifiche apportate al file da allora andranno perse; Disconnetti le conserva e rimuove solo la voce di PaRuX."),
+                PrimaryButtonText = T("Restore", "Ripristina"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close
             };
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
@@ -275,12 +275,12 @@ namespace PaRuX.Views
                 string model = (GatewayVendorModelCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "parux-auto";
                 await RemoteAccessClient.Current.SaveGatewaySettingsAsync(
                     new GatewaySettingsUpdate { Enabled = GatewayEnabledToggle.IsOn, Port = port, VendorModelDefault = model }, CancellationToken.None);
-                GatewaySettingsStatusText.Text = "Saved.";
+                GatewaySettingsStatusText.Text = T("Saved.", "Salvato.");
                 await RefreshIntegrationsAsync();
             }
             catch (Exception ex)
             {
-                GatewaySettingsStatusText.Text = "Couldn't save: " + ex.Message;
+                GatewaySettingsStatusText.Text = T("Couldn't save: ", "Impossibile salvare: ") + ex.Message;
             }
         }
 
@@ -295,7 +295,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                GenericKeyText.Text = "Couldn't create a key: " + ex.Message;
+                GenericKeyText.Text = T("Couldn't create a key: ", "Impossibile creare una chiave: ") + ex.Message;
                 GenericKeyPanel.Visibility = Visibility.Visible;
             }
         }

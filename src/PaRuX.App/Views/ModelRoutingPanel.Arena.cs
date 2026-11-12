@@ -17,13 +17,14 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class ModelArenaSection : UserControl
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly ComboBox[] _models = { new ComboBox(), new ComboBox(), new ComboBox() };
         private readonly Dictionary<string, CheckBox> _tasks = new Dictionary<string, CheckBox>(StringComparer.Ordinal);
         private readonly StackPanel _taskPanel = new StackPanel { Spacing = 2 };
-        private readonly TextBox _custom = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 60, PlaceholderText = "Optional: your own prompt" };
-        private readonly NumberBox _maxTokens = new NumberBox { Minimum = 16, Maximum = 1024, Value = 256, Header = "Maximum answer length (tokens)", Width = 260 };
-        private readonly Button _start = new Button { Content = "Compare" };
-        private readonly Button _cancel = new Button { Content = "Stop", IsEnabled = false };
+        private readonly TextBox _custom = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 60, PlaceholderText = T("Optional: your own prompt", "Facoltativo: il tuo prompt") };
+        private readonly NumberBox _maxTokens = new NumberBox { Minimum = 16, Maximum = 1024, Value = 256, Header = T("Maximum answer length (tokens)", "Lunghezza massima della risposta (token)"), Width = 260 };
+        private readonly Button _start = new Button { Content = T("Compare", "Confronta") };
+        private readonly Button _cancel = new Button { Content = T("Stop", "Stop"), IsEnabled = false };
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.85 };
         private readonly StackPanel _results = new StackPanel { Spacing = 10 };
         private CancellationTokenSource? _poll;
@@ -33,7 +34,7 @@ namespace PaRuX.Views
         public ModelArenaSection()
         {
             var panel = new StackPanel { Spacing = 8 };
-            panel.Children.Add(new TextBlock { Text = "Compare models", FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            panel.Children.Add(new TextBlock { Text = T("Compare models", "Confronta i modelli"), FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             panel.Children.Add(new TextBlock
             {
                 Text = ModelArenaPresenter.EvidenceNote, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.72
@@ -43,15 +44,15 @@ namespace PaRuX.Views
             for (int i = 0; i < _models.Length; i++)
             {
                 _models[i].MinWidth = 240;
-                _models[i].PlaceholderText = i < 2 ? "Choose model " + (i + 1) : "Third model (optional)";
+                _models[i].PlaceholderText = i < 2 ? T("Choose model ", "Scegli il modello ") + (i + 1) : T("Third model (optional)", "Terzo modello (facoltativo)");
                 AutomationProperties.SetAutomationId(_models[i], ModelArenaPresenter.ModelAutomationId(i));
-                AutomationProperties.SetName(_models[i], "Compare model " + (i + 1));
+                AutomationProperties.SetName(_models[i], T("Compare model ", "Confronta il modello ") + (i + 1));
                 pickers.Children.Add(_models[i]);
             }
             panel.Children.Add(pickers);
             panel.Children.Add(_taskPanel);
 
-            var advanced = new Expander { Header = "Advanced options", IsExpanded = false, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            var advanced = new Expander { Header = T("Advanced options", "Opzioni avanzate"), IsExpanded = false, HorizontalContentAlignment = HorizontalAlignment.Stretch };
             AutomationProperties.SetAutomationId(advanced, "Arena_Advanced_Expander");
             AutomationProperties.SetAutomationId(_custom, "Arena_CustomPrompt");
             AutomationProperties.SetAutomationId(_maxTokens, "Arena_MaxTokens");
@@ -94,16 +95,16 @@ namespace PaRuX.Views
                 _tasks.Clear();
                 foreach (ArenaTaskDto t in tasks)
                 {
-                    var box = new CheckBox { Content = t.Title + " (" + t.Category + (t.HasAutomaticCheck ? ", auto-checked" : "") + ")", IsChecked = t.Category == "chat" && _tasks.Count == 0 };
+                    var box = new CheckBox { Content = t.Title + " (" + t.Category + (t.HasAutomaticCheck ? T(", auto-checked", ", controllato automaticamente") : "") + ")", IsChecked = t.Category == "chat" && _tasks.Count == 0 };
                     AutomationProperties.SetAutomationId(box, ModelArenaPresenter.TaskAutomationId(t.Id));
                     _tasks[t.Id] = box;
                     _taskPanel.Children.Add(box);
                 }
-                _status.Text = installed.Count < 2 ? "Install at least two models to compare them." : string.Empty;
+                _status.Text = installed.Count < 2 ? T("Install at least two models to compare them.", "Installa almeno due modelli per confrontarli.") : string.Empty;
             }
             catch (Exception ex)
             {
-                _status.Text = "Model comparison is unavailable: " + ex.Message;
+                _status.Text = T("Model comparison is unavailable: ", "Il confronto dei modelli non è disponibile: ") + ex.Message;
             }
         }
 
@@ -133,7 +134,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _status.Text = "Could not start the comparison: " + ex.Message;
+                _status.Text = T("Could not start the comparison: ", "Impossibile avviare il confronto: ") + ex.Message;
                 _busy = false; _start.IsEnabled = true; _cancel.IsEnabled = false;
             }
         }
@@ -151,7 +152,7 @@ namespace PaRuX.Views
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { _status.Text = "Lost contact with the comparison: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Lost contact with the comparison: ", "Contatto con il confronto perso: ") + ex.Message; }
             finally { _busy = false; _start.IsEnabled = true; _cancel.IsEnabled = false; }
         }
 
@@ -159,7 +160,7 @@ namespace PaRuX.Views
         {
             if (_runId is null) return;
             try { await ModelArenaClient.Current.CancelAsync(_runId, CancellationToken.None); }
-            catch (Exception ex) { _status.Text = "Could not stop the comparison: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not stop the comparison: ", "Impossibile fermare il confronto: ") + ex.Message; }
         }
 
         private void Render(ArenaRunDto run)
@@ -184,7 +185,7 @@ namespace PaRuX.Views
                         if (run.Status != "running")
                         {
                             int promptIndex = p; string model = r.ModelFileName;
-                            var pick = new Button { Content = prompt.UserPick == model ? "Your pick" : "This one is better" };
+                            var pick = new Button { Content = prompt.UserPick == model ? T("Your pick", "La tua scelta") : T("This one is better", "Questo è migliore") };
                             AutomationProperties.SetAutomationId(pick, ModelArenaPresenter.JudgeAutomationId(p, m));
                             pick.Click += async (_, _) => await JudgeAsync(run.Id, promptIndex, model);
                             card.Children.Add(pick);
@@ -207,7 +208,7 @@ namespace PaRuX.Views
                     new ArenaJudgeRequest { PromptIndex = promptIndex, ModelFileName = model }, CancellationToken.None);
                 Render(run);
             }
-            catch (Exception ex) { _status.Text = "Could not save your pick: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not save your pick: ", "Impossibile salvare la tua scelta: ") + ex.Message; }
         }
     }
 }

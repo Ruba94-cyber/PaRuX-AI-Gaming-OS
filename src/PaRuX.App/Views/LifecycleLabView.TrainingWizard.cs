@@ -28,7 +28,7 @@ namespace PaRuX.Views
         private readonly StackPanel _planFindings = new() { Spacing = 4 };
         private readonly TextBlock _planSummary = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
         private readonly TextBlock _planRecommendation = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
-        private readonly Button _applyRecommended = new() { Content = "Use recommended settings", IsEnabled = false };
+        private readonly Button _applyRecommended = new() { Content = T("Use recommended settings", "Usa le impostazioni consigliate"), IsEnabled = false };
 
         private readonly NumberBox _learningRate = new()
         {
@@ -50,24 +50,24 @@ namespace PaRuX.Views
         private readonly ComboBox _trainingTargets = new() { MinWidth = 160 };
         private readonly CheckBox _trainingPacking = new()
         {
-            Content = "Pack short SFT samples (better token utilization)"
+            Content = T("Pack short SFT samples (better token utilization)", "Raggruppa campioni SFT brevi (migliore uso dei token)")
         };
         private readonly NumberBox _grpoGenerations = new()
         {
             Value = 4, Minimum = 2, Maximum = 16,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact, MinWidth = 110
         };
-        private readonly TextBox _textField = new() { Text = "text", Header = "Text field", MinWidth = 150 };
-        private readonly TextBox _imageField = new() { Text = "image", Header = "Image field", MinWidth = 150 };
-        private readonly TextBox _audioField = new() { Text = "audio", Header = "Audio field", MinWidth = 150 };
+        private readonly TextBox _textField = new() { Text = "text", Header = T("Text field", "Campo di testo"), MinWidth = 150 };
+        private readonly TextBox _imageField = new() { Text = "image", Header = T("Image field", "Campo immagine"), MinWidth = 150 };
+        private readonly TextBox _audioField = new() { Text = "audio", Header = T("Audio field", "Campo audio"), MinWidth = 150 };
         private readonly TextBlock _methodRequirements = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.72 };
 
         private readonly Button _quickTrainButton = new()
         {
-            Content = "Quick train · 4-bit QLoRA",
+            Content = T("Quick train · 4-bit QLoRA", "Training rapido · QLoRA a 4 bit"),
             MinHeight = 42
         };
-        private readonly Button _startTrainingButton = new() { Content = "Start local training" };
+        private readonly Button _startTrainingButton = new() { Content = T("Start local training", "Avvia il training locale") };
         private bool _trainingSubmissionInProgress;
         private CancellationTokenSource? _quickPreflightCts;
         private TrainingPlanResult? _lastPlan;
@@ -78,12 +78,12 @@ namespace PaRuX.Views
             EnsureAllTrainingMethods();
             EnsureGrpoRewards();
             EnsureTrainingVariants();
-            _trainingPath.PlaceholderText = "JSONL: messages | prompt/chosen/rejected | text | prompt/reference | image+messages | audio+text";
+            _trainingPath.PlaceholderText = T("JSONL: messages | prompt/chosen/rejected | text | prompt/reference | image+messages | audio+text", "JSONL: messages | prompt/chosen/rejected | text | prompt/reference | image+messages | audio+text");
 
             var panel = new StackPanel { Spacing = 10 };
             panel.Children.Add(new TextBlock
             {
-                Text = "METHOD-SPECIFIC SETTINGS",
+                Text = T("METHOD-SPECIFIC SETTINGS", "IMPOSTAZIONI SPECIFICHE DEL METODO"),
                 FontSize = 12,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Opacity = 0.72
@@ -106,7 +106,7 @@ namespace PaRuX.Views
             variants.Children.Add(_trainingPacking);
             variants.Children.Add(new TextBlock
             {
-                Text = "4-bit QLoRA uses less VRAM. For 16-bit LoRA, choose an unquantized Hugging Face model (not a *-bnb-4bit repository) and allow substantially more VRAM. Attention + MLP requires compatible projections in the base model.",
+                Text = T("4-bit QLoRA uses less VRAM. For 16-bit LoRA, choose an unquantized Hugging Face model (not a *-bnb-4bit repository) and allow substantially more VRAM. Attention + MLP requires compatible projections in the base model.", "QLoRA a 4 bit usa meno VRAM. Per LoRA a 16 bit scegli un modello Hugging Face non quantizzato (non un repository *-bnb-4bit) e consenti molta più VRAM. Attenzione + MLP richiede proiezioni compatibili nel modello base."),
                 FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.72
             });
             panel.Children.Add(variants);
@@ -128,7 +128,7 @@ namespace PaRuX.Views
             panel.Children.Add(_methodRequirements);
 
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var check = new Button { Content = "Check this run" };
+            var check = new Button { Content = T("Check this run", "Controlla questa esecuzione") };
             Id(check, "LifecycleLab_CheckRun_Button");
             check.Click += async (_, _) => await CheckTrainingRunAsync();
             actions.Children.Add(check);
@@ -194,10 +194,10 @@ namespace PaRuX.Views
         private void EnsureGrpoRewards()
         {
             if (_grpoReward.Items.Count > 0) return;
-            _grpoReward.Items.Add(new ComboBoxItem { Content = "Exact reference", Tag = GrpoRewardMode.ExactReference });
-            _grpoReward.Items.Add(new ComboBoxItem { Content = "Contains reference", Tag = GrpoRewardMode.ContainsReference });
-            _grpoReward.Items.Add(new ComboBoxItem { Content = "XML format", Tag = GrpoRewardMode.XmlFormat });
-            _grpoReward.Items.Add(new ComboBoxItem { Content = "JSON format", Tag = GrpoRewardMode.JsonFormat });
+            _grpoReward.Items.Add(new ComboBoxItem { Content = T("Exact reference", "Riferimento esatto"), Tag = GrpoRewardMode.ExactReference });
+            _grpoReward.Items.Add(new ComboBoxItem { Content = T("Contains reference", "Contiene il riferimento"), Tag = GrpoRewardMode.ContainsReference });
+            _grpoReward.Items.Add(new ComboBoxItem { Content = T("XML format", "Formato XML"), Tag = GrpoRewardMode.XmlFormat });
+            _grpoReward.Items.Add(new ComboBoxItem { Content = T("JSON format", "Formato JSON"), Tag = GrpoRewardMode.JsonFormat });
             _grpoReward.SelectedIndex = 0;
         }
 
@@ -207,11 +207,11 @@ namespace PaRuX.Views
             {
                 _trainingPrecision.Items.Add(new ComboBoxItem
                 {
-                    Content = "QLoRA · 4-bit (less VRAM)", Tag = TrainingPrecision.Qlora4Bit
+                    Content = T("QLoRA · 4-bit (less VRAM)", "QLoRA · 4 bit (meno VRAM)"), Tag = TrainingPrecision.Qlora4Bit
                 });
                 _trainingPrecision.Items.Add(new ComboBoxItem
                 {
-                    Content = "LoRA · 16-bit", Tag = TrainingPrecision.Lora16Bit
+                    Content = T("LoRA · 16-bit", "LoRA · 16 bit"), Tag = TrainingPrecision.Lora16Bit
                 });
                 _trainingPrecision.SelectedIndex = 0;
             }
@@ -219,11 +219,11 @@ namespace PaRuX.Views
             {
                 _trainingTargets.Items.Add(new ComboBoxItem
                 {
-                    Content = "Attention", Tag = TrainingTargetPreset.Attention
+                    Content = T("Attention", "Attenzione"), Tag = TrainingTargetPreset.Attention
                 });
                 _trainingTargets.Items.Add(new ComboBoxItem
                 {
-                    Content = "Attention + MLP", Tag = TrainingTargetPreset.AllLinear
+                    Content = T("Attention + MLP", "Attenzione + MLP"), Tag = TrainingTargetPreset.AllLinear
                 });
                 _trainingTargets.SelectedIndex = 0;
             }
@@ -258,14 +258,14 @@ namespace PaRuX.Views
 
             _methodRequirements.Text = method switch
             {
-                TrainingMethod.Dpo => "DPO · every row needs prompt, chosen and rejected. Beta controls preference strength.",
-                TrainingMethod.Orpo => "ORPO · prompt/chosen/rejected preference pairs; trains chosen answers and penalizes rejected ones without a separate reference model. Beta controls odds-ratio weight.",
-                TrainingMethod.Kto => "KTO · each JSONL line needs prompt and completion text plus a real boolean label (true=desirable, false=undesirable). Include both classes and at least four examples. The GPU must fit four concurrent examples (effective batch 16). The default learning rate is 1e-6; beta controls feedback strength.",
-                TrainingMethod.ContinuedPretraining => "Continued pretraining · every row needs the selected text field. Use conservative learning rates for domain adaptation.",
-                TrainingMethod.Grpo => "GRPO · prompt is required. Reference reward modes also require reference; XML/JSON rewards are deterministic format checks and never execute dataset code.",
-                TrainingMethod.VisionSft => "Vision SFT · each row needs the selected image field plus messages (or prompt/response); the base model must be vision-language capable.",
-                TrainingMethod.TtsSft => "TTS SFT · each row needs the selected audio + text fields. The current real PaRuX trainer is SpeechT5-family only.",
-                _ => "SFT · each row needs a messages[] conversation."
+                TrainingMethod.Dpo => T("DPO · every row needs prompt, chosen and rejected. Beta controls preference strength.", "DPO · ogni riga richiede prompt, chosen e rejected. Beta controlla l'intensità della preferenza."),
+                TrainingMethod.Orpo => T("ORPO · prompt/chosen/rejected preference pairs; trains chosen answers and penalizes rejected ones without a separate reference model. Beta controls odds-ratio weight.", "ORPO · coppie di preferenza prompt/chosen/rejected; addestra le risposte scelte e penalizza quelle rifiutate senza un modello di riferimento separato. Beta controlla il peso del rapporto di odds."),
+                TrainingMethod.Kto => T("KTO · each JSONL line needs prompt and completion text plus a real boolean label (true=desirable, false=undesirable). Include both classes and at least four examples. The GPU must fit four concurrent examples (effective batch 16). The default learning rate is 1e-6; beta controls feedback strength.", "KTO · ogni riga JSONL richiede il testo di prompt e completion più una vera etichetta booleana (true=desiderabile, false=indesiderabile). Includi entrambe le classi e almeno quattro esempi. La GPU deve contenere quattro esempi contemporanei (batch effettivo 16). Il learning rate predefinito è 1e-6; beta controlla l'intensità del feedback."),
+                TrainingMethod.ContinuedPretraining => T("Continued pretraining · every row needs the selected text field. Use conservative learning rates for domain adaptation.", "Pre-addestramento continuato · ogni riga richiede il campo di testo selezionato. Usa learning rate prudenti per l'adattamento al dominio."),
+                TrainingMethod.Grpo => T("GRPO · prompt is required. Reference reward modes also require reference; XML/JSON rewards are deterministic format checks and never execute dataset code.", "GRPO · il prompt è obbligatorio. Le modalità di reward con riferimento richiedono anche reference; i reward XML/JSON sono controlli di formato deterministici e non eseguono mai codice del dataset."),
+                TrainingMethod.VisionSft => T("Vision SFT · each row needs the selected image field plus messages (or prompt/response); the base model must be vision-language capable.", "SFT visione · ogni riga richiede il campo immagine selezionato più messages (o prompt/response); il modello base deve supportare visione e linguaggio."),
+                TrainingMethod.TtsSft => T("TTS SFT · each row needs the selected audio + text fields. The current real PaRuX trainer is SpeechT5-family only.", "SFT TTS · ogni riga richiede i campi audio + testo selezionati. L'attuale trainer reale di PaRuX supporta solo la famiglia SpeechT5."),
+                _ => T("SFT · each row needs a messages[] conversation.", "SFT · ogni riga richiede una conversazione messages[].")
             };
             SyncInteractiveDraft();
         }
@@ -292,7 +292,7 @@ namespace PaRuX.Views
             }
             catch (InvalidDataException ex)
             {
-                _planSummary.Text = "Training settings need attention: " + ex.Message;
+                _planSummary.Text = T("Training settings need attention: ", "Le impostazioni di training richiedono attenzione: ") + ex.Message;
             }
         }
 
@@ -302,12 +302,12 @@ namespace PaRuX.Views
             string model = (_baseModel.Text ?? string.Empty).Trim();
             if (path.Length == 0)
             {
-                _planSummary.Text = "Enter the training file first.";
+                _planSummary.Text = T("Enter the training file first.", "Inserisci prima il file di training.");
                 return;
             }
 
             _planFindings.Children.Clear();
-            _planSummary.Text = "Checking…";
+            _planSummary.Text = T("Checking…", "Controllo in corso…");
             _planRecommendation.Text = string.Empty;
             _applyRecommended.IsEnabled = false;
 
@@ -331,7 +331,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex)
             {
-                _planSummary.Text = "Could not check this run: " + ex.Message;
+                _planSummary.Text = T("Could not check this run: ", "Impossibile controllare questa esecuzione: ") + ex.Message;
             }
         }
 
@@ -339,7 +339,7 @@ namespace PaRuX.Views
         {
             if (App.MainWin == null)
             {
-                _status.Text = "Choose a JSONL dataset after the PaRuX window is ready.";
+                _status.Text = T("Choose a JSONL dataset after the PaRuX window is ready.", "Scegli un dataset JSONL dopo che la finestra di PaRuX è pronta.");
                 return;
             }
             try
@@ -358,12 +358,12 @@ namespace PaRuX.Views
                     throw new FileNotFoundException("The selected JSONL file is not accessible.", chosen.Path);
                 _trainingPath.Text = chosen.Path;
                 _lastPlan = null;
-                _planSummary.Text = "Dataset selected. Quick train will inspect it before any training starts.";
-                _status.Text = "Selected training dataset: " + chosen.Name;
+                _planSummary.Text = T("Dataset selected. Quick train will inspect it before any training starts.", "Dataset selezionato. Il training rapido lo ispezionerà prima di avviare qualsiasi training.");
+                _status.Text = T("Selected training dataset: ", "Dataset di training selezionato: ") + chosen.Name;
             }
             catch (Exception ex)
             {
-                _status.Text = "Unable to select a training dataset: " + ex.Message;
+                _status.Text = T("Unable to select a training dataset: ", "Impossibile selezionare un dataset di training: ") + ex.Message;
             }
         }
 
@@ -379,7 +379,7 @@ namespace PaRuX.Views
             string model = (_baseModel.Text ?? string.Empty).Trim();
             if (path.Length == 0 || model.Length == 0)
             {
-                _status.Text = "Quick training: choose a JSONL dataset and a trainable base model first.";
+                _status.Text = T("Quick training: choose a JSONL dataset and a trainable base model first.", "Training rapido: scegli prima un dataset JSONL e un modello base addestrabile.");
                 return;
             }
 
@@ -390,13 +390,13 @@ namespace PaRuX.Views
             _startTrainingButton.IsEnabled = false;
             try
             {
-                _status.Text = "Quick training: checking runtime, every dataset row and SHA-256 identity…";
+                _status.Text = T("Quick training: checking runtime, every dataset row and SHA-256 identity…", "Training rapido: controllo di runtime, ogni riga del dataset e identità SHA-256…");
                 TrainingEngineStatus engine = await TrainingLabClient.Current
                     .GetEngineStatusAsync(preflight.Token);
                 if (!engine.Ready)
                 {
-                    _status.Text = "Quick training unavailable: " + engine.Detail
-                        + " Use Install/repair managed Training runtime above.";
+                    _status.Text = T("Quick training unavailable: ", "Training rapido non disponibile: ") + engine.Detail
+                        + T(" Use Install/repair managed Training runtime above.", " Usa Installa/ripara il runtime di training gestito qui sopra.");
                     return;
                 }
 
@@ -413,14 +413,14 @@ namespace PaRuX.Views
                 {
                     _lastPlan = sample;
                     RenderPlan(sample);
-                    _status.Text = "Quick training requires valid SFT messages[] or genuine DPO preference pairs. "
-                        + "For other dataset types, expand Advanced training.";
+                    _status.Text = T("Quick training requires valid SFT messages[] or genuine DPO preference pairs. ", "Il training rapido richiede messages[] SFT validi o vere coppie di preferenza DPO. ")
+                        + T("For other dataset types, expand Advanced training.", "Per altri tipi di dataset, espandi Training avanzato.");
                     return;
                 }
                 if (!engine.AvailableMethods.Contains(method, StringComparer.Ordinal))
                 {
-                    _status.Text = "Quick training: this managed runtime does not support "
-                        + method.ToUpperInvariant() + " on the detected hardware. " + engine.Detail;
+                    _status.Text = T("Quick training: this managed runtime does not support ", "Training rapido: questo runtime gestito non supporta ")
+                        + method.ToUpperInvariant() + T(" on the detected hardware. ", " sull'hardware rilevato. ") + engine.Detail;
                     return;
                 }
 
@@ -451,7 +451,7 @@ namespace PaRuX.Views
                     checkedRun.DatasetVerifiedRecords, checkedRun.DatasetSha256);
                 if (refusal != null)
                 {
-                    _status.Text = "Quick training blocked: " + refusal;
+                    _status.Text = T("Quick training blocked: ", "Training rapido bloccato: ") + refusal;
                     return;
                 }
 
@@ -465,27 +465,27 @@ namespace PaRuX.Views
                 {
                     var confirmation = new ContentDialog
                     {
-                        Title = "Confirm local Quick Training",
+                        Title = T("Confirm local Quick Training", "Conferma il training rapido locale"),
                         Content = new TextBlock
                         {
-                            Text = "Method " + profile.Method.ToUpperInvariant()
-                                + " · rank " + profile.LoraRank
-                                + " · " + profile.MaxSteps + " steps"
-                                + " · sequence " + profile.MaxSequenceLength
-                                + "\nVerified " + checkedRun.DatasetVerifiedRecords.ToString("N0")
-                                + " records · SHA-256 " + checkedRun.DatasetSha256![..12] + "…"
-                                + (warnings.Length > 0 ? "\n\nWarnings:\n" + string.Join("\n", warnings) : "")
-                                + "\n\nStart this local GPU job?",
+                            Text = T("Method ", "Metodo ") + profile.Method.ToUpperInvariant()
+                                + T(" · rank ", " · rango ") + profile.LoraRank
+                                + " · " + profile.MaxSteps + T(" steps", " passaggi")
+                                + T(" · sequence ", " · sequenza ") + profile.MaxSequenceLength
+                                + T("\nVerified ", "\nVerificati ") + checkedRun.DatasetVerifiedRecords.ToString("N0")
+                                + T(" records · SHA-256 ", " record · SHA-256 ") + checkedRun.DatasetSha256![..12] + "…"
+                                + (warnings.Length > 0 ? T("\n\nWarnings:\n", "\n\nAvvisi:\n") + string.Join("\n", warnings) : "")
+                                + T("\n\nStart this local GPU job?", "\n\nAvviare questo job GPU locale?"),
                             TextWrapping = TextWrapping.Wrap
                         },
-                        PrimaryButtonText = "Start local training",
-                        CloseButtonText = "Cancel",
+                        PrimaryButtonText = T("Start local training", "Avvia il training locale"),
+                        CloseButtonText = T("Cancel", "Annulla"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = XamlRoot
                     };
                     if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
                     {
-                        _status.Text = "Quick training cancelled. No training job was submitted.";
+                        _status.Text = T("Quick training cancelled. No training job was submitted.", "Training rapido annullato. Nessun job di training è stato inviato.");
                         return;
                     }
                 }
@@ -501,18 +501,18 @@ namespace PaRuX.Views
                         LoraRank = profile.LoraRank, MaxSteps = profile.MaxSteps,
                         LearningRate = profile.LearningRate, MaxSequenceLength = profile.MaxSequenceLength
                     }, CancellationToken.None);
-                _status.Text = "Quick " + profile.Method.ToUpperInvariant() + " job " + job.Id
-                    + " queued with " + profile.MaxSteps + " steps and rank "
-                    + profile.LoraRank + ". Track progress below; the completed adapter is registered locally.";
+                _status.Text = T("Quick ", "Rapido ") + profile.Method.ToUpperInvariant() + T(" job ", " job ") + job.Id
+                    + T(" queued with ", " messo in coda con ") + profile.MaxSteps + T(" steps and rank ", " passaggi e rango ")
+                    + profile.LoraRank + T(". Track progress below; the completed adapter is registered locally.", ". Segui l'avanzamento qui sotto; l'adapter completato viene registrato in locale.");
                 await RefreshTrainingAsync(CancellationToken.None);
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "Quick dataset verification was cancelled; no new GPU job was requested.";
+                _status.Text = T("Quick dataset verification was cancelled; no new GPU job was requested.", "La verifica rapida del dataset è stata annullata; nessun nuovo job GPU è stato richiesto.");
             }
             catch (Exception ex)
             {
-                _status.Text = "Quick training failed before or during submission: " + ex.Message;
+                _status.Text = T("Quick training failed before or during submission: ", "Training rapido non riuscito prima o durante l'invio: ") + ex.Message;
             }
             finally
             {
@@ -526,26 +526,26 @@ namespace PaRuX.Views
 
         private void RenderPlan(TrainingPlanResult plan)
         {
-            _planSummary.Text = (plan.CanStart ? "Ready to start. " : "This run cannot succeed as configured. ")
+            _planSummary.Text = (plan.CanStart ? T("Ready to start. ", "Pronto per partire. ") : T("This run cannot succeed as configured. ", "Questa esecuzione non può riuscire così com'è configurata. "))
                 + plan.DatasetSummary
                 + (plan.DetectedMethod == TrainingMethod.Kto
-                    ? $" KTO feedback: {plan.DatasetValidKtoRecords:N0} labelled,"
-                      + $" {plan.DatasetDesirableKtoRecords:N0} desirable,"
-                      + $" {plan.DatasetUndesirableKtoRecords:N0} undesirable."
+                    ? T($" KTO feedback: {plan.DatasetValidKtoRecords:N0} labelled,", $" Feedback KTO: {plan.DatasetValidKtoRecords:N0} etichettati,")
+                      + T($" {plan.DatasetDesirableKtoRecords:N0} desirable,", $" {plan.DatasetDesirableKtoRecords:N0} desiderabili,")
+                      + T($" {plan.DatasetUndesirableKtoRecords:N0} undesirable.", $" {plan.DatasetUndesirableKtoRecords:N0} indesiderabili.")
                     : string.Empty)
                 + (plan.DatasetSampleTruncated
-                    ? " (Preflight samples only the first 2,000 records; KTO/ORPO perform full-row checks before GPU admission.)"
+                    ? T(" (Preflight samples only the first 2,000 records; KTO/ORPO perform full-row checks before GPU admission.)", " (Il controllo preliminare campiona solo i primi 2.000 record; KTO/ORPO eseguono controlli su tutte le righe prima dell'ammissione alla GPU.)")
                     : string.Empty)
                 + (plan.EstimatedGib > 0
-                    ? $" Needs roughly {plan.EstimatedGib:0.#} GB against {plan.AvailableGib:0.#} GB available."
+                    ? T($" Needs roughly {plan.EstimatedGib:0.#} GB against {plan.AvailableGib:0.#} GB available.", $" Servono circa {plan.EstimatedGib:0.#} GB a fronte di {plan.AvailableGib:0.#} GB disponibili.")
                     : string.Empty);
 
             int recommendedSequence = plan.RecommendedMaxSequenceLength > 0
                 ? plan.RecommendedMaxSequenceLength
                 : RecommendedSequenceFor(plan.DetectedMethod);
             _planRecommendation.Text = plan.RecommendedMaxSteps > 0
-                ? $"Suggested: rank {plan.RecommendedLoraRank}, {plan.RecommendedMaxSteps:N0} steps, "
-                    + $"learning rate {plan.RecommendedLearningRate:G}, max sequence {recommendedSequence:N0}. "
+                ? T($"Suggested: rank {plan.RecommendedLoraRank}, {plan.RecommendedMaxSteps:N0} steps, ", $"Suggerito: rango {plan.RecommendedLoraRank}, {plan.RecommendedMaxSteps:N0} passaggi, ")
+                    + T($"learning rate {plan.RecommendedLearningRate:G}, max sequence {recommendedSequence:N0}. ", $"learning rate {plan.RecommendedLearningRate:G}, sequenza massima {recommendedSequence:N0}. ")
                     + plan.RecommendationRationale
                 : string.Empty;
             _applyRecommended.IsEnabled = plan.RecommendedMaxSteps > 0;
@@ -557,7 +557,7 @@ namespace PaRuX.Views
                 bool blocking = finding.Severity == "Blocking";
                 _planFindings.Children.Add(new TextBlock
                 {
-                    Text = (blocking ? "Must fix · " : "Worth knowing · ") + finding.Field + ": " + finding.Message,
+                    Text = (blocking ? T("Must fix · ", "Da correggere · ") : T("Worth knowing · ", "Da sapere · ")) + finding.Field + ": " + finding.Message,
                     TextWrapping = TextWrapping.Wrap,
                     FontWeight = blocking
                         ? Microsoft.UI.Text.FontWeights.SemiBold
@@ -577,7 +577,7 @@ namespace PaRuX.Views
                 ? _lastPlan.RecommendedMaxSequenceLength
                 : RecommendedSequenceFor(_lastPlan.DetectedMethod);
             SyncInteractiveDraft();
-            _planSummary.Text = "Applied the suggested settings. Check the run again to confirm.";
+            _planSummary.Text = T("Applied the suggested settings. Check the run again to confirm.", "Impostazioni suggerite applicate. Controlla di nuovo l'esecuzione per confermare.");
         }
 
         private static int RecommendedSequenceFor(string? method) => method switch

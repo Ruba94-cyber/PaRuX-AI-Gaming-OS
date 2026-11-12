@@ -16,6 +16,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class MediaLaneControl : StackPanel
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly ComboBox _lane = new ComboBox { MinWidth = 150 };
         private readonly TextBlock _hint = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 };
         private bool _loading;
@@ -26,9 +27,9 @@ namespace PaRuX.Views
             foreach (string lane in MediaModelPickerPresenter.Lanes) _lane.Items.Add(lane);
             _lane.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(_lane, automationPrefix + "_Lane_ComboBox");
-            AutomationProperties.SetName(_lane, "Content lane");
+            AutomationProperties.SetName(_lane, T("Content lane", "Corsia dei contenuti"));
             _lane.SelectionChanged += async (_, _) => await OnLaneChangedAsync();
-            var label = new TextBlock { Text = "Content lane", FontSize = 11, Opacity = 0.68 };
+            var label = new TextBlock { Text = T("Content lane", "Corsia dei contenuti"), FontSize = 11, Opacity = 0.68 };
             Children.Add(label);
             Children.Add(_lane);
             Children.Add(_hint);
@@ -44,7 +45,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _hint.Text = "The content lane could not be read: " + ex.Message;
+                _hint.Text = T("The content lane could not be read: ", "Impossibile leggere la corsia dei contenuti: ") + ex.Message;
             }
         }
 
@@ -69,7 +70,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _hint.Text = "The content lane was not changed: " + ex.Message;
+                _hint.Text = T("The content lane was not changed: ", "La corsia dei contenuti non è stata cambiata: ") + ex.Message;
                 await RefreshAsync();
             }
         }
@@ -81,6 +82,7 @@ namespace PaRuX.Views
     /// </summary>
     public sealed class MediaModelRow : StackPanel
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         private readonly string _idPrefix;
         private readonly ComboBox _model = new ComboBox { MinWidth = 280 };
         private readonly TextBlock _hint = new TextBlock
@@ -89,7 +91,7 @@ namespace PaRuX.Views
             MaxLines = 2, FontSize = 12, Opacity = 0.7
         };
         private readonly MediaLaneControl _lane;
-        private readonly Button _detailsButton = new Button { Content = "Details" };
+        private readonly Button _detailsButton = new Button { Content = T("Details", "Dettagli") };
         private IReadOnlyList<MediaModelPickerItem> _items = Array.Empty<MediaModelPickerItem>();
         private string _type;
         private bool _loading;
@@ -102,7 +104,7 @@ namespace PaRuX.Views
             Spacing = 6;
             Orientation = Orientation.Vertical;
             AutomationProperties.SetAutomationId(_model, idPrefix + "_Model_ComboBox");
-            AutomationProperties.SetName(_model, "Model");
+            AutomationProperties.SetName(_model, T("Model", "Modello"));
             _model.SelectionChanged += async (_, _) => await OnModelChangedAsync();
             _lane = new MediaLaneControl(idPrefix);
 
@@ -113,16 +115,16 @@ namespace PaRuX.Views
             _model.HorizontalAlignment = HorizontalAlignment.Stretch;
             controls.Children.Add(_model);
             AutomationProperties.SetAutomationId(_detailsButton, idPrefix + "_ModelDetails_Button");
-            AutomationProperties.SetName(_detailsButton, "View selected model details");
+            AutomationProperties.SetName(_detailsButton, T("View selected model details", "Vedi i dettagli del modello selezionato"));
             _detailsButton.Click += async (_, _) => await ShowDetailsAsync();
             Grid.SetColumn(_detailsButton, 1);
             controls.Children.Add(_detailsButton);
-            Children.Add(new TextBlock { Text = "Model", FontSize = 11, Opacity = 0.68 });
+            Children.Add(new TextBlock { Text = T("Model", "Modello"), FontSize = 11, Opacity = 0.68 });
             Children.Add(controls);
             Children.Add(_hint);
             var laneEditor = new Expander
             {
-                Header = "Content preferences",
+                Header = T("Content preferences", "Preferenze sui contenuti"),
                 Content = _lane,
                 IsExpanded = false
             };
@@ -148,7 +150,7 @@ namespace PaRuX.Views
             {
                 List<MediaCheckpointStatus> all = await MediaCheckpointsClient.Current.GetCheckpointsAsync(CancellationToken.None);
                 MediaCheckpointStatus? status = all.Find(s => string.Equals(s.Type, _type, StringComparison.Ordinal));
-                if (status == null) { _hint.Text = "This model type is not reported by PaRuX Core."; return; }
+                if (status == null) { _hint.Text = T("This model type is not reported by PaRuX Core.", "Questo tipo di modello non è segnalato da PaRuX Core."); return; }
                 MediaModelPickerState state = MediaModelPickerPresenter.Build(status.CurrentFile, status.IsCheckpointPinned, status.CompatibleFiles,
                     status.RoutingUsesOverride, status.RoutingMode, status.IsCheckpointPinned, status.PinnedFile);
                 _loading = true;
@@ -170,7 +172,7 @@ namespace PaRuX.Views
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _hint.Text = "The installed models could not be listed: " + ex.Message;
+                _hint.Text = T("The installed models could not be listed: ", "Impossibile elencare i modelli installati: ") + ex.Message;
             }
         }
 
@@ -181,12 +183,12 @@ namespace PaRuX.Views
             var details = new StackPanel { Spacing = 8 };
             details.Children.Add(new TextBlock
             {
-                Text = chosen?.FileName is { Length: > 0 } ? "Selected model file" : "Automatic model selection",
+                Text = chosen?.FileName is { Length: > 0 } ? T("Selected model file", "File del modello selezionato") : T("Automatic model selection", "Selezione automatica del modello"),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             var identity = new TextBox
             {
-                Text = chosen?.FileName ?? "PaRuX chooses the best compatible model for each request.",
+                Text = chosen?.FileName ?? T("PaRuX chooses the best compatible model for each request.", "PaRuX sceglie il miglior modello compatibile per ogni richiesta."),
                 IsReadOnly = true,
                 TextWrapping = TextWrapping.Wrap,
                 AcceptsReturn = true
@@ -196,9 +198,9 @@ namespace PaRuX.Views
             details.Children.Add(new TextBlock { Text = _hint.Text, TextWrapping = TextWrapping.Wrap });
             var dialog = new ContentDialog
             {
-                Title = "Model selection details",
+                Title = T("Model selection details", "Dettagli della selezione del modello"),
                 Content = details,
-                CloseButtonText = "Close",
+                CloseButtonText = T("Close", "Chiudi"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };

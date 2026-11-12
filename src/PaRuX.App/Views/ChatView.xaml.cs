@@ -204,7 +204,7 @@ namespace PaRuX.Views
 
                     _suppressSkillSelectorEvents = true;
                     SkillSelector.Items.Clear();
-                    SkillSelector.Items.Add(new ComboBoxItem { Content = "Skill: Auto", Tag = null });
+                    SkillSelector.Items.Add(new ComboBoxItem { Content = T("Skill: Auto", "Skill: Auto"), Tag = null });
                     foreach (PaRuX.Contracts.SkillManifest skill in _skills)
                         SkillSelector.Items.Add(new ComboBoxItem { Content = skill.DisplayName, Tag = skill.Id });
                     SkillSelector.SelectedIndex = 0;
@@ -397,7 +397,7 @@ namespace PaRuX.Views
                 RefreshSimpleModeAnsweringModel();
                 ToolTipService.SetToolTip(
                     ModelSelector,
-                    "AUTO chooses by task intelligence; Manual locks the exact model until you change it");
+                    T("AUTO chooses by task intelligence; Manual locks the exact model until you change it", "AUTO sceglie in base all'intelligenza richiesta dall'attività; Manuale blocca il modello esatto finché non lo cambi"));
                 string? currentId = ChatSession.Current.Conversation?.Id;
                 string draft = ChatDraftCoordinator.Current.GetDraft(currentId);
                 if (InputBox != null && InputBox.Text != draft)
@@ -550,7 +550,7 @@ namespace PaRuX.Views
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
 
-            var continueBtn = new Button { Content = "Continue from here" };
+            var continueBtn = new Button { Content = T("Continue from here", "Continua da qui") };
             continueBtn.Click += (s, e) =>
             {
                 string edited = box.Text ?? string.Empty;
@@ -559,7 +559,7 @@ namespace PaRuX.Views
             };
             row.Children.Add(continueBtn);
 
-            var cancelBtn = new Button { Content = "Cancel" };
+            var cancelBtn = new Button { Content = T("Cancel", "Annulla") };
             cancelBtn.Click += (s, e) => RestoreRenderedView();
             row.Children.Add(cancelBtn);
 
@@ -613,7 +613,7 @@ namespace PaRuX.Views
                 // History: show what was offered without inviting another answer.
                 var summary = new TextBlock
                 {
-                    Text = "Options: " + string.Join(" · ", quiz.Options) + (quiz.AllowOther ? " · Other" : string.Empty),
+                    Text = T("Options: ", "Opzioni: ") + string.Join(" · ", quiz.Options) + (quiz.AllowOther ? T(" · Other", " · Altro") : string.Empty),
                     TextWrapping = TextWrapping.Wrap,
                     Opacity = 0.7
                 };
@@ -649,7 +649,7 @@ namespace PaRuX.Views
             {
                 var other = new Button
                 {
-                    Content = "Other…",
+                    Content = T("Other…", "Altro…"),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Left,
                     Padding = new Thickness(12, 8, 12, 8)
@@ -751,7 +751,7 @@ namespace PaRuX.Views
         {
             var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             header.Children.Add(new TextBlock { Text = "💭", FontSize = 13 });
-            var headerText = new TextBlock { Text = "Thinking", FontSize = 12, Opacity = 0.75 };
+            var headerText = new TextBlock { Text = T("Thinking", "Ragionamento"), FontSize = 12, Opacity = 0.75 };
             header.Children.Add(headerText);
 
             var body = new TextBlock
@@ -817,7 +817,7 @@ namespace PaRuX.Views
                             HorizontalAlignment = alignment,
                             Margin = new Thickness(0, 8, 0, 4)
                         };
-                        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(audioPlayer, "Audio player: " + attachment.FileName);
+                        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(audioPlayer, T("Audio player: ", "Lettore audio: ") + attachment.FileName);
                         panel.Children.Add(audioPlayer);
                         continue;
                     }
@@ -834,7 +834,7 @@ namespace PaRuX.Views
                             HorizontalAlignment = alignment,
                             Margin = new Thickness(0, 8, 0, 4)
                         };
-                        ToolTipService.SetToolTip(documentButton, "Open attached document");
+                        ToolTipService.SetToolTip(documentButton, T("Open attached document", "Apri il documento allegato"));
                         documentButton.Click += (s, e) => { _ = OpenMediaExternallyAsync(attachment); };
                         panel.Children.Add(documentButton);
                         continue;
@@ -860,7 +860,7 @@ namespace PaRuX.Views
                         Padding = new Thickness(0),
                         HorizontalAlignment = alignment
                     };
-                    ToolTipService.SetToolTip(open, "Open image viewer");
+                    ToolTipService.SetToolTip(open, T("Open image viewer", "Apri il visualizzatore di immagini"));
                     open.Click += (s, e) => { _ = ShowImageViewerAsync(attachment); };
                     panel.Children.Add(open);
                 }
@@ -999,11 +999,11 @@ namespace PaRuX.Views
                 bool hasSources = sources is { Count: > 0 };
                 bool hasSkill = !string.IsNullOrEmpty(message.SkillUsed);
                 if (hasSources && hasSkill)
-                    visuals.Sources.Text = "Skill: " + message.SkillUsed + "  ·  Retrieved context: " + string.Join(", ", sources!);
+                    visuals.Sources.Text = T("Skill: ", "Skill: ") + message.SkillUsed + T("  ·  Retrieved context: ", "  ·  Contesto recuperato: ") + string.Join(", ", sources!);
                 else if (hasSkill)
-                    visuals.Sources.Text = "Skill: " + message.SkillUsed;
+                    visuals.Sources.Text = T("Skill: ", "Skill: ") + message.SkillUsed;
                 else if (hasSources)
-                    visuals.Sources.Text = "Retrieved context: " + string.Join(", ", sources!);
+                    visuals.Sources.Text = T("Retrieved context: ", "Contesto recuperato: ") + string.Join(", ", sources!);
                 visuals.Sources.Visibility = (hasSources || hasSkill) ? Visibility.Visible : Visibility.Collapsed;
             }
 
@@ -1206,7 +1206,7 @@ namespace PaRuX.Views
             if (textStyle != null) text.Style = textStyle;
             badge.Child = text;
 
-            ToolTipService.SetToolTip(badge, "PaRuX routed this turn to: " + route);
+            ToolTipService.SetToolTip(badge, T("PaRuX routed this turn to: ", "PaRuX ha instradato questo turno a: ") + route);
             return badge;
         }
 
@@ -1224,13 +1224,13 @@ namespace PaRuX.Views
                 badge.Padding = new Thickness(8, 1, 8, 1);
             }
 
-            var text = new TextBlock { Text = "Switched to Uncensored" };
+            var text = new TextBlock { Text = T("Switched to Uncensored", "Passato a Senza censura") };
             Style? textStyle = LocalStyle("PaRuXMessageRouteTextStyle");
             if (textStyle != null) text.Style = textStyle;
             badge.Child = text;
 
             ToolTipService.SetToolTip(badge,
-                "Standard declined or fell short here, so PaRuX automatically retried on the local Uncensored model.");
+                T("Standard declined or fell short here, so PaRuX automatically retried on the local Uncensored model.", "Standard ha rifiutato o non è bastato qui, quindi PaRuX ha riprovato automaticamente sul modello locale Senza censura."));
             return badge;
         }
 
@@ -1260,12 +1260,12 @@ namespace PaRuX.Views
                     var package = new DataPackage();
                     package.SetText(toCopy);
                     Clipboard.SetContent(package);
-                    ShowTransientStatus("Copied to clipboard.");
+                    ShowTransientStatus(T("Copied to clipboard.", "Copiato negli appunti."));
                 }
                 catch (Exception ex)
                 {
                     Log.Write("Copy failed: " + ex.Message);
-                    ShowTransientStatus("Couldn't copy to the clipboard.");
+                    ShowTransientStatus(T("Couldn't copy to the clipboard.", "Impossibile copiare negli appunti."));
                 }
             };
             actions.Children.Add(copy);
@@ -1326,9 +1326,9 @@ namespace PaRuX.Views
             {
                 message.TrainingCandidate = !message.TrainingCandidate;
                 trainingCandidate.Foreground = message.TrainingCandidate ? ratingActiveBrush : ratingQuietBrush;
-                ToolTipService.SetToolTip(trainingCandidate, message.TrainingCandidate ? "Marked as a training candidate" : "Save as a training candidate");
+                ToolTipService.SetToolTip(trainingCandidate, message.TrainingCandidate ? T("Marked as a training candidate", "Contrassegnato come candidato al training") : T("Save as a training candidate", "Salva come candidato al training"));
                 ChatSession.Current.Persist();
-                ShowTransientStatus(message.TrainingCandidate ? "Saved as a training candidate." : "Removed from training candidates.");
+                ShowTransientStatus(message.TrainingCandidate ? T("Saved as a training candidate.", "Salvato come candidato al training.") : T("Removed from training candidates.", "Rimosso dai candidati al training."));
             };
             actions.Children.Add(trainingCandidate);
 
@@ -1342,15 +1342,15 @@ namespace PaRuX.Views
                 string workspace = (SettingsStore.Current.Data.AgentCodingWorkspaceRoot ?? string.Empty).Trim();
                 if (workspace.Length == 0)
                 {
-                    ShowTransientStatus("Set the Coding agent workspace in Settings › Agents first: "
-                        + "a coding task runs in its own worktree of a repository you name.");
+                    ShowTransientStatus(T("Set the Coding agent workspace in Settings › Agents first: ", "Imposta prima l'area di lavoro dell'agente di programmazione in Impostazioni › Agenti: ")
+                        + T("a coding task runs in its own worktree of a repository you name.", "un'attività di programmazione viene eseguita nel proprio worktree di un repository che indichi tu."));
                     return;
                 }
 
                 string request = ChatSession.Current.Conversation.Messages
                     .LastOrDefault(m => m.Role == "user")?.Content?.Trim() ?? string.Empty;
                 string proposal = message.Content?.Trim() ?? string.Empty;
-                if (proposal.Length == 0) { ShowTransientStatus("There is nothing in this reply to apply."); return; }
+                if (proposal.Length == 0) { ShowTransientStatus(T("There is nothing in this reply to apply.", "In questa risposta non c'è nulla da applicare.")); return; }
 
                 static string Bound(string value, int max) =>
                     value.Length <= max ? value : value.Substring(0, max) + "\n… (truncated)";
@@ -1370,8 +1370,8 @@ namespace PaRuX.Views
                         CancellationToken.None,
                         codingRunPermissionMode: CodingRunPermissionModes.NormalizeStored(
                             ChatSession.Current.Conversation.CodingRunPermissionMode));
-                    ShowTransientStatus("Coding task " + task.Id[..8] + " created on " + workspace
-                        + ". Follow it in Settings › Agents.");
+                    ShowTransientStatus(T("Coding task ", "Attività di programmazione ") + task.Id[..8] + T(" created on ", "  creata su ") + workspace
+                        + T(". Follow it in Settings › Agents.", ". Seguila in Impostazioni › Agenti."));
                 }
                 catch (Exception ex)
                 {
@@ -1389,7 +1389,7 @@ namespace PaRuX.Views
                 var runComputerAction = new Button
                 {
                     Content = spent ? ComputerUseApprovalState.UsedLabel
-                        : string.IsNullOrWhiteSpace(message.ActionLabel) ? "Run action" : message.ActionLabel,
+                        : string.IsNullOrWhiteSpace(message.ActionLabel) ? T("Run action", "Esegui l'azione") : message.ActionLabel,
                     IsEnabled = !spent,
                     Margin = new Thickness(8, 0, 0, 0),
                     Padding = new Thickness(12, 4, 12, 4)
@@ -1417,7 +1417,7 @@ namespace PaRuX.Views
                     message.ActionConsumed = next.Consumed;
                     runComputerAction.IsEnabled = false;
                     ChatSession.Current.Persist();
-                    ShowTransientStatus("Running the approved local action…");
+                    ShowTransientStatus(T("Running the approved local action…", "Esecuzione dell'azione locale approvata…"));
                     ComputerActionResult result = await ComputerUseService.ExecuteAsync(message.ActionPayload);
                     ShowTransientStatus(result.Message);
                     runComputerAction.Content = result.Message;
@@ -1433,7 +1433,7 @@ namespace PaRuX.Views
                 var runAgent = new Button
                 {
                     Content = spent ? ComputerUseApprovalState.UsedLabel
-                        : string.IsNullOrWhiteSpace(message.ActionLabel) ? "Let PaRuX control the screen" : message.ActionLabel,
+                        : string.IsNullOrWhiteSpace(message.ActionLabel) ? T("Let PaRuX control the screen", "Lascia che PaRuX controlli lo schermo") : message.ActionLabel,
                     IsEnabled = !spent,
                     Margin = new Thickness(8, 0, 0, 0),
                     Padding = new Thickness(12, 4, 12, 4)
@@ -1465,7 +1465,7 @@ namespace PaRuX.Views
                         {
                             agentCts = new CancellationTokenSource();
                             Guid computerUseRegistrationId = LocalAgentCancellationRegistry.Register(agentCts);
-                            runAgent.Content = "Stop";
+                            runAgent.Content = T("Stop", "Stop");
                             ChatMessage live = ChatSession.Current.AppendLiveAssistantMessage();
                             var stepLog = new System.Text.StringBuilder();
                             ScrollToBottom(true);
@@ -1494,7 +1494,7 @@ namespace PaRuX.Views
                             {
                                 Log.Write("Computer Use agent failed: " + ex);
                                 live.Content = (stepLog.Length > 0 ? stepLog.ToString() + "\n\n" : string.Empty)
-                                    + "**Failed:** " + ex.Message;
+                                    + T("**Failed:** ", "**Non riuscito:** ") + ex.Message;
                                 live.IsError = stepLog.Length == 0;
                             }
                             finally
@@ -1512,11 +1512,11 @@ namespace PaRuX.Views
 
                     if (refusal == ComputerUseApprovalAdmission.Refusal.GateBusy)
                     {
-                        ShowTransientStatus("Another Computer Use task is controlling the mouse and keyboard. This approval was not used, so try again when it finishes.");
+                        ShowTransientStatus(T("Another Computer Use task is controlling the mouse and keyboard. This approval was not used, so try again when it finishes.", "Un'altra attività di Uso del computer sta controllando mouse e tastiera. Questa approvazione non è stata usata: riprova quando termina."));
                     }
                     else if (refusal == ComputerUseApprovalAdmission.Refusal.GamingActive)
                     {
-                        ShowTransientStatus("Gaming Mode is active, so Computer Use did not start. This approval was not used.");
+                        ShowTransientStatus(T("Gaming Mode is active, so Computer Use did not start. This approval was not used.", "La Modalità Gaming è attiva, quindi l'Uso del computer non è partito. Questa approvazione non è stata usata."));
                     }
                     else if (refusal == ComputerUseApprovalAdmission.Refusal.Unavailable)
                     {
@@ -1572,7 +1572,7 @@ namespace PaRuX.Views
         {
             if (initial == null || !File.Exists(initial.LocalPath))
             {
-                ShowTransientStatus("The image file is no longer available.");
+                ShowTransientStatus(T("The image file is no longer available.", "Il file immagine non è più disponibile."));
                 return;
             }
 
@@ -1628,13 +1628,13 @@ namespace PaRuX.Views
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Spacing = 6
             };
-            Button previous = new Button { Content = "Previous" };
-            Button next = new Button { Content = "Next" };
-            Button fit = new Button { Content = "Fit" };
+            Button previous = new Button { Content = T("Previous", "Precedente") };
+            Button next = new Button { Content = T("Next", "Successivo") };
+            Button fit = new Button { Content = T("Fit", "Adatta") };
             Button actual = new Button { Content = "100%" };
-            Button save = new Button { Content = "Save as…" };
-            Button external = new Button { Content = "Open" };
-            Button folder = new Button { Content = "Folder" };
+            Button save = new Button { Content = T("Save as…", "Salva con nome…") };
+            Button external = new Button { Content = T("Open", "Apri") };
+            Button folder = new Button { Content = T("Folder", "Cartella") };
             navigationRow.Children.Add(previous);
             navigationRow.Children.Add(next);
             navigationRow.Children.Add(fit);
@@ -1682,16 +1682,16 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Image viewer",
+                Title = T("Image viewer", "Visualizzatore di immagini"),
                 Content = content,
-                CloseButtonText = "Close",
+                CloseButtonText = T("Close", "Chiudi"),
                 XamlRoot = XamlRoot
             };
             try { await dialog.ShowAsync(); }
             catch (Exception ex)
             {
                 Log.Write("Image viewer failed: " + ex.Message);
-                ShowTransientStatus("Couldn't open the image viewer.");
+                ShowTransientStatus(T("Couldn't open the image viewer.", "Impossibile aprire il visualizzatore di immagini."));
             }
         }
 
@@ -1713,12 +1713,12 @@ namespace PaRuX.Views
                 StorageFile destination = await picker.PickSaveFileAsync();
                 if (destination == null) return;
                 await source.CopyAndReplaceAsync(destination);
-                ShowTransientStatus("Media saved.");
+                ShowTransientStatus(T("Media saved.", "File multimediale salvato."));
             }
             catch (Exception ex)
             {
                 Log.Write("Save media failed: " + ex.Message);
-                ShowTransientStatus("Couldn't save the media file.");
+                ShowTransientStatus(T("Couldn't save the media file.", "Impossibile salvare il file multimediale."));
             }
         }
 
@@ -1728,12 +1728,12 @@ namespace PaRuX.Views
             {
                 StorageFile file = await StorageFile.GetFileFromPathAsync(image.LocalPath);
                 if (!await Launcher.LaunchFileAsync(file))
-                    ShowTransientStatus("No app is available to open this image.");
+                    ShowTransientStatus(T("No app is available to open this image.", "Nessuna app disponibile per aprire questa immagine."));
             }
             catch (Exception ex)
             {
                 Log.Write("Open image failed: " + ex.Message);
-                ShowTransientStatus("Couldn't open the image.");
+                ShowTransientStatus(T("Couldn't open the image.", "Impossibile aprire l'immagine."));
             }
         }
 
@@ -1743,12 +1743,12 @@ namespace PaRuX.Views
             {
                 string? folder = Path.GetDirectoryName(image.LocalPath);
                 if (string.IsNullOrWhiteSpace(folder) || !await Launcher.LaunchFolderPathAsync(folder))
-                    ShowTransientStatus("Couldn't open the image folder.");
+                    ShowTransientStatus(T("Couldn't open the image folder.", "Impossibile aprire la cartella dell'immagine."));
             }
             catch (Exception ex)
             {
                 Log.Write("Open image folder failed: " + ex.Message);
-                ShowTransientStatus("Couldn't open the image folder.");
+                ShowTransientStatus(T("Couldn't open the image folder.", "Impossibile aprire la cartella dell'immagine."));
             }
         }
 
@@ -1848,22 +1848,22 @@ namespace PaRuX.Views
                     long maximumBytes = isVideo ? videoMaximumBytes : (isDocument ? documentMaximumBytes : imageMaximumBytes);
                     if (isVideo && videoCount >= 1)
                     {
-                        ShowTransientStatus("Attach one video per message.");
+                        ShowTransientStatus(T("Attach one video per message.", "Allega un solo video per messaggio."));
                         continue;
                     }
                     if (!isVideo && !isDocument && imageCount >= maximumImages)
                     {
-                        ShowTransientStatus("The configured image count limit has been reached.");
+                        ShowTransientStatus(T("The configured image count limit has been reached.", "È stato raggiunto il limite configurato di immagini."));
                         continue;
                     }
                     if (isDocument && documentCount >= Math.Max(1, SettingsStore.Current.Data.MaxDocumentsPerMessage))
                     {
-                        ShowTransientStatus("The configured document count limit has been reached.");
+                        ShowTransientStatus(T("The configured document count limit has been reached.", "È stato raggiunto il limite configurato di documenti."));
                         continue;
                     }
                     if ((long)properties.Size > maximumBytes)
                     {
-                        ShowTransientStatus(file.Name + " is larger than the configured media limit.");
+                        ShowTransientStatus(file.Name + T(" is larger than the configured media limit.", " supera il limite multimediale configurato."));
                         continue;
                     }
 
@@ -1888,7 +1888,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Attach media failed: " + ex);
-                ShowTransientStatus("Couldn't attach that media: " + ex.Message);
+                ShowTransientStatus(T("Couldn't attach that media: ", "Impossibile allegare quel file multimediale: ") + ex.Message);
             }
         }
 
@@ -1948,7 +1948,7 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("Attach audio failed: " + ex);
-                ShowTransientStatus("Couldn't attach that audio: " + ex.Message);
+                ShowTransientStatus(T("Couldn't attach that audio: ", "Impossibile allegare quell'audio: ") + ex.Message);
             }
         }
 
@@ -1969,18 +1969,18 @@ namespace PaRuX.Views
         private async void Mic_Click(object sender, RoutedEventArgs e)
         {
             if (_voiceStarting) return;
-            if (_voiceConversation != null) { ShowTransientStatus("Voice mode is on. Turn it off (Esc) to dictate a single message."); return; }
+            if (_voiceConversation != null) { ShowTransientStatus(T("Voice mode is on. Turn it off (Esc) to dictate a single message.", "La modalità vocale è attiva. Disattivala (Esc) per dettare un singolo messaggio.")); return; }
             switch (_voice.Phase)
             {
                 case VoiceRecordingPhase.Recording:
                     await StopVoiceAndTranscribeAsync(limitReached: false);
                     return;
                 case VoiceRecordingPhase.Transcribing:
-                    ShowTransientStatus("Still transcribing the previous recording.");
+                    ShowTransientStatus(T("Still transcribing the previous recording.", "Sto ancora trascrivendo la registrazione precedente."));
                     return;
             }
 
-            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode("voice input")); return; }
+            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode(T("voice input", "input vocale"))); return; }
 
             _voiceStarting = true;
             try
@@ -1993,7 +1993,7 @@ namespace PaRuX.Views
                 catch (Exception ex)
                 {
                     Log.Write("Voice input engine check failed: " + ex.Message);
-                    ShowTransientStatus("Couldn't check the local speech engine: " + ex.Message);
+                    ShowTransientStatus(T("Couldn't check the local speech engine: ", "Impossibile controllare il motore vocale locale: ") + ex.Message);
                     return;
                 }
 
@@ -2001,7 +2001,7 @@ namespace PaRuX.Views
                 // during the speech engine status request.
                 if (GamingManager.Current.IsActive)
                 {
-                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    ShowTransientStatus(VoiceMessages.GamingMode(T("voice input", "input vocale")));
                     return;
                 }
 
@@ -2014,7 +2014,7 @@ namespace PaRuX.Views
                 if (GamingManager.Current.IsActive)
                 {
                     await recorder.CancelAsync();
-                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    ShowTransientStatus(VoiceMessages.GamingMode(T("voice input", "input vocale")));
                     return;
                 }
                 _recorder = recorder;
@@ -2076,9 +2076,9 @@ namespace PaRuX.Views
                 ? (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"]
                 : LocalBrush("PaRuXTextTertiaryBrush");
             ToolTipService.SetToolTip(MicButton, recording
-                ? "Stop recording and transcribe (Esc cancels)"
-                : "Dictate: click to start recording, click again to stop (Esc cancels, 2 min max)");
-            AutomationProperties.SetName(MicButton, recording ? "Stop recording" : "Record voice message");
+                ? T("Stop recording and transcribe (Esc cancels)", "Ferma la registrazione e trascrivi (Esc annulla)")
+                : T("Dictate: click to start recording, click again to stop (Esc cancels, 2 min max)", "Dettatura: clicca per iniziare a registrare, clicca di nuovo per fermare (Esc annulla, massimo 2 min)"));
+            AutomationProperties.SetName(MicButton, recording ? T("Stop recording", "Ferma la registrazione") : T("Record voice message", "Registra un messaggio vocale"));
         }
 
         private async Task StopVoiceAndTranscribeAsync(bool limitReached)
@@ -2103,7 +2103,7 @@ namespace PaRuX.Views
                 byte[] wav = await recorder.StopAsync();
                 if (GamingManager.Current.IsActive)
                 {
-                    ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                    ShowTransientStatus(VoiceMessages.GamingMode(T("voice input", "input vocale")));
                     return;
                 }
                 WavAnalysis analysis = WavSilenceDetector.Analyze(wav);
@@ -2157,12 +2157,12 @@ namespace PaRuX.Views
                 if (SettingsStore.Current.Data.SendVoiceMessagesAutomatically)
                     Send();
                 else
-                    ShowTransientStatus("Voice transcribed. Review the text and press Enter to send.");
+                    ShowTransientStatus(T("Voice transcribed. Review the text and press Enter to send.", "Voce trascritta. Controlla il testo e premi Invio per inviare."));
             }
             catch (Exception ex)
             {
                 Log.Write("Voice transcription failed: " + ex.GetType().Name + ": " + ex.Message);
-                if (GamingManager.Current.IsActive) ShowTransientStatus(VoiceMessages.GamingMode("voice input"));
+                if (GamingManager.Current.IsActive) ShowTransientStatus(VoiceMessages.GamingMode(T("voice input", "input vocale")));
                 else if (ex.Message.IndexOf("not installed", StringComparison.OrdinalIgnoreCase) >= 0)
                     ShowPersistentVoiceStatus(VoiceMessages.SttNotInstalled());
                 else ShowPersistentVoiceStatus("Transcription failed: " + ex.Message);
@@ -2190,7 +2190,7 @@ namespace PaRuX.Views
             _recorder = null;
             SetVoiceUi(recording: false);
             if (recorder != null) await recorder.CancelAsync();
-            ShowTransientStatus("Recording cancelled.");
+            ShowTransientStatus(T("Recording cancelled.", "Registrazione annullata."));
         }
 
         private void OnChatPreviewKeyDownVoice(object sender, KeyRoutedEventArgs e)
@@ -2264,9 +2264,9 @@ namespace PaRuX.Views
                 if (!active.BargeIn()) active.Stop();
                 return;
             }
-            if (_voiceStarting || _voice.Phase != VoiceRecordingPhase.Idle) { ShowTransientStatus("Finish the current voice recording first."); return; }
-            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode("voice conversation")); return; }
-            if (ChatSession.Current.IsBusy) { ShowTransientStatus("Wait for the current reply to finish, then turn Voice mode on."); return; }
+            if (_voiceStarting || _voice.Phase != VoiceRecordingPhase.Idle) { ShowTransientStatus(T("Finish the current voice recording first.", "Termina prima la registrazione vocale in corso.")); return; }
+            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode(T("voice conversation", "conversazione vocale"))); return; }
+            if (ChatSession.Current.IsBusy) { ShowTransientStatus(T("Wait for the current reply to finish, then turn Voice mode on.", "Attendi la fine della risposta in corso, poi attiva la modalità vocale.")); return; }
 
             StopReadAloud();
             var controller = new VoiceConversationController(
@@ -2305,9 +2305,9 @@ namespace PaRuX.Views
                 : state == VoiceConversationState.Paused ? "Resume listening (Esc leaves Voice mode)"
                 : "Turn Voice mode off (Esc)";
             ToolTipService.SetToolTip(VoiceModeButton, tip);
-            AutomationProperties.SetName(VoiceModeButton, !on ? "Start voice conversation"
-                : state == VoiceConversationState.Speaking ? "Interrupt and speak"
-                : state == VoiceConversationState.Paused ? "Resume listening" : "Stop voice conversation");
+            AutomationProperties.SetName(VoiceModeButton, !on ? T("Start voice conversation", "Avvia la conversazione vocale")
+                : state == VoiceConversationState.Speaking ? T("Interrupt and speak", "Interrompi e parla")
+                : state == VoiceConversationState.Paused ? T("Resume listening", "Riprendi l'ascolto") : T("Stop voice conversation", "Ferma la conversazione vocale"));
             AutomationProperties.SetHelpText(VoiceModeStatus, VoiceModeStatus.Text);
         }
 
@@ -2340,7 +2340,7 @@ namespace PaRuX.Views
             if (ReferenceEquals(_readAloudButton, button)) { StopReadAloud(); return; }
             StopReadAloud();
 
-            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode("Read aloud")); return; }
+            if (GamingManager.Current.IsActive) { ShowTransientStatus(VoiceMessages.GamingMode(T("Read aloud", "Leggi ad alta voce"))); return; }
             string text = SpeechTextPreparer.Prepare(message.Content);
             if (text.Length == 0) { ShowTransientStatus(VoiceMessages.NothingToRead()); return; }
 
@@ -2358,7 +2358,7 @@ namespace PaRuX.Views
             {
                 SpeechEngineStatus engine = await SpeechClient.Current.GetStatusAsync(cts.Token);
                 if (!engine.TtsInstalled) { ShowTransientStatus(VoiceMessages.TtsNotInstalled()); StopReadAloudIf(cts); return; }
-                ShowTransientStatus("Preparing speech locally…");
+                ShowTransientStatus(T("Preparing speech locally…", "Preparazione della voce in locale…"));
                 byte[] wav = await SpeechClient.Current.SynthesizeBytesAsync(text, null, cts.Token);
                 if (cts.IsCancellationRequested) return;
                 await _wavPlayer.PlayAsync(wav);
@@ -2369,8 +2369,8 @@ namespace PaRuX.Views
                 Log.Write("Read aloud failed: " + ex.GetType().Name + ": " + ex.Message);
                 if (ex.Message.IndexOf("not installed", StringComparison.OrdinalIgnoreCase) >= 0)
                     ShowTransientStatus(VoiceMessages.TtsNotInstalled());
-                else if (GamingManager.Current.IsActive) ShowTransientStatus(VoiceMessages.GamingMode("Read aloud"));
-                else ShowTransientStatus("Couldn't read this message aloud: " + ex.Message);
+                else if (GamingManager.Current.IsActive) ShowTransientStatus(VoiceMessages.GamingMode(T("Read aloud", "Leggi ad alta voce")));
+                else ShowTransientStatus(T("Couldn't read this message aloud: ", "Impossibile leggere questo messaggio ad alta voce: ") + ex.Message);
                 StopReadAloudIf(cts);
             }
         }
@@ -2391,21 +2391,21 @@ namespace PaRuX.Views
             {
                 try
                 {
-                    var body = new TextBlock { Text = ComputerUseConsentText.Body(task), TextWrapping = TextWrapping.Wrap };
+                    var body = new TextBlock { Text = ComputerUseConsentText.BodyText(task), TextWrapping = TextWrapping.Wrap };
                     var dialog = new ContentDialog
                     {
                         XamlRoot = XamlRoot,
-                        Title = ComputerUseConsentText.Title,
+                        Title = ComputerUseConsentText.TitleText,
                         Content = body,
-                        PrimaryButtonText = ComputerUseConsentText.Confirm,
-                        CloseButtonText = ComputerUseConsentText.Cancel,
+                        PrimaryButtonText = ComputerUseConsentText.ConfirmText,
+                        CloseButtonText = ComputerUseConsentText.CancelText,
                         DefaultButton = ContentDialogButton.Close
                     };
                     AutomationProperties.SetAutomationId(dialog, "Chat_ComputerUse_Consent_Dialog");
                     // Template parts are not reachable via FindName; walk the realized visual tree once the dialog is open.
                     dialog.Opened += (s, e) =>
                     {
-                        Button? primary = FindDialogButton(dialog, ComputerUseConsentText.Confirm);
+                        Button? primary = FindDialogButton(dialog, ComputerUseConsentText.ConfirmText);
                         if (primary != null)
                             AutomationProperties.SetAutomationId(primary, "Chat_ComputerUse_Consent_Confirm_Button");
                     };
@@ -2518,7 +2518,7 @@ namespace PaRuX.Views
                 if (isAudio)
                 {
                     AutomationProperties.SetAutomationId(pill, "Chat_Audio_Chip");
-                    AutomationProperties.SetName(pill, "Audio: " + ChatAudioAttachmentPolicy.ChipText(attachment.FileName, audioDuration));
+                    AutomationProperties.SetName(pill, T("Audio: ", "Audio: ") + ChatAudioAttachmentPolicy.ChipText(attachment.FileName, audioDuration));
                 }
                 Style? style = LocalStyle("PaRuXQuietPillStyle");
                 if (style != null) pill.Style = style;
@@ -2706,9 +2706,9 @@ namespace PaRuX.Views
                 // The result carries the server's reason for a refusal, so the message can say why Gaming Mode did not end.
                 LocalAiController.ActionResult exit = await GamingManager.Current.ExitAsync(CancellationToken.None);
                 if (!exit.Success)
-                    ShowTransientStatus("Couldn't leave Gaming Mode: "
-                        + (string.IsNullOrWhiteSpace(exit.Message) ? "PaRuX Core did not confirm." : exit.Message)
-                        + " Try again from Settings > Gaming.");
+                    ShowTransientStatus(T("Couldn't leave Gaming Mode: ", "Impossibile uscire dalla Modalità Gaming: ")
+                        + (string.IsNullOrWhiteSpace(exit.Message) ? T("PaRuX Core did not confirm.", "PaRuX Core non ha confermato.") : exit.Message)
+                        + T(" Try again from Settings > Gaming.", " Riprova da Impostazioni > Gaming."));
             }
             catch (Exception ex) { Log.Write("Return to AI failed: " + ex.GetType().Name + ": " + ex.Message); }
             finally { ReturnToAiButton.IsEnabled = true; }
@@ -2808,7 +2808,7 @@ namespace PaRuX.Views
                 // because the "Auto" action would stop the model rather than leave it be.
                 SettingsStore.Current.Data.DefaultProfile = choice;
                 SettingsStore.Current.Save();
-                ShowTransientStatus("Auto: PaRuX will use whichever profile is already loaded.");
+                ShowTransientStatus(T("Auto: PaRuX will use whichever profile is already loaded.", "Auto: PaRuX userà il profilo già caricato."));
                 return;
             }
 
@@ -2837,8 +2837,8 @@ namespace PaRuX.Views
                     SettingsStore.Current.Data.DefaultProfile = choice;
                     SettingsStore.Current.Save();
                     HideStatus();
-                    ShowTransientStatus((choice == "UNCENSORED" ? "Uncensored" : "Standard")
-                        + " is already loaded and ready.");
+                    ShowTransientStatus((choice == "UNCENSORED" ? T("Uncensored", "Senza censura") : "Standard")
+                        + T(" is already loaded and ready.", " è già caricato e pronto."));
                     return;
                 }
 
@@ -2854,7 +2854,7 @@ namespace PaRuX.Views
                     SettingsStore.Current.Data.DefaultProfile = choice;
                     SettingsStore.Current.Save();
                     HideStatus();
-                    ShowTransientStatus("Now running the " + (choice == "UNCENSORED" ? "Uncensored" : "Standard") + " profile.");
+                    ShowTransientStatus(T("Now running the ", "Ora in esecuzione: profilo ") + (choice == "UNCENSORED" ? T("Uncensored", "Senza censura") : "Standard") + T(" profile.", "."));
                 }
                 else
                 {
@@ -2868,7 +2868,7 @@ namespace PaRuX.Views
             {
                 Log.Write("SwitchProfile failed: " + ex.Message);
                 HideStatus();
-                ShowTransientStatus("Couldn't switch profile: " + ex.Message);
+                ShowTransientStatus(T("Couldn't switch profile: ", "Impossibile cambiare profilo: ") + ex.Message);
                 SyncProfileToggles(LocalAiController.Current.GetTextProfile());
             }
             finally
@@ -2917,8 +2917,8 @@ namespace PaRuX.Views
                 ProfileText.Text = header.Text;
                 bool mediaAssistant = state.ActiveProfile?.Contains("media assistant", StringComparison.OrdinalIgnoreCase) == true;
                 ToolTipService.SetToolTip(ProfileText, mediaAssistant
-                    ? "Temporary 4B prompt assistant. Image and video pixels are generated by the selected diffusion checkpoint; your chat model restores after the media burst."
-                    : "The model currently serving this chat profile.");
+                    ? T("Temporary 4B prompt assistant. Image and video pixels are generated by the selected diffusion checkpoint; your chat model restores after the media burst.", "Assistente temporaneo di prompt 4B. I pixel di immagini e video sono generati dal checkpoint di diffusione selezionato; il modello della chat viene ripristinato al termine della raffica multimediale.")
+                    : T("The model currently serving this chat profile.", "Il modello che serve attualmente questo profilo di chat."));
 
                 GameBadge.Visibility = state.GameActive ? Visibility.Visible : Visibility.Collapsed;
                 ReturnToAiButton.Visibility = state.GameActive ? Visibility.Visible : Visibility.Collapsed;

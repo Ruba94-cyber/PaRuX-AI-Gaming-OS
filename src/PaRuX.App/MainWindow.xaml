@@ -3,6 +3,7 @@
     x:Class="PaRuX.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="using:PaRuX.Views"
     xmlns:views="using:PaRuX.Views"
     xmlns:tb="using:H.NotifyIcon"
     mc:Ignorable="d"
@@ -40,7 +41,7 @@
                 SelectionChanged="ModeTabs_SelectionChanged"
                 KeyDown="ModeTabs_KeyDown"
                 AutomationProperties.AutomationId="MainWindow_ModeTabs"
-                AutomationProperties.Name="Workspace mode">
+                AutomationProperties.Name="Workspace mode" loc:Loc.ItName="Modalità dell&#x27;area di lavoro">
                 <SelectorBarItem
                     x:Name="ModeTabAiItem"
                     Text="AI"
@@ -48,7 +49,7 @@
                     MinWidth="64"
                     FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_AI"
-                    AutomationProperties.Name="AI mode"
+                    AutomationProperties.Name="AI mode" loc:Loc.ItName="Modalità AI"
                     ToolTipService.ToolTip="AI (Ctrl+1)" />
                 <SelectorBarItem
                     x:Name="ModeTabGamingItem"
@@ -57,7 +58,7 @@
                     MinWidth="64"
                     FontSize="{StaticResource PaRuXFontSizeBody}"
                     AutomationProperties.AutomationId="MainWindow_ModeTab_Gaming"
-                    AutomationProperties.Name="Gaming mode"
+                    AutomationProperties.Name="Gaming mode" loc:Loc.ItName="Modalità Gaming"
                     ToolTipService.ToolTip="Gaming (Ctrl+2)" />
                 </SelectorBar>
             </Border>
@@ -70,16 +71,16 @@
             IconSource="Assets/prx-orbit-tray.ico">
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
-                    <MenuFlyoutItem x:Name="TrayOpenItem" Text="Open PaRuX" />
-                    <MenuFlyoutItem x:Name="TrayQuickChatItem" Text="Quick Chat" />
-                    <MenuFlyoutItem x:Name="TrayHideBubbleItem" Text="Hide Bubble" />
+                    <MenuFlyoutItem x:Name="TrayOpenItem" Text="Open PaRuX" loc:Loc.ItText="Apri PaRuX" />
+                    <MenuFlyoutItem x:Name="TrayQuickChatItem" Text="Quick Chat" loc:Loc.ItText="Chat rapida" />
+                    <MenuFlyoutItem x:Name="TrayHideBubbleItem" Text="Hide Bubble" loc:Loc.ItText="Nascondi la bolla" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem x:Name="TrayAiAutoItem" Text="AI Auto" />
+                    <MenuFlyoutItem x:Name="TrayAiAutoItem" Text="AI Auto" loc:Loc.ItText="IA automatica" />
                     <MenuFlyoutItem x:Name="TrayAiOnItem" Text="AI On" />
-                    <MenuFlyoutItem x:Name="TrayAiOffItem" Text="AI Off" />
+                    <MenuFlyoutItem x:Name="TrayAiOffItem" Text="AI Off" loc:Loc.ItText="IA disattivata" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem x:Name="TraySettingsItem" Text="Settings" />
-                    <MenuFlyoutItem x:Name="TrayExitItem" Text="Exit" />
+                    <MenuFlyoutItem x:Name="TraySettingsItem" Text="Settings" loc:Loc.ItText="Impostazioni" />
+                    <MenuFlyoutItem x:Name="TrayExitItem" Text="Exit" loc:Loc.ItText="Esci" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>
@@ -100,50 +101,50 @@
             BackRequested="NavView_BackRequested">
 
             <NavigationView.MenuItems>
-                <NavigationViewItemHeader x:Name="WorkspaceSectionHeader" Content="Workspaces" />
-                <NavigationViewItem x:Name="ChatNavItem" AutomationProperties.AutomationId="Navigation_Chat_Item" AutomationProperties.Name="Chat, home workspace" Content="Chat" Tag="__chat__" SelectsOnInvoked="True" ToolTipService.ToolTip="Chat (Home workspace) - Return to current conversation and draft">
+                <NavigationViewItemHeader x:Name="WorkspaceSectionHeader" Content="Workspaces" loc:Loc.ItContent="Aree di lavoro" />
+                <NavigationViewItem x:Name="ChatNavItem" AutomationProperties.AutomationId="Navigation_Chat_Item" AutomationProperties.Name="Chat, home workspace" loc:Loc.ItName="Chat, area di lavoro iniziale" Content="Chat" Tag="__chat__" SelectsOnInvoked="True" ToolTipService.ToolTip="Chat (Home workspace) - Return to current conversation and draft" loc:Loc.ItToolTip="Chat (area di lavoro iniziale) - Torna alla conversazione e alla bozza correnti">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="CreateNavItem" AutomationProperties.AutomationId="Navigation_Create_Item" Content="Create" Tag="__create__" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="CreateNavItem" AutomationProperties.AutomationId="Navigation_Create_Item" Content="Create" loc:Loc.ItContent="Crea" Tag="__create__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B9;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ProjectsNavItem" AutomationProperties.AutomationId="Navigation_Projects_Item" Content="Projects" Tag="__projects__" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="ProjectsNavItem" AutomationProperties.AutomationId="Navigation_Projects_Item" Content="Projects" loc:Loc.ItContent="Progetti" Tag="__projects__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F1;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="GameLibraryNavItem" AutomationProperties.AutomationId="Navigation_GameLibrary_Item" Content="Games" Tag="__games__" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="GameLibraryNavItem" AutomationProperties.AutomationId="Navigation_GameLibrary_Item" Content="Games" loc:Loc.ItContent="Giochi" Tag="__games__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7FC;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="DocumentSearchNavItem" AutomationProperties.AutomationId="Navigation_DocumentSearch_Item" Content="Document search" Tag="__documents__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="DocumentSearchNavItem" AutomationProperties.AutomationId="Navigation_DocumentSearch_Item" Content="Document search" loc:Loc.ItContent="Ricerca documenti" Tag="__documents__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="ModelHubNavItem" AutomationProperties.AutomationId="Navigation_ModelHub_Item" Content="Model Hub" Tag="__modelhub__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ModelRoutingNavItem" AutomationProperties.AutomationId="Navigation_ModelRouting_Item" Content="Model Intelligence" Tag="__modelrouting__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="ModelRoutingNavItem" AutomationProperties.AutomationId="Navigation_ModelRouting_Item" Content="Model Intelligence" loc:Loc.ItContent="Intelligenza dei modelli" Tag="__modelrouting__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE945;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="LifecycleNavItem" AutomationProperties.AutomationId="Navigation_Lifecycle_Item" Content="Lifecycle Lab" Tag="__lifecycle__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D9;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="WorkflowNavItem" AutomationProperties.AutomationId="Navigation_Workflows_Item" Content="Workflows" Tag="__workflows__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="WorkflowNavItem" AutomationProperties.AutomationId="Navigation_Workflows_Item" Content="Workflows" loc:Loc.ItContent="Workflow" Tag="__workflows__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F3;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ToolsNavItem" AutomationProperties.AutomationId="Navigation_Tools_Item" Content="Tools &amp; Automations" Tag="__tools__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="ToolsNavItem" AutomationProperties.AutomationId="Navigation_Tools_Item" Content="Tools &amp; Automations" loc:Loc.ItContent="Strumenti e automazioni" Tag="__tools__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE90F;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ObservabilityNavItem" AutomationProperties.AutomationId="Navigation_Observability_Item" Content="Observability" Tag="__observability__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="ObservabilityNavItem" AutomationProperties.AutomationId="Navigation_Observability_Item" Content="Observability" loc:Loc.ItContent="Osservabilità" Tag="__observability__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D2;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="UpdatesNavItem" AutomationProperties.AutomationId="Navigation_Updates_Item" Content="Updates" Tag="__updates__" Visibility="Collapsed" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="UpdatesNavItem" AutomationProperties.AutomationId="Navigation_Updates_Item" Content="Updates" loc:Loc.ItContent="Aggiornamenti" Tag="__updates__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE895;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="RuntimeNavItem" AutomationProperties.AutomationId="Navigation_Runtime_Item" Content="Runtime" Tag="__runtime__" Visibility="Collapsed" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE950;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="SettingsNavItem" AutomationProperties.AutomationId="Navigation_Settings_Item" Content="Settings" Tag="__settings__" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="SettingsNavItem" AutomationProperties.AutomationId="Navigation_Settings_Item" Content="Settings" loc:Loc.ItContent="Impostazioni" Tag="__settings__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="HelpNavItem" AutomationProperties.AutomationId="Navigation_Help_Item" Content="Help" Tag="__help__" SelectsOnInvoked="True">
+                <NavigationViewItem x:Name="HelpNavItem" AutomationProperties.AutomationId="Navigation_Help_Item" Content="Help" loc:Loc.ItContent="Aiuto" Tag="__help__" SelectsOnInvoked="True">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE897;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -166,11 +167,11 @@
                     <ToggleSwitch
                         x:Name="StudioModeToggle"
                         AutomationProperties.AutomationId="MainWindow_StudioMode_Toggle"
-                        Header="Interface"
-                        OffContent="Simple"
-                        OnContent="Advanced"
+                        Header="Interface" loc:Loc.ItHeader="Interfaccia"
+                        OffContent="Simple" loc:Loc.ItOffContent="Semplice"
+                        OnContent="Advanced" loc:Loc.ItOnContent="Avanzata"
                         Toggled="StudioModeToggle_Toggled"
-                        ToolTipService.ToolTip="Advanced adds the model routing, runtime, lab, workflow, tools, observability and update workspaces to this sidebar. It changes what you can see, not how PaRuX answers." />
+                        ToolTipService.ToolTip="Advanced adds the model routing, runtime, lab, workflow, tools, observability and update workspaces to this sidebar. It changes what you can see, not how PaRuX answers." loc:Loc.ItToolTip="Avanzata aggiunge alla barra laterale le aree di lavoro per instradamento dei modelli, runtime, lab, workflow, strumenti, osservabilità e aggiornamenti. Cambia ciò che puoi vedere, non il modo in cui PaRuX risponde." />
                 </StackPanel>
             </NavigationView.PaneHeader>
 
@@ -179,7 +180,7 @@
                     x:Name="SearchBox"
                     AutomationProperties.AutomationId="MainWindow_ChatSearch_TextBox"
                     QueryIcon="Find"
-                    PlaceholderText="Search chats"
+                    PlaceholderText="Search chats" loc:Loc.ItPlaceholder="Cerca nelle chat"
                     CornerRadius="{StaticResource PaRuXRadiusMedium}"
                     TextChanged="SearchBox_TextChanged" />
             </NavigationView.AutoSuggestBox>
@@ -193,7 +194,7 @@
                     <Button
                         x:Name="NewChatButton"
                         AutomationProperties.AutomationId="MainWindow_NewChat_Button"
-                        AutomationProperties.Name="New chat"
+                        AutomationProperties.Name="New chat" loc:Loc.ItName="Nuova chat"
                         Grid.Column="0"
                         Click="NewChat_Click"
                         HorizontalAlignment="Stretch"
@@ -205,16 +206,16 @@
                         BorderBrush="{ThemeResource PaRuXBrandBorderBrush}"
                         BorderThickness="1"
                         Foreground="{ThemeResource PaRuXBrandTextBrush}"
-                        ToolTipService.ToolTip="Start a new conversation">
+                        ToolTipService.ToolTip="Start a new conversation" loc:Loc.ItToolTip="Inizia una nuova conversazione">
                         <StackPanel Orientation="Horizontal" Spacing="{StaticResource PaRuXSpaceS}" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE710;" FontSize="14" />
-                            <TextBlock Text="New chat" FontSize="{StaticResource PaRuXFontSizeBody}" FontWeight="SemiBold" />
+                            <TextBlock Text="New chat" loc:Loc.ItText="Nuova chat" FontSize="{StaticResource PaRuXFontSizeBody}" FontWeight="SemiBold" />
                         </StackPanel>
                     </Button>
                     <Button
                         x:Name="NewIncognitoChatButton"
                         AutomationProperties.AutomationId="MainWindow_NewIncognitoChat_Button"
-                        AutomationProperties.Name="New incognito chat"
+                        AutomationProperties.Name="New incognito chat" loc:Loc.ItName="Nuova chat in incognito"
                         Grid.Column="1"
                         Click="NewIncognitoChat_Click"
                         Width="44"
@@ -225,7 +226,7 @@
                         BorderBrush="{ThemeResource PaRuXStrokeBrush}"
                         BorderThickness="1"
                         Foreground="{ThemeResource PaRuXTextSecondaryBrush}"
-                        ToolTipService.ToolTip="New incognito chat - never saved, on this PC or synced anywhere">
+                        ToolTipService.ToolTip="New incognito chat - never saved, on this PC or synced anywhere" loc:Loc.ItToolTip="Nuova chat in incognito - mai salvata, né su questo PC né sincronizzata altrove">
                         <FontIcon Glyph="&#xED1A;" FontSize="14" />
                     </Button>
                 </Grid>
@@ -235,7 +236,7 @@
                 <Button
                     x:Name="ConsoleModeButton"
                     AutomationProperties.AutomationId="MainWindow_ConsoleMode_Button"
-                    AutomationProperties.Name="Enter Console TV mode"
+                    AutomationProperties.Name="Enter Console TV mode" loc:Loc.ItName="Entra in modalità Console TV"
                     Content="Console / TV"
                     Click="ConsoleModeButton_Click"
                     HorizontalAlignment="Stretch"
@@ -245,7 +246,7 @@
                     BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
                     BorderThickness="1"
                     CornerRadius="{StaticResource PaRuXRadiusLarge}"
-                    ToolTipService.ToolTip="Use the existing Games workspace in fullscreen. Press Escape or gamepad B to return." />
+                    ToolTipService.ToolTip="Use the existing Games workspace in fullscreen. Press Escape or gamepad B to return." loc:Loc.ItToolTip="Usa l&#x27;area di lavoro Giochi esistente a schermo intero. Premi Esc o B del gamepad per tornare." />
             </NavigationView.PaneFooter>
 
             <Border
@@ -263,11 +264,11 @@
                         <ToggleSwitch
                             x:Name="ContentStudioModeToggle"
                             AutomationProperties.AutomationId="MainWindow_StudioMode_Content_Toggle"
-                            Header="Interface"
-                            OffContent="Simple"
-                            OnContent="Advanced"
+                            Header="Interface" loc:Loc.ItHeader="Interfaccia"
+                            OffContent="Simple" loc:Loc.ItOffContent="Semplice"
+                            OnContent="Advanced" loc:Loc.ItOnContent="Avanzata"
                             Toggled="StudioModeToggle_Toggled"
-                            ToolTipService.ToolTip="Advanced adds the model routing, runtime, lab, workflow, tools, observability and update workspaces to this sidebar. It changes what you can see, not how PaRuX answers."
+                            ToolTipService.ToolTip="Advanced adds the model routing, runtime, lab, workflow, tools, observability and update workspaces to this sidebar. It changes what you can see, not how PaRuX answers." loc:Loc.ItToolTip="Avanzata aggiunge alla barra laterale le aree di lavoro per instradamento dei modelli, runtime, lab, workflow, strumenti, osservabilità e aggiornamenti. Cambia ciò che puoi vedere, non il modo in cui PaRuX risponde."
                             Visibility="Collapsed"
                             Margin="12,4,12,0" />
                         <InfoBar
@@ -276,13 +277,13 @@
                             IsOpen="False"
                             IsClosable="False"
                             Severity="Informational"
-                            Title="First-run setup in progress"
+                            Title="First-run setup in progress" loc:Loc.ItTitle="Configurazione iniziale in corso"
                             Message="Find and download your model in Model Hub, then return to complete onboarding.">
                             <InfoBar.ActionButton>
                                 <Button
                                     x:Name="ReturnToOnboardingButton"
                                     AutomationProperties.AutomationId="MainWindow_ReturnToOnboarding_Button"
-                                    Content="Return to Setup"
+                                    Content="Return to Setup" loc:Loc.ItContent="Torna alla configurazione"
                                     Click="ReturnToOnboardingButton_Click" />
                             </InfoBar.ActionButton>
                         </InfoBar>

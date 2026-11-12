@@ -700,7 +700,7 @@ namespace PaRuX.Views
 
             // On-demand capability acquisition card (BIC-16, Simple mode)
             AutomationProperties.SetAutomationId(_capabilityAcquireCard, "ModelHub_CapabilityAcquire_Card");
-            AutomationProperties.SetName(_capabilityAcquireCard, "Capability Acquisition");
+            AutomationProperties.SetName(_capabilityAcquireCard, T("Capability Acquisition", "Acquisizione di capacità"));
 
             AutomationProperties.SetAutomationId(_capabilityAcquireDownloadButton, "ModelHub_CapabilityAcquire_Download_Button");
             AutomationProperties.SetName(_capabilityAcquireDownloadButton, CapabilityAcquisitionPresenter.DownloadButtonLabel);
@@ -1012,9 +1012,9 @@ namespace PaRuX.Views
                 RenderMedia(mediaTask.Result, mediaRecommendedTask.Result, downloadsTask.Result);
                 RenderHuggingFaceRows(downloadsTask.Result);
                 RenderDiscoveryRefreshStatus();
-                _status.Text = installedTask.Result.Count + " PaRuX-managed GGUF model(s) (models you linked from elsewhere are listed in Settings > Models) · "
-                    + mediaTask.Result.Count + " media role(s) · " + downloadsTask.Result.Count + " download job(s) · "
-                    + (_discoveryCatalog?.Candidates.Count ?? 0) + " discovered Candidate(s).";
+                _status.Text = installedTask.Result.Count + T(" PaRuX-managed GGUF model(s) (models you linked from elsewhere are listed in Settings > Models) · ", " modelli GGUF gestiti da PaRuX (i modelli collegati da altrove sono elencati in Impostazioni > Modelli) · ")
+                    + mediaTask.Result.Count + T(" media role(s) · ", " ruoli multimediali · ") + downloadsTask.Result.Count + T(" download job(s) · ", " job di download · ")
+                    + (_discoveryCatalog?.Candidates.Count ?? 0) + T(" discovered Candidate(s).", " candidati scoperti.");
                 if (_catalogStale) _status.Text += " · " + StaleCatalogMessage;
                 ShowActiveTransfer(downloadsTask.Result);
                 if (_candidateJobHistoryRefreshFailed && !downloadsTask.Result.Any(IsActive))
@@ -1839,7 +1839,7 @@ namespace PaRuX.Views
             bool anyBusy = _suggestionBusyKeys.Count > 0;
             foreach (ModelSuggestionGroup group in section.Groups)
             {
-                var groupTitle = new TextBlock { Text = group.Title + (group.HiddenCount > 0 ? " (top " + group.Cards.Count.ToString(CultureInfo.InvariantCulture) + "; more in Advanced)" : ""), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+                var groupTitle = new TextBlock { Text = group.Title + (group.HiddenCount > 0 ? T(" (top ", " (primi ") + group.Cards.Count.ToString(CultureInfo.InvariantCulture) + T("; more in Advanced)", "; altri in Avanzate)") : ""), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
                 AutomationProperties.SetAutomationId(groupTitle, ModelSuggestionLanePresenter.GroupAutomationId(section.SelectedLane, group.CapabilityGroup));
                 _suggestions.Children.Add(groupTitle);
             foreach (ModelSuggestionCard cardModel in group.Cards)
@@ -4300,7 +4300,7 @@ namespace PaRuX.Views
         {
             if (_hardware == null)
             {
-                _hardwareSummary.Text = "Hardware fit unavailable. Estimates are not verified.";
+                _hardwareSummary.Text = T("Hardware fit unavailable. Estimates are not verified.", "Compatibilità hardware non disponibile. Le stime non sono verificate.");
                 _hardwareDetailText = "Hardware inventory is unavailable; PaRuX cannot confirm a VRAM fit.";
                 _hardwareDetailsButton.IsEnabled = true;
                 return;
@@ -4326,8 +4326,8 @@ namespace PaRuX.Views
                 + (_hardware.GpuInventoryAvailable ? _hardware.GpuInventorySource : "runtime fallback")
                 + " · " + gpu + " · system RAM " + FormatBytes(_hardware.RamTotalBytes)
                 + ". Independent GPU VRAM pools are never summed as an automatic single-model fit.";
-            _hardwareSummary.Text = "This PC: " + ModelHubRowPresentation.CompactDescription(gpu, 84)
-                + " · RAM " + FormatBytes(_hardware.RamTotalBytes);
+            _hardwareSummary.Text = T("This PC: ", "Questo PC: ") + ModelHubRowPresentation.CompactDescription(gpu, 84)
+                + T(" · RAM ", " · RAM ") + FormatBytes(_hardware.RamTotalBytes);
             _hardwareDetailsButton.IsEnabled = true;
         }
 
@@ -4363,14 +4363,14 @@ namespace PaRuX.Views
                 List<ModelSearchResult> filtered = FilterSearch();
                 RenderSearch(filtered);
                 _status.Text = results.Count == 0
-                    ? "No GGUF repositories matched."
-                    : filtered.Count + " shown of " + results.Count + " repository result(s).";
+                    ? T("No GGUF repositories matched.", "Nessun repository GGUF corrisponde.")
+                    : filtered.Count + T(" shown of ", " mostrati su ") + results.Count + T(" repository result(s).", " risultati di repository.");
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 if (IsCurrentSearch(generation, ct, expectedRefreshGeneration))
-                    _status.Text = UserFailureRecoveryMapper.Map(ex, "Model search failed").FormatStatusLine();
+                    _status.Text = UserFailureRecoveryMapper.Map(ex, T("Model search failed", "Ricerca dei modelli non riuscita")).FormatStatusLine();
             }
             finally
             {
@@ -4417,11 +4417,11 @@ namespace PaRuX.Views
                     TextWrapping = TextWrapping.Wrap, MaxLines = 2, Opacity = 0.78
                 });
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var choose = new Button { Content = "Review download" };
+                var choose = new Button { Content = T("Review download", "Controlla il download") };
                 choose.Click += async (_, _) => await ChooseRecommendedFileAsync(model);
                 actions.Children.Add(choose);
-                var details = new Button { Content = "Details" };
-                AutomationProperties.SetName(details, "Details for " + model.Title);
+                var details = new Button { Content = T("Details", "Dettagli") };
+                AutomationProperties.SetName(details, T("Details for ", "Dettagli di ") + model.Title);
                 details.Click += async (_, _) => await ShowModelDetailsAsync(model.Title,
                     new (string Label, string? Value)[]
                     {
@@ -4442,7 +4442,7 @@ namespace PaRuX.Views
                 });
             }
             if (models.Count == 0)
-                _recommended.Children.Add(new TextBlock { Text = "No curated recommendations are available." });
+                _recommended.Children.Add(new TextBlock { Text = T("No curated recommendations are available.", "Nessun consiglio selezionato disponibile.") });
         }
 
         private void RenderSearch(IReadOnlyList<ModelSearchResult> results)
@@ -4479,7 +4479,7 @@ namespace PaRuX.Views
                 });
                 card.Children.Add(new TextBlock
                 {
-                    Text = repo.Category + " · " + choices.Count + " GGUF option(s)",
+                    Text = repo.Category + " · " + choices.Count + T(" GGUF option(s)", " opzioni GGUF"),
                     FontSize = 12, Opacity = 0.78
                 });
                 if (!fromFirstModelSetup && !canReviewDefault && choices.Count > 0)
@@ -4502,11 +4502,11 @@ namespace PaRuX.Views
                     ModelHubSplitSetPresentation.QuantChoiceOption suggested = choices[preferred];
                     card.Children.Add(new TextBlock
                     {
-                        Text = (fromFirstModelSetup ? "Setup choice: " : "Default to review: ")
+                        Text = (fromFirstModelSetup ? T("Setup choice: ", "Scelta di configurazione: ") : T("Default to review: ", "Predefinito da controllare: "))
                             + suggested.Choice.Quantization
                             + (suggested.Choice.SizeBytes > 0
                                 ? " · ~" + FormatBytes(suggested.Choice.SizeBytes)
-                                : " · size not published"),
+                                : T(" · size not published", " · dimensione non pubblicata")),
                         FontSize = 12, Opacity = 0.82, TextWrapping = TextWrapping.Wrap
                     });
                     if (!fromFirstModelSetup && preferred == quantAdvice.PreferredIndex)
@@ -4522,30 +4522,30 @@ namespace PaRuX.Views
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 var review = new Button
                 {
-                    Content = "Review download",
+                    Content = T("Review download", "Controlla il download"),
                     IsEnabled = canReviewDefault
                 };
                 review.Click += async (_, _) =>
                 {
                     if (!canReviewDefault) return;
                     try { await ChooseQuantChoiceAsync(repo.RepoId, choices[preferred].Choice); }
-                    catch (Exception ex) { _status.Text = "Could not review this model: " + ex.Message; }
+                    catch (Exception ex) { _status.Text = T("Could not review this model: ", "Impossibile controllare questo modello: ") + ex.Message; }
                     finally { SetBusy(false, _status.Text); }
                 };
                 actions.Children.Add(review);
                 var variants = new Button
                 {
-                    Content = "Quantization options",
+                    Content = T("Quantization options", "Opzioni di quantizzazione"),
                     IsEnabled = choices.Count > 0
                 };
-                AutomationProperties.SetName(variants, "Quantization options for " + repo.RepoId);
+                AutomationProperties.SetName(variants, T("Quantization options for ", "Opzioni di quantizzazione per ") + repo.RepoId);
                 variants.Click += async (_, _) => await ReviewSearchVariantsAsync(repo, choices, preferred);
                 actions.Children.Add(variants);
                 card.Children.Add(actions);
                 if (choices.Count == 0)
                     card.Children.Add(new TextBlock
                     {
-                        Text = "No GGUF variants were found.", FontSize = 12, Opacity = 0.78
+                        Text = T("No GGUF variants were found.", "Nessuna variante GGUF trovata."), FontSize = 12, Opacity = 0.78
                     });
                 _results.Children.Add(new Border
                 {
@@ -4557,8 +4557,8 @@ namespace PaRuX.Views
                 _results.Children.Add(new TextBlock
                 {
                     Text = _lastSearch.Count == 0
-                        ? "Search for a model to compare available GGUF options."
-                        : "No model matches the selected category."
+                        ? T("Search for a model to compare available GGUF options.", "Cerca un modello per confrontare le opzioni GGUF disponibili.")
+                        : T("No model matches the selected category.", "Nessun modello corrisponde alla categoria selezionata.")
                 });
         }
 
@@ -4594,13 +4594,13 @@ namespace PaRuX.Views
             planContent.Children.Add(new TextBlock
             {
                 Text = plan.SetName + " · " + plan.Quantization + " · " + plan.PartCount
-                    + (plan.PartCount == 1 ? " part" : " parts") + " · " + FormatBytes(plan.TotalBytes),
+                    + (plan.PartCount == 1 ? T(" part", " parte") : T(" parts", " parti")) + " · " + FormatBytes(plan.TotalBytes),
                 TextWrapping = TextWrapping.Wrap,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             planContent.Children.Add(new TextBlock
             {
-                Text = "Hardware fit: " + ModelFitVerdictWords.Of(fit.Verdict) + " · " + fit.Summary,
+                Text = T("Hardware fit: ", "Compatibilità hardware: ") + ModelFitVerdictWords.Of(fit.Verdict) + " · " + fit.Summary,
                 TextWrapping = TextWrapping.Wrap
             });
             planContent.Children.Add(new TextBlock
@@ -4613,7 +4613,7 @@ namespace PaRuX.Views
             if (plan.Projector != null)
                 planContent.Children.Add(new TextBlock
                 {
-                    Text = "Vision projector · " + plan.Projector.FileName + " · " + FormatBytes(plan.Projector.SizeBytes),
+                    Text = T("Vision projector · ", "Proiettore visione · ") + plan.Projector.FileName + " · " + FormatBytes(plan.Projector.SizeBytes),
                     TextWrapping = TextWrapping.Wrap,
                     FontSize = 12
                 });
@@ -4622,10 +4622,10 @@ namespace PaRuX.Views
 
             var planDialog = new ContentDialog
             {
-                Title = "Review GGUF download plan",
+                Title = T("Review GGUF download plan", "Controlla il piano di download GGUF"),
                 Content = planContent,
-                PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = T("Continue", "Continua"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot
             };
@@ -4663,7 +4663,7 @@ namespace PaRuX.Views
                 return;
             }
 
-            _status.Text = "Queued the complete " + plan.SetName + " set.";
+            _status.Text = T("Queued the complete ", "Messo in coda l'intero set ") + plan.SetName + T(" set.", ".");
             await RefreshAllAsync();
         }
 
@@ -4676,7 +4676,7 @@ namespace PaRuX.Views
             _media.Children.Clear();
             _media.Children.Add(new TextBlock
             {
-                Text = "PaRuX only recommends checkpoint variants verified compatible with the workflow family already wired for that role. An arbitrary diffusion model is not presented as a safe drop-in replacement.",
+                Text = T("PaRuX only recommends checkpoint variants verified compatible with the workflow family already wired for that role. An arbitrary diffusion model is not presented as a safe drop-in replacement.", "PaRuX consiglia solo varianti di checkpoint verificate come compatibili con la famiglia di workflow già collegata a quel ruolo. Un modello di diffusione qualsiasi non è presentato come sostituto sicuro."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -4687,7 +4687,7 @@ namespace PaRuX.Views
                 string label = status.Type switch { "image" => "Image", "video" => "Video", "edit" => "Image Edit", _ => status.Type };
                 _media.Children.Add(new TextBlock
                 {
-                    Text = label + " · active: " + (string.IsNullOrWhiteSpace(status.CurrentFile) ? "not configured" : status.CurrentFile)
+                    Text = label + T(" · active: ", " · attivo: ") + (string.IsNullOrWhiteSpace(status.CurrentFile) ? T("not configured", "non configurato") : status.CurrentFile)
                         + " · " + MediaSelectionPresenter.SummarySource(status),
                     TextWrapping = TextWrapping.Wrap,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
@@ -4712,14 +4712,14 @@ namespace PaRuX.Views
                 });
                 card.Children.Add(new TextBlock { Text = checkpoint.Description, TextWrapping = TextWrapping.Wrap, Opacity = 0.76 });
                 if (latest != null)
-                    card.Children.Add(new TextBlock { Text = "Latest transfer: " + latest.Status + (latest.VerificationStatus == null ? string.Empty : " · SHA-256 " + latest.VerificationStatus), FontSize = 12, Opacity = 0.72 });
+                    card.Children.Add(new TextBlock { Text = T("Latest transfer: ", "Ultimo trasferimento: ") + latest.Status + (latest.VerificationStatus == null ? string.Empty : " · SHA-256 " + latest.VerificationStatus), FontSize = 12, Opacity = 0.72 });
 
                 var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var download = new Button { Content = "1. Download checkpoint", IsEnabled = !active };
+                var download = new Button { Content = T("1. Download checkpoint", "1. Scarica il checkpoint"), IsEnabled = !active };
                 download.Click += async (_, _) => await DownloadMediaCheckpointAsync(checkpoint, download);
                 buttons.Children.Add(download);
 
-                var activate = new Button { Content = active ? "Active" : "2. Activate downloaded", IsEnabled = !active };
+                var activate = new Button { Content = active ? T("Active", "Attivo") : T("2. Activate downloaded", "2. Attiva il file scaricato"), IsEnabled = !active };
                 activate.Click += async (_, _) => await ActivateMediaCheckpointAsync(checkpoint);
                 buttons.Children.Add(activate);
                 card.Children.Add(buttons);
@@ -4727,7 +4727,7 @@ namespace PaRuX.Views
             }
 
             if (recommendations.Count == 0)
-                _media.Children.Add(new TextBlock { Text = "No additional verified same-family media checkpoint is currently recommended. The active workflow defaults remain available above." });
+                _media.Children.Add(new TextBlock { Text = T("No additional verified same-family media checkpoint is currently recommended. The active workflow defaults remain available above.", "Al momento non è consigliato alcun altro checkpoint multimediale verificato della stessa famiglia. I valori predefiniti del workflow attivo restano disponibili sopra.") });
             RenderInstalledLoras();
         }
 
@@ -4781,12 +4781,12 @@ namespace PaRuX.Views
                     SetBusy(false, "Download cancelled.");
                     return;
                 }
-                _status.Text = "Queued " + checkpoint.FileName + ". Wait for it to finish downloading (see Downloads below), then use step 2, Activate downloaded.";
+                _status.Text = T("Queued " + checkpoint.FileName + ". Wait for it to finish downloading (see Downloads below), then use step 2, Activate downloaded.", "In coda: " + checkpoint.FileName + ". Attendi la fine del download (vedi Download qui sotto), poi usa il passaggio 2, Attiva il file scaricato.");
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
-                _status.Text = "Media checkpoint download failed: " + ex.Message;
+                _status.Text = T("Media checkpoint download failed: ", "Download del checkpoint multimediale non riuscito: ") + ex.Message;
                 trigger.IsEnabled = true;
                 SetBusy(false, _status.Text);
             }
@@ -4798,12 +4798,12 @@ namespace PaRuX.Views
             {
                 SetBusy(true, "Activating " + checkpoint.Title + "…");
                 MediaCheckpointStatus status = await ModelDownloadClient.Current.ActivateMediaCheckpointAsync(checkpoint, CancellationToken.None);
-                _status.Text = checkpoint.Title + " is now active for " + status.Type + ".";
+                _status.Text = checkpoint.Title + T(" is now active for ", " è ora attivo per ") + status.Type + ".";
                 await RefreshAllAsync();
             }
             catch (Exception ex)
             {
-                _status.Text = "Activation failed. Download the checkpoint completely first. " + ex.Message;
+                _status.Text = T("Activation failed. Download the checkpoint completely first. ", "Attivazione non riuscita. Scarica prima completamente il checkpoint. ") + ex.Message;
                 SetBusy(false, _status.Text);
             }
         }
@@ -4827,7 +4827,7 @@ namespace PaRuX.Views
                 SetBusy(false, "Review the recommended quantization and complete download plan.");
                 await ChooseQuantChoiceAsync(selected.RepoId, selected.Choice);
             }
-            catch (Exception ex) { _status.Text = "Could not resolve recommendation: " + ex.Message; }
+            catch (Exception ex) { _status.Text = T("Could not resolve recommendation: ", "Impossibile risolvere il consiglio: ") + ex.Message; }
             finally { SetBusy(false, _status.Text); }
         }
 
@@ -4896,8 +4896,8 @@ namespace PaRuX.Views
             content.Children.Add(new TextBlock
             {
                 Text = licenseDecision.MetadataStatus
-                    + " · revision: " + (details?.Revision ?? "unknown")
-                    + (string.IsNullOrWhiteSpace(details?.PipelineTag) ? string.Empty : " · pipeline: " + details.PipelineTag),
+                    + T(" · revision: ", " · revisione: ") + (details?.Revision ?? T("unknown", "sconosciuta"))
+                    + (string.IsNullOrWhiteSpace(details?.PipelineTag) ? string.Empty : T(" · pipeline: ", " · pipeline: ") + details.PipelineTag),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.82
@@ -4907,18 +4907,18 @@ namespace PaRuX.Views
             {
                 content.Children.Add(new HyperlinkButton
                 {
-                    Content = "Review model card and repository terms",
+                    Content = T("Review model card and repository terms", "Controlla la scheda del modello e i termini del repository"),
                     NavigateUri = modelCardUri,
                     HorizontalAlignment = HorizontalAlignment.Left
                 });
             }
             if (!string.IsNullOrWhiteSpace(quantHint))
-                content.Children.Add(new TextBlock { Text = "Curated recommendation: " + quantHint + ". Variants are ordered with the closest match first.", TextWrapping = TextWrapping.Wrap, Opacity = 0.72 });
+                content.Children.Add(new TextBlock { Text = T("Curated recommendation: ", "Consiglio selezionato: ") + quantHint + T(". Variants are ordered with the closest match first.", ". Le varianti sono ordinate con la più adatta per prima."), TextWrapping = TextWrapping.Wrap, Opacity = 0.72 });
             content.Children.Add(VariantHeader());
             content.Children.Add(list);
             content.Children.Add(new TextBlock
             {
-                Text = "Hardware fit is a conservative pre-download capacity estimate: GGUF weight size + runtime/KV/buffer headroom against the largest physical GPU and reserved system RAM. It intentionally does not invent an exact gpu-layer count. If aggregate VRAM across multiple adapters would fit but no single adapter does, PaRuX reports an explicit multi-GPU split requirement instead of treating VRAM as one pool.",
+                Text = T("Hardware fit is a conservative pre-download capacity estimate: GGUF weight size + runtime/KV/buffer headroom against the largest physical GPU and reserved system RAM. It intentionally does not invent an exact gpu-layer count. If aggregate VRAM across multiple adapters would fit but no single adapter does, PaRuX reports an explicit multi-GPU split requirement instead of treating VRAM as one pool.", "La compatibilità hardware è una stima prudente della capacità prima del download: dimensione dei pesi GGUF + margine per runtime/KV/buffer rispetto alla GPU fisica più grande e alla RAM di sistema riservata. Non inventa di proposito un numero esatto di layer GPU. Se la VRAM aggregata di più schede basterebbe ma nessuna scheda da sola ce la fa, PaRuX segnala un requisito esplicito di suddivisione multi-GPU invece di trattare la VRAM come un unico pool."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -4926,7 +4926,7 @@ namespace PaRuX.Views
 
             content.Children.Add(new TextBlock
             {
-                Text = "Real throughput/context limits still depend on model architecture, selected runtime/backend and benchmark evidence. The transfer may be several GB; PaRuX verifies SHA-256 when Hugging Face exposes a digest and preserves partial bytes for Pause/Resume.",
+                Text = T("Real throughput/context limits still depend on model architecture, selected runtime/backend and benchmark evidence. The transfer may be several GB; PaRuX verifies SHA-256 when Hugging Face exposes a digest and preserves partial bytes for Pause/Resume.", "I limiti reali di velocità e contesto dipendono ancora dall'architettura del modello, dal runtime/backend scelto e dalle misurazioni. Il trasferimento può pesare diversi GB; PaRuX verifica lo SHA-256 quando Hugging Face espone un digest e conserva i byte parziali per Pausa/Riprendi."),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.72
@@ -4934,10 +4934,10 @@ namespace PaRuX.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Compare GGUF variants",
+                Title = T("Compare GGUF variants", "Confronta le varianti GGUF"),
                 Content = content,
-                PrimaryButtonText = licenseDecision.RequiresReview ? "Review terms & download" : "Download selected",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = licenseDecision.RequiresReview ? T("Review terms & download", "Controlla i termini e scarica") : T("Download selected", "Scarica la selezione"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
                 MaxWidth = 1040
@@ -4983,7 +4983,7 @@ namespace PaRuX.Views
                 SetBusy(false, "Download cancelled.");
                 return;
             }
-            _status.Text = "Queued " + selected.FileName + ".";
+            _status.Text = T("Queued ", "In coda: ") + selected.FileName + ".";
             await RefreshAllAsync();
         }
 
@@ -5088,7 +5088,7 @@ namespace PaRuX.Views
                 text.Children.Add(new TextBlock
                 {
                     Text = job.FileName + " · " + state + progress
-                        + (string.IsNullOrWhiteSpace(job.VerificationStatus) ? string.Empty : " · SHA-256 " + job.VerificationStatus),
+                        + (string.IsNullOrWhiteSpace(job.VerificationStatus) ? string.Empty : T(" · SHA-256 ", " · SHA-256 ") + job.VerificationStatus),
                     TextWrapping = TextWrapping.Wrap
                 });
                 string details = ModelDownloadPresentationPolicy.FormatDetails(job);
@@ -5097,7 +5097,7 @@ namespace PaRuX.Views
                 Grid.SetColumn(text, 0); row.Children.Add(text);
                 if (PaRuX.Services.ModelDownloadStatusPolicy.CanPause(job.Status))
                 {
-                    var pause = new Button { Content = "Pause" };
+                    var pause = new Button { Content = T("Pause", "Pausa") };
                     AutomationProperties.SetAutomationId(pause,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("ModelHub", job.Id, "Pause"));
                     pause.Click += async (_, _) =>
@@ -5105,16 +5105,16 @@ namespace PaRuX.Views
                         try
                         {
                             await ModelDownloadClient.Current.PauseDownloadAsync(job.Id, CancellationToken.None);
-                            _status.Text = "Paused " + job.FileName + "; downloaded bytes are kept for resume.";
+                            _status.Text = T("Paused " + job.FileName + "; downloaded bytes are kept for resume.", "In pausa: " + job.FileName + "; i byte scaricati sono conservati per la ripresa.");
                             await RefreshAllAsync();
                         }
-                        catch (Exception ex) { _status.Text = "Pause failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Pause failed: ", "Pausa non riuscita: ") + ex.Message; }
                     };
                     Grid.SetColumn(pause, 1); row.Children.Add(pause);
                 }
                 else if (PaRuX.Services.ModelDownloadStatusPolicy.CanResume(job.Status))
                 {
-                    var resume = new Button { Content = "Resume" };
+                    var resume = new Button { Content = T("Resume", "Riprendi") };
                     AutomationProperties.SetAutomationId(resume,
                         ModelDownloadPresentationPolicy.GetActionAutomationId("ModelHub", job.Id, "Resume"));
                     resume.Click += async (_, _) =>
@@ -5122,27 +5122,27 @@ namespace PaRuX.Views
                         try
                         {
                             await ModelDownloadClient.Current.StartDownloadAsync(new ModelDownloadRequest { ResumeFromDownloadId = job.Id }, CancellationToken.None);
-                            _status.Text = "Re-queued " + job.FileName + " from its preserved partial download.";
+                            _status.Text = T("Re-queued " + job.FileName + " from its preserved partial download.", "Rimesso in coda: " + job.FileName + " dal download parziale conservato.");
                             await RefreshAllAsync();
                         }
-                        catch (Exception ex) { _status.Text = "Resume failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Resume failed: ", "Ripresa non riuscita: ") + ex.Message; }
                     };
                     Grid.SetColumn(resume, 1); row.Children.Add(resume);
 
                     if (PaRuX.Services.ModelDownloadStatusPolicy.CanRemove(job.Status, job.Id))
                     {
                         // Confirm first: this deletes the .partial bytes for real, unlike Pause which keeps them.
-                        var remove = new Button { Content = "Remove" };
+                        var remove = new Button { Content = T("Remove", "Rimuovi") };
                         AutomationProperties.SetAutomationId(remove,
                             ModelDownloadPresentationPolicy.GetActionAutomationId("ModelHub", job.Id, "Remove"));
                         remove.Click += async (_, _) =>
                         {
                             var confirm = new ContentDialog
                             {
-                                Title = "Remove this download?",
-                                Content = job.FileName + " and its partially downloaded bytes will be deleted. This cannot be undone.",
-                                PrimaryButtonText = "Remove",
-                                CloseButtonText = "Cancel",
+                                Title = T("Remove this download?", "Rimuovere questo download?"),
+                                Content = job.FileName + T(" and its partially downloaded bytes will be deleted. This cannot be undone.", " e i suoi byte scaricati parzialmente verranno eliminati. L'operazione non può essere annullata."),
+                                PrimaryButtonText = T("Remove", "Rimuovi"),
+                                CloseButtonText = T("Cancel", "Annulla"),
                                 DefaultButton = ContentDialogButton.Close,
                                 XamlRoot = XamlRoot
                             };
@@ -5150,17 +5150,17 @@ namespace PaRuX.Views
                             try
                             {
                                 await ModelDownloadClient.Current.RemoveDownloadAsync(job.Id, CancellationToken.None);
-                                _status.Text = "Removed " + job.FileName + ".";
+                                _status.Text = T("Removed ", "Rimosso: ") + job.FileName + ".";
                                 await RefreshAllAsync();
                             }
-                            catch (Exception ex) { _status.Text = "Remove failed: " + ex.Message; }
+                            catch (Exception ex) { _status.Text = T("Remove failed: ", "Rimozione non riuscita: ") + ex.Message; }
                         };
                         Grid.SetColumn(remove, 2); row.Children.Add(remove);
                     }
                 }
                 _downloads.Children.Add(row);
             }
-            if (jobs.Count == 0) _downloads.Children.Add(new TextBlock { Text = "No downloads yet." });
+            if (jobs.Count == 0) _downloads.Children.Add(new TextBlock { Text = T("No downloads yet.", "Nessun download ancora.") });
         }
 
         /// <summary>The incomplete split sets in the managed library, or null when the library could not be asked.
@@ -5180,7 +5180,7 @@ namespace PaRuX.Views
             {
                 _installed.Children.Add(new TextBlock
                 {
-                    Text = "Incomplete split models could not be checked. Refresh to try again.",
+                    Text = T("Incomplete split models could not be checked. Refresh to try again.", "Impossibile controllare i modelli suddivisi incompleti. Aggiorna per riprovare."),
                     FontSize = 12,
                     Opacity = 0.72,
                     TextWrapping = TextWrapping.Wrap
@@ -5196,7 +5196,7 @@ namespace PaRuX.Views
                 var row = new StackPanel { Spacing = 5, Margin = new Thickness(0, 4, 0, 4) };
                 row.Children.Add(new TextBlock
                 {
-                    Text = "Incomplete split model · " + presentation.Title,
+                    Text = T("Incomplete split model · ", "Modello suddiviso incompleto · ") + presentation.Title,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     TextWrapping = TextWrapping.Wrap
                 });
@@ -5204,7 +5204,7 @@ namespace PaRuX.Views
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 if (presentation.CanResume)
                 {
-                    var resume = new Button { Content = "Resume" };
+                    var resume = new Button { Content = T("Resume", "Riprendi") };
                     resume.Click += async (_, _) =>
                     {
                         resume.IsEnabled = false;
@@ -5221,7 +5221,7 @@ namespace PaRuX.Views
                                 FilePaths = incomplete.SplitSet.PartFileNames
                             });
                         }
-                        catch (Exception ex) { _status.Text = "Resume failed: " + ex.Message; }
+                        catch (Exception ex) { _status.Text = T("Resume failed: ", "Ripresa non riuscita: ") + ex.Message; }
                         finally { resume.IsEnabled = true; SetBusy(false, _status.Text); }
                     };
                     actions.Children.Add(resume);
@@ -5230,22 +5230,22 @@ namespace PaRuX.Views
                 {
                     actions.Children.Add(new TextBlock
                     {
-                        Text = "Resume requires a recorded repository and set identity.",
+                        Text = T("Resume requires a recorded repository and set identity.", "La ripresa richiede un repository e un'identità del set registrati."),
                         FontSize = 12,
                         Opacity = 0.72,
                         VerticalAlignment = VerticalAlignment.Center
                     });
                 }
 
-                var remove = new Button { Content = "Remove set" };
+                var remove = new Button { Content = T("Remove set", "Rimuovi il set") };
                 remove.Click += async (_, _) =>
                 {
                     var confirm = new ContentDialog
                     {
-                        Title = "Remove incomplete split set?",
-                        Content = "This removes every part already present for " + presentation.Title + " from the PaRuX Managed Model Library.",
-                        PrimaryButtonText = "Remove set",
-                        CloseButtonText = "Cancel",
+                        Title = T("Remove incomplete split set?", "Rimuovere il set suddiviso incompleto?"),
+                        Content = T("This removes every part already present for " + presentation.Title + " from the PaRuX Managed Model Library.", "Questo rimuove ogni parte già presente di " + presentation.Title + " dalla libreria modelli gestita da PaRuX."),
+                        PrimaryButtonText = T("Remove set", "Rimuovi il set"),
+                        CloseButtonText = T("Cancel", "Annulla"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = XamlRoot
                     };
@@ -5254,10 +5254,10 @@ namespace PaRuX.Views
                     try
                     {
                         await ModelDownloadClient.Current.DeleteManagedModelAsync(presentation.RemoveFileName, CancellationToken.None);
-                        _status.Text = "Removed incomplete set " + presentation.Title + ".";
+                        _status.Text = T("Removed incomplete set ", "Rimosso il set incompleto ") + presentation.Title + ".";
                         await RefreshAllAsync();
                     }
-                    catch (Exception ex) { _status.Text = "Remove failed: " + ex.Message; }
+                    catch (Exception ex) { _status.Text = T("Remove failed: ", "Rimozione non riuscita: ") + ex.Message; }
                     finally { remove.IsEnabled = true; }
                 };
                 actions.Children.Add(remove);
@@ -5283,13 +5283,13 @@ namespace PaRuX.Views
                 {
                     Text = FormatBytes(model.SizeBytes) + " · " + ModelFitVerdictWords.Of(fit.Verdict)
                         + (model.LastBenchmarkTokensPerSecond.HasValue
-                            ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + " tok/s"
+                            ? " · " + model.LastBenchmarkTokensPerSecond.Value.ToString("0.0") + T(" tok/s", " tok/s")
                             : string.Empty),
                     FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
                 });
                 var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                var detailButton = new Button { Content = "Details" };
-                AutomationProperties.SetName(detailButton, "Details for installed model " + model.FileName);
+                var detailButton = new Button { Content = T("Details", "Dettagli") };
+                AutomationProperties.SetName(detailButton, T("Details for installed model ", "Dettagli del modello installato ") + model.FileName);
                 detailButton.Click += async (_, _) =>
                 {
                     Uri? modelCardUri = null;
@@ -5311,8 +5311,8 @@ namespace PaRuX.Views
                         }, modelCardUri);
                 };
                 actions.Children.Add(detailButton);
-                var deleteButton = new Button { Content = "Delete" };
-                AutomationProperties.SetName(deleteButton, "Delete model " + model.FileName);
+                var deleteButton = new Button { Content = T("Delete", "Elimina") };
+                AutomationProperties.SetName(deleteButton, T("Delete model ", "Elimina il modello ") + model.FileName);
                 string capturedFile = model.FileName;
                 long capturedSize = model.SizeBytes;
                 deleteButton.Click += async (_, _) =>
@@ -5332,7 +5332,7 @@ namespace PaRuX.Views
                 });
             }
             if (models.Count == 0)
-                _installed.Children.Add(new TextBlock { Text = "No PaRuX-managed GGUF model is installed yet." });
+                _installed.Children.Add(new TextBlock { Text = T("No PaRuX-managed GGUF model is installed yet.", "Nessun modello GGUF gestito da PaRuX è ancora installato.") });
         }
 
         private void SetBusy(bool value, string message)
@@ -5430,7 +5430,7 @@ namespace PaRuX.Views
 
             if (string.IsNullOrWhiteSpace(proposal.RepoId) || string.IsNullOrWhiteSpace(proposal.FileName))
             {
-                _status.Text = "No download repository or file is specified for this capability.";
+                _status.Text = T("No download repository or file is specified for this capability.", "Per questa funzione non è indicato alcun repository o file da scaricare.");
                 return;
             }
 
@@ -5461,13 +5461,13 @@ namespace PaRuX.Views
                 if (queued)
                 {
                     DismissCapabilityAcquireCard();
-                    _status.Text = "Queued " + proposal.FileName + " for download after licence review.";
+                    _status.Text = T("Queued " + proposal.FileName + " for download after licence review.", "In coda per il download dopo la revisione della licenza: " + proposal.FileName + ".");
                     await RefreshAllAsync();
                 }
             }
             catch (Exception ex)
             {
-                _status.Text = "Capability model download failed: " + ex.Message;
+                _status.Text = T("Capability model download failed: ", "Download del modello della funzione non riuscito: ") + ex.Message;
             }
             finally
             {

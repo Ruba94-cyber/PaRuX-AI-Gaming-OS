@@ -12,16 +12,17 @@ namespace PaRuX.Views
     /// blocking role(s) to Automatic and retry.</summary>
     public static class ManagedModelDeleteFlow
     {
+        private static string T(string en, string it) => PaRuX.Services.UiText.Pick(en, it);
         /// <summary>Returns a status line, and sets deleted when the files were removed.</summary>
         public static async Task<(bool Deleted, string Message)> RunAsync(XamlRoot xamlRoot, string fileName, long sizeBytes)
         {
             var confirm = new ContentDialog
             {
-                Title = "Delete this model?",
+                Title = T("Delete this model?", "Eliminare questo modello?"),
                 Content = fileName + " (" + StorageQuotaService.FormatBytes(sizeBytes)
-                    + ") will be permanently deleted from the PaRuX model library. This cannot be undone.",
-                PrimaryButtonText = "Delete",
-                CloseButtonText = "Cancel",
+                    + T(") will be permanently deleted from the PaRuX model library. This cannot be undone.", ") verrà eliminato definitivamente dalla libreria modelli di PaRuX. L'operazione non può essere annullata."),
+                PrimaryButtonText = T("Delete", "Elimina"),
+                CloseButtonText = T("Cancel", "Annulla"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot
             };
@@ -34,11 +35,11 @@ namespace PaRuX.Views
                 {
                     var switchDialog = new ContentDialog
                     {
-                        Title = "This model is in use",
-                        Content = outcome.Message + "\n\nSwitch " + string.Join(", ", outcome.TextRolesToReset)
-                            + " to Automatic and delete it?",
-                        PrimaryButtonText = "Switch to Automatic and delete",
-                        CloseButtonText = "Keep model",
+                        Title = T("This model is in use", "Questo modello è in uso"),
+                        Content = outcome.Message + T("\n\nSwitch ", "\n\nPassare ") + string.Join(", ", outcome.TextRolesToReset)
+                            + T(" to Automatic and delete it?", " ad Automatico ed eliminarlo?"),
+                        PrimaryButtonText = T("Switch to Automatic and delete", "Passa ad Automatico ed elimina"),
+                        CloseButtonText = T("Keep model", "Mantieni il modello"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = xamlRoot
                     };
