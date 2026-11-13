@@ -164,7 +164,9 @@ public sealed class SmartRouterService : IRoleRouter
                 ParameterBillions = intelligence.ParameterBillions,
                 IntelligenceEvidence = intelligence.Evidence,
                 SizeBytes = sizeBytes,
-                HardwareCompatible = fit?.Compatible
+                HardwareCompatible = fit?.Compatible,
+                EstimatedNeededMib = fit?.NeededMib,
+                AvailableMib = fit?.AvailableMib
             });
         }
         return results;
@@ -251,6 +253,7 @@ public sealed class SmartRouterService : IRoleRouter
         CandidateEvidenceDto? selectedEvidence = null;
         RuntimeLoadResult result;
         string? recommendationSkip = null;
+        string? escalationNote = null;
         bool recommendedApplied = false;
         bool scopedPreferApplied = false;
         string? scopedPreferenceFallbackReason = null;
@@ -298,7 +301,7 @@ public sealed class SmartRouterService : IRoleRouter
             return recommended ?? await SelectAndLoadAsync(
                 requestedRole, normalizedTextRole, requestedRole, candidates, mode,
                 request.PromptText ?? request.TaskType, autoProfile, autoTuning, ct,
-                evidence => selectedEvidence = evidence);
+                evidence => selectedEvidence = evidence, note => escalationNote = note);
         }
 
         // Per-capability Automatic / Prefer / Force (stored). Explicit locks, scoped overrides and manual roles win.
@@ -468,7 +471,7 @@ public sealed class SmartRouterService : IRoleRouter
             result = await SelectAndLoadAsync(
                 "standard", "standard", requestedRole, standardCandidates, mode,
                 request.PromptText ?? request.TaskType, autoProfile, autoTuning, ct,
-                evidence => selectedEvidence = evidence);
+                evidence => selectedEvidence = evidence, note => escalationNote = note);
         }
 
         if (selectedEvidence == null && result.ModelPath != null)
@@ -490,7 +493,8 @@ public sealed class SmartRouterService : IRoleRouter
             mode, requestedRole, exactRegisteredForced, exactManagedForced,
             candidatesConsidered, selectedEvidence, autoProfile, requiredIntelligence,
             managedLibraryExpanded, autoTuning)
-            + (recommendationSkip is null ? string.Empty : " (recommendation not used: " + recommendationSkip + ")");
+            + (recommendationSkip is null ? string.Empty : " (recommendation not used: " + recommendationSkip + ")")
+            + (escalationNote is null ? string.Empty : " " + escalationNote);
         string decisionMessage = fellBack
             ? "Requested role \"" + requestedRole + "\" unavailable; fell back to standard. " + result.Message
             : result.Message;
@@ -657,7 +661,8 @@ public sealed class SmartRouterService : IRoleRouter
         string autoProfile,
         AutoRoutingTuningDto? autoTuning,
         CancellationToken ct,
-        Action<CandidateEvidenceDto?> capture)
+        Action<CandidateEvidenceDto?> capture,
+        Action<string?>? explainEscalation = null)
     {
         bool automaticMode = mode is RouteMode.Auto or RouteMode.Smart or RouteMode.Quality or RouteMode.Performance or RouteMode.LowVram;
         if (automaticMode && normalizedTextRole != null && candidates.Count > 0)
@@ -667,9 +672,19 @@ public sealed class SmartRouterService : IRoleRouter
             IReadOnlyList<CandidateEvidenceDto> pool = mode == RouteMode.Auto
                 ? AutoTrivialTurnPolicy.Narrow(candidates, promptText, rankingRole, autoProfile)
                 : candidates;
+            // PERF-003b: bound and explain a move from the loaded model to a larger one. AUTO only; every explicit choice
+            // (manual role, exact/scoped override, Quality/Performance/LowVram) skips this block.
+            AutoEscalationPolicy.Outcome escalation = AutoEscalationPolicy.Outcome.Unchanged(pool);
+            if (AutoEscalationPolicy.AppliesTo(mode) && pool.Any(candidate => candidate.IsCurrentlyLoaded))
+            {
+                bool constrained = CorporateMode.IsActive || !(await _runtimeManager.GetStatusAsync(ct).ConfigureAwait(false)).GpuDetected;
+                escalation = AutoEscalationPolicy.Apply(pool, autoProfile, constrained);
+                pool = escalation.Pool;
+            }
             CandidateEvidenceDto? selected = CandidatePoolRanker.Rank(
                 pool, mode, rankingRole, promptText, autoProfile, autoTuning);
             capture(selected);
+            explainEscalation?.Invoke(escalation.Describe(selected));
             if (selected != null)
                 return await _runtimeManager.EnsureExactCandidateLoadedAsync(normalizedTextRole, selected.FilePath, ct);
         }

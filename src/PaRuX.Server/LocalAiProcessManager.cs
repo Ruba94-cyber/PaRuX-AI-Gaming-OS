@@ -1198,6 +1198,54 @@ public sealed class LocalAiProcessManager
         return true;
     }
 
+    /// <summary>
+    /// PERF-003c: called when Gaming starts, before the hard-off stops the runtime. Records what the text runtime is serving
+    /// so the first request after Gaming reloads it lazily. Nothing loaded (or already stopped by an earlier attempt) records
+    /// nothing, so a retry never overwrites the earlier memory with an empty one.
+    /// </summary>
+    internal void RememberTextForGaming()
+    {
+        string? model = _lastTextLaunch?.ModelPath;
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            string active = GetActiveTextModelPath();
+            model = active.Length > 0 ? active : null;
+        }
+        if (model is null) return;
+        string label = ReadTrimmed(LocalAiPaths.ActiveProfileFile);
+        if (label.Length == 0) label = _lastTextLaunch?.ProfileLabel ?? string.Empty;
+        string role = ReadTrimmed(LocalAiPaths.ActiveRoleFile);
+        GamingTextMemory.Save(new GamingUnloadedText(
+            model, role.Length == 0 ? null : role, label.Length == 0 ? null : label, GetTextProfile(), DateTime.UtcNow));
+    }
+
+    /// <summary>The model Gaming unloaded and nothing has reloaded yet, or null (also when a runtime is serving again).</summary>
+    internal GamingUnloadedText? GetRememberedGamingUnload()
+    {
+        GamingUnloadedText? remembered = GamingTextMemory.Load();
+        if (remembered is null) return null;
+        // A runtime that is serving again makes the memory stale; drop it so status never claims a pending reload.
+        if (_lastTextLaunch is not null || GetTextProcessId() is not null)
+        {
+            GamingTextMemory.Clear();
+            return null;
+        }
+        return remembered;
+    }
+
+    /// <summary>The explicit model path an Ensure start should use to reload what Gaming unloaded, or null for the normal default.</summary>
+    private string? ResolveGamingReloadOverride()
+    {
+        GamingUnloadedText? remembered = GetRememberedGamingUnload();
+        if (remembered is null) return null;
+        // The default profile model needs no override: the ordinary start already loads it, with its normal label.
+        if (!File.Exists(remembered.ModelPath)) { GamingTextMemory.Clear(); return null; }
+        if (PathsEqual(remembered.ModelPath, LocalAiPaths.StandardModel) || PathsEqual(remembered.ModelPath, LocalAiPaths.UncensoredModel)
+            || PathsEqual(remembered.ModelPath, LocalAiPaths.SmallModel))
+            return null;
+        return remembered.ModelPath;
+    }
+
     /// <returns>False when the media runtime is still running after the stop attempt.</returns>
     public bool StopMedia()
     {
@@ -1224,6 +1272,8 @@ public sealed class LocalAiProcessManager
         try
         {
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
+            // Lazy recovery after Gaming: an Ensure/Auto/On start with no model named reloads the model Gaming unloaded.
+            if (modelPathOverride == null && intent == TextStartIntent.Ensure) modelPathOverride = ResolveGamingReloadOverride();
             // Corporate Lite stays CPU-only; a locally imported or explicitly downloaded GGUF can replace the starter.
             if (PaRuX.Contracts.CorporateMode.IsActive)
             {
@@ -1465,6 +1515,7 @@ public sealed class LocalAiProcessManager
                     _lastTextLaunchTrace = trace.ToArray();
                     try { File.WriteAllText(LocalAiPaths.ActiveRoleFile, choice == "UNCENSORED" ? "uncensored" : "standard"); } catch { }
                     _lastTextLaunch = new TextLaunchSnapshot(model, rungExe, rungRuntime, rungArguments, rungProfile, optimization.Profile);
+                    GamingTextMemory.Clear(); // a model is serving again, so nothing is waiting to be reloaded
                     return attempt;
                 }
                 firstFailure ??= attempt;
@@ -1576,7 +1627,7 @@ public sealed class LocalAiProcessManager
         string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
-        if (result.Success) _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null);
+        if (result.Success) { _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null); GamingTextMemory.Clear(); }
         return result.Success && choice.RecoveredFromSavedChoice
             ? new RuntimeResult(true, result.Message + fallbackNotice)
             : result;
@@ -2557,6 +2608,7 @@ public sealed class LocalAiProcessManager
                     ? new RuntimeResult(true, "Stopped.")
                     : new RuntimeResult(false, "A local AI process did not stop and is still running.");
             case "GameStart":
+                RememberTextForGaming();
                 Directory.CreateDirectory(Path.GetDirectoryName(LocalAiPaths.GameMarkerFile)!);
                 File.WriteAllText(LocalAiPaths.GameMarkerFile, JsonSerializer.Serialize(new { started = DateTime.UtcNow, source = "Playnite" }));
                 // The marker is written first so nothing can restart AI while this runs, but the
@@ -2589,8 +2641,11 @@ public sealed class LocalAiProcessManager
             text = await IsTextHealthyAsync(ct).ConfigureAwait(false)
                 ? $"text ready ({profile}, PID {textProcess.Id})" : $"text loading ({profile}, PID {textProcess.Id})";
         }
-        else text = ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server")
-            ? "text unverified (a recorded runtime cannot be proven stopped)" : "text off";
+        else if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server"))
+            text = "text unverified (a recorded runtime cannot be proven stopped)";
+        else if (GetRememberedGamingUnload() is { } unloaded)
+            text = "text " + GamingRestorePolicy.Describe(unloaded, GamingActive, GetMode());
+        else text = "text off";
         Process? mediaProcess = GetManagedProcess(LocalAiPaths.MediaPidFile, "python", "pythonw");
         string media = mediaProcess != null
             ? (await IsMediaHealthyAsync(ct).ConfigureAwait(false) ? $"media ready (PID {mediaProcess.Id})" : $"media loading (PID {mediaProcess.Id})")

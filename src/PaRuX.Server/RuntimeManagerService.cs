@@ -143,6 +143,7 @@ public sealed class RuntimeManagerService
             });
         }
 
+        GamingUnloadedText? gamingUnloaded = textResident ? null : _process.GetRememberedGamingUnload();
         string activeProfile = textResident ? _process.GetActiveProfileLabel() : string.Empty;
         string activeProjector = textResident ? _process.GetActiveVisionProjectorPath() : string.Empty;
         var result = new RuntimeManagerStatus
@@ -155,7 +156,9 @@ public sealed class RuntimeManagerService
             GamingActive = _process.GamingActive,
             GamingShutdownPending = _process.GamingShutdown.Pending,
             LastGamingShutdownFailure = _process.GamingShutdown.LastFailure,
-            ActiveRole = textResident ? ReadActiveRoleRaw() : null,
+            TextUnloadedForGaming = !textResident && gamingUnloaded is not null,
+            TextReloadOnDemandModelPath = !textResident ? gamingUnloaded?.ModelPath : null,
+            ActiveRole =textResident ? ReadActiveRoleRaw() : null,
             ActiveProfile = string.IsNullOrWhiteSpace(activeProfile) ? null : activeProfile,
             ActiveModelPath = textResident ? ReadActiveModelPathRaw() : null,
             ActiveVisionProjectorPath = string.IsNullOrWhiteSpace(activeProjector) ? null : activeProjector,
