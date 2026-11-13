@@ -57,23 +57,48 @@ public sealed class QuickResumeAndMetadataUiTests
         UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library finished loading");
     }
 
-    private static void ScrollTo(AutomationElement element)
+    private static bool IsInView(AutomationElement element, int minHeight = 1)
+    {
+        var rectangle = element.BoundingRectangle;
+        return !rectangle.IsEmpty && rectangle.Height >= minHeight && !element.Properties.IsOffscreen.ValueOrDefault;
+    }
+
+    /// <summary>One scroll attempt toward the element: UIA ScrollIntoView first (only items of an items control expose ScrollItem),
+    /// then a single wheel notch over the window. A plain Button below the viewport reports a non-empty but off-screen (or
+    /// clipped) rectangle and has no ScrollItem pattern, so only the wheel can bring it into view.</summary>
+    private static void ScrollOnce(AutomationElement element, int minHeight = 1)
     {
         try { element.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView(); } catch (Exception) { /* best effort */ }
-        // Some panels are not exposed through ScrollItem; wheel over the window until the element has real bounds.
-        for (int i = 0; i < 25 && element.BoundingRectangle.IsEmpty; i++)
+        try
         {
-            try
-            {
-                var window = element.Automation.GetDesktop().FindFirstDescendant(cf => cf.ByProcessId(element.Properties.ProcessId.Value));
-                var bounds = (window ?? element).BoundingRectangle;
-                if (bounds.IsEmpty) break;
-                FlaUI.Core.Input.Mouse.MoveTo(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
-                FlaUI.Core.Input.Mouse.Scroll(-3);
-                Thread.Sleep(150);
-            }
-            catch (Exception) { break; }
+            if (IsInView(element, minHeight)) return;
+            var window = element.Automation.GetDesktop().FindFirstDescendant(cf => cf.ByProcessId(element.Properties.ProcessId.Value));
+            var bounds = (window ?? element).BoundingRectangle;
+            if (bounds.IsEmpty) return;
+            var rectangle = element.BoundingRectangle;
+            bool above = !rectangle.IsEmpty && rectangle.Bottom <= bounds.Top;
+            FlaUI.Core.Input.Mouse.MoveTo(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
+            FlaUI.Core.Input.Mouse.Scroll(above ? 3 : -3);
         }
+        catch (Exception) { /* the element is being re-laid out; the next attempt retries */ }
+    }
+
+    /// <summary>Brings the element into the viewport. Scrolling is re-issued on every poll until the element has real on-screen
+    /// bounds: a single ScrollIntoView / wheel burst can be lost or undone by a layout pass, and waiting passively afterwards can
+    /// never succeed. Bounded; callers still assert on the element they need.</summary>
+    private static void ScrollTo(AutomationElement element, int minHeight = 1)
+    {
+        try
+        {
+            UiWait.For(() =>
+            {
+                if (IsInView(element, minHeight)) return true;
+                ScrollOnce(element, minHeight);
+                Thread.Sleep(100); // let the wheel-driven scroll settle before the next measurement
+                return IsInView(element, minHeight);
+            }, "element scrolled into view", TimeSpan.FromSeconds(15));
+        }
+        catch (TimeoutException) { /* the caller's own assertion reports the missing element with context */ }
     }
 
     /// <summary>Scrolls the panel into view and waits for its first refresh to finish (a status text is shown).</summary>
@@ -187,9 +212,10 @@ public sealed class QuickResumeAndMetadataUiTests
             var reviewMods = ById(app, "QuickResume_Mods_ReviewButton");
             var restoreMods = ById(app, "QuickResume_Mods_RestoreButton");
             var skinStudio = ById(app, "QuickResume_Mods_SkinStudioButton");
-            ScrollTo(skinStudio);
             Assert.False(string.IsNullOrWhiteSpace(skinStudio.Name), "local AI skin studio has an accessible label");
             Assert.True(skinStudio.Properties.IsEnabled.ValueOrDefault);
+            // The strict 44 px check stays; the button is scrolled into view (re-issued per poll) before it is measured.
+            ScrollTo(skinStudio, minHeight: 44);
             UiWait.For(() => skinStudio.BoundingRectangle.Height >= 44,
                 "Minecraft skin studio button has minimum touch target");
 
@@ -198,7 +224,7 @@ public sealed class QuickResumeAndMetadataUiTests
             Assert.True(reviewMods.Properties.IsEnabled.ValueOrDefault);
             Assert.True(restoreMods.Properties.IsEnabled.ValueOrDefault);
             Assert.False(string.IsNullOrWhiteSpace(refresh.Name), "refresh has an accessible name");
-            ScrollTo(refresh);
+            ScrollTo(refresh, minHeight: 44);
             UiWait.For(() => refresh.BoundingRectangle.Height >= 44, "refresh is at least 44px tall");
             // The list container is only exposed to UI Automation once it has rows; it is checked after the first listing.
 

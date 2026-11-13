@@ -153,6 +153,9 @@ internal sealed class UiTestApplication : IDisposable
         if (restartDataRoot == null && seedConversationHistoryCount > 0)
             SeedConversationHistory(Path.Combine(_testRoot, "parux.db"), seedConversationHistoryCount);
 
+        // The previous test's Core needs a moment to exit after its window closes. Only 3 of the ~64 test classes waited for
+        // this themselves; wait here for every test so a lingering Core is never racing the new one for its port and state.
+        WaitForPreviousCoreRelease();
         var existingPids = Process.GetProcessesByName("PaRuX").Select(process => process.Id).ToHashSet();
         var start = new ProcessStartInfo(Repository.AppExecutable)
         {
@@ -398,11 +401,28 @@ internal sealed class UiTestApplication : IDisposable
         // while the parent link still exists, then fall back to a plain kill.
         if (appProcessId > 0) KillProcessTree(appProcessId);
         try { if (!_application.HasExited) _application.Kill(); } catch { }
+        // taskkill only requests the kill; confirm the desktop process is really gone before the next test launches its own.
+        try { UiWait.For(() => _application.HasExited, "PaRuX desktop process to exit", TimeSpan.FromSeconds(10)); } catch { }
         Automation.Dispose();
         _application.Dispose();
         _bootstrapAuthFixture?.Dispose();
         if (!_preserveDataForRestart)
             try { Directory.Delete(_testRoot, recursive: true); } catch { }
+    }
+
+    private const int CoreDefaultPort = 51123;
+
+    /// <summary>Waits (bounded) until no process listens on the default Core port. Never throws: a Core owned by someone else, such as a
+    /// real PaRuX session, makes the new Core pick another loopback port, so only a timeout is tolerated here, not a failure.</summary>
+    private static void WaitForPreviousCoreRelease()
+    {
+        try
+        {
+            UiWait.For(() => !System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
+                    .Any(endpoint => endpoint.Port == CoreDefaultPort),
+                "previous Core released port " + CoreDefaultPort, TimeSpan.FromSeconds(20));
+        }
+        catch (TimeoutException) { /* proceed: the new Core publishes another free port */ }
     }
 
     private static void KillProcessTree(int rootProcessId)
