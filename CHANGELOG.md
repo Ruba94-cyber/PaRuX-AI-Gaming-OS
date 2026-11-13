@@ -6,26 +6,6 @@
 
 Security hardening (release-note summary). Core now refuses requests whose Host header is not loopback, this PC's machine name, a LAN IP bound on this PC, or a name listed in `PARUX_ALLOWED_HOSTS` or `allowed-hosts.txt`; reverse-proxy users must add their public name to one of those lists, or the proxied requests get 403. Paired devices expire after 90 days idle and 365 days after pairing, and must be paired again. PaRuX-launched llama-server ports (text, retrieval, performance probe and quality runs) now require a per-launch key that is passed only through the child's environment, and the performance probe connects only to the process it launched.
 
-## 4.1.0 (beta)
-
-Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by commit prefix). Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`, `docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`.
-
-- **Fixes found by real-app testing on the reference PC:** onboarding no longer refuses "Gaming only" while components are being detected; first run keeps Manual setup collapsed; a user-started Model Hub repository check survives navigation; "Return to AI" is reachable from every Gaming section; re-requesting the already loaded text profile no longer restarts the runtime; the health endpoint reports the product version.
-- **Documents:** `#folder-name` mentions in chat scope one message to a document folder; folders and files can be dragged onto Document search (files are copied, originals untouched).
-
-- **Training / datasets (about 95 commits):** SFT/DPO/KTO Data Recipes (CSV/JSONL/Parquet to verified JSONL in PaRuX-owned storage), full-dataset SHA-256 binding for Quick Training approval, explicit final GPU consent, recipe builder in Dataset Hub, blocked in Corporate Lite and Gaming hard-off.
-- **Media / gallery / create (about 60):** on-demand image and video previews, bounded thumbnail and video-frame cache with link/junction rejection, gallery recovery states for missing/empty/in-progress outputs, safer delete/reveal/open checks, off-UI-thread scanning.
-- **Corporate Lite (about 60):** resumable low-memory large-PDF indexing with page-level progress, opt-in OCR in bounded batches, evidence-grounding safety checks for technical answers, paged and searchable document sources, Chat-first shell.
-- **Chat / models / Model Hub:** searchable paged installed-model browser with size and measured-speed ordering, local model comparison, explicit shared context for group chat, recovery-snapshot validation for history, manual GGUF choice kept per repository, role auto-assignment after a model download, English base UI language with optional Italian.
-- **Gaming:** library sections, per-game status and score, library health from cached titles, input-device identity checks.
-- **Onboarding / runtime:** actionable local model-start recovery guidance (EN/IT); Core falls back to a free loopback port when 51123 is reserved.
-- **Security (latest commits):** new coding runs default to ask; paired devices cannot enable Internet or self-grant capabilities; restore preserves this PC's pairing/LAN/Internet settings.
-- **Portable / packaging:** Standard portable stages the SHA-256-locked llama.cpp Vulkan runtime; Corporate Lite is a separate CPU-only shell; portable data-root isolation.
-- **Android:** versionCode 22; model browsing, job polling lifecycle and create-draft retention improvements.
-- **Build / tests / docs:** many new xUnit and FlaUI tests, a build fix for source-only commits, QA evidence and benchmark harness fixes (`docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`).
-- **Runtime / UI strings:** all projects retarget from .NET 8 to .NET 10 (net10.0 / net10.0-windows; .NET 8 reached end of support in November 2026, SEC-F07); the UI strings are uniform English/Italian (`loc:T` XAML hook, `T(en,it)` / `UiText.Pick` in code, audit via `tools/audit-ui-italian.ps1`); test-harness hang fixes (bounded process-probe output wait).
-- **Known limits (beta):** the MSI is signed with a self-signed certificate (SmartScreen will warn) and its install/upgrade/uninstall was not tested in this cycle; Portable and Corporate zips are unsigned; no clean-machine, physical Android device, TV/multi-monitor, controller-hardware or in-game FPS testing; security findings SEC-F01/F02/F05 are open (`docs/SECURITY_REVIEW.md`); .NET 8 reaches end of support in November 2026. Not all release gates are met: see `docs/RELEASE_READINESS.md`.
-
 ### Security review remediation, round 2 (unreleased; unit-tested, no real-device run)
 
 - **Managed Python installs are hash-locked (SEC-F02):** Cutout, Speech, Avatar, LoRA conversion, 3D, the Diffusers image engine and PyTorch now install only from shipped `--require-hashes` lock files (`managed-locks/`, regenerate with `tools/managed-locks/generate.ps1`); an unpinned requirement set is refused before any process starts. Avatar checkpoints are fetched from a pinned Hugging Face commit and published only when size and SHA-256 match. Installing these engines now needs the locked versions (older, newer or differently resolved packages are replaced on the next install/repair).
@@ -72,6 +52,32 @@ Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by c
 - Condensed the first-run welcome flow around guided setup and readiness; manual components/models/download controls are progressively disclosed with explicit recovery paths. Mode switching is serialized, and Gaming-only setup no longer claims success after a failed service change.
 - Model downloads now have real progress bars and larger controls. Model Hub search supports Enter, a responsive compact layout, and defers Advanced-only queries during Simple use. The Media Hugging Face checkpoint form has a narrow-screen-safe layout.
 - Regression contracts and FlaUI coverage updated. No Windows build/visual review/inference benchmark has been executed for this source slice.
+
+### Warm reuse, bounded auto-escalation and Gaming library virtualization (unreleased; unit-tested, no real-runtime or 2,000-title measurement yet)
+
+- PERF-003: a ready local text runtime is reused when its configuration matches, auto-escalation to a larger model is bounded, and the previous text model is remembered across a Gaming hard-off and restored afterwards. `tools/soak-core-idle.ps1` measures idle behaviour for the 2 h soak.
+- The Gaming library grid is virtualized (`ItemsRepeater` over `GameTileListModel`) so large libraries stay responsive; `tools/generate-synthetic-game-library.ps1` builds synthetic libraries for measurement.
+- Release version: one central product version in `Directory.Build.props`, read by the packaging scripts.
+
+## 4.1.0 (beta)
+
+Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by commit prefix). Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`, `docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`.
+
+- **Fixes found by real-app testing on the reference PC:** onboarding no longer refuses "Gaming only" while components are being detected; first run keeps Manual setup collapsed; a user-started Model Hub repository check survives navigation; "Return to AI" is reachable from every Gaming section; re-requesting the already loaded text profile no longer restarts the runtime; the health endpoint reports the product version.
+- **Documents:** `#folder-name` mentions in chat scope one message to a document folder; folders and files can be dragged onto Document search (files are copied, originals untouched).
+
+- **Training / datasets (about 95 commits):** SFT/DPO/KTO Data Recipes (CSV/JSONL/Parquet to verified JSONL in PaRuX-owned storage), full-dataset SHA-256 binding for Quick Training approval, explicit final GPU consent, recipe builder in Dataset Hub, blocked in Corporate Lite and Gaming hard-off.
+- **Media / gallery / create (about 60):** on-demand image and video previews, bounded thumbnail and video-frame cache with link/junction rejection, gallery recovery states for missing/empty/in-progress outputs, safer delete/reveal/open checks, off-UI-thread scanning.
+- **Corporate Lite (about 60):** resumable low-memory large-PDF indexing with page-level progress, opt-in OCR in bounded batches, evidence-grounding safety checks for technical answers, paged and searchable document sources, Chat-first shell.
+- **Chat / models / Model Hub:** searchable paged installed-model browser with size and measured-speed ordering, local model comparison, explicit shared context for group chat, recovery-snapshot validation for history, manual GGUF choice kept per repository, role auto-assignment after a model download, English base UI language with optional Italian.
+- **Gaming:** library sections, per-game status and score, library health from cached titles, input-device identity checks.
+- **Onboarding / runtime:** actionable local model-start recovery guidance (EN/IT); Core falls back to a free loopback port when 51123 is reserved.
+- **Security (latest commits):** new coding runs default to ask; paired devices cannot enable Internet or self-grant capabilities; restore preserves this PC's pairing/LAN/Internet settings.
+- **Portable / packaging:** Standard portable stages the SHA-256-locked llama.cpp Vulkan runtime; Corporate Lite is a separate CPU-only shell; portable data-root isolation.
+- **Android:** versionCode 22; model browsing, job polling lifecycle and create-draft retention improvements.
+- **Build / tests / docs:** many new xUnit and FlaUI tests, a build fix for source-only commits, QA evidence and benchmark harness fixes (`docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`).
+- **Runtime / UI strings:** all projects retarget from .NET 8 to .NET 10 (net10.0 / net10.0-windows; .NET 8 reached end of support in November 2026, SEC-F07); the UI strings are uniform English/Italian (`loc:T` XAML hook, `T(en,it)` / `UiText.Pick` in code, audit via `tools/audit-ui-italian.ps1`); test-harness hang fixes (bounded process-probe output wait).
+- **Known limits (beta):** the MSI is signed with a self-signed certificate (SmartScreen will warn) and its install/upgrade/uninstall was not tested in this cycle; Portable and Corporate zips are unsigned; no clean-machine, physical Android device, TV/multi-monitor, controller-hardware or in-game FPS testing; security findings SEC-F01/F02/F05 are open (`docs/SECURITY_REVIEW.md`); .NET 8 reaches end of support in November 2026. Not all release gates are met: see `docs/RELEASE_READINESS.md`.
 
 ## 4.0.1 (signed with the owner's local certificates)
 
