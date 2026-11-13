@@ -19,6 +19,7 @@ namespace PaRuX.Views
             if (Settings_DiscoveryPolicy_AutoEvaluate_Toggle == null || Settings_DiscoveryPolicy_Promotion_ComboBox == null)
                 return;
 
+            SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatLoadingStatus());
             try
             {
                 bool gamingActive = GamingManager.Current.IsActive;
@@ -32,14 +33,40 @@ namespace PaRuX.Views
                 _lastConfirmedPromotion = state.PromotionPolicy;
 
                 ApplyDiscoveryPolicyPresentation(state.AutoEvaluate, state.PromotionPolicy, gamingActive || state.GamingActive);
+                SetDiscoveryPolicyStatus(string.IsNullOrEmpty(state.WarningCode)
+                    ? string.Empty
+                    : DiscoveryPolicyPresenter.FormatCorruptFileWarning());
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // The view is going away; nothing to report.
             }
             catch (Exception ex)
             {
                 Log.Write("RefreshDiscoveryPolicyAsync failed: " + ex.Message);
-                if (Settings_DiscoveryPolicy_Status_Text != null)
-                {
-                    Settings_DiscoveryPolicy_Status_Text.Text = DiscoveryPolicyPresenter.FormatErrorStatus(ex.Message);
-                }
+                // Do not offer controls whose value Core never confirmed.
+                SetDiscoveryPolicyControlsEnabled(false);
+                SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatLoadErrorStatus(ex.Message));
+            }
+        }
+
+        private void SetDiscoveryPolicyStatus(string text)
+        {
+            if (Settings_DiscoveryPolicy_Status_Text != null)
+            {
+                Settings_DiscoveryPolicy_Status_Text.Text = text;
+            }
+        }
+
+        private void SetDiscoveryPolicyControlsEnabled(bool enabled)
+        {
+            if (Settings_DiscoveryPolicy_AutoEvaluate_Toggle != null)
+            {
+                Settings_DiscoveryPolicy_AutoEvaluate_Toggle.IsEnabled = enabled && !GamingManager.Current.IsActive;
+            }
+            if (Settings_DiscoveryPolicy_Promotion_ComboBox != null)
+            {
+                Settings_DiscoveryPolicy_Promotion_ComboBox.IsEnabled = enabled;
             }
         }
 
@@ -104,17 +131,17 @@ namespace PaRuX.Views
         {
             if (_discoveryPolicyLoading || Settings_DiscoveryPolicy_AutoEvaluate_Toggle == null) return;
 
-            bool requestedOn = Settings_DiscoveryPolicy_AutoEvaluate_Toggle.IsOn;
-            string requestedValue = DiscoveryPolicyPresenter.ToAutoEvaluateValue(requestedOn);
+            string requestedValue = DiscoveryPolicyPresenter.ToAutoEvaluateValue(Settings_DiscoveryPolicy_AutoEvaluate_Toggle.IsOn);
+            SetDiscoveryPolicyControlsEnabled(false);
+            SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatSavingStatus());
 
             try
             {
                 DiscoveryPolicyState state = await DiscoveryPolicyClient.Current.SetAutoEvaluateAsync(requestedValue);
                 _lastConfirmedAutoEvaluate = state.AutoEvaluate;
-                if (Settings_DiscoveryPolicy_Status_Text != null)
-                {
-                    Settings_DiscoveryPolicy_Status_Text.Text = DiscoveryPolicyPresenter.SavedStatusText;
-                }
+                _lastConfirmedPromotion = state.PromotionPolicy;
+                SetDiscoveryPolicyControlsEnabled(true);
+                SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatSavedStatus());
                 if (DiscoveryPolicyAutoEvaluateExplanation != null)
                 {
                     bool gamingActive = GamingManager.Current.IsActive || state.GamingActive;
@@ -124,12 +151,8 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("DiscoveryPolicyAutoEvaluateToggle_Toggled failed: " + ex.Message);
-                if (Settings_DiscoveryPolicy_Status_Text != null)
-                {
-                    Settings_DiscoveryPolicy_Status_Text.Text = DiscoveryPolicyPresenter.FormatErrorStatus(ex.Message);
-                }
 
-                // Revert toggle and keep previous confirmed value on screen
+                // Revert the toggle and keep the previous confirmed value on screen.
                 _discoveryPolicyLoading = true;
                 try
                 {
@@ -140,6 +163,8 @@ namespace PaRuX.Views
                     _discoveryPolicyLoading = false;
                 }
 
+                SetDiscoveryPolicyControlsEnabled(true);
+                SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatErrorStatus(ex.Message));
                 if (DiscoveryPolicyAutoEvaluateExplanation != null)
                 {
                     bool gamingActive = GamingManager.Current.IsActive;
@@ -155,15 +180,16 @@ namespace PaRuX.Views
             string? requestedTag = (Settings_DiscoveryPolicy_Promotion_ComboBox.SelectedItem as ComboBoxItem)?.Tag as string;
             if (string.IsNullOrWhiteSpace(requestedTag)) return;
             string requestedValue = DiscoveryPolicyPresenter.NormalizePromotion(requestedTag);
+            SetDiscoveryPolicyControlsEnabled(false);
+            SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatSavingStatus());
 
             try
             {
                 DiscoveryPolicyState state = await DiscoveryPolicyClient.Current.SetPromotionPolicyAsync(requestedValue);
+                _lastConfirmedAutoEvaluate = state.AutoEvaluate;
                 _lastConfirmedPromotion = state.PromotionPolicy;
-                if (Settings_DiscoveryPolicy_Status_Text != null)
-                {
-                    Settings_DiscoveryPolicy_Status_Text.Text = DiscoveryPolicyPresenter.SavedStatusText;
-                }
+                SetDiscoveryPolicyControlsEnabled(true);
+                SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatSavedStatus());
                 if (DiscoveryPolicyPromotionExplanation != null)
                 {
                     DiscoveryPolicyPromotionExplanation.Text = DiscoveryPolicyPresenter.GetPromotionExplanation(state.PromotionPolicy);
@@ -172,12 +198,8 @@ namespace PaRuX.Views
             catch (Exception ex)
             {
                 Log.Write("DiscoveryPolicyPromotionComboBox_SelectionChanged failed: " + ex.Message);
-                if (Settings_DiscoveryPolicy_Status_Text != null)
-                {
-                    Settings_DiscoveryPolicy_Status_Text.Text = DiscoveryPolicyPresenter.FormatErrorStatus(ex.Message);
-                }
 
-                // Revert combo and keep previous confirmed value on screen
+                // Revert the combo and keep the previous confirmed value on screen.
                 _discoveryPolicyLoading = true;
                 try
                 {
@@ -188,6 +210,8 @@ namespace PaRuX.Views
                     _discoveryPolicyLoading = false;
                 }
 
+                SetDiscoveryPolicyControlsEnabled(true);
+                SetDiscoveryPolicyStatus(DiscoveryPolicyPresenter.FormatErrorStatus(ex.Message));
                 if (DiscoveryPolicyPromotionExplanation != null)
                 {
                     DiscoveryPolicyPromotionExplanation.Text = DiscoveryPolicyPresenter.GetPromotionExplanation(_lastConfirmedPromotion);

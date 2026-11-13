@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using PaRuX.Services;
@@ -8,6 +9,12 @@ namespace PaRuX.Server.Tests
 {
     public sealed class DiscoveryPolicyPresenterTests
     {
+        public DiscoveryPolicyPresenterTests()
+        {
+            // The presenter localizes through UiText; pin English so assertions do not depend on the machine language.
+            CultureInfo.CurrentUICulture = new CultureInfo("en");
+        }
+
         [Fact]
         public void Defaults_AreAskAndAsk()
         {
@@ -112,7 +119,10 @@ namespace PaRuX.Server.Tests
         public void StatusFormatting_SavedAndError_ProducePlainLanguage()
         {
             string saved = DiscoveryPolicyPresenter.FormatSavedStatus();
-            Assert.Equal("Applied for this session only. Saving to PaRuX Core is not available yet.", saved);
+            Assert.Equal("Saved to PaRuX Core.", saved);
+            Assert.DoesNotContain("session only", saved, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("not available yet", saved, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("Saving to PaRuX Core...", DiscoveryPolicyPresenter.FormatSavingStatus());
 
             string error = DiscoveryPolicyPresenter.FormatErrorStatus("Network timeout");
             Assert.StartsWith("Couldn't save candidate discovery policy: Network timeout", error);
@@ -193,6 +203,26 @@ namespace PaRuX.Server.Tests
                 Assert.DoesNotContain("\n", option.Explanation);
                 Assert.EndsWith(".", option.Explanation);
             }
+        }
+
+        [Fact]
+        public void Italian_ui_produces_no_english_status_label_or_explanation()
+        {
+            CultureInfo.CurrentUICulture = new CultureInfo("it");
+
+            Assert.Equal("Salvato in PaRuX Core.", DiscoveryPolicyPresenter.FormatSavedStatus());
+            Assert.Equal("Salvataggio in PaRuX Core...", DiscoveryPolicyPresenter.FormatSavingStatus());
+            Assert.StartsWith("Impossibile salvare", DiscoveryPolicyPresenter.FormatErrorStatus("PaRuX Core non è raggiungibile."));
+            Assert.StartsWith("Impossibile caricare", DiscoveryPolicyPresenter.FormatLoadErrorStatus("x"));
+
+            DiscoveryPolicyPresentation presentation = DiscoveryPolicyPresenter.Present("auto", "never", gamingActive: false);
+            Assert.Equal("Valuta automaticamente i modelli adatti", presentation.AutoEvaluate.Label);
+            Assert.Equal("Criterio di promozione", presentation.Promotion.Label);
+            Assert.DoesNotContain("Automatically", presentation.AutoEvaluate.Explanation);
+            Assert.DoesNotContain("Never replace", presentation.Promotion.Explanation);
+            Assert.All(presentation.PromotionOptions, o => Assert.DoesNotContain("Ask before", o.Label));
+            Assert.Equal("In pausa mentre la Modalità Gaming è attiva",
+                DiscoveryPolicyPresenter.Present("auto", "ask", gamingActive: true).AutoEvaluate.Explanation);
         }
     }
 }
