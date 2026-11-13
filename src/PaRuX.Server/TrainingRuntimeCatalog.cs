@@ -407,6 +407,10 @@ print(json.dumps(payload, separators=(",", ":")))
     internal static string Sha256(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
+    /// <summary>Delete only a venv whose Python version was positively read and does not match the pin; unknown (null) is kept.</summary>
+    internal static bool ShouldDeleteWrongPythonVenv(string? actualVersion) =>
+        !string.IsNullOrWhiteSpace(actualVersion) && !MatchesPinnedPythonSeries(actualVersion);
+
     private static async Task RemoveWrongPythonVenvAsync(string venvRoot, CancellationToken cancellationToken)
     {
         string python = ManagedPythonRuntime.VenvPython(venvRoot);
@@ -447,7 +451,9 @@ print(json.dumps(payload, separators=(",", ":")))
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) when (ex is IOException or InvalidOperationException) { }
 
-        if (MatchesPinnedPythonSeries(actual)) return;
+        // An unknown version (timeout, non-zero exit, failed start) is never grounds to delete user-visible state:
+        // keep the environment; the install/probe path reports the failure honestly if it is really unusable.
+        if (!ShouldDeleteWrongPythonVenv(actual)) return;
         try { Directory.Delete(venvRoot, recursive: true); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

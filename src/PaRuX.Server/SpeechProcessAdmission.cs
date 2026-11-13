@@ -92,6 +92,11 @@ internal sealed class SpeechProcessAdmission
                     child.Kill(entireProcessTree: true);
                 if (!child.WaitForExit(1200)) allExited = false;
             }
+            catch (InvalidOperationException)
+            {
+                // A disposed or never-started Process object has no live child behind it: treat it as exited and forget it.
+                Unregister(child);
+            }
             catch { allExited = false; }
         }
         return allExited;
@@ -103,12 +108,16 @@ internal sealed class SpeechProcessAdmission
         lock (_gate)
         {
             if (_isGaming()) return false;
+            // Idempotent: the guard calls this on every tick while Gaming is off. Nothing to reopen when admission is open,
+            // and the generation must not move (that would cancel healthy in-flight requests).
+            if (!_blocked) return true;
             // Keep speech disabled if a previous generation's owned child did
             // not exit. An old worker must never overlap newly admitted inference.
             foreach (Process child in _owned.ToArray())
             {
                 bool exited;
                 try { exited = child.HasExited; }
+                catch (InvalidOperationException) { exited = true; } // disposed Process: nothing left to wait for
                 catch { return false; }
                 if (!exited) return false;
                 _owned.Remove(child);

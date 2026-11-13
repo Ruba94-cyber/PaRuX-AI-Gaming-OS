@@ -93,6 +93,13 @@ public sealed class GamingGuardService : BackgroundService
                 _runtime.HardOff.ReopenAll();
             }
         }
+        else if (!active)
+        {
+            // A reopen that failed once (marker flap, child not yet exited, disposed process) must not leave AI denied
+            // until restart: retry on every tick while Gaming is off. Both calls are idempotent and cheap when open.
+            _speech.AllowWorkersAfterGaming();
+            _runtime.HardOff.ReopenAll();
+        }
 
         if (active && _shutdown.IsDue(nowUtc))
             await AttemptShutdownAsync(nowUtc, ct).ConfigureAwait(false);

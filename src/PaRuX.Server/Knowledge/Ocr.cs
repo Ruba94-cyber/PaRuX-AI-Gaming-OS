@@ -125,9 +125,21 @@ try {
 
     public string Name => "windows-ocr";
 
+    /// <summary>True when a failure is a Gaming refusal of an OCR launch (the cancellation carries the typed error).</summary>
+    public static bool IsGamingRefusal(Exception ex) =>
+        ex is UnavailableDuringGamingException || ex is OperationCanceledException { InnerException: UnavailableDuringGamingException };
+
     public OcrAvailability CheckAvailability()
     {
         if (_availability != null) return _availability;
+        // Gaming hard-off: the probe launches a child, so it is refused (uncached) while Gaming is active. It surfaces as the
+        // same cancellation as a Gaming stop of a recognition run, never as a cached "unavailable" that would stage a PDF
+        // without OCR and never retry its pages.
+        if (GamingChildGate.Ambient is { IsClosed: true } closed)
+        {
+            UnavailableDuringGamingException refusal = closed.Refusal();
+            throw new OperationCanceledException(refusal.Message, refusal);
+        }
         if (!OperatingSystem.IsWindows()) return _availability = OcrAvailability.No("Windows OCR is only available on Windows.");
         string? ps = FindPowerShell();
         if (ps == null) return _availability = OcrAvailability.No("Windows PowerShell was not found; Windows OCR cannot be started.");

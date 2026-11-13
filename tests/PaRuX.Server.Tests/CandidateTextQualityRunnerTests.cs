@@ -267,6 +267,20 @@ public sealed class CandidateTextQualityRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task GamingStartedAfterRuntimeResolutionRefusesToStartTheChild()
+    {
+        bool gaming = false;
+        var runtime = new FakeRuntime((item, _) => Task.FromResult(new TextQualityCompletion(item.Expected, "stop")))
+        {
+            OnResolve = count => { if (count == 1) gaming = true; }
+        };
+        CandidateTextQualityRunResult run = await Runner(runtime, () => gaming)
+            .RunAsync(_candidate.Key, "model.gguf", CancellationToken.None);
+        Assert.False(runtime.Started, "The runtime child must never be launched after Gaming became active.");
+        Assert.True(run.Status is "Unavailable" or "Cancelled", run.Status);
+    }
+
+    [Fact]
     public async Task CancellationDisposesChildAndCannotPass()
     {
         using var cts = new CancellationTokenSource();

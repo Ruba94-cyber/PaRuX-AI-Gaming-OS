@@ -214,6 +214,14 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
                 AvailableMethods = ready ? TrainingMethod.All.ToList() : new List<string>()
             };
         }
+        catch (UnavailableDuringGamingException)
+        {
+            return new TrainingEngineStatus
+            {
+                Installed = true,
+                Detail = "Gaming Mode is active, so the training engine was not probed; it is checked again after Gaming."
+            };
+        }
         catch (Exception exception)
         {
             return new TrainingEngineStatus
@@ -1077,13 +1085,21 @@ print("PARUX_ENGINE_PROBE " + json.dumps(payload))
         };
         foreach (string argument in arguments) psi.ArgumentList.Add(argument);
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        // Gaming hard-off: the engine probe imports torch and initialises CUDA, so it is refused (typed) while Gaming is
+        // active and killed on a Gaming start instead of being a bare status read that could hold the GPU.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
-        catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } throw; }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false));
     }
 

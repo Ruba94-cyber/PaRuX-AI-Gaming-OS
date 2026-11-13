@@ -85,7 +85,9 @@ internal sealed class GamingChildScope : IGamingHardOffParticipant, IDisposable
     internal bool IsGamingInterruption(Exception ex, CancellationToken callerToken, long ticket) =>
         ex is UnavailableDuringGamingException
         || (!callerToken.IsCancellationRequested
-            && (_admission.IsClosed || !_admission.IsCurrent(ticket) || Token.IsCancellationRequested));
+            // Only a stop this scope actually issued counts (the generation moved or the token was cancelled by
+            // StopForGaming). A raised marker alone must not relabel a genuine non-zero exit or a real failure.
+            && (!_admission.IsCurrent(ticket) || Token.IsCancellationRequested));
 
     /// <summary>
     /// Runs <paramref name="body"/> under a token that the Gaming start cancels. Whatever the interruption looks like
@@ -167,6 +169,18 @@ internal static class GamingChildGate
 
     internal static void Install(GamingChildScope? scope) => _ambient = scope;
 
+    private static int _warnedUngated;
+
+    /// <summary>Logs once (warning) when a child is launched with no ambient scope outside a test host: that launch is not
+    /// refused during Gaming and is not killed on a Gaming start, so it must never happen silently in production.</summary>
+    private static void WarnOnceUngated()
+    {
+        if (Interlocked.Exchange(ref _warnedUngated, 1) != 0) return;
+        if (AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name is "xunit.core" or "xunit.v3.core")) return;
+        Trace.TraceWarning("PaRuX Gaming hard-off: a managed child was launched with no ambient Gaming scope installed; "
+            + "it is not gated against Gaming Mode.");
+    }
+
     /// <summary>Test seam: replaces the ambient scope for the current async flow only (no cross-test interference).</summary>
     internal static IDisposable UseForCurrentFlow(GamingChildScope? scope)
     {
@@ -189,6 +203,7 @@ internal static class GamingChildGate
         scope ??= Ambient;
         if (scope == null)
         {
+            WarnOnceUngated();
             if (!process.Start()) throw new InvalidOperationException("The child process could not start.");
             return new GamingChildLease(null, process, 0, ct, null);
         }

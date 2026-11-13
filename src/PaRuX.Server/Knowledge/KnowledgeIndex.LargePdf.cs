@@ -179,6 +179,13 @@ WHERE source_id=$s AND path=$p;";
         {
             if (ocr != null && !ocr.CheckAvailability().Available) ocr = null;
         }
+        catch (Exception ex) when (WindowsOcrEngine.IsGamingRefusal(ex))
+        {
+            // Gaming interrupted the probe: end the run as a cancellation so the checkpoint stays resumable and the
+            // blank pages are retried later, instead of staging the document without OCR.
+            if (ex is OperationCanceledException) throw;
+            throw new OperationCanceledException(ex.Message, ex, ct);
+        }
         catch (Exception) { ocr = null; } // Bad OCR availability cannot block readable PDF text.
         KnowledgeResourcePlan? resourcePlan = _options.Plan;
         var memoryBudget = resourcePlan == null ? null

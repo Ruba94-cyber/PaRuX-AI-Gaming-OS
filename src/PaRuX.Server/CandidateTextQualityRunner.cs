@@ -151,8 +151,14 @@ internal sealed class CandidateTextQualityRunner : IProfiledCandidateTextQuality
                 .ConfigureAwait(false)).ToLowerInvariant();
             if (lockedHash != identity.LocalSha256)
                 return await CommitAsync(record, "Failed", runCts.Token).ConfigureAwait(false);
+            // Refuse-to-start: the runtime launch is a static helper, so the Gaming gate lives here, immediately before
+            // the child could exist (the 250 ms monitor only cancels a run that already started).
+            if (_gamingActive()) return await CommitAsync(record, "Unavailable", runCts.Token).ConfigureAwait(false);
             if (!_evidence.TryBeginEvaluation(identity,
-                () => _runtime.StartAsync(spec, modelPath, runCts.Token),
+                () => _gamingActive()
+                    ? Task.FromException<ITextQualitySession>(new UnavailableDuringGamingException(
+                        "Gaming Mode is active, so the local text quality runtime is unavailable."))
+                    : _runtime.StartAsync(spec, modelPath, runCts.Token),
                 out Task<ITextQualitySession>? startTask) || startTask is null)
                 return await CommitAsync(record, "Unavailable", runCts.Token).ConfigureAwait(false);
             await using (ITextQualitySession session = await startTask.ConfigureAwait(false))

@@ -135,6 +135,8 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable, IGamingHardOffPar
             // Start and ownership registration are one critical section against the Gaming stop: nothing can spawn
             // after the hard-off closed admission, and a Gaming start always finds this child registered.
             _scope.StartOwned(process, ticket);
+            // Track the running child at once: any failure below goes through StopUnsafe, which stops what _process holds.
+            _process = process;
             ChildProcessJob.Assign(process);
             _ = process.StandardOutput.ReadToEndAsync();
             Task<string> stderr = process.StandardError.ReadToEndAsync();
@@ -154,7 +156,6 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable, IGamingHardOffPar
             { Timeout = TimeSpan.FromMinutes(5) };
             ManagedRuntimeCredentials.Authorize(http, apiKey);
             _baseUrl = "http://127.0.0.1:" + port;
-            _process = process;
             _http = http;
             await WaitUntilHealthyAsync(process, http, stderr, cancellationToken).ConfigureAwait(false);
             // Late readiness: a Gaming start between the health check and here must not hand out a dead server.

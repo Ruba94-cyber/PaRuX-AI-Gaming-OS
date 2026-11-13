@@ -215,7 +215,16 @@ public static class KnowledgeEndpoints
             KnowledgeResourcePlan plan = svc.CurrentPlan();
             long ram = KnowledgeResourcePlan.DetectTotalRam();
             bool gpu = KnowledgeResourcePlan.DetectDedicatedGpu();
-            OcrAvailability? ocr = probe == true ? svc.OcrAvailability() : null;
+            OcrAvailability? ocr = null;
+            if (probe == true)
+            {
+                try { ocr = svc.OcrAvailability(); }
+                catch (Exception ex) when (WindowsOcrEngine.IsGamingRefusal(ex))
+                {
+                    // Honest state: the probe was not run because Gaming Mode is active (never cached, retry after Gaming).
+                    ocr = OcrAvailability.No("Gaming Mode is active, so the OCR check is unavailable until Gaming ends.");
+                }
+            }
             return Results.Ok(new
             {
                 ocrEnabled = s.OcrEnabled, ocrLanguage = s.OcrLanguage, strictOffline = s.StrictOffline || CorporateMode.IsActive,

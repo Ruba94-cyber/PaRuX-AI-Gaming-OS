@@ -35,20 +35,17 @@ public sealed class SpeechProcessAdmissionTests
     }
 
     [Fact]
-    public void Unconfirmed_owned_child_keeps_speech_blocked_after_gaming_exit()
+    public void Ledger_entry_without_a_live_process_is_treated_as_exited_and_dropped()
     {
         var admission = new SpeechProcessAdmission(() => false);
         long old = admission.Capture();
         using var synthetic = new Process();
-        // Simulates an OS start that returned but whose exit cannot be queried:
-        // the admission ledger must treat uncertainty as failure, not success.
+        // A Process object with no OS process behind it (never started or already disposed) throws on HasExited.
+        // That means "nothing to wait for", not "unconfirmed": it must not keep admission closed forever.
         admission.StartOwned(synthetic, old, _ => true);
-        Assert.False(admission.BlockForGaming());
-        admission.ReopenAfterGaming();
-        Assert.Throws<InvalidOperationException>(() => admission.Capture());
-
-        admission.Unregister(synthetic);
-        admission.ReopenAfterGaming();
+        Assert.True(admission.BlockForGaming());
+        Assert.Equal(0, admission.TrackedCount);
+        Assert.True(admission.ReopenAfterGaming());
         Assert.NotEqual(old, admission.Capture());
     }
 
