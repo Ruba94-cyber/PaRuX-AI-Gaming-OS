@@ -294,6 +294,21 @@ namespace PaRuX.Services
         private static string Folder => Path.Combine(AppPaths.PaRuXRoot, "game-covers");
         private static string IndexPath => Path.Combine(Folder, "covers.json");
 
+        // The index is read from disk once and again only when covers.json changes (checked at most every 1.5 s), so a library of
+        // thousands of tiles resolves its covers from memory instead of re-parsing the index file for every tile.
+        private static readonly StampedCache<Dictionary<string, string>> IndexCache = new(
+            stamp: () =>
+            {
+                try
+                {
+                    var info = new FileInfo(IndexPath);
+                    return info.Exists ? info.LastWriteTimeUtc.Ticks ^ info.Length : 0;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return -1; }
+            },
+            load: LoadIndex,
+            nowMilliseconds: () => Environment.TickCount64);
+
         /// <summary>Signature check (not the file extension): ".png", ".jpg", ".webp" or null.</summary>
         public static string? DetectExtension(ReadOnlySpan<byte> head)
         {
@@ -329,6 +344,7 @@ namespace PaRuX.Services
             string tmp = IndexPath + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(index));
             File.Move(tmp, IndexPath, overwrite: true);
+            IndexCache.Invalidate();
         }
 
         /// <summary>Full path of the stored cover of a title, or null when it has none (or the copy is missing).</summary>
@@ -337,7 +353,7 @@ namespace PaRuX.Services
             if (string.IsNullOrEmpty(titleKey)) return null;
             lock (Gate)
             {
-                if (!LoadIndex().TryGetValue(titleKey, out string? name)) return null;
+                if (!IndexCache.Get().TryGetValue(titleKey, out string? name)) return null;
                 string path = Path.Combine(Folder, name);
                 return File.Exists(path) ? path : null;
             }

@@ -243,7 +243,7 @@ internal sealed class GamingHomeView : StackPanel
             int generation = ++_searchEditGeneration;
             await Task.Delay(300);
             if (generation != _searchEditGeneration) return;
-            await ReloadAsync();
+            await ReloadAsync(queryOnly: true);
         };
         var searchKeyboard = ConsoleKeyboardFlyout.Create(_search, T("Done", "Fine"), T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
         _search.KeyDown += (_, e) =>
@@ -295,7 +295,7 @@ internal sealed class GamingHomeView : StackPanel
             {
                 if (_applying) return;
                 SavePreferences();
-                await ReloadAsync();
+                await ReloadAsync(queryOnly: true);
             };
 
         _collectionFilter.PlaceholderText = T("Collection (exact name)", "Collezione (nome esatto)");
@@ -311,15 +311,15 @@ internal sealed class GamingHomeView : StackPanel
         };
         _collectionApply.Content = T("Apply collection filter", "Applica filtro collezione");
         Track(_collectionApply, "GameTitles_Collection_Apply", T("Apply collection filter", "Applica filtro collezione"));
-        _collectionApply.Click += async (_, _) => await ReloadAsync();
+        _collectionApply.Click += async (_, _) => await ReloadAsync(queryOnly: true);
 
         _favoritesOnly.Content = "★ " + T("Favorites", "Preferiti");
         Track(_favoritesOnly, "GameTitles_FavoritesOnly_Toggle", T("Show favorites only", "Mostra solo i preferiti"));
-        _favoritesOnly.Click += async (_, _) => { SavePreferences(); await ReloadAsync(); };
+        _favoritesOnly.Click += async (_, _) => { SavePreferences(); await ReloadAsync(queryOnly: true); };
 
         _showHidden.Content = T("Show hidden", "Mostra nascosti");
         Track(_showHidden, "GameHome_ShowHidden", T("Show hidden games", "Mostra i giochi nascosti"));
-        _showHidden.Click += async (_, _) => { SavePreferences(); await ReloadAsync(); };
+        _showHidden.Click += async (_, _) => { SavePreferences(); await ReloadAsync(queryOnly: true); };
 
         Track(_layout, "GameHome_LayoutToggle", T("Switch between grid and list", "Passa tra griglia ed elenco"));
         _layout.Click += (_, _) =>
@@ -1638,7 +1638,11 @@ internal sealed class GamingHomeView : StackPanel
         });
     }
 
-    internal async Task ReloadAsync(bool refresh = false)
+    /// <param name="queryOnly">
+    /// True when only the search text, sort or a filter changed. The unfiltered snapshot behind the hero, the Continue shelf and the
+    /// filter-rail counts cannot have changed, so it is not downloaded and rebuilt again (it is the whole library: 2,000 titles of JSON).
+    /// </param>
+    internal async Task ReloadAsync(bool refresh = false, bool queryOnly = false)
     {
         int generation = ++_generation;
         var cancellation = new CancellationTokenSource();
@@ -1676,7 +1680,10 @@ internal sealed class GamingHomeView : StackPanel
             if (_openKey is not null && _detail.Current is null) _openKey = null;
             RenderLibrary();
             if (SettingsStore.Current.Data.GameMetadataEnabled && !_metadataRunning) _ = RunMetadataAsync();
-            await LoadContinueAsync(cancellation.Token, generation);
+            if (queryOnly && _continueLoaded && !refresh)
+                _side.Update(GameLibraryHome.Facets(_allTitles, GenresOf, DateTime.UtcNow), ActiveSideFilter());
+            else
+                await LoadContinueAsync(cancellation.Token, generation);
         }
         catch (OperationCanceledException) { /* Superseded by a newer search or filter. */ }
         catch (Exception)
@@ -1749,6 +1756,8 @@ internal sealed class GamingHomeView : StackPanel
     /// The unfiltered library feeds the hero (last played game), the Continue shelf (the next most recent), the filter rail counts and the
     /// Quick Resume summary. Titles with a play history only; hidden titles never appear in any of them.
     /// </summary>
+    private bool _continueLoaded;
+
     private async Task LoadContinueAsync(CancellationToken ct, int generation)
     {
         var result = await GamingLibraryClient.Current.QueryTitlesAsync(new GameTitleListQuery { Sort = GameTitleSorts.LastPlayed }, ct);
@@ -1760,6 +1769,7 @@ internal sealed class GamingHomeView : StackPanel
         }
         else UpdateLibraryHealth(result.Value);
         _allTitles = result.Succeeded && result.Value is not null ? result.Value : new List<GameTitleDto>();
+        _continueLoaded = result.Succeeded && result.Value is not null;
         GameTitleDto? hero = GameLibraryHome.PickHero(_allTitles);
         _hero.Show(hero);
         List<GameTitleDto> recent = _allTitles
