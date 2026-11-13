@@ -25,6 +25,20 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
     private StreamWriter? _workerInput;
     private StreamReader? _workerOutput;
     private Task<string>? _workerErrors;
+    private GamingChildLease? _workerLease;
+    private readonly GamingChildScope? _scope;
+
+    /// <summary>
+    /// With a runtime, the judge's worker and one-shot children belong to a Gaming scope: new children are refused
+    /// while Gaming is active and a Gaming start kills them (the judge is CPU-only, but it is still an AI child that
+    /// must not compete with the game). Without one (tests) the ambient installer scope still applies.
+    /// </summary>
+    public ManagedClipImageJudge(LocalRuntimeService? runtime = null)
+    {
+        if (runtime != null) _scope = new GamingChildScope("semantic judge", () => runtime.GamingMode, runtime.HardOff);
+    }
+
+    internal ManagedClipImageJudge(GamingChildScope scope) => _scope = scope;
 
     private static string DiffusersRoot => Path.Combine(PaRuXDataRoot.Path, "ai-runtimes", "media-diffusers-zimage");
     private static string VenvRoot => Path.Combine(DiffusersRoot, "venv");
@@ -77,7 +91,12 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
         };
     }
 
-    public async Task<string> InstallAsync(IProgress<string>? progress, CancellationToken ct)
+    /// <summary>The install only publishes its ready marker last (temp file, then move), so a Gaming interruption leaves
+    /// the judge "not ready" and the pinned snapshot download resumes on the next run.</summary>
+    public Task<string> InstallAsync(IProgress<string>? progress, CancellationToken ct) =>
+        _scope == null ? InstallCoreAsync(progress, ct) : _scope.RunAsync(ct, (linked, _) => InstallCoreAsync(progress, linked));
+
+    private async Task<string> InstallCoreAsync(IProgress<string>? progress, CancellationToken ct)
     {
         await InstallGate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -137,7 +156,10 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
     /// this instance. Prompt text longer than CLIP's native window is scored across deterministic
     /// token chunks; the aggregate keeps mean adherence dominant while penalizing the weakest chunk.
     /// </summary>
-    public async Task<double> ScoreAsync(string prompt, MediaAsset asset, CancellationToken ct)
+    public Task<double> ScoreAsync(string prompt, MediaAsset asset, CancellationToken ct) =>
+        _scope == null ? ScoreCoreAsync(prompt, asset, ct) : _scope.RunAsync(ct, (linked, _) => ScoreCoreAsync(prompt, asset, linked));
+
+    private async Task<double> ScoreCoreAsync(string prompt, MediaAsset asset, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(asset);
         if (string.IsNullOrWhiteSpace(prompt)) throw new InvalidDataException("Semantic image judging requires the original prompt.");
@@ -207,7 +229,8 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
         info.ArgumentList.Add("serve");
         info.ArgumentList.Add(ModelRoot);
         var process = new Process { StartInfo = info };
-        process.Start();
+        // Start and registration are one critical section against the Gaming stop (nothing spawns after the hard-off).
+        _workerLease = GamingChildGate.StartOwned(process, ct, _scope);
         ChildProcessJob.Assign(process);
         _worker = process;
         _workerInput = process.StandardInput;
@@ -229,27 +252,29 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
         }
     }
 
-    private static async Task<string> RunPythonOnceAsync(
+    private async Task<string> RunPythonOnceAsync(
         IReadOnlyList<string> arguments, CancellationToken ct, TimeSpan timeout, bool forceOffline)
     {
         ProcessStartInfo info = CreatePythonInfo(forceOffline);
         foreach (string argument in arguments) info.ArgumentList.Add(argument);
         using var process = new Process { StartInfo = info };
-        process.Start();
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct, _scope);
         ChildProcessJob.Assign(process);
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(ct);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(ct);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync(gaming.Token);
+        Task<string> stderr = process.StandardError.ReadToEndAsync(gaming.Token);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
             try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
             ct.ThrowIfCancellationRequested();
             throw new TimeoutException("The managed CLIP judge operation timed out.");
         }
         string output = await stdout.ConfigureAwait(false);
         string error = await stderr.ConfigureAwait(false);
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         if (process.ExitCode != 0)
             throw new InvalidOperationException("Managed CLIP judge failed: " + Trim(error.Length > 0 ? error : output, 1_200));
         return Trim(output, 2_000);
@@ -302,6 +327,8 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
         _workerInput = null;
         _workerOutput = null;
         _workerErrors = null;
+        GamingChildLease? lease = _workerLease;
+        _workerLease = null;
         try { input?.Dispose(); } catch { }
         try { output?.Dispose(); } catch { }
         if (process == null) return;
@@ -310,7 +337,13 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
         catch { }
-        finally { process.Dispose(); }
+        finally
+        {
+            // A worker that did not confirm exit stays registered (the lease only unregisters a dead process).
+            try { process.WaitForExit(1200); } catch { }
+            lease?.Dispose();
+            process.Dispose();
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -319,6 +352,7 @@ public sealed class ManagedClipImageJudge : IAsyncDisposable
         try { ResetWorker(); }
         finally
         {
+            _scope?.Dispose();
             _workerGate.Release();
             _workerGate.Dispose();
         }

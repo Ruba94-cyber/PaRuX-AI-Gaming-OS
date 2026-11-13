@@ -133,15 +133,28 @@ public sealed class LoraGgufConversionService
             throw new InvalidOperationException("The LoRA-to-GGUF conversion engine is not installed on this machine yet.");
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputGgufPath))!);
+        // Stage next to the target and move into place only after a clean exit: an interrupted run (Gaming hard-off,
+        // cancel, crash) can never leave a truncated GGUF at the final path, or replace a good previous one.
+        string partialPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(outputGgufPath))!,
+            Path.GetFileNameWithoutExtension(outputGgufPath) + ".partial.gguf"); // keeps the .gguf suffix the converter expects
+        try { File.Delete(partialPath); } catch { }
         List<string> args = BuildConvertArguments(
-            ConvertScriptPath, adapterPath, baseModelId, outputGgufPath, outtype, baseModelConfigDir);
+            ConvertScriptPath, adapterPath, baseModelId, partialPath, outtype, baseModelConfigDir);
 
-        (int exitCode, string stdout, string stderr) = await RunCapturedAsync(
-            VenvPython, args, ct, TimeSpan.FromMinutes(10));
-        string log = stdout + stderr;
-        if (exitCode != 0 || !File.Exists(outputGgufPath))
-            throw new InvalidOperationException("LoRA-to-GGUF conversion failed:\n" + log);
-        return log;
+        try
+        {
+            (int exitCode, string stdout, string stderr) = await RunCapturedAsync(
+                VenvPython, args, ct, TimeSpan.FromMinutes(10));
+            string log = stdout + stderr;
+            if (exitCode != 0 || !File.Exists(partialPath))
+                throw new InvalidOperationException("LoRA-to-GGUF conversion failed:\n" + log);
+            File.Move(partialPath, outputGgufPath, overwrite: true);
+            return log;
+        }
+        finally
+        {
+            try { File.Delete(partialPath); } catch { }
+        }
     }
 
     internal static List<string> BuildConvertArguments(
@@ -255,10 +268,13 @@ if __name__ == '__main__':
         ManagedPythonRuntime.ApplyEnvironment(psi);
 
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        // Gaming hard-off: refused (typed) while Gaming is active; a Gaming start kills the child and the caller gets the
+        // typed error, never a bare "exit code" failure. Convert writes to a ".partial" file and only a finished run is
+        // moved into place, so a killed conversion leaves the previous GGUF (if any) untouched.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try
         {
@@ -267,9 +283,11 @@ if __name__ == '__main__':
         catch (OperationCanceledException)
         {
             try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
             ct.ThrowIfCancellationRequested();
             throw new TimeoutException("The PaRuX LoRA tooling process timed out.");
         }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false));
     }
 }

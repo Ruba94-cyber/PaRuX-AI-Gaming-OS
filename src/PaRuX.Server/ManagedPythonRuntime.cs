@@ -256,18 +256,24 @@ public static class ManagedPythonRuntime
         if (pythonInstallDirOverride != null) info.Environment["UV_PYTHON_INSTALL_DIR"] = pythonInstallDirOverride;
 
         using var process = new Process { StartInfo = info };
-        process.Start();
+        // Gaming hard-off: refused (typed) while Gaming is active, killed on a Gaming start. uv/pip installs are
+        // cancel-with-resumable-state: uv extracts into a temp location and renames, downloads stay in the uv cache, and
+        // every caller records "installed" only after its final verification, so an interrupted install is reported as a
+        // typed 409 failure, never as success, and a re-run repairs it.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
             try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
             ct.ThrowIfCancellationRequested();
             throw new TimeoutException("The PaRuX managed uv operation timed out.");
         }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted(); // a clean exit that beat Gaming is a real success
         return (process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false));
     }
 

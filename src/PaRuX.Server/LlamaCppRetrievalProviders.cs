@@ -28,69 +28,113 @@ internal enum LlamaRetrievalMode { Embedding, Reranking }
 /// prompt cache, model lock or conversation slots. The future VRAM scheduler decides whether this
 /// process may stay hot; this class owns only one model/mode process and its loopback transport.
 /// </summary>
-internal sealed class LlamaRetrievalServer : IAsyncDisposable
+internal sealed class LlamaRetrievalServer : IAsyncDisposable, IGamingHardOffParticipant
 {
-    private readonly LocalAiProcessManager _runtime;
     private readonly string _modelPath;
     private readonly LlamaRetrievalMode _mode;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Func<CancellationToken, Task<bool>> _hasCuda;
+    private readonly GamingChildScope _scope;
     private Process? _process;
     private HttpClient? _http;
     private string? _baseUrl;
     private string? _apiKey;
 
+    /// <summary>Test seam: replaces the llama-server launch (port) so a fake child can stand in. Production never sets it.</summary>
+    internal Func<int, ProcessStartInfo>? LaunchOverrideForTests { get; set; }
+
     public LlamaRetrievalServer(LocalAiProcessManager runtime, string modelPath, LlamaRetrievalMode mode)
+        : this(modelPath, mode, () => (runtime ?? throw new ArgumentNullException(nameof(runtime))).GamingActive,
+            runtime.HardOff, runtime.HasCudaHeavyGpuAsync)
     {
-        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+    }
+
+    internal LlamaRetrievalServer(
+        string modelPath,
+        LlamaRetrievalMode mode,
+        Func<bool> gamingActive,
+        GamingHardOffRegistry? registry,
+        Func<CancellationToken, Task<bool>> hasCuda)
+    {
         _modelPath = Path.GetFullPath(modelPath ?? throw new ArgumentNullException(nameof(modelPath)));
         _mode = mode;
+        _hasCuda = hasCuda;
+        _scope = new GamingChildScope("retrieval", gamingActive, registry);
     }
 
     public bool ModelExists => File.Exists(_modelPath) && _modelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<HttpClient> EnsureReadyAsync(CancellationToken cancellationToken)
+    public bool StopForGaming() => _scope.StopForGaming();
+
+    public void ReopenAfterGaming() => _scope.ReopenAfterGaming();
+
+    /// <summary>
+    /// Runs one request against the retrieval server under the Gaming token. Whatever the interruption looks like
+    /// (cancelled token, killed child, closed pipe, stale ticket) the caller gets the one typed Gaming error; a cancel
+    /// by the caller itself is never rewritten.
+    /// </summary>
+    internal Task<T> RunAsync<T>(CancellationToken ct, Func<HttpClient, CancellationToken, Task<T>> body) =>
+        _scope.RunAsync(ct, async (linked, ticket) =>
+        {
+            HttpClient http = await EnsureReadyAsync(linked, ticket).ConfigureAwait(false);
+            return await body(http, linked).ConfigureAwait(false);
+        });
+
+    public Task<HttpClient> EnsureReadyAsync(CancellationToken cancellationToken) =>
+        RunAsync(cancellationToken, (http, _) => Task.FromResult(http));
+
+    private async Task<HttpClient> EnsureReadyAsync(CancellationToken cancellationToken, long ticket)
     {
         if (!ModelExists) throw new FileNotFoundException("Retrieval GGUF model was not found.", _modelPath);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_process is { HasExited: false } && _http != null && await IsHealthyAsync(_http, cancellationToken).ConfigureAwait(false))
+            _scope.Check(ticket);
+            // The admission disposes a child it confirmed dead when Gaming reopens, so a stale handle can throw here.
+            if (IsRunning(_process) && _http != null && await IsHealthyAsync(_http, cancellationToken).ConfigureAwait(false))
                 return _http;
 
             StopUnsafe();
-            bool cuda = await _runtime.HasCudaHeavyGpuAsync(cancellationToken).ConfigureAwait(false);
+            bool cuda = LaunchOverrideForTests != null || await _hasCuda(cancellationToken).ConfigureAwait(false);
             string runtimePath = cuda ? LocalAiPaths.RuntimeCudaPath : LocalAiPaths.RuntimeVulkanPath;
             string executable = Path.Combine(runtimePath, LocalAiPaths.LlamaServerExecutable);
-            if (!File.Exists(executable))
+            if (LaunchOverrideForTests == null && !File.Exists(executable))
                 throw new FileNotFoundException("PaRuX llama-server runtime is not installed.", executable);
 
             int port = ReserveLoopbackPort();
-            var start = new ProcessStartInfo
-            {
-                FileName = executable,
-                WorkingDirectory = runtimePath,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            Add(start,
+            ProcessStartInfo start = LaunchOverrideForTests != null
+                ? LaunchOverrideForTests(port)
+                : new ProcessStartInfo
+                {
+                    FileName = executable,
+                    WorkingDirectory = runtimePath,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+            if (LaunchOverrideForTests == null) Add(start,
                 "--model", _modelPath,
                 "--host", "127.0.0.1",
                 "--port", port.ToString(),
                 "--no-webui",
                 "--parallel", "1");
-            if (_mode == LlamaRetrievalMode.Embedding)
-                Add(start, "--embedding");
-            else
-                Add(start, "--reranking");
-            if (!cuda) Add(start, "--device", "Vulkan0");
+            if (LaunchOverrideForTests == null)
+            {
+                if (_mode == LlamaRetrievalMode.Embedding)
+                    Add(start, "--embedding");
+                else
+                    Add(start, "--reranking");
+                if (!cuda) Add(start, "--device", "Vulkan0");
+            }
             // SEC-F01: this isolated server gets its own per-launch key, through its environment only.
             string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
             _apiKey = apiKey;
 
             var process = new Process { StartInfo = start, EnableRaisingEvents = true };
-            if (!process.Start()) throw new InvalidOperationException("Could not start llama-server retrieval process.");
+            // Start and ownership registration are one critical section against the Gaming stop: nothing can spawn
+            // after the hard-off closed admission, and a Gaming start always finds this child registered.
+            _scope.StartOwned(process, ticket);
             ChildProcessJob.Assign(process);
             _ = process.StandardOutput.ReadToEndAsync();
             Task<string> stderr = process.StandardError.ReadToEndAsync();
@@ -101,6 +145,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
             if (launched is null)
             {
                 try { process.Kill(entireProcessTree: true); } catch { }
+                _scope.Unregister(process);
                 throw new InvalidOperationException("Could not verify the identity of the retrieval llama-server process.");
             }
             ExpectedPeerIdentity expectedPeer = launched.Value;
@@ -112,6 +157,8 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
             _process = process;
             _http = http;
             await WaitUntilHealthyAsync(process, http, stderr, cancellationToken).ConfigureAwait(false);
+            // Late readiness: a Gaming start between the health check and here must not hand out a dead server.
+            _scope.Check(ticket);
             return http;
         }
         catch
@@ -165,6 +212,13 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
         catch { return false; }
     }
 
+    private static bool IsRunning(Process? process)
+    {
+        if (process == null) return false;
+        try { return !process.HasExited; }
+        catch (InvalidOperationException) { return false; }
+    }
+
     private void StopUnsafe()
     {
         Process? process = _process;
@@ -175,7 +229,17 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
         string? apiKey = _apiKey;
         _apiKey = null;
         try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch { }
-        try { process?.Dispose(); } catch { }
+        if (process != null)
+        {
+            // A child that did not confirm exit stays registered, so the Gaming guard keeps reporting it as unconfirmed.
+            bool exited;
+            try { exited = process.HasExited || process.WaitForExit(1500); } catch { exited = false; }
+            if (exited)
+            {
+                _scope.Unregister(process);
+                try { process.Dispose(); } catch { }
+            }
+        }
         try { http?.Dispose(); } catch { }
         ManagedRuntimeCredentials.RetireKey(apiKey);
     }
@@ -202,6 +266,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _scope.Dispose();
         await StopAsync().ConfigureAwait(false);
         _gate.Dispose();
     }
@@ -219,9 +284,21 @@ public sealed class LlamaCppEmbeddingProvider : IAsyncRetrievalEmbeddingProvider
         string revision,
         int dimensions,
         string instructionProfile = "retrieval")
+        : this(new LlamaRetrievalServer(runtime, modelPath, LlamaRetrievalMode.Embedding),
+            modelId, revision, dimensions, instructionProfile)
+    {
+    }
+
+    /// <summary>Test seam: a provider over an injected server (fake child, injected Gaming signal).</summary>
+    internal LlamaCppEmbeddingProvider(
+        LlamaRetrievalServer server,
+        string modelId,
+        string revision,
+        int dimensions,
+        string instructionProfile = "retrieval")
     {
         if (dimensions <= 0) throw new ArgumentOutOfRangeException(nameof(dimensions));
-        _server = new LlamaRetrievalServer(runtime, modelPath, LlamaRetrievalMode.Embedding);
+        _server = server;
         Identity = new RetrievalEmbeddingIdentity(
             "llama-cpp-embedding", modelId, revision, dimensions, instructionProfile);
     }
@@ -245,13 +322,15 @@ public sealed class LlamaCppEmbeddingProvider : IAsyncRetrievalEmbeddingProvider
         if (texts.Any(string.IsNullOrWhiteSpace))
             throw new InvalidDataException("Embedding batch contains an empty input.");
 
-        HttpClient http = await _server.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+        // The whole exchange runs under the server's Gaming token: a Gaming start cancels it and yields the typed error.
+        return await _server.RunAsync(cancellationToken, async (http, ct) =>
+        {
         using HttpResponseMessage response = await http.PostAsJsonAsync(
             _server.BaseUrl + "/v1/embeddings",
             new { input = texts, model = Identity.ModelId, encoding_format = "float" },
-            cancellationToken).ConfigureAwait(false);
+            ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        using JsonDocument json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        using JsonDocument json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
         if (!json.RootElement.TryGetProperty("data", out JsonElement data) || data.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("llama.cpp embeddings response did not contain a data array.");
 
@@ -275,7 +354,8 @@ public sealed class LlamaCppEmbeddingProvider : IAsyncRetrievalEmbeddingProvider
         }
         if (result.Any(vector => vector == null))
             throw new InvalidDataException("llama.cpp embedding batch returned fewer vectors than requested.");
-        return result;
+        return (IReadOnlyList<float[]?>)result;
+        }).ConfigureAwait(false);
     }
 
     private static void Normalize(float[] vector)
@@ -326,13 +406,14 @@ public sealed class LlamaCppRerankerProvider : IAsyncRetrievalRerankerProvider, 
         if (documents.Count > 128) throw new InvalidDataException("A single reranker batch is limited to 128 documents.");
         if (documents.Any(string.IsNullOrWhiteSpace)) throw new InvalidDataException("Reranker batch contains an empty document.");
 
-        HttpClient http = await _server.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _server.RunAsync(cancellationToken, async (http, ct) =>
+        {
         using HttpResponseMessage response = await http.PostAsJsonAsync(
             _server.BaseUrl + "/v1/rerank",
             new { model = Identity.ModelId, query, top_n = documents.Count, documents },
-            cancellationToken).ConfigureAwait(false);
+            ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        using JsonDocument json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        using JsonDocument json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
 
         JsonElement array = json.RootElement.ValueKind == JsonValueKind.Array
             ? json.RootElement
@@ -349,7 +430,8 @@ public sealed class LlamaCppRerankerProvider : IAsyncRetrievalRerankerProvider, 
         }
         if (scores.All(score => !score.HasValue))
             throw new InvalidDataException("llama.cpp reranker response contained no usable scores.");
-        return scores;
+        return (IReadOnlyList<float?>)scores;
+        }).ConfigureAwait(false);
     }
 
     private static bool TryReadIndex(JsonElement item, out int index)

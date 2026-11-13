@@ -81,6 +81,7 @@ public sealed class GamingGuardService : BackgroundService
             {
                 _jobs.CancelAllForGaming();
                 _speech.StopWorkersForGaming();
+                _runtime.HardOff.StopAll();
                 _shutdown.Begin(nowUtc);
             }
             else
@@ -89,6 +90,7 @@ public sealed class GamingGuardService : BackgroundService
                 // Reopen only after the runtime Gaming marker is actually cleared.
                 // The speech generation stays invalidated for all old requests.
                 _speech.AllowWorkersAfterGaming();
+                _runtime.HardOff.ReopenAll();
             }
         }
 
@@ -105,6 +107,11 @@ public sealed class GamingGuardService : BackgroundService
             if (!_speech.StopWorkersForGaming())
             {
                 _shutdown.Failed("A managed speech child did not confirm exit; retrying Gaming hard-off.", nowUtc);
+                return;
+            }
+            if (!_runtime.HardOff.StopAll())
+            {
+                _shutdown.Failed("A managed retrieval/avatar/vision child did not confirm exit; retrying Gaming hard-off.", nowUtc);
                 return;
             }
             bool released;

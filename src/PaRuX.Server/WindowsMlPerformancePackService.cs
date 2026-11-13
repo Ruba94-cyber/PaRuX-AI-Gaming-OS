@@ -175,22 +175,37 @@ public sealed class WindowsMlPerformancePackService
         start.ArgumentList.Add(command);
         if (!string.IsNullOrWhiteSpace(argument)) start.ArgumentList.Add(argument);
         using var process = new Process { StartInfo = start };
-        if (!process.Start()) throw new InvalidOperationException("Could not launch PaRuX Windows ML worker.");
+        // Gaming hard-off: refused while Gaming is active and killed by a Gaming start. The worker only asks the OS Windows ML
+        // catalog to ready an execution provider; the package deployment itself is an OS transaction that survives a killed
+        // client, so cancelling here leaves no half-applied PaRuX state (the pack reads as not ready and a re-run resumes).
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, cancellationToken);
         ChildProcessJob.Assign(process);
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(gaming.Token);
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(gaming.Token);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
             cancellationToken.ThrowIfCancellationRequested();
             throw new TimeoutException("PaRuX Windows ML worker timed out while running " + command + ".");
         }
 
-        string stdout = await stdoutTask.ConfigureAwait(false);
-        string stderr = await stderrTask.ConfigureAwait(false);
+        string stdout;
+        string stderr;
+        try
+        {
+            stdout = await stdoutTask.ConfigureAwait(false);
+            stderr = await stderrTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         WindowsMlPerformancePackStatus status;
         try { status = ParseWorkerOutput(stdout); }
         catch when (process.ExitCode != 0)

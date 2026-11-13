@@ -162,6 +162,11 @@ public sealed partial class RagStore
         foreach (string file in diskFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Gaming hard-off: stop between files (each file is replaced in one transaction, so what is already indexed
+            // stays valid and the next reindex resumes at the first file that still lacks vectors).
+            if (_managedProviderResolver!.GamingActive)
+                throw new UnavailableDuringGamingException(
+                    "Gaming Mode is active; indexing was paused. Files indexed so far are kept; re-run indexing after Gaming to finish.");
             processed++;
             progress?.Report(processed + " / " + diskFiles.Count + " · " + Path.GetFileName(file));
 
@@ -243,7 +248,7 @@ WHERE c.document_id = $d
         }
     }
 
-    private static async Task<IReadOnlyList<float[]?>> EmbedResolvedBatchAsync(
+    internal static async Task<IReadOnlyList<float[]?>> EmbedResolvedBatchAsync(
         ResolvedRetrievalEmbeddingProvider provider,
         IReadOnlyList<string> chunks,
         CancellationToken cancellationToken)
@@ -260,6 +265,10 @@ WHERE c.document_id = $d
                 vectors = await provider.EmbedBatchAsync(batch, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
+            // A Gaming interruption must stop the indexing run: writing null vectors here would record the file as
+            // indexed without embeddings. The per-file transaction has not run for this file, so the index stays
+            // consistent and a later run re-embeds it.
+            catch (UnavailableDuringGamingException) { throw; }
             catch
             {
                 vectors = Enumerable.Repeat<float[]?>(null, batch.Length).ToList();

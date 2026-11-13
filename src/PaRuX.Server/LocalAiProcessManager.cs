@@ -124,6 +124,9 @@ public sealed class LocalAiProcessManager
     /// <summary>Gaming Mode shutdown retry state. The Gaming guard drives it and the runtime status reports it.</summary>
     internal GamingShutdownRetry GamingShutdown { get; } = new();
 
+    /// <summary>On-demand AI child groups (retrieval servers, avatar, CLIP judge) that the Gaming guard stops with the runtime.</summary>
+    internal GamingHardOffRegistry HardOff { get; } = new();
+
     /// <summary>Test seam: replaces the text health probe for this instance. The canonical ports belong to whatever else runs
     /// on the host, so a test of another behaviour can fix the precondition. Production code never sets it.</summary>
     internal Func<CancellationToken, Task<bool>>? TextHealthProbeForTests { get; set; }

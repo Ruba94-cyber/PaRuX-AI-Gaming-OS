@@ -192,6 +192,12 @@ try {
         return path;
     }
 
+    private static void ThrowIfGaming(GamingChildLease gaming, CancellationToken ct)
+    {
+        try { gaming.ThrowIfGamingInterrupted(); }
+        catch (UnavailableDuringGamingException ex) { throw new OperationCanceledException(ex.Message, ex, ct); }
+    }
+
     private static List<JsonElement> Run(string powershell, string mode, string path, string? lang, string pages, TimeSpan timeout,
         CancellationToken ct, out string? failure)
     {
@@ -204,20 +210,34 @@ try {
         };
         foreach (string a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", ScriptPath(), "-Mode", mode, "-Path", path, "-Lang", lang ?? string.Empty, "-Pages", pages })
             psi.ArgumentList.Add(a);
-        using Process? process = Process.Start(psi);
-        if (process == null) { failure = "Windows OCR could not be started."; return results; }
+        using var process = new Process { StartInfo = psi };
+        // Gaming hard-off (refuse-to-start / kill-and-cancel): OCR is a CPU child of an indexing run. A recognition failure
+        // would be stored as "metadata only" and never retried, so a Gaming interruption must not look like one: it ends the
+        // run with a cancellation instead (the knowledge job reports "cancelled", unchanged files are skipped and a large
+        // PDF resumes from its page checkpoint on the next run).
+        GamingChildLease gaming;
+        try { gaming = GamingChildGate.StartOwned(process, ct); }
+        catch (UnavailableDuringGamingException ex) { throw new OperationCanceledException(ex.Message, ex, ct); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            failure = "Windows OCR could not be started.";
+            return results;
+        }
+        using GamingChildLease lease = gaming;
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         _ = process.StandardError.ReadToEndAsync();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         cts.CancelAfter(timeout);
         try { process.WaitForExitAsync(cts.Token).GetAwaiter().GetResult(); }
         catch (OperationCanceledException)
         {
             try { process.Kill(true); } catch (Exception) { /* already gone */ }
+            ThrowIfGaming(gaming, ct);
             ct.ThrowIfCancellationRequested();
             failure = "Windows OCR timed out.";
             return results;
         }
+        if (process.ExitCode != 0) ThrowIfGaming(gaming, ct);
         foreach (string line in stdout.GetAwaiter().GetResult().Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             string trimmed = line.Trim();

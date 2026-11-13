@@ -82,13 +82,14 @@ public static class ManagedMediaV2Endpoints
                 ManagedMediaEngineInstallResult result = await new ManagedDiffusersImageEngine(runtime)
                     .InstallAsync(null, ct).ConfigureAwait(false);
 
-                await using var semanticJudge = new ManagedClipImageJudge();
+                await using var semanticJudge = new ManagedClipImageJudge(runtime);
                 string judgeValidation = await semanticJudge.InstallAsync(null, ct).ConfigureAwait(false);
                 result.Validation = string.IsNullOrWhiteSpace(result.Validation)
                     ? "semanticJudge=" + judgeValidation
                     : result.Validation + "; semanticJudge=" + judgeValidation;
                 return Results.Ok(result);
             }
+            catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException
                 or IOException or UnauthorizedAccessException or TimeoutException)
@@ -157,7 +158,7 @@ public static class ManagedMediaV2Endpoints
                         engine = status
                     });
 
-                await using var semanticJudge = new ManagedClipImageJudge();
+                await using var semanticJudge = new ManagedClipImageJudge(runtime);
                 ManagedClipJudgeStatus judgeStatus = semanticJudge.GetStatus();
                 if (!judgeStatus.Ready)
                     return Results.Conflict(new

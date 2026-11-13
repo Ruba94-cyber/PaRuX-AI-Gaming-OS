@@ -66,6 +66,9 @@ public sealed class LocalRuntimeService
     /// <summary>The Gaming Mode shutdown retry state, shared with the runtime status.</summary>
     internal GamingShutdownRetry GamingShutdown => _process.GamingShutdown;
 
+    /// <summary>Registry of on-demand AI child groups the Gaming guard stops and reopens (see <see cref="GamingHardOffRegistry"/>).</summary>
+    internal GamingHardOffRegistry HardOff => _process.HardOff;
+
     /// <summary>
     /// Shared inference lease for an operation that uses the currently stable text resident without
     /// replacing it. Multiple callers may coexist; an already-queued exclusive GPU transition blocks

@@ -1091,6 +1091,7 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
         (int documents, int chunks) = await rag.IndexSourceAsync(id, source.FolderPath, null, ct);
         return Results.Ok(new { documentCount = documents, chunkCount = chunks });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (Exception exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -2228,6 +2229,7 @@ app.MapPost("/api/v1/avatar/engine/install", async (AvatarEngineService engine, 
         await engine.InstallEngineAsync(ct);
         return Results.Ok(await engine.GetStatusAsync(ct));
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (Exception exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -2253,6 +2255,7 @@ app.MapPost("/api/v1/avatar/generate", async (AvatarGenerateRequest request, Ava
     {
         return Results.Ok(await avatar.GenerateAsync(request, ct));
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception)
     {
         return Results.Conflict(new { error = exception.Message });
@@ -2493,12 +2496,14 @@ app.MapGet("/api/v1/adapters/conversion/status", async (AdapterManagerService ad
 app.MapPost("/api/v1/adapters/conversion/install", async (AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(new { log = await adapters.InstallConversionEngineAsync(ct) }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
 
 app.MapPost("/api/v1/adapters/{id}/convert", async (string id, ConvertAdapterRequest request, AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(await adapters.ConvertToGgufAsync(id, request.Outtype, ct, request.BaseModelConfigDir)); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
@@ -2506,6 +2511,7 @@ app.MapPost("/api/v1/adapters/{id}/convert", async (string id, ConvertAdapterReq
 app.MapPost("/api/v1/adapters/{id}/merge", async (string id, MergeAdapterRequest request, AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(new { outputDirectory = await adapters.MergeToBaseModelAsync(id, request.OutputDirectory, ct, request.BaseModelDir) }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
@@ -2520,6 +2526,7 @@ app.MapPost("/api/v1/speech/engine/install", async (SpeechService speech, Cancel
         string log = await speech.InstallEngineAsync(ct);
         return Results.Ok(new { installed = true, log });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -3994,6 +4001,7 @@ app.MapPost("/api/v1/threed/generate", async (ThreedGenerateRequest request, Thr
     {
         return Results.BadRequest(new { error = exception.Message });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
     {
         return Results.Conflict(new { error = "Gaming Mode activated; 3D generation was stopped." });
@@ -4029,6 +4037,7 @@ app.MapPost("/api/v1/cutout/remove", async (CutoutRemoveRequest request, CutoutS
         return Results.Ok(await cutout.RemoveBackgroundAsync(request, linked.Token));
     }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
     {
         return Results.Conflict(new { error = "Gaming Mode activated; background removal was stopped." });
@@ -4071,6 +4080,23 @@ app.MapEmulatorEndpoints();
 PaRuX.Server.Orchestration.Gaming.QuickResumeEndpoints.MapQuickResumeEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Discover.GameDiscoverEndpoints.MapGameDiscoverEndpoints(app);
+// Any "unavailable during Gaming" refusal that an endpoint did not map itself becomes the one 409 { code: "gaming_active" }.
+app.Use(async (context, next) =>
+{
+    try { await next(); }
+    catch (UnavailableDuringGamingException gaming) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsJsonAsync(new { error = gaming.Message, code = UnavailableDuringGamingException.ErrorCode });
+    }
+});
+// Managed installers, converters and one-shot AI children launched from static helpers (uv/pip, LoRA conversion, OCR,
+// training runtime, engine packs) share one Gaming hard-off boundary: refused while Gaming is active, killed with the rest
+// of the AI children on a Gaming start. Unit tests that never compose Program keep the pass-through default.
+{
+    var gamingRuntime = app.Services.GetRequiredService<LocalRuntimeService>();
+    GamingChildGate.Install(new GamingChildScope("install/conversion", () => gamingRuntime.GamingMode, gamingRuntime.HardOff));
+}
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.

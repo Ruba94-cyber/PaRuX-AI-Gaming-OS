@@ -13,8 +13,22 @@ public sealed class AvatarEngineService
 {
     private const string LatentSyncCommit = "a229c3948406bc2cf6eaf4873e662e70c6a04746";
     private readonly SpeechService _speech;
+    private readonly GamingChildScope? _scope;
 
-    public AvatarEngineService(SpeechService speech) => _speech = speech;
+    public AvatarEngineService(SpeechService speech, LocalRuntimeService? runtime = null)
+    {
+        _speech = speech;
+        // Gaming hard-off: the LatentSync / ffmpeg / python children are owned by one scope that the Gaming guard stops
+        // (and that refuses new children while Gaming is active). Without a runtime (tests) the ambient scope applies.
+        if (runtime != null) _scope = new GamingChildScope("avatar", () => runtime.GamingMode, runtime.HardOff);
+    }
+
+    /// <summary>Test seam: an injected Gaming scope.</summary>
+    internal AvatarEngineService(SpeechService speech, GamingChildScope scope)
+    {
+        _speech = speech;
+        _scope = scope;
+    }
 
     private static string RuntimeRoot => Path.Combine(
         PaRuX.Contracts.PaRuXDataRoot.Path, "ai-runtimes", "avatar");
@@ -25,10 +39,21 @@ public sealed class AvatarEngineService
     private static string DefaultPhotoPath => Path.Combine(RuntimeRoot, "default-avatar.jpg");
     private static string LastErrorPath => Path.Combine(RuntimeRoot, "last-install-error.txt");
 
+    /// <summary>True while Gaming Mode has the avatar engine paused (admission closed).</summary>
+    internal bool GamingPaused => _scope?.IsClosed == true;
+
     public bool HasDefaultPhoto => File.Exists(DefaultPhotoPath);
 
     public async Task<AvatarEngineStatus> GetStatusAsync(CancellationToken ct)
     {
+        // The engine check imports torch in a child; it is never started during Gaming (nothing to kill, nothing leaks).
+        if (_scope?.IsClosed == true)
+            return new AvatarEngineStatus
+            {
+                Installed = false,
+                HasDefaultPhoto = HasDefaultPhoto,
+                LastError = "Gaming Mode is active; the local avatar engine is paused and was not checked."
+            };
         string? lastError = File.Exists(LastErrorPath) ? await File.ReadAllTextAsync(LastErrorPath, ct) : null;
         bool checkpointsPresent = File.Exists(Path.Combine(CheckpointsDir, "latentsync_unet.pt"))
             && File.Exists(Path.Combine(CheckpointsDir, "whisper", "tiny.pt"));
@@ -42,13 +67,30 @@ public sealed class AvatarEngineService
                 ct, TimeSpan.FromSeconds(60), workingDirectory: RepoRoot);
             return new AvatarEngineStatus { Installed = exitCode == 0, HasDefaultPhoto = HasDefaultPhoto, LastError = exitCode == 0 ? null : lastError };
         }
+        catch (UnavailableDuringGamingException)
+        {
+            return new AvatarEngineStatus
+            {
+                Installed = false,
+                HasDefaultPhoto = HasDefaultPhoto,
+                LastError = "Gaming Mode is active; the local avatar engine is paused and was not checked."
+            };
+        }
         catch
         {
             return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError };
         }
     }
 
-    public async Task<string> InstallEngineAsync(CancellationToken ct)
+    public Task<string> InstallEngineAsync(CancellationToken ct) =>
+        GamingScoped(ct, linked => InstallEngineCoreAsync(linked));
+
+    /// <summary>Runs under the avatar Gaming scope when there is one: a Gaming start cancels the work and the caller gets
+    /// the typed "unavailable during Gaming" error, never a generic failure.</summary>
+    private Task<T> GamingScoped<T>(CancellationToken ct, Func<CancellationToken, Task<T>> body) =>
+        _scope == null ? body(ct) : _scope.RunAsync(ct, (linked, _) => body(linked));
+
+    private async Task<string> InstallEngineCoreAsync(CancellationToken ct)
     {
         Directory.CreateDirectory(RuntimeRoot);
         var log = new System.Text.StringBuilder();
@@ -95,8 +137,9 @@ public sealed class AvatarEngineService
             try { File.Delete(LastErrorPath); } catch { }
             return log.ToString();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not (UnavailableDuringGamingException or OperationCanceledException))
         {
+            // A Gaming interruption or a cancel is not an install defect and must not become "last install error".
             string detail = Trim(ex.Message);
             try { await File.WriteAllTextAsync(LastErrorPath, detail, ct); } catch { }
             throw;
@@ -109,7 +152,10 @@ public sealed class AvatarEngineService
         await File.WriteAllBytesAsync(DefaultPhotoPath, photoBytes, ct);
     }
 
-    public async Task<byte[]> GenerateAsync(string text, CancellationToken ct)
+    public Task<byte[]> GenerateAsync(string text, CancellationToken ct) =>
+        GamingScoped(ct, linked => GenerateCoreAsync(text, linked));
+
+    private async Task<byte[]> GenerateCoreAsync(string text, CancellationToken ct)
     {
         if (!HasDefaultPhoto) throw new InvalidOperationException("No reference photo has been set for the local avatar engine yet.");
         if (!File.Exists(VenvPython)) throw new InvalidOperationException("The local avatar engine is not installed on this machine yet.");
@@ -158,7 +204,7 @@ public sealed class AvatarEngineService
         }
     }
 
-    private static async Task<string> ResolveManagedFfmpegAsync(CancellationToken ct)
+    private async Task<string> ResolveManagedFfmpegAsync(CancellationToken ct)
     {
         (int exit, string stdout, string stderr) = await RunCapturedAsync(VenvPython,
             "-c \"import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())\"",
@@ -184,7 +230,7 @@ public sealed class AvatarEngineService
         File.Move(partial, destination, true);
     }
 
-    private static async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(
+    private async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(
         string fileName, string arguments, CancellationToken ct, TimeSpan timeout, string? workingDirectory = null)
     {
         var psi = new ProcessStartInfo
@@ -195,13 +241,20 @@ public sealed class AvatarEngineService
         };
         if (workingDirectory != null) psi.WorkingDirectory = workingDirectory;
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct, _scope);
+        ChildProcessJob.Assign(process);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token); }
-        catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } throw; }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 

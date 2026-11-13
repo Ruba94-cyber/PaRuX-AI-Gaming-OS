@@ -406,6 +406,8 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
             if (admission != null) admission.StartOwned(process, generation ?? admission.Capture());
             else if (!process.Start()) throw new InvalidOperationException("The speech process could not start.");
             started = true;
+            // Same kill-on-close job as every other PaRuX AI child: a Core crash cannot orphan a one-shot speech process.
+            ChildProcessJob.Assign(process);
             Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
             Task<string> stderrTask = process.StandardError.ReadToEndAsync();
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

@@ -232,18 +232,22 @@ public sealed class CutoutService
             UseShellExecute = false, CreateNoWindow = true
         };
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        // Gaming hard-off: refused (typed) while Gaming is active, registered so a Gaming start kills it.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
+        ChildProcessJob.Assign(process);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
             try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            gaming.ThrowIfGamingInterrupted();
             ct.ThrowIfCancellationRequested();
             throw new TimeoutException("The cutout engine did not finish within " + timeout.TotalMinutes + " minutes.");
         }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false));
     }
 
