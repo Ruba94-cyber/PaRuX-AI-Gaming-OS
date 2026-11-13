@@ -120,7 +120,7 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
         log.Append(await ManagedPythonRuntime.PipInstallAsync(
             VenvRoot,
-            SpeechPackages,
+            ManagedRequirementLocks.ArgumentsFor("speech"),
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
         PrepareScript();
         return log.ToString();

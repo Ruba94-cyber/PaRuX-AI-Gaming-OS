@@ -2089,7 +2089,7 @@ app.MapPost("/api/v1/autopilot/runs", async (StartAutopilotRunRequest request, A
 {
     try { return Results.Ok(await autopilot.StartRunAsync(request.Goal, request.PermissionMode, ct)); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
-});
+}).ForceSupervisedAutopilotForPairedDevice();
 
 app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot) =>
 {
@@ -2098,7 +2098,8 @@ app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot
 });
 
 app.MapPost("/api/v1/autopilot/runs/{id}/approve", (string id, AutopilotService autopilot) =>
-    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }));
+    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }))
+    .RequireDesktopOwner();
 
 app.MapPost("/api/v1/eval/datasets", (CreateEvalDatasetRequest request, EvalStore evalStore) =>
 {

@@ -223,9 +223,12 @@ public static class ManagedPythonRuntime
 
     public static async Task<string> PipInstallAsync(
         string venvRoot, IEnumerable<string> arguments, CancellationToken ct,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null, string? unlockedSetId = null)
     {
         PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads(); // pip downloads packages (executable code)
+        // SEC-F02: refuse an unpinned requirement set before any process starts; a known PyTorch pin is rewritten
+        // to its hash-locked closure.
+        arguments = ManagedPipInstallPolicy.Evaluate(arguments, unlockedSetId);
         string python = VenvPython(venvRoot);
         if (!File.Exists(python)) throw new InvalidOperationException("The PaRuX managed venv does not exist: " + venvRoot);
         var args = new List<string> { "pip", "install", "--python", python };

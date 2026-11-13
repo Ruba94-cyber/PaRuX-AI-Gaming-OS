@@ -139,9 +139,30 @@ public sealed class ServerState
             TokenProtectedForCurrentUser = LocalFileProtection.RestrictToCurrentUser(StateDirectory)
                 && LocalFileProtection.RestrictToCurrentUser(BootstrapPath);
         }
+        // SEC-F08: bootstrap.json, remote-access.json and lan-certificate.pfx live in this folder. A custom
+        // PARUX_DATA_ROOT can sit outside the per-user profile and inherit a broader ACL, so restrict it too.
+        if (!CorporateMode.IsActive && OperatingSystem.IsWindows())
+            ProtectStateDirectoryIfShared(StateDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
         // Remove the pre-1.5.1 fixed-name staging file if a prior interrupted promotion left it.
         try { File.Delete(BootstrapPath + ".tmp"); } catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Restricts the state folder to the current user and SYSTEM when it is not already inside the per-user
+    /// profile (where Windows already makes it user-private). Best effort, never fatal, never follows a link.
+    /// Returns true when the restriction was applied.</summary>
+    internal static bool ProtectStateDirectoryIfShared(string stateDirectory, string localAppData)
+    {
+        try
+        {
+            if (!Directory.Exists(stateDirectory) || new DirectoryInfo(stateDirectory).LinkTarget != null) return false;
+            string full = Path.GetFullPath(stateDirectory);
+            string profile = Path.GetFullPath(localAppData).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            if (full.StartsWith(profile, StringComparison.OrdinalIgnoreCase)) return false;
+            return LocalFileProtection.RestrictToCurrentUser(full);
+        }
+        catch (Exception) { return false; }
     }
 
     internal static void PublishAtomically(string destinationPath, ServerBootstrap bootstrap)

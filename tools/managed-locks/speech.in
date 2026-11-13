@@ -1,0 +1,8 @@
+torch==2.10.0
+transformers
+soundfile
+numpy
+librosa
+kokoro
+misaki[en]
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

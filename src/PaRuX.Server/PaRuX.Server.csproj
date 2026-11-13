@@ -74,6 +74,14 @@
     <Content Include="training-runtime.lock.txt;training-torch-cu128.lock.txt;training-torch-cpu.lock.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Update="runtime-digest-pins.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Hash-locked requirement sets for the other managed Python engines (SEC-F02, see ManagedPipInstallPolicy);
+         regenerate with tools/managed-locks/generate.ps1. -->
+    <Content Include="managed-locks\*.lock.txt" Link="managed-locks\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="..\..\skills\built-in\*.json" Link="skills\built-in\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

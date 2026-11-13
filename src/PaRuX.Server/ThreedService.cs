@@ -64,7 +64,7 @@ public sealed class ThreedService
                 ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
             log.Append(await ManagedPythonRuntime.PipInstallAsync(
                 VenvRoot,
-                new[] { "transformers", "trimesh", "pillow", "numpy", "scipy" },
+                ManagedRequirementLocks.ArgumentsFor("threed"),
                 ct, TimeSpan.FromMinutes(10)).ConfigureAwait(false));
 
             try { File.Delete(LastErrorPath); } catch { }

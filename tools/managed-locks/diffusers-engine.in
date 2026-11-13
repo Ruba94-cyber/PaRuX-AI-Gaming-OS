@@ -1,0 +1,9 @@
+torch==2.10.0
+diffusers==0.40.0
+transformers==5.16.1
+accelerate==1.14.0
+huggingface-hub>=0.36,<2
+safetensors>=0.5,<1
+pillow>=11,<13
+sentencepiece>=0.2,<1
+protobuf>=5,<7

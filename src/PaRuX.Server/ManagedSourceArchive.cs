@@ -1,11 +1,15 @@
-using System.IO.Compression;
-
 namespace PaRuX.Server;
 
 /// <summary>Downloads immutable, commit-addressed GitHub source archives without requiring Git.
-/// Extraction rejects traversal/absolute paths and atomically promotes the completed tree.</summary>
+/// Extraction goes through <see cref="SafeArchiveExtractor"/> (traversal, reparse-point, symlink, entry-count,
+/// byte and compression-ratio quotas) and the completed tree is promoted atomically (SEC-F13).</summary>
 public static class ManagedSourceArchive
 {
+    /// <summary>A source archive larger than this is refused while downloading.</summary>
+    internal const long MaxArchiveBytes = 512L * 1024 * 1024;
+    internal const long MaxExtractedBytes = 2L * 1024 * 1024 * 1024;
+    internal const int MaxEntries = 50_000;
+
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(10) };
 
     public static async Task EnsureGithubCommitAsync(
@@ -20,45 +24,57 @@ public static class ManagedSourceArchive
             ?? throw new InvalidDataException("Managed source destination has no parent directory.");
         Directory.CreateDirectory(parent);
         string archive = destination + ".zip.download";
-        string staging = destination + ".staging-" + Guid.NewGuid().ToString("N");
         try
         {
             var uri = new Uri($"https://github.com/{owner}/{repository}/archive/{commitSha}.zip");
             using HttpResponseMessage response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct)
                 .ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
+            if (response.Content.Headers.ContentLength is long declared && declared > MaxArchiveBytes)
+                throw new InvalidDataException("Managed source archive exceeds the size limit.");
             await using (Stream source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
             await using (var target = new FileStream(archive, FileMode.Create, FileAccess.Write, FileShare.None))
-                await source.CopyToAsync(target, ct).ConfigureAwait(false);
-
-            Directory.CreateDirectory(staging);
-            using ZipArchive zip = ZipFile.OpenRead(archive);
-            string? commonRoot = zip.Entries
-                .Select(e => e.FullName.Replace('\\', '/').Split('/', 2)[0])
-                .FirstOrDefault(root => !string.IsNullOrWhiteSpace(root));
-            if (string.IsNullOrWhiteSpace(commonRoot)) throw new InvalidDataException("Managed source archive was empty.");
-
-            foreach (ZipArchiveEntry entry in zip.Entries)
             {
-                string normalized = entry.FullName.Replace('\\', '/');
-                if (!normalized.StartsWith(commonRoot + "/", StringComparison.Ordinal)) continue;
-                string relative = normalized[(commonRoot.Length + 1)..];
-                if (relative.Length == 0) continue;
-                string output = Path.GetFullPath(Path.Combine(staging, relative.Replace('/', Path.DirectorySeparatorChar)));
-                string prefix = Path.GetFullPath(staging).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                if (!output.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("Managed source archive attempted path traversal.");
-                if (normalized.EndsWith('/')) { Directory.CreateDirectory(output); continue; }
-                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-                entry.ExtractToFile(output, overwrite: true);
+                byte[] buffer = new byte[81920];
+                long total = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                {
+                    total += read;
+                    if (total > MaxArchiveBytes)
+                        throw new InvalidDataException("Managed source archive exceeds the size limit.");
+                    await target.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                }
             }
 
-            if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true);
-            Directory.Move(staging, destination);
+            await ExtractArchiveAsync(archive, destination, ct).ConfigureAwait(false);
         }
         finally
         {
             try { File.Delete(archive); } catch { }
+        }
+    }
+
+    /// <summary>Extracts a downloaded GitHub source archive (one top-level folder) into <paramref name="destination"/>.
+    /// Any unsafe entry, an exceeded quota or a layout with more than one top-level entry fails closed and leaves no
+    /// partial tree behind.</summary>
+    internal static async Task ExtractArchiveAsync(string archive, string destination, CancellationToken ct, int maxEntries = MaxEntries)
+    {
+        string staging = destination + ".staging-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            await SafeArchiveExtractor.ExtractAsync(archive, staging, ct,
+                maxExtractedBytes: MaxExtractedBytes, maxEntries: maxEntries).ConfigureAwait(false);
+
+            string[] top = Directory.GetFileSystemEntries(staging);
+            if (top.Length != 1 || !Directory.Exists(top[0]))
+                throw new InvalidDataException("Managed source archive must contain exactly one top-level folder.");
+
+            if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true);
+            Directory.Move(top[0], destination);
+        }
+        finally
+        {
             try { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); } catch { }
         }
     }

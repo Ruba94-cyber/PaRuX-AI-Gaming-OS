@@ -148,7 +148,26 @@ public sealed class AgentRepositoryAuthoritySetStore
             throw new InvalidDataException("workspaceRoot is not a valid local path.");
         }
         if (!Directory.Exists(canonical)) throw new InvalidDataException("workspaceRoot must be an existing local directory.");
+        RejectUnsafeWorkspaceRoot(canonical);
         return canonical;
+    }
+
+    /// <summary>
+    /// SEC-F15: the coding sandbox grants its AppContainer Modify rights on the whole workspace tree, so a drive root, the
+    /// whole user profile, system/program folders, credential stores and PaRuX's own data folder are never valid roots.
+    /// </summary>
+    internal static void RejectUnsafeWorkspaceRoot(string canonicalPath, string? dataRoot = null, string? userProfile = null)
+    {
+        string trimmed = canonicalPath.TrimEnd('\\', '/');
+        string? pathRoot = Path.GetPathRoot(canonicalPath);
+        if (trimmed.Length <= 2 || (pathRoot != null && string.Equals(canonicalPath.TrimEnd('\\', '/'), pathRoot.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("workspaceRoot cannot be a whole drive; choose the project folder.");
+        string profile = (userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)).TrimEnd('\\', '/');
+        if (profile.Length > 3 && string.Equals(trimmed, profile, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("workspaceRoot cannot be the whole user profile; choose the project folder.");
+        Knowledge.SensitiveFinding finding = Knowledge.SensitivePathPolicy.EvaluateFolder(canonicalPath, dataRoot);
+        if (finding.Verdict == Knowledge.SensitiveVerdict.Blocked)
+            throw new InvalidDataException("workspaceRoot is not allowed: " + finding.Reason);
     }
 
     private Dictionary<string, AgentRepositorySetDto> LoadUnsafe()

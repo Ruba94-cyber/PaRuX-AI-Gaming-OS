@@ -13,14 +13,56 @@ namespace PaRuX.Server;
 internal static class SafeArchiveExtractor
 {
     private const long DefaultMaxExtractedBytes = 64L * 1024 * 1024 * 1024;
+    /// <summary>Upper bound on entries in one archive (SEC-F13); real runtime archives hold a few thousand.</summary>
+    internal const int DefaultMaxEntries = 100_000;
+    /// <summary>Expanded bytes may not exceed this multiple of the archive's own size (zip-bomb guard, SEC-F13).</summary>
+    internal const int DefaultMaxCompressionRatio = 200;
+    /// <summary>Output below this size is never judged by the ratio, so tiny archives of repetitive text stay valid.</summary>
+    internal const long RatioGraceBytes = 32L * 1024 * 1024;
+
+    /// <summary>Running totals for one extraction, shared by every entry.</summary>
+    private sealed class Quota
+    {
+        public long MaxBytes;
+        public int MaxEntries;
+        public long RatioLimitBytes;
+        public long Extracted;
+        public int Entries;
+
+        public void CountEntry()
+        {
+            if (++Entries > MaxEntries)
+                throw new InvalidDataException("Archive has more than " + MaxEntries + " entries.");
+        }
+
+        public void Charge(int bytes)
+        {
+            if (bytes > MaxBytes - Extracted)
+                throw new InvalidDataException("Archive expanded beyond the safety limit of " + MaxBytes + " bytes.");
+            Extracted += bytes;
+            if (Extracted > RatioGraceBytes && Extracted > RatioLimitBytes)
+                throw new InvalidDataException("Archive expands far beyond its compressed size (possible decompression bomb).");
+        }
+    }
 
     public static async Task ExtractAsync(
         string archivePath,
         string destinationRoot,
         CancellationToken ct,
-        long maxExtractedBytes = DefaultMaxExtractedBytes)
+        long maxExtractedBytes = DefaultMaxExtractedBytes,
+        int maxEntries = DefaultMaxEntries,
+        int maxCompressionRatio = DefaultMaxCompressionRatio)
     {
         if (maxExtractedBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxExtractedBytes));
+        if (maxEntries <= 0) throw new ArgumentOutOfRangeException(nameof(maxEntries));
+        if (maxCompressionRatio <= 0) throw new ArgumentOutOfRangeException(nameof(maxCompressionRatio));
+        long archiveBytes = new FileInfo(archivePath).Length;
+        var quota = new Quota
+        {
+            MaxBytes = maxExtractedBytes,
+            MaxEntries = maxEntries,
+            RatioLimitBytes = archiveBytes > long.MaxValue / maxCompressionRatio ? long.MaxValue : archiveBytes * maxCompressionRatio
+        };
         string root = Path.GetFullPath(destinationRoot);
         // Validate the entire existing parent chain BEFORE creating any output.
         // A junction in the destination parent must never redirect extraction.
@@ -30,7 +72,6 @@ internal static class SafeArchiveExtractor
         string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
 
-        long extracted = 0;
         byte[] signature = new byte[6];
         int signatureLength;
         using (FileStream signatureStream = File.OpenRead(archivePath))
@@ -51,6 +92,8 @@ internal static class SafeArchiveExtractor
             await using var stream = new FileStream(archivePath, FileMode.Open, FileAccess.Read,
                 FileShare.Read, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
             using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+            if (zip.Entries.Count > maxEntries)
+                throw new InvalidDataException("Archive has more than " + maxEntries + " entries.");
             foreach (ZipArchiveEntry entry in zip.Entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -60,7 +103,7 @@ internal static class SafeArchiveExtractor
                 bool isDirectory = entry.FullName.EndsWith("/", StringComparison.Ordinal);
                 await ExtractCurrentEntryAsync(entry.FullName, isDirectory,
                     _ => Task.FromResult<Stream>(entry.Open()), root, rootPrefix,
-                    ct, maxExtractedBytes, () => extracted, value => extracted = value);
+                    ct, quota);
             }
         }
         else if (isSevenZip)
@@ -72,7 +115,7 @@ internal static class SafeArchiveExtractor
                 ct.ThrowIfCancellationRequested();
                 await ExtractCurrentEntryAsync(reader.Entry.Key ?? string.Empty, reader.Entry.IsDirectory,
                     _ => Task.FromResult<Stream>(reader.OpenEntryStream()), root, rootPrefix,
-                    ct, maxExtractedBytes, () => extracted, value => extracted = value);
+                    ct, quota);
             }
         }
         else
@@ -83,7 +126,7 @@ internal static class SafeArchiveExtractor
                 ct.ThrowIfCancellationRequested();
                 await ExtractCurrentEntryAsync(reader.Entry.Key ?? string.Empty, reader.Entry.IsDirectory,
                     async token => await reader.OpenEntryStreamAsync(token), root,
-                    rootPrefix, ct, maxExtractedBytes, () => extracted, value => extracted = value);
+                    rootPrefix, ct, quota);
             }
         }
     }
@@ -95,11 +138,10 @@ internal static class SafeArchiveExtractor
         string root,
         string rootPrefix,
         CancellationToken ct,
-        long maxExtractedBytes,
-        Func<long> getExtracted,
-        Action<long> setExtracted)
+        Quota quota)
     {
         if (string.IsNullOrWhiteSpace(key)) return;
+        quota.CountEntry();
         if (!IsSafePortableEntryName(key))
             throw new InvalidDataException("Archive entry uses a reserved or ambiguous Windows path.");
 
@@ -142,11 +184,7 @@ internal static class SafeArchiveExtractor
                 int read;
                 while ((read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), ct)) > 0)
                 {
-                    long alreadyExtracted = getExtracted();
-                    if (read > maxExtractedBytes - alreadyExtracted)
-                        throw new InvalidDataException(
-                            "Archive expanded beyond the safety limit of " + maxExtractedBytes + " bytes.");
-                    setExtracted(alreadyExtracted + read);
+                    quota.Charge(read);
                     await output.WriteAsync(buffer.AsMemory(0, read), ct);
                 }
             }

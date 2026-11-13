@@ -71,7 +71,7 @@ public sealed class CutoutService
         try
         {
             await ManagedPythonRuntime.EnsureVenvAsync(VenvRoot, ManagedPythonRuntime.DefaultPythonVersion, ct).ConfigureAwait(false);
-            string log = await ManagedPythonRuntime.PipInstallAsync(VenvRoot, RuntimePackages, ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+            string log = await ManagedPythonRuntime.PipInstallAsync(VenvRoot, ManagedRequirementLocks.ArgumentsFor("cutout"), ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
             File.WriteAllText(ScriptPath, CutoutScript.Source);
             return log;
         }
