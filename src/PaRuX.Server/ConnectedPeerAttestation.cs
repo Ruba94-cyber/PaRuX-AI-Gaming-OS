@@ -453,9 +453,10 @@ internal static class ManagedRuntimePeers
     }
 
     /// <summary>Core ships Windows-only, so a platform without OS attestation refuses rather than passes through.</summary>
-    internal static HttpMessageHandler CreateHandler() => AttestedLoopbackHttp.CreateHandler(
+    /// <remarks>SEC-F01: the runtime key is attached outside the attested handler, so it is written only on a connection already attested to the launched process.</remarks>
+    internal static HttpMessageHandler CreateHandler() => new ManagedRuntimeKeyHandler(AttestedLoopbackHttp.CreateHandler(
         ForEndpoint, allowUnattestedWhenPlatformUnsupported: false,
-        connectedPeerCheck: ManagedListenerOwnership.IsConnectedPeerStrictlyOwnedBy);
+        connectedPeerCheck: ManagedListenerOwnership.IsConnectedPeerStrictlyOwnedBy));
 }
 
 internal sealed class WindowsTcpOwnershipSource : IPeerOwnershipSource

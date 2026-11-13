@@ -38,7 +38,7 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | PERF-002 Idle Core memory runaway | NO | NO | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/PERFORMANCE_BENCHMARKS.md (defect 1) |
 | PERF-003 Same-profile reuse, routing, GameStop restore | PARTIAL | PARTIAL | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/PERFORMANCE_BENCHMARKS.md. Same-profile warm reuse fixed; routing and GameStop parts remain open |
 | SEC-001 Security audit gate | PARTIAL | PARTIAL | NOT RUN | NOT RUN | N/A | N/A | NO | QA-017, docs/SECURITY_REVIEW.md, independent static review of portable/Corporate diff (0 Critical, 2 High fixed in 9973463d, Medium open) |
-| SEC-F01 Runtime ports without API key | NO | NO | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/SECURITY_REVIEW.md (Not fixed) |
+| SEC-F01 Runtime ports without API key | PARTIAL | PARTIAL | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/SECURITY_REVIEW.md. llama-server per-launch key done (stub child proven); ComfyUI open; real llama-server not run |
 | SEC-F02 Unhashed managed Python installs and downloads | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (no remediation recorded) |
 | SEC-F03 Backup restore applies security settings | YES | YES | YES | YES | N/A | N/A | NO | docs/SECURITY_REVIEW.md (Fixed), QA-021, QA-024 |
 | SEC-F04 Paired device Internet/task authority | PARTIAL | PARTIAL | YES | YES | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md (Fixed, partial), QA-021 |

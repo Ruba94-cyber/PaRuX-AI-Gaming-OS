@@ -204,7 +204,9 @@ public sealed class RuntimeOutputSanityLaunchTests : IDisposable
             InventoryProbe = () => isHotPool
                 ? GpuInventoryFixtures.Inventory(GpuInventoryFixtures.Nvidia())
                 : GpuInventoryFixtures.Inventory(GpuInventoryFixtures.SoftwareRenderer()),
-            TextHealthProbeForTests = _ => Task.FromResult(true)
+            TextHealthProbeForTests = _ => Task.FromResult(true),
+            // SEC-F01: the router path itself is under test here, so it is enabled explicitly (production keeps it off).
+            HotModelPoolKeyPropagationVerifiedForTests = true
         };
         int routeSupportCalls = 0;
         int routeValidationCalls = 0;
