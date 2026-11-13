@@ -53,6 +53,12 @@ namespace PaRuX.Services
         public Task<RuntimeManagerStatus> GetRuntimeStatusAsync(CancellationToken ct) =>
             SendAsync<RuntimeManagerStatus>(HttpMethod.Get, "/api/v1/runtime/status", null, ct);
 
+        /// <summary>SEC-F01: the managed text runtime's physical context window as Core reads it (the runtime is keyed,
+        /// so the App never calls its port). <paramref name="refresh"/> makes Core drop its cached value first.</summary>
+        public Task<RuntimeContextWindow> GetRuntimeContextWindowAsync(bool refresh, CancellationToken ct) =>
+            SendAsync<RuntimeContextWindow>(HttpMethod.Get,
+                "/api/v1/runtime/context-window" + (refresh ? "?refresh=true" : string.Empty), null, ct);
+
         /// <summary>Directive Phase 3/4/6: loads one Managed Model Library .gguf into Role and
         /// actually starts/reloads the physical text slot with it now.</summary>
         public Task<RuntimeLoadResult> LoadManagedModelAsync(

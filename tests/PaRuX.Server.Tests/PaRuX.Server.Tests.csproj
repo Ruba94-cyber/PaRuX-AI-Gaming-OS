@@ -122,6 +122,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\PolyglotCodeIntelligence.cs" Link="CodingAgent\PolyglotCodeIntelligence.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingContextCompiler.cs" Link="CodingAgent\CodingContextCompiler.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingContextBudgetPolicy.cs" Link="CodingAgent\CodingContextBudgetPolicy.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CodingContextBudgetCache.cs" Link="CodingAgent\CodingContextBudgetCache.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentPromptBudgetPolicy.cs" Link="CodingAgent\CodingAgentPromptBudgetPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CodingAgentStopReason.cs" Link="CodingAgent\CodingAgentStopReason.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\MarkdownTableParser.cs" Link="CodingAgent\MarkdownTableParser.cs" />

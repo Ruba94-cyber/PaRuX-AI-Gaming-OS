@@ -5410,7 +5410,11 @@ namespace PaRuX.Views
             try
             {
                 string? endpoint = await LocalAiController.Current.GetManagedProviderEndpointAsync(CancellationToken.None);
+                // SEC-F01: the runtime requires a per-launch key that only PaRuX Core holds, so its own built-in
+                // web page cannot be used from a browser; chat and the Local AI Gateway reach it through Core.
                 DiagEndpoint.Text = T("Endpoint ", "Endpoint ") + (endpoint ?? T("unavailable", "non disponibile"))
+                                  + T(" (protected by a per-launch key; open chat or use the Local AI Gateway instead of a browser)",
+                                      " (protetto da una chiave per avvio; usa la chat o il Local AI Gateway invece di un browser)")
                                   + T("   ·   settings at ", "   ·   impostazioni in ") + AppPaths.SettingsFile;
             }
             catch (Exception ex)

@@ -841,6 +841,17 @@ public sealed class RuntimeManagerStatus
     public List<string> TextLaunchTrace { get; set; } = new();
 }
 
+/// <summary>GET /api/v1/runtime/context-window: the physical context window of the managed text runtime as Core
+/// reads it. Core owns the runtime credential (SEC-F01), so clients ask Core instead of calling the runtime.</summary>
+public sealed class RuntimeContextWindow
+{
+    /// <summary>n_ctx the live runtime reports, or 0 when it is not observable right now.</summary>
+    public int ContextTokens { get; set; }
+    public bool Observed { get; set; }
+    /// <summary>Why the window is unknown (no runtime resident, runtime refused or did not answer); null when observed.</summary>
+    public string? Reason { get; set; }
+}
+
 /// <summary>One finding from GET /api/v1/runtime/diagnostics - a real, actionable configuration
 /// problem this machine's runtime actually has right now, not a speculative checklist.</summary>
 public sealed class RuntimeDiagnosticIssue

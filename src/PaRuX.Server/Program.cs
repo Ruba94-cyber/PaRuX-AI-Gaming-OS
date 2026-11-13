@@ -3484,6 +3484,9 @@ app.MapPost("/api/v1/models/roles/{role}/reset", (string role) =>
 app.MapGet("/api/v1/runtime/status", async (RuntimeManagerService runtimeManager, CancellationToken ct) =>
     Results.Ok(await runtimeManager.GetStatusAsync(ct)));
 
+app.MapGet("/api/v1/runtime/context-window", async (bool? refresh, CancellationToken ct) =>
+    Results.Ok(await RuntimeContextWindowProbe.ReadAsync(refresh == true, ct))).RequireDesktopOwner();
+
 app.MapGet("/api/v1/runtime/diagnostics", async (RuntimeManagerService runtimeManager, CancellationToken ct) =>
     Results.Ok(await runtimeManager.GetDiagnosticsAsync(ct)));
 

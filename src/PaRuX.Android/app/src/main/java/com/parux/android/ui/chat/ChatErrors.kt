@@ -6,8 +6,15 @@ package com.parux.android.ui.chat
  * the pairing screen already speaks in the user's terms, and chat now does the same.
  */
 internal object ChatErrors {
+    /** HTTP 401 from the PC means the paired-device token expired or was revoked; only pairing again fixes it. */
+    const val PAIR_AGAIN =
+        "This device is no longer paired with your PaRuX PC. Pair this device again from PaRuX Windows → Settings → Local Network."
+
+    fun forHttpStatus(code: Int, fallback: String): String = if (code == 401) PAIR_AGAIN else fallback
+
     fun describe(e: Exception): String = when (e) {
-        is retrofit2.HttpException -> "PaRuX PC returned an error (HTTP ${e.code()})."
+        is retrofit2.HttpException ->
+            if (e.code() == 401) PAIR_AGAIN else "PaRuX PC returned an error (HTTP ${e.code()})."
         is javax.net.ssl.SSLException ->
             "Couldn't verify PaRuX PC's certificate. Pair again from PaRuX Windows → Settings → Local Network."
         is java.net.SocketTimeoutException ->

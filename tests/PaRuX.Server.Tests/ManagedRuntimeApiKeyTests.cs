@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using PaRuX.Contracts;
 using PaRuX.Server;
 using Xunit;
 
@@ -266,6 +267,25 @@ public sealed class ManagedRuntimeApiKeyIntegrationTests : IAsyncLifetime
         TextInferenceQuiescence.SlotProbe slots = await TextInferenceQuiescence.ProbeAsync(CancellationToken.None);
         Assert.Equal(TextInferenceQuiescence.SlotState.Idle, slots.State);
         // The post-health output check ran inside the launch above, through the same handler: Success already proved it.
+    }
+
+    [Fact]
+    public async Task Core_reads_the_keyed_runtime_context_window_that_a_keyless_caller_cannot()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        await LaunchAsync("ctxwindow", timeout.Token);
+
+        RuntimeContextWindow viaCore = await RuntimeContextWindowProbe.ReadAsync(refresh: true, timeout.Token);
+        Assert.True(viaCore.Observed, viaCore.Reason);
+        Assert.Equal(4096, viaCore.ContextTokens);
+
+        // What the desktop App did before it was routed through Core: a bare client gets 401 and no usable window.
+        using var stranger = new HttpClient();
+        RuntimeContextWindow direct = await RuntimeContextWindowProbe.ReadAsync(
+            stranger, "http://127.0.0.1:" + _port, refresh: true, timeout.Token);
+        Assert.False(direct.Observed);
+        Assert.Equal(0, direct.ContextTokens);
     }
 
     [Fact]
