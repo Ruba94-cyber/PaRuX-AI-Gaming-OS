@@ -249,6 +249,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\ModelDownloadPresentationPolicy.cs" Link="ModelHub\ModelDownloadPresentationPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ModelDownloadSettingsPolicy.cs" Link="ModelHub\ModelDownloadSettingsPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\DiscoveryPolicyPresenter.cs" Link="ModelHub\DiscoveryPolicyPresenter.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CoreDiscoveryPolicyClient.cs" Link="ModelHub\CoreDiscoveryPolicyClient.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CapabilityAcquisitionPresenter.cs" Link="ModelHub\CapabilityAcquisitionPresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CapabilityOverridePresenter.cs" Link="Routing\CapabilityOverridePresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CapabilityModePresenter.cs" Link="Routing\CapabilityModePresenter.cs" />

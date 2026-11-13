@@ -308,6 +308,8 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     [InlineData("POST", "/api/v1/group-chat", "{}")]
     [InlineData("POST", "/api/v1/group-chat/no-such-id/cancel", null)]
     [InlineData("POST", "/api/v1/threed/engine/install", null)]
+    [InlineData("GET", "/api/v1/models/discovery/policy", null)]
+    [InlineData("PUT", "/api/v1/models/discovery/policy", "{\"schemaVersion\":1,\"evaluationPolicy\":\"ask\",\"promotionPolicy\":\"ask_before_replacing\"}")]
     public async Task A_browser_session_is_refused_every_desktop_owner_route(string method, string path, string? body)
     {
         Web.Reset();
