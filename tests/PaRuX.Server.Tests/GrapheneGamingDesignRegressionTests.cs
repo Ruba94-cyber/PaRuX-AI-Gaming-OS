@@ -26,7 +26,7 @@ public sealed class GrapheneGamingDesignRegressionTests
         Assert.Contains("PlayRequested?.Invoke", code);
         Assert.Contains("GameTileConfigure_", code);
         Assert.Contains("GameContinueConfigure_", code);
-        Assert.Contains("OpenRequested?.Invoke(current.Title)", code);
+        Assert.Contains("OpenRequested?.Invoke(parts.Title)", code);
         Assert.Contains("Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible", code);
         Assert.Contains("IsEnabled = !_selectMode && GameUi.CanStart(chosen)", code);
         Assert.DoesNotContain("LinearGradientBrush", code);
@@ -39,10 +39,10 @@ public sealed class GrapheneGamingDesignRegressionTests
         string code = Source("src", "PaRuX.App", "Views", "GameTileGrid.cs");
         Assert.Contains("ActualThemeChanged += (_, _) => RepaintTheme()", code);
         Assert.DoesNotContain("ActualThemeChanged += (_, _) => { if (_titles.Count > 0) Render(", code);
-        Assert.Contains("parts.RepaintTheme();", code);
-        Assert.Contains("RepaintConfigure(configure);", code);
-        Assert.Contains("if (!hasImage) surface.Background", code);
-        Assert.Contains("badgeInk.Foreground = GameUi.ThemeBrush(this, \"PaRuXOnBrandBrush\")", code);
+        Assert.Contains("RepaintTile(parts);", code);
+        Assert.Contains("RepaintConfigure(parts.Configure);", code);
+        Assert.Contains("if (parts.Cover is null) parts.Surface.Background", code);
+        Assert.Contains("parts.BadgeInk.Foreground = GameUi.ThemeBrush(this, \"PaRuXOnBrandBrush\")", code);
         Assert.Contains("var bitmap = new BitmapImage", code);
     }
 
