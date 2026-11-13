@@ -112,6 +112,18 @@ internal sealed class SpeechProcessAdmission
         }
     }
 
+    /// <summary>True while speech admission is closed (Gaming active or hard-off not yet reopened).</summary>
+    internal bool IsClosed
+    {
+        get { lock (_gate) return _blocked || _isGaming(); }
+    }
+
+    /// <summary>False when the ticket was issued before the latest Gaming transition.</summary>
+    internal bool IsCurrent(long generation)
+    {
+        lock (_gate) return generation == _generation;
+    }
+
     internal int TrackedCount
     {
         get { lock (_gate) return _owned.Count; }

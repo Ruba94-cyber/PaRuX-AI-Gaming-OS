@@ -2529,6 +2529,7 @@ app.MapPost("/api/v1/speech/engine/install", async (SpeechService speech, Cancel
 app.MapPost("/api/v1/speech/transcribe", async (TranscribeRequest request, SpeechService speech, CancellationToken ct) =>
 {
     try { return Results.Ok(await speech.TranscribeAsync(request, ct)); }
+    catch (SpeechUnavailableDuringGamingException gaming) { return Results.Json(new { error = gaming.Message, code = SpeechUnavailableDuringGamingException.ErrorCode }, statusCode: StatusCodes.Status409Conflict); }
     catch (TextRuntimeStateUnavailableException unavailable) { return TextRuntimeUnavailableResponse.Result(unavailable); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable); }
@@ -2537,6 +2538,7 @@ app.MapPost("/api/v1/speech/transcribe", async (TranscribeRequest request, Speec
 app.MapPost("/api/v1/speech/synthesize", async (SynthesizeRequest request, SpeechService speech, CancellationToken ct) =>
 {
     try { return Results.Ok(await speech.SynthesizeAsync(request, ct)); }
+    catch (SpeechUnavailableDuringGamingException gaming) { return Results.Json(new { error = gaming.Message, code = SpeechUnavailableDuringGamingException.ErrorCode }, statusCode: StatusCodes.Status409Conflict); }
     catch (TextRuntimeStateUnavailableException unavailable) { return TextRuntimeUnavailableResponse.Result(unavailable); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable); }
