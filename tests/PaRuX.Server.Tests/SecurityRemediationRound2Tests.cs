@@ -18,7 +18,7 @@ public sealed class ServerStateFolderProtectionTests : IDisposable
     {
         string state = Path.Combine(_root, "profile", "PaRuX", "server");
         Directory.CreateDirectory(state);
-        Assert.False(ServerState.ProtectStateDirectoryIfShared(state, Path.Combine(_root, "profile")));
+        Assert.Null(ServerState.ProtectStateDirectoryIfShared(state, Path.Combine(_root, "profile")));
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class ServerStateFolderProtectionTests : IDisposable
     [Fact]
     public void A_missing_state_folder_is_not_created_or_restricted()
     {
-        Assert.False(ServerState.ProtectStateDirectoryIfShared(Path.Combine(_root, "absent"), Path.Combine(_root, "profile")));
+        Assert.Null(ServerState.ProtectStateDirectoryIfShared(Path.Combine(_root, "absent"), Path.Combine(_root, "profile")));
         Assert.False(Directory.Exists(Path.Combine(_root, "absent")));
     }
 }

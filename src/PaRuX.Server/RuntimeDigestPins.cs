@@ -22,7 +22,8 @@ internal static class RuntimeDigestPins
         try
         {
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Path));
-            if (!doc.RootElement.TryGetProperty("pins", out JsonElement pins) || pins.ValueKind != JsonValueKind.Array) return null;
+            if (!doc.RootElement.TryGetProperty("pins", out JsonElement pins) || pins.ValueKind != JsonValueKind.Array)
+                throw new InvalidDataException("The reviewed runtime digest pin file '" + FileName + "' has no pins array; refusing to install runtimes without it.");
             string repository = owner + "/" + repo;
             foreach (JsonElement pin in pins.EnumerateArray())
             {
@@ -30,13 +31,26 @@ internal static class RuntimeDigestPins
                 string? asset = pin.TryGetProperty("asset", out JsonElement a) ? a.GetString() : null;
                 string? sha = pin.TryGetProperty("sha256", out JsonElement s) ? s.GetString() : null;
                 if (string.Equals(pinRepository, repository, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(asset, assetName, StringComparison.Ordinal)
-                    && VerifiedDownload.IsValidSha256(sha))
+                    && string.Equals(asset, assetName, StringComparison.Ordinal))
+                {
+                    if (!VerifiedDownload.IsValidSha256(sha))
+                        throw new InvalidDataException("The reviewed pin for " + assetName + " is malformed; refusing to install it.");
                     return sha!.ToLowerInvariant();
+                }
             }
         }
-        catch (JsonException) { }
-        catch (IOException) { }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("The reviewed runtime digest pin file '" + FileName + "' exists but cannot be parsed; refusing to install runtimes without it.", ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidDataException("The reviewed runtime digest pin file '" + FileName + "' has an unexpected structure; refusing to install runtimes without it.", ex);
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidDataException("The reviewed runtime digest pin file '" + FileName + "' exists but cannot be read; refusing to install runtimes without it.", ex);
+        }
         return null;
     }
 }

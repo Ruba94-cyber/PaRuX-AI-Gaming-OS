@@ -132,6 +132,7 @@ internal static class PairedDeviceEndpointPolicy
             || MatchesSuffixAfterOneId(path, "/api/v1/orchestrator/tasks", "/cancel")
             || MatchesSuffixAfterOneId(path, "/api/v1/orchestrator/tasks", "/computer-use/approve-once")
             || MatchesSuffixAfterOneId(path, "/api/v1/orchestrator/tasks", "/user-question/answer")
+            || MatchesSuffixAfterOneId(path, "/api/v1/autopilot/runs", "/cancel")
             || MatchesSuffixAfterOneId(path, "/api/v1/projects", "/tasks")
             || MatchesSuffixAfterOneId(path, "/api/v1/workflows", "/run")
             || MatchesSuffixAfterOneId(path, "/api/v1/automations", "/enabled")

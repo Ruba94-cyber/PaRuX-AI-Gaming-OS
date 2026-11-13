@@ -40,15 +40,21 @@ public sealed class AutopilotService
     private readonly AutopilotStore _runs;
     private readonly ProjectManagerService _projectManager;
     private readonly TaskStore _tasks;
+    private readonly Func<DateTime> _utcNow;
 
-    public AutopilotService(AutopilotStore runs, ProjectManagerService projectManager, TaskStore tasks)
+    /// <summary>How long a run may wait for the desktop owner before it expires (its held tasks are cancelled).</summary>
+    internal static readonly TimeSpan PendingApprovalLifetime = TimeSpan.FromHours(24);
+
+    public AutopilotService(AutopilotStore runs, ProjectManagerService projectManager, TaskStore tasks, Func<DateTime>? utcNow = null)
     {
         _runs = runs;
         _projectManager = projectManager;
         _tasks = tasks;
+        _utcNow = utcNow ?? (() => DateTime.UtcNow);
     }
 
-    public async Task<AutopilotRunDto> StartRunAsync(string goal, string permissionMode, CancellationToken cancellationToken)
+    public async Task<AutopilotRunDto> StartRunAsync(string goal, string permissionMode, CancellationToken cancellationToken,
+        string? startedBy = null)
     {
         if (string.IsNullOrWhiteSpace(goal)) throw new InvalidDataException("A goal is required.");
         if (!AutopilotPermissionMode.All.Contains(permissionMode))
@@ -69,12 +75,74 @@ public sealed class AutopilotService
             }
         }
 
-        return _runs.Create(
+        return Decorate(_runs.Create(
             goal, permissionMode, project.Id, project.TaskIds,
-            holdForApproval ? AutopilotRunStatus.PendingApproval : AutopilotRunStatus.Running);
+            holdForApproval ? AutopilotRunStatus.PendingApproval : AutopilotRunStatus.Running, startedBy, _utcNow()));
     }
 
-    public AutopilotRunDto? GetRun(string id) => _runs.Get(id);
+    private AutopilotRunDto Decorate(AutopilotRunDto run)
+    {
+        if (run.Status == AutopilotRunStatus.PendingApproval) run.ExpiresUtc = run.CreatedUtc + PendingApprovalLifetime;
+        return run;
+    }
+
+    public AutopilotRunDto? GetRun(string id)
+    {
+        ExpirePendingRuns();
+        AutopilotRunDto? run = _runs.Get(id);
+        return run == null ? null : Decorate(run);
+    }
+
+    /// <summary>Runs held for desktop approval (oldest first), after expiring the ones that waited too long.</summary>
+    public List<AutopilotRunDto> ListPending()
+    {
+        ExpirePendingRuns();
+        return _runs.ListByStatus(AutopilotRunStatus.PendingApproval).Select(Decorate).ToList();
+    }
+
+    /// <summary>Moves every pending run older than <see cref="PendingApprovalLifetime"/> to the terminal "expired" state
+    /// and cancels the tasks it was holding. Returns how many expired.</summary>
+    public int ExpirePendingRuns()
+    {
+        DateTime now = _utcNow();
+        int expired = 0;
+        foreach (AutopilotRunDto run in _runs.ListByStatus(AutopilotRunStatus.PendingApproval))
+        {
+            if (now - run.CreatedUtc < PendingApprovalLifetime) continue;
+            CancelHeldTasks(run);
+            if (_runs.UpdateStatus(run.Id, AutopilotRunStatus.Expired)) expired++;
+        }
+        return expired;
+    }
+
+    public enum CancelOutcome { Cancelled, NotFound, NotPending, Forbidden }
+
+    /// <summary>Cancels a run that is still held for approval. The desktop owner may cancel any pending run; a paired
+    /// device or browser session only the runs it started itself.</summary>
+    public CancelOutcome CancelPendingRun(string id, string requester, bool requesterIsDesktopOwner)
+    {
+        ExpirePendingRuns();
+        AutopilotRunDto? run = _runs.Get(id);
+        if (run == null) return CancelOutcome.NotFound;
+        if (!requesterIsDesktopOwner && !string.Equals(run.StartedBy, requester, StringComparison.Ordinal))
+            return CancelOutcome.Forbidden;
+        if (run.Status != AutopilotRunStatus.PendingApproval) return CancelOutcome.NotPending;
+        CancelHeldTasks(run);
+        _runs.UpdateStatus(id, AutopilotRunStatus.Cancelled);
+        return CancelOutcome.Cancelled;
+    }
+
+    private void CancelHeldTasks(AutopilotRunDto run)
+    {
+        foreach (string taskId in run.TaskIds)
+        {
+            _tasks.UpdateStatus(taskId, new UpdateAgentTaskStatusRequest
+            {
+                Status = AgentTaskStatus.Cancelled,
+                Stage = "Autopilot run was cancelled or expired before desktop approval"
+            });
+        }
+    }
 
     /// <summary>Releases every task a SUPERVISED run is holding back to "queued", where the real
     /// scheduler picks them up on its next tick. Returns false if the run doesn't exist or isn't
@@ -82,6 +150,7 @@ public sealed class AutopilotService
     /// never held in the first place).</summary>
     public bool ApproveRun(string id)
     {
+        ExpirePendingRuns();
         AutopilotRunDto? run = _runs.Get(id);
         if (run == null || run.Status != AutopilotRunStatus.PendingApproval) return false;
 
@@ -104,6 +173,7 @@ public sealed class AutopilotService
     /// outcomes rather than assuming success.</summary>
     public void CheckActiveRuns()
     {
+        ExpirePendingRuns();
         foreach (AutopilotRunDto run in _runs.ListActive())
         {
             if (run.Status != AutopilotRunStatus.Running) continue; // still pending approval - nothing to check yet

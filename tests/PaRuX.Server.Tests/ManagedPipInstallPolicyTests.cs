@@ -46,6 +46,7 @@ public sealed class ManagedPipInstallPolicyTests : IDisposable
     public void Only_a_registered_unlocked_set_may_install_unpinned_and_unknown_ids_are_refused()
     {
         string[] wheel = { Path.Combine(_dir, "exllamav3.whl") };
+        File.WriteAllText(wheel[0], "x");
         Assert.Equal(wheel, ManagedPipInstallPolicy.Evaluate(wheel, "exllamav3-wheel"));
         Assert.Throws<ManagedPipRefusalException>(() => ManagedPipInstallPolicy.Evaluate(wheel, "made-up-set"));
         Assert.Throws<ManagedPipRefusalException>(() => ManagedPipInstallPolicy.Evaluate(wheel, null));

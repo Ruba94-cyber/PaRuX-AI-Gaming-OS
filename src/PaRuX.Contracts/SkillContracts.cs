@@ -18,6 +18,8 @@ public sealed class SkillManifest
     public string License { get; set; } = string.Empty;
     public string Attribution { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
+    /// <summary>Empty when the skill is healthy; otherwise why it is disabled (for example quarantined for an unknown tool).</summary>
+    public string StatusReason { get; set; } = string.Empty;
     public List<string> Platforms { get; set; } = new() { "Windows", "Android" };
     public string PreferredModelRole { get; set; } = "MAIN_LLM";
     public List<string> AllowedModelRoles { get; set; } = new();

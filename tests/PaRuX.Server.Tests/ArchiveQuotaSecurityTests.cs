@@ -117,7 +117,7 @@ public sealed class ArchiveQuotaSecurityTests : IDisposable
     }
 
     [Fact]
-    public async Task Source_archive_symlink_entry_is_refused()
+    public async Task Source_archive_symlink_entry_is_skipped_and_reported_not_extracted()
     {
         string archive = Path.Combine(_root, "src-link.zip");
         using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
@@ -127,11 +127,16 @@ public sealed class ArchiveQuotaSecurityTests : IDisposable
             using var writer = new StreamWriter(link.Open());
             writer.Write("C:/Windows/System32");
         }
+        // A second, ordinary entry keeps the archive meaningful.
+        using (var zip = ZipFile.Open(archive, ZipArchiveMode.Update))
+            using (var w = new StreamWriter(zip.CreateEntry("repo-abc/real.txt").Open())) w.Write("ok");
         string destination = Path.Combine(_root, "managed-link");
 
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            ManagedSourceArchive.ExtractArchiveAsync(archive, destination, CancellationToken.None));
-        Assert.False(Directory.Exists(destination));
+        IReadOnlyList<string> skipped = await ManagedSourceArchive.ExtractArchiveAsync(archive, destination, CancellationToken.None);
+
+        Assert.Contains(skipped, s => s.Contains("repo-abc/link") && s.Contains("symbolic link"));
+        Assert.False(File.Exists(Path.Combine(destination, "link")));
+        Assert.Equal("ok", File.ReadAllText(Path.Combine(destination, "real.txt")));
     }
 
     [Fact]

@@ -200,6 +200,59 @@ public sealed class SkillPermissionPolicyTests : IDisposable
         Assert.Contains(registry.List(), s => s.Id == "restored" && s.Permissions.Shell);
     }
 
+    [Fact]
+    public void Restore_quarantines_a_skill_with_an_unknown_tool_instead_of_rejecting_the_backup()
+    {
+        string liveDir = Path.Combine(_tempDir, "live-quarantine");
+        string stagedDir = Path.Combine(_tempDir, "staged-quarantine");
+        Directory.CreateDirectory(liveDir);
+        Directory.CreateDirectory(stagedDir);
+        var registry = new SkillRegistryService(liveDir);
+        _ = registry.List();
+
+        string stagedDb = Path.Combine(stagedDir, "skills.db");
+        CreateSkillsDatabase(stagedDb, new SkillManifest
+        {
+            Id = "mine", DisplayName = "Mine", Source = "user", Enabled = true,
+            AllowedTools = new List<string> { "search" }, Permissions = new SkillPermissions()
+        });
+
+        registry.ReplaceDatabaseFile(stagedDb); // must not throw
+
+        SkillManifest skill = Assert.Single(registry.List(), s => s.Id == "mine");
+        Assert.False(skill.Enabled);
+        Assert.Contains("search", skill.StatusReason);
+        // The owner cannot switch a quarantined skill on without granting the permissions.
+        registry.SetEnabled("mine", true);
+        Assert.False(registry.Get("mine")!.Enabled);
+        // Granting every permission lifts the quarantine; the skill and its data were kept.
+        registry.SetPermissions("mine", new SkillPermissions
+        {
+            ReadFiles = true, WriteFiles = true, DeleteFiles = true, Shell = true, Network = true,
+            Browser = true, ComputerUse = true, ExternalProcesses = true
+        });
+        Assert.True(registry.Get("mine")!.Enabled);
+        Assert.Equal(string.Empty, registry.Get("mine")!.StatusReason);
+    }
+
+    [Fact]
+    public void Restore_still_rejects_a_privileged_tool_without_its_permission_even_beside_an_unknown_one()
+    {
+        string liveDir = Path.Combine(_tempDir, "live-priv");
+        string stagedDir = Path.Combine(_tempDir, "staged-priv");
+        Directory.CreateDirectory(liveDir);
+        Directory.CreateDirectory(stagedDir);
+        var registry = new SkillRegistryService(liveDir);
+        _ = registry.List();
+        string stagedDb = Path.Combine(stagedDir, "skills.db");
+        CreateSkillsDatabase(stagedDb, new SkillManifest
+        {
+            Id = "bad", DisplayName = "Bad", Source = "imported",
+            AllowedTools = new List<string> { "search", "run_command" }, Permissions = new SkillPermissions()
+        });
+        Assert.Throws<InvalidDataException>(() => registry.ReplaceDatabaseFile(stagedDb));
+    }
+
     private static void CreateSkillsDatabase(string path, SkillManifest manifest)
     {
         using var connection = new SqliteConnection("Data Source=" + path);

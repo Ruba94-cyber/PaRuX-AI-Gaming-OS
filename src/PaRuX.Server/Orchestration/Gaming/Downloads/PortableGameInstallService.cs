@@ -18,7 +18,7 @@ public sealed class PortableGameInstallService
 {
     private const long MaxArchiveBytes = 8L * 1024 * 1024 * 1024;
     private const long MaxExpandedBytes = 12L * 1024 * 1024 * 1024;
-    private const int MaxEntries = 2048;
+    private const int MaxEntries = 200_000;
     private readonly ManualGameLibrary _library;
     private readonly Func<bool> _gaming;
     private readonly Func<CancellationToken> _gamingCancellation;
@@ -119,8 +119,10 @@ public sealed class PortableGameInstallService
         {
             Directory.CreateDirectory(partial);
             EnsureLocalRegularDirectory(partial);
+            // A user-chosen, hash-verified game ZIP is judged by its real expanded size against MaxExpandedBytes (and
+            // the free-space check above), not by a compression ratio that large game assets can legitimately exceed.
             await SafeArchiveExtractor.ExtractAsync(downloadedArchive, partial, token,
-                maxExtractedBytes: MaxExpandedBytes).ConfigureAwait(false);
+                maxExtractedBytes: MaxExpandedBytes, maxEntries: MaxEntries, enforceCompressionRatio: false).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (_gaming()) throw new OperationCanceledException(token);
             EnsureLocalRegularDirectory(partial);
@@ -184,7 +186,8 @@ public sealed class PortableGameInstallService
     {
         using var zip = ZipFile.OpenRead(archive);
         if (zip.Entries.Count is < 1 or > MaxEntries)
-            throw new InvalidDataException("This ZIP contains too many or no entries.");
+            throw new InvalidDataException("This ZIP contains no entries or more than " + MaxEntries
+                + " files, so PaRuX will not extract it automatically. Extract it yourself and add the game's folder manually.");
         long total = 0;
         bool found = false;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -201,7 +204,8 @@ public sealed class PortableGameInstallService
                 throw new InvalidDataException("Archive contains symbolic links.");
             if (entry.FullName.EndsWith("/", StringComparison.Ordinal)) continue;
             if (entry.Length < 0 || entry.Length > MaxExpandedBytes - total)
-                throw new InvalidDataException("ZIP exceeds the expanded size budget.");
+                throw new InvalidDataException("The ZIP would expand beyond the " + MaxExpandedBytes / (1024 * 1024 * 1024)
+                    + " GB budget for automatic installs. Extract it yourself and add the game's folder manually.");
             total += entry.Length;
             if (key.Equals(requiredExecutable, StringComparison.OrdinalIgnoreCase))
                 found = true;

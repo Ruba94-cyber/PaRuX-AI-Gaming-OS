@@ -15,6 +15,8 @@ internal sealed class ManagedPipRefusalException(string code, string message) : 
 /// </summary>
 internal static partial class ManagedRequirementLocks
 {
+    /// <summary>The CPython minor the shipped locks were resolved for (see tools/managed-locks/generate.ps1).</summary>
+    internal const string LockPythonMinor = "3.11";
     internal const string MissingCode = "lock_missing";
     internal const string InvalidCode = "lock_invalid";
 
@@ -99,31 +101,27 @@ internal static class ManagedPipInstallPolicy
         ["exllamav3-wheel"] = "The ExLlamaV3 wheel is SHA-256 verified against its release digest, but its own dependencies resolve unpinned."
     };
 
+    private static bool IsKnownTorchIndex(string url) =>
+        string.Equals(url, ExLlamaV3BuildCatalog.TorchIndexUrl, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(url, TorchInstallChannelPolicy.CpuTorchIndexUrl, StringComparison.OrdinalIgnoreCase);
+
     internal static IReadOnlyList<string> Evaluate(IEnumerable<string> arguments, string? unlockedSetId = null)
     {
         List<string> args = arguments.ToList();
 
         if (args.Contains("--require-hashes", StringComparer.Ordinal))
         {
-            int r = args.IndexOf("-r");
-            if (r < 0 || r + 1 >= args.Count)
-                throw new ManagedPipRefusalException(ManagedRequirementLocks.InvalidCode, "A hash-locked install must name its lock with -r.");
-            if (!args.Contains("--no-deps", StringComparer.Ordinal))
-                throw new ManagedPipRefusalException(ManagedRequirementLocks.InvalidCode, "A hash-locked install must use --no-deps.");
-            // Only the known PyTorch indexes may be combined with a lock; every other index flag is refused.
-            for (int i = 0; i < args.Count; i++)
-            {
-                if (!args[i].StartsWith('-')) continue;
-                if (!args[i].Contains("index", StringComparison.OrdinalIgnoreCase) && !args[i].StartsWith("--find-links", StringComparison.Ordinal)
-                    && args[i] != "-f" && args[i] != "--trusted-host") continue;
-                bool knownIndex = args[i] == "--index-url" && i + 1 < args.Count
-                    && (string.Equals(args[i + 1], ExLlamaV3BuildCatalog.TorchIndexUrl, StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(args[i + 1], TorchInstallChannelPolicy.CpuTorchIndexUrl, StringComparison.OrdinalIgnoreCase));
-                if (!knownIndex)
-                    throw new ManagedPipRefusalException(ManagedRequirementLocks.InvalidCode, "A hash-locked install may not name an extra package index.");
-                i++;
-            }
-            ManagedRequirementLocks.Validate(args[r + 1]);
+            // Exactly: --require-hashes --no-deps [--index-url <known PyTorch index>] -r <validated lock>.
+            // Any other flag (--no-verify-hashes, --constraint, --extra-index-url, a second -r, ...) is refused.
+            bool hasIndex = args.Count == 6;
+            bool shape = (args.Count == 4 || hasIndex)
+                && args[0] == "--require-hashes" && args[1] == "--no-deps"
+                && (!hasIndex || (args[2] == "--index-url" && IsKnownTorchIndex(args[3])))
+                && args[^2] == "-r" && !args[^1].StartsWith('-');
+            if (!shape)
+                throw new ManagedPipRefusalException(ManagedRequirementLocks.InvalidCode,
+                    "A hash-locked install must be exactly: --require-hashes --no-deps [--index-url <PyTorch index>] -r <lock>.");
+            ManagedRequirementLocks.Validate(args[^1]);
             return args;
         }
 
@@ -135,7 +133,11 @@ internal static class ManagedPipInstallPolicy
             return new[] { "--require-hashes", "--no-deps", "--index-url", args[2], "-r", torchLock };
         }
 
-        if (unlockedSetId != null && UnlockedSets.ContainsKey(unlockedSetId)) return args;
+        // The one registered unlocked set is a single, already-verified local wheel file and nothing else.
+        if (unlockedSetId == "exllamav3-wheel" && args.Count == 1 && !args[0].StartsWith('-')
+            && args[0].EndsWith(".whl", StringComparison.OrdinalIgnoreCase) && Path.IsPathFullyQualified(args[0])
+            && File.Exists(args[0]))
+            return args;
 
         throw new ManagedPipRefusalException(UnlockedCode,
             "PaRuX will not install an unpinned Python requirement set in a managed environment (" + string.Join(' ', args.Take(4)) + "...).");

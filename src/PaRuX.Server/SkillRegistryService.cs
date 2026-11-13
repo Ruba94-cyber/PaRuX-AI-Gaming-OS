@@ -111,7 +111,8 @@ public sealed class SkillRegistryService
                 }
                 if (string.IsNullOrWhiteSpace(manifest.Id) || !string.Equals(manifest.Id, id, StringComparison.Ordinal))
                     throw new InvalidDataException("Skill row '" + id + "' has a mismatched or empty manifest id.");
-                SkillPermissionPolicy.Validate(manifest);
+                // Restore keeps the user's own skill: an unknown tool is quarantined by List(), not a reason to reject the backup.
+                SkillPermissionPolicy.Validate(manifest, allowUnknownTools: true);
             }
         }
         catch (InvalidDataException) { throw; }
@@ -191,6 +192,12 @@ CREATE TABLE IF NOT EXISTS skill_permission_overrides (
         {
             if (overrides.TryGetValue(skill.Id, out bool enabled)) skill.Enabled = enabled;
             if (permissionOverrides.TryGetValue(skill.Id, out SkillPermissions? permissions)) skill.Permissions = permissions;
+            if (!string.Equals(skill.Source, "builtin", StringComparison.Ordinal) && SkillPermissionPolicy.IsQuarantined(skill))
+            {
+                skill.Enabled = false;
+                skill.StatusReason = "Quarantined: unknown tool(s) " + string.Join(", ", SkillPermissionPolicy.UnknownTools(skill))
+                    + ". Grant every skill permission or remove the tool to use it.";
+            }
         }
         return all.OrderBy(s => s.Category).ThenBy(s => s.DisplayName).ToList();
     }

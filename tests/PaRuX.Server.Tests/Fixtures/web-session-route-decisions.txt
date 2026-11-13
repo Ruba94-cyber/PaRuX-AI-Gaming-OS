@@ -85,6 +85,7 @@ DENY GET /api/v1/autolab/experiments
 DENY GET /api/v1/autolab/experiments/{id}
 DENY GET /api/v1/automations
 DENY GET /api/v1/automations/{id}
+DENY GET /api/v1/autopilot/runs
 DENY GET /api/v1/autopilot/runs/{id}
 DENY GET /api/v1/avatar/engine
 DENY GET /api/v1/avatar/status
@@ -352,6 +353,7 @@ DENY POST /api/v1/automations/tick
 DENY POST /api/v1/automations/{id}/enabled
 DENY POST /api/v1/autopilot/runs
 DENY POST /api/v1/autopilot/runs/{id}/approve
+DENY POST /api/v1/autopilot/runs/{id}/cancel
 DENY POST /api/v1/avatar/engine/install
 DENY POST /api/v1/avatar/generate
 DENY POST /api/v1/avatar/photo

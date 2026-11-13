@@ -142,8 +142,12 @@ public sealed class ServerState
         // SEC-F08: bootstrap.json, remote-access.json and lan-certificate.pfx live in this folder. A custom
         // PARUX_DATA_ROOT can sit outside the per-user profile and inherit a broader ACL, so restrict it too.
         if (!CorporateMode.IsActive && OperatingSystem.IsWindows())
-            ProtectStateDirectoryIfShared(StateDirectory,
+        {
+            bool? shared = ProtectStateDirectoryIfShared(StateDirectory,
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            // Surface a failure (FAT/exFAT, no ACL support) so status can report an unprotected folder; startup continues.
+            if (shared.HasValue) TokenProtectedForCurrentUser = (TokenProtectedForCurrentUser ?? true) && shared.Value;
+        }
         // Remove the pre-1.5.1 fixed-name staging file if a prior interrupted promotion left it.
         try { File.Delete(BootstrapPath + ".tmp"); } catch (IOException) { }
         catch (UnauthorizedAccessException) { }
@@ -151,15 +155,28 @@ public sealed class ServerState
 
     /// <summary>Restricts the state folder to the current user and SYSTEM when it is not already inside the per-user
     /// profile (where Windows already makes it user-private). Best effort, never fatal, never follows a link.
-    /// Returns true when the restriction was applied.</summary>
-    internal static bool ProtectStateDirectoryIfShared(string stateDirectory, string localAppData)
+    /// Returns null when nothing was attempted (inside the profile, a link, missing, or a user root such as Documents
+    /// that PaRuX does not own), true when the restriction was applied, false when it could not be applied.</summary>
+    internal static bool? ProtectStateDirectoryIfShared(string stateDirectory, string localAppData)
     {
         try
         {
-            if (!Directory.Exists(stateDirectory) || new DirectoryInfo(stateDirectory).LinkTarget != null) return false;
-            string full = Path.GetFullPath(stateDirectory);
+            if (!Directory.Exists(stateDirectory) || new DirectoryInfo(stateDirectory).LinkTarget != null) return null;
+            string full = Path.GetFullPath(stateDirectory).TrimEnd('\\', '/');
             string profile = Path.GetFullPath(localAppData).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
-            if (full.StartsWith(profile, StringComparison.OrdinalIgnoreCase)) return false;
+            if (full.StartsWith(profile, StringComparison.OrdinalIgnoreCase)) return null;
+            // Never rewrite the ACL of a folder that belongs to the user rather than to PaRuX (AppData, Documents, ...).
+            foreach (Environment.SpecialFolder special in new[]
+            {
+                Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.ApplicationData,
+                Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolder.MyDocuments,
+                Environment.SpecialFolder.Desktop, Environment.SpecialFolder.MyPictures, Environment.SpecialFolder.MyMusic,
+                Environment.SpecialFolder.MyVideos, Environment.SpecialFolder.CommonApplicationData
+            })
+            {
+                string user = Environment.GetFolderPath(special).TrimEnd('\\', '/');
+                if (user.Length > 0 && full.Equals(user, StringComparison.OrdinalIgnoreCase)) return null;
+            }
             return LocalFileProtection.RestrictToCurrentUser(full);
         }
         catch (Exception) { return false; }

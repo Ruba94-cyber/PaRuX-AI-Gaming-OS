@@ -11,7 +11,19 @@ namespace PaRuX.Server;
 /// </summary>
 public static class SkillPermissionPolicy
 {
-    public static void Validate(SkillManifest manifest)
+    /// <summary>The unknown (default-deny) tool names a manifest lists, ignoring "*".</summary>
+    public static IReadOnlyList<string> UnknownTools(SkillManifest manifest) =>
+        (manifest.AllowedTools ?? new List<string>()).Select(t => (t ?? string.Empty).Trim())
+            .Where(t => t.Length > 0 && t != "*" && !IsKnownTool(t)).ToList();
+
+    /// <summary>True when the manifest lists unknown tools and the owner has not granted every privileged permission:
+    /// such a skill is quarantined (disabled) rather than runnable.</summary>
+    public static bool IsQuarantined(SkillManifest manifest) =>
+        UnknownTools(manifest).Count > 0 && !AllGranted(manifest.Permissions ?? new SkillPermissions());
+
+    /// <param name="allowUnknownTools">Restore/load only: an unknown tool does not fail the validation because the
+    /// registry quarantines the skill instead of rejecting the whole backup. Create, import and execute keep the default.</param>
+    public static void Validate(SkillManifest manifest, bool allowUnknownTools = false)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         SkillPermissions permissions = manifest.Permissions ?? new SkillPermissions();
@@ -30,6 +42,7 @@ public static class SkillPermissionPolicy
 
             if (!IsKnownTool(tool))
             {
+                if (allowUnknownTools) continue;
                 if (!AllGranted(permissions))
                     throw new InvalidDataException("Tool '" + tool + "' is not a recognised PaRuX tool; an unknown tool needs every privileged skill permission to be granted explicitly.");
                 continue;
