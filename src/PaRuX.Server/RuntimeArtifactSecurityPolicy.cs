@@ -38,6 +38,12 @@ internal static class RuntimeArtifactSecurityPolicy
             throw new InvalidDataException(
                 "Runtime release asset has no usable GitHub SHA-256 digest. PaRuX-managed executable runtimes require authenticated bytes before extraction.");
 
+        // SEC-F12: a reviewed pin shipped with PaRuX outranks the digest GitHub advertises next to the asset.
+        if (RuntimeDigestPins.Find(owner, repo, asset.Name) is { } pinned
+            && !string.Equals(pinned, asset.Digest!["sha256:".Length..].Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(
+                "Runtime release asset digest differs from the reviewed pin shipped with PaRuX; refusing to install it.");
+
         if (!Uri.TryCreate(asset.DownloadUrl, UriKind.Absolute, out Uri? uri)
             || !IsTrustedAssetUri(uri, isTrustedDownloadUri)
             || uri.Query.Length != 0

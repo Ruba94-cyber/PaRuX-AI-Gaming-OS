@@ -112,17 +112,7 @@ public sealed class ManagedDiffusersImageEngine
             progress?.Report("Installing pinned Diffusers engine packages...");
             await ManagedPythonRuntime.PipInstallAsync(
                 VenvRoot,
-                new[]
-                {
-                    "diffusers==" + DiffusersVersion,
-                    "transformers==" + TransformersVersion,
-                    "accelerate==" + AccelerateVersion,
-                    "huggingface-hub>=0.36,<2",
-                    "safetensors>=0.5,<1",
-                    "pillow>=11,<13",
-                    "sentencepiece>=0.2,<1",
-                    "protobuf>=5,<7"
-                },
+                ManagedRequirementLocks.ArgumentsFor("diffusers-engine"),
                 ct, TimeSpan.FromMinutes(30)).ConfigureAwait(false);
 
             await File.WriteAllTextAsync(RunnerPath, PythonRunner, new UTF8Encoding(false), ct).ConfigureAwait(false);

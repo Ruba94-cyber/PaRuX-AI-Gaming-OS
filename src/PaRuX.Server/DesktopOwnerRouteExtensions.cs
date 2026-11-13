@@ -67,6 +67,21 @@ internal static class DesktopOwnerRouteExtensions
             return await next(invocation);
         });
 
+    /// <summary>
+    /// SEC-F04: an Autopilot run started by a paired device is always created in the supervised mode, which holds it in
+    /// "pending approval" until the desktop owner approves it on the desktop. A requested balanced or autonomous mode is
+    /// dropped; the desktop and CLI keep choosing their own mode.
+    /// </summary>
+    internal static RouteHandlerBuilder ForceSupervisedAutopilotForPairedDevice(this RouteHandlerBuilder route) =>
+        route.AddEndpointFilter(async (invocation, next) =>
+        {
+            StartAutopilotRunRequest? request = invocation.Arguments.OfType<StartAutopilotRunRequest>().FirstOrDefault();
+            if (request is not null && !IsDesktopOwner(invocation.HttpContext))
+                request.PermissionMode = AutopilotPermissionMode.Supervised;
+
+            return await next(invocation);
+        });
+
     /// <summary>Capabilities a paired device may grant to a task it creates. Everything else (mcp.external,
     /// coding.package-restore*, agent.delegate, unknown names) is desktop-owner only.</summary>
     internal static readonly IReadOnlySet<string> RemoteGrantableCapabilities =

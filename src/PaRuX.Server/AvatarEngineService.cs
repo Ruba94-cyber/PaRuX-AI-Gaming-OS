@@ -111,28 +111,21 @@ public sealed class AvatarEngineService
                 torchPlan.PipArguments,
                 ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
 
-            string requirementsPath = Path.Combine(RepoRoot, "requirements.txt");
-            if (!File.Exists(requirementsPath)) throw new InvalidOperationException("LatentSync's requirements.txt was not found in the pinned source archive.");
-            string filteredPath = Path.Combine(RepoRoot, "requirements-parux.txt");
-            string[] lines = (await File.ReadAllLinesAsync(requirementsPath, ct))
-                .Where(l => !l.StartsWith("torch==", StringComparison.OrdinalIgnoreCase)
-                    && !l.StartsWith("torchvision==", StringComparison.OrdinalIgnoreCase)
-                    && !l.StartsWith("--extra-index-url", StringComparison.OrdinalIgnoreCase))
-                .Select(l => l.StartsWith("insightface==", StringComparison.OrdinalIgnoreCase) ? "insightface" : l)
-                .ToArray();
-            await File.WriteAllLinesAsync(filteredPath, lines, ct);
-
+            // SEC-F02: the LatentSync requirement closure (resolved from the pinned commit's requirements.txt)
+            // is installed only from the shipped hash lock, never from the downloaded requirements file.
             log.Append(await ManagedPythonRuntime.PipInstallAsync(
-                VenvRoot, new[] { "-r", filteredPath, "imageio-ffmpeg" },
+                VenvRoot, ManagedRequirementLocks.ArgumentsFor("avatar"),
                 ct, TimeSpan.FromMinutes(20)).ConfigureAwait(false));
 
             Directory.CreateDirectory(Path.Combine(CheckpointsDir, "whisper"));
+            // SEC-F02: both checkpoints are pickle files, so they are fetched from an immutable repository commit
+            // and published only after the pinned size and SHA-256 match (Hugging Face LFS metadata of that commit).
             await DownloadIfMissingAsync(
-                "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/main/whisper/tiny.pt",
-                Path.Combine(CheckpointsDir, "whisper", "tiny.pt"), ct);
+                CheckpointUrl("whisper/tiny.pt"),
+                Path.Combine(CheckpointsDir, "whisper", "tiny.pt"), WhisperTinySha256, WhisperTinyBytes, ct);
             await DownloadIfMissingAsync(
-                "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/main/latentsync_unet.pt",
-                Path.Combine(CheckpointsDir, "latentsync_unet.pt"), ct);
+                CheckpointUrl("latentsync_unet.pt"),
+                Path.Combine(CheckpointsDir, "latentsync_unet.pt"), UnetSha256, UnetBytes, ct);
 
             try { File.Delete(LastErrorPath); } catch { }
             return log.ToString();
@@ -216,18 +209,21 @@ public sealed class AvatarEngineService
         return path;
     }
 
-    private static async Task DownloadIfMissingAsync(string url, string destination, CancellationToken ct)
+    internal const string CheckpointRepositoryCommit = "c42c7e6c8e9c213626389fa7d9a3c444b8536353";
+    internal const string WhisperTinySha256 = "65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9";
+    internal const long WhisperTinyBytes = 75572083;
+    internal const string UnetSha256 = "0a478e89eb660f82da4c35dbdde8a5adfb27f99d1b4e50edd03729e1e98316d3";
+    internal const long UnetBytes = 5072222488;
+
+    internal static string CheckpointUrl(string repositoryPath) =>
+        "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/" + CheckpointRepositoryCommit + "/" + repositoryPath;
+
+    private static async Task DownloadIfMissingAsync(
+        string url, string destination, string sha256, long sizeBytes, CancellationToken ct)
     {
         if (File.Exists(destination)) return;
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        string partial = destination + ".partial";
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
-        using HttpResponseMessage response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        await using (Stream source = await response.Content.ReadAsStreamAsync(ct))
-        await using (FileStream target = new(partial, FileMode.Create, FileAccess.Write))
-            await source.CopyToAsync(target, ct);
-        File.Move(partial, destination, true);
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
+        await VerifiedDownload.DownloadAsync(http, url, destination, sha256, sizeBytes, ct).ConfigureAwait(false);
     }
 
     private async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(

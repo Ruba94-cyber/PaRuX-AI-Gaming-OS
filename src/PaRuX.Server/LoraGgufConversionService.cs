@@ -101,7 +101,7 @@ public sealed class LoraGgufConversionService
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
         log.Append(await ManagedPythonRuntime.PipInstallAsync(
             VenvDirectory,
-            new[] { "gguf", "transformers", "sentencepiece", "protobuf", "peft" },
+            ManagedRequirementLocks.ArgumentsFor("lora-convert"),
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
         return log.ToString();
     }

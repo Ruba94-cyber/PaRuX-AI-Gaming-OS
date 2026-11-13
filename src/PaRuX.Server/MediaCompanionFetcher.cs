@@ -202,7 +202,7 @@ internal sealed class MediaCompanionFetcher
         }
     }
 
-    private static string? MoveIntoPlace(MediaCompanionItem item, string downloaded, string target)
+    internal static string? MoveIntoPlace(MediaCompanionItem item, string downloaded, string target)
     {
         if (!File.Exists(downloaded)) return "The download of " + item.FileName + " finished, but its file was not found.";
         long size = new FileInfo(downloaded).Length;
@@ -212,7 +212,13 @@ internal sealed class MediaCompanionFetcher
             return "The downloaded " + item.FileName + " is " + size + " bytes, not the pinned " + pinned + ". It was discarded.";
         }
         // The digest is the identity of the bytes: a same-size file with other content is discarded, never installed.
-        if (item.Sha256 != null && !string.Equals(Sha256Of(downloaded), item.Sha256, StringComparison.Ordinal))
+        // A companion without a pinned digest is never installed (SEC-F13): fail closed rather than trust the bytes.
+        if (!VerifiedDownload.IsValidSha256(item.Sha256))
+        {
+            File.Delete(downloaded);
+            return "The companion " + item.FileName + " has no pinned SHA-256, so it was discarded and not installed.";
+        }
+        if (!string.Equals(Sha256Of(downloaded), item.Sha256!.ToLowerInvariant(), StringComparison.Ordinal))
         {
             File.Delete(downloaded);
             return "The downloaded " + item.FileName + " does not match its pinned SHA-256. It was discarded.";

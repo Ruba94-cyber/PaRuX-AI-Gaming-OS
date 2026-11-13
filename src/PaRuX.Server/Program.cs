@@ -2085,10 +2085,31 @@ app.MapPost("/api/v1/projects/desktop", async (CreateDesktopProjectRequest reque
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
 }).RequireDesktopOwner();
 
-app.MapPost("/api/v1/autopilot/runs", async (StartAutopilotRunRequest request, AutopilotService autopilot, CancellationToken ct) =>
+app.MapPost("/api/v1/autopilot/runs", async (StartAutopilotRunRequest request, AutopilotService autopilot, HttpContext context, CancellationToken ct) =>
 {
-    try { return Results.Ok(await autopilot.StartRunAsync(request.Goal, request.PermissionMode, ct)); }
+    string? starter = DesktopOwnerRouteExtensions.IsDesktopOwner(context) ? null : context.Items["PaRuXOwner"] as string;
+    try { return Results.Ok(await autopilot.StartRunAsync(request.Goal, request.PermissionMode, ct, starter)); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
+}).ForceSupervisedAutopilotForPairedDevice();
+
+// SEC-F04: the desktop owner sees every run waiting for approval and can approve or cancel it from a list.
+app.MapGet("/api/v1/autopilot/runs", (string? status, AutopilotService autopilot) =>
+    status is null || string.Equals(status, AutopilotRunStatus.PendingApproval, StringComparison.Ordinal)
+        ? Results.Ok(autopilot.ListPending())
+        : Results.BadRequest(new { error = "Only status=pending_approval can be listed." })).RequireDesktopOwner();
+
+// The desktop owner may cancel any pending run; a paired device only a run it started itself.
+app.MapPost("/api/v1/autopilot/runs/{id}/cancel", (string id, AutopilotService autopilot, HttpContext context) =>
+{
+    bool desktop = DesktopOwnerRouteExtensions.IsDesktopOwner(context);
+    string requester = context.Items["PaRuXOwner"] as string ?? string.Empty;
+    return autopilot.CancelPendingRun(id, requester, desktop) switch
+    {
+        AutopilotService.CancelOutcome.Cancelled => Results.NoContent(),
+        AutopilotService.CancelOutcome.NotFound => Results.NotFound(new { error = "Autopilot run not found" }),
+        AutopilotService.CancelOutcome.Forbidden => Results.StatusCode(StatusCodes.Status403Forbidden),
+        _ => Results.Conflict(new { error = "Run is not waiting for approval" })
+    };
 });
 
 app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot) =>
@@ -2098,7 +2119,8 @@ app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot
 });
 
 app.MapPost("/api/v1/autopilot/runs/{id}/approve", (string id, AutopilotService autopilot) =>
-    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }));
+    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }))
+    .RequireDesktopOwner();
 
 app.MapPost("/api/v1/eval/datasets", (CreateEvalDatasetRequest request, EvalStore evalStore) =>
 {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -42,6 +43,13 @@ namespace PaRuX.Services
 
         public Task<AutopilotRunDto> GetRunAsync(string id, CancellationToken ct) =>
             SendAsync<AutopilotRunDto>(HttpMethod.Get, "/api/v1/autopilot/runs/" + Uri.EscapeDataString(id), null, ct);
+
+        /// <summary>Runs held for the desktop owner's approval (for example started from a paired phone).</summary>
+        public Task<List<AutopilotRunDto>> ListPendingRunsAsync(CancellationToken ct) =>
+            SendAsync<List<AutopilotRunDto>>(HttpMethod.Get, "/api/v1/autopilot/runs?status=pending_approval", null, ct);
+
+        public Task CancelRunAsync(string id, CancellationToken ct) =>
+            SendNoContentAsync(HttpMethod.Post, "/api/v1/autopilot/runs/" + Uri.EscapeDataString(id) + "/cancel", null, ct);
 
         public Task ApproveRunAsync(string id, CancellationToken ct) =>
             SendNoContentAsync(HttpMethod.Post, "/api/v1/autopilot/runs/" + Uri.EscapeDataString(id) + "/approve", null, ct);

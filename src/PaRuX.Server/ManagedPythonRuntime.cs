@@ -184,7 +184,11 @@ public static class ManagedPythonRuntime
         // A venv can survive an older installation even after the managed Python root has
         // moved.  uv's Windows launcher then reports "No Python at ..." although Scripts\n+        // python.exe still exists.  Never accept that stale interpreter: repair only the
         // PaRuX-owned venv and recreate it against the current managed Python.
-        if (File.Exists(python) && IsManagedVenv(venvRoot)) return python;
+        // The hash locks are resolved for one CPython minor version. A managed venv built for another minor would
+        // install wheels for the wrong interpreter, so it is recreated - but only when its version was actually read
+        // and differs (an unreadable version never deletes anything). IsManagedVenv keeps this to PARUX_MANAGED
+        // environments; a USER_MANAGED Python is never touched.
+        if (File.Exists(python) && IsManagedVenv(venvRoot) && !ShouldRecreateVenvForVersion(venvRoot, version)) return python;
 
         // Acquire the interpreter BEFORE destroying anything. Repair used to delete the existing
         // environment first and only then ask uv for Python, so a version uv could not supply left
@@ -201,6 +205,44 @@ public static class ManagedPythonRuntime
         if (exit != 0 || !File.Exists(python))
             throw new InvalidOperationException("PaRuX could not create the managed Python environment:\n" + Trim(error));
         return python;
+    }
+
+    /// <summary>The "major.minor" the venv's own pyvenv.cfg declares, or null when it cannot be read.</summary>
+    internal static string? ReadVenvPythonMinor(string venvRoot)
+    {
+        try
+        {
+            string config = Path.Combine(venvRoot, "pyvenv.cfg");
+            if (!File.Exists(config)) return null;
+            foreach (string raw in File.ReadLines(config))
+            {
+                int eq = raw.IndexOf('=');
+                if (eq <= 0) continue;
+                string key = raw[..eq].Trim();
+                if (!key.Equals("version", StringComparison.OrdinalIgnoreCase)
+                    && !key.Equals("version_info", StringComparison.OrdinalIgnoreCase)) continue;
+                return MinorOf(raw[(eq + 1)..].Trim());
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return null;
+    }
+
+    internal static string? MinorOf(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return null;
+        string[] parts = version.Trim().Split('.');
+        return parts.Length >= 2 && parts[0].All(char.IsDigit) && parts[1].All(char.IsDigit) && parts[0].Length > 0 && parts[1].Length > 0
+            ? parts[0] + "." + parts[1] : null;
+    }
+
+    /// <summary>True only when the venv's Python minor was read AND differs from the requested one.</summary>
+    internal static bool ShouldRecreateVenvForVersion(string venvRoot, string requestedVersion)
+    {
+        string? requested = MinorOf(requestedVersion);
+        string? actual = ReadVenvPythonMinor(venvRoot);
+        return requested != null && actual != null && !string.Equals(requested, actual, StringComparison.Ordinal);
     }
 
     public static bool IsManagedVenv(string venvRoot)
@@ -223,11 +265,22 @@ public static class ManagedPythonRuntime
 
     public static async Task<string> PipInstallAsync(
         string venvRoot, IEnumerable<string> arguments, CancellationToken ct,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null, string? unlockedSetId = null)
     {
         PaRuX.Contracts.StoreEditionPolicy.RequireExecutableDownloads(); // pip downloads packages (executable code)
+        // SEC-F02: refuse an unpinned requirement set before any process starts; a known PyTorch pin is rewritten
+        // to its hash-locked closure.
+        arguments = ManagedPipInstallPolicy.Evaluate(arguments, unlockedSetId);
         string python = VenvPython(venvRoot);
         if (!File.Exists(python)) throw new InvalidOperationException("The PaRuX managed venv does not exist: " + venvRoot);
+        if (arguments.Contains("--require-hashes", StringComparer.Ordinal))
+        {
+            string? actual = ReadVenvPythonMinor(venvRoot);
+            if (actual != null && !string.Equals(actual, ManagedRequirementLocks.LockPythonMinor, StringComparison.Ordinal))
+                throw new ManagedPipRefusalException("python_version_mismatch",
+                    "The hash locks target CPython " + ManagedRequirementLocks.LockPythonMinor + " but this managed environment uses "
+                    + actual + ". Repair the engine so PaRuX recreates its own environment.");
+        }
         var args = new List<string> { "pip", "install", "--python", python };
         args.AddRange(arguments);
         (int exit, string stdout, string stderr) = await RunUvAsync(

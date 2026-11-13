@@ -81,7 +81,8 @@ interface PaRuXApi {
 
     @POST("api/v1/autopilot/runs") suspend fun startAutopilotRun(@Body request: StartAutopilotRunRequest): AutopilotRunDto
     @GET("api/v1/autopilot/runs/{id}") suspend fun getAutopilotRun(@Path("id") id: String): AutopilotRunDto
-    @POST("api/v1/autopilot/runs/{id}/approve") suspend fun approveAutopilotRun(@Path("id") id: String)
+    // Approving a run is desktop-owner only (SEC-F04); a phone can only cancel the run it started.
+    @POST("api/v1/autopilot/runs/{id}/cancel") suspend fun cancelAutopilotRun(@Path("id") id: String)
 
     @POST("api/v1/system/stop-all") suspend fun stopAllAgents(): StopAllResult
     @POST("api/v1/system/resume-automations") suspend fun resumeAutomations()

@@ -355,6 +355,10 @@ internal sealed class MediaCompanionRegistry
         }
 
         RegistrySource source = ParseSource(Obj(companion["source"], where + ".source"), where);
+        // SEC-F13: a pickle container (.pt/.pth) can run code when ComfyUI loads it, so PaRuX never downloads one by
+        // itself. Such a file stays a manual install the user chooses; a pinned download source is refused.
+        if (source.IsPinned && VerifiedDownload.IsPickleFormat(fileName))
+            throw Invalid(where + ": companion \"" + fileName + "\" is a pickle file and cannot have a downloadable source; use a .safetensors file.");
         return new RegistryCompanion(role, folder, fileName, clipType, sharedWith, notes, match, source, license);
     }
 

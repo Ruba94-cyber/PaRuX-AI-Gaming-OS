@@ -5587,6 +5587,7 @@ namespace PaRuX.Views
         private async Task RefreshProjectsAsync()
         {
             if (ProjectsList == null) return;
+            _ = RefreshPendingAutopilotRunsAsync();
             ContextEntityListResponse response;
             try { response = await ProjectManagerClient.Current.ListAsync(CancellationToken.None); }
             catch (Exception ex)
@@ -5634,6 +5635,7 @@ namespace PaRuX.Views
                 AutopilotRunDto run = await AutopilotClient.Current.StartRunAsync(goal, mode, CancellationToken.None);
                 if (AutopilotRunIdBox != null) AutopilotRunIdBox.Text = run.Id;
                 if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + run.Id + ": " + run.Status + " (" + run.TaskIds.Count + T(" task(s)).", " attività).");
+                await RefreshPendingAutopilotRunsAsync();
             }
             catch (Exception ex)
             {
@@ -5663,23 +5665,85 @@ namespace PaRuX.Views
             }
         }
 
-        private async void ApproveAutopilotRun_Click(object sender, RoutedEventArgs e)
+        private void RefreshPendingAutopilotRuns_Click(object sender, RoutedEventArgs e) => _ = RefreshPendingAutopilotRunsAsync();
+
+        /// <summary>Lists the Autopilot runs waiting for the desktop owner (started here in supervised mode or from a paired
+        /// phone) with Approve and Cancel, instead of asking the owner to type a run id.</summary>
+        private async Task RefreshPendingAutopilotRunsAsync()
         {
-            string? id = AutopilotRunIdBox?.Text?.Trim();
-            if (string.IsNullOrEmpty(id))
-            {
-                if (AutopilotStatus != null) AutopilotStatus.Text = T("Enter a run id first.", "Inserisci prima un ID di esecuzione.");
-                return;
-            }
-            try
-            {
-                await AutopilotClient.Current.ApproveRunAsync(id, CancellationToken.None);
-                if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + id + T(" approved.", " approvata.");
-            }
+            if (AutopilotPendingList == null) return;
+            List<AutopilotRunDto> pending;
+            try { pending = await AutopilotClient.Current.ListPendingRunsAsync(CancellationToken.None); }
             catch (Exception ex)
             {
-                Log.Write("ApproveAutopilotRun failed: " + ex.Message);
-                if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to approve run: ", "Impossibile approvare l'esecuzione: ") + ex.Message;
+                Log.Write("ListPendingAutopilotRuns failed: " + ex.Message);
+                if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to load waiting runs: ", "Impossibile caricare le esecuzioni in attesa: ") + ex.Message;
+                return;
+            }
+
+            AutopilotPendingList.Children.Clear();
+            if (AutopilotPendingEmpty != null) AutopilotPendingEmpty.Visibility = pending.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            foreach (AutopilotRunDto run in pending)
+            {
+                string runId = run.Id;
+                var card = new Border
+                {
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(12),
+                    BorderBrush = (Brush)Application.Current.Resources["PaRuXStrokeBrush"]
+                };
+                var stack = new StackPanel { Spacing = 6 };
+                var goal = new TextBlock { Text = run.Goal, TextWrapping = TextWrapping.Wrap };
+                ApplyBodyStrongStyle(goal);
+                stack.Children.Add(goal);
+                string origin = string.IsNullOrEmpty(run.StartedBy) ? T("this PC", "questo PC") : T("a paired device", "un dispositivo associato");
+                string expires = run.ExpiresUtc.HasValue
+                    ? T("  ·  expires ", "  ·  scade ") + run.ExpiresUtc.Value.ToLocalTime().ToString("g") : string.Empty;
+                var meta = new TextBlock
+                {
+                    Text = T("Started from ", "Avviata da ") + origin + "  ·  " + run.TaskIds.Count + T(" task(s)", " attività") + expires,
+                    TextWrapping = TextWrapping.Wrap
+                };
+                ApplyCaptionStyle(meta);
+                stack.Children.Add(meta);
+
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                var approve = new Button { Content = T("Approve", "Approva") };
+                approve.Click += async (_, _) =>
+                {
+                    try
+                    {
+                        await AutopilotClient.Current.ApproveRunAsync(runId, CancellationToken.None);
+                        if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + runId + T(" approved.", " approvata.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Write("ApproveAutopilotRun failed: " + ex.Message);
+                        if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to approve run: ", "Impossibile approvare l'esecuzione: ") + ex.Message;
+                    }
+                    await RefreshPendingAutopilotRunsAsync();
+                };
+                var cancel = new Button { Content = T("Cancel", "Annulla") };
+                cancel.Click += async (_, _) =>
+                {
+                    try
+                    {
+                        await AutopilotClient.Current.CancelRunAsync(runId, CancellationToken.None);
+                        if (AutopilotStatus != null) AutopilotStatus.Text = T("Run ", "Esecuzione ") + runId + T(" cancelled.", " annullata.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Write("CancelAutopilotRun failed: " + ex.Message);
+                        if (AutopilotStatus != null) AutopilotStatus.Text = T("Failed to cancel run: ", "Impossibile annullare l'esecuzione: ") + ex.Message;
+                    }
+                    await RefreshPendingAutopilotRunsAsync();
+                };
+                buttons.Children.Add(approve);
+                buttons.Children.Add(cancel);
+                stack.Children.Add(buttons);
+                card.Child = stack;
+                AutopilotPendingList.Children.Add(card);
             }
         }
 

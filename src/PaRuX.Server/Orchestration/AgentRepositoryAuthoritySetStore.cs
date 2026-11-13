@@ -148,7 +148,56 @@ public sealed class AgentRepositoryAuthoritySetStore
             throw new InvalidDataException("workspaceRoot is not a valid local path.");
         }
         if (!Directory.Exists(canonical)) throw new InvalidDataException("workspaceRoot must be an existing local directory.");
+        RejectUnsafeWorkspaceRoot(canonical);
         return canonical;
+    }
+
+    private static bool IsUnderCredentialLocation(string canonicalPath, string? userProfile, string[]? credentialLocations)
+    {
+        string[] roots = credentialLocations ?? new[]
+        {
+            userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
+        };
+        string full = canonicalPath.TrimEnd('\\', '/');
+        foreach (string root in roots)
+        {
+            if (string.IsNullOrWhiteSpace(root)) continue;
+            string trimmed = root.TrimEnd('\\', '/');
+            if (trimmed.Length > 3 && (full.Equals(trimmed, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(trimmed + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+        // A dot-directory credential store (.ssh, .aws, .gnupg ...) is refused wherever it lives.
+        string leaf = System.IO.Path.GetFileName(full);
+        return leaf.StartsWith('.');
+    }
+
+    /// <summary>
+    /// SEC-F15: the coding sandbox grants its AppContainer Modify rights on the whole workspace tree, so a drive root, the
+    /// whole user profile, system/program folders, credential stores and PaRuX's own data folder are never valid roots.
+    /// </summary>
+    internal static void RejectUnsafeWorkspaceRoot(string canonicalPath, string? dataRoot = null, string? userProfile = null,
+        string[]? credentialLocations = null)
+    {
+        string trimmed = canonicalPath.TrimEnd('\\', '/');
+        string? pathRoot = Path.GetPathRoot(canonicalPath);
+        if (trimmed.Length <= 2 || (pathRoot != null && string.Equals(canonicalPath.TrimEnd('\\', '/'), pathRoot.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("workspaceRoot cannot be a whole drive; choose the project folder.");
+        string profile = (userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)).TrimEnd('\\', '/');
+        if (profile.Length > 3 && string.Equals(trimmed, profile, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("workspaceRoot cannot be the whole user profile; choose the project folder.");
+        Knowledge.SensitiveFinding finding = Knowledge.SensitivePathPolicy.EvaluateFolder(canonicalPath, dataRoot);
+        if (finding.Verdict != Knowledge.SensitiveVerdict.Blocked) return;
+        // The credential-folder name match (Vault, wallet, Ethereum, Credentials...) is segment-based and would refuse an
+        // ordinary project such as D:\dev\Vault. For a workspace root it only applies inside the user's profile and
+        // program-data locations where those stores really live, or when the folder itself is a known credential directory.
+        if (finding.Reason is { } reason && reason.StartsWith("This folder holds credentials", StringComparison.Ordinal)
+            && !IsUnderCredentialLocation(canonicalPath, userProfile, credentialLocations))
+            return;
+        throw new InvalidDataException("workspaceRoot is not allowed: " + finding.Reason);
     }
 
     private Dictionary<string, AgentRepositorySetDto> LoadUnsafe()

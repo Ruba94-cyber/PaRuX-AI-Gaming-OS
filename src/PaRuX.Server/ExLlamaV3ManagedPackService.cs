@@ -154,7 +154,7 @@ public sealed class ExLlamaV3ManagedPackService
 
                 progress?.Report("Installing ExLlamaV3 " + tag + "...");
                 await ManagedPythonRuntime.PipInstallAsync(
-                    venv, new[] { wheelPath }, ct, TimeSpan.FromMinutes(30)).ConfigureAwait(false);
+                    venv, new[] { wheelPath }, ct, TimeSpan.FromMinutes(30), unlockedSetId: "exllamav3-wheel").ConfigureAwait(false);
 
                 progress?.Report("Validating ExLlamaV3 CUDA import...");
                 string validation = await ValidateImportAsync(venv, ct).ConfigureAwait(false);
