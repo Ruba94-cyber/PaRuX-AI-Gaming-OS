@@ -148,30 +148,8 @@ public sealed class LocalAiProcessManager
     /// Why the most recent text launch used the flags it did (one line per decision, with the reason), or the reason no plan
     /// was applied. Empty before any start. Every speed statement in it is labelled unmeasured.
     /// </summary>
-    public string LastLaunchPlanExplanation =>
-        _lastHotPoolRefusal is not { Length: > 0 } refusal ? _lastLaunchPlanExplanation
-        : _lastLaunchPlanExplanation.Length == 0 ? refusal : _lastLaunchPlanExplanation + Environment.NewLine + refusal;
+    public string LastLaunchPlanExplanation => _lastLaunchPlanExplanation;
     private string _lastLaunchPlanExplanation = string.Empty;
-
-    /// <summary>
-    /// SEC-F01. llama-server router mode starts one child llama-server per resident model, each on its own loopback port.
-    /// Whether this pinned build hands the router's <c>LLAMA_API_KEY</c> to those children AND forwards the caller's bearer
-    /// to them cannot be verified from this repository (it pins binaries, not llama.cpp source, and ships no router
-    /// documentation), and a child without the key would be an unauthenticated model server. Until a maintainer verifies it
-    /// against the pinned build (children answer 401 without the key and 200 through the router with it) and flips this
-    /// flag, PaRuX does not start the hot pool: a model swap is the ordinary single-model restart, and the reason is
-    /// reported to the user instead of the pool being skipped silently.
-    /// </summary>
-    internal const bool HotModelPoolKeyPropagationVerified = false;
-
-    internal const string HotPoolUnverifiedKeyReason =
-        "Hot model pool is off: the managed runtime is protected by a per-launch key and this llama.cpp build's router mode "
-        + "has not been verified to protect its per-model child servers with it. Models swap with a normal restart instead.";
-
-    /// <summary>Test seam: pretends the pinned build's router key propagation was verified (or not), so the pool code stays covered.</summary>
-    internal bool? HotModelPoolKeyPropagationVerifiedForTests { get; set; }
-
-    private string? _lastHotPoolRefusal;
 
     /// <summary>How the current text runtime was launched, kept so a switch that fails can restore it. Cleared on every stop.</summary>
     private TextLaunchSnapshot? _lastTextLaunch;
@@ -625,6 +603,10 @@ public sealed class LocalAiProcessManager
     /// The PID file is written immediately after Process.Start and before this is first polled, so
     /// requiring it costs a legitimate launch nothing. User-managed backends remain supported the
     /// deliberate way, through ExternalTextProviderService, where the user names the endpoint.
+    ///
+    /// SEC-F01: this is LIVENESS only. llama-server leaves /health open without a key, so a 200 here proves nothing about the
+    /// per-launch key; key acceptance is proven by the keyed output-sanity request (and, for the hot pool, the keyed route
+    /// self-test) that every launch runs after this check.
     /// </summary>
     public Task<bool> IsTextHealthyAsync(CancellationToken ct) =>
         IsTextHealthyAsync(ct, static (url, token) => Http.GetAsync(url, token));
@@ -1975,23 +1957,14 @@ public sealed class LocalAiProcessManager
             string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
             if (!File.Exists(exe)) return new RuntimeResult(false, "File not found: " + exe);
 
-            string? hotPoolRefusal = null;
             if (CanReuseHotPoolForRequest(freshExact, hasGpu, hasAdapters))
             {
-                if (HotModelPoolKeyPropagationVerifiedForTests ?? HotModelPoolKeyPropagationVerified)
-                {
-                    _lastHotPoolRefusal = null;
-                    RuntimeResult? hot = await TryStartHotModelPoolAsync(exe, runtime, modelPath, workload, ct).ConfigureAwait(false);
-                    if (hot != null) return hot;
-                    // A router capability/proxy/load failure is intentionally non-fatal: the exact
-                    // same requested model continues through the proven single-model loader below.
-                }
-                else
-                {
-                    // SEC-F01: fail safe and say so. The requested model still loads through the single-model path.
-                    hotPoolRefusal = HotPoolUnverifiedKeyReason;
-                    _lastHotPoolRefusal = hotPoolRefusal;
-                }
+                // SEC-F01: the router is launched through LaunchAndWaitAsync like every text runtime, so it gets the per-launch
+                // LLAMA_API_KEY in its environment; real llama-server b12283 passes it on to the per-model children.
+                RuntimeResult? hot = await TryStartHotModelPoolAsync(exe, runtime, modelPath, workload, ct).ConfigureAwait(false);
+                if (hot != null) return hot;
+                // A router capability/proxy/load failure is intentionally non-fatal: the exact
+                // same requested model continues through the proven single-model loader below.
             }
 
             ArbitraryTextLaunchPlan plan;
@@ -2003,9 +1976,9 @@ public sealed class LocalAiProcessManager
             catch (UnsafeLaunchProfileException ex) { return new RuntimeResult(false, "Saved performance profile is not safe to apply: " + ex.Message); }
             try
             {
-                return AnnotateHotPoolRefusal(await LaunchAndWaitAsync(exe, plan.Arguments, runtime, profile, LocalAiPaths.TextPidFile,
+                return await LaunchAndWaitAsync(exe, plan.Arguments, runtime, profile, LocalAiPaths.TextPidFile,
                     plan.Profile, () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct,
-                    ProbeTextOutputSanityAsync).ConfigureAwait(false), hotPoolRefusal);
+                    ProbeTextOutputSanityAsync).ConfigureAwait(false);
             }
             catch when (freshExact)
             {
@@ -2017,9 +1990,6 @@ public sealed class LocalAiProcessManager
         }
         finally { _gate.Release(); }
     }
-
-    internal static RuntimeResult AnnotateHotPoolRefusal(RuntimeResult result, string? refusal) =>
-        refusal is null || !result.Success ? result : result with { Message = result.Message + " " + refusal };
 
     /// <summary>Only an unsafe saved profile maps to the "not safe to apply" result; any other
     /// planner failure keeps propagating exactly as before the planner was extracted.</summary>

@@ -155,19 +155,6 @@ public sealed class ManagedRuntimeBoundaryRoutingTests
         Assert.Equal(0, window.ContextTokens);
         Assert.False(string.IsNullOrWhiteSpace(window.Reason));
     }
-
-    [Fact]
-    public void The_hot_model_pool_is_not_started_until_router_key_propagation_is_verified()
-    {
-        Assert.False(LocalAiProcessManager.HotModelPoolKeyPropagationVerified);
-        Assert.Contains("per-launch key", LocalAiProcessManager.HotPoolUnverifiedKeyReason, StringComparison.Ordinal);
-
-        var ok = new LocalAiProcessManager.RuntimeResult(true, "Started: M.");
-        Assert.Equal("Started: M. why", LocalAiProcessManager.AnnotateHotPoolRefusal(ok, "why").Message);
-        Assert.Equal(ok, LocalAiProcessManager.AnnotateHotPoolRefusal(ok, null));
-        var failed = new LocalAiProcessManager.RuntimeResult(false, "boom");
-        Assert.Equal(failed, LocalAiProcessManager.AnnotateHotPoolRefusal(failed, "why"));
-    }
 }
 
 /// <summary>The Core endpoint itself, through the real HTTP pipeline.</summary>

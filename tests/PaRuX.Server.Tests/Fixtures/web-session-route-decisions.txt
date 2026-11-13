@@ -255,6 +255,7 @@ DENY GET /api/v1/runtime/builds/install
 DENY GET /api/v1/runtime/builds/install/{id}
 DENY GET /api/v1/runtime/builds/installed
 DENY GET /api/v1/runtime/components
+DENY GET /api/v1/runtime/context-window
 DENY GET /api/v1/runtime/diagnostics
 DENY GET /api/v1/runtime/engines
 DENY GET /api/v1/runtime/engines/compatible

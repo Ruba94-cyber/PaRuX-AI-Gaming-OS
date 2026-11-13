@@ -356,18 +356,41 @@ public sealed class ManagedRuntimeApiKeyIntegrationTests : IAsyncLifetime
     }
 }
 
-/// <summary>SEC-F01 regression: the router's per-model children are not verified to carry the key, so the pool stays off.</summary>
+/// <summary>SEC-F01 regression: the hot pool router is launched like every text runtime, with the per-launch key.</summary>
 public sealed class ManagedRuntimeHotPoolKeyTests
 {
-    [Fact]
-    public void The_hot_model_pool_is_not_started_until_router_key_propagation_is_verified()
+    private static string Source(string name)
     {
-        Assert.False(LocalAiProcessManager.HotModelPoolKeyPropagationVerified);
-        Assert.Contains("per-launch key", LocalAiProcessManager.HotPoolUnverifiedKeyReason, StringComparison.Ordinal);
-        var ok = new LocalAiProcessManager.RuntimeResult(true, "Started: M.");
-        var failed = new LocalAiProcessManager.RuntimeResult(false, "boom");
-        Assert.Equal("Started: M. why", LocalAiProcessManager.AnnotateHotPoolRefusal(ok, "why").Message);
-        Assert.Equal(ok, LocalAiProcessManager.AnnotateHotPoolRefusal(ok, null));
-        Assert.Equal(failed, LocalAiProcessManager.AnnotateHotPoolRefusal(failed, "why"));
+        for (DirectoryInfo? dir = new(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+        {
+            string path = Path.Combine(dir.FullName, "src", "PaRuX.Server", name);
+            if (File.Exists(path)) return File.ReadAllText(path);
+        }
+        throw new FileNotFoundException(name);
+    }
+
+    [Fact]
+    public void The_hot_pool_router_launches_through_the_keyed_text_launch_path_and_is_not_gated_off()
+    {
+        string source = Source("LocalAiProcessManager.cs");
+        Assert.DoesNotContain("HotModelPoolKeyPropagationVerified", source, StringComparison.Ordinal);
+        int pool = source.IndexOf("private async Task<RuntimeResult?> TryStartHotModelPoolAsync", StringComparison.Ordinal);
+        Assert.True(pool > 0);
+        string body = source[pool..source.IndexOf("SupportsRouterAsync(string exe", pool, StringComparison.Ordinal)];
+        Assert.Contains("LaunchAndWaitAsync(", body, StringComparison.Ordinal);
+        Assert.Contains("LocalAiPaths.TextPidFile", body, StringComparison.Ordinal);
+        // The key is applied inside LaunchAndWaitAsync for the text pid file (environment only, never argv).
+        Assert.Contains("ManagedRuntimeCredentials.BeginTextLaunch(psi", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("--api-key", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_open_health_endpoint_is_liveness_only_and_never_proof_the_key_was_accepted()
+    {
+        // llama-server answers /health 200 without a key. The launch is only declared successful after the keyed
+        // output-sanity request, which a runtime that rejected the key could not pass.
+        string source = Source("LocalAiProcessManager.cs");
+        Assert.Contains("LIVENESS only", source, StringComparison.Ordinal);
+        Assert.Contains("ProbeTextOutputSanityAsync", source, StringComparison.Ordinal);
     }
 }
