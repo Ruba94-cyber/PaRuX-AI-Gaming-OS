@@ -26,14 +26,18 @@ internal static class ManagedRuntimeCredentials
     internal const string KeyEnvironmentVariable = "LLAMA_API_KEY";
 
     private const int KeyBytes = 32;
-    private const int MaximumRememberedKeys = 64;
+    private const int MaximumRetiredKeys = 64;
     internal const string RedactionMarker = "[redacted-runtime-key]";
 
     private static readonly object Gate = new();
     private static readonly ConcurrentDictionary<int, string> KeysByPort = new();
-    // Every key ever issued by this process (bounded), so output of a process that is still draining after its key was
-    // retired is redacted as well. Held in memory only.
-    private static readonly Queue<string> Remembered = new();
+    // Keys of runtimes that are still alive (the active text key and every isolated launch not yet disposed). They are
+    // never evicted by a count: a live key must stay redacted however many isolated launches follow it.
+    private static readonly HashSet<string> LiveKeys = new(StringComparer.Ordinal);
+    // Keys whose runtime has been retired. Bounded, so output of a process that is still draining after its key was
+    // retired is redacted for a while, without the list growing for the life of the process. Held in memory only.
+    private static readonly Queue<string> RetiredKeys = new();
+    private static string? _textKey;
     private static int _textPort;
 
     /// <summary>A fresh 256-bit key, base64url without padding. It contains no comma, which llama-server would split on.</summary>
@@ -41,11 +45,7 @@ internal static class ManagedRuntimeCredentials
     {
         string key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(KeyBytes))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        lock (Gate)
-        {
-            Remembered.Enqueue(key);
-            while (Remembered.Count > MaximumRememberedKeys) Remembered.Dequeue();
-        }
+        lock (Gate) LiveKeys.Add(key);
         return key;
     }
 
@@ -71,8 +71,10 @@ internal static class ManagedRuntimeCredentials
         string key = ApplyTo(start);
         lock (Gate)
         {
+            if (_textKey is not null) RetireUnsafe(_textKey);
             if (_textPort > 0 && _textPort != port) KeysByPort.TryRemove(_textPort, out _);
             _textPort = port;
+            _textKey = key;
             KeysByPort[port] = key;
         }
     }
@@ -84,7 +86,26 @@ internal static class ManagedRuntimeCredentials
         {
             if (_textPort > 0) KeysByPort.TryRemove(_textPort, out _);
             _textPort = 0;
+            if (_textKey is not null) RetireUnsafe(_textKey);
+            _textKey = null;
         }
+    }
+
+    /// <summary>
+    /// Retires the key of an isolated launch once that launch is disposed. Its text stays redacted only while it is
+    /// within the bounded retired list. Null or unknown keys are ignored.
+    /// </summary>
+    internal static void RetireKey(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        lock (Gate) RetireUnsafe(key);
+    }
+
+    private static void RetireUnsafe(string key)
+    {
+        if (!LiveKeys.Remove(key)) return;
+        RetiredKeys.Enqueue(key);
+        while (RetiredKeys.Count > MaximumRetiredKeys) RetiredKeys.Dequeue();
     }
 
     internal static bool TryGetForPort(int port, out string key)
@@ -99,7 +120,7 @@ internal static class ManagedRuntimeCredentials
     {
         if (string.IsNullOrEmpty(text)) return text;
         string[] keys;
-        lock (Gate) keys = Remembered.ToArray();
+        lock (Gate) keys = LiveKeys.Concat(RetiredKeys).ToArray();
         foreach (string key in keys)
             if (text.Contains(key, StringComparison.Ordinal))
                 text = text.Replace(key, RedactionMarker, StringComparison.Ordinal);
@@ -116,7 +137,9 @@ internal static class ManagedRuntimeCredentials
         lock (Gate)
         {
             KeysByPort.Clear();
-            Remembered.Clear();
+            LiveKeys.Clear();
+            RetiredKeys.Clear();
+            _textKey = null;
             _textPort = 0;
         }
     }

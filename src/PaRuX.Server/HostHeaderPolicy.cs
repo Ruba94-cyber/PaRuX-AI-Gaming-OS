@@ -19,10 +19,13 @@ internal sealed class HostHeaderPolicy
     private readonly Func<IEnumerable<string>> _configuredNames;
     private readonly Func<IReadOnlyCollection<IPAddress>> _boundAddresses;
     private readonly Func<DateTime> _utcNow;
+    // _gate guards the published sets and the refresh bookkeeping only. It is never held across a file or adapter read:
+    // readers take it for a field read, so a slow refresh cannot stall the request path.
     private readonly object _gate = new();
     private HashSet<string> _configured = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<IPAddress> _bound = new();
     private DateTime _refreshedUtc = DateTime.MinValue;
+    private bool _refreshing;
 
     public HostHeaderPolicy() : this(DefaultConfiguredNames, RemoteAccessService.GetPrivateIpv4Addresses, () => DateTime.UtcNow) { }
 
@@ -38,7 +41,7 @@ internal sealed class HostHeaderPolicy
     internal bool IsAllowed(string? hostHeader, IPAddress? localAddress)
     {
         if (!TryGetHostName(hostHeader, out string name)) return false;
-        if (Array.Exists(BuiltInNames, n => n.Equals(name, StringComparison.OrdinalIgnoreCase))) return true;
+        if (Array.Exists(BuiltInNames, n => n.Equals(name, StringComparison.OrdinalIgnoreCase)) || IsThisMachineName(name)) return true;
 
         if (IPAddress.TryParse(name, out IPAddress? literal))
         {
@@ -87,23 +90,52 @@ internal sealed class HostHeaderPolicy
         return true;
     }
 
+    /// <summary>This machine's NetBIOS/DNS name and its <c>.local</c> form, allowed by default so a LAN client can use them.</summary>
+    private static bool IsThisMachineName(string name)
+    {
+        string machine = Environment.MachineName;
+        if (string.IsNullOrEmpty(machine)) return false;
+        return name.Equals(machine, StringComparison.OrdinalIgnoreCase)
+            || name.Equals(machine + ".local", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Rebuilds the sets at most once per interval. The file and adapter reads run outside <c>_gate</c>; only one refresh
+    /// is in flight at a time, and any other caller returns at once and keeps using the previously published sets.
+    /// </summary>
     private void Refresh()
     {
         DateTime now = _utcNow();
         lock (_gate)
         {
-            if (now - _refreshedUtc < RefreshInterval) return;
+            if (_refreshing || now - _refreshedUtc < RefreshInterval) return;
             _refreshedUtc = now;
+            _refreshing = true;
+        }
+
+        HashSet<string>? names = null;
+        HashSet<IPAddress>? bound = null;
+        try
+        {
             try
             {
-                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var built = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (string raw in _configuredNames())
-                    if (TryGetHostName(raw, out string configured) && !IPAddress.TryParse(configured, out _)) names.Add(configured);
-                _configured = names;
+                    if (TryGetHostName(raw, out string configured) && !IPAddress.TryParse(configured, out _)) built.Add(configured);
+                names = built;
             }
             catch (Exception) { /* keep the previous list: an unreadable file must not open the gate */ }
-            try { _bound = new HashSet<IPAddress>(_boundAddresses()); }
+            try { bound = new HashSet<IPAddress>(_boundAddresses()); }
             catch (Exception) { /* keep the previous list */ }
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (names is not null) _configured = names;
+                if (bound is not null) _bound = bound;
+                _refreshing = false;
+            }
         }
     }
 

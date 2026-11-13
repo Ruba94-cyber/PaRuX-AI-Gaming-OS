@@ -59,6 +59,67 @@ public sealed class HostHeaderPolicyTests
     [Fact]
     public void A_missing_host_header_is_refused() => Assert.False(Policy().IsAllowed(null, IPAddress.Loopback));
 
+    // Survey (this change): no script, tool, app or installer sends a Host-less raw request to /api/v1/health. Every
+    // probe uses HttpClient, Invoke-WebRequest, curl or WebRequest, all of which send Host, so the policy stays as is.
+    // Pinned here: an empty Host is refused even from loopback, so a probe that omits Host fails loudly instead of passing.
+    [Fact]
+    public void An_empty_host_header_is_refused_even_from_loopback()
+    {
+        HostHeaderPolicy policy = Policy();
+        Assert.False(policy.IsAllowed(string.Empty, IPAddress.Loopback));
+        Assert.False(policy.IsAllowed("   ", IPAddress.Loopback));
+        Assert.False(policy.IsAllowed(null, IPAddress.Loopback));
+    }
+
+    [Fact]
+    public void This_machine_name_and_its_local_form_are_allowed_by_default_case_insensitively()
+    {
+        string machine = Environment.MachineName;
+        HostHeaderPolicy policy = Policy();
+        Assert.True(policy.IsAllowed(machine + ":5000", IPAddress.Loopback));
+        Assert.True(policy.IsAllowed(machine.ToLowerInvariant() + ".local", IPAddress.Loopback));
+        Assert.True(policy.IsAllowed(machine.ToUpperInvariant() + ".LOCAL:5000", IPAddress.Loopback));
+        Assert.False(policy.IsAllowed("not-this-machine.example", IPAddress.Loopback));
+        Assert.False(policy.IsAllowed(machine + "x.example", IPAddress.Loopback));
+    }
+
+    [Fact]
+    public async Task A_slow_refresh_does_not_block_the_request_path_which_keeps_the_previous_sets()
+    {
+        DateTime now = new(2026, 11, 13, 10, 0, 0, DateTimeKind.Utc);
+        int reads = 0;
+        using var entered = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim(false);
+        var policy = new HostHeaderPolicy(() =>
+        {
+            if (Interlocked.Increment(ref reads) == 1) return new[] { "good.example" };
+            entered.Release();
+            release.Wait(TimeSpan.FromSeconds(30)); // the second refresh is blocked here, like a locked file
+            return new[] { "slow.example" };
+        }, () => new[] { Lan }, () => now);
+        Task<bool>? refreshing = null;
+        try
+        {
+            Assert.True(policy.IsAllowed("good.example", IPAddress.Loopback)); // first refresh publishes "good.example"
+
+            now = now.AddMinutes(5); // the next request starts a refresh that blocks inside the reader
+            refreshing = Task.Run(() => policy.IsAllowed("good.example", IPAddress.Loopback));
+            Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(10)));
+
+            Task<bool> reader = Task.Run(() => policy.IsAllowed("good.example", IPAddress.Loopback));
+            Task completed = await Task.WhenAny(reader, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.Same(reader, completed);
+            Assert.True(await reader); // served from the previous set while the refresh is still in flight
+            Assert.False(await Task.Run(() => policy.IsAllowed("slow.example", IPAddress.Loopback)));
+        }
+        finally
+        {
+            release.Set();
+        }
+        await refreshing!;
+        Assert.True(policy.IsAllowed("slow.example", IPAddress.Loopback)); // the finished refresh is published
+    }
+
     [Fact]
     public void The_address_the_connection_arrived_on_is_allowed_even_when_the_adapter_list_is_stale()
     {

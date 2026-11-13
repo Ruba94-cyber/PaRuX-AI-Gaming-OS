@@ -62,6 +62,8 @@ Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by c
 - Corporate Lite uses a separate CPU-only portable shell. Fixed portable-data-root isolation from existing host Documents/LocalAI; skip the NVIDIA telemetry probe when a portable has no bundled CUDA payload.
 - Windows build/inference/performance/8 GB hardware acceptance remains OPEN. **These changes are not part of the signed v4.0.1 release.**
 
+Security hardening (release-note summary). Core now refuses requests whose Host header is not loopback, this PC's machine name, a LAN IP bound on this PC, or a name listed in `PARUX_ALLOWED_HOSTS` or `allowed-hosts.txt`; reverse-proxy users must add their public name to one of those lists, or the proxied requests get 403. Paired devices expire after 90 days idle and 365 days after pairing, and must be paired again. PaRuX-launched llama-server ports (text, retrieval, performance probe and quality runs) now require a per-launch key that is passed only through the child's environment, and the performance probe connects only to the process it launched.
+
 ## 4.0.1 (signed with the owner's local certificates)
 
 - Patch over 4.0.0 with three product fixes found by live FlaUI verification of setup profiles, "Use for" roles, document skills and secure delete (see commit 4c6eff2), plus new regression coverage (SetupProfilePolicy, RoleProfilePanel, SetupProfileRuntime, DocumentSkillsAndRagWipe).

@@ -430,13 +430,15 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
     private readonly string _alias;
     private readonly Task _stdoutDrain;
     private readonly Task _stderrDrain;
+    private readonly string _apiKey;
 
-    private LlamaTextQualitySession(Process process, HttpClient http, int port, string alias)
+    private LlamaTextQualitySession(Process process, HttpClient http, int port, string alias, string apiKey)
     {
         _process = process;
         _http = http;
         _baseUrl = "http://127.0.0.1:" + port;
         _alias = alias;
+        _apiKey = apiKey;
         _stdoutDrain = DrainAsync(process.StandardOutput);
         _stderrDrain = DrainAsync(process.StandardError);
     }
@@ -486,7 +488,7 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
         {
             if (!process.Start()) throw new InvalidOperationException("Local quality runtime failed to start.");
             ChildProcessJob.Assign(process);
-            session = new LlamaTextQualitySession(process, http, port, alias);
+            session = new LlamaTextQualitySession(process, http, port, alias, apiKey);
             using var startupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             startupCts.CancelAfter(TimeSpan.FromMinutes(2));
             await session.WaitHealthyAsync(startupCts.Token).ConfigureAwait(false);
@@ -500,6 +502,7 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
                 try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
                 process.Dispose();
                 http.Dispose();
+                ManagedRuntimeCredentials.RetireKey(apiKey);
             }
             throw;
         }
@@ -683,5 +686,6 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
         finally { _process.Dispose(); }
         try { await Task.WhenAll(_stdoutDrain, _stderrDrain).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
         catch (TimeoutException) { }
+        finally { ManagedRuntimeCredentials.RetireKey(_apiKey); }
     }
 }

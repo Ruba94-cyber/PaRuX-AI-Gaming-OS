@@ -147,6 +147,47 @@ public sealed class ManagedRuntimeApiKeyUnitTests : IDisposable
     }
 
     [Fact]
+    public void Live_keys_survive_any_number_of_later_isolated_launches_and_retired_keys_are_bounded()
+    {
+        var start = new ProcessStartInfo("llama-server.exe");
+        ManagedRuntimeCredentials.BeginTextLaunch(start, 45720);
+        ManagedRuntimeCredentials.TryGetForPort(45720, out string textKey);
+        string liveIsolated = ManagedRuntimeCredentials.NewKey();
+        for (int i = 0; i < 100; i++) ManagedRuntimeCredentials.NewKey(); // 100 isolated launches, none retired yet
+
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(textKey));
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(liveIsolated));
+
+        // Retiring 100 other keys must not evict the still-live text key or the live isolated key either.
+        for (int i = 0; i < 100; i++) ManagedRuntimeCredentials.RetireKey(ManagedRuntimeCredentials.NewKey());
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(textKey));
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(liveIsolated));
+
+        // A retired key stays redacted while the retired list is within its cap of 64 ...
+        string retired = ManagedRuntimeCredentials.NewKey();
+        ManagedRuntimeCredentials.RetireKey(retired);
+        for (int i = 0; i < 63; i++) ManagedRuntimeCredentials.RetireKey(ManagedRuntimeCredentials.NewKey());
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(retired));
+
+        // ... and the oldest retired key is forgotten once the 65th retirement pushes it out.
+        ManagedRuntimeCredentials.RetireKey(ManagedRuntimeCredentials.NewKey());
+        Assert.Equal(retired, ManagedRuntimeCredentials.Redact(retired));
+    }
+
+    [Fact]
+    public void Retiring_the_text_key_moves_it_to_the_bounded_list_and_retiring_twice_is_harmless()
+    {
+        var start = new ProcessStartInfo("llama-server.exe");
+        ManagedRuntimeCredentials.BeginTextLaunch(start, 45730);
+        ManagedRuntimeCredentials.TryGetForPort(45730, out string key);
+        ManagedRuntimeCredentials.RetireText();
+        ManagedRuntimeCredentials.RetireText();
+        ManagedRuntimeCredentials.RetireKey(key);
+        ManagedRuntimeCredentials.RetireKey(null);
+        Assert.Equal(ManagedRuntimeCredentials.RedactionMarker, ManagedRuntimeCredentials.Redact(key));
+    }
+
+    [Fact]
     public void The_launch_port_comes_from_the_argument_list_and_defaults_to_the_text_port()
     {
         Assert.Equal(4321, LocalAiProcessManager.LaunchPort(new[] { "--model", "m", "--port", "4321" }));

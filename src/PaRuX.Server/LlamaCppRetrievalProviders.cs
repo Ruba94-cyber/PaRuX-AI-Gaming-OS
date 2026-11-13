@@ -37,6 +37,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
     private Process? _process;
     private HttpClient? _http;
     private string? _baseUrl;
+    private string? _apiKey;
 
     public LlamaRetrievalServer(LocalAiProcessManager runtime, string modelPath, LlamaRetrievalMode mode)
     {
@@ -86,6 +87,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
             if (!cuda) Add(start, "--device", "Vulkan0");
             // SEC-F01: this isolated server gets its own per-launch key, through its environment only.
             string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
+            _apiKey = apiKey;
 
             var process = new Process { StartInfo = start, EnableRaisingEvents = true };
             if (!process.Start()) throw new InvalidOperationException("Could not start llama-server retrieval process.");
@@ -170,9 +172,12 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
         HttpClient? http = _http;
         _http = null;
         _baseUrl = null;
+        string? apiKey = _apiKey;
+        _apiKey = null;
         try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch { }
         try { process?.Dispose(); } catch { }
         try { http?.Dispose(); } catch { }
+        ManagedRuntimeCredentials.RetireKey(apiKey);
     }
 
     private static int ReserveLoopbackPort()

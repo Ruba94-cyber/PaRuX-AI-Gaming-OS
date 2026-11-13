@@ -95,6 +95,17 @@ public sealed class ManagedRuntimeHttpClientGuardTests
         Assert.DoesNotContain("new HttpClient {", text);
     }
 
+    [Fact]
+    public void Performance_probe_pins_its_launched_identity_and_retires_its_key()
+    {
+        string text = File.ReadAllText(Path.Combine(ServerSourceRoot(), "LlamaServerPerformanceProbe.cs"));
+        Assert.Contains("TryCaptureIdentity(process.Id)", text);
+        Assert.Contains("AttestedLoopbackHttp.CreateHandler(", text);
+        Assert.Contains("allowUnattestedWhenPlatformUnsupported: false", text);
+        Assert.DoesNotContain("new HttpClient {", text);
+        Assert.Contains("ManagedRuntimeCredentials.RetireKey(apiKey)", text);
+    }
+
     // ---- StopText never kills an unverified PID-file process
 
     private static string CopyLlamaStandIn(string directory)
