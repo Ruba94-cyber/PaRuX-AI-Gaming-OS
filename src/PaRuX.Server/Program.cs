@@ -49,6 +49,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<ServerState>();
 builder.Services.AddSingleton<PaRuX.Server.BrowserLaunchCodes>();
+builder.Services.AddSingleton<PaRuX.Server.HostHeaderPolicy>();
 builder.Services.AddSingleton<LocalAiProcessManager>();
 builder.Services.AddSingleton<ISystemRamSnapshotProvider, SystemRamSnapshotProvider>();
 builder.Services.AddSingleton<IGpuPerformanceTelemetrySnapshotProvider>(
@@ -392,6 +393,21 @@ WebAccessService webAccess = app.Services.GetRequiredService<WebAccessService>()
 ApiKeyService apiKeys = app.Services.GetRequiredService<ApiKeyService>();
 InFlightRequestRegistry inFlight = app.Services.GetRequiredService<InFlightRequestRegistry>();
 StartupTrace.Mark("core-singletons-resolved");
+
+// SEC-F10: DNS-rebinding guard. Runs before every other rule, including the unauthenticated health and sign-in routes.
+{
+    HostHeaderPolicy hostPolicy = app.Services.GetRequiredService<HostHeaderPolicy>();
+    app.Use(async (context, next) =>
+    {
+        if (!hostPolicy.IsAllowed(context.Request.Headers.Host.ToString(), context.Connection.LocalIpAddress))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = "This Host name is not allowed. Add it to PARUX_ALLOWED_HOSTS if PaRuX is reached through a reverse proxy or alias." });
+            return;
+        }
+        await next();
+    });
+}
 
 // Outermost: an unreadable text-runtime port table is a typed 503 on every route, never an empty 500.
 app.UseMiddleware<TextRuntimeUnavailableMiddleware>();

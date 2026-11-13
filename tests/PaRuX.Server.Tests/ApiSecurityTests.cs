@@ -70,7 +70,8 @@ public sealed class ApiSecurityTests : IClassFixture<ApiSecurityTests.PaRuXFacto
 
         using var badHost = new HttpRequestMessage(HttpMethod.Get, "/app?code=" + code);
         badHost.Headers.Host = "attacker.example";
-        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.SendAsync(badHost)).StatusCode);
+        // SEC-F10: the Host gate answers 403 before the launch-code check, and the refused request must not spend the code.
+        Assert.Equal(HttpStatusCode.Forbidden, (await anonymous.SendAsync(badHost)).StatusCode);
         var page = await anonymous.GetAsync("/app?code=" + code);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Contains("const launchToken =", await page.Content.ReadAsStringAsync(), StringComparison.Ordinal);
