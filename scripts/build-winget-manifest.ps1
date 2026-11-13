@@ -18,8 +18,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $templateDir = Join-Path $repoRoot "packaging\winget"
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    [xml]$projectXml = Get-Content -LiteralPath (Join-Path $repoRoot "src\PaRuX.App\PaRuX.App.csproj") -Raw
-    $Version = [string]($projectXml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1)
+    [xml]$projectXml = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props") -Raw
+    $Version = [string]($projectXml.Project.PropertyGroup | ForEach-Object { $_.PaRuXProductVersion } | Where-Object { $_ } | Select-Object -First 1)
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Version must be major.minor.patch. Got '$Version'."

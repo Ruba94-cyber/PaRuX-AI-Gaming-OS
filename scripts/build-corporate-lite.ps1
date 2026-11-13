@@ -73,8 +73,8 @@ Copy-Item -Path (Join-Path $portableStage "*") -Destination $stage -Recurse -For
 Remove-Item (Join-Path $stage "Cli") -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $stage "PaRuX (portable data).cmd"), (Join-Path $stage "README-portable.txt") -Force -ErrorAction SilentlyContinue
 if (-not $Version) {
-    [xml]$p = Get-Content (Join-Path $repoRoot "src\PaRuX.App\PaRuX.App.csproj") -Raw
-    $Version = [string]($p.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1)
+    [xml]$p = Get-Content (Join-Path $repoRoot "Directory.Build.props") -Raw
+    $Version = [string]($p.Project.PropertyGroup | ForEach-Object { $_.PaRuXProductVersion } | Where-Object { $_ } | Select-Object -First 1)
 }
 
 # --- 2. Optional fetch of official assets (hashes are recorded in the manifest) -----------------------------------------------

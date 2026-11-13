@@ -75,8 +75,8 @@ $stageDir = if ($WithoutVulkan) { Join-Path $portableRoot "cpu-shell-stage\PaRuX
 } else { Join-Path $portableRoot "stage\PaRuX" }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    [xml]$projectXml = Get-Content -LiteralPath $appProject -Raw
-    $Version = [string]($projectXml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1)
+    [xml]$projectXml = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props") -Raw
+    $Version = [string]($projectXml.Project.PropertyGroup | ForEach-Object { $_.PaRuXProductVersion } | Where-Object { $_ } | Select-Object -First 1)
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must be major.minor.patch. Got '$Version'." }
 

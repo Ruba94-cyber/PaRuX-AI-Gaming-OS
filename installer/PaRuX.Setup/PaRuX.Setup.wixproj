@@ -1,7 +1,9 @@
 <Project Sdk="WixToolset.Sdk/7.0.0">
+  <!-- Central product version (Directory.Build.props at the repository root). -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
   <PropertyGroup>
     <InstallerPlatform>x64</InstallerPlatform>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">1.9.6</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">$(PaRuXProductVersion)</ProductVersion>
     <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\publish\win-x64</PublishDir>
     <LicenseRtf>$(MSBuildThisFileDirectory)License.rtf</LicenseRtf>
     <OutputName>PaRuX-$(ProductVersion)-win-x64</OutputName>
