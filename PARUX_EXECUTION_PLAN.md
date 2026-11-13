@@ -3,7 +3,7 @@
 Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomplete-code inventory, release environment, llama-server key check), taken on `main` `65220b10`. This branch starts at `4b9dfa9b` and contains later source; SEC statuses below follow `docs/SECURITY_REVIEW.md` on this branch. Matrix test counts are approximate file counts, not xUnit totals.
 
 **Baseline facts (2026-11-13)**
-- `65220b10`: incremental Release x64 build 0 errors; full Server xUnit 13,327 passed / 0 failed / 9 not executed (2,111 s). FlaUI regression and Android unit tests for this baseline: pending (no result yet).
+- `65220b10`: incremental Release x64 build 0 errors; full Server xUnit 13,327 passed / 0 failed / 9 not executed (2,111 s). FlaUI regression at this baseline: 309 passed / 2 failed of 311 (QA-050): Quick Resume scroll was a deterministic test defect, fixed in `6c3a9c37`; the Return-to-AI strip failure did not reproduce, the test was hardened and the cause is unproven. Android unit tests: 41/41 (QA-051). Gaming hard-off for all AI child processes is unit-level only, with fake processes; real-game check pending (QA-052).
 - A clean Release solution build failed at `65220b10`: the two test stub projects were not in `PaRuX.sln`. Fixed on `integration/sec-20261113` (`709716d2`); clean Release and Debug x64 builds verified.
 - `integration/sec-20261113` (not merged to main; full xUnit and FlaUI not run on it): SEC-F01 per-launch `LLAMA_API_KEY` for PaRuX-launched llama-server, checked against real llama-server CPU b12283 and Vulkan b10549 including one router child (multi-model eviction and CUDA build not tested; ComfyUI still unauthenticated); SEC-F05 default-deny browser sessions; SEC-F10 Host allow-list including machine name; SEC-F09/F11 reviewed, already on main; coding-agent context window read through `GET /api/v1/runtime/context-window`; Android shows a re-pair message on 401.
 - Independent security review: 0 Critical, 0 High, 2 Medium and 3 Low, all fixed in `4b9dfa9b`. Focused tests 583, then 192 passed; Android unit 42 passed. Real browser, real Android device and real DNS-rebinding checks not done.
@@ -35,7 +35,7 @@ Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomple
 **Work queue (in order)**
 1. Merge `integration/sec-20261113` after full xUnit and FlaUI on it.
 2. Gaming hard-off must stop speech child processes (GOS-09).
-3. Discovery policy persistence (replace the stub client in `DiscoveryPolicyPresenter.cs`).
+3. Discovery policy persistence is merged (stub client replaced by the Core-backed client); real-app persistence across restart is not yet checked (see 15). Open: the promotion setting is persisted but not enforced (see 14).
 4. PERF-003 GameStop model restore and PERF-002 idle soak.
 5. GAM-004 library virtualization, then GAM-005 and GAM-006.
 6. SEC-F02, F12, F13, F14, F04 residual.
@@ -46,7 +46,9 @@ Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomple
 11. Rebuild MSI, Portable, Corporate, MSIX and APK from one clean commit; sign, verify; MSI install, upgrade, uninstall; WACK.
 12. Corporate on a throttled 8 GB CPU-only profile (label SIMULATED).
 13. Benchmarks and budgets.
-14. Hardware gates stay BLOCKED-EXTERNAL until the owner connects TV, controllers and eGPU.
+14. Discovery policy promotion setting is persisted but not enforced by any Server code path (`ModelDiscoveryPolicy.Decide` is never called) - wire it or state it in the UI.
+15. Real-app checks owed: speech/retrieval/uv/LoRA children during a real Gaming start; Discovery policy persistence across restart; real browser + Android pairing after SEC-F05/F09/F10.
+16. Hardware gates stay BLOCKED-EXTERNAL until the owner connects TV, controllers and eGPU.
 
 ## 2026-11-11 — Cross-PC continuation checkpoint (WIP)
 
