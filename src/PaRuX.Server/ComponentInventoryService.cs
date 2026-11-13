@@ -328,7 +328,25 @@ public sealed class ComponentInventoryService
         catch { return null; }
     }
 
-    private static async Task<string?> ProbeVersionAsync(string componentId, string path, CancellationToken ct)
+    /// <summary>True when the file starts with a DOS header whose e_lfanew points at a PE signature. Only a real
+    /// PE image may be launched for a version probe; anything else is reported as an unknown version.</summary>
+    internal static bool IsWindowsPeImage(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            Span<byte> dos = stackalloc byte[64];
+            if (stream.Read(dos) < 64 || dos[0] != (byte)'M' || dos[1] != (byte)'Z') return false;
+            int peOffset = BitConverter.ToInt32(dos[60..64]);
+            if (peOffset < 64 || peOffset > stream.Length - 4) return false;
+            stream.Position = peOffset;
+            Span<byte> signature = stackalloc byte[4];
+            return stream.Read(signature) == 4 && signature[0] == (byte)'P' && signature[1] == (byte)'E' && signature[2] == 0 && signature[3] == 0;
+        }
+        catch { return false; }
+    }
+
+    internal static async Task<string?> ProbeVersionAsync(string componentId, string path, CancellationToken ct)
     {
         try
         {
@@ -352,6 +370,10 @@ public sealed class ComponentInventoryService
             }
             else
             {
+                // A user-located path may be any file. Windows shows a modal "not a valid application" dialog from
+                // inside CreateProcess for a non-PE image under the default error mode and that call never returns
+                // until someone dismisses it, so a stand-in or corrupt file must never reach Process.Start.
+                if (OperatingSystem.IsWindows() && !IsWindowsPeImage(path)) return null;
                 psi.FileName = path;
                 psi.ArgumentList.Add(versionArg);
             }
