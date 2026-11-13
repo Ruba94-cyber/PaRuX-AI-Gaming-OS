@@ -1339,6 +1339,7 @@ public static class LocalAiPaths
     public static string ModeFile => Path.Combine(StateDir, "mode.txt");
     public static string TextProfileFile => Path.Combine(StateDir, "text-profile.txt");
     public static string GameMarkerFile => Path.Combine(StateDir, "game-active.json");
+    public static string GamingUnloadedFile => Path.Combine(StateDir, "gaming-unloaded-text.json");
     public static string TextPidFile => Path.Combine(StateDir, "llama-server.pid");
     public static string MediaPidFile => Path.Combine(StateDir, "comfyui.pid");
     public static string ActiveProfileFile => Path.Combine(StateDir, "active-profile.txt");

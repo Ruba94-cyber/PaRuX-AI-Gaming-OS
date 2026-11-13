@@ -817,6 +817,10 @@ public sealed class RuntimeManagerStatus
     public bool GamingShutdownPending { get; set; }
     /// <summary>Why the latest Gaming Mode shutdown attempt did not finish, or null once every runtime has stopped.</summary>
     public string? LastGamingShutdownFailure { get; set; }
+    /// <summary>True when Gaming Mode unloaded the text model and nothing has reloaded it yet. The next request reloads it on demand; nothing heavy loads automatically when Gaming ends.</summary>
+    public bool TextUnloadedForGaming { get; set; }
+    /// <summary>Full path of the model that will be reloaded on demand, set only while <see cref="TextUnloadedForGaming"/> is true.</summary>
+    public string? TextReloadOnDemandModelPath { get; set; }
     /// <summary>Role name currently loaded into the physical text slot, or null when the text
     /// runtime is off or was started outside role tracking (e.g. Model Compare's one-off load).</summary>
     public string? ActiveRole { get; set; }

@@ -122,7 +122,31 @@ public sealed class LocalRuntimeService
         InvalidateGpuSamples();
         if (!result.Success)
             System.Diagnostics.Trace.TraceWarning("Leaving Gaming Mode: " + result.Message);
+        else ScheduleEagerRestoreAfterGaming();
         return result.Success;
+    }
+
+    /// <summary>
+    /// PERF-003c. Leaving Gaming never loads a heavy model by itself: the next request reloads lazily. The one exception is the
+    /// pre-existing always-on Local AI mode (ON), which asks for a resident model. Bounded by the same six-minute limit as a
+    /// request-driven start, and a game that starts meanwhile stops the load inside the process manager.
+    /// </summary>
+    private void ScheduleEagerRestoreAfterGaming()
+    {
+        if (!GamingRestorePolicy.ShouldEagerRestore(_process.GetMode(), _process.GamingActive,
+                _process.GetRememberedGamingUnload() is not null))
+            return;
+        _ = Task.Run(async () =>
+        {
+            using var limit = new CancellationTokenSource(EnsureReadyTimeout);
+            try
+            {
+                RuntimeResult restored = await RunActionAsync("Ensure", limit.Token).ConfigureAwait(false);
+                if (!restored.Success) System.Diagnostics.Trace.TraceWarning("Reloading the model after Gaming: " + restored.Message);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Reloading the model after Gaming failed: " + ex.GetType().Name); }
+        });
     }
 
     /// <returns>True only when every local AI runtime stopped. False means one is still holding resources, so the
@@ -412,6 +436,7 @@ public sealed class LocalRuntimeService
         // or the first request after GameStop is refused as "Gaming Mode activated" while status says it is off.
         if (result.Success && normalized == "gamestop") SetGamingState(false);
         else if (result.Success && normalized == "gamestart") SetGamingState(true);
+        if (result.Success && normalized == "gamestop") ScheduleEagerRestoreAfterGaming();
         return new RuntimeResult(result.Success, result.Message);
     }
 
