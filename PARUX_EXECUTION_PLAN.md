@@ -36,10 +36,10 @@ Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomple
 1. Merge `integration/sec-20261113` after full xUnit and FlaUI on it.
 2. Gaming hard-off must stop speech child processes (GOS-09).
 3. Discovery policy persistence is merged (stub client replaced by the Core-backed client); real-app persistence across restart is not yet checked (see 15). Open: the promotion setting is persisted but not enforced (see 14).
-4. PERF-003 GameStop model restore and PERF-002 idle soak.
-5. GAM-004 library virtualization, then GAM-005 and GAM-006.
-6. SEC-F02, F12, F13, F14, F04 residual.
-7. Version drift: Cli, UpdateHelper, WinMlWorker at 2.0.0; wixproj and offline-bundle defaults.
+4. PERF-003 (warm reuse, bounded auto-escalation, text model remembered across Gaming and restored): DONE in source, unit-tested only (AutoEscalationPolicyTests, WarmReuseAndGamingRestoreTests); no real-runtime run. PERF-002 idle soak: `tools/soak-core-idle.ps1` exists, 2 h run not done.
+5. GAM-004 library virtualization: DONE in source (`ItemsRepeater`, `GameTileListModel`, synthetic library generator, FlaUI test written), unit-tested only; 2,000-title FlaUI run and measurements not done. GAM-004 remainder: cover-size control and grouping not built. GAM-005 and GAM-006 still open.
+6. SEC-F02 (hashed managed pip locks), F12/F13 (archive limits), F14 (skills default-deny, restore quarantine), F04 residual (Autopilot pending runs list/cancel/expiry), F08/F15 (state folder and workspace-root rules): DONE in source, unit-tested only; no real engine install, device or filesystem run (see the owed list below).
+7. Version drift: DONE in source (single `PaRuXProductVersion` in `Directory.Build.props`; projects, wixproj and packaging scripts read it; ReleaseVersionSourceContractTests). No package rebuilt from it yet.
 8. Real QLoRA run and GGUF export on available hardware.
 9. Computer Use real-desktop proof.
 10. Localization remainder, including Android Italian resources.
@@ -49,6 +49,17 @@ Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomple
 14. Discovery policy promotion setting is persisted but not enforced by any Server code path (`ModelDiscoveryPolicy.Decide` is never called) - wire it or state it in the UI.
 15. Real-app checks owed: speech/retrieval/uv/LoRA children during a real Gaming start; Discovery policy persistence across restart; real browser + Android pairing after SEC-F05/F09/F10.
 16. Hardware gates stay BLOCKED-EXTERNAL until the owner connects TV, controllers and eGPU.
+
+**Real-app checks owed before release (none of the items marked DONE in source above has these)**
+- Real engine installs with the hashed locks: Avatar (including the `insightface==0.7.3` sdist build, which may need a C++ toolchain on the user's PC; if it cannot install without one this is a likely P1 and needs a wheel, a prebuilt dependency or an honest "toolchain required" state), Speech, Cutout, LoRA GGUF conversion, 3D, Diffusers, ExLlamaV3; CPU and CUDA torch closures; venv recreation after a Python minor-version mismatch.
+- Gaming hard-off with real child processes alive during a real game start (GOS-09).
+- 2,000-title library: FlaUI run (`GamingLibraryVirtualizationUiTests`) plus scroll/memory measurements.
+- PERF-003 on a real runtime (warm reuse, escalation, restore after GameStop); 2 h idle soak with `tools/soak-core-idle.ps1`.
+- Autopilot pending-run flow (list, approve, cancel, expiry) with a real phone.
+- Backup restore containing a quarantined skill; large portable game ZIP extraction under the new limits.
+- State folder on NTFS outside the profile and on exFAT (ACL restriction and honest refusal).
+- Real browser and Android pairing after SEC-F05/F09/F10.
+- GAM-004 remainder: cover-size control and grouping not built.
 
 ## 2026-11-11 — Cross-PC continuation checkpoint (WIP)
 
