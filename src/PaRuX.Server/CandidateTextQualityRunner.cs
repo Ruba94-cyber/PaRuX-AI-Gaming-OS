@@ -475,9 +475,12 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
                 || TextLaunchDescriptor.BackendForRuntimeDirectory(start.WorkingDirectory) != launch.Descriptor.Backend)
                 throw new InvalidDataException("evaluation_launch_mismatch");
         }
+        // SEC-F01: applied after the launch-descriptor check above; the descriptor ignores credential variables by design.
+        string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
         var process = new Process { StartInfo = start };
         var http = new HttpClient(new HttpClientHandler { UseProxy = false })
         { Timeout = Timeout.InfiniteTimeSpan };
+        ManagedRuntimeCredentials.Authorize(http, apiKey);
         LlamaTextQualitySession? session = null;
         try
         {

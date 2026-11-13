@@ -84,6 +84,8 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
             else
                 Add(start, "--reranking");
             if (!cuda) Add(start, "--device", "Vulkan0");
+            // SEC-F01: this isolated server gets its own per-launch key, through its environment only.
+            string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
 
             var process = new Process { StartInfo = start, EnableRaisingEvents = true };
             if (!process.Start()) throw new InvalidOperationException("Could not start llama-server retrieval process.");
@@ -103,6 +105,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
             var http = new HttpClient(AttestedLoopbackHttp.CreateHandler(
                 _ => new[] { expectedPeer }, allowUnattestedWhenPlatformUnsupported: false))
             { Timeout = TimeSpan.FromMinutes(5) };
+            ManagedRuntimeCredentials.Authorize(http, apiKey);
             _baseUrl = "http://127.0.0.1:" + port;
             _process = process;
             _http = http;
@@ -188,7 +191,7 @@ internal sealed class LlamaRetrievalServer : IAsyncDisposable
 
     private static string Trim(string text)
     {
-        text = (text ?? string.Empty).Trim();
+        text = (ManagedRuntimeCredentials.Redact(text) ?? string.Empty).Trim();
         return text.Length <= 1200 ? text : text[..1200] + "…";
     }
 

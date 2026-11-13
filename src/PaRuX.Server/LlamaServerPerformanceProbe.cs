@@ -137,6 +137,8 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
         foreach (string arg in RuntimeLaunchOptimizer.BuildRuntimeArguments(profile, hasCuda))
             start.ArgumentList.Add(arg);
         RuntimeLaunchOptimizer.ApplyEnvironment(start, profile);
+        // SEC-F01: the isolated probe server gets its own per-launch key, through its environment only.
+        string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
 
         using var process = new Process { StartInfo = start };
         using var sampleCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -151,6 +153,7 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
             Task<string> stderrDrain = process.StandardError.ReadToEndAsync(cancellationToken);
 
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            ManagedRuntimeCredentials.Authorize(http, apiKey);
             string baseUrl = "http://127.0.0.1:" + port;
             await WaitUntilHealthyAsync(http, baseUrl, process, stderrDrain, cancellationToken).ConfigureAwait(false);
             load.Stop();
@@ -591,7 +594,7 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
 
     private static string Trim(string value)
     {
-        value = value.Trim();
+        value = (ManagedRuntimeCredentials.Redact(value) ?? string.Empty).Trim();
         return value.Length <= 900 ? value : value[..900] + "…";
     }
 }

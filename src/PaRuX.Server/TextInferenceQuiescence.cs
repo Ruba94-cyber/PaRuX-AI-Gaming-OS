@@ -20,6 +20,10 @@ public static class TextInferenceQuiescence
     private static int TextPort => LocalAiPaths.TextPort;
     private static string ProviderEndpoint => LocalRuntimeService.CurrentManagedProviderEndpoint;
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    // SEC-F01: /slots of a keyed managed runtime needs the runtime key. That probe goes through the attested, key-carrying
+    // handler, so the key is written only to a connection proven to belong to the launched process. Router child ports and
+    // runtimes without a key keep using the plain client above, which never carries the key.
+    private static readonly HttpClient KeyedHttp = new(ManagedRuntimePeers.CreateHandler()) { Timeout = Timeout.InfiniteTimeSpan };
 
     public static async Task WaitForIdleAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -189,7 +193,7 @@ public static class TextInferenceQuiescence
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(2));
-            using HttpResponseMessage response = await Http.GetAsync(endpoint, timeout.Token).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetSlotsAsync(endpoint, port, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return new SlotProbe(SlotState.Unsupported, 0, 0, ServerResponded: true);
 
@@ -222,6 +226,20 @@ public static class TextInferenceQuiescence
         {
             return new SlotProbe(SlotState.Unsupported, 0, 0, ServerResponded: true);
         }
+    }
+
+    private static async Task<HttpResponseMessage> GetSlotsAsync(string endpoint, int port, CancellationToken token)
+    {
+        if (port == TextPort && ManagedRuntimeCredentials.TryGetForPort(port, out _))
+        {
+            try { return await KeyedHttp.GetAsync(endpoint, token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is HttpRequestException or PeerAttestationException)
+            {
+                // The connection could not be attested to the launched process. Ask once without the key: a keyed runtime
+                // answers 401 (state unknown, never idle) and anything else answers as it always did.
+            }
+        }
+        return await Http.GetAsync(endpoint, token).ConfigureAwait(false);
     }
 
     internal static SlotProbe ParseSlots(JsonElement root)
