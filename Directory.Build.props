@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Single source of truth for the shipped PaRuX product version. Every shipped project
+    (PaRuX.App, PaRuX.Server, PaRuX.Cli, PaRuX.UpdateHelper, PaRuX.WinMlWorker), the MSI/Store/offline
+    packaging scripts and the Android versionName must agree with this value.
+    Change it here only; tests/PaRuX.Server.Tests/ReleaseVersionSourceContractTests.cs enforces it.
+  -->
+  <PropertyGroup>
+    <PaRuXProductVersion>4.1.0</PaRuXProductVersion>
+  </PropertyGroup>
+</Project>

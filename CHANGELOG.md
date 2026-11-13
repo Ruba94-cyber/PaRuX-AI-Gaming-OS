@@ -1,3 +1,11 @@
+## Unreleased (post-4.0.1, source only)
+
+- Portable Standard now stages a complete SHA-256-locked llama.cpp Vulkan engine/DLL payload while omitting the heavyweight CUDA/uv/media/model assets and optional standalone CLI. The ZIP is inspected and its native files hashed; optional Windows smoke launches the isolated Core and native binary loader.
+- Corporate Lite uses a separate CPU-only portable shell. Fixed portable-data-root isolation from existing host Documents/LocalAI; skip the NVIDIA telemetry probe when a portable has no bundled CUDA payload.
+- Windows build/inference/performance/8 GB hardware acceptance remains OPEN. **These changes are not part of the signed v4.0.1 release.**
+
+Security hardening (release-note summary). Core now refuses requests whose Host header is not loopback, this PC's machine name, a LAN IP bound on this PC, or a name listed in `PARUX_ALLOWED_HOSTS` or `allowed-hosts.txt`; reverse-proxy users must add their public name to one of those lists, or the proxied requests get 403. Paired devices expire after 90 days idle and 365 days after pairing, and must be paired again. PaRuX-launched llama-server ports (text, retrieval, performance probe and quality runs) now require a per-launch key that is passed only through the child's environment, and the performance probe connects only to the process it launched.
+
 ## 4.1.0 (beta)
 
 Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by commit prefix). Evidence and limits: `docs/RELEASE_CANDIDATE_4.1.0.md`, `docs/QA_EVIDENCE.md`, `docs/RELEASE_READINESS.md`.
@@ -55,14 +63,6 @@ Summary of `git log v4.0.1..v4.1.0` (about 670 commits; counts approximate, by c
 - Condensed the first-run welcome flow around guided setup and readiness; manual components/models/download controls are progressively disclosed with explicit recovery paths. Mode switching is serialized, and Gaming-only setup no longer claims success after a failed service change.
 - Model downloads now have real progress bars and larger controls. Model Hub search supports Enter, a responsive compact layout, and defers Advanced-only queries during Simple use. The Media Hugging Face checkpoint form has a narrow-screen-safe layout.
 - Regression contracts and FlaUI coverage updated. No Windows build/visual review/inference benchmark has been executed for this source slice.
-
-## Unreleased (post-4.0.1, source only)
-
-- Portable Standard now stages a complete SHA-256-locked llama.cpp Vulkan engine/DLL payload while omitting the heavyweight CUDA/uv/media/model assets and optional standalone CLI. The ZIP is inspected and its native files hashed; optional Windows smoke launches the isolated Core and native binary loader.
-- Corporate Lite uses a separate CPU-only portable shell. Fixed portable-data-root isolation from existing host Documents/LocalAI; skip the NVIDIA telemetry probe when a portable has no bundled CUDA payload.
-- Windows build/inference/performance/8 GB hardware acceptance remains OPEN. **These changes are not part of the signed v4.0.1 release.**
-
-Security hardening (release-note summary). Core now refuses requests whose Host header is not loopback, this PC's machine name, a LAN IP bound on this PC, or a name listed in `PARUX_ALLOWED_HOSTS` or `allowed-hosts.txt`; reverse-proxy users must add their public name to one of those lists, or the proxied requests get 403. Paired devices expire after 90 days idle and 365 days after pairing, and must be paired again. PaRuX-launched llama-server ports (text, retrieval, performance probe and quality runs) now require a per-launch key that is passed only through the child's environment, and the performance probe connects only to the process it launched.
 
 ## 4.0.1 (signed with the owner's local certificates)
 

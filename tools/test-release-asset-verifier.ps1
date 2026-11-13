@@ -360,7 +360,7 @@ try {
     $fakeRepo = Join-Path $testRoot 'android-repo'
     New-Item -ItemType Directory -Path (Join-Path $fakeRepo 'scripts'), (Join-Path $fakeRepo 'src\PaRuX.App'), (Join-Path $fakeRepo 'src\PaRuX.Android') -Force | Out-Null
     Copy-Item -LiteralPath $androidScript -Destination (Join-Path $fakeRepo 'scripts\publish-android-apk.ps1')
-    [IO.File]::WriteAllText((Join-Path $fakeRepo 'src\PaRuX.App\PaRuX.App.csproj'), "<Project><PropertyGroup><Version>$version</Version></PropertyGroup></Project>", [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $fakeRepo 'Directory.Build.props'), "<Project><PropertyGroup><PaRuXProductVersion>$version</PaRuXProductVersion></PropertyGroup></Project>", [Text.UTF8Encoding]::new($false))
     $gradleStub = "@echo off`r`nmkdir app\build\outputs\apk\release 2>nul`r`necho synthetic-apk> app\build\outputs\apk\release\app-release.apk`r`nexit /b 0`r`n"
     [IO.File]::WriteAllText((Join-Path $fakeRepo 'src\PaRuX.Android\gradlew.bat'), $gradleStub, [Text.Encoding]::ASCII)
     $ghMarker = Join-Path $testRoot 'gh-called.txt'

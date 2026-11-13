@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory = $true)][string]$AssetsLock,
     [Parameter(Mandatory = $true)][string]$SbomPath,
     [string]$OutputDir = "",
-    [string]$ProductVersion = "1.5.1",
+    [string]$ProductVersion = "",
     [switch]$RequireSpeech
 )
 
@@ -12,6 +12,11 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($ProductVersion)) {
+    # Central product version: Directory.Build.props at the repository root.
+    [xml]$versionProps = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props") -Raw
+    $ProductVersion = [string]($versionProps.Project.PropertyGroup | ForEach-Object { $_.PaRuXProductVersion } | Where-Object { $_ } | Select-Object -First 1)
+}
 if ([string]::IsNullOrWhiteSpace($OutputDir)) { $OutputDir = Join-Path $repoRoot "artifacts\offline" }
 $MsiPath = [System.IO.Path]::GetFullPath($MsiPath)
 $AssetsRoot = [System.IO.Path]::GetFullPath($AssetsRoot)

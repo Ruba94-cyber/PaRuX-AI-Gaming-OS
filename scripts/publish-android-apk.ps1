@@ -81,10 +81,10 @@ if ($dirty.Count -gt 0) {
     throw "Signed Android publication requires a clean Git checkout; commit/stash/remove all tracked and untracked changes first."
 }
 
-$version = ([xml](Get-Content (Join-Path $root "src\PaRuX.App\PaRuX.App.csproj"))).Project.PropertyGroup.Version |
+$version = ([xml](Get-Content (Join-Path $root "Directory.Build.props"))).Project.PropertyGroup.PaRuXProductVersion |
     Where-Object { $_ } | Select-Object -First 1
 if ([string]::IsNullOrWhiteSpace([string]$version) -or $version -notmatch '^\d+\.\d+\.\d+$') {
-    throw "Could not resolve canonical PaRuX product version from PaRuX.App.csproj."
+    throw "Could not resolve canonical PaRuX product version from Directory.Build.props."
 }
 $version = [string]$version
 $expectedTag = "v$version"

@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>4.1.0</Version>
-    <FileVersion>4.1.0.0</FileVersion>
-    <AssemblyVersion>4.1.0.0</AssemblyVersion>
-    <InformationalVersion>4.1.0</InformationalVersion>
+    <Version>$(PaRuXProductVersion)</Version>
+    <FileVersion>$(PaRuXProductVersion).0</FileVersion>
+    <AssemblyVersion>$(PaRuXProductVersion).0</AssemblyVersion>
+    <InformationalVersion>$(PaRuXProductVersion)</InformationalVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Public binary/process branding is PaRuX Server; keep the internal project/namespace
