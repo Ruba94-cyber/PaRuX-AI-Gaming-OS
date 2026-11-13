@@ -467,26 +467,72 @@ internal sealed class GameTileGrid : StackPanel
 
     /// <summary>
     /// Scrolls the tile at <paramref name="index"/> into view (realizing it first when it is off-screen) and focuses its title button.
-    /// False when there is no such tile.
+    /// False when there is no such tile. A tile outside the realized range does not exist yet: the page is scrolled to where the layout
+    /// puts it, and the tile is focused once the repeater has realized it there (an element created on demand and focused before the
+    /// scroll is applied is recycled by the next layout pass, which left End / Page Down on a tile that was never shown).
     /// </summary>
     internal bool FocusIndex(int index)
     {
         if (index < 0 || index >= _titles.Count) return false;
-        UIElement? element = _presentation == Presentation.Shelf
-            ? _live.FirstOrDefault(p => p.Index == index)?.Card
-            : _repeater?.TryGetElement(index) ?? _repeater?.GetOrCreateElement(index);
-        if (element is not Border { Tag: TileParts parts }) return false;
-        element.UpdateLayout();
-        element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
-        if (!parts.Main.Focus(FocusState.Programmatic))
+        if (_presentation == Presentation.Shelf)
         {
-            // The tile was just realized and is not laid out yet: try once more after the layout pass.
-            DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
-            {
-                if (_repeater?.TryGetElement(index) is Border { Tag: TileParts again }) again.Main.Focus(FocusState.Programmatic);
-            });
+            if (_live.FirstOrDefault(p => p.Index == index)?.Card is not Border { Tag: TileParts shelfTile } shelfCard) return false;
+            shelfCard.UpdateLayout();
+            shelfCard.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            shelfTile.Main.Focus(FocusState.Programmatic);
+            return true;
         }
+        if (_repeater is null) return false;
+        FocusRealized(index, 8, ++_focusRequest);
         return true;
+    }
+
+    private int _focusRequest;
+
+    private void FocusRealized(int index, int attemptsLeft, int request)
+    {
+        if (request != _focusRequest || _repeater is null || index >= _titles.Count) return;
+        if (_repeater.TryGetElement(index) is Border { Tag: TileParts parts } card && card.ActualHeight > 0)
+        {
+            card.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            if (parts.Main.Focus(FocusState.Programmatic) && IsInView(card)) return;
+        }
+        else
+        {
+            ScrollTowards(index);
+        }
+        if (attemptsLeft <= 0) return;
+        DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => FocusRealized(index, attemptsLeft - 1, request));
+    }
+
+    private ScrollViewer? HostViewer()
+    {
+        for (DependencyObject? parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(this); parent is not null;
+             parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(parent))
+            if (parent is ScrollViewer viewer) return viewer;
+        return null;
+    }
+
+    private bool IsInView(FrameworkElement element)
+    {
+        if (HostViewer() is not { Content: UIElement content } viewer) return true;
+        double top = element.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        return top + element.ActualHeight > viewer.VerticalOffset && top < viewer.VerticalOffset + viewer.ViewportHeight;
+    }
+
+    /// <summary>Scrolls the hosting page to where the layout puts the tile at <paramref name="index"/> (rows are uniform).</summary>
+    private void ScrollTowards(int index)
+    {
+        if (_repeater is null || HostViewer() is not { Content: UIElement content } viewer) return;
+        int columns = _presentation == Presentation.List
+            ? 1 : GameTileListModel.Columns(_repeater.ActualWidth, CardWidth, TileGap);
+        double itemHeight = _presentation == Presentation.List ? RowHeight : CardHeight;
+        double rowPitch = itemHeight + (_presentation == Presentation.List ? 8 : TileGap);
+        double gridTop = _repeater.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        double top = gridTop + index / columns * rowPitch;
+        double target = Math.Clamp(top - Math.Max(0, (viewer.ViewportHeight - itemHeight) / 2), 0, viewer.ScrollableHeight);
+        viewer.ChangeView(null, target, null, disableAnimation: true);
     }
 
     /// <summary>

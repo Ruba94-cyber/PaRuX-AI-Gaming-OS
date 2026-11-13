@@ -143,9 +143,19 @@ public sealed class ResponsiveLayoutCoverageTests
                 AssertInsideWindow(app.MainWindow, status, $"ModelHub status text at {label}");
                 // The hardware summary sits below the search/status block inside the page's scroll viewer, so on a small window
                 // (the shell header takes a large share of 560 px) it is reached by scrolling, as Create's status is below.
-                hardware.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
-                UiWait.For(() => hardware.Properties.BoundingRectangle.ValueOrDefault.Height > 0,
-                    $"ModelHub hardware summary visible after scrolling at {label}");
+                // ScrollIntoView is asynchronous: bounds and IsOffscreen are only meaningful once the scroll has landed, so wait for
+                // the settled, on-screen state (two consecutive reads) before asserting on it.
+                int settled = 0;
+                UiWait.For(() =>
+                {
+                    hardware.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
+                    var bounds = hardware.Properties.BoundingRectangle.ValueOrDefault;
+                    var window = app.MainWindow.Properties.BoundingRectangle.ValueOrDefault;
+                    bool visible = bounds.Width > 0 && bounds.Height > 0 && !hardware.Properties.IsOffscreen.ValueOrDefault
+                        && bounds.Top >= window.Top - 10 && bounds.Bottom <= window.Bottom + 10;
+                    settled = visible ? settled + 1 : 0;
+                    return settled >= 2;
+                }, $"ModelHub hardware summary visible after scrolling at {label}");
                 AssertInsideWindow(app.MainWindow, hardware, $"ModelHub hardware summary at {label}");
 
                 AssertNoOverlapWithNav(app, search, $"ModelHub search box at {label}");
