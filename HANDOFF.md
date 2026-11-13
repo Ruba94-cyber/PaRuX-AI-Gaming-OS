@@ -1,3 +1,17 @@
+## 2026-11-13 - Audit, security integration branch and docs cycle (resume here)
+
+**Status: NOT RELEASE READY.** Nothing merged, pushed or tagged today.
+- Branches: `main` `65220b10` (audit baseline). `integration/sec-20261113` `4b9dfa9b` (not merged; contains the stub-project fix `709716d2` and SEC-F01/F05/F10 work). `docs/audit-20261113` (docs only, from `4b9dfa9b`, worktree `.claude/worktrees/docs-20261113`, not merged).
+- Verified: baseline Release x64 incremental build 0 errors; full Server xUnit at `65220b10` 13,327 passed / 0 failed / 9 not executed (QA-047). Clean Release and Debug x64 solution builds on `integration/sec-20261113` (QA-049). llama-server key check on CPU b12283 and Vulkan b10549 (QA-048). Security branch focused tests 583 then 192 passed, Android unit 42 passed, independent review 0 Critical / 0 High, all Medium and Low fixed (QA-049).
+- Pending: FlaUI regression and Android unit tests at baseline (no result yet). Full xUnit and FlaUI on `integration/sec-20261113`. Real browser, real Android device, DNS-rebinding check. ComfyUI authentication, multi-model llama-server, CUDA build.
+- Hardware: RTX 5080 eGPU not attached. Tests run on Radeon 780M iGPU or CPU and are labelled; RTX figures unverified.
+- Resume:
+  1. In the main checkout run `git status` (expect clean) and `git fetch`.
+  2. Full Server xUnit (Release, x64) and FlaUI regression on `integration/sec-20261113`, one exclusive desktop run. Merge to `main` only if both are green.
+  3. Re-run the `65220b10` FlaUI and Android unit tests to close QA-047 pending items.
+  4. Then follow the 2026-11-13 work queue in `PARUX_EXECUTION_PLAN.md`.
+  5. Review and merge `docs/audit-20261113` after step 2; it changes Markdown only.
+
 ## 2026-11-12 - Integration: .NET 10 migration + uniform English/Italian UI
 
 Branch `integration/net10-l10n` merges `chore/net10-migration` (current stack is now .NET 10: every `src`, `tests` and `tools` project targets `net10.0`/`net10.0-windows`; `.ai/` is git-ignored) and `fix/l10n-uniform-ui` (`loc:T` / `T(en,it)` / `UiText.Pick`, `tools/audit-ui-italian.ps1`; run it with `pwsh -ExecutionPolicy Bypass`). GUI/FlaUI tests were not run.
