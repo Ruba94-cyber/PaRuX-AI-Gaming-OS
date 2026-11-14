@@ -57,18 +57,42 @@ public sealed class GatewaySettings
         return this;
     }
 
-    /// <summary>True when nothing else is listening on the loopback port, so Kestrel can bind it.</summary>
+    /// <summary>True when Kestrel can bind the loopback port. The listener table alone is not enough: a socket that is
+    /// bound but not yet (or not visibly) listening, for example another PaRuX Core starting or running under a
+    /// different data root, is missing from it, and a failed Kestrel bind would then stop the whole Core. So the port
+    /// is also probed with a real bind on both loopback families, the same way the Core port is chosen.</summary>
     public static bool IsPortFree(int port)
     {
         try
         {
-            return IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
-                .All(endpoint => endpoint.Port != port);
+            if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == port))
+                return false;
         }
         catch (NetworkInformationException)
         {
-            return true;
+            // Fall through to the bind probe.
         }
+        foreach (IPAddress address in new[] { IPAddress.Loopback, IPAddress.IPv6Loopback })
+        {
+            try
+            {
+                var probe = new System.Net.Sockets.TcpListener(address, port);
+                probe.Start();
+                probe.Stop();
+            }
+            catch (System.Net.Sockets.SocketException e)
+                when (e.SocketErrorCode is System.Net.Sockets.SocketError.AddressFamilyNotSupported
+                    or System.Net.Sockets.SocketError.AddressNotAvailable
+                    or System.Net.Sockets.SocketError.ProtocolNotSupported)
+            {
+                // IPv6 loopback may be disabled; Kestrel's localhost binding tolerates that too.
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
