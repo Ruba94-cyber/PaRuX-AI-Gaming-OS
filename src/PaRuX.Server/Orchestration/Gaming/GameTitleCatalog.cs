@@ -37,6 +37,7 @@ public static class GameTitleCatalog
                 {
                     Platform = PcPlatform,
                     InstallState = string.IsNullOrWhiteSpace(g.InstallState) ? GameInstallStates.Unknown : g.InstallState,
+                    UpdatePending = g.UpdatePending,
                 }));
         }
         foreach (ManualGameDto m in manual)

@@ -124,6 +124,10 @@ internal static class GameUi
         _ => i.Kind == ManualEntryKinds.Application ? T("Application on this PC", "Applicazione su questo PC") : T("Copy on this PC", "Copia su questo PC"),
     };
 
+    /// <summary>Install state plus the store's pending-update note ("Installed · update available").</summary>
+    internal static string StateLabel(GameInstallationDto installation) =>
+        StateLabel(installation.InstallState) + (installation.UpdatePending ? " · " + T("update available", "aggiornamento disponibile") : string.Empty);
+
     internal static string StateLabel(string state) => state switch
     {
         GameInstallStates.Installed => T("Installed", "Installato"),

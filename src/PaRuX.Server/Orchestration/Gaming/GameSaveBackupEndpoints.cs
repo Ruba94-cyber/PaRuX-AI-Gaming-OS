@@ -16,6 +16,17 @@ public static class GameSaveBackupEndpoints
             { return Results.Problem("Save backup inventory is unavailable."); }
         }).RequireDesktopOwner();
 
+        // Read-only: existing folders that probably hold this game's saves. The person still picks the folder.
+        app.MapPost("/api/v1/gaming/save-hints", (GameSaveHintRequest request, GameSaveBackupService backup) =>
+        {
+            if (request is null) return Results.BadRequest();
+            try { return Results.Ok(backup.Hints(request)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { return Results.Problem("Save folder hints are unavailable."); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/save-backups", async (
             GameSaveBackupRequest request, GameSaveBackupService backup, CancellationToken ct) =>
         {

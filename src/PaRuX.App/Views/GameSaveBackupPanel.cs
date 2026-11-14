@@ -15,8 +15,8 @@ namespace PaRuX.Views;
 
 /// <summary>
 /// Desktop-only, opt-in backup of an explicitly selected game save directory.
-/// No game save discovery, restore, installation, hidden timer, or filesystem mutation
-/// outside the PaRuX-owned backup directory.
+/// "Suggest save folders" is an explicit, read-only lookup of existing folders (names and file counts only); the person still
+/// chooses the folder. No installation, hidden timer, or filesystem mutation outside the PaRuX-owned backup directory.
 /// </summary>
 internal sealed class GameSaveBackupPanel : StackPanel
 {
@@ -27,7 +27,9 @@ internal sealed class GameSaveBackupPanel : StackPanel
     private readonly TextBox _label = new() { MaxLength = 100 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _archives = new() { Spacing = 8 };
-    private readonly Button _create = new(), _refresh = new(), _cancel = new();
+    private readonly Button _create = new(), _refresh = new(), _cancel = new(), _suggest = new();
+    private readonly StackPanel _hints = new() { Spacing = 6 };
+    private readonly string? _steamAppId;
     private CancellationTokenSource? _operation;
     private bool _busy;
     private readonly string? _gameName;
@@ -37,9 +39,10 @@ internal sealed class GameSaveBackupPanel : StackPanel
 
     /// <param name="gameName">When set, the panel serves one game: the backup label is fixed to its name and only its backups are listed.</param>
     /// <param name="idSuffix">Appended to every AutomationId so a per-game panel and the shared panel never clash.</param>
-    public GameSaveBackupPanel(string? gameName = null, string idSuffix = "")
+    public GameSaveBackupPanel(string? gameName = null, string idSuffix = "", string? steamAppId = null)
     {
         _gameName = gameName;
+        _steamAppId = steamAppId;
         _suffix = idSuffix;
         Spacing = 10;
         AutomationProperties.SetAutomationId(this, Id("GameSaves_Panel"));
@@ -51,8 +54,8 @@ internal sealed class GameSaveBackupPanel : StackPanel
         });
         Children.Add(new TextBlock
         {
-            Text = T("Choose the save folder yourself (PaRuX does not detect save locations automatically). A local copy is archived with SHA-256 per file. Restore shows a preview first, saves a copy of the current files, never deletes anything and re-checks every file. Disabled during Gaming.",
-                     "Scegli tu la cartella dei salvataggi (PaRuX non la rileva automaticamente). Una copia locale viene archiviata con SHA-256 per file. Il ripristino mostra prima un'anteprima, salva una copia dei file attuali, non elimina nulla e ricontrolla ogni file. Disattivato durante il gioco."),
+            Text = T("Choose the save folder yourself, or press \"Suggest save folders\" to list likely folders that exist on this PC (only folder names and file counts are read; nothing is scanned in the background). A local copy is archived with SHA-256 per file. Restore shows a preview first, saves a copy of the current files, never deletes anything and re-checks every file. Disabled during Gaming.",
+                     "Scegli tu la cartella dei salvataggi, oppure premi \"Suggerisci cartelle salvataggi\" per elencare le cartelle probabili che esistono su questo PC (vengono letti solo nomi di cartelle e numero di file; nulla viene analizzato in background). Una copia locale viene archiviata con SHA-256 per file. Il ripristino mostra prima un'anteprima, salva una copia dei file attuali, non elimina nulla e ricontrolla ogni file. Disattivato durante il gioco."),
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -78,6 +81,11 @@ internal sealed class GameSaveBackupPanel : StackPanel
             }
         };
         Children.Add(browse);
+        _suggest.Content = T("Suggest save folders", "Suggerisci cartelle salvataggi");
+        AutomationProperties.SetAutomationId(_suggest, Id("GameSaves_Suggest"));
+        _suggest.Click += async (_, _) => await SuggestAsync();
+        Children.Add(_suggest);
+        Children.Add(_hints);
 
         _label.Header = T("Backup label", "Etichetta del backup");
         _label.Text = gameName is null ? T("My save", "Il mio salvataggio") : GameSaveHookPresenter.BackupLabel(gameName);
@@ -107,6 +115,76 @@ internal sealed class GameSaveBackupPanel : StackPanel
         Children.Add(_archives);
         Unloaded += (_, _) => _operation?.Cancel();
     }
+
+    /// <summary>Read-only lookup of existing folders that probably hold this game's saves; choosing one only fills the folder field.</summary>
+    private async Task SuggestAsync()
+    {
+        if (_busy || Visibility != Visibility.Visible) return;
+        string name = (_gameName ?? _label.Text ?? string.Empty).Trim();
+        if (name.Length == 0)
+        {
+            _status.Text = T("Enter the game name in the label first.", "Indica prima il nome del gioco nell'etichetta.");
+            return;
+        }
+        _busy = true;
+        _suggest.IsEnabled = false;
+        try
+        {
+            _hints.Children.Clear();
+            var result = await GamingOrchestratorClient.Current.FindGameSaveHintsAsync(new GameSaveHintRequest(name, _steamAppId));
+            if (!result.Succeeded || result.Value is null)
+            {
+                _status.Text = T("Suggestions are unavailable right now (they are paused while a game is running).",
+                    "I suggerimenti non sono disponibili ora (sono sospesi mentre un gioco è in esecuzione).");
+                return;
+            }
+            if (result.Value.Count == 0)
+            {
+                _status.Text = T("No known save folder was found for this game on this PC. Choose the folder yourself.",
+                    "Nessuna cartella di salvataggio nota trovata per questo gioco su questo PC. Scegli tu la cartella.");
+                return;
+            }
+            foreach (GameSaveHintDto hint in result.Value)
+            {
+                var row = new StackPanel { Spacing = 4, Padding = new Thickness(8) };
+                string count = hint.FilesCapped ? $"{hint.Files}+" : hint.Files.ToString(CultureInfo.CurrentUICulture);
+                row.Children.Add(new TextBlock
+                {
+                    Text = hint.Path + $" · {count} " + T("files", "file") + " · " + HintSource(hint.Source) +
+                           (hint.NewestWriteUtc is { } newest ? " · " + T("latest ", "ultimo ") + newest.ToLocalTime().ToString("g", CultureInfo.CurrentUICulture) : string.Empty),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                var use = new Button { Content = T("Use this folder", "Usa questa cartella") };
+                AutomationProperties.SetAutomationId(use, Id("GameSaves_UseHint_") + _hints.Children.Count);
+                AutomationProperties.SetName(use, T("Use save folder ", "Usa la cartella salvataggi ") + hint.Path);
+                string chosen = hint.Path;
+                use.Click += (_, _) =>
+                {
+                    _source.Text = chosen;
+                    _status.Text = T("Folder selected. Nothing was read or changed; press Create local backup when ready.",
+                        "Cartella selezionata. Nulla è stato letto o modificato; premi Crea backup locale quando vuoi.");
+                };
+                row.Children.Add(use);
+                _hints.Children.Add(row);
+            }
+            _status.Text = T($"{result.Value.Count} likely save folder(s) found. Check them before use.",
+                $"{result.Value.Count} cartelle di salvataggio probabili trovate. Controllale prima dell'uso.");
+        }
+        catch (Exception) { _status.Text = T("Could not look for save folders.", "Impossibile cercare le cartelle dei salvataggi."); }
+        finally { _busy = false; _suggest.IsEnabled = true; }
+    }
+
+    private static string HintSource(string source) => source switch
+    {
+        "documents" => T("Documents", "Documenti"),
+        "saved-games" => T("Saved Games", "Giochi salvati"),
+        "appdata-local" => "AppData\\Local",
+        "appdata-roaming" => "AppData\\Roaming",
+        "appdata-locallow" => "AppData\\LocalLow",
+        "steam-cloud" => T("Steam Cloud copy", "Copia Steam Cloud"),
+        "known-title" => T("known location", "posizione nota"),
+        _ => source,
+    };
 
     private async Task CreateAsync()
     {

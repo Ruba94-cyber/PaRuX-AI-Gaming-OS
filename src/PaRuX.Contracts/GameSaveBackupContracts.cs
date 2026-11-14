@@ -3,6 +3,13 @@ namespace PaRuX.Contracts;
 /// <summary>Only a local folder explicitly selected by the desktop owner. Never scans save folders automatically.</summary>
 public sealed record GameSaveBackupRequest(string SourceFolder, string Label);
 
+/// <summary>Asks for read-only save-folder hints for one game. The name is used as one folder name only; the Steam app id is digits only.</summary>
+public sealed record GameSaveHintRequest(string GameName, string? SteamAppId = null);
+
+/// <summary>An existing folder that probably holds the game's saves. Source is "documents", "saved-games", "appdata-local",
+/// "appdata-roaming", "appdata-locallow", "known-title" or "steam-cloud". Files is capped (see FilesCapped). Nothing was read or changed.</summary>
+public sealed record GameSaveHintDto(string Path, string Source, int Files, bool FilesCapped, DateTime? NewestWriteUtc);
+
 /// <summary>Local PaRuX-owned archive; does not include the original source path.</summary>
 public sealed record GameSaveBackupDto(string Id, string Label, int Files, long Bytes, DateTime CreatedUtc, string ArchiveSha256);
 

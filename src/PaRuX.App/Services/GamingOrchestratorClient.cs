@@ -121,6 +121,11 @@ namespace PaRuX.Services
         public Task<GamingCallResult<List<GameSaveBackupDto>>> ListGameSaveBackupsAsync(CancellationToken ct = default) =>
             SendAsync<List<GameSaveBackupDto>>(HttpMethod.Get, "/api/v1/gaming/save-backups", null, ct);
 
+        /// <summary>Read-only list of existing folders that probably hold this game's saves (GAM-005).</summary>
+        public Task<GamingCallResult<List<GameSaveHintDto>>> FindGameSaveHintsAsync(
+            GameSaveHintRequest request, CancellationToken ct = default) =>
+            SendAsync<List<GameSaveHintDto>>(HttpMethod.Post, "/api/v1/gaming/save-hints", request, ct);
+
         public Task<GamingCallResult<GameSaveBackupDto>> CreateGameSaveBackupAsync(
             GameSaveBackupRequest request, CancellationToken ct = default) =>
             SendAsync<GameSaveBackupDto>(HttpMethod.Post, "/api/v1/gaming/save-backups", request, ct, InspectionHttpClient);

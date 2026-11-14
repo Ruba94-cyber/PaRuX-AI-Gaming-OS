@@ -398,7 +398,7 @@ internal sealed class GameDetailPanel : UserControl
         {
             string platform = string.IsNullOrWhiteSpace(installation.Platform) ? "" : " · " + installation.Platform;
             installations.Children.Add(Label(
-                GameUi.SourceLabel(installation) + platform + " · " + GameUi.StateLabel(installation.InstallState), Small));
+                GameUi.SourceLabel(installation) + platform + " · " + GameUi.StateLabel(installation), Small));
         }
         _body.Children.Add(installations);
 
@@ -442,7 +442,8 @@ internal sealed class GameDetailPanel : UserControl
 
         // save backup / restore and launch helpers (advanced, collapsed by default)
         _body.Children.Add(BuildAdvancedSection(T("Save games: back up and restore", "Salvataggi: backup e ripristino"),
-            "GameDetail_Saves_Expander_" + key, new GameSaveBackupPanel(title.Name, "_" + key)));
+            "GameDetail_Saves_Expander_" + key, new GameSaveBackupPanel(title.Name, "_" + key,
+                title.Installations.FirstOrDefault(i => i.Source == GameInstallationSources.Steam)?.SourceGameId)));
         _body.Children.Add(BuildAdvancedSection(T("Launch helpers (advanced)", "Helper di avvio (avanzato)"),
             "GameDetail_Hooks_Expander_" + key, new GameHooksSection(key)));
 

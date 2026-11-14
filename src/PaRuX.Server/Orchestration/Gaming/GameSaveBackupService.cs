@@ -37,6 +37,29 @@ public sealed partial class GameSaveBackupService
     private static bool ValidId(string? id) => id is { Length: 32 } &&
         id.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 
+    /// <summary>True when the folder would be accepted as a backup source (exists, local volume, no link in its path).</summary>
+    internal static bool IsBackupableFolder(string path)
+    {
+        try { CheckLocalDirectory(path); return true; }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException) { return false; }
+    }
+
+    internal SaveHintRoots? HintRootsForTests { get; set; }
+
+    /// <summary>Read-only save-folder hints (GAM-005); refused while Gaming like every other save operation.</summary>
+    public IReadOnlyList<GameSaveHintDto> Hints(GameSaveHintRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (_gaming()) throw new InvalidOperationException("Save folder hints are disabled while Gaming.");
+        string? name = GameSaveLocationHints.CleanName(request.GameName);
+        if (name is null) throw new ArgumentException("Enter a game name.");
+        if (request.SteamAppId is { Length: > 0 } && !GameSaveLocationHints.IsSteamAppId(request.SteamAppId))
+            throw new ArgumentException("The Steam app id must be digits only.");
+        SaveHintRoots roots = HintRootsForTests ?? SaveHintRoots.FromEnvironment(
+            SteamInstallLocator.FindLibraryRoot() is { } steam ? new[] { steam } : Array.Empty<string>());
+        return GameSaveLocationHints.Find(name, request.SteamAppId, roots);
+    }
+
     private static void CheckLocalDirectory(string path)
     {
         if (!Directory.Exists(path) || path.StartsWith(@"\\", StringComparison.Ordinal))
