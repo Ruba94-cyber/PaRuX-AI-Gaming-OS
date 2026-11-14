@@ -23,10 +23,36 @@ param(
     [double]$MaxPrivateGrowthMB = 300,
     [double]$MaxCpuPercent = 5,
     [int]$CpuSustainSamples = 10,
-    [switch]$KeepData
+    [switch]$KeepData,
+    [switch]$SelfTest
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
+
+# The CSV is data, not display text: every number is formatted with the invariant culture so a comma-decimal locale
+# (for example Italian) never puts commas inside a comma-separated row. The header is fixed.
+$script:CsvHeader = 'timestamp,elapsedSeconds,processes,privateMB,workingSetMB,handles,threads,cpuPercent'
+function Format-SoakCsvRow($Row) {
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    return [string]::Format($inv, '{0},{1},{2},{3},{4},{5},{6},{7}', $Row.Timestamp, $Row.Elapsed, $Row.Processes,
+        $Row.PrivateMB, $Row.WorkingSetMB, $Row.Handles, $Row.Threads, $Row.Cpu)
+}
+if ($SelfTest) {
+    # Formats a row under a comma-decimal culture and requires exactly eight fields with dot decimals.
+    $previous = [Threading.Thread]::CurrentThread.CurrentCulture
+    try {
+        [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo('it-IT')
+        $row = [pscustomobject]@{ Timestamp = '2026-01-01T00:00:00.0000000Z'; Elapsed = 30; Processes = 3; PrivateMB = 123.4
+            WorkingSetMB = 98.5; Handles = 1200; Threads = 40; Cpu = 0.125 }
+        $line = Format-SoakCsvRow $row
+        $fields = $line.Split(',')
+        if ($fields.Count -ne 8) { Write-Host ('SELFTEST FAIL: ' + $fields.Count + ' fields in: ' + $line); exit 1 }
+        if ($fields[3] -ne '123.4' -or $fields[4] -ne '98.5' -or $fields[7] -ne '0.125') { Write-Host ('SELFTEST FAIL: ' + $line); exit 1 }
+        if ($script:CsvHeader.Split(',').Count -ne 8) { Write-Host 'SELFTEST FAIL: header'; exit 1 }
+    } finally { [Threading.Thread]::CurrentThread.CurrentCulture = $previous }
+    Write-Host 'SELFTEST OK'
+    exit 0
+}
 
 $root = Split-Path -Parent $PSScriptRoot
 if (-not $ServerPath) { $ServerPath = Join-Path $root 'src\PaRuX.Server\bin\Release\net10.0\PaRuX.Server.exe' }
@@ -132,7 +158,7 @@ try {
         $previous = Read-Tree $core.Id
         $previousAt = Get-Date
         $sustained = 0; $maxSustained = 0
-        Add-Content -LiteralPath $OutCsv -Value 'timestamp,elapsedSeconds,processes,privateMB,workingSetMB,handles,threads,cpuPercent' -Encoding ASCII
+        Add-Content -LiteralPath $OutCsv -Value $script:CsvHeader -Encoding ASCII
         for ($i = 1; $i -le $total; $i++) {
             Start-Sleep -Seconds $SampleSeconds
             if ($core.HasExited) { Write-Host 'Core exited during the soak.'; $exitCode = 4; break }
@@ -149,7 +175,7 @@ try {
                 Threads = $sample.Threads; Cpu = $cpuPercent
             }
             [void]$rows.Add($row)
-            Add-Content -LiteralPath $OutCsv -Encoding ASCII -Value ('{0},{1},{2},{3},{4},{5},{6},{7}' -f $row.Timestamp, $row.Elapsed, $row.Processes, $row.PrivateMB, $row.WorkingSetMB, $row.Handles, $row.Threads, $row.Cpu)
+            Add-Content -LiteralPath $OutCsv -Encoding ASCII -Value (Format-SoakCsvRow $row)
             if ($cpuPercent -gt $MaxCpuPercent) { $sustained++ } else { $sustained = 0 }
             if ($sustained -gt $maxSustained) { $maxSustained = $sustained }
         }
