@@ -459,6 +459,12 @@ internal sealed class GameDetailPanel : UserControl
                 "gestito dallo store. PaRuX lo avvia tramite lo store e non lo modifica."), Small, secondary: true));
         if (managed.Count == 0) return;
 
+        // Per-game launch profile of the first saved entry (profiles are keyed by library entry id).
+        GameInstallationDto profileOwner = managed[0];
+        _body.Children.Add(BuildAdvancedSection(T("Launch profile", "Profilo di avvio"),
+            "GameDetail_LaunchProfile_Expander_" + profileOwner.SourceGameId,
+            new GameLaunchProfileSection(profileOwner.SourceGameId, _console)));
+
         Dictionary<string, ManualGameDto> saved = new(StringComparer.Ordinal);
         try
         {

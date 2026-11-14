@@ -21,6 +21,10 @@ public sealed class GameLaunchProfile
     public int? Height { get; set; }
     public int? RefreshHz { get; set; }
     public bool? Fullscreen { get; set; }
+    /// <summary>Honest statement for clients: fullscreen is stored as a preference. PaRuX never forces a window state on an
+    /// arbitrary executable (the owned-window service refuses to resize games); emulator launches carry their own
+    /// fullscreen switch. Read-only: ignored on input.</summary>
+    public string FullscreenSupport => "preference_only";
     /// <summary>auto | xbox | playstation | switch | generic | keyboard_mouse</summary>
     public string ControllerPreset { get; set; } = "auto";
     /// <summary>balanced | performance | quality | quiet</summary>

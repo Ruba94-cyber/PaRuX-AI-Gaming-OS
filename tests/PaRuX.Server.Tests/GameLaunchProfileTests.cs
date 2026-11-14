@@ -30,6 +30,22 @@ public sealed class GameLaunchProfileTests : IDisposable
     }
 
     [Fact]
+    public void Fullscreen_is_honestly_reported_as_preference_only_and_survives_a_reload()
+    {
+        var store = new GameLaunchProfileStore(StorePath);
+        Assert.Null(store.Save("abc123", Sample()));
+        var json = System.Text.Json.JsonSerializer.Serialize(store.Get("abc123"),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Contains("\"fullscreenSupport\":\"preference_only\"", json);
+        Assert.True(new GameLaunchProfileStore(StorePath).Get("abc123")!.Fullscreen);
+        Assert.Equal("preference_only", new GameLaunchProfile().FullscreenSupport);
+        // A client echoing the read-only field back must not break the save.
+        var echoed = System.Text.Json.JsonSerializer.Deserialize<GameLaunchProfile>(json,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.Null(store.Save("abc123", echoed));
+    }
+
+    [Fact]
     public void Roundtrip_persists_every_field_in_a_versioned_file()
     {
         var store = new GameLaunchProfileStore(StorePath);

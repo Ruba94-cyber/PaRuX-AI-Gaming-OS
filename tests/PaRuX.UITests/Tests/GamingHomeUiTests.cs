@@ -381,6 +381,45 @@ public sealed class GamingHomeUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Launch_profile_section_saves_valid_values_and_shows_server_errors_inline()
+    {
+        const string name = nameof(Launch_profile_section_saves_valid_values_and_shows_server_errors_inline);
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGamingHome(app);
+            const string game = "Profile Fixture Beta";
+            AddGame(app, game);
+            Press(app, ById(app, "GameTileConfigure_" + KeyOf(game)));
+            string id = EntryId(app, game);
+            UiWait.ExpandById(app.MainWindow, "GameDetail_LaunchProfile_Expander_" + id);
+
+            UiWait.ExpandById(app.MainWindow, "GameLaunchProfile_Advanced_" + id);
+            var args = UiWait.ById(app.MainWindow, "GameLaunchProfile_Args_" + id, ControlType.Edit);
+            UiWait.For(() => args.Properties.IsEnabled.ValueOrDefault, "launch profile loaded");
+            foreach (string control in new[] { "Display", "Performance", "Controller" })
+                Assert.False(string.IsNullOrWhiteSpace(ById(app, "GameLaunchProfile_" + control + "_" + id).Name));
+            Assert.False(string.IsNullOrWhiteSpace(ById(app, "GameLaunchProfile_Fullscreen_" + id).Name));
+            Assert.NotNull(ById(app, "GameLaunchProfile_FullscreenNote_" + id));
+
+            // A shell metacharacter is refused by the Core and the reason is shown inline; nothing is stored.
+            args.AsTextBox().Text = "-x a&b";
+            Press(app, ById(app, "GameLaunchProfile_Save_" + id));
+            var status = ById(app, "GameLaunchProfile_Status_" + id);
+            UiWait.For(() => status.Name.Contains("metacharacters", StringComparison.OrdinalIgnoreCase)
+                          || status.Name.Contains("metacaratteri", StringComparison.OrdinalIgnoreCase), "inline server error");
+
+            args.AsTextBox().Text = "-windowed";
+            Press(app, ById(app, "GameLaunchProfile_Save_" + id));
+            string store = Path.Combine(app.DataRoot, "server", "game-launch-profiles.json");
+            UiWait.For(() => File.Exists(store) && SharedFile.ReadAllText(store).Contains("-windowed", StringComparison.Ordinal),
+                "profile persisted");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Empty_filter_state_clears_search_without_losing_saved_library_layout()
     {
         WaitForCoreIdle();

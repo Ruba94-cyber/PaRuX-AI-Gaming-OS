@@ -121,6 +121,10 @@ public sealed class OnScreenKeyboardModel
     public void ToggleLayer() =>
         SetLayer(Layer == OnScreenKeyboardLayer.Letters ? OnScreenKeyboardLayer.Symbols : OnScreenKeyboardLayer.Letters);
 
+    /// <summary>The text and caret the host must write back when the keyboard closes: Done keeps the edits, Cancel
+    /// (B / Escape / Cancel key) restores exactly what the field held when the keyboard opened.</summary>
+    public (string Text, int Caret) ResultFor(bool commit) => commit ? (_text, Caret) : (InitialText, InitialCaret);
+
     /// <summary>VirtualKey codes of the Windows SDK, kept assembly-free like ConsoleNavigationPolicy.
     /// B/Escape cancel; Start (Menu) done; X backspace; Y space; LB/RB move the caret; LT shift; RT layer.</summary>
     public static OnScreenKeyboardPadAction ResolvePad(int virtualKey) => virtualKey switch

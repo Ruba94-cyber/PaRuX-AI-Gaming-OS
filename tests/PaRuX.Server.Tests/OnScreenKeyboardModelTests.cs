@@ -161,4 +161,72 @@ public sealed class OnScreenKeyboardModelTests
     [InlineData(13, false)]
     public void Gamepad_key_range(int vk, bool expected) =>
         Assert.Equal(expected, OnScreenKeyboardModel.IsGamepadKey(vk));
+
+    [Fact]
+    public void Cancel_restores_the_text_and_caret_from_when_the_keyboard_opened()
+    {
+        var m = new OnScreenKeyboardModel("hello", 2);
+        m.Type("X"); m.Space(); m.Backspace(); m.Backspace(); m.MoveCaret(3); m.Type("Z");
+        Assert.NotEqual("hello", m.Text);
+        Assert.Equal(("hello", 2), m.ResultFor(commit: false));
+        Assert.Equal((m.Text, m.Caret), m.ResultFor(commit: true));
+    }
+
+    [Fact]
+    public void Cancel_after_clear_still_restores_the_original()
+    {
+        var m = new OnScreenKeyboardModel("secret", 6, isPassword: true);
+        m.Clear(); m.Type("a");
+        Assert.Equal(("secret", 6), m.ResultFor(false));
+    }
+
+    [Fact]
+    public void Cancel_on_an_untouched_empty_field_keeps_it_empty() =>
+        Assert.Equal(("", 0), new OnScreenKeyboardModel(null, 0).ResultFor(false));
+
+    [Theory]
+    [InlineData(27)]  // Escape
+    [InlineData(196)] // GamepadB
+    public void B_and_Escape_resolve_to_cancel_which_restores(int vk)
+    {
+        Assert.Equal(OnScreenKeyboardPadAction.Cancel, OnScreenKeyboardModel.ResolvePad(vk));
+        var m = new OnScreenKeyboardModel("abc", 3);
+        m.Type("d");
+        Assert.False(m.Apply(OnScreenKeyboardModel.ResolvePad(vk))); // Cancel is the host's job
+        Assert.Equal(("abc", 3), m.ResultFor(false));
+    }
+
+    [Theory]
+    [InlineData(195)] [InlineData(196)] [InlineData(203)] [InlineData(204)] [InlineData(205)] [InlineData(206)] [InlineData(218)]
+    public void Gamepad_keys_arm_the_auto_open_rule(int vk) =>
+        Assert.True(OnScreenKeyboardModel.ShouldAutoOpen(true, OnScreenKeyboardModel.IsGamepadKey(vk), true, false));
+
+    [Theory]
+    [InlineData(9)]   // Tab
+    [InlineData(37)]  // Left arrow
+    [InlineData(40)]  // Down arrow
+    [InlineData(13)]  // Enter
+    [InlineData(115)] // F4 (explicit open path, not auto)
+    public void Physical_keyboard_keys_never_arm_the_auto_open_rule(int vk) =>
+        Assert.False(OnScreenKeyboardModel.ShouldAutoOpen(true, OnScreenKeyboardModel.IsGamepadKey(vk), true, false));
+
+    [Fact]
+    public void Auto_open_is_blocked_while_open_even_after_a_gamepad_key()
+    {
+        bool lastPad = OnScreenKeyboardModel.IsGamepadKey(203);
+        Assert.True(OnScreenKeyboardModel.ShouldAutoOpen(true, lastPad, true, false));
+        Assert.False(OnScreenKeyboardModel.ShouldAutoOpen(true, lastPad, true, true));
+    }
+
+    [Fact]
+    public void Launch_profile_form_parses_args_and_numbers()
+    {
+        Assert.Equal(new[] { "-windowed", "-w", "{width}" }, GameLaunchProfileForm.ParseArgs("  -windowed  -w {width} "));
+        Assert.Empty(GameLaunchProfileForm.ParseArgs(null));
+        Assert.Equal("-a -b", GameLaunchProfileForm.JoinArgs(new[] { "-a", "-b" }));
+        Assert.True(GameLaunchProfileForm.TryParseOptionalInt("", out int? none)); Assert.Null(none);
+        Assert.True(GameLaunchProfileForm.TryParseOptionalInt(" 1920 ", out int? n)); Assert.Equal(1920, n);
+        Assert.False(GameLaunchProfileForm.TryParseOptionalInt("19x", out _));
+        Assert.False(GameLaunchProfileForm.TryParseOptionalInt("-5", out _));
+    }
 }

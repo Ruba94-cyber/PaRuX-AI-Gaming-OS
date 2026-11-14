@@ -23,7 +23,7 @@ namespace PaRuX.Views;
 /// </summary>
 internal sealed class OnScreenKeyboardOverlay : Grid
 {
-    private readonly Viewbox _viewbox = new() { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly Viewbox _viewbox = new() { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 12) };
     private readonly TextBlock _preview = new() { FontSize = 26, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, MinHeight = 40 };
     private readonly StackPanel _keyRows = new() { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly StackPanel _panelContent = new() { Spacing = 8, Width = 1040 };
@@ -97,8 +97,8 @@ internal sealed class OnScreenKeyboardOverlay : Grid
         if (!IsOpen || _model is null || _target is null) return;
         var target = _target;
         var model = _model;
-        if (!commit) Write(target, model.InitialText, model.InitialCaret);
-        else Write(target, model.Text, model.Caret);
+        var (text, caret) = model.ResultFor(commit);
+        Write(target, text, caret);
         Visibility = Visibility.Collapsed;
         _model = null;
         _target = null;

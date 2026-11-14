@@ -244,6 +244,12 @@ namespace PaRuX.Services
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/default-installation",
                 new SetDefaultInstallationRequest(installationId), ct);
 
+        public Task<GamingCallResult<GameLaunchProfileDto>> GetLaunchProfileAsync(string key, CancellationToken ct = default) =>
+            SendAsync<GameLaunchProfileDto>(HttpMethod.Get, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/launch-profile", null, ct);
+
+        public Task<GamingCallResult<GameLaunchProfileDto>> SaveLaunchProfileAsync(string key, GameLaunchProfileDto profile, CancellationToken ct = default) =>
+            SendAsync<GameLaunchProfileDto>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/launch-profile", profile, ct);
+
         public Task<GamingCallResult<EmulatorListDto>> GetEmulatorsAsync(CancellationToken ct = default) =>
             SendAsync<EmulatorListDto>(HttpMethod.Get, "/api/v1/gaming/emulators", null, ct);
 
