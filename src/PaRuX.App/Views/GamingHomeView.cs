@@ -262,15 +262,7 @@ internal sealed class GamingHomeView : StackPanel
             if (generation != _searchEditGeneration) return;
             await ReloadAsync(queryOnly: true);
         };
-        var searchKeyboard = ConsoleKeyboardFlyout.Create(_search, T("Done", "Fine"), T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
-        _search.KeyDown += (_, e) =>
-        {
-            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                searchKeyboard.ShowAt(_search);
-                e.Handled = true;
-            }
-        };
+        // Console/TV: the window-level on-screen keyboard opens for this field (MainWindow.OnScreenKeyboard.cs).
 
         _sort.Items.Add(Choice(T("Sort: Name", "Ordina: Nome"), GameTitleSorts.Name));
         _sort.Items.Add(Choice(T("Sort: Recently played", "Ordina: Giocati di recente"), GameTitleSorts.LastPlayed));
@@ -342,15 +334,6 @@ internal sealed class GamingHomeView : StackPanel
 
         _collectionFilter.PlaceholderText = T("Collection (exact name)", "Collezione (nome esatto)");
         Track(_collectionFilter, "GameTitles_Collection_Filter", T("Filter by collection, exact name", "Filtra per collezione, nome esatto"));
-        var collectionsKeyboard = ConsoleKeyboardFlyout.Create(_collectionFilter, T("Done", "Fine"), T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
-        _collectionFilter.KeyDown += (_, e) =>
-        {
-            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                collectionsKeyboard.ShowAt(_collectionFilter);
-                e.Handled = true;
-            }
-        };
         _collectionApply.Content = T("Apply collection filter", "Applica filtro collezione");
         Track(_collectionApply, "GameTitles_Collection_Apply", T("Apply collection filter", "Applica filtro collezione"));
         _collectionApply.Click += async (_, _) => await ReloadAsync(queryOnly: true);

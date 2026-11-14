@@ -604,15 +604,10 @@ internal sealed class GameDetailPanel : UserControl
             if (await save(parsed)) saved = box.Text ?? string.Empty;
         }
         box.LostFocus += async (_, _) => await CommitAsync();
-        var keyboard = ConsoleKeyboardFlyout.Create(box, T("Done", "Fine"), T("Backspace", "Cancella"), T("Clear", "Svuota"), T("Space", "Spazio"));
+        // Console/TV: the window-level on-screen keyboard opens for this field (MainWindow.OnScreenKeyboard.cs).
         box.KeyDown += async (_, e) =>
         {
-            if (_console && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                keyboard.ShowAt(box);
-                e.Handled = true;
-            }
-            else if (e.Key == Windows.System.VirtualKey.Enter)
+            if (e.Key == Windows.System.VirtualKey.Enter)
             {
                 e.Handled = true;
                 await CommitAsync();

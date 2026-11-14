@@ -191,17 +191,7 @@ public sealed class ManualGameLibraryView : UserControl
         _filter.Header = T("Filter by name", "Filtra per nome");
         AutomationProperties.SetAutomationId(_filter, "GameLibrary_Filter_TextBox");
         _filter.TextChanged += (_, _) => { _page = 0; _detectedPage = 0; RenderGames(); RenderDiscoveredGames(); };
-        // Console/TV: gamepad A or Y on the filter opens the controller-driven on-screen keyboard.
-        var keyboard = ConsoleKeyboardFlyout.Create(_filter, T("Done", "Fine"), T("Backspace", "Cancella"),
-            T("Clear", "Svuota"), T("Space", "Spazio"));
-        _filter.KeyDown += (_, e) =>
-        {
-            if (_consolePresentation && e.Key is Windows.System.VirtualKey.GamepadA or Windows.System.VirtualKey.GamepadY)
-            {
-                keyboard.ShowAt(_filter);
-                e.Handled = true;
-            }
-        };
+        // Console/TV: the window-level on-screen keyboard opens for this field (MainWindow.OnScreenKeyboard.cs).
         root.Children.Add(_filter);
         _storeFilter.Header = T("Store", "Negozio");
         _stateFilter.Header = T("Install state", "Stato installazione");

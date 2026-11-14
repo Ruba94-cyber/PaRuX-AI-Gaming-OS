@@ -112,6 +112,7 @@ namespace PaRuX
             // Never focus-steal or run an idle status poll during gameplay.
             Activated += OnConsoleWindowActivated;
             InitializeConsoleVerifiedReturn();
+            InitializeOnScreenKeyboard();
 
             IntPtr hwnd = WindowNative.GetWindowHandle(this);
             App.Hotkey.Attach(hwnd);
