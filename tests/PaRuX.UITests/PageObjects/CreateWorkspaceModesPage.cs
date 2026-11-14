@@ -28,7 +28,7 @@ internal sealed class CreateWorkspaceModesPage
         AutomationElement status = UiWait.ById(_window, "Create_Operation_Status_Text", ControlType.Text);
         try { status.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView(); }
         catch { /* The status may already be in view or WinUI may not expose ScrollItem. */ }
-        UiWait.For(() =>
+        UiWait.ForStable(() =>
         {
             var status = _window.FindFirstDescendant(cf =>
                 cf.ByAutomationId("Create_Operation_Status_Text").And(cf.ByControlType(ControlType.Text)));

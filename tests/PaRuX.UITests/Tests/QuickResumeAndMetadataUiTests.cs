@@ -213,7 +213,7 @@ public sealed class QuickResumeAndMetadataUiTests
             var restoreMods = ById(app, "QuickResume_Mods_RestoreButton");
             var skinStudio = ById(app, "QuickResume_Mods_SkinStudioButton");
             Assert.False(string.IsNullOrWhiteSpace(skinStudio.Name), "local AI skin studio has an accessible label");
-            Assert.True(skinStudio.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(skinStudio);
             // The strict 44 px check stays; the button is scrolled into view (re-issued per poll) before it is measured.
             ScrollTo(skinStudio, minHeight: 44);
             UiWait.For(() => skinStudio.BoundingRectangle.Height >= 44,
@@ -221,8 +221,8 @@ public sealed class QuickResumeAndMetadataUiTests
 
             Assert.False(string.IsNullOrWhiteSpace(reviewMods.Name), "review AI mods has a name");
             Assert.False(string.IsNullOrWhiteSpace(restoreMods.Name), "restore mod backups has a name");
-            Assert.True(reviewMods.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(restoreMods.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(reviewMods);
+            UiWait.AssertEnabled(restoreMods);
             Assert.False(string.IsNullOrWhiteSpace(refresh.Name), "refresh has an accessible name");
             ScrollTo(refresh, minHeight: 44);
             UiWait.For(() => refresh.BoundingRectangle.Height >= 44, "refresh is at least 44px tall");
@@ -230,7 +230,7 @@ public sealed class QuickResumeAndMetadataUiTests
 
             Refresh(app);
             UiWait.For(() => !string.IsNullOrWhiteSpace(Status(app)), "status after refresh");
-            Assert.True(refresh.Properties.IsEnabled.ValueOrDefault, "refresh stays usable");
+            UiWait.AssertEnabled(refresh, "refresh stays usable");
 
             // Nothing in the list may be a PaRuX process, the test host, or a protected Windows component.
             HashSet<int> own = OwnedPids();

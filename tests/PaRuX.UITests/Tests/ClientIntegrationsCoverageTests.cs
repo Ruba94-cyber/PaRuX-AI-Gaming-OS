@@ -55,7 +55,7 @@ public sealed class ClientIntegrationsCoverageTests
             }
 
             var refreshButton = page.IntegrationsRefreshButton;
-            Assert.True(refreshButton.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(refreshButton,
                 "Integrations refresh button should be enabled.");
         });
 
@@ -127,7 +127,7 @@ public sealed class ClientIntegrationsCoverageTests
                 "Integration launch folder must resolve to an existing directory path: " + folderPath);
 
             var chooseFolderButton = FindByName(app, "Choose folder", ControlType.Button);
-            Assert.True(chooseFolderButton.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(chooseFolderButton,
                 "Choose folder button must be enabled.");
 
             FindByName(app, "DEVELOPER / AI CLIENTS", ControlType.Text);
@@ -147,7 +147,7 @@ public sealed class ClientIntegrationsCoverageTests
             FindByName(app, "Gateway port", ControlType.Text);
 
             var saveButton = FindByName(app, "Save gateway settings", ControlType.Button);
-            Assert.True(saveButton.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(saveButton,
                 "Save gateway settings button must be present and enabled.");
 
             FindTextContaining(app, "Port and on/off changes apply the next time PaRuX starts.");
@@ -168,7 +168,7 @@ public sealed class ClientIntegrationsCoverageTests
             Assert.Contains("each one is limited to the single folder or file you choose", fullConsent, StringComparison.Ordinal);
 
             var scanButton = FindByName(app, "Scan this PC", ControlType.Button);
-            Assert.True(scanButton.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(scanButton,
                 "Scan this PC button must be enabled.");
 
             FindByName(app, "Documents PaRuX writes", ControlType.Text);
@@ -179,7 +179,7 @@ public sealed class ClientIntegrationsCoverageTests
             Assert.Contains("never over a file that already exists", fullDocDescription, StringComparison.Ordinal);
 
             var chooseFolder = FindByName(app, "Choose folder", ControlType.Button);
-            Assert.True(chooseFolder.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(chooseFolder);
 
             var useDefault = FindByName(app, "Use PaRuX's folder", ControlType.Button);
             Assert.NotNull(useDefault);

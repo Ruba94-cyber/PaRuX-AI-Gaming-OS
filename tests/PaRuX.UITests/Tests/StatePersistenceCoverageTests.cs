@@ -112,7 +112,7 @@ public sealed class StatePersistenceCoverageTests
             Assert.Equal(initial.DataRoot, restarted.DataRoot);
             var prompt = UiWait.ById(restarted.MainWindow, "Chat_Prompt_TextBox", ControlType.Edit).AsTextBox();
             Assert.False(prompt.Properties.IsOffscreen.ValueOrDefault);
-            Assert.True(prompt.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(prompt);
             Assert.True(string.IsNullOrEmpty(prompt.Text),
                 "Uncommitted chat composer draft must not persist across app restart; the composer starts clean.");
         }
@@ -171,12 +171,12 @@ public sealed class StatePersistenceCoverageTests
 
             var prompt = UiWait.ById(restarted.MainWindow, "Chat_Prompt_TextBox", ControlType.Edit);
             Assert.False(prompt.Properties.IsOffscreen.ValueOrDefault);
-            Assert.True(prompt.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(prompt,
                 "Chat prompt input should be enabled and not locked by any busy state after restart.");
 
             var send = UiWait.ById(restarted.MainWindow, "Chat_Send_Button", ControlType.Button);
             Assert.False(send.Properties.IsOffscreen.ValueOrDefault);
-            Assert.True(send.Properties.IsEnabled.ValueOrDefault,
+            UiWait.AssertEnabled(send,
                 "Send button should be visible and enabled after restart.");
 
             // Stop generating button is only displayed during active inference generation; after restart it must not be visible.

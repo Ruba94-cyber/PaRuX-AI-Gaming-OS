@@ -67,7 +67,7 @@ public sealed class AdvancedGameManagementUiTests
             Assert.False(string.IsNullOrWhiteSpace(savesSource.Name));
             Assert.False(string.IsNullOrWhiteSpace(savesLabel.Name));
             Assert.False(string.IsNullOrWhiteSpace(savesCreate.Name));
-            Assert.True(savesCreate.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(savesCreate);
             Assert.False(savesCancel.Properties.IsEnabled.ValueOrDefault);
             Assert.False(string.IsNullOrWhiteSpace(savesRefresh.Name));
 

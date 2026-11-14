@@ -89,7 +89,7 @@ public sealed class SettingsCategoriesCoverageTests
                 Assert.NotNull(button);
                 Assert.Equal(ControlType.Button, button.ControlType);
                 Assert.Equal(category, button.Name);
-                Assert.True(button.IsEnabled);
+                UiWait.AssertEnabled(button);
             }
 
             Assert.Equal(13, SettingsCategoriesPage.Categories.Length);
@@ -344,7 +344,7 @@ public sealed class SettingsCategoriesCoverageTests
 
             // Verify General controls remain interactive and present
             var themeCombo = UiWait.ById(app.MainWindow, "Settings_Theme_ComboBox", ControlType.ComboBox);
-            Assert.True(themeCombo.IsEnabled);
+            UiWait.AssertEnabled(themeCombo);
 
             // Switch to Your PC apps
             settings.SelectCategory("Your PC apps");

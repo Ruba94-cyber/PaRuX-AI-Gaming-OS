@@ -45,7 +45,7 @@ public sealed class RecommendationActionsTests
             UiWait.ById(app.MainWindow, "ModelHub_TestRecommendationPromotableFixture_Button", ControlType.Button)
                 .Patterns.Invoke.Pattern.Invoke();
             AutomationElement promote = UiWait.ById(app.MainWindow, PromoteId, ControlType.Button);
-            Assert.True(promote.IsEnabled);
+            UiWait.AssertEnabled(promote);
             promote.Patterns.Invoke.Pattern.Invoke();
 
             AutomationElement? notNow = null;
@@ -80,7 +80,7 @@ public sealed class RecommendationActionsTests
             UiWait.ById(app.MainWindow, "ModelHub_TestRecommendationRollbackFixture_Button", ControlType.Button)
                 .Patterns.Invoke.Pattern.Invoke();
             AutomationElement rollback = UiWait.ById(app.MainWindow, RollbackId, ControlType.Button);
-            Assert.True(rollback.IsEnabled);
+            UiWait.AssertEnabled(rollback);
             Assert.Null(Find(app, PromoteId));
             rollback.Patterns.Invoke.Pattern.Invoke();
 

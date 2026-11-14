@@ -37,7 +37,7 @@ public sealed class WorkflowsCoverageTests
             AutomationElement title = UiWait.ById(app.MainWindow, "Workflows_Title_Text", ControlType.Text);
             Assert.Equal("Workflows", title.Name);
             AutomationElement create = UiWait.ById(app.MainWindow, "Workflows_New_Button", ControlType.Button);
-            Assert.True(create.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(create);
             UiWait.ById(app.MainWindow, "Workflows_Status_Text", ControlType.Text);
         });
 

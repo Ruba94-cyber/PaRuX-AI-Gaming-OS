@@ -84,7 +84,8 @@ internal sealed class UiTestApplication : IDisposable
         bool enableSpeechCancellationFixture = false,
         string? restartDataRoot = null,
         IReadOnlyDictionary<string, string>? extraEnvironment = null,
-        bool enableRuntimeActionRefusalFixture = false)
+        bool enableRuntimeActionRefusalFixture = false,
+        string? uiLanguage = null)
     {
         string isolatedRoot = Path.Combine(Repository.Root, ".ai", "artifacts", "ui-data");
         // Keep Git object/worktree paths below the Windows legacy path limit; the artifact
@@ -146,6 +147,8 @@ internal sealed class UiTestApplication : IDisposable
             ["StudioModeEnabled"] = false,
             ["BubbleMode"] = "Disabled"
         };
+        if (!string.IsNullOrWhiteSpace(uiLanguage))
+            initialSettings["UiLanguage"] = uiLanguage;
         if (!string.IsNullOrWhiteSpace(initialAgentCodingWorkspaceRoot))
             initialSettings["AgentCodingWorkspaceRoot"] = initialAgentCodingWorkspaceRoot;
         if (restartDataRoot == null)

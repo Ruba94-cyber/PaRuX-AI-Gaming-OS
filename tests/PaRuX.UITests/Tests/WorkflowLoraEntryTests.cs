@@ -22,9 +22,9 @@ public sealed class WorkflowLoraEntryTests
             page.OpenCreateWorkspace();
             page.SelectMode("Workflows");
             AutomationElement import = UiWait.ById(app.MainWindow, "Create_Workflow_Import_Button", ControlType.Button);
-            Assert.True(import.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(import);
             AutomationElement search = UiWait.ById(app.MainWindow, "Create_Lora_Search", ControlType.Edit);
-            Assert.True(search.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(search);
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Create_workspace_exposes_workflow_import_and_lora_search), ex); throw; }
     }

@@ -65,7 +65,7 @@ public sealed class MainTourCoverageTests
                 {
                     AutomationElement next = WaitForNamedElement(app, ControlType.Button, "Next",
                         "guided-tour Next button");
-                    Assert.True(next.Properties.IsEnabled.ValueOrDefault,
+                    UiWait.AssertEnabled(next,
                         "Next must be enabled before the final tour step.");
                     Invoke(next);
                 }
@@ -73,7 +73,7 @@ public sealed class MainTourCoverageTests
                 {
                     AutomationElement finish = WaitForNamedElement(app, ControlType.Button, "Finish",
                         "guided-tour Finish button");
-                    Assert.True(finish.Properties.IsEnabled.ValueOrDefault,
+                    UiWait.AssertEnabled(finish,
                         "Finish must be enabled on the final tour step.");
                 }
             }

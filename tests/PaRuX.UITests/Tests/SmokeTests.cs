@@ -132,7 +132,7 @@ public sealed class SmokeTests
                 return applyButton != null;
             }, "completed coding-task apply button");
 
-            Assert.True(applyButton!.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(applyButton!);
         }
         catch (Exception ex)
         {
@@ -1066,7 +1066,7 @@ public sealed class SmokeTests
             UiWait.For(() => result.Name.Contains("Ignore failed", StringComparison.Ordinal),
                 "explicit ignore failure shown beside the Candidate");
             AutomationElement retry = UiWait.ById(app.MainWindow, ignoreAutomationId, ControlType.Button);
-            Assert.True(retry.IsEnabled);
+            UiWait.AssertEnabled(retry);
             Assert.Contains("remains available", UiWait.ById(
                 app.MainWindow, "ModelHub_Status_Text", ControlType.Text).Name, StringComparison.Ordinal);
         }
@@ -1353,7 +1353,7 @@ public sealed class SmokeTests
 
             AutomationElement compare = UiWait.ById(
                 app.MainWindow, "ModelHub_CandidateCompare_" + candidateKey, ControlType.Button);
-            Assert.True(compare.IsEnabled);
+            UiWait.AssertEnabled(compare);
             Assert.Contains("human review", UiWait.ById(
                 app.MainWindow, "ModelHub_CandidateUtilityPolicyStatus_Text", ControlType.Text).Name,
                 StringComparison.OrdinalIgnoreCase);
@@ -1476,7 +1476,7 @@ public sealed class SmokeTests
             AutomationElement retry = UiWait.ById(
                 app.MainWindow, "ModelHub_CandidateEvaluate_" + candidateKey, ControlType.Button);
             Assert.Equal("Evaluate again", retry.Name);
-            Assert.True(retry.IsEnabled);
+            UiWait.AssertEnabled(retry);
             Assert.Null(app.MainWindow.FindFirstDescendant(cf =>
                 cf.ByAutomationId("ModelHub_CandidateCancel_" + candidateKey).And(cf.ByControlType(ControlType.Button))));
         }

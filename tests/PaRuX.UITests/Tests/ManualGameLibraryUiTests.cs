@@ -49,7 +49,7 @@ public sealed class ManualGameLibraryUiTests
             UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library idle after adding the entry");
             string gameId = libraryDocument.RootElement.GetProperty("Games")[0].GetProperty("Id").GetString()!;
             var launch = UiWait.ById(app.MainWindow, "GameLibrary_Launch_" + gameId, ControlType.Button);
-            Assert.True(launch.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(launch);
             // The game is deliberately non-executable. Verify the confirmation appears
             // and that cancelling it cannot start the fixture or change Gaming state.
             launch.Patterns.Invoke.Pattern.Invoke();
@@ -108,8 +108,8 @@ public sealed class ManualGameLibraryUiTests
             // Store buttons are disabled while the library's initial load is busy; they must become usable once it settles.
             UiWait.For(() => steam.Properties.IsEnabled.ValueOrDefault && epic.Properties.IsEnabled.ValueOrDefault,
                 "store refresh buttons enabled after the initial library load");
-            Assert.True(steam.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(epic.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(steam);
+            UiWait.AssertEnabled(epic);
             var inspector = UiWait.ById(app.MainWindow, "GameLibrary_Installer_Inspect_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(inspector.Name));
             var publisherHash = UiWait.ById(app.MainWindow,
@@ -148,15 +148,15 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(rawSelect.Name));
             var controllers = UiWait.ById(app.MainWindow, "GameLibrary_Controllers_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(controllers.Name));
-            Assert.True(controllers.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(controllers);
             var displays = UiWait.ById(app.MainWindow, "GameLibrary_Displays_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(displays.Name));
-            Assert.True(displays.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(displays);
             // Read-only display probe is not clicked in fixture: it must not depend on
             // the current machine monitor layout or change its configuration.
             var allStores = UiWait.ById(app.MainWindow, "GameLibrary_AllStores_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(allStores.Name));
-            Assert.True(allStores.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(allStores);
             var storePrevious = UiWait.ById(app.MainWindow, "GameLibrary_Store_Previous_Button", ControlType.Button);
             var storeNext = UiWait.ById(app.MainWindow, "GameLibrary_Store_Next_Button", ControlType.Button);
             Assert.False(storePrevious.Properties.IsEnabled.ValueOrDefault);
@@ -165,7 +165,7 @@ public sealed class ManualGameLibraryUiTests
             Assert.False(string.IsNullOrWhiteSpace(storePage.Properties.AutomationId.ValueOrDefault));
             var gog = UiWait.ById(app.MainWindow, "GameLibrary_Gog_Refresh_Button", ControlType.Button);
             Assert.False(string.IsNullOrWhiteSpace(gog.Name));
-            Assert.True(gog.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(gog);
             // Do not click: this checks UI reachability without reading a real user's
             // installed game list or making a test depend on machine-specific stores.
         }
@@ -195,7 +195,7 @@ public sealed class ManualGameLibraryUiTests
 
             UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault,
                 "the downloads panel finished its initial read");
-            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(start);
             Assert.False(string.IsNullOrWhiteSpace(start.Name));
             Assert.False(string.IsNullOrWhiteSpace(speed.Name));
             Assert.False(string.IsNullOrWhiteSpace(applySpeed.Name));
