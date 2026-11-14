@@ -25,6 +25,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
     private readonly ExtraStoreCatalog _extra;
     private readonly GameLaunchHookService? _hooks;
+    private readonly GameLaunchProfileStore? _launchProfiles;
     private readonly SemaphoreSlim _launchGate = new(1, 1);
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorStop;
@@ -35,8 +36,10 @@ public sealed class ManualGameSessionService : IDisposable
         SteamGameDiscoveryProvider steam, ILogger<ManualGameSessionService>? logger = null,
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
         GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
-        ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null)
+        ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null,
+        GameLaunchProfileStore? launchProfiles = null)
     {
+        _launchProfiles = launchProfiles;
         _hooks = hooks;
         _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
@@ -72,6 +75,8 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false, "The selected library entry no longer exists.");
             if (!IsSafeLocalExecutable(game.ExecutablePath))
                 return new(false, false, "The saved executable is missing, linked or unsafe to launch.");
+            // The profile's preferred display applies unless the caller chose one explicitly.
+            targetDisplayId ??= _launchProfiles?.Get(game.Id)?.DisplayId;
 
             // No implicit switch away from another game, remote stream or failed transition.
             if (_orchestrator.CurrentState != "AiReady")
@@ -107,13 +112,11 @@ public sealed class ManualGameSessionService : IDisposable
                 string? changedFile = ValidateLaunchOptions(game);
                 if (changedFile is not null) throw new InvalidOperationException(changedFile);
                 string path = Path.GetFullPath(game.ExecutablePath);
-                var info = new ProcessStartInfo
-                {
-                    FileName = path,
-                    WorkingDirectory = string.IsNullOrEmpty(game.WorkingDirectory) ? Path.GetDirectoryName(path)! : game.WorkingDirectory,
-                    Arguments = game.Arguments ?? string.Empty,
-                    UseShellExecute = false
-                };
+                // Per-game launch profile (extra args via ArgumentList). No profile = unchanged legacy launch.
+                GameLaunchProfile? launchProfile = _launchProfiles?.Get(game.Id);
+                if (launchProfile is not null && GameLaunchProfileValidator.Validate(launchProfile) is { } profileProblem)
+                    throw new InvalidOperationException(profileProblem);
+                var info = GameLaunchProfileApplier.BuildStartInfo(game, launchProfile);
                 process = new Process { StartInfo = info };
                 try
                 {
@@ -132,7 +135,7 @@ public sealed class ManualGameSessionService : IDisposable
                         {
                             FileName = path,
                             WorkingDirectory = info.WorkingDirectory,
-                            Arguments = info.Arguments,
+                            Arguments = GameLaunchProfileApplier.ToCommandLine(info),
                             UseShellExecute = true,
                             Verb = "runas"
                         }
