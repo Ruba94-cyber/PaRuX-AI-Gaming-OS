@@ -18,6 +18,10 @@ namespace PaRuX.Models
         public string GameLibrarySort { get; set; } = "name";
         /// <summary>"grid" (default) or "list".</summary>
         public string GameLibraryLayout { get; set; } = "grid";
+        /// <summary>Library grouping: "none" (default), "platform", "source" or "status". Unknown values mean none.</summary>
+        public string GameLibraryGroup { get; set; } = "none";
+        /// <summary>Cover size of the grid: "small", "medium" (default) or "large". Unknown values mean medium.</summary>
+        public string GameLibraryCoverSize { get; set; } = "medium";
         /// <summary>Opt-in: look game covers and descriptions up by name on Steam and Wikipedia (off by default).</summary>
         public bool GameMetadataEnabled { get; set; }
         /// <summary>True once the owner closed the "show covers?" banner in the Gaming library (it never returns).</summary>

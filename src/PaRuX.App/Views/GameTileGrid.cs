@@ -192,7 +192,7 @@ internal static class GameUi
 /// Play never launches by itself: it only
 /// raises <see cref="PlayRequested"/>, and the host runs the existing launch-consent flow.
 /// </summary>
-internal sealed class GameTileGrid : StackPanel
+internal sealed class GameTileGrid : StackPanel, IGameTileSurface
 {
     internal enum Presentation { Grid, List, Shelf }
 
@@ -279,10 +279,15 @@ internal sealed class GameTileGrid : StackPanel
     private string? _openKey;
     private bool _console;
     private bool _selectMode;
+    private double _coverScale = 1.0;
 
-    internal event Action<GameTitleDto>? OpenRequested;
-    internal event Action<GameTitleDto>? PlayRequested;
-    internal event Action<GameTitleDto>? SelectionToggled;
+    public event Action<GameTitleDto>? OpenRequested;
+    public event Action<GameTitleDto>? PlayRequested;
+    public event Action<GameTitleDto>? SelectionToggled;
+
+    /// <summary>False when a parent (the grouped library) owns arrow / Home / End / Page movement across several grids.</summary>
+    internal bool HandlesNavigationKeys { get; set; } = true;
+    public FrameworkElement View => this;
 
     internal GameTileGrid(Presentation presentation)
     {
@@ -312,16 +317,25 @@ internal sealed class GameTileGrid : StackPanel
         }
     }
 
-    internal int Count => _titles.Count;
+    public int Count => _titles.Count;
 
-    internal void SetConsole(bool enabled)
+    public void SetConsole(bool enabled)
     {
         if (_console == enabled) return;
         _console = enabled;
         Render(_titles, _selected, _openKey, forceReset: true);
     }
 
-    internal void SetSelectMode(bool enabled)
+    /// <summary>Cover size of the grid tiles (a <see cref="GameCoverSizes"/> value). The list and the shelf keep their size.</summary>
+    public void SetCoverSize(string size)
+    {
+        double scale = GameCoverSizes.Scale(size);
+        if (Math.Abs(scale - _coverScale) < 0.001) return;
+        _coverScale = scale;
+        if (_presentation == Presentation.Grid) Render(_titles, _selected, _openKey, forceReset: true);
+    }
+
+    public void SetSelectMode(bool enabled)
     {
         if (_selectMode == enabled) return;
         _selectMode = enabled;
@@ -330,8 +344,9 @@ internal sealed class GameTileGrid : StackPanel
 
     private double ScaleF => _console ? 1.3 : 1.0;
     private bool Large => _presentation == Presentation.Shelf;
-    private double CoverWidth => (Large ? 280 : 176) * ScaleF;
-    private double CoverHeight => (Large ? 158 : 220) * ScaleF;
+    private double CoverScaleF => _presentation == Presentation.Grid ? _coverScale : 1.0;
+    private double CoverWidth => (Large ? 280 : 176) * ScaleF * CoverScaleF;
+    private double CoverHeight => (Large ? 158 : 220) * ScaleF * CoverScaleF;
     private double NameSize => _console ? 20 : 15;
     private double SubSize => _console ? 16 : 12;
     private double PlayHeight => _console ? 56 : 44;
@@ -345,7 +360,7 @@ internal sealed class GameTileGrid : StackPanel
     /// Shows <paramref name="titles"/>. The grid and the list keep their tiles when the new list only differs in what a tile shows
     /// (rebinding those tiles in place) and swap the items source only when the set or the order changed; nothing is rebuilt.
     /// </summary>
-    internal void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey) =>
+    public void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey) =>
         Render(titles, selected, openKey, forceReset: false);
 
     private void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey, bool forceReset)
@@ -446,7 +461,7 @@ internal sealed class GameTileGrid : StackPanel
     }
 
     /// <summary>Updates selection and the open title in place (no rebuild, focus is kept).</summary>
-    internal void RefreshState(ISet<string> selected, string? openKey)
+    public void RefreshState(ISet<string> selected, string? openKey)
     {
         _selected = selected;
         _openKey = openKey;
@@ -454,7 +469,7 @@ internal sealed class GameTileGrid : StackPanel
     }
 
     /// <summary>Replaces one title's displayed state after a local edit; the tile itself is kept.</summary>
-    internal void UpdateTitle(GameTitleDto title)
+    public void UpdateTitle(GameTitleDto title)
     {
         if (!_indexByKey.TryGetValue(title.TitleKey, out int index)) return;
         if (_titles is IList<GameTitleDto> { IsReadOnly: false } list && index < list.Count) list[index] = title;
@@ -463,7 +478,7 @@ internal sealed class GameTileGrid : StackPanel
             if (parts.Index == index) { Bind(parts, title, index); break; }
     }
 
-    internal bool FocusTile(string key) => _indexByKey.TryGetValue(key, out int index) && FocusIndex(index);
+    public bool FocusTile(string key) => _indexByKey.TryGetValue(key, out int index) && FocusIndex(index);
 
     /// <summary>
     /// Scrolls the tile at <paramref name="index"/> into view (realizing it first when it is off-screen) and focuses its title button.
@@ -471,7 +486,7 @@ internal sealed class GameTileGrid : StackPanel
     /// puts it, and the tile is focused once the repeater has realized it there (an element created on demand and focused before the
     /// scroll is applied is recycled by the next layout pass, which left End / Page Down on a tile that was never shown).
     /// </summary>
-    internal bool FocusIndex(int index)
+    public bool FocusIndex(int index)
     {
         if (index < 0 || index >= _titles.Count) return false;
         if (_presentation == Presentation.Shelf)
@@ -552,35 +567,43 @@ internal sealed class GameTileGrid : StackPanel
     /// </summary>
     private void OnTileKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_selectMode || e.OriginalSource is not ButtonBase source) return;
+        if (!HandlesNavigationKeys || _selectMode || e.OriginalSource is not ButtonBase source) return;
         TileParts? current = _live.FirstOrDefault(p => ReferenceEquals(p.Main, source));
         if (current is null || current.Index < 0) return;
-        GameLibraryHome.Direction? direction = e.Key switch
-        {
-            Windows.System.VirtualKey.Left or Windows.System.VirtualKey.GamepadDPadLeft => GameLibraryHome.Direction.Left,
-            Windows.System.VirtualKey.Right or Windows.System.VirtualKey.GamepadDPadRight => GameLibraryHome.Direction.Right,
-            Windows.System.VirtualKey.Up or Windows.System.VirtualKey.GamepadDPadUp => GameLibraryHome.Direction.Up,
-            Windows.System.VirtualKey.Down or Windows.System.VirtualKey.GamepadDPadDown => GameLibraryHome.Direction.Down,
-            Windows.System.VirtualKey.Home => GameLibraryHome.Direction.First,
-            Windows.System.VirtualKey.End => GameLibraryHome.Direction.Last,
-            Windows.System.VirtualKey.PageUp or Windows.System.VirtualKey.GamepadLeftShoulder => GameLibraryHome.Direction.PageUp,
-            Windows.System.VirtualKey.PageDown or Windows.System.VirtualKey.GamepadRightShoulder => GameLibraryHome.Direction.PageDown,
-            _ => null,
-        };
+        GameLibraryHome.Direction? direction = DirectionOf(e.Key);
         if (direction is not { } move) return;
         // A single-row shelf must not steal Up/Down focus movement from the page.
         if (_presentation == Presentation.Shelf && move is GameLibraryHome.Direction.Up or GameLibraryHome.Direction.Down) return;
-        int columns = _presentation switch
-        {
-            Presentation.Shelf => Math.Max(1, _titles.Count),
-            Presentation.List => 1,
-            _ => GameTileListModel.Columns(_repeater?.ActualWidth ?? ActualWidth, CardWidth, TileGap),
-        };
-        int next = GameLibraryHome.Move(current.Index, _titles.Count, columns, move);
+        int next = GameLibraryHome.Move(current.Index, _titles.Count, ColumnCount, move);
         if (next >= 0 && next != current.Index && FocusIndex(next)) e.Handled = true;
     }
 
-    internal bool FocusFirst() => FocusIndex(0);
+    public bool FocusFirst() => FocusIndex(0);
+
+    /// <summary>Number of tiles per row right now (1 for the list); the grouped library moves focus with it.</summary>
+    internal int ColumnCount => _presentation switch
+    {
+        Presentation.Shelf => Math.Max(1, _titles.Count),
+        Presentation.List => 1,
+        _ => GameTileListModel.Columns(_repeater?.ActualWidth ?? ActualWidth, CardWidth, TileGap),
+    };
+
+    /// <summary>Position of the tile whose title button is <paramref name="source"/>, or -1.</summary>
+    internal int IndexOfSource(object? source) =>
+        source is ButtonBase button ? _live.FirstOrDefault(p => ReferenceEquals(p.Main, button))?.Index ?? -1 : -1;
+
+    internal static GameLibraryHome.Direction? DirectionOf(Windows.System.VirtualKey key) => key switch
+    {
+        Windows.System.VirtualKey.Left or Windows.System.VirtualKey.GamepadDPadLeft => GameLibraryHome.Direction.Left,
+        Windows.System.VirtualKey.Right or Windows.System.VirtualKey.GamepadDPadRight => GameLibraryHome.Direction.Right,
+        Windows.System.VirtualKey.Up or Windows.System.VirtualKey.GamepadDPadUp => GameLibraryHome.Direction.Up,
+        Windows.System.VirtualKey.Down or Windows.System.VirtualKey.GamepadDPadDown => GameLibraryHome.Direction.Down,
+        Windows.System.VirtualKey.Home => GameLibraryHome.Direction.First,
+        Windows.System.VirtualKey.End => GameLibraryHome.Direction.Last,
+        Windows.System.VirtualKey.PageUp or Windows.System.VirtualKey.GamepadLeftShoulder => GameLibraryHome.Direction.PageUp,
+        Windows.System.VirtualKey.PageDown or Windows.System.VirtualKey.GamepadRightShoulder => GameLibraryHome.Direction.PageDown,
+        _ => null,
+    };
 
     private void ApplyState(TileParts parts)
     {

@@ -33,6 +33,8 @@ internal sealed class GamingHomeView : StackPanel
     // toolbar
     private readonly TextBox _search = new() { MaxLength = 100 };
     private readonly ComboBox _sort = new();
+    private readonly ComboBox _group = new();
+    private readonly ComboBox _coverSize = new();
     private readonly ComboBox _source = new();
     private readonly ComboBox _platform = new();
     private readonly ComboBox _installed = new();
@@ -85,7 +87,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly TextBlock _continueHeading = new();
     private readonly GameTileGrid _shelf = new(GameTileGrid.Presentation.Shelf);
     private readonly TextBlock _libraryHeading = new();
-    private GameTileGrid _grid = new(GameTileGrid.Presentation.Grid);
+    private IGameTileSurface _grid = new GameTileGrid(GameTileGrid.Presentation.Grid);
     private readonly Grid _body = new();
     private readonly StackPanel _libraryColumn = new() { Spacing = 10 };
     private readonly GameDetailPanel _detail;
@@ -160,6 +162,8 @@ internal sealed class GamingHomeView : StackPanel
         {
             SelectByTag(_sort, SortKeys.Contains(data.GameLibrarySort) ? data.GameLibrarySort : GameTitleSorts.Name);
             SelectByTag(_source, SourceKeys.Contains(data.GameLibrarySource) ? data.GameLibrarySource : "");
+            SelectByTag(_group, GameGroupModes.Normalize(data.GameLibraryGroup));
+            SelectByTag(_coverSize, GameCoverSizes.Normalize(data.GameLibraryCoverSize));
             SelectByTag(_installed, data.GameLibraryInstalled is "installed" or "notinstalled" ? data.GameLibraryInstalled : "");
             if (!string.IsNullOrWhiteSpace(data.GameLibraryPlatform)) _knownPlatforms.Add(data.GameLibraryPlatform.Trim());
             if (!string.IsNullOrWhiteSpace(data.GameLibraryTag)) _knownTags.Add(data.GameLibraryTag.Trim());
@@ -172,8 +176,19 @@ internal sealed class GamingHomeView : StackPanel
             UpdateLayoutLabel();
         }
         finally { _applying = false; }
-        _grid = new GameTileGrid(_libraryPresentation);
+        _grid = NewSurface();
         WireGrid(_grid);
+    }
+
+    /// <summary>The library surface for the saved grouping: one virtualized grid, or one per group. Cover size is applied before the first render.</summary>
+    private IGameTileSurface NewSurface()
+    {
+        string mode = GameGroupModes.Normalize(TagOf(_group));
+        IGameTileSurface surface = mode == GameGroupModes.None
+            ? new GameTileGrid(_libraryPresentation)
+            : new GroupedGameLibrary(_libraryPresentation, mode);
+        surface.SetCoverSize(GameCoverSizes.Normalize(TagOf(_coverSize)));
+        return surface;
     }
 
     private void SavePreferences()
@@ -183,6 +198,8 @@ internal sealed class GamingHomeView : StackPanel
         data.GameLibrarySort = TagOf(_sort) ?? GameTitleSorts.Name;
         data.GameLibraryLayout = _layout.IsChecked == true ? "list" : "grid";
         data.GameLibrarySource = TagOf(_source) ?? "";
+        data.GameLibraryGroup = GameGroupModes.Normalize(TagOf(_group));
+        data.GameLibraryCoverSize = GameCoverSizes.Normalize(TagOf(_coverSize));
         data.GameLibraryPlatform = TagOf(_platform) ?? "";
         data.GameLibraryInstalled = TagOf(_installed) ?? "";
         data.GameLibraryFavoritesOnly = _favoritesOnly.IsChecked == true;
@@ -262,6 +279,31 @@ internal sealed class GamingHomeView : StackPanel
         _sort.Items.Add(Choice(T("Sort: Score", "Ordina: Voto"), GameTitleSorts.Score));
         _sort.SelectedIndex = 0;
         Track(_sort, "GameHome_Sort", T("Sort games by", "Ordina i giochi per"));
+
+        _group.Items.Add(Choice(T("Group: None", "Raggruppa: Nessuno"), GameGroupModes.None));
+        _group.Items.Add(Choice(T("Group: Platform", "Raggruppa: Piattaforma"), GameGroupModes.Platform));
+        _group.Items.Add(Choice(T("Group: Source", "Raggruppa: Origine"), GameGroupModes.Source));
+        _group.Items.Add(Choice(T("Group: Status", "Raggruppa: Stato"), GameGroupModes.Status));
+        _group.SelectedIndex = 0;
+        Track(_group, "GameHome_Group", T("Group games by", "Raggruppa i giochi per"));
+        _group.SelectionChanged += (_, _) =>
+        {
+            if (_applying) return;
+            SavePreferences();
+            SwapGrid(_libraryPresentation);
+        };
+
+        _coverSize.Items.Add(Choice(T("Covers: Small", "Copertine: Piccole"), GameCoverSizes.Small));
+        _coverSize.Items.Add(Choice(T("Covers: Medium", "Copertine: Medie"), GameCoverSizes.Medium));
+        _coverSize.Items.Add(Choice(T("Covers: Large", "Copertine: Grandi"), GameCoverSizes.Large));
+        _coverSize.SelectedIndex = 1;
+        Track(_coverSize, "GameHome_CoverSize", T("Cover size", "Dimensione copertine"));
+        _coverSize.SelectionChanged += (_, _) =>
+        {
+            if (_applying) return;
+            SavePreferences();
+            _grid.SetCoverSize(GameCoverSizes.Normalize(TagOf(_coverSize)));
+        };
 
         _source.Items.Add(Choice(T("All sources", "Tutte le origini"), ""));
         _source.Items.Add(Choice("Steam", GameInstallationSources.Steam));
@@ -424,8 +466,10 @@ internal sealed class GamingHomeView : StackPanel
         VariableSizedWrapGrid.SetColumnSpan(_search, 2);
         VariableSizedWrapGrid.SetColumnSpan(_sort, 2);
         VariableSizedWrapGrid.SetColumnSpan(_source, 2);
+        VariableSizedWrapGrid.SetColumnSpan(_group, 2);
+        VariableSizedWrapGrid.SetColumnSpan(_coverSize, 2);
         foreach (FrameworkElement element in new FrameworkElement[]
-                 { _search, _sort, _source, _favoritesOnly, _layout, moreFilters, libraryTools, _refresh })
+                 { _search, _sort, _source, _favoritesOnly, _layout, _group, _coverSize, moreFilters, libraryTools, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -915,6 +959,8 @@ internal sealed class GamingHomeView : StackPanel
         bool list = _layout.IsChecked == true;
         // The button shows what a click switches to.
         _layout.Content = list ? T("Grid view", "Vista a griglia") : T("List view", "Vista a elenco");
+        // Rows of the list have a fixed size; only the cover grid can change its cover size.
+        _coverSize.IsEnabled = !list;
     }
 
     private void RebuildFilterChoices(string? platform, string? tag)
@@ -1115,7 +1161,7 @@ internal sealed class GamingHomeView : StackPanel
             CloseDetail();
             await ReloadAsync();
         };
-        _libraryColumn.Children.Add(_grid);
+        _libraryColumn.Children.Add(_grid.View);
         _body.Children.Add(_libraryColumn);
         _body.Children.Add(_detail);
         ApplyBodyLayout();
@@ -1149,7 +1195,7 @@ internal sealed class GamingHomeView : StackPanel
         ApplySetupProfilePresentation();
     }
 
-    private void WireGrid(GameTileGrid grid)
+    private void WireGrid(IGameTileSurface grid)
     {
         grid.OpenRequested += async t => await OpenAsync(t);
         grid.PlayRequested += async t => await PlayAsync(t);
@@ -1159,19 +1205,19 @@ internal sealed class GamingHomeView : StackPanel
             _grid.RefreshState(_selected, _openKey);
             UpdateBulkBar();
         };
-        AutomationProperties.SetAutomationId(grid, "GameHome_Grid");
-        AutomationProperties.SetName(grid, T("Game library", "Libreria giochi"));
+        AutomationProperties.SetAutomationId(grid.View, "GameHome_Grid");
+        AutomationProperties.SetName(grid.View, T("Game library", "Libreria giochi"));
     }
 
     private void SwapGrid(GameTileGrid.Presentation presentation)
     {
         _libraryPresentation = presentation;
-        _libraryColumn.Children.Remove(_grid);
-        _grid = new GameTileGrid(presentation);
+        _libraryColumn.Children.Remove(_grid.View);
+        _grid = NewSurface();
         WireGrid(_grid);
         _grid.SetConsole(_console);
         _grid.SetSelectMode(_selectMode.IsChecked == true);
-        _libraryColumn.Children.Add(_grid);
+        _libraryColumn.Children.Add(_grid.View);
         _grid.Render(_titles, _selected, _openKey);
         UpdateCoversPrompt();
     }
@@ -1256,7 +1302,7 @@ internal sealed class GamingHomeView : StackPanel
         double size = enabled ? 20 : 14;
         foreach (TextBox box in _boxes) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (Button button in _buttons) { button.FontSize = size; button.MinHeight = enabled ? 56 : 44; }
-        foreach (ComboBox box in new[] { _sort, _source, _platform, _installed, _tag }) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
+        foreach (ComboBox box in new[] { _sort, _source, _platform, _installed, _tag, _group, _coverSize }) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (ToggleButton toggle in new[] { _favoritesOnly, _showHidden, _layout, _metadata, _selectMode }) { toggle.FontSize = size; toggle.MinHeight = enabled ? 56 : 44; }
         _status.FontSize = size;
         _healthSummary.FontSize = size;
