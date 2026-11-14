@@ -24,7 +24,7 @@ public sealed class ManagedEngineFollowUpTests
     {
         Assert.Equal(ManagedUvCachePlan.KnownBuildSuffixLength, (SdistSuffix + DeepestLinkerPath).Length);
         Assert.True(ManagedUvCachePlan.MaxCacheRootLength + ManagedUvCachePlan.KnownBuildSuffixLength < 260);
-        string realFailingCache = @"C:\Users\paolo\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data\ai-runtimes\toolchain\cache";
+        string realFailingCache = @"C:\Users\runner\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data\ai-runtimes\toolchain\cache";
         Assert.True((realFailingCache + SdistSuffix + DeepestLinkerPath).Length >= 260);
         Assert.True(realFailingCache.Length > ManagedUvCachePlan.MaxCacheRootLength);
     }
@@ -55,7 +55,7 @@ public sealed class ManagedEngineFollowUpTests
         var ex = Assert.Throws<ManagedDataPathTooLongException>(() => ManagedUvCachePlan.RequireVenvPathBudget(deepVenv));
         Assert.Equal("data_path_too_long", ManagedInstallFailureCode.Of(ex));
         // The real 100-character data root of the first run still fits.
-        ManagedUvCachePlan.RequireVenvPathBudget(@"C:\Users\paolo\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data\ai-runtimes\avatar\LatentSync\.venv");
+        ManagedUvCachePlan.RequireVenvPathBudget(@"C:\Users\runner\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data\ai-runtimes\avatar\LatentSync\.venv");
     }
 
     [Fact]
@@ -70,17 +70,17 @@ public sealed class ManagedEngineFollowUpTests
     [Fact]
     public void A_deep_data_root_gets_a_short_per_data_root_cache_under_the_user_profile()
     {
-        string dataRoot = @"C:\Users\paolo\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data";
+        string dataRoot = @"C:\Users\runner\Desktop\PaRuX\.ai\artifacts\realapp-20261114\engines-data";
         string deepCache = dataRoot + @"\ai-runtimes\toolchain\cache";
-        ManagedUvCachePlan.Plan plan = PlanFor(deepCache, dataRoot, null, @"C:\Users\paolo\AppData\Local");
+        ManagedUvCachePlan.Plan plan = PlanFor(deepCache, dataRoot, null, @"C:\Users\runner\AppData\Local");
         Assert.True(plan.Relocated);
         Assert.True(plan.WithinBudget);
         Assert.True(plan.CacheRoot.Length <= ManagedUvCachePlan.MaxCacheRootLength);
-        Assert.StartsWith(@"C:\Users\paolo\AppData\Local\PaRuX\uvc\", plan.CacheRoot);
+        Assert.StartsWith(@"C:\Users\runner\AppData\Local\PaRuX\uvc\", plan.CacheRoot);
         Assert.True((plan.CacheRoot + SdistSuffix + DeepestLinkerPath).Length < 260);
         // Stable per data root, different between two data roots.
-        Assert.Equal(plan.CacheRoot, PlanFor(deepCache, dataRoot.ToUpperInvariant() + @"\", null, @"C:\Users\paolo\AppData\Local").CacheRoot);
-        Assert.NotEqual(plan.CacheRoot, PlanFor(deepCache, dataRoot + "2", null, @"C:\Users\paolo\AppData\Local").CacheRoot);
+        Assert.Equal(plan.CacheRoot, PlanFor(deepCache, dataRoot.ToUpperInvariant() + @"\", null, @"C:\Users\runner\AppData\Local").CacheRoot);
+        Assert.NotEqual(plan.CacheRoot, PlanFor(deepCache, dataRoot + "2", null, @"C:\Users\runner\AppData\Local").CacheRoot);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class ManagedEngineFollowUpTests
     {
         string portable = @"D:\Some\Very\Deep\Folder\Structure\For\A\Usb\Stick\With\Many\Nested\Directories\Inside\PaRuX-portable";
         string dataRoot = portable + @"\PaRuXData";
-        ManagedUvCachePlan.Plan plan = PlanFor(dataRoot + @"\ai-runtimes\toolchain\cache", dataRoot, dataRoot, @"C:\Users\paolo\AppData\Local");
+        ManagedUvCachePlan.Plan plan = PlanFor(dataRoot + @"\ai-runtimes\toolchain\cache", dataRoot, dataRoot, @"C:\Users\runner\AppData\Local");
         Assert.False(plan.Relocated);
         Assert.False(plan.WithinBudget);
         Assert.StartsWith(dataRoot, plan.CacheRoot);
