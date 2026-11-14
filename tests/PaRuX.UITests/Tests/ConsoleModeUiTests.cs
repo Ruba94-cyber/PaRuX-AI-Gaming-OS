@@ -55,4 +55,32 @@ public sealed class ConsoleModeUiTests
             throw;
         }
     }
+
+    /// <summary>EMULATED: keyboard Escape is the same ConsoleNavigationPolicy action as GamepadB. Physical B is BLOCKED-HW.</summary>
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Escape_key_exits_console_presenter_like_gamepad_B_emulated()
+    {
+        using var app = new UiTestApplication(nameof(Escape_key_exits_console_presenter_like_gamepad_B_emulated));
+        try
+        {
+            string id = "MainWindow_ConsoleMode_Button";
+            var button = UiWait.ById(app.MainWindow, id, ControlType.Button);
+            string desktopName = button.Name;
+            button.Patterns.Invoke.Pattern.Invoke();
+            UiWait.For(() => UiWait.ById(app.MainWindow, id, ControlType.Button).Name != desktopName, "console entered");
+            // B/Escape is deliberately inert while a library command is running (ConsoleNavigationPolicy), so wait for idle first.
+            var idleWatch = System.Diagnostics.Stopwatch.StartNew();
+            UiWait.For(() => UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button).IsEnabled, "console idle", TimeSpan.FromSeconds(60));
+            System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "parux-console-idle-seconds.txt"), idleWatch.Elapsed.TotalSeconds.ToString("F1"));
+            app.MainWindow.Focus();
+            FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+            UiWait.For(() => UiWait.ById(app.MainWindow, id, ControlType.Button).Name == desktopName,
+                "Escape (emulated B) returned to desktop presenter");
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(nameof(Escape_key_exits_console_presenter_like_gamepad_B_emulated), ex);
+            throw;
+        }
+    }
 }
