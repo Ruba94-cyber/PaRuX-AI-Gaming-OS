@@ -18,7 +18,12 @@ namespace PaRuX.Services
         public const string Ready = "Create is ready. Every generation runs locally through PaRuX Core.";
         public const string NeedsSetup = "Image generation needs a one-time setup. Use the setup card in the Image section; everything runs and stays on this PC.";
 
-        public static string For(bool ready) => ready ? Ready : NeedsSetup;
+        public const string ItChecking = "Controllo di ciò che serve alla generazione di immagini su questo PC.";
+        public const string ItReady = "Crea è pronto. Ogni generazione viene eseguita in locale tramite PaRuX Core.";
+        public const string ItNeedsSetup = "La generazione di immagini richiede una configurazione una tantum. Usa la scheda di configurazione nella sezione Immagine; tutto viene eseguito e resta su questo PC.";
+
+        public static string For(bool ready, bool italian = false) =>
+            ready ? (italian ? ItReady : Ready) : (italian ? ItNeedsSetup : NeedsSetup);
 
         /// <summary>The Create mode whose tool the image-generation setup state describes.</summary>
         public const string ImageMode = "Image";
@@ -28,14 +33,15 @@ namespace PaRuX.Services
         /// other tabs (Gallery, Video, Speech, ...) show nothing here so an unrelated banner never sits above them.
         /// <paramref name="imageReady"/> is null until the first setup status has arrived.
         /// </summary>
-        public static string ForMode(string? mode, bool? imageReady) =>
+        public static string ForMode(string? mode, bool? imageReady, bool italian = false) =>
             !string.Equals(mode, ImageMode, StringComparison.Ordinal) ? string.Empty
-            : imageReady is null ? Checking
-            : For(imageReady.Value);
+            : imageReady is null ? (italian ? ItChecking : Checking)
+            : For(imageReady.Value, italian);
 
         /// <summary>True when the line still shows only a setup-state message (or nothing), so the refresh may update it.</summary>
         public static bool MayReplace(string? current) =>
-            string.IsNullOrWhiteSpace(current) || current == Checking || current == Ready || current == NeedsSetup;
+            string.IsNullOrWhiteSpace(current) || current == Checking || current == Ready || current == NeedsSetup
+            || current == ItChecking || current == ItReady || current == ItNeedsSetup;
     }
 
     /// <summary>What the Create "Set up image generation" card shows for one server state. Pure, so tests can pin it.</summary>

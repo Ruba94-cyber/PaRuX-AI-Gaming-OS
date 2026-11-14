@@ -15,6 +15,8 @@ namespace PaRuX.Views
         private SelectorBar? _modeBar;
         private string? _selectedMode;
         private bool? _imageSetupReady;
+        private static bool SetupLineItalian =>
+            System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
 
         private UIElement BuildModeTabs(IReadOnlyList<(string Name, UIElement Panel)> modes)
         {
@@ -53,7 +55,7 @@ namespace PaRuX.Views
             _selectedMode = selected;
             // The setup line describes image generation only; follow the tab unless a job/validation message owns the line.
             if (!_operations.IsBusy && !_operationMessageSticky && CreateSetupStatusLine.MayReplace(_status.Text))
-                _status.Text = CreateSetupStatusLine.ForMode(selected, _imageSetupReady);
+                _status.Text = CreateSetupStatusLine.ForMode(selected, _imageSetupReady, SetupLineItalian);
         }
     }
 }

@@ -39,6 +39,19 @@ public sealed class CreateSetupStatusLineTests
         Assert.Equal(expected, CreateSetupStatusLine.ForMode(mode, ready));
 
     [Fact]
+    public void The_italian_setup_lines_are_distinct_replaceable_and_never_shown_on_other_tabs()
+    {
+        Assert.Equal(CreateSetupStatusLine.ItNeedsSetup, CreateSetupStatusLine.ForMode("Image", false, italian: true));
+        Assert.Equal(CreateSetupStatusLine.ItReady, CreateSetupStatusLine.ForMode("Image", true, italian: true));
+        Assert.Equal(CreateSetupStatusLine.ItChecking, CreateSetupStatusLine.ForMode("Image", null, italian: true));
+        Assert.Equal(string.Empty, CreateSetupStatusLine.ForMode("Gallery", false, italian: true));
+        Assert.NotEqual(CreateSetupStatusLine.NeedsSetup, CreateSetupStatusLine.ItNeedsSetup);
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItNeedsSetup));
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItReady));
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItChecking));
+    }
+
+    [Fact]
     public void An_empty_line_on_other_tabs_may_be_refilled_when_the_image_tab_returns() =>
         Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ForMode("Gallery", false)));
 

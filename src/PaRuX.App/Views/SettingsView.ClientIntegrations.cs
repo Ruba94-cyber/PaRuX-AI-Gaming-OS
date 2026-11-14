@@ -83,10 +83,10 @@ namespace PaRuX.Views
                 ? T("Gateway running at ", "Gateway in esecuzione su ") + status.BaseUrl
                 : status.Enabled ? T("Gateway port ", "Porta del gateway ") + status.ConfiguredPort + T(" is in use by another program", " già in uso da un altro programma") : T("Gateway is off", "Il gateway è disattivato");
             string routing = status.LastRouting == null
-                ? "No external requests yet."
-                : "Last request: " + status.LastRouting.RequestedModel + " → " + status.LastRouting.Role
+                ? T("No external requests yet.", "Nessuna richiesta esterna finora.")
+                : T("Last request: ", "Ultima richiesta: ") + status.LastRouting.RequestedModel + " → " + status.LastRouting.Role
                   + (status.LastRouting.ModelFile != null ? " (" + status.LastRouting.ModelFile + ")" : string.Empty)
-                  + " at " + status.LastRouting.Utc.ToLocalTime().ToString("HH:mm:ss") + ".";
+                  + T(" at ", " alle ") + status.LastRouting.Utc.ToLocalTime().ToString("HH:mm:ss") + ".";
             GatewayDetailText.Text = T("Models: ", "Modelli: ") + string.Join(", ", status.Models.Select(m => m.Id)) + ". " + routing
                 + (status.RestartRequired ? T(" Restart PaRuX to apply the saved port or on/off change.", " Riavvia PaRuX per applicare la modifica a porta o attivazione salvata.") : string.Empty);
             GenericOpenAiUrlText.Text = status.BaseUrl + "/v1";
