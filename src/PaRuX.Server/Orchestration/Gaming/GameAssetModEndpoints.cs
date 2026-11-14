@@ -23,21 +23,18 @@ public static class GameAssetModEndpoints
             GameModDropInInstallRequest request, GameModDropInService service) =>
         {
             try { return Results.Ok(service.Install(request)) as IResult; }
-            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
-            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
-                InvalidDataException or JsonException or System.Security.SecurityException)
-            { return Results.Problem("Could not safely place the mod ZIP. An interrupted receipt may require cleanup."); }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or
+                UnauthorizedAccessException or InvalidDataException or JsonException or System.Security.SecurityException)
+            { return MapInstallFailure(ex); }
         }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(16_384));
 
         app.MapPost("/api/v1/gaming/mods/drop-in/remove", (
             GameModDropInRemoveRequest request, GameModDropInService service) =>
         {
             try { return service.Remove(request) ? Results.NoContent() : Results.NotFound() as IResult; }
-            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
-            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            { return Results.Problem("PaRuX refused to remove the mod; an unsafe or modified file was retained."); }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or
+                UnauthorizedAccessException or InvalidDataException)
+            { return MapRemoveFailure(ex); }
         }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(8_192));
 
         app.MapGet("/api/v1/gaming/mods/adapters",
@@ -77,4 +74,29 @@ public static class GameAssetModEndpoints
             { return Results.Problem("Could not safely create the asset ZIP; no user-managed game files were changed."); }
         }).RequireDesktopOwner().WithMetadata(new RequestSizeLimitAttribute(16384));
     }
+
+    /// <summary>
+    /// A package PaRuX refuses to place (corrupt, tampered, traversal, oversized, wrong digest) is a client
+    /// error, not a server fault: it answers 400 with the honest reason. Only genuine I/O faults stay 500.
+    /// </summary>
+    internal static IResult MapInstallFailure(Exception ex) => ex switch
+    {
+        ArgumentException => Results.BadRequest(new { error = ex.Message }),
+        InvalidOperationException => Results.Conflict(new { error = ex.Message }),
+        InvalidDataException or JsonException => Results.BadRequest(new { error = ex.Message }),
+        _ => Results.Problem("Could not safely place the mod ZIP. An interrupted receipt may require cleanup.")
+    };
+
+    /// <summary>A ZIP held open by another program is a retryable conflict, never a 500; the file stays.</summary>
+    internal static IResult MapRemoveFailure(Exception ex) => ex switch
+    {
+        ArgumentException => Results.BadRequest(new { error = ex.Message }),
+        InvalidOperationException => Results.Conflict(new { error = ex.Message }),
+        InvalidDataException => Results.Problem("PaRuX refused to remove the mod; an unsafe or modified file was retained."),
+        IOException or UnauthorizedAccessException => Results.Conflict(new
+        {
+            error = "The mod ZIP is in use or not accessible. Close the program using it and try again; nothing was deleted."
+        }),
+        _ => Results.Problem("PaRuX refused to remove the mod; an unsafe or modified file was retained.")
+    };
 }
