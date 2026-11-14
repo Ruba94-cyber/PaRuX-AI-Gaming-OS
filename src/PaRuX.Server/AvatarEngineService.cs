@@ -38,6 +38,14 @@ public sealed class AvatarEngineService
     private static string CheckpointsDir => Path.Combine(RepoRoot, "checkpoints");
     private static string DefaultPhotoPath => Path.Combine(RuntimeRoot, "default-avatar.jpg");
     private static string LastErrorPath => Path.Combine(RuntimeRoot, "last-install-error.txt");
+    private static string LastErrorCodePath => Path.Combine(RuntimeRoot, "last-install-error-code.txt");
+
+    /// <summary>The stable code of the last failed install ("build_tools_required"), or null.</summary>
+    internal static string? ReadLastErrorCode()
+    {
+        try { return File.Exists(LastErrorCodePath) ? File.ReadAllText(LastErrorCodePath).Trim() : null; }
+        catch (IOException) { return null; }
+    }
 
     /// <summary>True while Gaming Mode has the avatar engine paused (admission closed).</summary>
     internal bool GamingPaused => _scope?.IsClosed == true;
@@ -58,14 +66,14 @@ public sealed class AvatarEngineService
         bool checkpointsPresent = File.Exists(Path.Combine(CheckpointsDir, "latentsync_unet.pt"))
             && File.Exists(Path.Combine(CheckpointsDir, "whisper", "tiny.pt"));
         if (!File.Exists(VenvPython) || !checkpointsPresent)
-            return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError };
+            return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError, LastErrorCode = lastError == null ? null : ReadLastErrorCode() };
 
         try
         {
             (int exitCode, _, _) = await RunCapturedAsync(VenvPython,
                 "-c \"import torch, diffusers, transformers, cv2, insightface, imageio_ffmpeg\"",
                 ct, TimeSpan.FromSeconds(60), workingDirectory: RepoRoot);
-            return new AvatarEngineStatus { Installed = exitCode == 0, HasDefaultPhoto = HasDefaultPhoto, LastError = exitCode == 0 ? null : lastError };
+            return new AvatarEngineStatus { Installed = exitCode == 0, HasDefaultPhoto = HasDefaultPhoto, LastError = exitCode == 0 ? null : lastError, LastErrorCode = exitCode == 0 || lastError == null ? null : ReadLastErrorCode() };
         }
         catch (UnavailableDuringGamingException)
         {
@@ -78,7 +86,7 @@ public sealed class AvatarEngineService
         }
         catch
         {
-            return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError };
+            return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError, LastErrorCode = lastError == null ? null : ReadLastErrorCode() };
         }
     }
 
@@ -128,13 +136,22 @@ public sealed class AvatarEngineService
                 Path.Combine(CheckpointsDir, "latentsync_unet.pt"), UnetSha256, UnetBytes, ct);
 
             try { File.Delete(LastErrorPath); } catch { }
+            try { File.Delete(LastErrorCodePath); } catch { }
             return log.ToString();
         }
         catch (Exception ex) when (ex is not (UnavailableDuringGamingException or OperationCanceledException))
         {
             // A Gaming interruption or a cancel is not an install defect and must not become "last install error".
-            string detail = Trim(ex.Message);
+            bool buildTools = ex is ManagedBuildToolsRequiredException;
+            string detail = buildTools ? ex.Message : Trim(ex.Message);
             try { await File.WriteAllTextAsync(LastErrorPath, detail, ct); } catch { }
+            // The code lets every UI show the localized "C++ build tools required" state; other failures carry none.
+            try
+            {
+                if (buildTools) await File.WriteAllTextAsync(LastErrorCodePath, ManagedBuildToolsFailure.Code, ct);
+                else File.Delete(LastErrorCodePath);
+            }
+            catch { }
             throw;
         }
     }

@@ -4927,7 +4927,9 @@ namespace PaRuX.Views
                 {
                     AvatarEngineStatusText.Text = string.IsNullOrEmpty(status.LastError)
                         ? T("Local engine not installed yet.", "Motore locale non ancora installato.")
-                        : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
+                        : status.LastErrorCode == "build_tools_required"
+                            ? AvatarBuildToolsRequiredText(T)
+                            : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
                     AvatarInstallButton.Visibility = Visibility.Visible;
                 }
             }
@@ -4938,6 +4940,11 @@ namespace PaRuX.Views
             }
             await RefreshAvatarStatusAsync();
         }
+
+        /// <summary>The avatar engine needs a package that is only published as source (insightface), so a C++ compiler must exist on this PC.</summary>
+        internal static string AvatarBuildToolsRequiredText(Func<string, string, string> t) =>
+            t("C++ build tools are required to install the avatar engine: one of its packages must be compiled on this PC. Install \"Visual Studio Build Tools\" with the \"Desktop development with C++\" workload, then press Install again. PaRuX does not install it for you.",
+              "Per installare il motore avatar servono gli strumenti di compilazione C++: uno dei suoi pacchetti va compilato su questo PC. Installa \"Visual Studio Build Tools\" con il carico di lavoro \"Sviluppo di applicazioni desktop con C++\", poi premi di nuovo Installa. PaRuX non lo installa al posto tuo.");
 
         private async void AvatarInstall_Click(object sender, RoutedEventArgs e)
         {

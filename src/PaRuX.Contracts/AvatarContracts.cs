@@ -40,6 +40,8 @@ public sealed class AvatarEngineStatus
     public bool Installed { get; set; }
     public bool HasDefaultPhoto { get; set; }
     public string? LastError { get; set; }
+    /// <summary>Stable code of the last failed install (for example "build_tools_required") so each UI localizes the text itself; null otherwise.</summary>
+    public string? LastErrorCode { get; set; }
 }
 
 public sealed class AvatarPhotoRequest

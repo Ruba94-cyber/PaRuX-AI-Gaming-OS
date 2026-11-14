@@ -286,7 +286,12 @@ public static class ManagedPythonRuntime
         (int exit, string stdout, string stderr) = await RunUvAsync(
             args, ct, timeout ?? TimeSpan.FromMinutes(20)).ConfigureAwait(false);
         string log = stdout + (string.IsNullOrWhiteSpace(stderr) ? string.Empty : "\n" + stderr);
-        if (exit != 0) throw new InvalidOperationException("Managed package installation failed:\n" + Trim(log));
+        if (exit != 0)
+        {
+            if (ManagedBuildToolsFailure.IsMissingToolchain(log, out string buildPackage))
+                throw new ManagedBuildToolsRequiredException(buildPackage, Trim(log));
+            throw new InvalidOperationException("Managed package installation failed:\n" + Trim(log));
+        }
         return log;
     }
 
@@ -340,6 +345,34 @@ public static class ManagedPythonRuntime
         info.Environment["UV_TOOL_DIR"] = ToolRoot;
         info.Environment["UV_PYTHON_BIN_DIR"] = Path.Combine(Root, "bin");
         info.Environment["UV_NO_PROGRESS"] = "1";
+        AppendVisualStudioInstallerToPath(info.Environment);
+    }
+
+    /// <summary>
+    /// A source build (an sdist-only package such as insightface) asks setuptools for the C++ toolchain, which runs
+    /// vcvarsall.bat under <c>cmd /u</c>. When vswhere.exe is not on PATH, vcvarsall prints an ANSI error into that UTF-16
+    /// stream, setuptools parses garbage and reports "Unable to find a compatible Visual Studio installation" although
+    /// Build Tools are installed (observed on a PC with VS 2022). The installer folder holds vswhere.exe; it is appended
+    /// to the CHILD process PATH only, nothing system-wide is changed.
+    /// </summary>
+    internal static void AppendVisualStudioInstallerToPath(IDictionary<string, string?> environment, string? programFilesX86 = null)
+    {
+        string? installer = VisualStudioInstallerDirectory(programFilesX86);
+        if (installer == null) return;
+        string current = environment.TryGetValue("Path", out string? existing) && existing != null
+            ? existing
+            : Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        if (current.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Any(p => string.Equals(p.Trim().TrimEnd('\\'), installer, StringComparison.OrdinalIgnoreCase))) return;
+        environment["Path"] = current.Length == 0 ? installer : current.TrimEnd(';') + ";" + installer;
+    }
+
+    internal static string? VisualStudioInstallerDirectory(string? programFilesX86 = null)
+    {
+        string? root = programFilesX86 ?? Environment.GetEnvironmentVariable("ProgramFiles(x86)");
+        if (string.IsNullOrWhiteSpace(root)) return null;
+        string dir = Path.Combine(root, "Microsoft Visual Studio", "Installer");
+        return File.Exists(Path.Combine(dir, "vswhere.exe")) ? dir : null;
     }
 
     private static IEnumerable<string> BundledUvCandidates()
@@ -396,9 +429,10 @@ public static class ManagedPythonRuntime
             throw new InvalidDataException("Python version contains unsupported characters.");
     }
 
-    private static string Trim(string value)
+    /// <summary>Keeps the start and the END of a long tool log: the actual failure is printed last, and a head-only cut hid it.</summary>
+    internal static string Trim(string value)
     {
         value = (value ?? string.Empty).Trim();
-        return value.Length <= 1200 ? value : value[..1200] + "…";
+        return value.Length <= 1800 ? value : value[..400] + "\n…\n" + value[^1400..];
     }
 }
