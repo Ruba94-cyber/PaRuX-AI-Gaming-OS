@@ -5,7 +5,7 @@ Nothing here has been submitted. Items marked OWNER need the owner's Partner Cen
 ## A. Account and identity (OWNER)
 
 1. DONE (owner) Register a free developer account (individual) at https://storedeveloper.microsoft.com (Partner Center).
-2. DONE (owner) Reserve the app name. The build default display name is "PaRuX AI & Gaming OS"; if you reserve a different name, put it in the identity file as `appDisplayName`.
+2. DONE (owner) Reserve the app name. Reserved name: "RBG-PaRuX AI & Gaming OS" (product 9MWV6SWW7Q4C, 2026-11-14); it is set as `appDisplayName` in the identity file, and the identity Name is `PaoloRubagotti.RBG-PaRuXAIGamingOS` (read from Product identity). An earlier reservation (Store ID 9P8CPJV2WK2F) used a different Name; do not mix the two.
 3. DONE (owner, 2026-11-11) In Partner Center open Product management > Product identity and copy **Package/Identity/Name**, **Package/Identity/Publisher** and **Package/Properties/PublisherDisplayName** into the Git-ignored file `<main checkout>\.ai\store\store-identity.local.json` (keys `identityName`, `identityPublisher`, `publisherDisplayName`; optional `appDisplayName`). Values are case- and punctuation-sensitive. Never commit this file (`*.local.json` is ignored).
 4. TODO Pricing: paid, 0.99 USD base price, one time (see `PRICING_AND_AVAILABILITY.md`; the owner confirms the amount, per-market prices, tax/payout profile). Markets: choose. Availability: public.
 
@@ -74,7 +74,7 @@ Nothing was submitted and Partner Center was not opened for this list; field nam
 | | System requirements (minimum / recommended) | `LISTING_en.md` "System requirements" | PRONTO |
 | | Product declarations | Do not tick unverified declarations (accessibility tested, etc.) | SERVE DECISIONE |
 | Age ratings | IARC questionnaire | Owner answers; facts in `POLICY_AND_CERTIFICATION.md` section 5 | SERVE DECISIONE (owner must answer) |
-| Packages | MSIX upload | `artifacts\msix\PaRuX_<ver>_x64.msix` from the packaging agent's worktree/build; version 4.2.0.0 | NOT RUN (build and install check by the packaging agent) |
+| Packages | MSIX upload | `artifacts\msix\PaRuX_<ver>_x64.msix` from the packaging agent's worktree/build; version 4.2.0.0 | DONE 2026-11-14: built from 98deb270 for identity PaoloRubagotti.RBG-PaRuXAIGamingOS; upload `.ai/artifacts/store-upload/PaRuX_4.2.0.0_x64.msix` (SHA-256 17f3c60d978a3cec2d174a7f50b0d28b79e2dba0d5739c25f6506cab171c8a56) or the `.msixupload` wrapper; unsigned on purpose. WACK on this exact package NOT re-run |
 | | Device families | Windows 10/11 Desktop x64 | PRONTO |
 | | Restricted capability justification | `POLICY_AND_CERTIFICATION.md` section 3 | PRONTO |
 | Store listings (en-US) | Description | `LISTING_en.md` | PRONTO |
@@ -82,9 +82,9 @@ Nothing was submitted and Partner Center was not opened for this list; field nam
 | | Product features | `LISTING_en.md` | PRONTO |
 | | Search terms (7) | `LISTING_en.md` | PRONTO |
 | | Short description | `LISTING_en.md` | PRONTO |
-| | Copyright and trademark info | `LISTING_en.md` (owner fills the publisher name) | SERVE DECISIONE |
+| | Copyright and trademark info | `LISTING_en.md` (entered in the draft) | PRONTO |
 | | Screenshots | `SCREENSHOTS.md` shots 1-8 | SERVE SCREENSHOT |
-| | Store logo 1:1 300x300 | export from the PRX Orbit approved artwork | SERVE SCREENSHOT (asset export) |
+| | Store logo 1:1 300x300 | `assets/store-logo-1x1-300x300.png` | PRONTO |
 | | Optional art / trailers | skip | PRONTO |
 | Store listings (it-IT) | Same fields | `LISTING_it.md` | PRONTO |
 | | Screenshots (Italian UI) | `SCREENSHOTS.md` shots 9-10 plus 1, 2, 4 in Italian | SERVE SCREENSHOT |

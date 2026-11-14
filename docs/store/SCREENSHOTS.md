@@ -24,8 +24,8 @@ Rules: every screenshot must show something the product really does in the Store
 
 | Asset | Spec | Source | Status |
 |---|---|---|---|
-| Store logo 1:1 | 300x300 PNG | export from `src/PaRuX.App/Assets/prx-orbit-approved.png` (PRX Orbit) | pronto da esportare |
-| Poster art 2:3 and box art 1:1 | optional, 720x1080 / 1080x1080 | PRX Orbit artwork | optional, serve decisione |
+| Store logo 1:1 | 300x300 PNG | `assets/store-logo-1x1-300x300.png` (from `prx-orbit-approved.png`) | pronto |
+| Poster art 2:3 and box art 1:1 | optional, 720x1080 / 1080x1080 | `assets/poster-art-2x3-720x1080.png`, `assets/box-art-1x1-1080x1080.png` | optional, pronti |
 | Hero images / trailers | optional | none | skip |
 
 Do not use third-party logos (Hugging Face, Steam, llama.cpp, game covers) in any screenshot or artwork without permission (policy 10.1.1: no claim of relationship with other companies).

@@ -1,20 +1,18 @@
 # Microsoft Store listing - English (en-US)
 
-Paste-ready text for Partner Center (Store listing > en-US). Everything in the "Paste" blocks is limited to what the code and `docs/REQUIREMENT_MATRIX.md` / `docs/QA_EVIDENCE.md` show as implemented and tested. No speed numbers, rankings or "best" wording. The evidence table at the end is for the owner only; do not paste it. Policy context for the price, the free build and donations: `POLICY_AND_CERTIFICATION.md`. Price: `PRICING_AND_AVAILABILITY.md`.
+This file mirrors, character for character, the text entered in the Partner Center draft of product 9MWV6SWW7Q4C (submission 1, en-US listing), read in read-only mode on 2026-11-14. Nothing has been submitted. Policy context for the price, the free build and donations: `POLICY_AND_CERTIFICATION.md`. Price: `PRICING_AND_AVAILABILITY.md`. The evidence table at the end is for the owner only; it is not entered in Partner Center.
 
-The product name must equal the name reserved in Partner Center (build default "PaRuX AI & Gaming OS"). Policy 10.1.1 says a title must not contain marketing or descriptive text; "AI & Gaming OS" is a risk, see `POLICY_AND_CERTIFICATION.md` section 6.
+## Product name (as reserved in Partner Center)
 
-## Title
+RBG-PaRuX AI & Gaming OS
 
-PaRuX AI & Gaming OS
-
-## Short description (keep under 100 characters; the field accepts more)
+## Short description
 
 Chat with AI models and ask questions about your own files, running on your own PC.
 
-## Description (paste; the field allows up to 10,000 characters)
+## Description
 
-PaRuX AI & Gaming OS is a local-first AI workspace for Windows. Chat with language models that run on your own PC, and ask questions about the documents you choose.
+RBG-PaRuX AI & Gaming OS (PaRuX) is a local-first AI workspace for Windows. Chat with language models that run on your own PC, and ask questions about the documents you choose.
 
 Important to know before you buy or install:
 - PaRuX needs an AI model to answer. The Store package contains the app and a local inference engine, but no model files. The first time you chat, PaRuX helps you choose a model and downloads it only after you say yes (models are large, often several GB).
@@ -33,11 +31,18 @@ What you can do
 
 Your files and chats are not uploaded to a PaRuX server. There is no PaRuX account, no advertising and no in-app purchase. See the privacy policy for what leaves your PC and when.
 
-About this edition: one price, one time, through the Microsoft Store. It has the same local AI features as the project's other builds, except the items listed above that the Store edition leaves out (executable downloads, torrent engine). PaRuX is source-available under the FSL-1.1-MIT license; the source is on GitHub.
+About this edition: one price, one time, through the Microsoft Store. Your purchase supports the ongoing development of PaRuX. All versions of PaRuX are also available on GitHub (PaRuX-AI-Gaming-OS). This edition has the same local AI features as the project's other builds, except the items listed above that the Store edition leaves out (executable downloads, torrent engine). PaRuX is source-available under the FSL-1.1-MIT license.
 
 Notice: PaRuX uses the llama.cpp inference engine (MIT license), included in the package.
 
-## Product features (one per line, each under 200 characters)
+## What's new in this version
+
+Version 4.2.0:
+- First Microsoft Store release.
+- Local chat, document questions with sources, Model Hub, game library with Gaming Mode, English and Italian interface.
+- App updates now come from the Microsoft Store.
+
+## Product features (one per line)
 
 Local AI chat with models you download once and run on your own PC
 Ask questions about your own documents, with the source shown and a refusal when the answer is not in your files
@@ -48,47 +53,41 @@ No account, no advertising, no tracking, no in-app purchases
 Optional pairing of your own devices on your home network, off until you turn it on
 Updates through the Microsoft Store
 
-## Search terms (max 7; 30 characters each)
+## Keywords (7)
 
 local AI; offline chat; LLM; private AI; documents; model hub; game library
 
-("llama.cpp" was removed: policy 10.1.3 forbids using other products' titles in search terms.)
-
-## What's new in this version (4.2.0)
-
-First Microsoft Store release. Local chat, document questions with sources, Model Hub, game library with Gaming Mode, English and Italian interface. App updates now come from the Microsoft Store.
-
-## System requirements (Partner Center minimum / recommended hardware)
-
-Minimum: Windows 10 version 1809 (build 17763) or later, 64-bit (x64); about 1 GB free for the app plus space for the models you download; the app starts and runs small models on CPU.
-Recommended: 16 GB RAM (a 4-billion-parameter model peaked at 6.7 GB RAM on the reference PC; 8 GB machines are not yet verified), an SSD, and a GPU with Vulkan support for larger models. These are guidance only; speed on your PC is not guaranteed.
+("llama.cpp" is not used: policy 10.1.3 forbids other products' titles in search terms.)
 
 ## Copyright and trademark info
 
-(c) 2026 the PaRuX publisher. Third-party names are the property of their owners.
-(The owner replaces "the PaRuX publisher" with the publisher display name already in Partner Center; do not store personal data here.)
+© 2026 Paolo Rubagotti. All rights reserved. Third-party names are the property of their owners.
+
+
+## Developed by
+
+Paolo Rubagotti
+
+## Notes for certification (Supplemental info > Additional testing information)
+
+No account or sign-in is needed. The package contains the app and a local inference engine but no AI model; to test, start the app, choose "Skip" or pick a small model in the first-run screen and confirm the download (model files are downloaded from public model hosts only after the user confirms). For the document feature, point it at a folder with a small plain-text file. The Microsoft Store edition never downloads or installs executable code (no additional inference engines, no Python tooling, no installers) and has no torrent engine; those routes are refused by the app. The app has no self-updater and shows that updates come from the Store. The app has no in-app purchases, no ads and no payment or donation screen; the Store price is the only payment. runFullTrust is required because the app runs its own local server (PaRuX.Server.exe) and the local inference engine (llama.cpp, MIT license) as child processes, reads and writes files the user chooses, and uses native GPU libraries (Vulkan) that cannot run in an AppContainer. It does not install services or drivers, does not run elevated, registers no startup entries and collects no telemetry. internetClientServer and privateNetworkClientServer are used only by an optional local-network pairing listener that is off by default. The Gaming area only launches games already installed on the PC; it sells and downloads nothing in this edition. Third-party component: llama.cpp (MIT) is included in the package. Open-source notice and source: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS
+
+Submission options in the draft: publishing hold set to "Don't publish this submission until I select Publish now" (manual release).
+
+## System requirements (Properties page)
+
+Minimum: Windows 10 version 1809 (build 17763) or later, 64-bit (x64); about 1 GB free for the app plus space for the models you download; the app starts and runs small models on CPU.
+Recommended: 16 GB RAM (a 4-billion-parameter model peaked at 6.7 GB RAM on the reference PC; 8 GB machines are not yet verified), an SSD, and a GPU with Vulkan support for larger models. These are guidance only; speed on your PC is not guaranteed.
 
 ## Category
 
 Primary: Productivity (secondary choice: Developer tools). Not "Games": policy 10.1.1.6 asks for the most appropriate category; the game library is a secondary feature.
 
-## Website / support / privacy policy URLs
+## Store logos and screenshots
 
-Website: the project's public page (decision, see `POLICY_AND_CERTIFICATION.md` section 2). Support: `SUPPORT.md` content at a public URL or an owner-chosen e-mail. Privacy policy: `PRIVACY_POLICY.md` at a public HTTPS address.
+Logo assets are in `assets/` (`assets/README.md`). Screenshots: `SCREENSHOTS.md`. The draft had 0 screenshots on 2026-11-14; at least one is required.
 
-## Notes for certification (paste into "Notes for certification")
-
-See `POLICY_AND_CERTIFICATION.md` section 4 (English text to paste) and section 3 (`runFullTrust` justification).
-
-## Age rating
-
-Answer the IARC questionnaire yourself; ready answers in `POLICY_AND_CERTIFICATION.md` section 5.
-
-## Screenshots
-
-Shot list in `SCREENSHOTS.md`. None are in this repository.
-
-## Evidence behind the claims (owner only, do not paste)
+## Evidence behind the claims (owner only)
 
 | Claim | Evidence |
 |---|---|
