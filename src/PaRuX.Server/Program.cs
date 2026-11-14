@@ -29,6 +29,9 @@ LocalApiServerService.VendorModelDefault = gatewaySettings.VendorModelDefault;
 // The gateway port is bound only when free: another program owning it must not stop PaRuX Core.
 int? gatewayPort = gatewaySettings.Enabled && PaRuX.Server.Gateway.GatewaySettings.IsPortFree(gatewaySettings.Port)
     ? gatewaySettings.Port : null;
+// Why the gateway is off although it is enabled (typed, shown by /api/v1/gateway/status): the probe found the port taken, or the
+// port was free at the probe but could not be bound a moment later. The Core keeps running either way.
+string? gatewayUnavailableReason = gatewaySettings.Enabled && gatewayPort is null ? PaRuX.Server.Gateway.GatewayBindGuard.PortInUseReason : null;
 int corePort = ServerState.ChooseCorePort();
 // Hosting's "Request starting ..." line prints the full query string, which would write a browser launch code
 // (/app?code=...) to every log sink. Warnings and errors from this category are still emitted.
@@ -45,6 +48,15 @@ builder.WebHost.ConfigureKestrel(options =>
             listen => listen.UseHttps(RemoteAccessService.GetOrCreateCertificate()));
     }
 });
+if (gatewayPort is int guardedGatewayPort)
+{
+    PaRuX.Server.Gateway.GatewayBindGuard.Install(builder.Services, guardedGatewayPort, reason =>
+    {
+        gatewayPort = null;
+        gatewayUnavailableReason = reason;
+        System.Diagnostics.Trace.TraceWarning("Local AI Gateway port " + guardedGatewayPort + " could not be bound; the gateway stays off and the Core keeps running.");
+    });
+}
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<ServerState>();
@@ -1422,6 +1434,7 @@ app.MapGet("/api/v1/gateway/status", (HttpContext context) =>
         restartRequired = saved.Enabled != (gatewayPort != null) || (gatewayPort != null && gatewayPort != saved.Port),
         baseUrl = "http://127.0.0.1:" + (gatewayPort ?? saved.Port),
         enabled = saved.Enabled,
+        unavailableReason = gatewayPort != null ? null : gatewayUnavailableReason,
         vendorModelDefault = saved.VendorModelDefault,
         // Gateway request/response bodies are never written to logs.
         promptLogging = false,
