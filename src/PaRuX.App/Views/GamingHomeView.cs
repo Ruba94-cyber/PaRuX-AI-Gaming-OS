@@ -1048,7 +1048,7 @@ internal sealed class GamingHomeView : StackPanel
         Track(_quickResumeManage, "GameHome_QuickResume_Manage", T("Show Quick Resume: pause and resume open apps", "Mostra Quick Resume: metti in pausa e riprendi le app aperte"));
         _quickResumeManage.Click += (_, _) => { _quickResume.StartBringIntoView(); _ = _quickResume.RefreshAsync(); };
         // One wrapping action row (Quick Resume, AI mods) instead of two stacked rows: the library gets the screen.
-        var quickRow = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemHeight = 52, ItemWidth = 210 };
+        var quickRow = new WrapRowPanel();   // natural-size wrapping row: every button keeps its own width, so no label is clipped at any scale or language
         _quickResumeManage.Margin = new Thickness(0, 0, 8, 8);
         quickRow.Children.Add(_quickResumeManage);
         _gameAssetStudio.Content = T("AI Game Asset Mods", "Mod IA asset dei giochi");
@@ -1076,9 +1076,9 @@ internal sealed class GamingHomeView : StackPanel
         quickRow.Children.Add(_gameAssetStudio);
         quickRow.Children.Add(_installedMods);
         _quickResumeSummary.TextWrapping = TextWrapping.Wrap;
-        var summaryHost = new Border { Child = _quickResumeSummary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 8) };
-        summaryHost.MaxWidth = 210;
-        quickRow.Children.Add(summaryHost);
+        // The status line sits after the buttons at its natural size and wraps onto the next row only when the width is short.
+        _quickResumeSummary.Margin = new Thickness(8, 12, 0, 8);
+        quickRow.Children.Add(_quickResumeSummary);
 
         _hero.PlayRequested += async t => await PlayAsync(t);
         _hero.DetailsRequested += async t => await OpenAsync(t);

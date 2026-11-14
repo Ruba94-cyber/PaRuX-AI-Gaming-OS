@@ -251,6 +251,42 @@ public sealed class GamingHomeCompetitiveUiTests
         catch (Exception ex) { app.CaptureFailure(nameof(Quick_resume_status_line_is_shown_on_the_games_home), ex); throw; }
     }
 
+    [Theory, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    [InlineData(1280, 720)]
+    [InlineData(1400, 850)]
+    public void Games_home_action_row_and_quick_resume_status_are_not_clipped(int width, int height)
+    {
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(nameof(Games_home_action_row_and_quick_resume_status_are_not_clipped) + width);
+        try
+        {
+            app.ResizeMainWindow(width, height);
+            OpenGamingHome(app);
+            UiWait.For(() => TextOf(app, "GameHome_QuickResume_Summary").StartsWith("Quick Resume", StringComparison.Ordinal),
+                "Quick Resume summary line populated");
+            System.Drawing.Rectangle window = app.MainWindow.BoundingRectangle;
+            var rects = new List<(string Id, System.Drawing.Rectangle Rect)>();
+            foreach (string id in new[] { "GameHome_QuickResume_Manage", "GameHome_AssetStudio_Open", "GameHome_InstalledMods_Open" })
+            {
+                AutomationElement button = ById(app, id);
+                System.Drawing.Rectangle box = button.BoundingRectangle;
+                // UIA hides a button's inner text, so clipping is caught structurally: a label wider than its cell shows as a
+                // button squeezed into a fixed cell; the source contract test forbids fixed cells, here we check the rendered boxes.
+                Assert.True(box.Width >= 60, $"{id} {box} is not collapsed at {width}x{height}");
+                Assert.True(box.Left >= window.Left && box.Right <= window.Right, $"{id} {box} is inside the window {window}");
+                rects.Add((id, box));
+            }
+            AutomationElement summary = ById(app, "GameHome_QuickResume_Summary");
+            System.Drawing.Rectangle summaryBox = summary.BoundingRectangle;
+            Assert.True(summaryBox.Right <= window.Right && summaryBox.Height >= 14, $"summary {summaryBox} is fully inside the window {window}");
+            rects.Add(("GameHome_QuickResume_Summary", summaryBox));
+            for (int i = 0; i < rects.Count; i++)
+                for (int j = i + 1; j < rects.Count; j++)
+                    Assert.False(rects[i].Rect.IntersectsWith(rects[j].Rect), $"{rects[i].Id} {rects[i].Rect} overlaps {rects[j].Id} {rects[j].Rect}");
+        }
+        catch (Exception ex) { app.CaptureFailure(nameof(Games_home_action_row_and_quick_resume_status_are_not_clipped) + width, ex); throw; }
+    }
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Per_game_save_backup_and_confirmed_restore_never_touch_files_without_consent()
     {

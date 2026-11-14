@@ -192,6 +192,15 @@ public sealed class GameTileListModelTests
     }
 
     [Fact]
+    public void Games_home_action_row_uses_natural_size_wrapping_not_fixed_cells()
+    {
+        string code = Source("src", "PaRuX.App", "Views", "GamingHomeView.cs");
+        Assert.Contains("var quickRow = new WrapRowPanel()", code);
+        Assert.DoesNotContain("ItemWidth = 210", code);
+        Assert.DoesNotContain("summaryHost.MaxWidth", code);
+    }
+
+    [Fact]
     public void Library_grid_is_virtualized_recycles_tiles_and_decodes_covers_at_display_size()
     {
         string code = Source("src", "PaRuX.App", "Views", "GameTileGrid.cs");

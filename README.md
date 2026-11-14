@@ -63,7 +63,18 @@ Local AI usually means one app per task and a separate launcher for games. RBG â
 | **Console / TV** | Opt-in fullscreen presenter with a larger-scale library; D-pad/stick, A, B/Escape | Early foundation, not a finished Console Shell | [CONSOLE_MODE](docs/guides/CONSOLE_MODE.md) |
 | **Corporate Edition** | Offline CPU-only Corporate Lite: chat and document search, no cloud | PARTIAL; no roles or audit log | [CORPORATE](docs/guides/CORPORATE.md) |
 
-<!-- screenshot: pending real capture -->
+## Screenshots
+
+Real captures of the running Windows app (isolated data root, synthetic game titles, no personal data). The model engines are not installed in these captures, so Chat shows its honest setup state.
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/01-home.png)<br>Home / Chat | ![Advanced workspace](docs/screenshots/02-ai-workspace.png)<br>AI workspace (Advanced) |
+| ![Chat](docs/screenshots/03-chat.png)<br>Chat composer | ![Model Hub](docs/screenshots/04-model-manager.png)<br>Model Hub |
+| ![Game library](docs/screenshots/05-gaming-library.png)<br>Gaming library (synthetic titles) | ![Console mode](docs/screenshots/06-console-mode.png)<br>Console / TV mode |
+| ![Document search](docs/screenshots/07-knowledge-rag.png)<br>Document search (Corporate) | ![Corporate Edition](docs/screenshots/08-corporate.png)<br>Corporate Edition chat |
+| ![About](docs/screenshots/09-settings-about.png)<br>Settings, About | |
+
 
 ## System requirements
 
