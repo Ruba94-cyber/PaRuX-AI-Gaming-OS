@@ -21,6 +21,8 @@ Draft support page for the Store listing's "Support contact info" field (Partner
 
 **Windows Firewall asks about network access.** Only the optional device pairing/remote access feature listens on your local network, and only when you enable it.
 
+**Is there a free version?** PaRuX is source-available and the project publishes other builds on its GitHub page. The Store edition is a separate package, bought once through the Microsoft Store; it leaves out executable downloads and the torrent engine. Purchases, refunds and Store payment questions go through the Microsoft Store (your Microsoft account order history), not through the project.
+
 ## Information to include in a bug report
 
 PaRuX version (shown in the app), Windows version, CPU/GPU/RAM, the model you used and what you did. Remove personal data from screenshots and logs.
