@@ -13,7 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-blue" alt="FSL-1.1-MIT license"></a>
 </p>
 
-> **BETA — v4.1.0 pre-release published 10 November 2026.** The 4.0.1 stable-channel release is still the default GitHub `latest` until the owner promotes 4.1.0. PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues).
+> **BETA — v4.1.0 pre-release published 10 November 2026.** The 4.0.1 stable-channel release is still the default GitHub `latest` until the owner promotes 4.1.0. PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues).
 
 ## What is PaRuX?
 
@@ -52,7 +52,7 @@ The **Corporate Lite with Qwen3-4B** package includes a CPU `llama.cpp` runtime 
 
 ## Getting started
 
-1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
+1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
 2. If you want to try the source version, follow the [Windows build and setup documentation](docs/RELEASING.md). The project currently requires a Windows development environment for source builds.
 3. Launch PaRuX, review the suggested local setup, and choose which model or runtime to install. **Downloads require your confirmation.**
 4. Start with Chat, or explore Model Hub, Create and the other workspaces as your hardware allows.
@@ -90,7 +90,7 @@ Status refers to a **specific test or delivery**, not to the entire product. Ear
 | Integrated BitTorrent (GOS-13) | **Main source WIP, not compiled/tested:** MonoTorrent 3.0.2, source-selected v1 magnets/local torrents, verified bounded staging, safe multifile-to-ZIP packaging, no unattended seeding; DPAPI-encrypted native-job recovery shown paused on restart | Verify Windows NuGet/build, real peer swarm, piece rehash/restart, pause/cancel/Gaming hard-off, bandwidth/disk-full/cleanup, FlaUI and provider integrity. Raw multifile folder deployment and unattended installers remain unavailable |
 | Corporate Lite | Offline AI-only CPU runtime; model-inclusive 4B and NoModel package variants; source now permits local ONNX reranker, requiring rebuilt package | Low-end 8 GB PC, complete real document answer and every-new-commit Windows gates **not established** |
 
-Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/1), [L3 PR #2](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/2), [L8 PR #3](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/3), [L6/L7 PR #4](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/4), [L4/L5/L9 PR #5](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/pull/5). See [HANDOFF.md](HANDOFF.md) for the independent Windows gate and [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md) for status lines. All merged source remains local-first; no new model/driver downloads or game piracy support.
+Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/pull/1), [L3 PR #2](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/pull/2), [L8 PR #3](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/pull/3), [L6/L7 PR #4](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/pull/4), [L4/L5/L9 PR #5](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/pull/5). See [HANDOFF.md](HANDOFF.md) for the independent Windows gate and [PARUX_EXECUTION_PLAN.md](PARUX_EXECUTION_PLAN.md) for status lines. All merged source remains local-first; no new model/driver downloads or game piracy support.
 
 ## Beta limitations
 
@@ -105,7 +105,7 @@ Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS
 - [Changelog](CHANGELOG.md) · [Roadmap](PARUX_EXECUTION_PLAN.md) · [Local AI setup](docs/AI_LOCAL_SETUP.md)
 - [First-party dependency strategy](docs/DEPENDENCY_STRATEGY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Code provenance](OPEN_SOURCE_PROVENANCE.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Android companion](docs/PARUX_ANDROID_README.md) · [Universal AI gateway](docs/UNIVERSAL_GATEWAY.md)
-- [Report a bug or suggest an improvement](https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+- [Report a bug or suggest an improvement](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## License
 
