@@ -21,16 +21,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.parux.android.BuildConfig
+import com.parux.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
     val state by viewModel.state.collectAsState()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
         Column(
             Modifier
                 .padding(padding)
@@ -38,13 +40,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            SectionHeader("Connection")
+            SectionHeader(stringResource(R.string.settings_section_connection))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("PaRuX PC")
+                        Text(stringResource(R.string.settings_pc_name))
                         Text(
-                            if (state.serverReachable == true) "Connected" else if (state.serverReachable == false) "Offline" else "Checking…",
+                            if (state.serverReachable == true) stringResource(R.string.settings_connected)
+                            else if (state.serverReachable == false) stringResource(R.string.settings_offline)
+                            else stringResource(R.string.settings_checking),
                             color = if (state.serverReachable == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                         )
                     }
@@ -59,15 +63,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Forget this device", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.settings_forget_title), color = MaterialTheme.colorScheme.error)
                             Text(
-                                "Removes the pairing locally. Revoke the device from PaRuX Windows too if you no longer trust it.",
+                                stringResource(R.string.settings_forget_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            "Forget",
+                            stringResource(R.string.settings_forget_action),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(start = 12.dp)
@@ -76,25 +80,25 @@ fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
                 }
             }
 
-            SectionHeader("Execution")
+            SectionHeader(stringResource(R.string.settings_section_execution))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Shared quality profile", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_quality_title), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Uses the same Fast / Balanced / Maximum Quality / Overnight policy as PaRuX Windows. Low-level runtime tuning remains PC-owned.",
+                        stringResource(R.string.settings_quality_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                     )
-                    QualityProfileRow("Fast", "fast", state, viewModel)
-                    QualityProfileRow("Balanced", "balanced", state, viewModel)
-                    QualityProfileRow("Maximum Quality", "maximum-quality", state, viewModel)
-                    QualityProfileRow("Overnight", "overnight", state, viewModel)
+                    QualityProfileRow(stringResource(R.string.settings_quality_fast), "fast", state, viewModel)
+                    QualityProfileRow(stringResource(R.string.settings_quality_balanced), "balanced", state, viewModel)
+                    QualityProfileRow(stringResource(R.string.settings_quality_maximum), "maximum-quality", state, viewModel)
+                    QualityProfileRow(stringResource(R.string.settings_quality_overnight), "overnight", state, viewModel)
                     Divider(Modifier.padding(vertical = 10.dp))
-                    StatusRow("Preferred context", formatTokens(state.preferredContextTokens))
-                    StatusRow("Reasoning effort", state.reasoningEffort.toString())
+                    StatusRow(stringResource(R.string.settings_preferred_context), formatTokens(state.preferredContextTokens, stringResource(R.string.settings_auto)))
+                    StatusRow(stringResource(R.string.settings_reasoning_effort), state.reasoningEffort.toString())
                     if (state.executionEvidenceSource.isNotBlank())
-                        StatusRow("Policy evidence", state.executionEvidenceSource)
+                        StatusRow(stringResource(R.string.settings_policy_evidence), state.executionEvidenceSource)
                     state.executionProfileError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 8.dp))
@@ -102,11 +106,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
                 }
             }
 
-            SectionHeader("Workstation health")
+            SectionHeader(stringResource(R.string.settings_section_health))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     if (state.workstationMetrics.isEmpty()) {
-                        Text("No V2 observability evidence yet.", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.settings_no_observability), style = MaterialTheme.typography.bodySmall)
                     } else {
                         state.workstationMetrics.take(6).forEach { metric ->
                             StatusRow(metric.label, metric.value)
@@ -118,27 +122,27 @@ fun SettingsScreen(viewModel: SettingsViewModel, onForgetDevice: () -> Unit) {
                         }
                     }
                     Divider(Modifier.padding(vertical = 8.dp))
-                    StatusRow("Engine races", state.engineRaceSummary.total.toString())
-                    StatusRow("Race winners", state.engineRaceSummary.completed.toString())
+                    StatusRow(stringResource(R.string.settings_engine_races), state.engineRaceSummary.total.toString())
+                    StatusRow(stringResource(R.string.settings_race_winners), state.engineRaceSummary.completed.toString())
                 }
             }
 
-            SectionHeader("System")
+            SectionHeader(stringResource(R.string.settings_section_system))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    StatusRow("Gaming Mode", if (state.gamingMode) "Active" else "Off")
-                    StatusRow("Model runtime", if (state.providerReady) "Ready" else "Not loaded")
+                    StatusRow(stringResource(R.string.settings_gaming_mode), if (state.gamingMode) stringResource(R.string.settings_active) else stringResource(R.string.settings_off))
+                    StatusRow(stringResource(R.string.settings_model_runtime), if (state.providerReady) stringResource(R.string.settings_ready) else stringResource(R.string.settings_not_loaded))
                 }
             }
 
-            SectionHeader("Advanced")
+            SectionHeader(stringResource(R.string.settings_section_advanced))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    StatusRow("API surface", "v1 + safe v2")
-                    StatusRow("App version", BuildConfig.VERSION_NAME)
+                    StatusRow(stringResource(R.string.settings_api_surface), stringResource(R.string.settings_api_surface_value))
+                    StatusRow(stringResource(R.string.settings_app_version), BuildConfig.VERSION_NAME)
                     StatusRow(
-                        "Source revision",
-                        if (BuildConfig.SOURCE_COMMIT == "development") "development build"
+                        stringResource(R.string.settings_source_revision),
+                        if (BuildConfig.SOURCE_COMMIT == "development") stringResource(R.string.settings_development_build)
                         else BuildConfig.SOURCE_COMMIT.take(12)
                     )
                 }
@@ -168,7 +172,7 @@ private fun QualityProfileRow(
     ) {
         Text(label, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
         Text(
-            if (selected) "✓ Active" else if (state.executionProfileChanging) "…" else "Select",
+            if (selected) stringResource(R.string.settings_profile_active) else if (state.executionProfileChanging) "…" else stringResource(R.string.settings_profile_select),
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -193,9 +197,9 @@ private fun StatusRow(label: String, value: String) {
     }
 }
 
-private fun formatTokens(tokens: Int): String = when {
+private fun formatTokens(tokens: Int, autoLabel: String): String = when {
     tokens >= 1_000_000 -> String.format("%.2fM", tokens / 1_000_000.0)
     tokens >= 1_000 -> String.format("%.0fk", tokens / 1_000.0)
     tokens > 0 -> tokens.toString()
-    else -> "Auto"
+    else -> autoLabel
 }

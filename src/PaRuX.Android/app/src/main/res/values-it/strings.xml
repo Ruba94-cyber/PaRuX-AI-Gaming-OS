@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_tagline">La tua IA locale</string>
+
+    <!-- Schermata Impostazioni -->
+    <string name="settings_title">Impostazioni</string>
+    <string name="settings_section_connection">Connessione</string>
+    <string name="settings_connected">Connesso</string>
+    <string name="settings_offline">Non raggiungibile</string>
+    <string name="settings_checking">Verifica in corso…</string>
+    <string name="settings_forget_title">Dimentica questo dispositivo</string>
+    <string name="settings_forget_hint">Rimuove l\'associazione solo su questo telefono. Revoca il dispositivo anche da PaRuX per Windows se non ti fidi più.</string>
+    <string name="settings_forget_action">Dimentica</string>
+    <string name="settings_section_execution">Esecuzione</string>
+    <string name="settings_quality_title">Profilo di qualità condiviso</string>
+    <string name="settings_quality_hint">Usa gli stessi criteri Veloce / Bilanciato / Qualità massima / Notturno di PaRuX per Windows. La regolazione di basso livello del runtime resta sul PC.</string>
+    <string name="settings_quality_fast">Veloce</string>
+    <string name="settings_quality_balanced">Bilanciato</string>
+    <string name="settings_quality_maximum">Qualità massima</string>
+    <string name="settings_quality_overnight">Notturno</string>
+    <string name="settings_preferred_context">Contesto preferito</string>
+    <string name="settings_reasoning_effort">Impegno di ragionamento</string>
+    <string name="settings_policy_evidence">Evidenza del criterio</string>
+    <string name="settings_section_health">Stato della workstation</string>
+    <string name="settings_no_observability">Ancora nessuna evidenza di osservabilità V2.</string>
+    <string name="settings_engine_races">Gare tra motori</string>
+    <string name="settings_race_winners">Vincitori delle gare</string>
+    <string name="settings_section_system">Sistema</string>
+    <string name="settings_gaming_mode">Modalità Gaming</string>
+    <string name="settings_active">Attiva</string>
+    <string name="settings_off">Disattivata</string>
+    <string name="settings_model_runtime">Runtime del modello</string>
+    <string name="settings_ready">Pronto</string>
+    <string name="settings_not_loaded">Non caricato</string>
+    <string name="settings_section_advanced">Avanzate</string>
+    <string name="settings_api_surface">Superficie API</string>
+    <string name="settings_app_version">Versione app</string>
+    <string name="settings_source_revision">Revisione sorgente</string>
+    <string name="settings_development_build">build di sviluppo</string>
+    <string name="settings_profile_active">✓ Attivo</string>
+    <string name="settings_profile_select">Seleziona</string>
+    <string name="settings_auto">Auto</string>
+</resources>
