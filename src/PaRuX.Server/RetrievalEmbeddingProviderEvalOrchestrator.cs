@@ -45,7 +45,7 @@ public sealed class RetrievalEmbeddingProviderEvalOrchestrator
     {
         ArgumentNullException.ThrowIfNull(request);
         if (_runtime.GamingActive)
-            throw new InvalidOperationException("Retrieval provider evaluation is blocked while Gaming Mode is active.");
+            throw new UnavailableDuringGamingException("Retrieval provider evaluation is blocked while Gaming Mode is active.");
         if (_runtime.GetTextProcessId() != null)
             throw new InvalidOperationException(
                 "Stop the active text model before a retrieval provider race so MiniLM and Qwen are measured without VRAM competition.");

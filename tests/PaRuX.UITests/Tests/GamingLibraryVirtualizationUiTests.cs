@@ -103,6 +103,21 @@ public sealed class GamingLibraryVirtualizationUiTests
         throw new TimeoutException("Timed out waiting for " + description + ".");
     }
 
+    /// <summary>Optional measurement log (PARUX_UI_PERF_LOG): the numbers a real-app run reports, never asserted on.</summary>
+    private static void Perf(string what, string value)
+    {
+        string? path = Environment.GetEnvironmentVariable("PARUX_UI_PERF_LOG");
+        if (string.IsNullOrWhiteSpace(path)) return;
+        System.IO.File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss.fff") + " " + what + ": " + value + Environment.NewLine);
+    }
+
+    private static void PerfMemory(UiTestApplication app)
+    {
+        foreach (string name in new[] { "PaRuX", "PaRuX.Server" })
+            foreach (Process process in Process.GetProcessesByName(name))
+                using (process) Perf("working set " + name + " pid " + process.Id, (process.WorkingSet64 / (1024 * 1024)) + " MB, private " + (process.PrivateMemorySize64 / (1024 * 1024)) + " MB");
+    }
+
     private static void WaitForCoreIdle() =>
         UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 51123),
             "previous Core released port 51123", TimeSpan.FromSeconds(20));
@@ -127,10 +142,12 @@ public sealed class GamingLibraryVirtualizationUiTests
             ScrollPageUntil(app, () => RealizedTiles(app).Length > 0, "first library tile realized");
             clock.Stop();
             Assert.True(clock.Elapsed < TimeSpan.FromSeconds(30), "first tile took " + clock.Elapsed);
+            Perf("first tile realized after selecting Gaming (incl. scrolling and UIA polling)", clock.ElapsedMilliseconds + " ms");
 
             // Bounded UIA tree: a 2,000-title library must not realize 2,000 tiles.
             int realized = RealizedTiles(app).Length;
             Assert.InRange(realized, 1, MaxRealizedTiles);
+            Perf("tiles realized at first sight (of " + Count + ")", realized.ToString());
 
             // The window answers: a property read and a control that needs the UI thread both come back quickly.
             var ping = Stopwatch.StartNew();
@@ -140,9 +157,11 @@ public sealed class GamingLibraryVirtualizationUiTests
             Assert.True(ping.Elapsed < TimeSpan.FromSeconds(5), "UI thread answered in " + ping.Elapsed);
 
             // Search narrows the virtualized list: "game 1999" is exactly one synthetic title.
+            var searchClock = Stopwatch.StartNew();
             search.Text = "game 1999";
             ScrollPageUntil(app, () => RealizedTiles(app).Length == 1 && TryById(app, "GameTile_" + SyntheticGameLibrary.KeyOf(1999)) != null,
                 "search narrowed the library to one tile");
+            Perf("search 'game 1999' -> exactly one tile", searchClock.ElapsedMilliseconds + " ms");
 
             // Back to the whole synthetic library, then drive it with the keyboard.
             search.Text = "Synthetic Game";
@@ -155,8 +174,10 @@ public sealed class GamingLibraryVirtualizationUiTests
             UiWait.InputUntil(() => Keyboard.Type(VirtualKeyShort.DOWN),
                 () => (FocusedId(app) ?? "").StartsWith("GameTile_", StringComparison.Ordinal) && FocusedId(app) != first,
                 "Down moves focus to a tile in the next row");
+            var endClock = Stopwatch.StartNew();
             UiWait.InputUntil(() => Keyboard.Type(VirtualKeyShort.END), () => FocusedId(app) == last,
                 "End reaches the last tile although it was not realized");
+            Perf("End key -> last tile focused", endClock.ElapsedMilliseconds + " ms");
             // The jump realizes the tiles around the target after the layout pass; the count is bounded, never 2,000.
             UiWait.For(() => TryById(app, last) is { } shown && !shown.Properties.IsOffscreen.ValueOrDefault,
                 "the last tile realized and on screen after End");
@@ -172,6 +193,8 @@ public sealed class GamingLibraryVirtualizationUiTests
             string far = SyntheticGameLibrary.KeyOf(1200);
             Assert.NotNull(ScrollToTile(app, far, 1200));
             UiWait.For(() => RealizedTiles(app).Length is >= 1 and <= MaxRealizedTiles, "a bounded set of tiles realized around tile 1200");
+            Perf("tiles realized around tile 1200", RealizedTiles(app).Length.ToString());
+            PerfMemory(app);
         }
         catch (Exception ex)
         {

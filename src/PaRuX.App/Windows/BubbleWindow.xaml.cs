@@ -416,7 +416,7 @@ namespace PaRuX.Shell
             AppSettings s = SettingsStore.Current.Data;
             try
             {
-                _wasManuallyMoved = s.BubbleManuallyPositioned && s.BubbleX >= 0 && s.BubbleY >= 0;
+                _wasManuallyMoved = BubblePlacementPolicy.HasSavedManualPosition(s.BubbleManuallyPositioned, s.BubbleX, s.BubbleY);
                 if (_wasManuallyMoved)
                 {
                     var saved = new PointInt32(s.BubbleX, s.BubbleY);

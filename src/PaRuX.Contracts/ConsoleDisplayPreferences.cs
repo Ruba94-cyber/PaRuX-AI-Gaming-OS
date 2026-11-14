@@ -89,6 +89,37 @@ public static class ConsoleHomeRepositionPolicy
                currentRight <= right && currentBottom <= bottom;
     }
 
+    /// <summary>
+    /// Where the Console window returns to after Console mode. The bounds saved before Console mode may lie on a monitor that
+    /// has since been unplugged or rearranged, and restoring them blindly would leave the window off-screen with no way to
+    /// drag it back. The saved bounds are kept only while enough of the window is on a present monitor to grab and use;
+    /// otherwise the window is centered (never enlarged) on the primary work area.
+    /// </summary>
+    public static Bounds SafeRestoreBounds(Bounds original, IReadOnlyList<Bounds> displayWorkAreas, Bounds primaryWork)
+    {
+        bool validOriginal = original.Width > 0 && original.Height > 0;
+        if (validOriginal && displayWorkAreas is not null)
+        {
+            int needWidth = Math.Min(200, original.Width);
+            int needHeight = Math.Min(100, original.Height);
+            foreach (Bounds area in displayWorkAreas)
+            {
+                long left = Math.Max((long)original.X, area.X);
+                long top = Math.Max((long)original.Y, area.Y);
+                long right = Math.Min((long)original.X + original.Width, (long)area.X + area.Width);
+                long bottom = Math.Min((long)original.Y + original.Height, (long)area.Y + area.Height);
+                // The title-bar strip must be reachable: at least needWidth wide, and its top edge inside the work area.
+                if (right - left >= needWidth && bottom - top >= needHeight && original.Y >= area.Y && original.Y < area.Y + area.Height)
+                    return original;
+            }
+        }
+        int width = validOriginal ? Math.Min(original.Width, Math.Max(1, primaryWork.Width * 9 / 10)) : Math.Max(1, primaryWork.Width * 8 / 10);
+        int height = validOriginal ? Math.Min(original.Height, Math.Max(1, primaryWork.Height * 9 / 10)) : Math.Max(1, primaryWork.Height * 8 / 10);
+        long x = (long)primaryWork.X + (primaryWork.Width - width) / 2;
+        long y = (long)primaryWork.Y + (primaryWork.Height - height) / 2;
+        return new Bounds((int)Math.Clamp(x, int.MinValue, int.MaxValue), (int)Math.Clamp(y, int.MinValue, int.MaxValue), width, height);
+    }
+
     /// <summary>A safely bounded, windowed anchor which Windows can then make
     /// fullscreen on the chosen display. Supports negative monitor coordinates
     /// without overflow; never requests changes to OS display configuration.</summary>

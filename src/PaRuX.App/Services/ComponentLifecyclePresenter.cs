@@ -94,6 +94,25 @@ namespace PaRuX.Services
     /// </summary>
     public static class ComponentLifecyclePresenter
     {
+        private static readonly (string En, string It)[] ItalianBadgePhrases =
+        {
+            ("Install or locate a runtime in Settings", "Installa o individua un runtime in Impostazioni"),
+            ("Check runtime status in Settings", "Controlla lo stato del runtime in Impostazioni"),
+            ("Start chatting in Chat", "Inizia a conversare in Chat"),
+            ("Loading local engine…", "Caricamento del motore locale…"),
+            ("Needs attention", "Richiede attenzione"),
+            ("Ready", "Pronto"),
+            ("Starting", "Avvio"),
+        };
+
+        /// <summary>Italian form of the Simple-mode runtime health line (<see cref="SimpleModeRuntimeHealthInfo.BadgeText"/>).</summary>
+        public static string BadgeToItalian(string text)
+        {
+            string result = text;
+            foreach ((string en, string it) in ItalianBadgePhrases) result = result.Replace(en, it, StringComparison.Ordinal);
+            return result;
+        }
+
         public static string FormatOwnership(ComponentOwnership ownership) => ownership switch
         {
             ComponentOwnership.PARUX_MANAGED => "PaRuX-managed",

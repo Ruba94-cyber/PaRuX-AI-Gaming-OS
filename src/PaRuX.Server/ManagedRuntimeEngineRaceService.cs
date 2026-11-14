@@ -143,7 +143,7 @@ public sealed class ManagedRuntimeEngineRaceService
     {
         ArgumentNullException.ThrowIfNull(request);
         if (_runtime.GamingActive)
-            throw new InvalidOperationException("Engine Race is blocked while Gaming Mode is active.");
+            throw new UnavailableDuringGamingException("Engine Race is blocked while Gaming Mode is active.");
         using var gaming = new GamingHardOffWatch(() => _runtime.GamingActive, cancellationToken);
         cancellationToken = gaming.Token;
         if (_runtime.GetTextProcessId() != null)

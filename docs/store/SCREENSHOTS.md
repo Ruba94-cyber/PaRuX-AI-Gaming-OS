@@ -1,5 +1,8 @@
 # Store screenshots and artwork to produce
 
+**Status 2026-11-14:** 9 of the 10 screens are captured in `screenshots/` (`en/` 1-7, `it/` 9 and 10), 1920x1080 PNG, synthetic data only, from the Debug app run in Store-edition mode on a Radeon 780M PC. They were NOT taken from the installed Store package: retake them there before submission if the package UI differs. Screen 8 (Update Manager "managed by the Microsoft Store") needs the installed package and is still open; Italian versions of 2 and 4 are not published because those screens still show English catalogue text.
+
+
 None exist in the repository. Capture from the **installed Store package** (not a Debug build) on the reference PC with a small model installed. PNG, 1920x1080 preferred (minimum 1366x768; Partner Center accepts several, keep 4 to 10). English UI first, then Italian UI for the it-IT listing. Use only synthetic documents and synthetic chat text: the repository is public and the screens go on a public page. No real names, paths with a user name, e-mail addresses, company files or game accounts. Hide the taskbar clock and notifications.
 
 | # | Screen | Shows | Needed for | Status |

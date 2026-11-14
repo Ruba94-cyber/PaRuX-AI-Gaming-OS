@@ -48,4 +48,40 @@ public sealed class ChatHeaderStatusPresenterTests
         Assert.Equal("Paused for gaming", header.Text);
         Assert.Equal(ChatHeaderDot.Warn, header.Dot);
     }
+
+    [Theory]
+    [InlineData("Role: · Standard", "Ruolo: · Standard")]
+    [InlineData("Model idle", "Modello inattivo")]
+    [InlineData("Paused for gaming", "In pausa per il gioco")]
+    [InlineData("Loading model… · coding task", "Caricamento del modello… · attività di codice")]
+    public void Italian_header_has_no_english_phrase(string english, string italian)
+    {
+        Assert.Equal(italian, ChatHeaderStatusPresenter.ToItalian(english));
+    }
+
+    [Theory]
+    [InlineData("Ready · Start chatting in Chat", "Pronto · Inizia a conversare in Chat")]
+    [InlineData("Needs attention · Check runtime status in Settings", "Richiede attenzione · Controlla lo stato del runtime in Impostazioni")]
+    [InlineData("Starting · Loading local engine…", "Avvio · Caricamento del motore locale…")]
+    public void Italian_runtime_health_line_has_no_english_phrase(string english, string italian)
+    {
+        Assert.Equal(italian, ComponentLifecyclePresenter.BadgeToItalian(english));
+    }
+
+    [Theory]
+    [InlineData("Normal", "Normale")]
+    [InlineData("Fast", "Veloce")]
+    [InlineData("Deep reasoning", "Ragionamento approfondito")]
+    public void Italian_route_badge_has_no_english_label(string english, string italian)
+    {
+        Assert.Equal(italian, RouterService.LabelToItalian(english));
+    }
+
+    [Fact]
+    public void Italian_answering_model_caption_is_italian()
+    {
+        Assert.Equal("Modello: Qwen3-4B-Q4_K_M (Manuale)", AnsweringModelLabelFormatter.FormatItalian("Qwen3-4B-Q4_K_M.gguf", true));
+        Assert.Equal("Modello: Qwen3-4B-Q4_K_M (Auto)", AnsweringModelLabelFormatter.FormatItalian("Qwen3-4B-Q4_K_M.gguf", false));
+        Assert.Null(AnsweringModelLabelFormatter.FormatItalian(null, true));
+    }
 }

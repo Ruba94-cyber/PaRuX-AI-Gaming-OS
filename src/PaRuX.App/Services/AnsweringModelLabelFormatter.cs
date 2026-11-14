@@ -102,6 +102,13 @@ namespace PaRuX.Services
             return $"Model: {FormatModelDisplayName(modelId)} ({(manualLock ? "Manual" : "Auto")})";
         }
 
+        /// <summary>Italian form of <see cref="Format"/>: "Modello: Name (Auto|Manuale)".</summary>
+        public static string? FormatItalian(string? modelId, bool manualLock)
+        {
+            if (string.IsNullOrWhiteSpace(modelId)) return null;
+            return $"Modello: {FormatModelDisplayName(modelId)} ({(manualLock ? "Manuale" : "Auto")})";
+        }
+
         public static string FormatModelDisplayName(string? modelName)
         {
             if (string.IsNullOrWhiteSpace(modelName)) return "Configured model";
