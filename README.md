@@ -50,16 +50,68 @@ The **Corporate Lite with Qwen3-4B** package includes a CPU `llama.cpp` runtime 
 
 **Validation still pending on the current source:** a clean 8–16 GB CPU-only Windows PC, real offline document ingestion + search + source-grounded response, machine networking/egress, failure recovery, signed binaries and full regression testing. The `-EnforceAcceptance` mode in `tests/corporate/measure-corporate-lite.ps1` explicitly rejects missing dependencies and non-functional real-chat/RAG smoke on a fresh extracted package. A passing source check or HTTP 200 is not proof of functional RAG. See [release readiness](docs/RELEASE_READINESS.md) and the [canonical execution plan](PARUX_EXECUTION_PLAN.md).
 
-## Getting started
+## Why RBG – PaRuX?
 
-1. **Check [GitHub Releases](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases)** for a Windows build. If no release assets are listed, **no public installer is available yet**.
-2. If you want to try the source version, follow the [Windows build and setup documentation](docs/RELEASING.md). The project currently requires a Windows development environment for source builds.
-3. Launch PaRuX, review the suggested local setup, and choose which model or runtime to install. **Downloads require your confirmation.**
-4. Start with Chat, or explore Model Hub, Create and the other workspaces as your hardware allows.
+Local AI usually means one app per task and a separate launcher for games. RBG – PaRuX aims to put them in one Windows application: chat, models, documents, creative tools and agents on your own PC, with a game library that gets out of the way of your GPU when a game starts. The principles are local-first inference, Chat as the home screen, advanced capabilities opened as workspaces (a Normal interface and an Advanced/Studio one), and honest status: what is verified, partial or missing is stated in the [execution plan](PARUX_EXECUTION_PLAN.md).
 
-**Windows requirements:** Windows 10 or newer (x64). Building from source requires the .NET 10 SDK and the documented Windows build prerequisites. A dedicated GPU is strongly recommended for demanding models and media generation; exact RAM/VRAM requirements vary.
+## Modes
+
+| Mode | What it is | Status | Guide |
+|---|---|---|---|
+| **AI** | Chat, Create, Projects, Model Hub and, in Advanced, routing, workflows, tools, runtimes and updates | PARTIAL (beta) | [FAQ](docs/guides/FAQ.md) |
+| **Gaming** | Game library, store discovery, hard-off of AI while a game runs, Return to AI | PARTIAL; real-game hard-off measured, FPS impact NOT RUN | [GAMING](docs/guides/GAMING.md) |
+| **Console / TV** | Opt-in fullscreen presenter with a larger-scale library; D-pad/stick, A, B/Escape | Early foundation, not a finished Console Shell | [CONSOLE_MODE](docs/guides/CONSOLE_MODE.md) |
+| **Corporate Edition** | Offline CPU-only Corporate Lite: chat and document search, no cloud | PARTIAL; no roles or audit log | [CORPORATE](docs/guides/CORPORATE.md) |
+
+<!-- screenshot: pending real capture -->
+
+## System requirements
+
+Figures come from the project's measurements on one reference PC (Ryzen 7 8840U, 25.8 GB RAM, Radeon 780M, and an RTX 5080 external GPU for the GPU runs). They are guidance, not guarantees; other hardware is unverified. See [PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md).
+
+| Use | RAM | GPU / VRAM | Disk |
+|---|---|---|---|
+| Operating system | Windows 10 or newer, x64 | | |
+| App and Core, idle | about 0.5 GB (App about 256 MB, Core about 197-230 MB working set) | none | MSI download about 0.8 GB; Portable ZIP about 0.2 GB |
+| Small model on CPU (Corporate Lite, Qwen3-4B Q4_K_M) | about 7 GB in use during a document run on the reference PC; a true 8 GB PC is **NOT verified** | none (about 13 tokens/s, first token about 14 s) | ZIP with model about 2.7 GB |
+| Same 4B model on a GPU | model file 2.3 GiB; about 1 GB system RAM | about 4.3 GB VRAM at 16K context (195.8 tokens/s measured on the RTX 5080, **unverified on current commits**) | model file 2.3 GiB |
+| Larger models (for example a 30B Q3 coder model) | more | about 14 GB VRAM observed | several GB per model |
+
+A dedicated GPU is recommended for large models and media generation but is not required for small CPU models. Image, video and training engines are optional components, some of which need an NVIDIA GPU. Installed size was not measured.
+
+## Install
+
+1. Get a build from [GitHub Releases](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases). If no assets are listed, no public installer is available yet.
+2. Verify the SHA-256 and signature, run the MSI, and start RBG – PaRuX from the Start Menu. Full steps and known limits: [INSTALL.md](docs/guides/INSTALL.md).
+3. Launch it, review the suggested setup (Detect, then Locate existing / Install with PaRuX / Skip). Downloads require your confirmation.
+4. To build from source (Windows, .NET 10 SDK) see [RELEASING.md](docs/RELEASING.md) and [AI_LOCAL_SETUP.md](docs/AI_LOCAL_SETUP.md).
+
+**Portable:** extract the ZIP to an NTFS folder and run `PaRuX.exe`; data stays in `PaRuXData` beside it. See [PORTABLE.md](docs/guides/PORTABLE.md).
 
 **Android companion:** an optional controller for PaRuX running on Windows, **not** a standalone mobile inference engine. See [Android setup](docs/PARUX_ANDROID_README.md).
+
+## Set up a model
+
+1. Open **Model Hub**. Pick a suggested model for your hardware, search Hugging Face, or import a GGUF file you already have. A starter such as Qwen3-4B Q4_K_M is the size used in the measurements above.
+2. Confirm the download (progress and resume are shown). Models are never downloaded silently.
+3. Open **Chat** and send a message; the runtime starts when a request needs it. Routing can choose a model automatically or you can select one.
+4. The 4.1.0 MSI and Portable packages do not bundle a chat model; only the Corporate Lite with-model package does.
+
+## Add games
+
+Open **Games**, then **Add & import**: add a local executable, scan your stores (read-only discovery, opt-in), or import an emulator folder. Launching asks for confirmation, and AI is stopped while the game runs. See [GAMING.md](docs/guides/GAMING.md).
+
+## Import documents
+
+In the AI mode, add a folder as a knowledge source and wait for indexing; answers can cite the files they came from. Corporate Lite offers this as **Document search** with **Add folder...** and requires a local embedding model. Scanned-PDF OCR is NOT verified. See [CORPORATE.md](docs/guides/CORPORATE.md).
+
+## Update
+
+MSI: open **Updates** (Advanced interface) and choose **Download & install verified MSI**; it installs only a signed, newer release. Portable: replace the application files and keep `PaRuXData`. Details in [INSTALL.md](docs/guides/INSTALL.md).
+
+## Guides
+
+[Install](docs/guides/INSTALL.md) · [Portable](docs/guides/PORTABLE.md) · [Corporate](docs/guides/CORPORATE.md) · [Gaming](docs/guides/GAMING.md) · [Console / TV](docs/guides/CONSOLE_MODE.md) · [Troubleshooting](docs/guides/TROUBLESHOOTING.md) · [FAQ](docs/guides/FAQ.md) · [Privacy](docs/guides/PRIVACY.md) · [Release notes template](docs/guides/RELEASE_NOTES_TEMPLATE.md)
 
 ## Local-first, with choices
 
@@ -102,7 +154,7 @@ Merged source PRs: [L2 PR #1](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gamin
 
 ## More information
 
-- [Changelog](CHANGELOG.md) · [Roadmap](PARUX_EXECUTION_PLAN.md) · [Local AI setup](docs/AI_LOCAL_SETUP.md)
+- [Changelog](CHANGELOG.md) · [Roadmap](PARUX_EXECUTION_PLAN.md) · [Local AI setup](docs/AI_LOCAL_SETUP.md) · [User guides](docs/guides/INSTALL.md) · [Privacy](docs/guides/PRIVACY.md)
 - [First-party dependency strategy](docs/DEPENDENCY_STRATEGY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Code provenance](OPEN_SOURCE_PROVENANCE.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Android companion](docs/PARUX_ANDROID_README.md) · [Universal AI gateway](docs/UNIVERSAL_GATEWAY.md)
 - [Report a bug or suggest an improvement](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
