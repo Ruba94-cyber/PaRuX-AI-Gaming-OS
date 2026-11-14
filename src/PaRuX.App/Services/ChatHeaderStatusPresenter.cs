@@ -11,6 +11,26 @@ namespace PaRuX.Services
     {
         public readonly record struct Header(string Text, ChatHeaderDot Dot);
 
+        private static readonly (string En, string It)[] ItalianPhrases =
+        {
+            ("Paused for gaming", "In pausa per il gioco"),
+            ("Loading model…", "Caricamento del modello…"),
+            ("Model idle", "Modello inattivo"),
+            ("Media prompt assistant", "Assistente prompt multimediali"),
+            ("Coding task · ", "Attività di codice · "),
+            (" · coding task", " · attività di codice"),
+            ("Role:", "Ruolo:"),
+            ("Starting", "Avvio"),
+        };
+
+        /// <summary>The header text in Italian: the Core and presenters produce English phrases, and the Italian UI must not show them.</summary>
+        public static string ToItalian(string text)
+        {
+            string result = text;
+            foreach ((string en, string it) in ItalianPhrases) result = result.Replace(en, it, System.StringComparison.Ordinal);
+            return result;
+        }
+
         public static Header Describe(LocalAiState state, string? runningCodingTaskStage)
         {
             bool coding = runningCodingTaskStage != null;

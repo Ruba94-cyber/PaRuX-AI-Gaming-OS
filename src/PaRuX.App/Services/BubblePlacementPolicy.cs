@@ -64,6 +64,14 @@ namespace PaRuX.Services
             return Clamp(workArea, desired, collapsed);
         }
 
+        /// <summary>
+        /// True when the settings hold a position the person chose by dragging the bubble. Virtual-desktop coordinates are
+        /// negative for a monitor placed to the left of, or above, the primary one, so a negative coordinate is a valid saved
+        /// position; only the unset sentinel (-1, -1) written by a fresh profile means "never moved".
+        /// </summary>
+        public static bool HasSavedManualPosition(bool manuallyPositioned, int x, int y) =>
+            manuallyPositioned && !(x == -1 && y == -1);
+
         public static Point Clamp(Rect workArea, Point desired, Size size)
         {
             int maxX = workArea.Right - size.Width;

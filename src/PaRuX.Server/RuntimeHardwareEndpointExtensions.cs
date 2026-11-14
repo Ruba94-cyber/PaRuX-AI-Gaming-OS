@@ -280,6 +280,7 @@ public static class RuntimeHardwareEndpointExtensions
                 // Acquiring it here as well would deadlock the request.
                 return Results.Ok(await engineRace.RunAsync(request, ct).ConfigureAwait(false));
             }
+            catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
             catch (Exception ex) when (IsExpected(ex) || ex is ArgumentException or TimeoutException)
             {
                 return Results.BadRequest(new { error = ex.Message });
@@ -413,6 +414,7 @@ public static class RuntimeHardwareEndpointExtensions
                     .AcquireAsync(ct).ConfigureAwait(false);
                 return Results.Ok(await providerEval.RunAsync(request, ct).ConfigureAwait(false));
             }
+            catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
             catch (Exception ex) when (IsExpected(ex) || ex is ArgumentException)
             {
                 return Results.BadRequest(new { error = ex.Message });
@@ -431,6 +433,7 @@ public static class RuntimeHardwareEndpointExtensions
                     .AcquireAsync(ct).ConfigureAwait(false);
                 return Results.Ok(await rerankerEval.RunAsync(request, ct).ConfigureAwait(false));
             }
+            catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
             catch (Exception ex) when (IsExpected(ex) || ex is ArgumentException)
             {
                 return Results.BadRequest(new { error = ex.Message });

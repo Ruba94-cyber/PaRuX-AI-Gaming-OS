@@ -445,7 +445,7 @@ namespace PaRuX.Views
         {
             if (SimpleModeRuntimeHealthLabel != null)
             {
-                SimpleModeRuntimeHealthLabel.Text = info.BadgeText;
+                SimpleModeRuntimeHealthLabel.Text = T(info.BadgeText, ComponentLifecyclePresenter.BadgeToItalian(info.BadgeText));
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeRuntimeHealthLabel, info.AccessibleName);
             }
             if (SimpleModeRuntimeHealthButton != null)

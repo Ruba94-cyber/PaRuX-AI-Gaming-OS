@@ -56,7 +56,7 @@ public sealed class RetrievalRerankerProviderEvalOrchestrator
     {
         ArgumentNullException.ThrowIfNull(request);
         if (_runtime.GamingActive)
-            throw new InvalidOperationException("Reranker evaluation is blocked while Gaming Mode is active.");
+            throw new UnavailableDuringGamingException("Reranker evaluation is blocked while Gaming Mode is active.");
         if (_runtime.GetTextProcessId() != null)
             throw new InvalidOperationException(
                 "Stop the active text model before a reranker race so MiniLM and Qwen are measured without VRAM competition.");

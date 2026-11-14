@@ -307,7 +307,15 @@ public sealed partial class MainWindow
         if (_consolePreviousWindowBounds is not { } original) return;
         if (AppWindow.Presenter is OverlappedPresenter overlapped)
             overlapped.Restore();
-        AppWindow.MoveAndResize(original);
+        // The monitor the window came from may be gone by now: never restore it off-screen.
+        var areas = new System.Collections.Generic.List<ConsoleHomeRepositionPolicy.Bounds>();
+        foreach (var display in Microsoft.UI.Windowing.DisplayArea.FindAll())
+            areas.Add(new ConsoleHomeRepositionPolicy.Bounds(display.WorkArea.X, display.WorkArea.Y, display.WorkArea.Width, display.WorkArea.Height));
+        var primary = Microsoft.UI.Windowing.DisplayArea.Primary.WorkArea;
+        var safe = ConsoleHomeRepositionPolicy.SafeRestoreBounds(
+            new ConsoleHomeRepositionPolicy.Bounds(original.X, original.Y, original.Width, original.Height),
+            areas, new ConsoleHomeRepositionPolicy.Bounds(primary.X, primary.Y, primary.Width, primary.Height));
+        AppWindow.MoveAndResize(new RectInt32(safe.X, safe.Y, safe.Width, safe.Height));
         _consolePreviousWindowBounds = null;
     }
 

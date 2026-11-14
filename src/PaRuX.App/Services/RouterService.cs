@@ -319,6 +319,23 @@ namespace PaRuX.Services
             return n;
         }
 
+        /// <summary>Italian form of a route label produced by <see cref="Label"/> (stored English on the message).</summary>
+        public static string LabelToItalian(string label) => label switch
+        {
+            "Fast" => "Veloce",
+            "Normal" => "Normale",
+            "Deep reasoning" => "Ragionamento approfondito",
+            "Vision" => "Visione",
+            "Binary analysis" => "Analisi binaria",
+            "Computer use" => "Uso del computer",
+            "Image" => "Immagine",
+            "Image edit" => "Modifica immagine",
+            "Video" => "Video",
+            "Music" => "Musica",
+            "Code" => "Codice",
+            _ => label
+        };
+
         public static string Label(RouteKind route)
         {
             switch (route)
