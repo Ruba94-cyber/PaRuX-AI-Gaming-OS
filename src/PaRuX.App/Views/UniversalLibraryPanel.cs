@@ -187,7 +187,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
         var expander = new Expander
         {
-            Header = T("Advanced Game Management", "Advanced Game Management"),
+            Header = T("Advanced Game Management", "Gestione avanzata dei giochi"),
             Content = content,
             IsExpanded = false,
             HorizontalAlignment = HorizontalAlignment.Stretch,

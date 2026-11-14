@@ -170,7 +170,7 @@ internal static class GameModDropInDialog
             select.Items.Add(new ComboBoxItem
             {
                 Tag = item,
-                Content = item.GameName + " — " + item.State + " — " +
+                Content = item.GameName + " — " + StateLabel(item.State) + " — " +
                     System.IO.Path.GetFileName(item.InstalledFile)
             });
         select.SelectedIndex = 0;
@@ -187,13 +187,13 @@ internal static class GameModDropInDialog
             if (select.SelectedItem is ComboBoxItem { Tag: GameModDropInReceiptDto item })
                 details.Text = T("Installed path: ", "Percorso installato: ") + item.InstalledFile +
                     Environment.NewLine + T("Game executable: ", "Eseguibile gioco: ") + item.GameExecutablePath +
-                    Environment.NewLine + T("State: ", "Stato: ") + item.State +
+                    Environment.NewLine + T("State: ", "Stato: ") + StateLabel(item.State) +
                     Environment.NewLine + T("Only the exact originally installed ZIP can be removed. Changed files are kept.",
                         "È rimovibile solo lo ZIP identico a quello installato. I file modificati vengono conservati.");
         };
         if (select.SelectedItem is ComboBoxItem { Tag: GameModDropInReceiptDto first })
             details.Text = first.InstalledFile + Environment.NewLine +
-                first.GameExecutablePath + Environment.NewLine + first.State;
+                first.GameExecutablePath + Environment.NewLine + StateLabel(first.State);
         var panel = new StackPanel { Spacing = 12, MaxWidth = 560 };
         panel.Children.Add(select);
         panel.Children.Add(details);
@@ -227,6 +227,18 @@ internal static class GameModDropInDialog
                 : remove.Error ?? T("The ZIP or folder may have changed. No unknown file was deleted.",
                     "Lo ZIP o la cartella potrebbero essere cambiati. Nessun file sconosciuto è stato eliminato."));
     }
+
+    /// <summary>Receipt states arrive as stable English API tokens; the screen shows them in the UI language.</summary>
+    internal static string StateLabel(string state) => state switch
+    {
+        "installed" => T("installed", "installata"),
+        "changed" => T("changed by the user (kept)", "modificata dall'utente (conservata)"),
+        "missing" => T("ZIP missing (receipt only)", "ZIP assente (solo ricevuta)"),
+        "unsafe" => T("unsafe folder (needs review)", "cartella non sicura (da controllare)"),
+        "unbound" => T("old receipt without game (cannot delete)", "vecchia ricevuta senza gioco (non eliminabile)"),
+        "unverified" => T("not verified yet", "non ancora verificata"),
+        _ => state
+    };
 
     private static async Task MessageAsync(XamlRoot root, string title, string message)
     {
