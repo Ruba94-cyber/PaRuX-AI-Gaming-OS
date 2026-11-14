@@ -7,7 +7,7 @@
     Windows App SDK), laid out as an MSIX package:
       * the Store IDENTITY (Name, Publisher, PublisherDisplayName) comes from a Git-ignored local JSON file (-IdentityFile);
         it is never written to a tracked file. Required keys: identityName, identityPublisher, publisherDisplayName.
-        Optional: appDisplayName (must equal the name reserved in Partner Center; default "PaRuX AI & Gaming OS").
+        Optional: appDisplayName (must equal the name reserved in Partner Center; default "RBG – PaRuX AI & Gaming OS").
       * AppxManifest.xml is generated from packaging/msix/AppxManifest.template.xml (runFullTrust, internet / LAN capabilities).
       * Logo assets are derived from the repository's approved PRX Orbit artwork (src/PaRuX.App/Assets); nothing new is invented.
       * The package carries the pinned baseline Vulkan llama.cpp runtime (same hash-locked staging as the MSI/Portable) so base

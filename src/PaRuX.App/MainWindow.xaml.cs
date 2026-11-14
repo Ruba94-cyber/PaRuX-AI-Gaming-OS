@@ -82,7 +82,7 @@ namespace PaRuX
 
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
-            Title = "PaRuX AI & Gaming OS";
+            Title = "RBG – PaRuX AI & Gaming OS";
             SetWindowIcon();
 
             try

@@ -44,7 +44,7 @@ public sealed class UiLocalizationHookTests
         "English", "Italiano", "Chat", "Incognito", "AI (Ctrl+1)", "Gaming", "Gaming (Ctrl+2)", "Model Hub", "Lifecycle Lab", "Runtime", "PaRuX", "Console / TV", "GAMING", "INTERNET", "PERSONAS", "AVATAR STUDIO", "Auto", "Standard", "AUTO", "Provider", "Trigger", "Autopilot", "Dataset",
         "Benchmark", "Personas", "FPS", "GPU / VRAM", "VS Code", "OpenCode", "parux-code", "parux-reasoning",
         "parux-fast", "* (default)", "http://127.0.0.1:11434", "https://your-gateway.example.com/v1",
-        "openai/gpt-oss-120b", "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit", "PaRuX · ", "PaRuX AI & Gaming OS",
+        "openai/gpt-oss-120b", "unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit", "RBG – PaRuX · ", "RBG – PaRuX AI & Gaming OS",
         "C:\\work\\binary-analysis", "C:\\Downloads\\example.parux-plugin",
     };
 

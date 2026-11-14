@@ -795,7 +795,7 @@ public sealed class McpClientRegistry : IAsyncDisposable
                 // This is what the MCP spec expects of a client that ships to many users and cannot
                 // hold a per-user registration.
                 DynamicClientRegistration = string.IsNullOrWhiteSpace(config.OAuthClientId)
-                    ? new DynamicClientRegistrationOptions { ClientName = "RBG PaRuX AI Studio" }
+                    ? new DynamicClientRegistrationOptions { ClientName = "RBG – PaRuX AI & Gaming OS" }
                     : null
             };
         }

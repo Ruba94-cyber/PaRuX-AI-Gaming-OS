@@ -58,7 +58,7 @@ ServerBootstrap? RequireRunningServer()
     ServerBootstrap? bootstrap = LoadBootstrap();
     if (bootstrap == null)
     {
-        Console.Error.WriteLine("PaRuX Core isn't running. Run `parux serve` or start RBG PaRuX AI Studio.");
+        Console.Error.WriteLine("PaRuX Core isn't running. Run `parux serve` or start RBG – PaRuX AI & Gaming OS.");
         return null;
     }
     if (string.IsNullOrWhiteSpace(bootstrap.Token)
@@ -1010,7 +1010,7 @@ string Trim(string? value, int max) => string.IsNullOrEmpty(value) ? string.Empt
 void PrintHelp()
 {
     Console.WriteLine("""
-parux - RBG PaRuX AI Studio CLI (same Core, agent state and Virtual Context as desktop/Android)
+parux - RBG – PaRuX AI & Gaming OS CLI (same Core, agent state and Virtual Context as desktop/Android)
 
 Core / inference:
   parux serve

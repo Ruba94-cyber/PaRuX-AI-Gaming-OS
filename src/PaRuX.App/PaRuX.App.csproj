@@ -7,6 +7,10 @@
     <RootNamespace>PaRuX</RootNamespace>
     <!-- Keep the internal namespace stable while the public process/binary is fully branded. -->
     <AssemblyName>PaRuX</AssemblyName>
+    <Product>RBG – PaRuX AI &amp; Gaming OS</Product>
+    <Company>RBG</Company>
+    <Copyright>Copyright © RBG</Copyright>
+    <Description>RBG – PaRuX AI &amp; Gaming OS - local-first AI workspace and gaming home for Windows</Description>
     <Version>$(PaRuXProductVersion)</Version>
     <FileVersion>$(PaRuXProductVersion).0</FileVersion>
     <AssemblyVersion>$(PaRuXProductVersion).0</AssemblyVersion>

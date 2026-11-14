@@ -1,4 +1,4 @@
-# Contributing to RBG PaRuX AI Studio
+# Contributing to RBG – PaRuX AI & Gaming OS
 
 Thanks for considering a contribution to **PaRuX**, a source-available (FSL-1.1-MIT), local-first AI operating environment.
 

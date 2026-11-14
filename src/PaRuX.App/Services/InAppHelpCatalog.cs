@@ -38,7 +38,7 @@ namespace PaRuX.Services
     }
 
     /// <summary>
-    /// Pure in-app help and documentation catalog for PaRuX AI Studio.
+    /// Pure in-app help and documentation catalog for RBG – PaRuX AI & Gaming OS.
     /// Provides structured guide topics, search, and markdown rendering.
     /// </summary>
     public sealed class InAppHelpCatalog
@@ -82,9 +82,9 @@ namespace PaRuX.Services
         public string GenerateHelpSummaryMarkdown()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("# PaRuX AI Studio — Help & Guided Tour");
+            sb.AppendLine("# RBG – PaRuX AI & Gaming OS — Help & Guided Tour");
             sb.AppendLine();
-            sb.AppendLine("Welcome to PaRuX AI Studio. Below is a guide to key features and in-app tools.");
+            sb.AppendLine("Welcome to RBG – PaRuX AI & Gaming OS. Below is a guide to key features and in-app tools.");
             sb.AppendLine("You can replay the interactive tour at any time by selecting **Replay Guided Tour**.");
             sb.AppendLine();
 

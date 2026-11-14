@@ -270,7 +270,7 @@ public sealed class CloudFallbackService
     {
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS");
-        request.Headers.TryAddWithoutValidation("X-Title", "RBG PaRuX AI Studio");
+        request.Headers.TryAddWithoutValidation("X-Title", "RBG – PaRuX AI & Gaming OS");
     }
 
     internal static bool ModelIsListed(string body, string model)

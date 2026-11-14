@@ -1,4 +1,4 @@
-# RBG PaRuX AI Studio Security Policy
+# RBG – PaRuX AI & Gaming OS Security Policy
 
 ## Reporting a vulnerability
 

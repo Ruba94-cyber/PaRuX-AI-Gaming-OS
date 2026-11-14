@@ -272,7 +272,7 @@ namespace PaRuX.Server.Tests
             string markdown = InAppHelpCatalog.Default.GenerateHelpSummaryMarkdown();
 
             Assert.NotNull(markdown);
-            Assert.Contains("# PaRuX AI Studio — Help & Guided Tour", markdown);
+            Assert.Contains("# RBG – PaRuX AI & Gaming OS — Help & Guided Tour", markdown);
             Assert.Contains("Replay Guided Tour", markdown);
             Assert.Contains("## Getting Started", markdown);
             Assert.Contains("### Interactive Guided Tour", markdown);

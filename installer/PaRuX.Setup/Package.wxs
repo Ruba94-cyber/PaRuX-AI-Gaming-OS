@@ -1,8 +1,8 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
-      Name="PaRuX"
-      Manufacturer="Ruba94-cyber"
+      Name="RBG – PaRuX AI &amp; Gaming OS"
+      Manufacturer="RBG"
       Version="$(var.ProductVersion)"
       Language="1033"
       Scope="perMachine"
@@ -78,7 +78,7 @@
         <Component Id="PaRuXStartMenuComponent" Bitness="always64">
           <Shortcut
               Id="PaRuXStartMenuShortcut"
-              Name="PaRuX"
+              Name="RBG – PaRuX"
               Description="Local-first AI workstation"
               Target="[INSTALLFOLDER]PaRuX.exe"
               WorkingDirectory="INSTALLFOLDER"

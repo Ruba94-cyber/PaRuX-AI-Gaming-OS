@@ -11,8 +11,10 @@
          stable to avoid a high-risk no-value mass namespace rewrite during release hardening. -->
     <AssemblyName>PaRuX.Server</AssemblyName>
     <AssemblyTitle>PaRuX Server</AssemblyTitle>
-    <Product>PaRuX</Product>
-    <Description>PaRuX Server - local AI backend and workstation control plane</Description>
+    <Product>RBG – PaRuX AI &amp; Gaming OS</Product>
+    <Company>RBG</Company>
+    <Copyright>Copyright © RBG</Copyright>
+    <Description>RBG – PaRuX AI &amp; Gaming OS Server - local AI backend and workstation control plane</Description>
     <RootNamespace>PaRuX.Server</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

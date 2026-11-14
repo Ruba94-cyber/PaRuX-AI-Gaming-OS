@@ -7,14 +7,14 @@ PackageLocale: en-US
 Publisher: RBG
 PublisherUrl: https://github.com/Ruba94-cyber
 PublisherSupportUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/issues
-PackageName: RBG PaRuX AI Studio
+PackageName: RBG – PaRuX AI & Gaming OS
 PackageUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS
 License: FSL-1.1-MIT
 LicenseUrl: https://github.com/Ruba94-cyber/PaRuX-AI-Gaming-OS/blob/main/LICENSE
 Copyright: Copyright (c) RBG
 ShortDescription: Local-first AI operating environment for Windows, with a paired Android companion.
 Description: |-
-  RBG PaRuX AI Studio runs AI models on your own machine. It manages local model downloads and
+  RBG – PaRuX AI & Gaming OS runs AI models on your own machine. It manages local model downloads and
   runtimes, routes each turn to the model that fits the request and the hardware, and puts chat,
   projects and knowledge, coding agents, Computer Use, image/video/audio generation, datasets and
   training, and workflow automation behind one local control plane.

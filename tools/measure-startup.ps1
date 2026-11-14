@@ -97,7 +97,7 @@ function Run-App {
                 try {
                     $el = [Windows.Automation.AutomationElement]::FromHandle($appProc.MainWindowHandle)
                     # UIA reports the title without the '&' (e.g. 'PaRuX AI  Gaming OS'), so match with an optional '&'.
-                    if ($el.Current.Name -match '^PaRuX AI\s*&?\s*Gaming OS$' -or $el.Current.Name -eq 'RBG PaRuX AI Studio') {
+                    if ($el.Current.Name -match '^PaRuX AI\s*&?\s*Gaming OS$' -or $el.Current.Name -eq 'RBG PaRuX AI Studio' -or $el.Current.Name -match '^RBG\s+–\s+PaRuX AI\s*&?\s*Gaming OS$') {
                         $cond = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Edit)
                         $edit = $el.FindFirst([Windows.Automation.TreeScope]::Descendants, $cond)
                         if ($edit -and $edit.Current.IsEnabled) { $interactiveMs = $sw.ElapsedMilliseconds }
