@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "description": "Reviewed SHA-256 pins for managed runtime release assets (SEC-F12). Entries mirror packaging/llama-cpu-archive.lock.json, which were compared against the upstream release page when they were added. To add one: download the asset, compute its SHA-256, compare with the digest GitHub shows, then add the entry in a reviewed commit. An asset without an entry still needs the GitHub-advertised digest.",
+  "pins": [
+    {
+      "repository": "ggml-org/llama.cpp",
+      "asset": "llama-b12282-bin-win-cpu-x64.zip",
+      "sha256": "582a5da726b30e0b9e801b4ebd1b85cbe023ca266bdebf6a9d55426c85e57463"
+    },
+    {
+      "repository": "ggml-org/llama.cpp",
+      "asset": "llama-b12283-bin-win-cpu-x64.zip",
+      "sha256": "dafb19ac757bfb7cfc1f91c6e26703264df861c4331e3ef6dc9543ae8d010c5e"
+    }
+  ]
+}

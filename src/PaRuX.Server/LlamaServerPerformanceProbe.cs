@@ -137,6 +137,8 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
         foreach (string arg in RuntimeLaunchOptimizer.BuildRuntimeArguments(profile, hasCuda))
             start.ArgumentList.Add(arg);
         RuntimeLaunchOptimizer.ApplyEnvironment(start, profile);
+        // SEC-F01: the isolated probe server gets its own per-launch key, through its environment only.
+        string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
 
         using var process = new Process { StartInfo = start };
         using var sampleCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -150,7 +152,16 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
             Task<string> stdoutDrain = process.StandardOutput.ReadToEndAsync(cancellationToken);
             Task<string> stderrDrain = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            // The port was reserved and released before launch, so another process could race to bind it. Pin the
+            // exact launched identity; every connection must be answered by this process (same pattern as the retrieval server).
+            ExpectedPeerIdentity? launched = ConnectedPeerAttestation.TryCaptureIdentity(process.Id);
+            if (launched is null)
+                throw new InvalidOperationException("Could not verify the identity of the isolated llama-server probe process.");
+            ExpectedPeerIdentity expectedPeer = launched.Value;
+            using var http = new HttpClient(AttestedLoopbackHttp.CreateHandler(
+                _ => new[] { expectedPeer }, allowUnattestedWhenPlatformUnsupported: false))
+            { Timeout = TimeSpan.FromMinutes(5) };
+            ManagedRuntimeCredentials.Authorize(http, apiKey);
             string baseUrl = "http://127.0.0.1:" + port;
             await WaitUntilHealthyAsync(http, baseUrl, process, stderrDrain, cancellationToken).ConfigureAwait(false);
             load.Stop();
@@ -289,6 +300,7 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
                 }
             }
             catch { }
+            ManagedRuntimeCredentials.RetireKey(apiKey);
         }
     }
 
@@ -591,7 +603,7 @@ public sealed class LlamaServerPerformanceProbe : ILlamaServerPerformanceProbe
 
     private static string Trim(string value)
     {
-        value = value.Trim();
+        value = (ManagedRuntimeCredentials.Redact(value) ?? string.Empty).Trim();
         return value.Length <= 900 ? value : value[..900] + "…";
     }
 }

@@ -139,6 +139,51 @@ public sealed class KnowledgeLargePdfTests : IDisposable
         Assert.True(File.Exists(path));
     }
 
+    private sealed class GamingProbeOcr : IOcrEngine
+    {
+        public string Name => "gaming-probe-ocr";
+        public OcrAvailability CheckAvailability()
+        {
+            var refusal = new UnavailableDuringGamingException("Gaming Mode is active, so local ocr work is unavailable.");
+            throw new OperationCanceledException(refusal.Message, refusal);
+        }
+        public OcrPageResult RecognizeImage(string path, string? languageTag, CancellationToken ct) => throw new InvalidOperationException();
+        public IReadOnlyList<OcrPageResult> RecognizePdfPages(string path, IReadOnlyList<int> pages, string? languageTag, CancellationToken ct) =>
+            throw new InvalidOperationException();
+    }
+
+    [Fact]
+    public async Task A_Gaming_refused_OCR_probe_cancels_the_run_and_the_pdf_is_retried_with_OCR_afterwards()
+    {
+        MakePdf("probed-in-transition.pdf", 35, "GAME_ECU", blankPage: 7);
+        using (KnowledgeIndex interrupted = Index(new GamingProbeOcr()))
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => interrupted.IndexFolderAsync("corporate", Docs));
+            // Never staged without OCR: no page was indexed as "no text" and the document is not reported complete.
+            Assert.Empty(interrupted.Search("GAME_ECU_PAGE_0035"));
+        }
+        using KnowledgeIndex resumed = Index(new ControlledOcr());
+        await resumed.IndexFolderAsync("corporate", Docs);
+        Assert.Equal(7, Assert.Single(resumed.Search("OCR_SERVICE_PAGE_0007", KnowledgeSearchMode.Exact)).Position.Page);
+    }
+
+    [Fact]
+    public void The_Windows_OCR_probe_is_refused_uncached_while_Gaming_is_active_and_the_refusal_is_recognised()
+    {
+        bool gaming = true;
+        using var scope = new GamingChildScope("ocr", () => gaming, null);
+        var engine = new WindowsOcrEngine();
+        using (GamingChildGate.UseForCurrentFlow(scope))
+        {
+            OperationCanceledException first = Assert.Throws<OperationCanceledException>(() => engine.CheckAvailability());
+            Assert.True(WindowsOcrEngine.IsGamingRefusal(first));
+            Assert.IsType<UnavailableDuringGamingException>(first.InnerException);
+            // Not cached as "unavailable": the next probe is refused for the same reason, not answered from a stale result.
+            Assert.Throws<OperationCanceledException>(() => engine.CheckAvailability());
+        }
+        Assert.False(WindowsOcrEngine.IsGamingRefusal(new InvalidOperationException()));
+    }
+
     [Fact]
     public async Task Changing_OCR_setting_discards_incompatible_incomplete_pdf_checkpoint()
     {

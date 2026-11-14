@@ -102,7 +102,8 @@ class ChatStreamClient(private val okHttp: OkHttpClient, private val endpoint: S
             override fun onResponse(call: Call, response: Response) {
                 response.use { resp ->
                     if (!resp.isSuccessful) {
-                        trySend(ChatStreamEvent.Error("PaRuX Server rejected the request (HTTP ${resp.code})."))
+                        trySend(ChatStreamEvent.Error(
+                            com.parux.android.ui.chat.ChatErrors.forHttpStatus(resp.code, "PaRuX Server rejected the request (HTTP ${resp.code}).")))
                         close()
                         return
                     }

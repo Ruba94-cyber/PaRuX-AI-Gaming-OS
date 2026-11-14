@@ -226,7 +226,8 @@ public sealed class OnboardingReturnAndReadinessCoverageTests
             page.ClickProceedAnyway();
 
             var chatPrompt = UiWait.ById(app.MainWindow, "Chat_Prompt_TextBox", ControlType.Edit);
-            Assert.False(chatPrompt.Properties.IsOffscreen.ValueOrDefault);
+            // The workspace switch is still animating when the prompt first appears in the tree; wait for it to be on screen.
+            UiWait.For(() => !chatPrompt.Properties.IsOffscreen.ValueOrDefault, "chat prompt on screen after proceeding anyway");
 
             Assert.Null(page.ReturnToSetupButton);
 

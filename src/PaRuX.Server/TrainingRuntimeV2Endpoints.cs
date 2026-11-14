@@ -66,6 +66,7 @@ public static class TrainingRuntimeV2Endpoints
                 });
             }
             catch (OperationCanceledException) { throw; }
+            catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
             catch (TrainingRuntimeRefusalException ex)
             {
                 return Results.Json(new { error = ex.Message, code = ex.Code }, statusCode: StatusCodes.Status409Conflict);

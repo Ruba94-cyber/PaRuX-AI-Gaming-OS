@@ -335,11 +335,13 @@ print(json.dumps(payload, separators=(",", ":")))
         info.Environment["DO_NOT_TRACK"] = "1";
 
         using var process = new Process { StartInfo = info };
-        if (!process.Start()) throw new InvalidOperationException("Could not start the PaRuX Training Lab runtime probe.");
+        // Gaming hard-off: the probe imports torch/unsloth and can touch CUDA, so it is refused while Gaming is active and
+        // killed by a Gaming start. It only reads state; killing it changes nothing on disk.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, cancellationToken);
         ChildProcessJob.Assign(process);
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync(gaming.Token);
+        Task<string> stderr = process.StandardError.ReadToEndAsync(gaming.Token);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
 
         // Importing Unsloth is not a quick import: it patches transformers and compiles into its
         // cache, and the first run after an install is far slower than every run after it. At 45
@@ -351,12 +353,24 @@ print(json.dumps(payload, separators=(",", ":")))
         catch (OperationCanceledException)
         {
             try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
             cancellationToken.ThrowIfCancellationRequested();
             throw new TimeoutException("Training Lab runtime probe timed out.");
         }
 
-        string output = (await stdout.ConfigureAwait(false)).Trim();
-        string error = (await stderr.ConfigureAwait(false)).Trim();
+        string output;
+        string error;
+        try
+        {
+            output = (await stdout.ConfigureAwait(false)).Trim();
+            error = (await stderr.ConfigureAwait(false)).Trim();
+        }
+        catch (OperationCanceledException)
+        {
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         if (process.ExitCode != 0)
             throw new InvalidOperationException("Training Lab runtime probe exited with code " + process.ExitCode + ": " + Trim(error.Length > 0 ? error : output));
         string jsonLine = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -393,6 +407,10 @@ print(json.dumps(payload, separators=(",", ":")))
     internal static string Sha256(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
+    /// <summary>Delete only a venv whose Python version was positively read and does not match the pin; unknown (null) is kept.</summary>
+    internal static bool ShouldDeleteWrongPythonVenv(string? actualVersion) =>
+        !string.IsNullOrWhiteSpace(actualVersion) && !MatchesPinnedPythonSeries(actualVersion);
+
     private static async Task RemoveWrongPythonVenvAsync(string venvRoot, CancellationToken cancellationToken)
     {
         string python = ManagedPythonRuntime.VenvPython(venvRoot);
@@ -413,19 +431,29 @@ print(json.dumps(payload, separators=(",", ":")))
             info.ArgumentList.Add("import platform;print(platform.python_version())");
             ManagedPythonRuntime.ApplyEnvironment(info);
             using var process = new Process { StartInfo = info };
-            if (process.Start())
+            // Gaming hard-off. A Gaming interruption must never be mistaken for "wrong Python version": the typed error
+            // is rethrown below, before the venv could be judged and deleted on an unknown (null) version.
+            using GamingChildLease gaming = GamingChildGate.StartOwned(process, cancellationToken);
+            Task<string> stdout = process.StandardOutput.ReadToEndAsync(gaming.Token);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            try { await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException)
             {
-                Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeout.CancelAfter(TimeSpan.FromSeconds(20));
-                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-                if (process.ExitCode == 0) actual = (await stdout.ConfigureAwait(false)).Trim();
+                try { process.Kill(entireProcessTree: true); } catch { }
+                gaming.ThrowIfGamingInterrupted();
+                throw;
             }
+            if (process.ExitCode == 0) actual = (await stdout.ConfigureAwait(false)).Trim();
+            else gaming.ThrowIfGamingInterrupted();
         }
+        catch (UnavailableDuringGamingException) { throw; }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) when (ex is IOException or InvalidOperationException) { }
 
-        if (MatchesPinnedPythonSeries(actual)) return;
+        // An unknown version (timeout, non-zero exit, failed start) is never grounds to delete user-visible state:
+        // keep the environment; the install/probe path reports the failure honestly if it is really unusable.
+        if (!ShouldDeleteWrongPythonVenv(actual)) return;
         try { Directory.Delete(venvRoot, recursive: true); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

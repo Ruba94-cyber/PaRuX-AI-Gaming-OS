@@ -87,6 +87,8 @@ public sealed class RuntimeManagerHardwareStatus
     public bool GamingActive { get; set; }
     public bool GamingShutdownPending { get; set; }
     public string? LastGamingShutdownFailure { get; set; }
+    public bool TextUnloadedForGaming { get; set; }
+    public string? TextReloadOnDemandModelPath { get; set; }
     public string? ActiveRole { get; set; }
     public string? ActiveProfile { get; set; }
     public string? ActiveModelPath { get; set; }

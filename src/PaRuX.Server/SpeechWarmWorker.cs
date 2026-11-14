@@ -21,7 +21,11 @@ internal sealed class SpeechWarmWorker : IDisposable
     private readonly StringBuilder _stderr = new();
     private bool _disposed;
 
-    public SpeechWarmWorker(string mode, string pythonPath, string scriptPath, SpeechProcessAdmission? admission = null)
+    private readonly Func<CancellationToken> _gamingToken;
+    private readonly Func<ProcessStartInfo>? _startInfoForTests;
+
+    public SpeechWarmWorker(string mode, string pythonPath, string scriptPath, SpeechProcessAdmission? admission = null,
+        Func<CancellationToken>? gamingToken = null, Func<ProcessStartInfo>? startInfoForTests = null)
     {
         if (mode is not ("transcribe" or "synthesize"))
             throw new ArgumentOutOfRangeException(nameof(mode));
@@ -29,16 +33,29 @@ internal sealed class SpeechWarmWorker : IDisposable
         _pythonPath = pythonPath;
         _scriptPath = scriptPath;
         _admission = admission ?? new SpeechProcessAdmission(() => false);
+        _gamingToken = gamingToken ?? (() => CancellationToken.None);
+        _startInfoForTests = startInfoForTests;
     }
 
     public async Task<JsonElement> ExecuteAsync(object request, CancellationToken ct, TimeSpan timeout, long? admittedGeneration = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         long generation = admittedGeneration ?? _admission.Capture();
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        // The Gaming token cancels an in-flight request the moment the runtime flips, without waiting for the
+        // guard's next reconciliation step to kill the child.
+        CancellationToken gaming = _gamingToken();
+        using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(ct, gaming);
         try
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            await _gate.WaitAsync(requestCts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsGamingFailure(ex, ct, gaming, generation))
+        {
+            throw GamingUnavailable(ex);
+        }
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
             timeoutCts.CancelAfter(timeout);
             try
             {
@@ -46,8 +63,8 @@ internal sealed class SpeechWarmWorker : IDisposable
                 _admission.Check(generation);
                 Process process = _process ?? throw new InvalidOperationException("Speech warm worker failed to start.");
                 string command = JsonSerializer.Serialize(request);
-                await process.StandardInput.WriteLineAsync(command).ConfigureAwait(false);
-                await process.StandardInput.FlushAsync().ConfigureAwait(false);
+                await process.StandardInput.WriteLineAsync(command.AsMemory(), timeoutCts.Token).ConfigureAwait(false);
+                await process.StandardInput.FlushAsync(timeoutCts.Token).ConfigureAwait(false);
 
                 string? line = await process.StandardOutput.ReadLineAsync().WaitAsync(timeoutCts.Token).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(line))
@@ -62,11 +79,14 @@ internal sealed class SpeechWarmWorker : IDisposable
                         : "invalid worker response";
                     throw new InvalidOperationException("Speech warm worker failed: " + Trim(error));
                 }
+                // A hard-off that landed while the answer was being read must not be reported as a normal result.
+                _admission.Check(generation);
                 return root.Clone();
             }
-            catch
+            catch (Exception ex)
             {
                 StopProcess();
+                if (IsGamingFailure(ex, ct, gaming, generation)) throw GamingUnavailable(ex);
                 throw;
             }
         }
@@ -80,21 +100,56 @@ internal sealed class SpeechWarmWorker : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         long generation = admittedGeneration ?? _admission.Capture();
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        CancellationToken gaming = _gamingToken();
+        using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(ct, gaming);
         try
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            await _gate.WaitAsync(requestCts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsGamingFailure(ex, ct, gaming, generation))
+        {
+            throw GamingUnavailable(ex);
+        }
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
             timeoutCts.CancelAfter(timeout);
             try { await EnsureStartedAsync(timeoutCts.Token, generation).ConfigureAwait(false); }
-            catch { StopProcess(); throw; }
+            catch (Exception ex)
+            {
+                StopProcess();
+                if (IsGamingFailure(ex, ct, gaming, generation)) throw GamingUnavailable(ex);
+                throw;
+            }
         }
         finally { _gate.Release(); }
     }
+
+    /// <summary>True when a failure is the consequence of a Gaming transition rather than a caller cancel or an
+    /// engine fault: the Gaming token fired, admission is closed, or this request's ticket was invalidated.</summary>
+    private bool IsGamingFailure(Exception ex, CancellationToken callerToken, CancellationToken gamingToken, long generation)
+    {
+        if (ex is SpeechUnavailableDuringGamingException) return true;
+        if (callerToken.IsCancellationRequested) return false;
+        return gamingToken.IsCancellationRequested || _admission.IsClosed || !_admission.IsCurrent(generation);
+    }
+
+    private static SpeechUnavailableDuringGamingException GamingUnavailable(Exception inner) =>
+        new("Gaming Mode is active, so local speech is unavailable; the speech worker was stopped.", inner);
 
     /// <summary>Kills only the resident child process. The worker object remains reusable after
     /// Gaming Mode exits, so Gaming Guard can release speech VRAM immediately without disposing
     /// the singleton service or racing a SemaphoreSlim disposal against an in-flight request.</summary>
     public void Stop() => StopProcess();
+
+    /// <summary>OS id of the resident child, or null when none is resident (diagnostics and tests).</summary>
+    internal int? ChildProcessId
+    {
+        get
+        {
+            try { return _process?.Id; } catch { return null; }
+        }
+    }
 
     private async Task EnsureStartedAsync(CancellationToken ct, long generation)
     {
@@ -102,19 +157,27 @@ internal sealed class SpeechWarmWorker : IDisposable
         if (_process is { HasExited: false }) return;
         StopProcess();
 
-        var info = new ProcessStartInfo
+        ProcessStartInfo info;
+        if (_startInfoForTests != null)
         {
-            FileName = _pythonPath,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = Path.GetDirectoryName(_scriptPath) ?? AppContext.BaseDirectory
-        };
-        info.ArgumentList.Add(_scriptPath);
-        info.ArgumentList.Add("worker-" + _mode);
-        ManagedPythonRuntime.ApplyEnvironment(info);
+            info = _startInfoForTests();
+        }
+        else
+        {
+            info = new ProcessStartInfo
+            {
+                FileName = _pythonPath,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = Path.GetDirectoryName(_scriptPath) ?? AppContext.BaseDirectory
+            };
+            info.ArgumentList.Add(_scriptPath);
+            info.ArgumentList.Add("worker-" + _mode);
+            ManagedPythonRuntime.ApplyEnvironment(info);
+        }
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, args) => AppendStderr(args.Data);
@@ -143,6 +206,9 @@ internal sealed class SpeechWarmWorker : IDisposable
         JsonElement root = document.RootElement;
         if (!root.TryGetProperty("ready", out JsonElement readyElement) || !readyElement.GetBoolean())
             throw new InvalidDataException("Speech warm worker returned an invalid readiness frame: " + Trim(ready));
+        // A spawn that completed after a hard-off began must not be left resident: BlockForGaming already
+        // killed every registered child, and this ticket check turns the late readiness into a typed refusal.
+        _admission.Check(generation);
     }
 
     private void AppendStderr(string? line)

@@ -234,14 +234,33 @@ public sealed class ManualGameLibraryUiTests
             new InstallProgressPage(app).Invoke(navigation);
             UiWait.ById(app.MainWindow, "GameLibrary_Sections");
 
-            void RefreshStatus()
+            // Presses "Refresh Gaming status" and waits for the Devices status text that proves the Core answer was applied
+            // (the marker alone shows the "resource lock" text, no marker shows "AI ready"). A click that was lost, or dropped
+            // while the view was busy, is sent again (bounded); the last observed text is reported when the effect never appears.
+            void RefreshStatus(bool expectGamingMarker)
             {
-                GamingSectionsPage.SelectSection(app.MainWindow, "Devices");
-                var refresh = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
-                UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault, "Gaming status refresh usable");
-                refresh.Patterns.Invoke.Pattern.Invoke();
+                string expected = expectGamingMarker ? "Gaming resource lock is still active" : "AI ready";
+                string last = "<not read>";
+                try
+                {
+                    UiWait.InputUntil(() =>
+                    {
+                        GamingSectionsPage.SelectSection(app.MainWindow, "Devices");
+                        var refresh = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Refresh_Button", ControlType.Button);
+                        UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault, "Gaming status refresh usable");
+                        refresh.Patterns.Invoke.Pattern.Invoke();
+                    }, () =>
+                    {
+                        last = UiWait.ById(app.MainWindow, "GameLibrary_Gaming_Status_Text").Properties.Name.ValueOrDefault ?? "<null>";
+                        return last.Contains(expected, StringComparison.Ordinal);
+                    }, "Gaming status refreshed to '" + expected + "'");
+                }
+                catch (TimeoutException ex)
+                {
+                    throw new TimeoutException(ex.Message + " Last Devices status text: '" + last + "'.", ex);
+                }
             }
-            RefreshStatus();
+            RefreshStatus(expectGamingMarker: false);
 
             AutomationElement? Strip() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(stripButton));
 
@@ -256,7 +275,7 @@ public sealed class ManualGameLibraryUiTests
             string marker = Path.Combine(app.LocalAiStateRoot, "game-active.json");
             Directory.CreateDirectory(app.LocalAiStateRoot);
             File.WriteAllText(marker, "{\"started\":\"" + DateTime.UtcNow.ToString("o") + "\"}");
-            RefreshStatus();
+            RefreshStatus(expectGamingMarker: true);
 
             foreach (string section in sections)
             {
@@ -274,7 +293,7 @@ public sealed class ManualGameLibraryUiTests
 
             // Gaming ends: the strip goes away on every section.
             File.Delete(marker);
-            RefreshStatus();
+            RefreshStatus(expectGamingMarker: false);
             foreach (string section in sections)
             {
                 GamingSectionsPage.SelectSection(app.MainWindow, section);

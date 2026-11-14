@@ -49,6 +49,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<ServerState>();
 builder.Services.AddSingleton<PaRuX.Server.BrowserLaunchCodes>();
+builder.Services.AddSingleton<PaRuX.Server.HostHeaderPolicy>();
 builder.Services.AddSingleton<LocalAiProcessManager>();
 builder.Services.AddSingleton<ISystemRamSnapshotProvider, SystemRamSnapshotProvider>();
 builder.Services.AddSingleton<IGpuPerformanceTelemetrySnapshotProvider>(
@@ -393,6 +394,21 @@ ApiKeyService apiKeys = app.Services.GetRequiredService<ApiKeyService>();
 InFlightRequestRegistry inFlight = app.Services.GetRequiredService<InFlightRequestRegistry>();
 StartupTrace.Mark("core-singletons-resolved");
 
+// SEC-F10: DNS-rebinding guard. Runs before every other rule, including the unauthenticated health and sign-in routes.
+{
+    HostHeaderPolicy hostPolicy = app.Services.GetRequiredService<HostHeaderPolicy>();
+    app.Use(async (context, next) =>
+    {
+        if (!hostPolicy.IsAllowed(context.Request.Headers.Host.ToString(), context.Connection.LocalIpAddress))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = "This Host name is not allowed. Add it to PARUX_ALLOWED_HOSTS if PaRuX is reached through a reverse proxy or alias." });
+            return;
+        }
+        await next();
+    });
+}
+
 // Outermost: an unreadable text-runtime port table is a typed 503 on every route, never an empty 500.
 app.UseMiddleware<TextRuntimeUnavailableMiddleware>();
 
@@ -491,6 +507,14 @@ app.Use(async (context, next) =>
                     await context.Response.WriteAsJsonAsync(new { error = "Missing or invalid CSRF token." });
                     return;
                 }
+            }
+
+            // SEC-F05: default-deny. A browser session reaches only the routes the served client uses.
+            if (!WebSessionEndpointPolicy.IsAllowed(context.Request.Method, context.Request.Path))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = "This route is not available to a browser session. Use the PaRuX desktop app." });
+                return;
             }
 
             context.Items["PaRuXOwner"] = "web:" + session.Id;
@@ -1067,6 +1091,7 @@ app.MapPost("/api/v1/rag/sources/{id}/reindex", async (string id, RagStore rag, 
         (int documents, int chunks) = await rag.IndexSourceAsync(id, source.FolderPath, null, ct);
         return Results.Ok(new { documentCount = documents, chunkCount = chunks });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (Exception exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -2060,10 +2085,31 @@ app.MapPost("/api/v1/projects/desktop", async (CreateDesktopProjectRequest reque
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
 }).RequireDesktopOwner();
 
-app.MapPost("/api/v1/autopilot/runs", async (StartAutopilotRunRequest request, AutopilotService autopilot, CancellationToken ct) =>
+app.MapPost("/api/v1/autopilot/runs", async (StartAutopilotRunRequest request, AutopilotService autopilot, HttpContext context, CancellationToken ct) =>
 {
-    try { return Results.Ok(await autopilot.StartRunAsync(request.Goal, request.PermissionMode, ct)); }
+    string? starter = DesktopOwnerRouteExtensions.IsDesktopOwner(context) ? null : context.Items["PaRuXOwner"] as string;
+    try { return Results.Ok(await autopilot.StartRunAsync(request.Goal, request.PermissionMode, ct, starter)); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
+}).ForceSupervisedAutopilotForPairedDevice();
+
+// SEC-F04: the desktop owner sees every run waiting for approval and can approve or cancel it from a list.
+app.MapGet("/api/v1/autopilot/runs", (string? status, AutopilotService autopilot) =>
+    status is null || string.Equals(status, AutopilotRunStatus.PendingApproval, StringComparison.Ordinal)
+        ? Results.Ok(autopilot.ListPending())
+        : Results.BadRequest(new { error = "Only status=pending_approval can be listed." })).RequireDesktopOwner();
+
+// The desktop owner may cancel any pending run; a paired device only a run it started itself.
+app.MapPost("/api/v1/autopilot/runs/{id}/cancel", (string id, AutopilotService autopilot, HttpContext context) =>
+{
+    bool desktop = DesktopOwnerRouteExtensions.IsDesktopOwner(context);
+    string requester = context.Items["PaRuXOwner"] as string ?? string.Empty;
+    return autopilot.CancelPendingRun(id, requester, desktop) switch
+    {
+        AutopilotService.CancelOutcome.Cancelled => Results.NoContent(),
+        AutopilotService.CancelOutcome.NotFound => Results.NotFound(new { error = "Autopilot run not found" }),
+        AutopilotService.CancelOutcome.Forbidden => Results.StatusCode(StatusCodes.Status403Forbidden),
+        _ => Results.Conflict(new { error = "Run is not waiting for approval" })
+    };
 });
 
 app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot) =>
@@ -2073,7 +2119,8 @@ app.MapGet("/api/v1/autopilot/runs/{id}", (string id, AutopilotService autopilot
 });
 
 app.MapPost("/api/v1/autopilot/runs/{id}/approve", (string id, AutopilotService autopilot) =>
-    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }));
+    autopilot.ApproveRun(id) ? Results.NoContent() : Results.BadRequest(new { error = "Run not found or not pending approval" }))
+    .RequireDesktopOwner();
 
 app.MapPost("/api/v1/eval/datasets", (CreateEvalDatasetRequest request, EvalStore evalStore) =>
 {
@@ -2204,6 +2251,7 @@ app.MapPost("/api/v1/avatar/engine/install", async (AvatarEngineService engine, 
         await engine.InstallEngineAsync(ct);
         return Results.Ok(await engine.GetStatusAsync(ct));
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (Exception exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -2229,6 +2277,7 @@ app.MapPost("/api/v1/avatar/generate", async (AvatarGenerateRequest request, Ava
     {
         return Results.Ok(await avatar.GenerateAsync(request, ct));
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception)
     {
         return Results.Conflict(new { error = exception.Message });
@@ -2469,12 +2518,14 @@ app.MapGet("/api/v1/adapters/conversion/status", async (AdapterManagerService ad
 app.MapPost("/api/v1/adapters/conversion/install", async (AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(new { log = await adapters.InstallConversionEngineAsync(ct) }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
 
 app.MapPost("/api/v1/adapters/{id}/convert", async (string id, ConvertAdapterRequest request, AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(await adapters.ConvertToGgufAsync(id, request.Outtype, ct, request.BaseModelConfigDir)); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
@@ -2482,6 +2533,7 @@ app.MapPost("/api/v1/adapters/{id}/convert", async (string id, ConvertAdapterReq
 app.MapPost("/api/v1/adapters/{id}/merge", async (string id, MergeAdapterRequest request, AdapterManagerService adapters, CancellationToken ct) =>
 {
     try { return Results.Ok(new { outputDirectory = await adapters.MergeToBaseModelAsync(id, request.OutputDirectory, ct, request.BaseModelDir) }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status409Conflict); }
 }).RequireDesktopOwner();
@@ -2496,6 +2548,7 @@ app.MapPost("/api/v1/speech/engine/install", async (SpeechService speech, Cancel
         string log = await speech.InstallEngineAsync(ct);
         return Results.Ok(new { installed = true, log });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (InvalidOperationException exception)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -2505,6 +2558,7 @@ app.MapPost("/api/v1/speech/engine/install", async (SpeechService speech, Cancel
 app.MapPost("/api/v1/speech/transcribe", async (TranscribeRequest request, SpeechService speech, CancellationToken ct) =>
 {
     try { return Results.Ok(await speech.TranscribeAsync(request, ct)); }
+    catch (SpeechUnavailableDuringGamingException gaming) { return Results.Json(new { error = gaming.Message, code = SpeechUnavailableDuringGamingException.ErrorCode }, statusCode: StatusCodes.Status409Conflict); }
     catch (TextRuntimeStateUnavailableException unavailable) { return TextRuntimeUnavailableResponse.Result(unavailable); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable); }
@@ -2513,6 +2567,7 @@ app.MapPost("/api/v1/speech/transcribe", async (TranscribeRequest request, Speec
 app.MapPost("/api/v1/speech/synthesize", async (SynthesizeRequest request, SpeechService speech, CancellationToken ct) =>
 {
     try { return Results.Ok(await speech.SynthesizeAsync(request, ct)); }
+    catch (SpeechUnavailableDuringGamingException gaming) { return Results.Json(new { error = gaming.Message, code = SpeechUnavailableDuringGamingException.ErrorCode }, statusCode: StatusCodes.Status409Conflict); }
     catch (TextRuntimeStateUnavailableException unavailable) { return TextRuntimeUnavailableResponse.Result(unavailable); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
     catch (InvalidOperationException exception) { return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable); }
@@ -3460,6 +3515,9 @@ app.MapPost("/api/v1/models/roles/{role}/reset", (string role) =>
 app.MapGet("/api/v1/runtime/status", async (RuntimeManagerService runtimeManager, CancellationToken ct) =>
     Results.Ok(await runtimeManager.GetStatusAsync(ct)));
 
+app.MapGet("/api/v1/runtime/context-window", async (bool? refresh, CancellationToken ct) =>
+    Results.Ok(await RuntimeContextWindowProbe.ReadAsync(refresh == true, ct))).RequireDesktopOwner();
+
 app.MapGet("/api/v1/runtime/diagnostics", async (RuntimeManagerService runtimeManager, CancellationToken ct) =>
     Results.Ok(await runtimeManager.GetDiagnosticsAsync(ct)));
 
@@ -3965,6 +4023,7 @@ app.MapPost("/api/v1/threed/generate", async (ThreedGenerateRequest request, Thr
     {
         return Results.BadRequest(new { error = exception.Message });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
     {
         return Results.Conflict(new { error = "Gaming Mode activated; 3D generation was stopped." });
@@ -4000,6 +4059,7 @@ app.MapPost("/api/v1/cutout/remove", async (CutoutRemoveRequest request, CutoutS
         return Results.Ok(await cutout.RemoveBackgroundAsync(request, linked.Token));
     }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
     {
         return Results.Conflict(new { error = "Gaming Mode activated; background removal was stopped." });
@@ -4042,6 +4102,23 @@ app.MapEmulatorEndpoints();
 PaRuX.Server.Orchestration.Gaming.QuickResumeEndpoints.MapQuickResumeEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Downloads.GameDownloadEndpoints.MapGameDownloadEndpoints(app);
 PaRuX.Server.Orchestration.Gaming.Discover.GameDiscoverEndpoints.MapGameDiscoverEndpoints(app);
+// Any "unavailable during Gaming" refusal that an endpoint did not map itself becomes the one 409 { code: "gaming_active" }.
+app.Use(async (context, next) =>
+{
+    try { await next(); }
+    catch (UnavailableDuringGamingException gaming) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsJsonAsync(new { error = gaming.Message, code = UnavailableDuringGamingException.ErrorCode });
+    }
+});
+// Managed installers, converters and one-shot AI children launched from static helpers (uv/pip, LoRA conversion, OCR,
+// training runtime, engine packs) share one Gaming hard-off boundary: refused while Gaming is active, killed with the rest
+// of the AI children on a Gaming start. Unit tests that never compose Program keep the pass-through default.
+{
+    var gamingRuntime = app.Services.GetRequiredService<LocalRuntimeService>();
+    GamingChildGate.Install(new GamingChildScope("install/conversion", () => gamingRuntime.GamingMode, gamingRuntime.HardOff));
+}
 if (!app.Environment.IsEnvironment("Testing"))
 {
     // An unconfirmed display change left by a crash is reverted before anything else uses the monitor.

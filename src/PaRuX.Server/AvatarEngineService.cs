@@ -13,8 +13,22 @@ public sealed class AvatarEngineService
 {
     private const string LatentSyncCommit = "a229c3948406bc2cf6eaf4873e662e70c6a04746";
     private readonly SpeechService _speech;
+    private readonly GamingChildScope? _scope;
 
-    public AvatarEngineService(SpeechService speech) => _speech = speech;
+    public AvatarEngineService(SpeechService speech, LocalRuntimeService? runtime = null)
+    {
+        _speech = speech;
+        // Gaming hard-off: the LatentSync / ffmpeg / python children are owned by one scope that the Gaming guard stops
+        // (and that refuses new children while Gaming is active). Without a runtime (tests) the ambient scope applies.
+        if (runtime != null) _scope = new GamingChildScope("avatar", () => runtime.GamingMode, runtime.HardOff);
+    }
+
+    /// <summary>Test seam: an injected Gaming scope.</summary>
+    internal AvatarEngineService(SpeechService speech, GamingChildScope scope)
+    {
+        _speech = speech;
+        _scope = scope;
+    }
 
     private static string RuntimeRoot => Path.Combine(
         PaRuX.Contracts.PaRuXDataRoot.Path, "ai-runtimes", "avatar");
@@ -25,10 +39,21 @@ public sealed class AvatarEngineService
     private static string DefaultPhotoPath => Path.Combine(RuntimeRoot, "default-avatar.jpg");
     private static string LastErrorPath => Path.Combine(RuntimeRoot, "last-install-error.txt");
 
+    /// <summary>True while Gaming Mode has the avatar engine paused (admission closed).</summary>
+    internal bool GamingPaused => _scope?.IsClosed == true;
+
     public bool HasDefaultPhoto => File.Exists(DefaultPhotoPath);
 
     public async Task<AvatarEngineStatus> GetStatusAsync(CancellationToken ct)
     {
+        // The engine check imports torch in a child; it is never started during Gaming (nothing to kill, nothing leaks).
+        if (_scope?.IsClosed == true)
+            return new AvatarEngineStatus
+            {
+                Installed = false,
+                HasDefaultPhoto = HasDefaultPhoto,
+                LastError = "Gaming Mode is active; the local avatar engine is paused and was not checked."
+            };
         string? lastError = File.Exists(LastErrorPath) ? await File.ReadAllTextAsync(LastErrorPath, ct) : null;
         bool checkpointsPresent = File.Exists(Path.Combine(CheckpointsDir, "latentsync_unet.pt"))
             && File.Exists(Path.Combine(CheckpointsDir, "whisper", "tiny.pt"));
@@ -42,13 +67,30 @@ public sealed class AvatarEngineService
                 ct, TimeSpan.FromSeconds(60), workingDirectory: RepoRoot);
             return new AvatarEngineStatus { Installed = exitCode == 0, HasDefaultPhoto = HasDefaultPhoto, LastError = exitCode == 0 ? null : lastError };
         }
+        catch (UnavailableDuringGamingException)
+        {
+            return new AvatarEngineStatus
+            {
+                Installed = false,
+                HasDefaultPhoto = HasDefaultPhoto,
+                LastError = "Gaming Mode is active; the local avatar engine is paused and was not checked."
+            };
+        }
         catch
         {
             return new AvatarEngineStatus { Installed = false, HasDefaultPhoto = HasDefaultPhoto, LastError = lastError };
         }
     }
 
-    public async Task<string> InstallEngineAsync(CancellationToken ct)
+    public Task<string> InstallEngineAsync(CancellationToken ct) =>
+        GamingScoped(ct, linked => InstallEngineCoreAsync(linked));
+
+    /// <summary>Runs under the avatar Gaming scope when there is one: a Gaming start cancels the work and the caller gets
+    /// the typed "unavailable during Gaming" error, never a generic failure.</summary>
+    private Task<T> GamingScoped<T>(CancellationToken ct, Func<CancellationToken, Task<T>> body) =>
+        _scope == null ? body(ct) : _scope.RunAsync(ct, (linked, _) => body(linked));
+
+    private async Task<string> InstallEngineCoreAsync(CancellationToken ct)
     {
         Directory.CreateDirectory(RuntimeRoot);
         var log = new System.Text.StringBuilder();
@@ -69,34 +111,28 @@ public sealed class AvatarEngineService
                 torchPlan.PipArguments,
                 ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
 
-            string requirementsPath = Path.Combine(RepoRoot, "requirements.txt");
-            if (!File.Exists(requirementsPath)) throw new InvalidOperationException("LatentSync's requirements.txt was not found in the pinned source archive.");
-            string filteredPath = Path.Combine(RepoRoot, "requirements-parux.txt");
-            string[] lines = (await File.ReadAllLinesAsync(requirementsPath, ct))
-                .Where(l => !l.StartsWith("torch==", StringComparison.OrdinalIgnoreCase)
-                    && !l.StartsWith("torchvision==", StringComparison.OrdinalIgnoreCase)
-                    && !l.StartsWith("--extra-index-url", StringComparison.OrdinalIgnoreCase))
-                .Select(l => l.StartsWith("insightface==", StringComparison.OrdinalIgnoreCase) ? "insightface" : l)
-                .ToArray();
-            await File.WriteAllLinesAsync(filteredPath, lines, ct);
-
+            // SEC-F02: the LatentSync requirement closure (resolved from the pinned commit's requirements.txt)
+            // is installed only from the shipped hash lock, never from the downloaded requirements file.
             log.Append(await ManagedPythonRuntime.PipInstallAsync(
-                VenvRoot, new[] { "-r", filteredPath, "imageio-ffmpeg" },
+                VenvRoot, ManagedRequirementLocks.ArgumentsFor("avatar"),
                 ct, TimeSpan.FromMinutes(20)).ConfigureAwait(false));
 
             Directory.CreateDirectory(Path.Combine(CheckpointsDir, "whisper"));
+            // SEC-F02: both checkpoints are pickle files, so they are fetched from an immutable repository commit
+            // and published only after the pinned size and SHA-256 match (Hugging Face LFS metadata of that commit).
             await DownloadIfMissingAsync(
-                "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/main/whisper/tiny.pt",
-                Path.Combine(CheckpointsDir, "whisper", "tiny.pt"), ct);
+                CheckpointUrl("whisper/tiny.pt"),
+                Path.Combine(CheckpointsDir, "whisper", "tiny.pt"), WhisperTinySha256, WhisperTinyBytes, ct);
             await DownloadIfMissingAsync(
-                "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/main/latentsync_unet.pt",
-                Path.Combine(CheckpointsDir, "latentsync_unet.pt"), ct);
+                CheckpointUrl("latentsync_unet.pt"),
+                Path.Combine(CheckpointsDir, "latentsync_unet.pt"), UnetSha256, UnetBytes, ct);
 
             try { File.Delete(LastErrorPath); } catch { }
             return log.ToString();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not (UnavailableDuringGamingException or OperationCanceledException))
         {
+            // A Gaming interruption or a cancel is not an install defect and must not become "last install error".
             string detail = Trim(ex.Message);
             try { await File.WriteAllTextAsync(LastErrorPath, detail, ct); } catch { }
             throw;
@@ -109,7 +145,10 @@ public sealed class AvatarEngineService
         await File.WriteAllBytesAsync(DefaultPhotoPath, photoBytes, ct);
     }
 
-    public async Task<byte[]> GenerateAsync(string text, CancellationToken ct)
+    public Task<byte[]> GenerateAsync(string text, CancellationToken ct) =>
+        GamingScoped(ct, linked => GenerateCoreAsync(text, linked));
+
+    private async Task<byte[]> GenerateCoreAsync(string text, CancellationToken ct)
     {
         if (!HasDefaultPhoto) throw new InvalidOperationException("No reference photo has been set for the local avatar engine yet.");
         if (!File.Exists(VenvPython)) throw new InvalidOperationException("The local avatar engine is not installed on this machine yet.");
@@ -158,7 +197,7 @@ public sealed class AvatarEngineService
         }
     }
 
-    private static async Task<string> ResolveManagedFfmpegAsync(CancellationToken ct)
+    private async Task<string> ResolveManagedFfmpegAsync(CancellationToken ct)
     {
         (int exit, string stdout, string stderr) = await RunCapturedAsync(VenvPython,
             "-c \"import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())\"",
@@ -170,21 +209,24 @@ public sealed class AvatarEngineService
         return path;
     }
 
-    private static async Task DownloadIfMissingAsync(string url, string destination, CancellationToken ct)
+    internal const string CheckpointRepositoryCommit = "c42c7e6c8e9c213626389fa7d9a3c444b8536353";
+    internal const string WhisperTinySha256 = "65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9";
+    internal const long WhisperTinyBytes = 75572083;
+    internal const string UnetSha256 = "0a478e89eb660f82da4c35dbdde8a5adfb27f99d1b4e50edd03729e1e98316d3";
+    internal const long UnetBytes = 5072222488;
+
+    internal static string CheckpointUrl(string repositoryPath) =>
+        "https://huggingface.co/ByteDance/LatentSync-1.6/resolve/" + CheckpointRepositoryCommit + "/" + repositoryPath;
+
+    private static async Task DownloadIfMissingAsync(
+        string url, string destination, string sha256, long sizeBytes, CancellationToken ct)
     {
         if (File.Exists(destination)) return;
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        string partial = destination + ".partial";
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
-        using HttpResponseMessage response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        await using (Stream source = await response.Content.ReadAsStreamAsync(ct))
-        await using (FileStream target = new(partial, FileMode.Create, FileAccess.Write))
-            await source.CopyToAsync(target, ct);
-        File.Move(partial, destination, true);
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
+        await VerifiedDownload.DownloadAsync(http, url, destination, sha256, sizeBytes, ct).ConfigureAwait(false);
     }
 
-    private static async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(
+    private async Task<(int ExitCode, string Stdout, string Stderr)> RunCapturedAsync(
         string fileName, string arguments, CancellationToken ct, TimeSpan timeout, string? workingDirectory = null)
     {
         var psi = new ProcessStartInfo
@@ -195,13 +237,20 @@ public sealed class AvatarEngineService
         };
         if (workingDirectory != null) psi.WorkingDirectory = workingDirectory;
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct, _scope);
+        ChildProcessJob.Assign(process);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token); }
-        catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } throw; }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 

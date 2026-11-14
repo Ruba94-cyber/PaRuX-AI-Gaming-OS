@@ -7,6 +7,16 @@ import org.junit.Test
 
 class ChatErrorsTest {
     @Test
+    fun anExpiredPairedTokenTellsTheUserToPairAgain() {
+        val response = retrofit2.Response.error<Any>(
+            401, okhttp3.ResponseBody.create(null, ""))
+        val text = ChatErrors.describe(retrofit2.HttpException(response))
+        assertTrue(text.contains("Pair this device again"))
+        assertEquals(ChatErrors.PAIR_AGAIN, ChatErrors.forHttpStatus(401, "x"))
+        assertEquals("x", ChatErrors.forHttpStatus(500, "x"))
+    }
+
+    @Test
     fun unreachablePcIsExplainedInTheUsersTermsWithoutTheRawAddress() {
         val text = ChatErrors.describe(java.net.ConnectException("Failed to connect to /192.168.1.20:51124"))
         assertTrue(text.startsWith("Can't reach your PaRuX PC"))

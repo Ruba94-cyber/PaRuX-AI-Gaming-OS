@@ -1,0 +1,61 @@
+# Reviewed inventory of every process launch (new Process{...} / Process.Start(...)) under src/PaRuX.Server.
+# Enforced by GamingHardOffProcessLaunchInventoryTests: a new launch site, a changed count or a missing/blank reason fails the test.
+# A reviewer adding a launch must state HOW Gaming Mode hard-off covers it (or why it is not an AI child) in the last column.
+#
+# Format:  relative path | launch-site count | class | launching method(s) | gate | how it is covered
+# Classes:
+#   STOPPED-BY-HARDOFF  the child is registered with a Gaming boundary (GamingChildScope / SpeechProcessAdmission /
+#                       LocalAiProcessManager StopAll): refused while Gaming is active, killed with exit confirmation on a Gaming start.
+#   CALLER-GATED        the launch itself is not registered, but every caller refuses while Gaming is active and runs the child
+#                       under a token the Gaming transition cancels (GamingHardOffWatch / GamingCancellationToken), killing it.
+#   Gate column: '-' means the launching method's own body must show a Gaming mechanism (comments/strings do not count);
+#   'File.cs#Method[;File2.cs#Method2]' names the gating caller method(s), which the test finds and checks.
+#   NOT-AI              a short bounded tool/OS probe, not a PaRuX AI child, uses no model and no GPU inference.
+#   GAMING-FEATURE      part of the game/launcher integration itself (launching or suspending the game), not an AI child.
+#
+Automation/AutomationEngine.cs|1|NOT-AI|RunGitAsync|-|User-configured automation steps (the user's own commands), not a PaRuX-launched AI model or inference child.
+AvatarEngineService.cs|1|STOPPED-BY-HARDOFF|RunCapturedAsync|-|GamingChildScope "avatar" registered with LocalAiProcessManager.HardOff; refuses while Gaming, killed on Gaming start; typed 409 gaming_active.
+CandidateTextQualityRunner.cs|1|CALLER-GATED|StartAsync|CandidateTextQualityRunner.cs#RunProfileCoreAsync|LlamaTextQualitySession.StartAsync is reached only from RunProfileCoreAsync, which refuses to start while Gaming is active (checked immediately before the launch and again inside the start factory); the 250 ms MonitorGamingAsync poll then cancels a run already started and the session disposes the child.
+ComfyCalibrationHarness.cs|3|CALLER-GATED|RunAsync,Start|ComfyCalibrationHarness.cs#RunAsync|Calibration options carry IsGamingActive, checked before launch and during the run; the ComfyUI child is killed in the harness finally block.
+ComfyWorkflowRunner.cs|1|CALLER-GATED|RunMediaProcessAsync|GamingGuardService.cs#TickAsync|Media post-processing (ffmpeg-style) runs inside a media job: GamingGuardService.TickAsync calls MediaJobService.CancelAllForGaming, which cancels the job token, and the child is killed on cancel; ComfyUI itself is a LocalAiProcessManager media child.
+ComponentInventoryService.cs|1|NOT-AI|ProbeVersionAsync|-|Version probe (tool --version) with a short timeout for the component inventory; no model, no GPU.
+ContextGraph/RepoIndexService.cs|1|NOT-AI|ProbeGitHistory|-|git command for the repository index; not an AI child.
+ContinuousTtsWorker.cs|1|STOPPED-BY-HARDOFF|EnsureStartedAsync|-|Continuous TTS worker child runs under the runtime Gaming token and SpeechProcessAdmission (GOS-09); stopped by SpeechService.StopWorkersForGaming.
+CutoutService.cs|1|STOPPED-BY-HARDOFF|RunCapturedAsync|-|GamingChildGate.StartOwned (ambient install/conversion scope): refused while Gaming, killed on Gaming start; the endpoint also links the runtime Gaming token.
+ExLlamaV3LocalInferenceEngine.cs|1|CALLER-GATED|StartWorkerUnsafeAsync|-|Serving refuses while Gaming is active; the engine is stopped through LocalRuntimeService.StopAlternativeEnginesAsync inside ForceGamingShutdownAsync.
+ExLlamaV3ManagedPackService.cs|1|STOPPED-BY-HARDOFF|ValidateImportAsync|-|CUDA import validation goes through GamingChildGate.StartOwned; the install builds in a .staging-* folder that is deleted on any failure and moved into place only after validation (no half-applied pack).
+GgufQuantizeService.cs|1|CALLER-GATED|RunProcessAsync|WorkloadOrchestrator.cs#ReleaseResourcesForGamingAsync|GgufQuantizeJobs.StopForGamingAsync, called from WorkloadOrchestrator.ReleaseResourcesForGamingAsync (wired in Program.cs), cancels and confirms the quantize child; the output is published only on success.
+GpuPerformanceTelemetryService.cs|1|NOT-AI|TryQueryAsync|-|Bounded nvidia-smi query; a read-only telemetry probe, not an AI child.
+Knowledge/Ocr.cs|1|STOPPED-BY-HARDOFF|Run|-|GamingChildGate.StartOwned: refused while Gaming, killed on Gaming start; a Gaming stop ends the indexing run as a cancellation (job reports cancelled; unchanged files are skipped, large PDFs resume from checkpoints), never as a stored "OCR failed" result.
+LlamaCppRetrievalProviders.cs|1|STOPPED-BY-HARDOFF|EnsureReadyAsync|-|LlamaRetrievalServer owns a GamingChildScope registered with LocalAiProcessManager.HardOff: admission closed under a lock, in-flight requests cancelled with the typed error, child killed with exit confirmation, lazy restart after Gaming.
+LlamaServerCapabilities.cs|1|NOT-AI|RunHelpAsync|-|Short llama-server --help style capability probe (no model loaded).
+LlamaServerPerformanceProbe.cs|1|CALLER-GATED|RunMeasurementAsync|LlamaServerPerformanceProbe.cs#RunAsync|RunAsync refuses while Gaming is active and runs under GamingHardOffWatch, which cancels and kills the probe server.
+LocalAiProcessManager.cs|2|STOPPED-BY-HARDOFF|LaunchAndWaitCoreAsync,SupportsRouterAsync|LocalAiProcessManager.cs#StartArbitraryTextModelCoreAsync|The resident text/media runtime itself: GameStart writes the Gaming marker and StopAll stops both; start paths refuse while GamingActive. SupportsRouterAsync is a bounded --help probe reached only from TryStartHotModelPoolAsync, called by StartArbitraryTextModelCoreAsync which refuses while GamingActive.
+LoraGgufConversionService.cs|1|STOPPED-BY-HARDOFF|RunCapturedAsync|-|GamingChildGate.StartOwned: refused while Gaming, killed on Gaming start; Convert writes to a .partial.gguf file moved into place only on a clean exit, so a killed run never leaves a truncated or replaced GGUF.
+ManagedClipImageJudge.cs|2|STOPPED-BY-HARDOFF|EnsureWorkerAsync,RunPythonOnceAsync|-|Per-judge GamingChildScope (registered with HardOff) covers both the persistent worker and the one-shot install/validate runs; the install publishes its ready marker last.
+ManagedComfyImageRaceEngine.cs|1|CALLER-GATED|EnsureRendererOnlyReadyAsync|-|Engine Race endpoint refuses while Gaming and links the runtime Gaming token; the engine checks GamingMode before and during the run.
+ManagedDiffusersImageEngine.cs|1|CALLER-GATED|RunPythonAsync|ManagedDiffusersImageEngine.cs#InstallAsync;ManagedDiffusersImageEngine.cs#GenerateAsync|Generation and install refuse while GamingMode; runs under the caller's Gaming-linked token and is killed on cancel.
+ManagedDiffusersResidentSession.cs|1|CALLER-GATED|StartWorkerAsync|-|Resident session registers a Gaming cancellation callback (GamingCancellationToken.Register) that stops the child; start refuses while Gaming.
+ManagedPythonRuntime.cs|1|STOPPED-BY-HARDOFF|RunUvAsync|-|RunUvAsync (every uv/pip install in the product) goes through GamingChildGate.StartOwned: refused while Gaming, killed on Gaming start, typed error; installers record success only after final verification, so an interrupted install is a failure that a re-run repairs.
+ManagedRuntimeUpdateHost.cs|1|NOT-AI|BinaryOnlyAsync|-|Bounded "llama-server --version" startup check when no small model exists; loads no model and uses no GPU. The measured smoke path (MeasureAsync) is deferred while Gaming is active (RuntimeUpdateDeferredException).
+ModelBenchmarkService.cs|1|CALLER-GATED|RunAsync|-|Refuses while Gaming is active and runs under GamingHardOffWatch, which kills llama-bench.
+NvidiaSmiProbe.cs|1|NOT-AI|RunProcessAsync|-|Bounded nvidia-smi query used by the VRAM probe; read-only.
+Orchestration/AgentRepositoryReadTools.cs|1|NOT-AI|RunGitAsync|-|Read-only repository tools (git/search) for the agent; not an AI inference child.
+Orchestration/Gaming/GameLaunchHooks.cs|1|GAMING-FEATURE|RunAsync|-|User-configured pre/post game hooks.
+Orchestration/Gaming/ManualGameSessionService.cs|8|GAMING-FEATURE|LaunchApplication,LaunchAsync,LaunchEpicAsync,LaunchExtraStoreAsync,LaunchGogAsync,LaunchSteamAsync|-|Launching and tracking the user's own game processes.
+Orchestration/Gaming/Providers/InputProviders.cs|2|GAMING-FEATURE|StartAsync|-|Game input tooling launched for the game session.
+Orchestration/Gaming/Providers/LauncherProviders.cs|3|GAMING-FEATURE|LaunchAsync|-|Game launcher integration.
+Orchestration/Gaming/Providers/SuspendProviders.cs|2|GAMING-FEATURE|ResumeProcessAsync,SuspendProcessAsync|-|Suspends/resumes the user's game process.
+Orchestration/Gaming/Providers/VirtualPad/HidHideManager.cs|1|GAMING-FEATURE|RunAsync|-|HidHide CLI used by the virtual pad provider.
+Ref2VaManagedExecutor.cs|1|CALLER-GATED|RunCapturedAsync|Ref2VaManagedExecutor.cs#GenerateAsync|Refuses while GamingMode and links the runtime Gaming token; the child is killed on cancel.
+RuntimeEngineBenchmarkAdapters.cs|1|CALLER-GATED|MeasureAsync|ManagedRuntimeEngineRaceService.cs#RunAsync|ExLlamaV3 benchmark adapter is constructed only by ManagedRuntimeEngineRaceService.CreateAdapterAsync (ManagedRuntimeEngineRaceService.cs); RunAsync refuses during Gaming and runs under GamingHardOffWatch; the adapter kills the host in finally.
+RuntimePerformanceTuner.cs|1|CALLER-GATED|RunAsync|RuntimePerformanceTuner.cs#ExecuteAsync|Refuses while Gaming is active and runs under GamingHardOffWatch.
+SpeechService.cs|1|STOPPED-BY-HARDOFF|RunCapturedAsync|-|One-shot speech child is started under SpeechProcessAdmission (GOS-09) and now also assigned to ChildProcessJob.
+SpeechWarmWorker.cs|1|STOPPED-BY-HARDOFF|EnsureStartedAsync|-|Warm STT/TTS workers under SpeechProcessAdmission and the runtime Gaming token (GOS-09).
+ThreedService.cs|1|STOPPED-BY-HARDOFF|RunCapturedAsync|-|GamingChildGate.StartOwned: refused while Gaming, killed on Gaming start; the endpoint also links the runtime Gaming token.
+TrainingLabService.cs|2|CALLER-GATED|RunCapturedAsync,RunAsync|-|The engine probe (RunCapturedAsync) goes through GamingChildGate.StartOwned: refused while Gaming, killed on a Gaming start, and the status reports it was not probed. Training jobs (RunAsync) run under GamingCancellationToken (cancelled by Gaming, recovery deferred while Gaming).
+TrainingRuntimeCatalog.cs|2|STOPPED-BY-HARDOFF|ProbeAsync,RemoveWrongPythonVenvAsync|-|Probe and wrong-Python check use GamingChildGate.StartOwned; a Gaming interruption is rethrown before the venv could be judged; the venv is deleted only when the version was read and mismatches (unknown = keep); the install manifest is written last through a temp file.
+WindowsMlGenAiEngineBenchmarkAdapter.cs|1|CALLER-GATED|MeasureAsync|ManagedRuntimeEngineRaceService.cs#RunAsync|Constructed only by ManagedRuntimeEngineRaceService.CreateAdapterAsync (ManagedRuntimeEngineRaceService.cs; Gaming refusal + GamingHardOffWatch); the adapter kills the worker in finally.
+WindowsMlGenAiLocalInferenceEngine.cs|1|CALLER-GATED|StartWorkerUnsafeAsync|-|Serving refuses while Gaming is active; stopped through StopAlternativeEnginesAsync inside ForceGamingShutdownAsync.
+WindowsMlPerformancePackService.cs|1|STOPPED-BY-HARDOFF|RunAsync|-|GamingChildGate.StartOwned: refused while Gaming, killed on Gaming start; the provider deployment is an OS transaction, so a killed client leaves no half-applied PaRuX state.
+VulkanDeviceSelector.cs|1|NOT-AI|ListDevicesAsync|-|Bounded 4 s "llama-server --list-devices" device enumeration; loads no model and runs no inference.

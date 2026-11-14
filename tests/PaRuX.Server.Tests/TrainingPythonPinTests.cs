@@ -42,4 +42,12 @@ public sealed class TrainingPythonPinTests
         // "3.111.0" starts with "3.11" as text and is a different series entirely.
         Assert.False(TrainingRuntimeCatalog.MatchesPinnedPythonSeries("3.111.0"));
     }
+
+    [Theory]
+    [InlineData(null, false)]      // unknown (timeout, non-zero exit, failed start): keep and report
+    [InlineData("", false)]
+    [InlineData("3.11.14", false)] // matches the pin: keep
+    [InlineData("3.13.8", true)]   // positively read and wrong: replace
+    public void A_managed_venv_is_deleted_only_when_its_version_was_read_and_does_not_match(string? actual, bool delete) =>
+        Assert.Equal(delete, TrainingRuntimeCatalog.ShouldDeleteWrongPythonVenv(actual));
 }

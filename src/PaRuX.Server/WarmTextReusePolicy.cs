@@ -34,10 +34,25 @@ internal static class WarmTextReusePolicy
         foreach (Candidate candidate in plannedLaunches)
         {
             if (string.Equals(candidate.Executable, resident.Executable, StringComparison.OrdinalIgnoreCase)
-                && candidate.Arguments.SequenceEqual(resident.Arguments, StringComparer.Ordinal))
+                && SameArguments(candidate.Arguments, resident.Arguments))
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Argument lists are equal when every position matches exactly, except that two rooted paths naming the same file
+    /// count as equal: a model spelled <c>D:\m\.\A.gguf</c> and <c>d:\m\a.gguf</c> is one launch, not a reason to restart.
+    /// </summary>
+    private static bool SameArguments(IReadOnlyList<string> left, IReadOnlyList<string> right)
+    {
+        if (left.Count != right.Count) return false;
+        for (int index = 0; index < left.Count; index++)
+        {
+            if (string.Equals(left[index], right[index], StringComparison.Ordinal)) continue;
+            if (!Path.IsPathRooted(left[index]) || !Path.IsPathRooted(right[index]) || !SamePath(left[index], right[index])) return false;
+        }
+        return true;
     }
 
     private static bool SamePath(string a, string b)

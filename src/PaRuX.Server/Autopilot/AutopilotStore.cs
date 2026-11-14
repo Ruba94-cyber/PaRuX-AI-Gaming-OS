@@ -59,26 +59,36 @@ CREATE TABLE IF NOT EXISTS autopilot_runs (
                 alter.ExecuteNonQuery();
             }
             catch (SqliteException) { }
+            try
+            {
+                using SqliteCommand alter = connection.CreateCommand();
+                alter.CommandText = "ALTER TABLE autopilot_runs ADD COLUMN started_by TEXT;";
+                alter.ExecuteNonQuery();
+            }
+            catch (SqliteException) { }
 
             _initialized = true;
         }
     }
 
-    public AutopilotRunDto Create(string goal, string permissionMode, string projectId, List<string> taskIds, string status)
+    public AutopilotRunDto Create(string goal, string permissionMode, string projectId, List<string> taskIds, string status,
+        string? startedBy = null, DateTime? createdUtc = null)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = createdUtc ?? DateTime.UtcNow;
         var run = new AutopilotRunDto
         {
             Id = Guid.NewGuid().ToString("N"), Goal = goal, PermissionMode = permissionMode,
-            Status = status, ProjectId = projectId, TaskIds = taskIds, CreatedUtc = now, UpdatedUtc = now
+            Status = status, ProjectId = projectId, TaskIds = taskIds, CreatedUtc = now, UpdatedUtc = now,
+            StartedBy = startedBy
         };
         lock (Gate)
         {
             using SqliteConnection connection = Open();
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = @"INSERT INTO autopilot_runs
-(id, goal, permission_mode, status, project_id, task_ids, created_utc, updated_utc)
-VALUES ($id, $goal, $mode, $status, $projectId, $taskIds, $created, $updated);";
+(id, goal, permission_mode, status, project_id, task_ids, created_utc, updated_utc, started_by)
+VALUES ($id, $goal, $mode, $status, $projectId, $taskIds, $created, $updated, $startedBy);";
+            command.Parameters.AddWithValue("$startedBy", (object?)startedBy ?? DBNull.Value);
             command.Parameters.AddWithValue("$id", run.Id);
             command.Parameters.AddWithValue("$goal", run.Goal);
             command.Parameters.AddWithValue("$mode", run.PermissionMode);
@@ -110,6 +120,21 @@ VALUES ($id, $goal, $mode, $status, $projectId, $taskIds, $created, $updated);";
             command.CommandText = "SELECT id FROM autopilot_runs WHERE status = $running OR status = $pending ORDER BY created_utc ASC;";
             command.Parameters.AddWithValue("$running", AutopilotRunStatus.Running);
             command.Parameters.AddWithValue("$pending", AutopilotRunStatus.PendingApproval);
+            using SqliteDataReader reader = command.ExecuteReader();
+            var ids = new List<string>();
+            while (reader.Read()) ids.Add(reader.GetString(0));
+            return ids.Select(id => GetInternal(connection, id)!).ToList();
+        }
+    }
+
+    public List<AutopilotRunDto> ListByStatus(string status)
+    {
+        lock (Gate)
+        {
+            using SqliteConnection connection = Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT id FROM autopilot_runs WHERE status = $status ORDER BY created_utc ASC;";
+            command.Parameters.AddWithValue("$status", status);
             using SqliteDataReader reader = command.ExecuteReader();
             var ids = new List<string>();
             while (reader.Read()) ids.Add(reader.GetString(0));
@@ -151,7 +176,7 @@ WHERE id = $id;";
     private static AutopilotRunDto? GetInternal(SqliteConnection connection, string id)
     {
         using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = @"SELECT id, goal, permission_mode, status, project_id, task_ids, final_report_json, retry_counts_json, created_utc, updated_utc
+        command.CommandText = @"SELECT id, goal, permission_mode, status, project_id, task_ids, final_report_json, retry_counts_json, created_utc, updated_utc, started_by
 FROM autopilot_runs WHERE id = $id;";
         command.Parameters.AddWithValue("$id", id);
         using SqliteDataReader reader = command.ExecuteReader();
@@ -167,7 +192,8 @@ FROM autopilot_runs WHERE id = $id;";
             FinalReportJson = reader.IsDBNull(6) ? null : reader.GetString(6),
             RetryCounts = retryCounts ?? new Dictionary<string, int>(),
             CreatedUtc = DateTime.Parse(reader.GetString(8)).ToUniversalTime(),
-            UpdatedUtc = DateTime.Parse(reader.GetString(9)).ToUniversalTime()
+            UpdatedUtc = DateTime.Parse(reader.GetString(9)).ToUniversalTime(),
+            StartedBy = reader.IsDBNull(10) ? null : reader.GetString(10)
         };
     }
 

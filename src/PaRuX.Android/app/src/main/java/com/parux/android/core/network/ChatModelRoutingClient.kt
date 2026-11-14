@@ -31,7 +31,7 @@ class ChatModelRoutingClient(
                 .build()
             okHttp.newCall(http).execute().use { response ->
                 if (!response.isSuccessful)
-                    throw java.io.IOException("PaRuX rejected model routing (HTTP ${response.code}).")
+                    throw java.io.IOException(com.parux.android.ui.chat.ChatErrors.forHttpStatus(response.code, "PaRuX rejected model routing (HTTP ${response.code})."))
                 val text = response.body?.string() ?: throw java.io.IOException("Empty model-routing response.")
                 PaRuXHttpClient.json.decodeFromString(ChatRoutingPreference.serializer(), text)
             }
@@ -48,7 +48,7 @@ class ChatModelRoutingClient(
         val request = Request.Builder().url(endpoint.trimEnd('/') + path).get().build()
         okHttp.newCall(request).execute().use { response ->
             if (!response.isSuccessful)
-                throw java.io.IOException("PaRuX request failed (HTTP ${response.code}).")
+                throw java.io.IOException(com.parux.android.ui.chat.ChatErrors.forHttpStatus(response.code, "PaRuX request failed (HTTP ${response.code})."))
             val text = response.body?.string() ?: throw java.io.IOException("Empty PaRuX response.")
             return PaRuXHttpClient.json.decodeFromString(serializer, text)
         }

@@ -1015,8 +1015,11 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <TextBox x:Name="AutopilotRunIdBox" Grid.Column="0" PlaceholderText="Run id (auto-filled after Start run)" loc:Loc.ItPlaceholder="ID dell&#x27;esecuzione (compilato dopo Avvia l&#x27;esecuzione)" />
                             <Button Grid.Column="1" Content="Check status" loc:Loc.ItContent="Controlla lo stato" Click="CheckAutopilotRun_Click" />
-                            <Button Grid.Column="2" Content="Approve" loc:Loc.ItContent="Approva" Click="ApproveAutopilotRun_Click" />
+                            <Button Grid.Column="2" Content="Refresh waiting runs" loc:Loc.ItContent="Aggiorna le esecuzioni in attesa" Click="RefreshPendingAutopilotRuns_Click" />
                         </Grid>
+                        <TextBlock Text="Runs waiting for your approval" loc:Loc.ItText="Esecuzioni in attesa della tua approvazione" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
+                        <TextBlock x:Name="AutopilotPendingEmpty" Text="No Autopilot run is waiting for approval." loc:Loc.ItText="Nessuna esecuzione Autopilot è in attesa di approvazione." Style="{StaticResource PaRuXCaptionTextStyle}" />
+                        <StackPanel x:Name="AutopilotPendingList" Spacing="8" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource PaRuXCardStyle}" BorderBrush="{StaticResource PaRuXDotWarnBrush}">

@@ -28,20 +28,46 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
     private SpeechWarmWorker? _ttsWorker;
     private bool _disposed;
 
+    private readonly Func<bool> _gamingActive;
+    private readonly Func<CancellationToken> _gamingToken;
+    private readonly Func<string, SpeechWarmWorker>? _workerFactory;
+    private readonly Func<bool> _engineInstalled;
+
     public SpeechService()
     {
         _admission = new SpeechProcessAdmission(() => false);
+        _gamingActive = () => false;
+        _gamingToken = () => CancellationToken.None;
+        _engineInstalled = () => ManagedPythonRuntime.IsManagedVenv(VenvRoot);
     }
 
     public SpeechService(LocalRuntimeService runtime)
     {
         _runtime = runtime;
         _admission = SpeechProcessAdmission.For(runtime);
+        _gamingActive = () => runtime.GamingMode;
+        _gamingToken = () => runtime.GamingCancellationToken;
+        _engineInstalled = () => ManagedPythonRuntime.IsManagedVenv(VenvRoot);
+    }
+
+    /// <summary>Test seam: a service whose Gaming signal, installed check and warm workers are injected, so the
+    /// hard-off paths run against fake child processes without a managed Python environment or script on disk.</summary>
+    internal SpeechService(
+        SpeechProcessAdmission admission,
+        Func<bool> gamingActive,
+        Func<CancellationToken> gamingToken,
+        Func<string, SpeechWarmWorker> workerFactory)
+    {
+        _admission = admission;
+        _gamingActive = gamingActive;
+        _gamingToken = gamingToken;
+        _workerFactory = workerFactory;
+        _engineInstalled = () => true;
     }
 
     public async Task<SpeechEngineStatus> GetStatusAsync(CancellationToken ct)
     {
-        if (_runtime?.GamingMode == true)
+        if (_gamingActive())
             return new SpeechEngineStatus { SttInstalled = false, TtsInstalled = false };
         if (!ManagedPythonRuntime.IsManagedVenv(VenvRoot)) return new SpeechEngineStatus { SttInstalled = false, TtsInstalled = false };
         try
@@ -94,30 +120,82 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
         log.Append(await ManagedPythonRuntime.PipInstallAsync(
             VenvRoot,
-            SpeechPackages,
+            ManagedRequirementLocks.ArgumentsFor("speech"),
             ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
-        WriteScript();
+        PrepareScript();
         return log.ToString();
     }
 
     /// <summary>Loads one or both local models before the first live voice turn.</summary>
-    public async Task PrewarmAsync(bool stt, bool tts, CancellationToken ct)
+    public Task PrewarmAsync(bool stt, bool tts, CancellationToken ct) =>
+        RunGamingAwareVoidAsync(ct, linked => PrewarmCoreAsync(stt, tts, linked));
+
+    public Task<TranscribeResponse> TranscribeAsync(TranscribeRequest request, CancellationToken ct) =>
+        RunGamingAwareAsync(ct, linked => TranscribeCoreAsync(request, linked));
+
+    public Task<SynthesizeResponse> SynthesizeAsync(SynthesizeRequest request, CancellationToken ct) =>
+        RunGamingAwareAsync(ct, linked => SynthesizeCoreAsync(request, linked));
+
+    /// <summary>
+    /// Every speech request runs under a token that the Gaming transition cancels, so an in-flight STT/TTS request
+    /// is interrupted at once. Whatever the interruption looks like further down (a cancelled token, a killed child
+    /// that closed its pipe, a one-shot process that exited non-zero, a stale admission ticket), the caller gets the
+    /// one typed "unavailable during Gaming" error rather than a misleading generic failure. A cancel by the caller
+    /// itself is never rewritten.
+    /// </summary>
+    private async Task<T> RunGamingAwareAsync<T>(CancellationToken ct, Func<CancellationToken, Task<T>> body)
+    {
+        // Only the Gaming gate here: request validation and the installed check stay in the core, in their old order.
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_gamingActive() || _admission.IsClosed)
+            throw new SpeechUnavailableDuringGamingException("Gaming Mode is active, so local speech inference is unavailable.");
+        long ticket;
+        try { ticket = _admission.Capture(); }
+        catch (InvalidOperationException ex) { throw GamingInterrupted(ex); }
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _gamingToken());
+        try
+        {
+            return await body(linked.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not SpeechUnavailableDuringGamingException
+            && IsGamingTransition(ex, ct, ticket))
+        {
+            // Make sure no child outlives the rewritten failure.
+            if (!_admission.IsClosed) StopResidentWorkers();
+            throw GamingInterrupted(ex);
+        }
+    }
+
+    private async Task RunGamingAwareVoidAsync(CancellationToken ct, Func<CancellationToken, Task> body) =>
+        await RunGamingAwareAsync<bool>(ct, async linked => { await body(linked).ConfigureAwait(false); return true; })
+            .ConfigureAwait(false);
+
+    private void StopResidentWorkers()
+    {
+        lock (_workerGate)
+        {
+            _sttWorker?.Stop();
+            _ttsWorker?.Stop();
+        }
+    }
+
+    private async Task PrewarmCoreAsync(bool stt, bool tts, CancellationToken ct)
     {
         EnsureInferenceAllowed();
         long generation = _admission.Capture();
-        WriteScript();
+        PrepareScript();
         var tasks = new List<Task>(2);
         if (stt) tasks.Add(GetWorker("transcribe").PrewarmAsync(ct, TimeSpan.FromMinutes(3), generation));
         if (tts) tasks.Add(GetWorker("synthesize").PrewarmAsync(ct, TimeSpan.FromMinutes(3), generation));
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    public async Task<TranscribeResponse> TranscribeAsync(TranscribeRequest request, CancellationToken ct)
+    private async Task<TranscribeResponse> TranscribeCoreAsync(TranscribeRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.AudioBase64)) throw new InvalidDataException("audioBase64 is required.");
         EnsureInferenceAllowed();
         long generation = _admission.Capture();
-        WriteScript();
+        PrepareScript();
 
         byte[] audioBytes;
         try { audioBytes = Convert.FromBase64String(request.AudioBase64); }
@@ -163,12 +241,12 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         }
     }
 
-    public async Task<SynthesizeResponse> SynthesizeAsync(SynthesizeRequest request, CancellationToken ct)
+    private async Task<SynthesizeResponse> SynthesizeCoreAsync(SynthesizeRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Text)) throw new InvalidDataException("text is required.");
         EnsureInferenceAllowed();
         long generation = _admission.Capture();
-        WriteScript();
+        PrepareScript();
 
         string outputPath = Path.Combine(Path.GetTempPath(), "parux-tts-" + Guid.NewGuid().ToString("N") + ".wav");
         string textArgPath = Path.Combine(Path.GetTempPath(), "parux-tts-text-" + Guid.NewGuid().ToString("N") + ".txt");
@@ -259,20 +337,36 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
         lock (_workerGate)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(SpeechService));
-            return mode == "transcribe"
-                ? _sttWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath, _admission)
-                : _ttsWorker ??= new SpeechWarmWorker(mode, VenvPython, ScriptPath, _admission);
+            SpeechWarmWorker Create() => _workerFactory?.Invoke(mode)
+                ?? new SpeechWarmWorker(mode, VenvPython, ScriptPath, _admission, _gamingToken);
+            return mode == "transcribe" ? _sttWorker ??= Create() : _ttsWorker ??= Create();
         }
     }
 
     private void EnsureInferenceAllowed()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(SpeechService));
-        if (_runtime?.GamingMode == true)
-            throw new InvalidOperationException("Gaming Mode is active, so local speech inference is unavailable.");
-        _admission.Capture();
-        if (!ManagedPythonRuntime.IsManagedVenv(VenvRoot))
+        if (_gamingActive() || _admission.IsClosed)
+            throw new SpeechUnavailableDuringGamingException("Gaming Mode is active, so local speech inference is unavailable.");
+        if (!_engineInstalled())
             throw new InvalidOperationException("The speech engine is not installed on this machine yet.");
+    }
+
+    /// <summary>True when a failure belongs to a Gaming transition rather than to the caller or the engine.</summary>
+    private bool IsGamingTransition(Exception ex, CancellationToken callerToken, long generation)
+    {
+        if (ex is SpeechUnavailableDuringGamingException) return true;
+        if (callerToken.IsCancellationRequested || _disposed) return false;
+        return _gamingActive() || _gamingToken().IsCancellationRequested
+            || _admission.IsClosed || !_admission.IsCurrent(generation);
+    }
+
+    private static SpeechUnavailableDuringGamingException GamingInterrupted(Exception inner) =>
+        new("Gaming Mode is active, so local speech is unavailable; the speech request was cancelled and its workers stopped.", inner);
+
+    private void PrepareScript()
+    {
+        if (_workerFactory == null) WriteScript();
     }
 
     private static JsonElement ParseLastJsonObject(string output)
@@ -312,6 +406,8 @@ public sealed class SpeechService : IDisposable, IContinuousSpeechStatusProvider
             if (admission != null) admission.StartOwned(process, generation ?? admission.Capture());
             else if (!process.Start()) throw new InvalidOperationException("The speech process could not start.");
             started = true;
+            // Same kill-on-close job as every other PaRuX AI child: a Core crash cannot orphan a one-shot speech process.
+            ChildProcessJob.Assign(process);
             Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
             Task<string> stderrTask = process.StandardError.ReadToEndAsync();
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

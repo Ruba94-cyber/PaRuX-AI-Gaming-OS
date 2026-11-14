@@ -437,7 +437,10 @@ data class AutopilotRunDto(
     val taskIds: List<String> = emptyList(),
     val finalReportJson: String? = null,
     val createdUtc: String = "",
-    val updatedUtc: String = ""
+    val updatedUtc: String = "",
+    val startedBy: String? = null,
+    val expiresUtc: String? = null,
+    val awaitingDesktopApproval: Boolean = false
 )
 
 @Serializable

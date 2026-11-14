@@ -28,12 +28,41 @@ internal static class GameUi
     /// </summary>
     internal static Brush ThemeBrush(FrameworkElement? owner, string key)
     {
-        string theme;
-        try { theme = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast ? "HighContrast" : ThemeName(owner); }
-        catch (Exception) { theme = ThemeName(owner); }
-        if (TryFind(Application.Current.Resources, key, theme, 0, out object? value) && value is Brush brush) return brush;
+        string theme = ActiveTheme(owner);
+        // Realizing a tile asks for about fifteen brushes; resolving each through the theme dictionaries (and building an
+        // AccessibilitySettings object) while scrolling a 2,000-title grid is wasted work. Brushes are shared resources
+        // anyway, so the resolved instance is remembered per theme + key and dropped when the high-contrast state changes.
+        string cacheKey = theme + "|" + key;
+        if (BrushCache.TryGetValue(cacheKey, out Brush? cached)) return cached;
+        if (TryFind(Application.Current.Resources, key, theme, 0, out object? value) && value is Brush brush)
+        {
+            BrushCache[cacheKey] = brush;
+            return brush;
+        }
         return new SolidColorBrush(Colors.Gray);
     }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Brush> BrushCache = new(StringComparer.Ordinal);
+    private static Windows.UI.ViewManagement.AccessibilitySettings? _accessibility;
+
+    private static string ActiveTheme(FrameworkElement? owner)
+    {
+        bool highContrast = false;
+        try
+        {
+            if (_accessibility is null)
+            {
+                _accessibility = new Windows.UI.ViewManagement.AccessibilitySettings();
+                _accessibility.HighContrastChanged += (_, _) => BrushCache.Clear();
+            }
+            highContrast = _accessibility.HighContrast;
+        }
+        catch (Exception) { /* Fall back to the element's own light/dark theme. */ }
+        return highContrast ? "HighContrast" : ThemeName(owner);
+    }
+
+    /// <summary>Drops the remembered brushes (an element's theme changed, so the same key may now resolve differently).</summary>
+    internal static void ResetBrushCache() => BrushCache.Clear();
 
     private static string ThemeName(FrameworkElement? owner) =>
         (owner?.ActualTheme ?? (Application.Current.RequestedTheme == ApplicationTheme.Light ? ElementTheme.Light : ElementTheme.Dark))
@@ -153,8 +182,11 @@ internal static class GameUi
 }
 
 /// <summary>
-/// The tiles of the Gaming library: a wrapping cover grid, a compact list, or a horizontal shelf of large tiles
-/// (the Continue row). Tiles show a local cover image when the user chose one and a lettered fallback otherwise.
+/// The tiles of the Gaming library: a virtualized cover grid, a virtualized compact list, or a horizontal shelf of large tiles
+/// (the Continue row, at most ten tiles). The grid and the list are an <see cref="ItemsRepeater"/> over the lightweight title
+/// list: only the tiles near the viewport exist, finished tiles are recycled (rebound to the next title, never rebuilt), and
+/// a 2,000-title library costs the same as a 50-title one. Tiles show a local cover image when the user chose one and a lettered
+/// fallback otherwise; covers are decoded at the displayed size when a tile is realized and released when it is recycled.
 /// A tile has three purposeful focus stops (details, Play, Configure); their order remains predictable
 /// for keyboard and controller users. In multi-select mode only the title toggle stays focusable.
 /// Play never launches by itself: it only
@@ -164,30 +196,87 @@ internal sealed class GameTileGrid : StackPanel
 {
     internal enum Presentation { Grid, List, Shelf }
 
-    private const int PageStep = 60;
+    private const double TileGap = 12;
 
+    /// <summary>A decoded (or decoding) cover shared by every tile that shows the same file at the same size.</summary>
+    private sealed class CoverEntry
+    {
+        public required string Key { get; init; }
+        public required BitmapImage Bitmap { get; init; }
+        public bool Opened { get; set; }
+        public HashSet<TileParts> Owners { get; } = new();
+    }
+
+    /// <summary>The elements of one tile. Created once, then rebound to different titles as the tile is recycled.</summary>
     private sealed class TileParts
     {
-        public required GameTitleDto Title { get; set; }
+        public GameTitleDto Title { get; set; } = null!;
+        public int Index { get; set; }
         public required Border Card { get; init; }
         public required ButtonBase Main { get; init; }
-        public required UIElement SelectedBadge { get; init; }
         public required Button Play { get; init; }
-        public required Action RepaintTheme { get; init; }
+        public required TextBlock PlayText { get; init; }
+        public required Button Configure { get; init; }
+        public required Border Surface { get; init; }
+        public required TextBlock Initials { get; init; }
+        public required Border FavoritePill { get; init; }
+        public required Border HiddenPill { get; init; }
+        public required Border SelectedBadge { get; init; }
+        public required TextBlock BadgeInk { get; init; }
+        public required TextBlock Name { get; init; }
+        public required TextBlock Sub { get; init; }
+        public required ImageBrush CoverBrush { get; init; }
+        public CoverEntry? Cover { get; set; }
         public bool Hovering { get; set; }
+        public bool Live { get; set; }
     }
+
+    /// <summary>Creates, binds and recycles the tiles of the <see cref="ItemsRepeater"/>.</summary>
+    private sealed class TileFactory : IElementFactory
+    {
+        private const int MaxPooled = 48;
+        private readonly GameTileGrid _owner;
+        private readonly Stack<TileParts> _pool = new();
+
+        public TileFactory(GameTileGrid owner) => _owner = owner;
+
+        public UIElement GetElement(ElementFactoryGetArgs args)
+        {
+            TileParts parts = _pool.Count > 0 ? _pool.Pop() : _owner.CreateTile();
+            var title = (GameTitleDto)args.Data;
+            _owner.Bind(parts, title, _owner._indexByKey.TryGetValue(title.TitleKey, out int index) ? index : -1);
+            return parts.Card;
+        }
+
+        public void RecycleElement(ElementFactoryRecycleArgs args)
+        {
+            if (args.Element is not Border { Tag: TileParts parts }) return;
+            _owner.Unbind(parts);
+            if (_pool.Count < MaxPooled) _pool.Push(parts);
+        }
+
+        public void Clear() => _pool.Clear();
+    }
+
+    // Decoded covers stay in memory only up to this many entries (about one screen and a half of tiles per cache slot); older ones are
+    // dropped and decoded again when scrolled back into view.
+    private static readonly BoundedLruCache<string, CoverEntry> CoverCache = new(160);
 
     private readonly Presentation _presentation;
     private readonly string _openPrefix;
     private readonly string _playPrefix;
     private readonly string _configurePrefix;
-    private readonly Dictionary<string, TileParts> _tiles = new(StringComparer.Ordinal);
-    private Panel _items = new StackPanel();
-    private readonly Button _showMore = new();
+    private readonly HashSet<TileParts> _live = new();
+    private readonly TileFactory _factory;
+    private ItemsRepeater? _repeater;
+    private StackPanel? _strip;
     private IReadOnlyList<GameTitleDto> _titles = Array.Empty<GameTitleDto>();
+    // The list the repeater actually reads. It is a private copy of the host's list (references only, so cheap) so that rebinding
+    // changed titles in place never depends on the host mutating or replacing its own list.
+    private List<GameTitleDto> _source = new();
+    private Dictionary<string, int> _indexByKey = new(StringComparer.Ordinal);
     private ISet<string> _selected = new HashSet<string>(StringComparer.Ordinal);
     private string? _openKey;
-    private int _shown;
     private bool _console;
     private bool _selectMode;
 
@@ -198,26 +287,27 @@ internal sealed class GameTileGrid : StackPanel
     internal GameTileGrid(Presentation presentation)
     {
         _presentation = presentation;
+        _factory = new TileFactory(this);
         bool shelf = presentation == Presentation.Shelf;
         _openPrefix = shelf ? "GameContinue_" : "GameTile_";
         _playPrefix = shelf ? "GameContinuePlay_" : "GameTilePlay_";
         _configurePrefix = shelf ? "GameContinueConfigure_" : "GameTileConfigure_";
         Spacing = 8;
-        _showMore.HorizontalAlignment = HorizontalAlignment.Left;
-        _showMore.Visibility = Visibility.Collapsed;
-        AutomationProperties.SetAutomationId(_showMore, "GameHome_ShowMore");
-        _showMore.Click += (_, _) => ShowMore();
-        // Repaint visible cards in place: do not reset "Show more", scroll position,
+        // Repaint visible cards in place: do not reset the scroll position,
         // focused Play/Configure buttons or decoded cover bitmaps on theme switches.
         ActualThemeChanged += (_, _) => RepaintTheme();
+        // A grid that leaves the visual tree gives its cover bitmaps back; when it returns the live tiles ask for them again.
+        Unloaded += (_, _) => { foreach (TileParts parts in _live) ReleaseCover(parts); };
+        Loaded += (_, _) => { foreach (TileParts parts in _live) LoadCover(parts); };
         KeyDown += OnTileKeyDown;
     }
 
     private void RepaintTheme()
     {
-        foreach (TileParts parts in _tiles.Values)
+        GameUi.ResetBrushCache();
+        foreach (TileParts parts in _live)
         {
-            parts.RepaintTheme();
+            RepaintTile(parts);
             ApplyState(parts);
         }
     }
@@ -228,14 +318,14 @@ internal sealed class GameTileGrid : StackPanel
     {
         if (_console == enabled) return;
         _console = enabled;
-        Render(_titles, _selected, _openKey);
+        Render(_titles, _selected, _openKey, forceReset: true);
     }
 
     internal void SetSelectMode(bool enabled)
     {
         if (_selectMode == enabled) return;
         _selectMode = enabled;
-        Render(_titles, _selected, _openKey);
+        Render(_titles, _selected, _openKey, forceReset: true);
     }
 
     private double ScaleF => _console ? 1.3 : 1.0;
@@ -251,77 +341,108 @@ internal sealed class GameTileGrid : StackPanel
     private double CardHeight => 26 + CoverHeight + 12 + NameHeight + SubHeight + 6 + PlayHeight;
     private double RowHeight => _console ? 108 : 88;
 
-    internal void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey)
+    /// <summary>
+    /// Shows <paramref name="titles"/>. The grid and the list keep their tiles when the new list only differs in what a tile shows
+    /// (rebinding those tiles in place) and swap the items source only when the set or the order changed; nothing is rebuilt.
+    /// </summary>
+    internal void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey) =>
+        Render(titles, selected, openKey, forceReset: false);
+
+    private void Render(IReadOnlyList<GameTitleDto> titles, ISet<string> selected, string? openKey, bool forceReset)
     {
-        _titles = titles;
         _selected = selected;
         _openKey = openKey;
-        _tiles.Clear();
-        Children.Clear();
-        _shown = 0;
 
         if (_presentation == Presentation.Shelf)
         {
-            var strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            _items = strip;
-            Children.Add(new ScrollViewer
-            {
-                Content = strip,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollMode = ScrollMode.Enabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollMode = ScrollMode.Disabled,
-                TabNavigation = KeyboardNavigationMode.Local
-            });
+            _titles = titles;
+            _indexByKey = GameTileListModel.IndexByKey(titles);
+            RenderShelf();
+            return;
         }
-        else if (_presentation == Presentation.Grid)
+
+        GameTileListDelta delta = forceReset || _repeater is null
+            ? new GameTileListDelta(GameTileListChange.Reset, Array.Empty<int>())
+            : GameTileListModel.Diff(_source, titles);
+        _titles = titles;
+        if (delta.Change != GameTileListChange.None || forceReset) _indexByKey = GameTileListModel.IndexByKey(titles);
+
+        if (_repeater is null)
         {
-            _items = new VariableSizedWrapGrid
+            _repeater = new ItemsRepeater
             {
-                Orientation = Orientation.Horizontal,
-                ItemWidth = CardWidth + 12,
-                ItemHeight = CardHeight + 12,
-                HorizontalAlignment = HorizontalAlignment.Left
+                ItemTemplate = _factory,
+                VerticalCacheLength = 1.0,
+                HorizontalCacheLength = 0.5,
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            Children.Add(_items);
-        }
-        else
-        {
-            _items = new StackPanel { Spacing = 8 };
-            Children.Add(_items);
+            Children.Add(_repeater);
         }
 
-        _showMore.FontSize = _console ? 20 : 14;
-        _showMore.MinHeight = _console ? 56 : 44;
-        Children.Add(_showMore);
-        AddTiles(_presentation == Presentation.Shelf ? titles.Count : PageStep);
+        if (forceReset)
+        {
+            // Sizes, tile type or control kind changed: recycled tiles no longer fit, so drop the pool and build fresh ones.
+            _repeater.ItemsSource = null;
+            _factory.Clear();
+        }
+        if (_repeater.Layout is null || forceReset) _repeater.Layout = NewLayout();
+
+        switch (delta.Change)
+        {
+            case GameTileListChange.None:
+                foreach (TileParts parts in _live) ApplyState(parts);
+                break;
+            case GameTileListChange.ContentOnly:
+                foreach (int index in delta.ChangedIndexes)
+                {
+                    _source[index] = titles[index];
+                    if (_repeater.TryGetElement(index) is Border { Tag: TileParts parts }) Bind(parts, titles[index], index);
+                }
+                foreach (TileParts parts in _live) ApplyState(parts);
+                break;
+            default:
+                // A new list instance resets the repeater: realized tiles are recycled and only the visible ones are realized again.
+                _source = new List<GameTitleDto>(titles);
+                _repeater.ItemsSource = _source;
+                break;
+        }
     }
 
-    private void AddTiles(int count)
-    {
-        int target = Math.Min(_titles.Count, _shown + count);
-        for (; _shown < target; _shown++)
+    private Layout NewLayout() => _presentation == Presentation.Grid
+        ? new UniformGridLayout
         {
-            GameTitleDto title = _titles[_shown];
-            if (_tiles.ContainsKey(title.TitleKey)) continue;
-            TileParts parts = _presentation == Presentation.List ? BuildRow(title) : BuildTile(title);
-            _tiles[title.TitleKey] = parts;
-            _items.Children.Add(parts.Card);
-            ApplyState(parts);
+            Orientation = Orientation.Horizontal,
+            MinItemWidth = CardWidth,
+            MinItemHeight = CardHeight,
+            MinColumnSpacing = TileGap,
+            MinRowSpacing = TileGap,
+            ItemsStretch = UniformGridLayoutItemsStretch.None,
+            ItemsJustification = UniformGridLayoutItemsJustification.Start
         }
-        int left = _titles.Count - _shown;
-        _showMore.Visibility = left > 0 && _presentation != Presentation.Shelf ? Visibility.Visible : Visibility.Collapsed;
-        _showMore.Content = GameUi.T($"Show {Math.Min(left, PageStep)} more ({left} left)",
-                                     $"Mostra altri {Math.Min(left, PageStep)} ({left} rimasti)");
-        AutomationProperties.SetName(_showMore, _showMore.Content as string ?? string.Empty);
-    }
+        : new StackLayout { Orientation = Orientation.Vertical, Spacing = 8 };
 
-    private void ShowMore()
+    // The Continue shelf holds at most ten tiles in a single scrolling row; it does not need virtualization.
+    private void RenderShelf()
     {
-        int first = _shown;
-        AddTiles(PageStep);
-        if (first < _titles.Count && _tiles.TryGetValue(_titles[first].TitleKey, out TileParts? next))
-            next.Main.Focus(FocusState.Programmatic);
+        foreach (TileParts parts in _live.ToList()) Unbind(parts);
+        Children.Clear();
+        _strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        Children.Add(new ScrollViewer
+        {
+            Content = _strip,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Disabled,
+            TabNavigation = KeyboardNavigationMode.Local
+        });
+        for (int i = 0; i < _titles.Count; i++)
+        {
+            if (_indexByKey.TryGetValue(_titles[i].TitleKey, out int first) && first != i) continue;
+            TileParts parts = CreateTile();
+            Bind(parts, _titles[i], i);
+            _strip.Children.Add(parts.Card);
+        }
     }
 
     /// <summary>Updates selection and the open title in place (no rebuild, focus is kept).</summary>
@@ -329,43 +450,102 @@ internal sealed class GameTileGrid : StackPanel
     {
         _selected = selected;
         _openKey = openKey;
-        foreach (TileParts parts in _tiles.Values) ApplyState(parts);
+        foreach (TileParts parts in _live) ApplyState(parts);
     }
 
     /// <summary>Replaces one title's displayed state after a local edit; the tile itself is kept.</summary>
     internal void UpdateTitle(GameTitleDto title)
     {
-        for (int i = 0; i < _titles.Count; i++)
-            if (_titles[i].TitleKey == title.TitleKey && _titles is IList<GameTitleDto> { IsReadOnly: false } list) list[i] = title;
-        if (_tiles.TryGetValue(title.TitleKey, out TileParts? parts)) { parts.Title = title; ApplyState(parts); }
+        if (!_indexByKey.TryGetValue(title.TitleKey, out int index)) return;
+        if (_titles is IList<GameTitleDto> { IsReadOnly: false } list && index < list.Count) list[index] = title;
+        if (index < _source.Count) _source[index] = title;
+        foreach (TileParts parts in _live)
+            if (parts.Index == index) { Bind(parts, title, index); break; }
     }
 
-    internal bool FocusTile(string key)
-    {
-        if (_tiles.TryGetValue(key, out TileParts? parts)) return parts.Main.Focus(FocusState.Programmatic);
-        return false;
-    }
+    internal bool FocusTile(string key) => _indexByKey.TryGetValue(key, out int index) && FocusIndex(index);
 
-    /// <summary>Focuses the tile at <paramref name="index"/> (loading further pages when needed). False when it cannot be focused.</summary>
+    /// <summary>
+    /// Scrolls the tile at <paramref name="index"/> into view (realizing it first when it is off-screen) and focuses its title button.
+    /// False when there is no such tile. A tile outside the realized range does not exist yet: the page is scrolled to where the layout
+    /// puts it, and the tile is focused once the repeater has realized it there (an element created on demand and focused before the
+    /// scroll is applied is recycled by the next layout pass, which left End / Page Down on a tile that was never shown).
+    /// </summary>
     internal bool FocusIndex(int index)
     {
         if (index < 0 || index >= _titles.Count) return false;
-        while (index >= _shown && _shown < _titles.Count) AddTiles(PageStep);
-        return _tiles.TryGetValue(_titles[index].TitleKey, out TileParts? parts) && parts.Main.Focus(FocusState.Programmatic);
+        if (_presentation == Presentation.Shelf)
+        {
+            if (_live.FirstOrDefault(p => p.Index == index)?.Card is not Border { Tag: TileParts shelfTile } shelfCard) return false;
+            shelfCard.UpdateLayout();
+            shelfCard.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            shelfTile.Main.Focus(FocusState.Programmatic);
+            return true;
+        }
+        if (_repeater is null) return false;
+        FocusRealized(index, 8, ++_focusRequest);
+        return true;
+    }
+
+    private int _focusRequest;
+
+    private void FocusRealized(int index, int attemptsLeft, int request)
+    {
+        if (request != _focusRequest || _repeater is null || index >= _titles.Count) return;
+        if (_repeater.TryGetElement(index) is Border { Tag: TileParts parts } card && card.ActualHeight > 0)
+        {
+            card.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            if (parts.Main.Focus(FocusState.Programmatic) && IsInView(card)) return;
+        }
+        else
+        {
+            ScrollTowards(index);
+        }
+        if (attemptsLeft <= 0) return;
+        DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => FocusRealized(index, attemptsLeft - 1, request));
+    }
+
+    private ScrollViewer? HostViewer()
+    {
+        for (DependencyObject? parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(this); parent is not null;
+             parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(parent))
+            if (parent is ScrollViewer viewer) return viewer;
+        return null;
+    }
+
+    private bool IsInView(FrameworkElement element)
+    {
+        if (HostViewer() is not { Content: UIElement content } viewer) return true;
+        double top = element.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        return top + element.ActualHeight > viewer.VerticalOffset && top < viewer.VerticalOffset + viewer.ViewportHeight;
+    }
+
+    /// <summary>Scrolls the hosting page to where the layout puts the tile at <paramref name="index"/> (rows are uniform).</summary>
+    private void ScrollTowards(int index)
+    {
+        if (_repeater is null || HostViewer() is not { Content: UIElement content } viewer) return;
+        int columns = _presentation == Presentation.List
+            ? 1 : GameTileListModel.Columns(_repeater.ActualWidth, CardWidth, TileGap);
+        double itemHeight = _presentation == Presentation.List ? RowHeight : CardHeight;
+        double rowPitch = itemHeight + (_presentation == Presentation.List ? 8 : TileGap);
+        double gridTop = _repeater.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        double top = gridTop + index / columns * rowPitch;
+        double target = Math.Clamp(top - Math.Max(0, (viewer.ViewportHeight - itemHeight) / 2), 0, viewer.ScrollableHeight);
+        viewer.ChangeView(null, target, null, disableAnimation: true);
     }
 
     /// <summary>
     /// Deterministic arrow / D-pad / bumper / Home / End / Page movement between the title buttons of the grid (one stop per
     /// tile, like a console shelf). Enter or A opens the details, where Play is the first control; Tab still reaches each
-    /// tile's own Play and Configure buttons. Only keys pressed on a tile's title button are handled.
+    /// tile's own Play and Configure buttons. Only keys pressed on a tile's title button are handled. Movement works on indexes,
+    /// so it reaches tiles that are not realized yet.
     /// </summary>
     private void OnTileKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (_selectMode || e.OriginalSource is not ButtonBase source) return;
-        int current = -1;
-        for (int i = 0; i < _titles.Count; i++)
-            if (_tiles.TryGetValue(_titles[i].TitleKey, out TileParts? parts) && ReferenceEquals(parts.Main, source)) { current = i; break; }
-        if (current < 0) return;
+        TileParts? current = _live.FirstOrDefault(p => ReferenceEquals(p.Main, source));
+        if (current is null || current.Index < 0) return;
         GameLibraryHome.Direction? direction = e.Key switch
         {
             Windows.System.VirtualKey.Left or Windows.System.VirtualKey.GamepadDPadLeft => GameLibraryHome.Direction.Left,
@@ -385,17 +565,13 @@ internal sealed class GameTileGrid : StackPanel
         {
             Presentation.Shelf => Math.Max(1, _titles.Count),
             Presentation.List => 1,
-            _ => Math.Max(1, (int)Math.Floor(Math.Max(ActualWidth, CardWidth) / (CardWidth + 12))),
+            _ => GameTileListModel.Columns(_repeater?.ActualWidth ?? ActualWidth, CardWidth, TileGap),
         };
-        int next = GameLibraryHome.Move(current, _titles.Count, columns, move);
-        if (next >= 0 && next != current && FocusIndex(next)) e.Handled = true;
+        int next = GameLibraryHome.Move(current.Index, _titles.Count, columns, move);
+        if (next >= 0 && next != current.Index && FocusIndex(next)) e.Handled = true;
     }
 
-    internal bool FocusFirst()
-    {
-        TileParts? first = _titles.Count > 0 && _tiles.TryGetValue(_titles[0].TitleKey, out TileParts? parts) ? parts : null;
-        return first is not null && first.Main.Focus(FocusState.Programmatic);
-    }
+    internal bool FocusFirst() => FocusIndex(0);
 
     private void ApplyState(TileParts parts)
     {
@@ -425,9 +601,132 @@ internal sealed class GameTileGrid : StackPanel
         return string.Join(", ", parts);
     }
 
+    // ------------------------------------------------------------------ binding and recycling
+
+    /// <summary>Fills a (new or recycled) tile with one title. Everything title-specific is set here and only here.</summary>
+    private void Bind(TileParts parts, GameTitleDto title, int index)
+    {
+        parts.Title = title;
+        parts.Index = index;
+        parts.Hovering = false;
+        if (!parts.Live)
+        {
+            parts.Live = true;
+            _live.Add(parts);
+        }
+
+        AutomationProperties.SetAutomationId(parts.Main, _openPrefix + title.TitleKey);
+        parts.Name.Text = title.Name;
+        string sub = _presentation switch
+        {
+            Presentation.Shelf => GameUi.PlaySummary(title),
+            Presentation.List => GameUi.SourceSummary(title) + " · " + GameUi.PlaySummary(title),
+            _ => title.PlaySeconds >= 60
+                ? GameUi.SourceSummary(title) + " · " + GameUi.ShortPlayTime(title.PlaySeconds)
+                : GameUi.SourceSummary(title),
+        };
+        parts.Sub.Text = sub;
+        ToolTipService.SetToolTip(parts.Sub, sub);
+        parts.Initials.Text = GameUi.Initials(title.Name);
+        parts.FavoritePill.Visibility = title.Favorite ? Visibility.Visible : Visibility.Collapsed;
+        parts.HiddenPill.Visibility = title.Hidden ? Visibility.Visible : Visibility.Collapsed;
+
+        GameInstallationDto? chosen = GameUi.ChooseInstallation(title);
+        parts.PlayText.Text = GameUi.PlayLabel(chosen);
+        parts.Play.IsEnabled = !_selectMode && GameUi.CanStart(chosen);
+        AutomationProperties.SetAutomationId(parts.Play, _playPrefix + title.TitleKey);
+        AutomationProperties.SetName(parts.Play, GameUi.PlayLabel(chosen) + " " + title.Name);
+        ToolTipService.SetToolTip(parts.Play, chosen is not null && !GameUi.CanStart(chosen) ? GameUi.StateLabel(chosen.InstallState) : null);
+
+        AutomationProperties.SetAutomationId(parts.Configure, _configurePrefix + title.TitleKey);
+        string configureLabel = GameUi.T("Configure ", "Configura ") + title.Name;
+        AutomationProperties.SetName(parts.Configure, configureLabel);
+        ToolTipService.SetToolTip(parts.Configure, configureLabel);
+
+        LoadCover(parts);
+        ApplyState(parts);
+    }
+
+    /// <summary>Called when the repeater recycles a tile: forgets the title and gives the cover back before the tile is reused.</summary>
+    private void Unbind(TileParts parts)
+    {
+        ReleaseCover(parts);
+        parts.Hovering = false;
+        parts.Live = false;
+        _live.Remove(parts);
+    }
+
+    private void LoadCover(TileParts parts)
+    {
+        ReleaseCover(parts);
+        string? path = GameCoverStore.TryGetPath(parts.Title.TitleKey);
+        if (path is null)
+        {
+            ShowFallbackCover(parts);
+            return;
+        }
+        // Decode at (a little above) the displayed size; the bitmap decodes on a background thread and appears when ready.
+        double width = _presentation == Presentation.List ? RowHeight - 24 : CoverWidth;
+        int pixels = (int)Math.Ceiling(width * 1.5);
+        string cacheKey = pixels + "|" + path;
+        if (!CoverCache.TryGet(cacheKey, out CoverEntry? entry))
+        {
+            try
+            {
+                var bitmap = new BitmapImage { DecodePixelWidth = pixels };
+                entry = new CoverEntry { Key = cacheKey, Bitmap = bitmap };
+                CoverEntry created = entry;
+                bitmap.ImageOpened += (_, _) => created.Opened = true;
+                bitmap.ImageFailed += (_, _) =>
+                {
+                    // A damaged local copy falls back to the lettered tile on every tile that shows it.
+                    CoverCache.Remove(created.Key);
+                    foreach (TileParts owner in created.Owners.ToList()) { created.Owners.Remove(owner); owner.Cover = null; ShowFallbackCover(owner); }
+                };
+                bitmap.UriSource = new Uri(path);
+                CoverCache.Set(cacheKey, entry);
+            }
+            catch (Exception)
+            {
+                ShowFallbackCover(parts);
+                return;
+            }
+        }
+        entry.Owners.Add(parts);
+        parts.Cover = entry;
+        parts.CoverBrush.ImageSource = entry.Bitmap;
+        parts.Surface.Background = parts.CoverBrush;
+        parts.Initials.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowFallbackCover(TileParts parts)
+    {
+        parts.CoverBrush.ImageSource = null;
+        parts.Surface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        parts.Initials.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Detaches the tile from its cover. A decode that has not finished yet and is wanted by no other tile is cancelled
+    /// (the source is cleared and the entry dropped), so scrolling quickly never leaves a queue of decodes nobody will see.
+    /// </summary>
+    private void ReleaseCover(TileParts parts)
+    {
+        CoverEntry? entry = parts.Cover;
+        parts.Cover = null;
+        parts.CoverBrush.ImageSource = null;
+        if (entry is null) return;
+        entry.Owners.Remove(parts);
+        if (entry.Owners.Count == 0 && !entry.Opened)
+        {
+            CoverCache.Remove(entry.Key);
+            try { entry.Bitmap.UriSource = null; } catch (Exception) { /* Already torn down. */ }
+        }
+    }
+
     // ------------------------------------------------------------------ building
 
-    private ButtonBase NewMain(GameTitleDto title)
+    private ButtonBase NewMain()
     {
         ButtonBase main = _selectMode ? new ToggleButton() : new Button();
         main.Padding = new Thickness(0);
@@ -438,22 +737,14 @@ internal sealed class GameTileGrid : StackPanel
         main.HorizontalContentAlignment = HorizontalAlignment.Left;
         main.VerticalContentAlignment = VerticalAlignment.Top;
         main.UseSystemFocusVisuals = true;
-        AutomationProperties.SetAutomationId(main, _openPrefix + title.TitleKey);
-        main.Click += (_, _) =>
-        {
-            if (!_tiles.TryGetValue(title.TitleKey, out TileParts? current)) return;
-            if (_selectMode) SelectionToggled?.Invoke(current.Title);
-            else OpenRequested?.Invoke(current.Title);
-        };
         return main;
     }
 
-    private Button NewPlay(GameTitleDto title)
+    private Button NewPlay(out TextBlock label)
     {
-        GameInstallationDto? chosen = GameUi.ChooseInstallation(title);
-        var label = new TextBlock { Text = GameUi.PlayLabel(chosen), FontSize = _console ? 20 : 14, VerticalAlignment = VerticalAlignment.Center };
+        label = new TextBlock { FontSize = _console ? 20 : 14, VerticalAlignment = VerticalAlignment.Center };
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
-        content.Children.Add(new FontIcon { Glyph = "", FontSize = _console ? 20 : 14 });
+        content.Children.Add(new FontIcon { Glyph = "", FontSize = _console ? 20 : 14 });
         content.Children.Add(label);
         var play = new Button
         {
@@ -461,113 +752,83 @@ internal sealed class GameTileGrid : StackPanel
             Height = PlayHeight,
             MinWidth = 88,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsEnabled = !_selectMode && GameUi.CanStart(chosen),
             Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible,
             UseSystemFocusVisuals = true
         };
         if (GameUi.AccentButtonStyle is { } accent) play.Style = accent;
-        AutomationProperties.SetAutomationId(play, _playPrefix + title.TitleKey);
-        AutomationProperties.SetName(play, GameUi.PlayLabel(chosen) + " " + title.Name);
-        if (chosen is not null && !GameUi.CanStart(chosen))
-            ToolTipService.SetToolTip(play, GameUi.StateLabel(chosen.InstallState));
-        play.Click += (_, _) =>
-        {
-            if (_tiles.TryGetValue(title.TitleKey, out TileParts? current)) PlayRequested?.Invoke(current.Title);
-        };
         return play;
     }
 
     // Configure opens the EXISTING detail panel; no process is started and no settings
     // are changed until the user explicitly chooses a control in that panel.
-    private Button NewConfigure(GameTitleDto title)
+    private Button NewConfigure() => new()
     {
-        var configure = new Button
-        {
-            Content = new FontIcon { Glyph = "\uE713", FontSize = _console ? 20 : 16 },
-            Width = PlayHeight,
-            Height = PlayHeight,
-            MinWidth = PlayHeight,
-            CornerRadius = new CornerRadius(10),
-            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush"),
-            Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush"),
-            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush"),
-            BorderThickness = new Thickness(1),
-            IsEnabled = !_selectMode,
-            Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible,
-            UseSystemFocusVisuals = true
-        };
-        AutomationProperties.SetAutomationId(configure, _configurePrefix + title.TitleKey);
-        string label = GameUi.T("Configure ", "Configura ") + title.Name;
-        AutomationProperties.SetName(configure, label);
-        ToolTipService.SetToolTip(configure, label);
-        configure.Click += (_, _) =>
-        {
-            if (_tiles.TryGetValue(title.TitleKey, out TileParts? current))
-                OpenRequested?.Invoke(current.Title);
-        };
-        return configure;
-    }
+        Content = new FontIcon { Glyph = "", FontSize = _console ? 20 : 16 },
+        Width = PlayHeight,
+        Height = PlayHeight,
+        MinWidth = PlayHeight,
+        CornerRadius = new CornerRadius(10),
+        Background = GameUi.ThemeBrush(this, "PaRuXSurfaceSubtleBrush"),
+        Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush"),
+        BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeStrongBrush"),
+        BorderThickness = new Thickness(1),
+        IsEnabled = !_selectMode,
+        Visibility = _selectMode ? Visibility.Collapsed : Visibility.Visible,
+        UseSystemFocusVisuals = true
+    };
 
-    private UIElement BuildCover(GameTitleDto title, double width, double height,
-        out UIElement selectedBadge, out Action repaintCover)
+    private Border Pill(string text, HorizontalAlignment h, VerticalAlignment v) => new()
+    {
+        Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
+        BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(4),
+        Padding = new Thickness(6, 2, 6, 2),
+        Margin = new Thickness(8),
+        HorizontalAlignment = h,
+        VerticalAlignment = v,
+        IsHitTestVisible = false,
+        Visibility = Visibility.Collapsed,
+        Child = new TextBlock
+        {
+            Text = text,
+            FontSize = _console ? 16 : 12,
+            Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush")
+        }
+    };
+
+    /// <summary>The cover square: surface (or cover image), lettered fallback, state pills and the selected check.</summary>
+    private Grid NewCover(double width, double height, out Border surface, out TextBlock initials, out Border favoritePill,
+        out Border hiddenPill, out Border badge, out TextBlock badgeInk)
     {
         var cover = new Grid { Width = width, Height = height };
-        var surface = new Border
+        surface = new Border
         {
             CornerRadius = new CornerRadius(8),
             Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush")
         };
         cover.Children.Add(surface);
+        initials = new TextBlock
+        {
+            FontSize = Math.Max(18, height / 3.2),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        cover.Children.Add(initials);
+        favoritePill = Pill("★", HorizontalAlignment.Right, VerticalAlignment.Top);
+        hiddenPill = Pill(GameUi.T("Hidden", "Nascosto"), HorizontalAlignment.Left, VerticalAlignment.Bottom);
+        cover.Children.Add(favoritePill);
+        cover.Children.Add(hiddenPill);
 
-        bool hasImage = false;
-        string? path = GameCoverStore.TryGetPath(title.TitleKey);
-        if (path is not null)
-        {
-            try
-            {
-                var bitmap = new BitmapImage { DecodePixelWidth = (int)Math.Ceiling(width * 1.5) };
-                bitmap.UriSource = new Uri(path);
-                surface.Background = new ImageBrush { ImageSource = bitmap, Stretch = Stretch.UniformToFill };
-                hasImage = true;
-            }
-            catch (Exception) { /* A damaged local copy falls back to the lettered tile. */ }
-        }
-        TextBlock? initials = null;
-        if (!hasImage)
-        {
-            initials = new TextBlock
-            {
-                Text = GameUi.Initials(title.Name),
-                FontSize = Math.Max(18, height / 3.2),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush"),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            cover.Children.Add(initials);
-        }
-
-        var overlayPills = new List<Border>();
-        if (title.Favorite)
-        {
-            var pill = Pill("★", GameUi.T("Favorite", "Preferito"), HorizontalAlignment.Right, VerticalAlignment.Top);
-            overlayPills.Add(pill);
-            cover.Children.Add(pill);
-        }
-        if (title.Hidden)
-        {
-            var pill = Pill(GameUi.T("Hidden", "Nascosto"), null, HorizontalAlignment.Left, VerticalAlignment.Bottom);
-            overlayPills.Add(pill);
-            cover.Children.Add(pill);
-        }
-
-        var badgeInk = new TextBlock
+        badgeInk = new TextBlock
         {
             Text = "✓", FontSize = 16,
             Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush"),
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         };
-        var badge = new Border
+        badge = new Border
         {
             Background = GameUi.ThemeBrush(this, "PaRuXBrandBrush"),
             CornerRadius = new CornerRadius(12),
@@ -580,132 +841,46 @@ internal sealed class GameTileGrid : StackPanel
             Child = badgeInk
         };
         cover.Children.Add(badge);
-        selectedBadge = badge;
-
-        // The image brush must survive the repaint. Only flat fallback surfaces,
-        // text and small state badges change with the active OS theme.
-        repaintCover = () =>
-        {
-            if (!hasImage) surface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
-            if (initials is not null) initials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
-            foreach (Border pill in overlayPills)
-            {
-                pill.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
-                pill.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
-                if (pill.Child is TextBlock label)
-                    label.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
-            }
-            badge.Background = GameUi.ThemeBrush(this, "PaRuXBrandBrush");
-            badgeInk.Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush");
-        };
         return cover;
     }
 
-    private Border Pill(string text, string? accessibleName, HorizontalAlignment h, VerticalAlignment v)
+    private TextBlock NewName(bool oneLine) => new()
     {
-        var pill = new Border
-        {
-            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
-            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(6, 2, 6, 2),
-            Margin = new Thickness(8),
-            HorizontalAlignment = h,
-            VerticalAlignment = v,
-            IsHitTestVisible = false,
-            Child = new TextBlock
-            {
-                Text = text,
-                FontSize = _console ? 16 : 12,
-                Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush")
-            }
-        };
-        return pill;
-    }
-
-    private TextBlock NameText(GameTitleDto title) => new()
-    {
-        Text = title.Name,
         FontSize = NameSize,
         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         TextWrapping = TextWrapping.Wrap,
-        MaxLines = 2,
+        MaxLines = oneLine ? 1 : 2,
         TextTrimming = TextTrimming.CharacterEllipsis,
-        Height = NameHeight,
+        Height = oneLine ? double.NaN : NameHeight,
         Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush")
     };
 
-    private TextBlock SubText(GameTitleDto title)
+    private TextBlock NewSub(bool autoHeight) => new()
     {
-        string text = Large ? GameUi.PlaySummary(title) : GameUi.SourceSummary(title);
-        if (!Large && title.PlaySeconds >= 60) text += " · " + GameUi.ShortPlayTime(title.PlaySeconds);
-        var block = new TextBlock
-        {
-            Text = text,
-            FontSize = SubSize,
-            MaxLines = 1,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Height = SubHeight,
-            Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush")
-        };
-        ToolTipService.SetToolTip(block, text);
-        return block;
-    }
+        FontSize = SubSize,
+        MaxLines = 1,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        Height = autoHeight ? double.NaN : SubHeight,
+        Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush")
+    };
 
-    // Hover only updates the hovered card, with no animation, polling or library refresh.
-    private TileParts MakeInteractiveParts(GameTitleDto title, Border card, ButtonBase main,
-        UIElement badge, Button play, Action repaint)
+    // The image brush must survive the repaint. Only flat fallback surfaces,
+    // text and small state badges change with the active OS theme.
+    private void RepaintTile(TileParts parts)
     {
-        var parts = new TileParts { Title = title, Card = card, Main = main,
-            SelectedBadge = badge, Play = play, RepaintTheme = repaint };
-        card.PointerEntered += (_, _) => { parts.Hovering = true; ApplyState(parts); };
-        card.PointerExited += (_, _) => { parts.Hovering = false; ApplyState(parts); };
-        return parts;
-    }
-
-    private TileParts BuildTile(GameTitleDto title)
-    {
-        var face = new StackPanel { Spacing = 6, Width = CoverWidth };
-        face.Children.Add(BuildCover(title, CoverWidth, CoverHeight, out UIElement badge, out Action repaintCover));
-        var titleText = NameText(title);
-        var secondaryText = SubText(title);
-        face.Children.Add(titleText);
-        face.Children.Add(secondaryText);
-        ButtonBase main = NewMain(title);
-        main.Content = face;
-        Button play = NewPlay(title);
-
-        var actions = new Grid { ColumnSpacing = 8 };
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        actions.Children.Add(play);
-        var configure = NewConfigure(title);
-        Grid.SetColumn(configure, 1);
-        actions.Children.Add(configure);
-
-        var stack = new StackPanel { Spacing = 6 };
-        stack.Children.Add(main);
-        stack.Children.Add(actions);
-        var card = new Border
+        if (parts.Cover is null) parts.Surface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        parts.Initials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
+        foreach (Border pill in new[] { parts.FavoritePill, parts.HiddenPill })
         {
-            Width = CardWidth,
-            Height = CardHeight,
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 0, 12, 12),
-            CornerRadius = new CornerRadius(12),
-            BorderThickness = new Thickness(1),
-            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
-            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
-            Child = stack
-        };
-        return MakeInteractiveParts(title, card, main, badge, play, () =>
-        {
-            repaintCover();
-            titleText.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
-            secondaryText.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
-            RepaintConfigure(configure);
-        });
+            pill.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
+            pill.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+            if (pill.Child is TextBlock label) label.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
+        }
+        parts.SelectedBadge.Background = GameUi.ThemeBrush(this, "PaRuXBrandBrush");
+        parts.BadgeInk.Foreground = GameUi.ThemeBrush(this, "PaRuXOnBrandBrush");
+        parts.Name.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
+        parts.Sub.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
+        RepaintConfigure(parts.Configure);
     }
 
     private void RepaintConfigure(Button configure)
@@ -715,60 +890,111 @@ internal sealed class GameTileGrid : StackPanel
         configure.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
     }
 
-    private TileParts BuildRow(GameTitleDto title)
+    /// <summary>
+    /// Builds one empty tile (grid/shelf card or list row). All handlers are attached here, once, and read the tile's current
+    /// title when they fire, so recycling a tile to another title never adds or leaks a handler.
+    /// </summary>
+    private TileParts CreateTile()
     {
+        bool row = _presentation == Presentation.List;
         double thumb = RowHeight - 24;
-        var face = new Grid { ColumnSpacing = 12 };
-        face.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        UIElement cover = BuildCover(title, thumb, thumb, out UIElement badge, out Action repaintCover);
-        face.Children.Add(cover);
-        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
-        var name = NameText(title);
-        name.MaxLines = 1;
-        name.Height = double.NaN;
-        texts.Children.Add(name);
-        var sub = SubText(title);
-        sub.Text = GameUi.SourceSummary(title) + " · " + GameUi.PlaySummary(title);
-        sub.Height = double.NaN;
-        texts.Children.Add(sub);
-        Grid.SetColumn(texts, 1);
-        face.Children.Add(texts);
-        ButtonBase main = NewMain(title);
-        main.Content = face;
-        main.MinHeight = RowHeight - 24;
+        Grid cover = row
+            ? NewCover(thumb, thumb, out Border surface, out TextBlock initials, out Border favoritePill, out Border hiddenPill, out Border badge, out TextBlock badgeInk)
+            : NewCover(CoverWidth, CoverHeight, out surface, out initials, out favoritePill, out hiddenPill, out badge, out badgeInk);
+        TextBlock name = NewName(oneLine: row);
+        TextBlock sub = NewSub(autoHeight: row);
+        ButtonBase main = NewMain();
+        Button play = NewPlay(out TextBlock playText);
+        Button configure = NewConfigure();
+        var coverBrush = new ImageBrush { Stretch = Stretch.UniformToFill };
 
-        Button play = NewPlay(title);
-        play.Width = 140 * ScaleF;
-        play.HorizontalAlignment = HorizontalAlignment.Right;
-        play.VerticalAlignment = VerticalAlignment.Center;
-
-        var row = new Grid { ColumnSpacing = 8 };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Children.Add(main);
-        Grid.SetColumn(play, 1);
-        row.Children.Add(play);
-        var configure = NewConfigure(title);
-        Grid.SetColumn(configure, 2);
-        row.Children.Add(configure);
-        var card = new Border
+        Border card;
+        if (row)
         {
-            MinHeight = RowHeight,
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(12),
-            BorderThickness = new Thickness(1),
-            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush"),
-            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
-            Child = row
+            var face = new Grid { ColumnSpacing = 12 };
+            face.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            face.Children.Add(cover);
+            var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
+            texts.Children.Add(name);
+            texts.Children.Add(sub);
+            Grid.SetColumn(texts, 1);
+            face.Children.Add(texts);
+            main.Content = face;
+            main.MinHeight = RowHeight - 24;
+            play.Width = 140 * ScaleF;
+            play.HorizontalAlignment = HorizontalAlignment.Right;
+            play.VerticalAlignment = VerticalAlignment.Center;
+            var layout = new Grid { ColumnSpacing = 8 };
+            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            layout.Children.Add(main);
+            Grid.SetColumn(play, 1);
+            layout.Children.Add(play);
+            Grid.SetColumn(configure, 2);
+            layout.Children.Add(configure);
+            card = new Border
+            {
+                MinHeight = RowHeight,
+                Padding = new Thickness(12),
+                CornerRadius = new CornerRadius(12),
+                BorderThickness = new Thickness(1),
+                Child = layout
+            };
+        }
+        else
+        {
+            var face = new StackPanel { Spacing = 6, Width = CoverWidth };
+            face.Children.Add(cover);
+            face.Children.Add(name);
+            face.Children.Add(sub);
+            main.Content = face;
+            var actions = new Grid { ColumnSpacing = 8 };
+            actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            actions.Children.Add(play);
+            Grid.SetColumn(configure, 1);
+            actions.Children.Add(configure);
+            var stack = new StackPanel { Spacing = 6 };
+            stack.Children.Add(main);
+            stack.Children.Add(actions);
+            card = new Border
+            {
+                Width = CardWidth,
+                Height = CardHeight,
+                Padding = new Thickness(12),
+                CornerRadius = new CornerRadius(12),
+                BorderThickness = new Thickness(1),
+                Child = stack
+            };
+        }
+
+        var parts = new TileParts
+        {
+            Card = card, Main = main, Play = play, PlayText = playText, Configure = configure, Surface = surface,
+            Initials = initials, FavoritePill = favoritePill, HiddenPill = hiddenPill, SelectedBadge = badge, BadgeInk = badgeInk,
+            Name = name, Sub = sub, CoverBrush = coverBrush
         };
-        return MakeInteractiveParts(title, card, main, badge, play, () =>
+        card.Tag = parts;
+
+        main.Click += (_, _) =>
         {
-            repaintCover();
-            name.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
-            sub.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
-            RepaintConfigure(configure);
-        });
+            if (parts.Title is null) return;
+            if (_selectMode) SelectionToggled?.Invoke(parts.Title);
+            else OpenRequested?.Invoke(parts.Title);
+        };
+        play.Click += (_, _) =>
+        {
+            if (parts.Title is not null) PlayRequested?.Invoke(parts.Title);
+        };
+        configure.Click += (_, _) =>
+        {
+            if (parts.Title is not null) OpenRequested?.Invoke(parts.Title);
+        };
+        // Hover only updates the hovered card, with no animation, polling or library refresh.
+        card.PointerEntered += (_, _) => { parts.Hovering = true; ApplyState(parts); };
+        card.PointerExited += (_, _) => { parts.Hovering = false; ApplyState(parts); };
+        return parts;
     }
 }

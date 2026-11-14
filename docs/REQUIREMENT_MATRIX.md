@@ -36,20 +36,20 @@ EV-09: Strict Corporate acceptance (tests/corporate/measure-corporate-lite.ps1 -
 | PKG-APK Android companion APK | YES | YES | YES | YES | NOT RUN | BLOCKED-HW | NO | EV-03. Build on 4.1.0 beta build only |
 | PERF-001 TTFT, tokens/s, VRAM, startup, FPS | PARTIAL | PARTIAL | YES | N/A | N/A | BLOCKED-HW | NO | QA-023, docs/PERFORMANCE_BENCHMARKS.md |
 | PERF-002 Idle Core memory runaway | NO | NO | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/PERFORMANCE_BENCHMARKS.md (defect 1) |
-| PERF-003 Same-profile reuse, routing, GameStop restore | PARTIAL | PARTIAL | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/PERFORMANCE_BENCHMARKS.md. Same-profile warm reuse fixed; routing and GameStop parts remain open |
+| PERF-003 Same-profile reuse, routing, GameStop restore | PARTIAL | PARTIAL | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | Source and unit tests only (2026-11-13): (a) identical Standard request reuses the healthy runtime, resolved in code since 5cdf56e3 (older benchmark restart predates it); (b) AUTO escalation bounded by memory budget, marginal gain, Corporate/CPU-only and explained in `SelectionReason`; (c) GameStop is lazy by design, the unloaded model is remembered, reloaded on the next request, status says so, `ON` mode reloads in the background. NOT RUN on a real GPU: same-PID check, 24000-character prompt routing, post-Gaming reload latency and VRAM |
 | SEC-001 Security audit gate | PARTIAL | PARTIAL | NOT RUN | NOT RUN | N/A | N/A | NO | QA-017, docs/SECURITY_REVIEW.md, independent static review of portable/Corporate diff (0 Critical, 2 High fixed in 9973463d, Medium open) |
-| SEC-F01 Runtime ports without API key | NO | NO | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/SECURITY_REVIEW.md (Not fixed) |
+| SEC-F01 Runtime ports without API key | PARTIAL | PARTIAL | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NO | docs/SECURITY_REVIEW.md (2026-11-13). llama-server per-launch key checked on real llama-server CPU b12283 and Vulkan b10549, incl. one router child (QA-048; multi-model and CUDA not tested); ComfyUI still unauthenticated |
 | SEC-F02 Unhashed managed Python installs and downloads | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (no remediation recorded) |
 | SEC-F03 Backup restore applies security settings | YES | YES | YES | YES | N/A | N/A | NO | docs/SECURITY_REVIEW.md (Fixed), QA-021, QA-024 |
 | SEC-F04 Paired device Internet/task authority | PARTIAL | PARTIAL | YES | YES | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md (Fixed, partial), QA-021 |
-| SEC-F05 Browser session deny-list | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
+| SEC-F05 Browser session deny-list | YES | PARTIAL | YES | PARTIAL | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md: default-deny browser sessions on `integration/sec-20261113` (route-decision and in-process HTTP tests); real browser session not run |
 | SEC-F06 Coding default permission bypass | YES | YES | YES | YES | NOT RUN | N/A | NO | docs/SECURITY_REVIEW.md (Fixed), QA-021 |
 | SEC-F07 .NET 8 end of support | YES (retargeted to net10.0) | NO | Release build 0 errors; Server.Tests run recorded in docs/SECURITY_REVIEW.md | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md; packaging scripts not re-run on .NET 10 |
 | SEC-F08a Secrets at rest (review finding, open Low) | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md review finding, open Low |
 | SEC-F08b Corporate/Portable bootstrap token protection | YES | YES | YES | YES | N/A | NOT RUN | NO | EV-01, EV-02, EV-07 (High finding fixed in 9973463d) |
-| SEC-F09 Pairing guessing and token expiry | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
-| SEC-F10 Loopback Host-header allowlist | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
-| SEC-F11 Token accepted from URL query | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
+| SEC-F09 Pairing guessing and token expiry | YES | PARTIAL | YES | PARTIAL | N/A | N/A | NO | docs/SECURITY_REVIEW.md: 8-digit code, failure budgets and 90/365-day token expiry fixed in code and unit tested; real Android pairing and expiry not run |
+| SEC-F10 Loopback Host-header allowlist | YES | PARTIAL | YES | PARTIAL | N/A | N/A | NO | docs/SECURITY_REVIEW.md: Host allow-list including machine name (in-process HTTP tests); no real DNS-rebinding page run |
+| SEC-F11 Token accepted from URL query | YES | PARTIAL | YES | PARTIAL | N/A | N/A | NO | docs/SECURITY_REVIEW.md: `?token=` replaced by a one-use launch code (unit and in-process HTTP tests); real browser and CLI launch not run |
 | SEC-F12 Runtime digest from same release API | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
 | SEC-F13 Optional companion hashes and archive quota | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |
 | SEC-F14 Skill permission default-allow for unknown tools | NO | NO | NOT RUN | NOT RUN | N/A | N/A | NO | docs/SECURITY_REVIEW.md (open) |

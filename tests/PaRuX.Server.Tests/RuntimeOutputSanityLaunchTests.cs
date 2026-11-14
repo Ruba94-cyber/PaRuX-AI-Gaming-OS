@@ -227,6 +227,10 @@ public sealed class RuntimeOutputSanityLaunchTests : IDisposable
         {
             int? processId = manager.GetTextProcessId();
             Assert.True(processId.HasValue, "The output probe must run after a child process is started and recorded.");
+            // SEC-F01: the router (hot pool) and every single-model runtime get a per-launch key, registered for the port
+            // the process was started on, before the first request is made to it.
+            Assert.True(ManagedRuntimeCredentials.TryGetForPort(LocalAiPaths.TextPort, out string launchKey)
+                        && launchKey.Length >= 32, "The launched text runtime must have a per-launch key.");
             childrenAtProbe.Add(Process.GetProcessById(processId!.Value));
             return Task.FromResult(new RuntimeOutputSanity.Verdict(plausible,
                 plausible ? "test reply was plausible" : "test reply was garbage"));

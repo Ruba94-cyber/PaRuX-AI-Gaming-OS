@@ -151,8 +151,14 @@ internal sealed class CandidateTextQualityRunner : IProfiledCandidateTextQuality
                 .ConfigureAwait(false)).ToLowerInvariant();
             if (lockedHash != identity.LocalSha256)
                 return await CommitAsync(record, "Failed", runCts.Token).ConfigureAwait(false);
+            // Refuse-to-start: the runtime launch is a static helper, so the Gaming gate lives here, immediately before
+            // the child could exist (the 250 ms monitor only cancels a run that already started).
+            if (_gamingActive()) return await CommitAsync(record, "Unavailable", runCts.Token).ConfigureAwait(false);
             if (!_evidence.TryBeginEvaluation(identity,
-                () => _runtime.StartAsync(spec, modelPath, runCts.Token),
+                () => _gamingActive()
+                    ? Task.FromException<ITextQualitySession>(new UnavailableDuringGamingException(
+                        "Gaming Mode is active, so the local text quality runtime is unavailable."))
+                    : _runtime.StartAsync(spec, modelPath, runCts.Token),
                 out Task<ITextQualitySession>? startTask) || startTask is null)
                 return await CommitAsync(record, "Unavailable", runCts.Token).ConfigureAwait(false);
             await using (ITextQualitySession session = await startTask.ConfigureAwait(false))
@@ -430,13 +436,15 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
     private readonly string _alias;
     private readonly Task _stdoutDrain;
     private readonly Task _stderrDrain;
+    private readonly string _apiKey;
 
-    private LlamaTextQualitySession(Process process, HttpClient http, int port, string alias)
+    private LlamaTextQualitySession(Process process, HttpClient http, int port, string alias, string apiKey)
     {
         _process = process;
         _http = http;
         _baseUrl = "http://127.0.0.1:" + port;
         _alias = alias;
+        _apiKey = apiKey;
         _stdoutDrain = DrainAsync(process.StandardOutput);
         _stderrDrain = DrainAsync(process.StandardError);
     }
@@ -475,15 +483,18 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
                 || TextLaunchDescriptor.BackendForRuntimeDirectory(start.WorkingDirectory) != launch.Descriptor.Backend)
                 throw new InvalidDataException("evaluation_launch_mismatch");
         }
+        // SEC-F01: applied after the launch-descriptor check above; the descriptor ignores credential variables by design.
+        string apiKey = ManagedRuntimeCredentials.ApplyTo(start);
         var process = new Process { StartInfo = start };
         var http = new HttpClient(new HttpClientHandler { UseProxy = false })
         { Timeout = Timeout.InfiniteTimeSpan };
+        ManagedRuntimeCredentials.Authorize(http, apiKey);
         LlamaTextQualitySession? session = null;
         try
         {
             if (!process.Start()) throw new InvalidOperationException("Local quality runtime failed to start.");
             ChildProcessJob.Assign(process);
-            session = new LlamaTextQualitySession(process, http, port, alias);
+            session = new LlamaTextQualitySession(process, http, port, alias, apiKey);
             using var startupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             startupCts.CancelAfter(TimeSpan.FromMinutes(2));
             await session.WaitHealthyAsync(startupCts.Token).ConfigureAwait(false);
@@ -497,6 +508,7 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
                 try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
                 process.Dispose();
                 http.Dispose();
+                ManagedRuntimeCredentials.RetireKey(apiKey);
             }
             throw;
         }
@@ -680,5 +692,6 @@ internal sealed class LlamaTextQualitySession : ITextQualitySession, ITextPerfor
         finally { _process.Dispose(); }
         try { await Task.WhenAll(_stdoutDrain, _stderrDrain).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
         catch (TimeoutException) { }
+        finally { ManagedRuntimeCredentials.RetireKey(_apiKey); }
     }
 }

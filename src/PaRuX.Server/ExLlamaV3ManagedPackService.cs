@@ -154,7 +154,7 @@ public sealed class ExLlamaV3ManagedPackService
 
                 progress?.Report("Installing ExLlamaV3 " + tag + "...");
                 await ManagedPythonRuntime.PipInstallAsync(
-                    venv, new[] { wheelPath }, ct, TimeSpan.FromMinutes(30)).ConfigureAwait(false);
+                    venv, new[] { wheelPath }, ct, TimeSpan.FromMinutes(30), unlockedSetId: "exllamav3-wheel").ConfigureAwait(false);
 
                 progress?.Report("Validating ExLlamaV3 CUDA import...");
                 string validation = await ValidateImportAsync(venv, ct).ConfigureAwait(false);
@@ -282,12 +282,23 @@ public sealed class ExLlamaV3ManagedPackService
         ManagedPythonRuntime.ApplyEnvironment(info);
 
         using var process = new Process { StartInfo = info };
-        process.Start();
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(ct);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        // Gaming hard-off: this import initialises CUDA, so it is refused while Gaming is active and killed by a Gaming
+        // start. The install builds in a ".staging-*" folder that the finally block deletes, and the staged venv is moved
+        // into place only after this validation passed: an interrupted install leaves nothing half-applied.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
+        ChildProcessJob.Assign(process);
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync(gaming.Token);
+        Task<string> stderr = process.StandardError.ReadToEndAsync(gaming.Token);
+        try { await process.WaitForExitAsync(gaming.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
         string output = (await stdout.ConfigureAwait(false)).Trim();
         string error = (await stderr.ConfigureAwait(false)).Trim();
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         if (process.ExitCode != 0)
             throw new InvalidOperationException("Managed ExLlamaV3 validation failed: " + (error.Length > 0 ? error : output));
         return output;

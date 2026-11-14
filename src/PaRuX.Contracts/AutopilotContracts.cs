@@ -28,6 +28,8 @@ public static class AutopilotRunStatus
     public const string Completed = "completed";
     public const string Failed = "failed";
     public const string Cancelled = "cancelled";
+    /// <summary>A run held for desktop approval that nobody approved or cancelled in time. Terminal; its held tasks are cancelled.</summary>
+    public const string Expired = "expired";
 }
 
 public sealed class AutopilotRunDto
@@ -41,6 +43,15 @@ public sealed class AutopilotRunDto
     public string? FinalReportJson { get; set; }
     public required DateTime CreatedUtc { get; set; }
     public required DateTime UpdatedUtc { get; set; }
+
+    /// <summary>The paired device or browser session that started the run (its owner id); null for the desktop.</summary>
+    public string? StartedBy { get; set; }
+
+    /// <summary>For a run awaiting desktop approval: when it expires if nobody approves or cancels it.</summary>
+    public DateTime? ExpiresUtc { get; set; }
+
+    /// <summary>True while the run is held until the desktop owner approves it on the PaRuX desktop.</summary>
+    public bool AwaitingDesktopApproval => Status == AutopilotRunStatus.PendingApproval;
 
     /// <summary>AUTONOMOUS-mode auto-retry budget spent so far, keyed by task id. Empty/absent
     /// for SUPERVISED and BALANCED runs, which never auto-retry - this is the real, persisted

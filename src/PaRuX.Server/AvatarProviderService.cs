@@ -61,6 +61,9 @@ public sealed class AvatarProviderService
 
     public async Task<AvatarGenerateResponse> GenerateAsync(AvatarGenerateRequest request, CancellationToken ct)
     {
+        // During Gaming the managed engine is paused; do not fall through to another local provider as if it were absent.
+        if (_engine.GamingPaused)
+            throw new UnavailableDuringGamingException("Gaming Mode is active, so local avatar generation is unavailable.");
         AvatarEngineStatus engineStatus = await _engine.GetStatusAsync(ct);
         if (engineStatus.Installed && engineStatus.HasDefaultPhoto)
         {

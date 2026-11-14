@@ -123,7 +123,7 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
                 KillCurrentProcess();
                 cancellationToken.ThrowIfCancellationRequested();
                 if (_runtime.GamingMode)
-                    throw new InvalidOperationException("Gaming Mode interrupted continuous speech and released its resident worker.");
+                    throw new SpeechUnavailableDuringGamingException("Gaming Mode interrupted continuous speech and released its resident worker.");
                 throw new TimeoutException("Continuous speech exceeded the three-minute turn budget and its resident worker was reset.");
             }
             catch
@@ -245,7 +245,7 @@ internal sealed class ContinuousTtsWorker : IDisposable, IContinuousSpeechStream
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_runtime.GamingMode)
-            throw new InvalidOperationException("Gaming Mode is active, so continuous speech is unavailable.");
+            throw new SpeechUnavailableDuringGamingException("Gaming Mode is active, so continuous speech is unavailable.");
         if (!ManagedPythonRuntime.IsManagedVenv(VenvRoot) || !File.Exists(VenvPython))
             throw new InvalidOperationException("The PaRuX-managed speech engine is not installed on this machine yet.");
     }

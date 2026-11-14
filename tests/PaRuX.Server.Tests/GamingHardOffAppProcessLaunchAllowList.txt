@@ -1,0 +1,38 @@
+# Reviewed inventory of every process launch under src/PaRuX.App (the WPF shell and its agent tools).
+# Enforced by GamingHardOffProcessLaunchInventoryTests.EveryAppProcessLaunchIsClassified: a new launch site or a changed count fails the test.
+# This inventory is deliberately simpler than the Server one: it records the DECISION per file, it does not prove a gate.
+#
+# Format:  relative path | launch-site count | class | decision
+# Classes:
+#   GAMING-FEATURE  part of the game integration itself.
+#   USER-ACTION     started by an explicit user click or by app start, not an AI workload (opening a document, starting the PaRuX server host,
+#                   launching or testing an external client the user chose).
+#   AI-CHILD        a CPU tool child run on behalf of a local coding / analysis / computer-use agent. No model runs in it; the agent that
+#                   starts it is itself refused while Gaming Mode is active (see the decision text for where that refusal lives).
+#   NOT-AI          a bounded OS or telemetry probe.
+#
+Services/BinaryAnalysisTools.cs|1|AI-CHILD|Static-analysis tool run for the binary-analysis agent; BinaryAnalysisAgentService refuses and stops while Gaming Mode is active. No Gaming reference in this file; the tool run is not individually killed on a Gaming start (follow-up).
+Services/BinaryDecompilerTools.cs|1|AI-CHILD|Decompiler tool run for the binary-analysis agent; same agent-level Gaming refusal as BinaryAnalysisTools. Not individually killed on a Gaming start (follow-up).
+Services/BrowserDevToolsService.cs|1|USER-ACTION|Dedicated developer browser the user or the coding agent opens for web debugging; not a model process. No Gaming reference in this file (follow-up if agent-opened).
+Services/CodeHandoffService.cs|1|AI-CHILD|External coding-agent handoff: refuses with "Gaming Mode is active. Coding agents are suspended." before launch (GamingManager.Current.IsActive).
+Services/CodeWorktreeApplyService.cs|1|AI-CHILD|git operations applying an agent's worktree changes; a bounded VCS command, run only inside a coding-agent task that CodingAgentService suspends under Gaming.
+Services/CodingAgentTools.cs|1|AI-CHILD|Shell/command tool of the local coding agent; CodingAgentService suspends agent runs while Gaming Mode is active. The tool child itself carries no Gaming check (follow-up).
+Services/ComputerUseService.cs|1|AI-CHILD|User-approved launch step of the Computer Use agent; refuses with a Gaming message before launching (GamingManager.Current.IsActive, two checks).
+Services/DocumentOpener.cs|4|USER-ACTION|Opens a document in the user's chosen application or a PowerShell helper on an explicit click; not an AI workload.
+Services/Integrations/ClientIntegrations.cs|2|USER-ACTION|Builds launch/test command lines for external AI clients the user connects to PaRuX; started only through ClientIntegrationService.
+Services/Integrations/ClientIntegrationService.cs|2|USER-ACTION|Starts or tests an external client on an explicit user action; the client is not a PaRuX-owned local model process.
+Services/Integrations/ClientLocator.cs|1|USER-ACTION|Bounded lookup of an installed external client executable (version probe) on user action.
+Services/MultiRepositoryApplyService.cs|1|AI-CHILD|git operations applying multi-repository agent changes; bounded VCS command inside a coding-agent task suspended under Gaming.
+Services/MultiRepositoryWorktreeService.cs|1|AI-CHILD|git worktree preparation for the coding agent; bounded VCS command inside an agent task suspended under Gaming.
+Services/PaRuXServerController.cs|1|USER-ACTION|Starts the PaRuX server host on app start or user action. The host owns every AI child and applies the Gaming hard-off itself (GamingGuardService).
+Services/ResourceMonitorService.cs|1|NOT-AI|Bounded nvidia-smi telemetry query for the resource monitor; read-only, no model.
+Services/ShadowWorkspaceService.cs|1|AI-CHILD|git command preparing an agent's shadow workspace; bounded VCS command inside an agent task suspended under Gaming.
+Services/WindowsCodingSandbox.cs|4|AI-CHILD|Sandboxed command execution for the coding agent (restricted-token CreateProcessW plus plain Process starts); the agent run is suspended under Gaming at CodingAgentService. The sandbox child carries no Gaming check of its own (follow-up).
+Services/WindowsUiActionService.cs|1|AI-CHILD|winapp CLI UI action for the Computer Use agent; ComputerUseAgentService and ComputerUseService refuse while Gaming Mode is active.
+Services/WindowsUiTreeObservationService.cs|2|AI-CHILD|winapp CLI observation (UI tree, foreground) for the Computer Use agent; bounded read-only query inside a Computer Use run that is refused while Gaming Mode is active.
+Services/WorktreeService.cs|1|AI-CHILD|Bounded git command for coding-agent worktrees; runs inside a coding-agent task suspended under Gaming.
+Views/ChatView.NativeCodingHandoff.cs|1|USER-ACTION|Opens the configured VS Code in a worktree after an explicit user action; not an AI workload.
+Views/CreateWorkspaceView.Result.cs|1|USER-ACTION|Opens a generated result file on an explicit click.
+Views/MediaGalleryView.cs|2|USER-ACTION|Opens a gallery item or reveals it in Explorer on an explicit click.
+Views/SettingsView.xaml.cs|1|USER-ACTION|Opens a .glb in the user's own Blender on an explicit click; the PaRuX 3D generation child lives in the server (ThreedService, gated).
+Views/UpdateManagerView.cs|1|USER-ACTION|Starts the app's own verified updater helper (UAC) on an explicit user action.

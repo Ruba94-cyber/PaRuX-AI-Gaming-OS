@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>4.1.0</Version>
-    <FileVersion>4.1.0.0</FileVersion>
-    <AssemblyVersion>4.1.0.0</AssemblyVersion>
-    <InformationalVersion>4.1.0</InformationalVersion>
+    <Version>$(PaRuXProductVersion)</Version>
+    <FileVersion>$(PaRuXProductVersion).0</FileVersion>
+    <AssemblyVersion>$(PaRuXProductVersion).0</AssemblyVersion>
+    <InformationalVersion>$(PaRuXProductVersion)</InformationalVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Public binary/process branding is PaRuX Server; keep the internal project/namespace
@@ -72,6 +72,14 @@
     <!-- Hash-locked Training Lab dependency closure (see TrainingRuntimeLock). Shipped next to the
          app because the install is refused without it; regenerate with tools/training-lock. -->
     <Content Include="training-runtime.lock.txt;training-torch-cu128.lock.txt;training-torch-cpu.lock.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Update="runtime-digest-pins.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Hash-locked requirement sets for the other managed Python engines (SEC-F02, see ManagedPipInstallPolicy);
+         regenerate with tools/managed-locks/generate.ps1. -->
+    <Content Include="managed-locks\*.lock.txt" Link="managed-locks\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\skills\built-in\*.json" Link="skills\built-in\%(Filename)%(Extension)">

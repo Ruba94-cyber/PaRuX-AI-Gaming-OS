@@ -74,6 +74,9 @@ public sealed class ManagedRetrievalProviderResolver : IAsyncDisposable
 
     public RetrievalProviderPromotionStore PromotionStore => _promotion;
 
+    /// <summary>True while the Gaming marker exists; indexing and promoted llama.cpp retrieval stop and refuse then.</summary>
+    internal bool GamingActive => _runtime.GamingActive;
+
     public async Task<ResolvedRetrievalEmbeddingProvider> ResolveEmbeddingAsync(CancellationToken cancellationToken)
     {
         RetrievalProviderPromotionRecord? selected = _promotion.Get().Embedding;

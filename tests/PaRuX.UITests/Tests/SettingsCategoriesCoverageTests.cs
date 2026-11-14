@@ -201,7 +201,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Show me around")))) != null, "General last control present");
             Assert.NotNull(generalLast);
             settings.ScrollSettingsIntoView(generalLast);
-            UiWait.For(() => !generalLast.Properties.IsOffscreen.ValueOrDefault, "General last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(generalLast); return !generalLast.Properties.IsOffscreen.ValueOrDefault; }, "General last control in view");
 
             // 2. Models: Start group chat button in Group Chat section
             settings.SelectCategory("Models");
@@ -210,7 +210,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Start group chat")));
             Assert.NotNull(modelsLast);
             settings.ScrollSettingsIntoView(modelsLast);
-            UiWait.For(() => !modelsLast.Properties.IsOffscreen.ValueOrDefault, "Models last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(modelsLast); return !modelsLast.Properties.IsOffscreen.ValueOrDefault; }, "Models last control in view");
 
             // 3. Chat Behavior: New skill button in Skills section
             settings.SelectCategory("Chat Behavior");
@@ -219,7 +219,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("New skill…")));
             Assert.NotNull(chatLast);
             settings.ScrollSettingsIntoView(chatLast);
-            UiWait.For(() => !chatLast.Properties.IsOffscreen.ValueOrDefault, "Chat Behavior last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(chatLast); return !chatLast.Properties.IsOffscreen.ValueOrDefault; }, "Chat Behavior last control in view");
 
             // 4. Your PC apps: Use PaRuX's folder button in Documents section
             settings.SelectCategory("Your PC apps");
@@ -228,7 +228,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Use PaRuX's folder")));
             Assert.NotNull(appsLast);
             settings.ScrollSettingsIntoView(appsLast);
-            UiWait.For(() => !appsLast.Properties.IsOffscreen.ValueOrDefault, "Your PC apps last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(appsLast); return !appsLast.Properties.IsOffscreen.ValueOrDefault; }, "Your PC apps last control in view");
 
             // 5. Media Generation: Generate 3D model button in 3D Studio section
             settings.SelectCategory("Media Generation");
@@ -237,7 +237,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Generate 3D model")));
             Assert.NotNull(mediaLast);
             settings.ScrollSettingsIntoView(mediaLast);
-            UiWait.For(() => !mediaLast.Properties.IsOffscreen.ValueOrDefault, "Media Generation last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(mediaLast); return !mediaLast.Properties.IsOffscreen.ValueOrDefault; }, "Media Generation last control in view");
 
             // 6. Automation: Start training button in Training Lab section
             settings.SelectCategory("Automation");
@@ -246,7 +246,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Start training")));
             Assert.NotNull(autoLast);
             settings.ScrollSettingsIntoView(autoLast);
-            UiWait.For(() => !autoLast.Properties.IsOffscreen.ValueOrDefault, "Automation last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(autoLast); return !autoLast.Properties.IsOffscreen.ValueOrDefault; }, "Automation last control in view");
 
             // 7. Agents: Add relation button in Context Graph Inspector section
             settings.SelectCategory("Agents");
@@ -255,7 +255,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Add relation")));
             Assert.NotNull(agentsLast);
             settings.ScrollSettingsIntoView(agentsLast);
-            UiWait.For(() => !agentsLast.Properties.IsOffscreen.ValueOrDefault, "Agents last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(agentsLast); return !agentsLast.Properties.IsOffscreen.ValueOrDefault; }, "Agents last control in view");
 
             // 8. Integrations: Create a key for another app button in Other apps section
             settings.SelectCategory("Integrations");
@@ -264,7 +264,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Create a key for another app")));
             Assert.NotNull(integrationsLast);
             settings.ScrollSettingsIntoView(integrationsLast);
-            UiWait.For(() => !integrationsLast.Properties.IsOffscreen.ValueOrDefault, "Integrations last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(integrationsLast); return !integrationsLast.Properties.IsOffscreen.ValueOrDefault; }, "Integrations last control in view");
 
             // 9. Gaming & AI Sharing: Save Profile Settings button
             settings.SelectCategory("Gaming & AI Sharing");
@@ -273,7 +273,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Save Profile Settings")));
             Assert.NotNull(gamingLast);
             settings.ScrollSettingsIntoView(gamingLast);
-            UiWait.For(() => !gamingLast.Properties.IsOffscreen.ValueOrDefault, "Gaming last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(gamingLast); return !gamingLast.Properties.IsOffscreen.ValueOrDefault; }, "Gaming last control in view");
 
             // 10. PaRuX Platform: Clear button in Universal Diff section
             settings.SelectCategory("PaRuX Platform");
@@ -282,7 +282,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Clear")));
             Assert.NotNull(platformLast);
             settings.ScrollSettingsIntoView(platformLast);
-            UiWait.For(() => !platformLast.Properties.IsOffscreen.ValueOrDefault, "Platform last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(platformLast); return !platformLast.Properties.IsOffscreen.ValueOrDefault; }, "Platform last control in view");
 
             // 11. Privacy & Network: Sign out all browsers button in Browser Access section
             settings.SelectCategory("Privacy & Network");
@@ -291,7 +291,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Sign out all browsers")));
             Assert.NotNull(privacyLast);
             settings.ScrollSettingsIntoView(privacyLast);
-            UiWait.For(() => !privacyLast.Properties.IsOffscreen.ValueOrDefault, "Privacy last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(privacyLast); return !privacyLast.Properties.IsOffscreen.ValueOrDefault; }, "Privacy last control in view");
 
             // 12. Data: Find models from other apps button, the last control of the Import chat history section
             settings.SelectCategory("Data");
@@ -300,7 +300,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Button).And(cf.ByName("Find models from other apps…")));
             Assert.NotNull(dataLast);
             settings.ScrollSettingsIntoView(dataLast);
-            UiWait.For(() => !dataLast.Properties.IsOffscreen.ValueOrDefault, "Data last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(dataLast); return !dataLast.Properties.IsOffscreen.ValueOrDefault; }, "Data last control in view");
 
             // 13. Advanced: System RAM label in Diagnostics table
             settings.SelectCategory("Advanced");
@@ -309,7 +309,7 @@ public sealed class SettingsCategoriesCoverageTests
                 cf.ByControlType(ControlType.Text).And(cf.ByName("System RAM")));
             Assert.NotNull(advancedLast);
             settings.ScrollSettingsIntoView(advancedLast);
-            UiWait.For(() => !advancedLast.Properties.IsOffscreen.ValueOrDefault, "Advanced last control in view");
+            UiWait.For(() => { settings.ScrollSettingsIntoView(advancedLast); return !advancedLast.Properties.IsOffscreen.ValueOrDefault; }, "Advanced last control in view");
         });
 
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Settings")]

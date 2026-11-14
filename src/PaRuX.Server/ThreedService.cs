@@ -64,7 +64,7 @@ public sealed class ThreedService
                 ct, TimeSpan.FromMinutes(15)).ConfigureAwait(false));
             log.Append(await ManagedPythonRuntime.PipInstallAsync(
                 VenvRoot,
-                new[] { "transformers", "trimesh", "pillow", "numpy", "scipy" },
+                ManagedRequirementLocks.ArgumentsFor("threed"),
                 ct, TimeSpan.FromMinutes(10)).ConfigureAwait(false));
 
             try { File.Delete(LastErrorPath); } catch { }
@@ -158,13 +158,21 @@ public sealed class ThreedService
         if (workingDirectory != null) psi.WorkingDirectory = workingDirectory;
         if (env != null) foreach (KeyValuePair<string, string> kv in env) psi.Environment[kv.Key] = kv.Value;
         using var process = new Process { StartInfo = psi };
-        process.Start();
+        // Gaming hard-off: refused (typed) while Gaming is active, registered so a Gaming start kills it.
+        using GamingChildLease gaming = GamingChildGate.StartOwned(process, ct);
+        ChildProcessJob.Assign(process);
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(gaming.Token);
         timeoutCts.CancelAfter(timeout);
         try { await process.WaitForExitAsync(timeoutCts.Token); }
-        catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } throw; }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            gaming.ThrowIfGamingInterrupted();
+            throw;
+        }
+        if (process.ExitCode != 0) gaming.ThrowIfGamingInterrupted();
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 

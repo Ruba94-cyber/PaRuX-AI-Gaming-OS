@@ -136,7 +136,7 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
                     onCancelTask = viewModel::cancelAgentTask,
                     onStartAutopilotRun = viewModel::startAutopilotRun,
                     onCheckAutopilotRun = viewModel::checkAutopilotRun,
-                    onApproveAutopilotRun = viewModel::approveAutopilotRun,
+                    onCancelAutopilotRun = viewModel::cancelAutopilotRun,
                     onStopAllAgents = viewModel::stopAllAgents,
                     onResumeAutomations = viewModel::resumeAutomations
                 )
@@ -534,7 +534,7 @@ private fun AgentsSection(
     onCancelTask: (String) -> Unit,
     onStartAutopilotRun: (String, String) -> Unit,
     onCheckAutopilotRun: (String) -> Unit,
-    onApproveAutopilotRun: (String) -> Unit,
+    onCancelAutopilotRun: (String) -> Unit,
     onStopAllAgents: () -> Unit,
     onResumeAutomations: () -> Unit
 ) {
@@ -578,7 +578,11 @@ private fun AgentsSection(
         OutlinedTextField(value = runIdInput, onValueChange = { runIdInput = it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), placeholder = { Text("Run id") })
         Row(Modifier.padding(top = 4.dp)) {
             TextButton(onClick = { onCheckAutopilotRun(runIdInput) }, enabled = runIdInput.isNotBlank()) { Text("Check status") }
-            TextButton(onClick = { onApproveAutopilotRun(runIdInput) }, enabled = runIdInput.isNotBlank()) { Text("Approve") }
+            // A held run is approved on the PaRuX desktop; the phone can only cancel the run it started.
+            TextButton(
+                onClick = { onCancelAutopilotRun(runIdInput) },
+                enabled = runIdInput.isNotBlank() && autopilotRun?.id == runIdInput && AutopilotRunText.canCancel(autopilotRun)
+            ) { Text("Cancel run") }
         }
         autopilotStatusMessage?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall) }
         autopilotRun?.finalReportJson?.let { Text("Report: $it", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }

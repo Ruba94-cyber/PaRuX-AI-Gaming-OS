@@ -447,7 +447,7 @@ class ToolsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             try {
                 val run = client.api.startAutopilotRun(com.parux.android.core.network.StartAutopilotRunRequest(goal, permissionMode))
-                _state.value = _state.value.copy(autopilotRun = run, autopilotStatusMessage = "Run ${run.id}: ${run.status}")
+                _state.value = _state.value.copy(autopilotRun = run, autopilotStatusMessage = AutopilotRunText.statusMessage(run))
             } catch (e: Exception) { fail(e) }
         }
     }
@@ -458,16 +458,16 @@ class ToolsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             try {
                 val run = client.api.getAutopilotRun(id)
-                _state.value = _state.value.copy(autopilotRun = run, autopilotStatusMessage = "Run ${run.id}: ${run.status}")
+                _state.value = _state.value.copy(autopilotRun = run, autopilotStatusMessage = AutopilotRunText.statusMessage(run))
             } catch (e: Exception) { fail(e) }
         }
     }
 
-    fun approveAutopilotRun(id: String) {
+    fun cancelAutopilotRun(id: String) {
         if (id.isBlank()) return
         val client = container.client.value ?: return
         viewModelScope.launch {
-            try { client.api.approveAutopilotRun(id); checkAutopilotRun(id) } catch (e: Exception) { fail(e) }
+            try { client.api.cancelAutopilotRun(id); checkAutopilotRun(id) } catch (e: Exception) { fail(e) }
         }
     }
 

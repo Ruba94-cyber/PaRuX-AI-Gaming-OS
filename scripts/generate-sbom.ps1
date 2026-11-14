@@ -1,7 +1,7 @@
 param(
     [string]$OutputPath = "",
     [string]$Configuration = "Release",
-    [string]$ProductVersion = "1.5.1",
+    [string]$ProductVersion = "",
     [ValidateSet("windows", "android", "all")][string]$Scope = "all"
 )
 
@@ -9,6 +9,11 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($ProductVersion)) {
+    # Central product version: Directory.Build.props at the repository root.
+    [xml]$versionProps = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props") -Raw
+    $ProductVersion = [string]($versionProps.Project.PropertyGroup | ForEach-Object { $_.PaRuXProductVersion } | Where-Object { $_ } | Select-Object -First 1)
+}
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $repoRoot ("artifacts\sbom\SBOM.{0}.cyclonedx.json" -f $Scope)
 }

@@ -60,6 +60,8 @@ namespace PaRuX.Services
         }
 
         private static readonly object FileGate = new();
+        private const int MaxCachedInfos = 8000;
+        private static readonly Dictionary<string, GameInfoDto?> InfoCache = new(StringComparer.Ordinal);
 
         private static string InfoFolder => Path.Combine(AppPaths.PaRuXRoot, "game-info");
 
@@ -74,9 +76,18 @@ namespace PaRuX.Services
                 string path = InfoPath(titleKey);
                 lock (FileGate)
                 {
-                    if (!File.Exists(path)) return null;
-                    GameInfoDto? info = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
-                    return info is { Name.Length: > 0 } ? info : null;
+                    // Remembered per title (a "nothing stored" answer too): the filter rail asks for the genres of every title on each
+                    // reload, which used to be one file probe and JSON parse per title on the UI thread. Save() is the only writer.
+                    if (InfoCache.TryGetValue(titleKey, out GameInfoDto? remembered)) return remembered;
+                    GameInfoDto? info = null;
+                    if (File.Exists(path))
+                    {
+                        info = JsonSerializer.Deserialize<GameInfoDto>(File.ReadAllText(path), JsonOptions);
+                        if (info is not { Name.Length: > 0 }) info = null;
+                    }
+                    if (InfoCache.Count >= MaxCachedInfos) InfoCache.Clear();
+                    InfoCache[titleKey] = info;
+                    return info;
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
@@ -377,6 +388,7 @@ namespace PaRuX.Services
             {
                 File.WriteAllText(tmp, JsonSerializer.Serialize(value, JsonOptions));
                 File.Move(tmp, path, overwrite: true);
+                InfoCache.Remove(titleKey);
             }
         }
     }

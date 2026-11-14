@@ -19,3 +19,19 @@ condition = "AND"
 regexTarget = "line"
 regexes = [ '''^\s*"token": "PARUX-DAG-HANDOFF-94721",?\s*$''' ]
 paths = [ '''benchmarks/multi-agent/dependency-handoff\.json$''' ]
+
+# Synthetic IGDB token reply used by a parser test; not a credential.
+[[rules.allowlists]]
+description = "Synthetic IGDB token fixture"
+condition = "AND"
+regexTarget = "line"
+regexes = [ '''"access_token":"abcdefghij1234567890"''' ]
+paths = [ '''tests/PaRuX\.Server\.Tests/GameSaveHookPresenterAndIgdbTests\.cs$''' ]
+
+# A public model file name in a test constructor, flagged by entropy only.
+[[rules.allowlists]]
+description = "Public model file name in a media sampling test"
+condition = "AND"
+regexTarget = "line"
+regexes = [ '''sd_xl_turbo_1\.0_fp16\.safetensors''' ]
+paths = [ '''tests/PaRuX\.Server\.Tests/MediaPrewarmAndSamplingTests\.cs$''' ]

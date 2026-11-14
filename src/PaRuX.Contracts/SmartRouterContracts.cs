@@ -72,6 +72,10 @@ public sealed class CandidateEvidenceDto
     public string IntelligenceEvidence { get; set; } = "unmeasured";
     public long SizeBytes { get; set; }
     public bool? HardwareCompatible { get; set; }
+    /// <summary>The weights + KV cache + reserve this candidate is estimated to need, from the same fit estimate as <see cref="HardwareCompatible"/>. Null when unknown.</summary>
+    public double? EstimatedNeededMib { get; set; }
+    /// <summary>The memory budget that estimate was compared with. Null when unknown.</summary>
+    public double? AvailableMib { get; set; }
 }
 
 public sealed class CandidatePoolResponse

@@ -124,6 +124,9 @@ public sealed class LocalAiProcessManager
     /// <summary>Gaming Mode shutdown retry state. The Gaming guard drives it and the runtime status reports it.</summary>
     internal GamingShutdownRetry GamingShutdown { get; } = new();
 
+    /// <summary>On-demand AI child groups (retrieval servers, avatar, CLIP judge) that the Gaming guard stops with the runtime.</summary>
+    internal GamingHardOffRegistry HardOff { get; } = new();
+
     /// <summary>Test seam: replaces the text health probe for this instance. The canonical ports belong to whatever else runs
     /// on the host, so a test of another behaviour can fix the precondition. Production code never sets it.</summary>
     internal Func<CancellationToken, Task<bool>>? TextHealthProbeForTests { get; set; }
@@ -260,7 +263,12 @@ public sealed class LocalAiProcessManager
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CloseHandle(IntPtr handle);
 
-    internal static void ClearTextLaunchIdentity() => Volatile.Write(ref _textLaunchIdentity, null);
+    internal static void ClearTextLaunchIdentity()
+    {
+        Volatile.Write(ref _textLaunchIdentity, null);
+        // SEC-F01: the key belongs to the launch it was issued for; a stopped or failed runtime has none.
+        ManagedRuntimeCredentials.RetireText();
+    }
 
     private static string? _lastTextLaunchDescriptorRefusal;
 
@@ -315,6 +323,8 @@ public sealed class LocalAiProcessManager
     // the check: a process that is truly hung or dead still fails immediately (connection refused),
     // and the outer six-minute EnsureReadyTimeout still bounds the whole operation.
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    /// <summary>Attested client that also carries the SEC-F01 runtime key, for text routes that need it (/props).</summary>
+    private static readonly HttpClient TextHttp = new(ManagedRuntimePeers.CreateHandler()) { Timeout = TimeSpan.FromSeconds(20) };
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public sealed record RuntimeResult(bool Success, string Message);
@@ -596,6 +606,10 @@ public sealed class LocalAiProcessManager
     /// The PID file is written immediately after Process.Start and before this is first polled, so
     /// requiring it costs a legitimate launch nothing. User-managed backends remain supported the
     /// deliberate way, through ExternalTextProviderService, where the user names the endpoint.
+    ///
+    /// SEC-F01: this is LIVENESS only. llama-server leaves /health open without a key, so a 200 here proves nothing about the
+    /// per-launch key; key acceptance is proven by the keyed output-sanity request (and, for the hot pool, the keyed route
+    /// self-test) that every launch runs after this check.
     /// </summary>
     public Task<bool> IsTextHealthyAsync(CancellationToken ct) =>
         IsTextHealthyAsync(ct, static (url, token) => Http.GetAsync(url, token));
@@ -1184,6 +1198,54 @@ public sealed class LocalAiProcessManager
         return true;
     }
 
+    /// <summary>
+    /// PERF-003c: called when Gaming starts, before the hard-off stops the runtime. Records what the text runtime is serving
+    /// so the first request after Gaming reloads it lazily. Nothing loaded (or already stopped by an earlier attempt) records
+    /// nothing, so a retry never overwrites the earlier memory with an empty one.
+    /// </summary>
+    internal void RememberTextForGaming()
+    {
+        string? model = _lastTextLaunch?.ModelPath;
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            string active = GetActiveTextModelPath();
+            model = active.Length > 0 ? active : null;
+        }
+        if (model is null) return;
+        string label = ReadTrimmed(LocalAiPaths.ActiveProfileFile);
+        if (label.Length == 0) label = _lastTextLaunch?.ProfileLabel ?? string.Empty;
+        string role = ReadTrimmed(LocalAiPaths.ActiveRoleFile);
+        GamingTextMemory.Save(new GamingUnloadedText(
+            model, role.Length == 0 ? null : role, label.Length == 0 ? null : label, GetTextProfile(), DateTime.UtcNow));
+    }
+
+    /// <summary>The model Gaming unloaded and nothing has reloaded yet, or null (also when a runtime is serving again).</summary>
+    internal GamingUnloadedText? GetRememberedGamingUnload()
+    {
+        GamingUnloadedText? remembered = GamingTextMemory.Load();
+        if (remembered is null) return null;
+        // A runtime that is serving again makes the memory stale; drop it so status never claims a pending reload.
+        if (_lastTextLaunch is not null || GetTextProcessId() is not null)
+        {
+            GamingTextMemory.Clear();
+            return null;
+        }
+        return remembered;
+    }
+
+    /// <summary>The explicit model path an Ensure start should use to reload what Gaming unloaded, or null for the normal default.</summary>
+    private string? ResolveGamingReloadOverride()
+    {
+        GamingUnloadedText? remembered = GetRememberedGamingUnload();
+        if (remembered is null) return null;
+        // The default profile model needs no override: the ordinary start already loads it, with its normal label.
+        if (!File.Exists(remembered.ModelPath)) { GamingTextMemory.Clear(); return null; }
+        if (PathsEqual(remembered.ModelPath, LocalAiPaths.StandardModel) || PathsEqual(remembered.ModelPath, LocalAiPaths.UncensoredModel)
+            || PathsEqual(remembered.ModelPath, LocalAiPaths.SmallModel))
+            return null;
+        return remembered.ModelPath;
+    }
+
     /// <returns>False when the media runtime is still running after the stop attempt.</returns>
     public bool StopMedia()
     {
@@ -1210,6 +1272,8 @@ public sealed class LocalAiProcessManager
         try
         {
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
+            // Lazy recovery after Gaming: an Ensure/Auto/On start with no model named reloads the model Gaming unloaded.
+            if (modelPathOverride == null && intent == TextStartIntent.Ensure) modelPathOverride = ResolveGamingReloadOverride();
             // Corporate Lite stays CPU-only; a locally imported or explicitly downloaded GGUF can replace the starter.
             if (PaRuX.Contracts.CorporateMode.IsActive)
             {
@@ -1451,6 +1515,7 @@ public sealed class LocalAiProcessManager
                     _lastTextLaunchTrace = trace.ToArray();
                     try { File.WriteAllText(LocalAiPaths.ActiveRoleFile, choice == "UNCENSORED" ? "uncensored" : "standard"); } catch { }
                     _lastTextLaunch = new TextLaunchSnapshot(model, rungExe, rungRuntime, rungArguments, rungProfile, optimization.Profile);
+                    GamingTextMemory.Clear(); // a model is serving again, so nothing is waiting to be reloaded
                     return attempt;
                 }
                 firstFailure ??= attempt;
@@ -1562,7 +1627,7 @@ public sealed class LocalAiProcessManager
         string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
-        if (result.Success) _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null);
+        if (result.Success) { _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null); GamingTextMemory.Clear(); }
         return result.Success && choice.RecoveredFromSavedChoice
             ? new RuntimeResult(true, result.Message + fallbackNotice)
             : result;
@@ -1948,6 +2013,8 @@ public sealed class LocalAiProcessManager
 
             if (CanReuseHotPoolForRequest(freshExact, hasGpu, hasAdapters))
             {
+                // SEC-F01: the router is launched through LaunchAndWaitAsync like every text runtime, so it gets the per-launch
+                // LLAMA_API_KEY in its environment; real llama-server b12283 passes it on to the per-model children.
                 RuntimeResult? hot = await TryStartHotModelPoolAsync(exe, runtime, modelPath, workload, ct).ConfigureAwait(false);
                 if (hot != null) return hot;
                 // A router capability/proxy/load failure is intentionally non-fatal: the exact
@@ -2096,7 +2163,7 @@ public sealed class LocalAiProcessManager
     {
         try
         {
-            using HttpResponseMessage response = await Http.GetAsync(TextEndpoint + "/props", ct).ConfigureAwait(false);
+            using HttpResponseMessage response = await TextHttp.GetAsync(TextEndpoint + "/props", ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return 0;
             using JsonDocument doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
             return doc.RootElement.TryGetProperty("default_generation_settings", out JsonElement settings)
@@ -2116,7 +2183,12 @@ public sealed class LocalAiProcessManager
     /// which is exactly what happened when a LocalAI root was tidied up and its config folder went
     /// with it. ConfigAssets restores the file from the copy embedded in this binary, so the normal
     /// path is that it exists; when it genuinely cannot be written we still start, just without the
-    /// UI defaults.</summary>
+    /// UI defaults.
+    ///
+    /// SEC-F01: the runtime now requires a per-launch key (<c>LLAMA_API_KEY</c>) on every API route, and only Core knows
+    /// it. llama-server still serves the static page, but a browser opened on this port cannot call the API behind it.
+    /// PaRuX never links to that page; the product surfaces are PaRuX Chat and the Local AI Gateway. This is a documented
+    /// consequence of the boundary, not something to relax by publishing the key.</summary>
     private static IEnumerable<string> WebUiArguments()
     {
         string? uiConfig = ConfigAssets.EnsureUiConfig();
@@ -2366,6 +2438,11 @@ public sealed class LocalAiProcessManager
                 Trace.TraceWarning("Text launch has no exact launch descriptor: " + described.Reason);
         }
 
+        // SEC-F01: a fresh per-launch key, in the child's environment only. Added after the descriptor was derived;
+        // the descriptor drops credential variables by design, so identity is the same with any key.
+        if (pidFile == LocalAiPaths.TextPidFile)
+            ManagedRuntimeCredentials.BeginTextLaunch(psi, LaunchPort(args));
+
         var process = new Process { StartInfo = psi, EnableRaisingEvents = false };
         try
         {
@@ -2439,6 +2516,16 @@ public sealed class LocalAiProcessManager
         return new RuntimeResult(false, "Timed out waiting for " + Path.GetFileName(exe) + " to become healthy.");
     }
 
+    /// <summary>The loopback port a launch argument list binds; the configured text port when it names none.</summary>
+    internal static int LaunchPort(IReadOnlyList<string> args)
+    {
+        for (int i = 0; i + 1 < args.Count; i++)
+            if (args[i] == "--port" && int.TryParse(args[i + 1], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int port) && port is > 0 and <= 65535)
+                return port;
+        return TextPort;
+    }
+
     /// <summary>
     /// The post-health output check for the text runtime on this instance's endpoint. The test seam replaces the network step only,
     /// so the decision and the launch behaviour around it stay the production code path.
@@ -2461,10 +2548,10 @@ public sealed class LocalAiProcessManager
         {
             await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
             await using var writer = new StreamWriter(stream) { AutoFlush = true };
-            char[] buffer = new char[4096];
-            int read;
-            while ((read = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
-                await writer.WriteAsync(buffer, 0, read).ConfigureAwait(false);
+            // SEC-F01: the runtime key must never reach a log. It is redacted per line, so a read boundary cannot split it.
+            string? line;
+            while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) is not null)
+                await writer.WriteLineAsync(ManagedRuntimeCredentials.Redact(line)).ConfigureAwait(false);
         }
         catch { }
     }
@@ -2475,7 +2562,7 @@ public sealed class LocalAiProcessManager
         {
             if (!File.Exists(path)) return string.Empty;
             string[] all = File.ReadAllLines(path);
-            return string.Join('\n', all.Skip(Math.Max(0, all.Length - lines)));
+            return ManagedRuntimeCredentials.Redact(string.Join('\n', all.Skip(Math.Max(0, all.Length - lines)))) ?? string.Empty;
         }
         catch { return string.Empty; }
     }
@@ -2521,6 +2608,7 @@ public sealed class LocalAiProcessManager
                     ? new RuntimeResult(true, "Stopped.")
                     : new RuntimeResult(false, "A local AI process did not stop and is still running.");
             case "GameStart":
+                RememberTextForGaming();
                 Directory.CreateDirectory(Path.GetDirectoryName(LocalAiPaths.GameMarkerFile)!);
                 File.WriteAllText(LocalAiPaths.GameMarkerFile, JsonSerializer.Serialize(new { started = DateTime.UtcNow, source = "Playnite" }));
                 // The marker is written first so nothing can restart AI while this runs, but the
@@ -2553,8 +2641,11 @@ public sealed class LocalAiProcessManager
             text = await IsTextHealthyAsync(ct).ConfigureAwait(false)
                 ? $"text ready ({profile}, PID {textProcess.Id})" : $"text loading ({profile}, PID {textProcess.Id})";
         }
-        else text = ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server")
-            ? "text unverified (a recorded runtime cannot be proven stopped)" : "text off";
+        else if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server"))
+            text = "text unverified (a recorded runtime cannot be proven stopped)";
+        else if (GetRememberedGamingUnload() is { } unloaded)
+            text = "text " + GamingRestorePolicy.Describe(unloaded, GamingActive, GetMode());
+        else text = "text off";
         Process? mediaProcess = GetManagedProcess(LocalAiPaths.MediaPidFile, "python", "pythonw");
         string media = mediaProcess != null
             ? (await IsMediaHealthyAsync(ct).ConfigureAwait(false) ? $"media ready (PID {mediaProcess.Id})" : $"media loading (PID {mediaProcess.Id})")

@@ -3,14 +3,27 @@ using PaRuX.Contracts;
 namespace PaRuX.Server;
 
 /// <summary>
-/// Server-side validation for declarative skill tool access. It intentionally classifies only
-/// high-confidence privileged tool names/prefixes; generic capability labels such as "git" are
-/// left to their owning subsystem. A wildcard is treated as maximum privilege and therefore
-/// requires every permission flag.
+/// Server-side validation for declarative skill tool access. Privileged tool names/prefixes need their
+/// matching permission, a short allowlist of read-only / owner-confirmed PaRuX tools needs none, and
+/// every other name is DEFAULT-DENY (SEC-F14): it is treated like a wildcard and passes only when the
+/// desktop owner has explicitly granted every privileged permission. A wildcard is maximum privilege and
+/// therefore requires every permission flag.
 /// </summary>
 public static class SkillPermissionPolicy
 {
-    public static void Validate(SkillManifest manifest)
+    /// <summary>The unknown (default-deny) tool names a manifest lists, ignoring "*".</summary>
+    public static IReadOnlyList<string> UnknownTools(SkillManifest manifest) =>
+        (manifest.AllowedTools ?? new List<string>()).Select(t => (t ?? string.Empty).Trim())
+            .Where(t => t.Length > 0 && t != "*" && !IsKnownTool(t)).ToList();
+
+    /// <summary>True when the manifest lists unknown tools and the owner has not granted every privileged permission:
+    /// such a skill is quarantined (disabled) rather than runnable.</summary>
+    public static bool IsQuarantined(SkillManifest manifest) =>
+        UnknownTools(manifest).Count > 0 && !AllGranted(manifest.Permissions ?? new SkillPermissions());
+
+    /// <param name="allowUnknownTools">Restore/load only: an unknown tool does not fail the validation because the
+    /// registry quarantines the skill instead of rejecting the whole backup. Create, import and execute keep the default.</param>
+    public static void Validate(SkillManifest manifest, bool allowUnknownTools = false)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         SkillPermissions permissions = manifest.Permissions ?? new SkillPermissions();
@@ -27,6 +40,14 @@ public static class SkillPermissionPolicy
                 continue;
             }
 
+            if (!IsKnownTool(tool))
+            {
+                if (allowUnknownTools) continue;
+                if (!AllGranted(permissions))
+                    throw new InvalidDataException("Tool '" + tool + "' is not a recognised PaRuX tool; an unknown tool needs every privileged skill permission to be granted explicitly.");
+                continue;
+            }
+
             string? missing = RequiredPermission(tool, permissions);
             if (missing != null)
                 throw new InvalidDataException("Tool '" + tool + "' requires skill permission '" + missing + "'.");
@@ -34,6 +55,34 @@ public static class SkillPermissionPolicy
 
         if (PolicyRequiresInternet(manifest.InternetPolicy) && !permissions.Network)
             throw new InvalidDataException("internetPolicy 'required' requires the Network permission.");
+    }
+
+    /// <summary>Tool names that need no skill permission: the PaRuX knowledge/desktop readers, the owner-confirmed
+    /// document writers and the generic capability labels "git" and "memory".</summary>
+    private static readonly string[] NoPermissionTools =
+    {
+        "git", "memory", "parux_desktop_search", "parux_desktop_read", "parux_kb_search", "parux_kb_exec",
+        "parux_write_word_document", "parux_write_excel_workbook", "parux_edit_excel_workbook"
+    };
+
+    private static readonly string[] PrivilegedPrefixes =
+    {
+        "delete_file", "remove_file", "delete_path", "remove_path",
+        "write_file", "create_file", "rename_file", "move_file", "patch_file", "apply_patch",
+        "read_file", "grep_search", "glob_search", "list_directory", "search_files",
+        "run_command", "shell", "terminal", "exec_command",
+        "computer_use", "desktop_", "mouse_", "keyboard_", "screen_",
+        "browser_", "web_", "http_", "network_",
+        "launch_process", "start_process", "external_process"
+    };
+
+    /// <summary>True when the name is either a privileged tool with a matching permission rule or an allowlisted
+    /// no-permission tool. Anything else is unknown and default-deny.</summary>
+    internal static bool IsKnownTool(string toolName)
+    {
+        string name = toolName.Trim().ToLowerInvariant();
+        return NoPermissionTools.Any(v => name == v)
+            || PrivilegedPrefixes.Any(v => name.StartsWith(v, StringComparison.Ordinal));
     }
 
     internal static string? RequiredPermission(string toolName, SkillPermissions p)
