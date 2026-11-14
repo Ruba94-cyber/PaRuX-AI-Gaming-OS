@@ -57,7 +57,7 @@ namespace PaRuX.Views
             DiagEndpoint.Text = T("Endpoint unavailable", "Endpoint non disponibile")
                               + T("   ·   settings at ", "   ·   impostazioni in ") + AppPaths.SettingsFile;
 
-            AboutVersion.Text = "RBG – PaRuX · " + typeof(SettingsView).Assembly.GetName().Version;
+            AboutVersion.Text = T("RBG – PaRuX · ", "RBG – PaRuX · ") + typeof(SettingsView).Assembly.GetName().Version;
 
             BuildSettingsCategoryRail();
 

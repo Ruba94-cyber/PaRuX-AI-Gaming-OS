@@ -43,6 +43,7 @@ NvidiaSmiProbe.cs|1|NOT-AI|RunProcessAsync|-|Bounded nvidia-smi query used by th
 Orchestration/AgentRepositoryReadTools.cs|1|NOT-AI|RunGitAsync|-|Read-only repository tools (git/search) for the agent; not an AI inference child.
 Orchestration/Gaming/GameLaunchHooks.cs|1|GAMING-FEATURE|RunAsync|-|User-configured pre/post game hooks.
 Orchestration/Gaming/ManualGameSessionService.cs|8|GAMING-FEATURE|LaunchApplication,LaunchAsync,LaunchEpicAsync,LaunchExtraStoreAsync,LaunchGogAsync,LaunchSteamAsync|-|Launching and tracking the user's own game processes.
+Orchestration/Gaming/GameLaunchProfile.cs|1|GAMING-FEATURE|BuildStartInfo|-|Builds the start info for the single user-owned game process of a per-game launch profile; only reached from ManualGameSessionService launch paths, which refuse and track under Gaming.
 Orchestration/Gaming/Providers/InputProviders.cs|2|GAMING-FEATURE|StartAsync|-|Game input tooling launched for the game session.
 Orchestration/Gaming/Providers/LauncherProviders.cs|3|GAMING-FEATURE|LaunchAsync|-|Game launcher integration.
 Orchestration/Gaming/Providers/SuspendProviders.cs|2|GAMING-FEATURE|ResumeProcessAsync,SuspendProcessAsync|-|Suspends/resumes the user's game process.

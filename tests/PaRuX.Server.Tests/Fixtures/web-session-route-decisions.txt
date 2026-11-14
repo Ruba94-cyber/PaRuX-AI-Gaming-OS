@@ -642,6 +642,9 @@ DENY PUT /api/v1/gaming/hooks/enabled
 DENY PUT /api/v1/gaming/library/{id}
 DENY PUT /api/v1/gaming/titles/bulk
 DENY PUT /api/v1/gaming/titles/{key}/collections
+DENY GET /api/v1/gaming/titles/{key}/launch-profile
+DENY PUT /api/v1/gaming/titles/{key}/launch-profile
+DENY DELETE /api/v1/gaming/titles/{key}/launch-profile
 DENY PUT /api/v1/gaming/titles/{key}/default-installation
 DENY PUT /api/v1/gaming/titles/{key}/favorite
 DENY PUT /api/v1/gaming/titles/{key}/hidden
