@@ -894,7 +894,7 @@
                 <Border Style="{StaticResource PaRuXCardStyle}">
                     <StackPanel Spacing="{StaticResource PaRuXSpaceM}">
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}"
-                            Text="Connect PaRuX OUT to third-party MCP servers so the chat model can call their tools directly (real OpenAI-style function calling, not text parsing). Each server is a command PaRuX launches locally, same shape as Claude Desktop's own MCP config - e.g. command 'npx', args '-y @modelcontextprotocol/server-filesystem C:\Users\me\Documents'. A server can do anything its own process is allowed to do, so only add ones you trust." loc:Loc.ItText="Collega PaRuX VERSO server MCP di terze parti così il modello della chat può chiamarne direttamente gli strumenti (vere chiamate di funzione in stile OpenAI, non analisi del testo). Ogni server è un comando che PaRuX avvia in locale, con la stessa forma della configurazione MCP di Claude Desktop, ad es. comando &#x27;npx&#x27;, argomenti &#x27;-y @modelcontextprotocol/server-filesystem C:\Users\me\Documents&#x27;. Un server può fare tutto ciò che il suo processo è autorizzato a fare, quindi aggiungi solo quelli di cui ti fidi." />
+                            Text="Connect PaRuX OUT to third-party MCP servers so the chat model can call their tools directly (real OpenAI-style function calling, not text parsing). Each server is a command PaRuX launches locally, same shape as Claude Desktop's own MCP config - e.g. command 'npx', args '-y @modelcontextprotocol/server-filesystem C:\Users\you\Documents'. A server can do anything its own process is allowed to do, so only add ones you trust." loc:Loc.ItText="Collega PaRuX VERSO server MCP di terze parti così il modello della chat può chiamarne direttamente gli strumenti (vere chiamate di funzione in stile OpenAI, non analisi del testo). Ogni server è un comando che PaRuX avvia in locale, con la stessa forma della configurazione MCP di Claude Desktop, ad es. comando &#x27;npx&#x27;, argomenti &#x27;-y @modelcontextprotocol/server-filesystem C:\Users\you\Documents&#x27;. Un server può fare tutto ciò che il suo processo è autorizzato a fare, quindi aggiungi solo quelli di cui ti fidi." />
                         <StackPanel x:Name="McpServersList" Spacing="6" />
 
                         <TextBlock Text="Add a server" loc:Loc.ItText="Aggiungi un server" Style="{StaticResource PaRuXBodyStrongTextStyle}" Margin="0,4,0,0" />
@@ -902,7 +902,7 @@
                             HorizontalAlignment="Stretch" SelectionChanged="McpPresetCombo_SelectionChanged" />
                         <TextBox x:Name="NewMcpNameBox" PlaceholderText="Name, e.g. Filesystem" loc:Loc.ItPlaceholder="Nome, ad es. Filesystem" />
                         <TextBox x:Name="NewMcpCommandBox" PlaceholderText="Command, e.g. npx" loc:Loc.ItPlaceholder="Comando, ad es. npx" />
-                        <TextBox x:Name="NewMcpArgsBox" PlaceholderText="Args, e.g. -y @modelcontextprotocol/server-filesystem C:\Users\me\Documents" loc:Loc.ItPlaceholder="Argomenti, ad es. -y @modelcontextprotocol/server-filesystem C:\Users\me\Documents" />
+                        <TextBox x:Name="NewMcpArgsBox" PlaceholderText="Args, e.g. -y @modelcontextprotocol/server-filesystem C:\Users\you\Documents" loc:Loc.ItPlaceholder="Argomenti, ad es. -y @modelcontextprotocol/server-filesystem C:\Users\you\Documents" />
                         <Button Content="Add server" loc:Loc.ItContent="Aggiungi il server" HorizontalAlignment="Left" Click="AddMcpServer_Click" />
                         <TextBlock x:Name="McpStatus" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                     </StackPanel>
@@ -936,7 +936,7 @@
                             Text="Git repository the desktop Coding Agent operates on for 'coding'-role tasks. Every task gets its own isolated git worktree under .parux-agents\ inside this folder - your own working copy is never touched. Leave empty to keep coding tasks dispatched-only (never executed)." loc:Loc.ItText="Repository Git su cui opera l&#x27;agente di programmazione desktop per le attività con ruolo &#x27;coding&#x27;. Ogni attività ha il proprio worktree git isolato in .parux-agents\ dentro questa cartella: la tua copia di lavoro non viene mai toccata. Lascia vuoto per tenere le attività di programmazione solo assegnate (mai eseguite)." />
                         <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <TextBox x:Name="AgentWorkspaceRootBox" Grid.Column="0" PlaceholderText="e.g. C:\Users\me\Projects\my-repo" loc:Loc.ItPlaceholder="ad es. C:\Users\me\Projects\my-repo" LostFocus="AgentWorkspaceRootBox_LostFocus" />
+                            <TextBox x:Name="AgentWorkspaceRootBox" Grid.Column="0" PlaceholderText="e.g. C:\Users\you\Projects\my-repo" loc:Loc.ItPlaceholder="ad es. C:\Users\you\Projects\my-repo" LostFocus="AgentWorkspaceRootBox_LostFocus" />
                             <Button Grid.Column="1" Content="Browse…" loc:Loc.ItContent="Sfoglia…" Click="BrowseAgentWorkspaceRoot_Click" />
                         </Grid>
                     </StackPanel>
@@ -1257,7 +1257,7 @@
                         <NumberBox x:Name="AutomationIntervalSecondsBox" Header="Interval seconds (Schedule trigger)" loc:Loc.ItHeader="Secondi di intervallo (trigger Pianificazione)" Minimum="60" Value="3600" SpinButtonPlacementMode="Compact" />
                         <Grid ColumnSpacing="{StaticResource PaRuXSpaceM}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <TextBox x:Name="AutomationFolderPathBox" Grid.Column="0" Header="Folder to watch (File Created) / repository (Git Commit)" loc:Loc.ItHeader="Cartella da monitorare (File creato) / repository (Commit Git)" PlaceholderText="e.g. C:\Users\me\Inbox or C:\Users\me\my-project" loc:Loc.ItPlaceholder="ad es. C:\Users\me\Inbox oppure C:\Users\me\my-project" />
+                            <TextBox x:Name="AutomationFolderPathBox" Grid.Column="0" Header="Folder to watch (File Created) / repository (Git Commit)" loc:Loc.ItHeader="Cartella da monitorare (File creato) / repository (Commit Git)" PlaceholderText="e.g. C:\Users\you\Inbox or C:\Users\you\my-project" loc:Loc.ItPlaceholder="ad es. C:\Users\you\Inbox oppure C:\Users\you\my-project" />
                             <Button Grid.Column="1" Content="Browse…" loc:Loc.ItContent="Sfoglia…" Click="BrowseAutomationFolder_Click" VerticalAlignment="Bottom" />
                         </Grid>
                         <TextBox x:Name="AutomationFilterBox" Header="File filter (File Created trigger)" loc:Loc.ItHeader="Filtro dei file (trigger File creato)" PlaceholderText="* (default)" />
