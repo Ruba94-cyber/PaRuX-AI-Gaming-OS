@@ -38,7 +38,7 @@ I tuoi file e le tue chat non vengono caricati su un server PaRuX. Non serve un 
 
 AI locale; chat offline; LLM; AI privata; documenti; llama.cpp; model hub
 
-## Novita di questa versione (4.1.0)
+## Novita di questa versione (4.2.0)
 
 Prima versione sul Microsoft Store. Chat locale, domande sui documenti con fonti, Model Hub, interfaccia in inglese e italiano. Gli aggiornamenti dell'app arrivano ora dal Microsoft Store.
 

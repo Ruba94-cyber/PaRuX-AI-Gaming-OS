@@ -38,7 +38,7 @@ Your files and chats are not uploaded to a PaRuX server. There is no PaRuX accou
 
 local AI; offline chat; LLM; private AI; documents; llama.cpp; model hub
 
-## What's new in this version (4.1.0)
+## What's new in this version (4.2.0)
 
 First Microsoft Store release. Local chat, document questions with sources, Model Hub, English and Italian interface. App updates now come from the Microsoft Store.
 
