@@ -60,6 +60,8 @@ internal sealed class FakeRecRuntime : IRecommendationRuntime
     internal int WritersHeld, MaxWritersHeld;
     /// <summary>Return false to fail the load; may throw/cancel/mutate state (e.g. create a pin).</summary>
     internal Func<string, bool>? OnLoad;
+    /// <summary>Runs when the exclusive writer is acquired (e.g. to change a policy mid-wait).</summary>
+    internal Action? OnAcquireWriter;
 
     public bool GamingActive => Gaming;
     public bool StopRequested => Stop;
@@ -75,6 +77,7 @@ internal sealed class FakeRecRuntime : IRecommendationRuntime
     public async Task<IAsyncDisposable> AcquireWriterAsync(CancellationToken cancellationToken)
     {
         await Task.Yield();
+        OnAcquireWriter?.Invoke();
         int held = Interlocked.Increment(ref WritersHeld);
         MaxWritersHeld = Math.Max(MaxWritersHeld, held);
         return new Writer(this);

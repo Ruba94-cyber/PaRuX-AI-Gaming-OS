@@ -35,6 +35,95 @@ public sealed class CandidateRecommendationServiceTests : IDisposable
         bool consent = true, CancellationToken ct = default) =>
         service.PromoteAsync(_proof.Challenger.Identity.CandidateKey, "challenger.gguf", generation, consent, ct);
 
+
+    private CandidateRecommendationService PolicyService(string? policy) =>
+        new(_store, _runtime, _proofs, _fence, RecFx.Models, null, TimeSpan.FromMilliseconds(300), _root,
+            promotionPolicy: policy is null ? null : () => policy);
+
+    private Task<RecommendationTransitionResult> AutoPromote(CandidateRecommendationService service) =>
+        service.TryAutoPromoteAsync(_proof.Challenger.Identity.CandidateKey, "challenger.gguf", CancellationToken.None);
+
+    [Fact]
+    public async Task Auto_promotion_under_the_auto_policy_commits_through_the_same_transaction_and_is_observable()
+    {
+        CandidateRecommendationService service = PolicyService(ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter);
+        RecommendationTransitionResult result = await AutoPromote(service);
+        Assert.True(result.IsCommitted, result.Reason);
+        Assert.Equal(_proof.ProofSha256, _store.Load().GetActiveRecord()!.Proof.ProofSha256);
+        Assert.Equal(RecommendationTransitionResult.Committed, service.LastAutomaticAttempt!.Outcome);
+    }
+
+    [Theory]
+    [InlineData(ModelDiscoveryPolicyValues.PromotionAskBeforeReplacing)]
+    [InlineData(ModelDiscoveryPolicyValues.PromotionNeverReplacePinnedOrManual)]
+    [InlineData(null)]
+    public async Task Auto_promotion_is_refused_unless_the_policy_pre_approves_it(string? policy)
+    {
+        CandidateRecommendationService service = PolicyService(policy);
+        RecommendationTransitionResult result = await AutoPromote(service);
+        Assert.Equal(RecommendationTransitionResult.Refused, result.Outcome);
+        Assert.Equal("promotion_policy_requires_confirmation", result.Reason);
+        Assert.Empty(_runtime.Loads);
+        Assert.Null(_store.Load().Active);
+        Assert.Equal("promotion_policy_requires_confirmation", service.LastAutomaticAttempt!.ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(ModelDiscoveryPolicyValues.PromotionAskBeforeReplacing)]
+    [InlineData(ModelDiscoveryPolicyValues.PromotionNeverReplacePinnedOrManual)]
+    [InlineData(ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter)]
+    public async Task A_confirmed_click_works_under_every_policy(string policy)
+    {
+        RecommendationTransitionResult result = await Promote(PolicyService(policy));
+        Assert.True(result.IsCommitted, result.Reason);
+    }
+
+    [Theory]
+    [InlineData("pin")]
+    [InlineData("gaming")]
+    [InlineData("stop")]
+    public async Task Auto_policy_never_overrides_a_pin_gaming_or_shutdown(string scenario)
+    {
+        switch (scenario)
+        {
+            case "pin":
+                CapabilityRoutingPreferenceStore.Set("standard", "balanced", new SetScopedRoutingOverrideRequest
+                { Mode = "force", CandidateKey = new string('a', 64), Revision = new string('b', 40), ManagedFileName = "x.gguf" }, _root);
+                break;
+            case "gaming": _runtime.Gaming = true; break;
+            case "stop": _runtime.Stop = true; break;
+        }
+        RecommendationTransitionResult result = await AutoPromote(
+            PolicyService(ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter));
+        Assert.Equal(RecommendationTransitionResult.Refused, result.Outcome);
+        Assert.Equal(scenario == "pin" ? "manual_pin_scoped" : scenario == "gaming" ? "gaming_active" : "server_stopping",
+            result.Reason);
+        Assert.Empty(_runtime.Loads);
+        Assert.Null(_store.Load().Active);
+    }
+
+    [Fact]
+    public async Task Auto_policy_without_a_positive_proof_changes_nothing()
+    {
+        _proofs.Proof = null;
+        RecommendationTransitionResult result = await AutoPromote(
+            PolicyService(ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter));
+        Assert.Equal(RecommendationTransitionResult.Refused, result.Outcome);
+        Assert.StartsWith("proof_", result.Reason);
+        Assert.Empty(_runtime.Loads);
+    }
+
+    [Fact]
+    public async Task A_policy_tightened_while_waiting_for_the_writer_stops_the_automatic_switch()
+    {
+        string current = ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter;
+        var service = new CandidateRecommendationService(_store, _runtime, _proofs, _fence, RecFx.Models, null,
+            TimeSpan.FromMilliseconds(300), _root, promotionPolicy: () => current);
+        _runtime.OnAcquireWriter = () => current = ModelDiscoveryPolicyValues.PromotionAskBeforeReplacing;
+        RecommendationTransitionResult result = await AutoPromote(service);
+        Assert.Equal("promotion_policy_requires_confirmation", result.Reason);
+        Assert.Empty(_runtime.Loads);
+    }
     [Fact]
     public async Task Promote_commits_Active_with_the_challenger_live_and_writes_no_pin_or_role_assignment()
     {

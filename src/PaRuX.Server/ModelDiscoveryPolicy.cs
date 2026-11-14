@@ -48,54 +48,35 @@ public static class ModelDiscoveryPolicy
         else
             notify = new(true, "auto_evaluation_deferred");
 
+        (ModelDiscoveryPromotionAction action, string reason) = DecidePromotion(
+            promotionPolicy, candidateIsPinnedOrManual, candidateIsClearlyBetter);
+        return new ModelDiscoveryPolicyDecision(notify, autoEvaluate, action, reason);
+    }
+
+    /// <summary>The promotion half of <see cref="Decide"/>, used on its own by the promotion transaction so the
+    /// persisted promotion policy governs the real replace path. Pure; an unknown policy throws.</summary>
+    public static (ModelDiscoveryPromotionAction Action, string ReasonCode) DecidePromotion(
+        string promotionPolicy, bool candidateIsPinnedOrManual, bool candidateIsClearlyBetter)
+    {
+        if (!IsPromotionPolicy(promotionPolicy))
+            throw new ArgumentOutOfRangeException(nameof(promotionPolicy), "Unsupported promotion policy.");
+
         if (promotionPolicy == ModelDiscoveryPolicyValues.PromotionNeverReplacePinnedOrManual
             && candidateIsPinnedOrManual)
-        {
-            return new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.NeverReplace,
-                "pinned_or_manual_choice");
-        }
+            return (ModelDiscoveryPromotionAction.NeverReplace, "pinned_or_manual_choice");
 
         if (promotionPolicy == ModelDiscoveryPolicyValues.PromotionAskBeforeReplacing)
-        {
-            return new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.AskBeforeReplacing,
-                "promotion_policy_ask_before_replacing");
-        }
+            return (ModelDiscoveryPromotionAction.AskBeforeReplacing, "promotion_policy_ask_before_replacing");
 
         if (candidateIsPinnedOrManual)
-        {
-            return new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.AskBeforeReplacing,
-                "pinned_or_manual_requires_confirmation");
-        }
+            return (ModelDiscoveryPromotionAction.AskBeforeReplacing, "pinned_or_manual_requires_confirmation");
 
         if (promotionPolicy == ModelDiscoveryPolicyValues.PromotionNeverReplacePinnedOrManual)
-        {
-            return new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.AskBeforeReplacing,
-                "promotion_policy_preserves_pinned_or_manual_only");
-        }
+            return (ModelDiscoveryPromotionAction.AskBeforeReplacing, "promotion_policy_preserves_pinned_or_manual_only");
 
         return candidateIsClearlyBetter
-            ? new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.AutoPromote,
-                "candidate_clearly_better")
-            : new ModelDiscoveryPolicyDecision(
-                notify,
-                autoEvaluate,
-                ModelDiscoveryPromotionAction.AskBeforeReplacing,
-                "candidate_not_clearly_better");
+            ? (ModelDiscoveryPromotionAction.AutoPromote, "candidate_clearly_better")
+            : (ModelDiscoveryPromotionAction.AskBeforeReplacing, "candidate_not_clearly_better");
     }
 
     internal static bool IsValidSettings(ModelDiscoveryPolicySettings? settings) =>

@@ -18,7 +18,10 @@ public sealed record CandidateRecommendationStatusResponse(
     string? ManualPinExplanation,
     bool GamingActive,
     bool CanPromote,
-    bool CanRollback);
+    bool CanRollback,
+    string? LastAutomaticReasonCode = null,
+    string? LastAutomaticOutcome = null,
+    DateTime? LastAutomaticUtc = null);
 
 /// <summary>Explicit, confirmed promotion of one exact managed Candidate over the live reference model.</summary>
 public sealed record PromoteCandidateRecommendationRequest(

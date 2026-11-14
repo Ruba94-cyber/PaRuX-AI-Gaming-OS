@@ -202,7 +202,8 @@ builder.Services.AddSingleton<IRecommendationProofSource>(services => new Produc
 builder.Services.AddSingleton(services => new CandidateRecommendationService(
     services.GetRequiredService<CandidateRecommendationStore>(), services.GetRequiredService<IRecommendationRuntime>(),
     services.GetRequiredService<IRecommendationProofSource>(), services.GetRequiredService<ICandidateLaunchFenceSource>(),
-    ModelDownloadService.ModelsDirectory));
+    ModelDownloadService.ModelsDirectory,
+    promotionPolicy: () => services.GetRequiredService<ModelDiscoveryPolicyStore>().Load().Settings.PromotionPolicy));
 builder.Services.AddHostedService(services => new RecommendationReconcileHostedService(
     services.GetRequiredService<CandidateRecommendationService>()));
 builder.Services.AddSingleton(services => new CandidateTextPerformanceRunner(
@@ -221,7 +222,9 @@ builder.Services.AddSingleton(services => new CandidateEvaluationJobService(
     services.GetRequiredService<ICandidateTextPerformanceRunner>(),
     services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping,
     summaryStore: services.GetRequiredService<CandidateEvaluationJobStore>(),
-    isGamingActive: () => services.GetRequiredService<LocalRuntimeService>().GamingMode));
+    isGamingActive: () => services.GetRequiredService<LocalRuntimeService>().GamingMode,
+    onCompleted: (key, file, stopping) => services.GetRequiredService<CandidateRecommendationService>()
+        .TryAutoPromoteAsync(key, file, stopping)));
 builder.Services.AddHostedService(services => services.GetRequiredService<CandidateEvaluationJobService>());
 builder.Services.AddSingleton<ModelCompareService>();
 builder.Services.AddSingleton<GroupChatService>();

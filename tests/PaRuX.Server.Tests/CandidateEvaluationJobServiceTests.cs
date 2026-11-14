@@ -566,6 +566,38 @@ public sealed class CandidateEvaluationJobServiceTests : IDisposable
         Assert.Equal(new[] { CandidateEvaluationProfileCatalog.GeneralChat.QualityCases[1].Id }, result.QualityFailedCaseIds);
     }
 
+    [Theory]
+    [InlineData("Completed", CandidateGeneralChatQualitySuite.Capability, true)]
+    [InlineData("Failed", CandidateGeneralChatQualitySuite.Capability, false)]
+    [InlineData("Cancelled", CandidateGeneralChatQualitySuite.Capability, false)]
+    [InlineData("Unavailable", CandidateGeneralChatQualitySuite.Capability, false)]
+    [InlineData("Completed", CandidateEvaluationScope.ChatInstructionFollowingCapability, false)]
+    [InlineData("Completed", null, false)]
+    public void Only_a_completed_general_chat_evaluation_reaches_the_promotion_hook(string status, string? capability, bool expected) =>
+        Assert.Equal(expected, CandidateEvaluationJobService.ShouldNotifyCompleted(status, capability));
+
+    [Fact]
+    public async Task A_failed_general_chat_evaluation_never_invokes_the_promotion_hook()
+    {
+        var quality = new ProfiledFakeQuality(async (_, _, ct) =>
+        {
+            CandidateEvidenceIdentity identity = (await _evidence.TryCaptureSnapshotAsync(_candidate.Key, "model.gguf", ct))!;
+            CandidateQualityEvidence record = CandidateEvidenceServiceTests.GeneralChatQuality(identity);
+            record.Cases[1].Outcome = "fail"; record.PassCount--; record.FailCount++;
+            bool committed = await _evidence.TryCommitQualityAsync(record, ct);
+            return new("Completed", committed, record, record.InvocationId);
+        });
+        int hookCalls = 0;
+        using var jobs = new CandidateEvaluationJobService(_catalog, _evidence, quality,
+            new FakePerformance((_, _, _) => throw new InvalidOperationException()), default, () => _now, _jobStore,
+            onCompleted: (_, _, _) => { Interlocked.Increment(ref hookCalls); return Task.CompletedTask; });
+        string id = jobs.TryStart(_candidate.Key, "model.gguf", CancellationToken.None,
+            CandidateEvaluationScope.GeneralChatQualityProfileId).JobId!;
+        await Terminal(jobs, id);
+        await Task.Delay(100);
+        Assert.Equal(0, hookCalls);
+    }
+
     private sealed class ProfiledFakeQuality : IProfiledCandidateTextQualityRunner
     {
         private readonly Func<string, string, CancellationToken, Task<CandidateTextQualityRunResult>> _run;
