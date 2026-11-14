@@ -80,6 +80,27 @@ public sealed class ReleaseVersionSourceContractTests
     }
 
     [Fact]
+    public void Packaging_scripts_never_pipe_a_LiteralPath_Include_listing_into_a_deletion()
+    {
+        // Windows PowerShell 5.1 ignores -Include when -LiteralPath is used, so "-LiteralPath X -Recurse -File -Include *.pdb
+        // | Remove-Item" deletes every file under X (the MSIX layout was emptied by exactly this).
+        var offenders = new List<string>();
+        foreach (string file in Directory.GetFiles(Path.Combine(RepoRoot(), "scripts"), "*.ps1"))
+        {
+            foreach (string line in File.ReadAllLines(file))
+            {
+                if (line.Contains("-LiteralPath", StringComparison.OrdinalIgnoreCase)
+                    && line.Contains("-Include", StringComparison.OrdinalIgnoreCase)
+                    && line.Contains("Remove-Item", StringComparison.OrdinalIgnoreCase))
+                {
+                    offenders.Add(Path.GetFileName(file) + ": " + line.Trim());
+                }
+            }
+        }
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Android_versionName_equals_the_central_product_version()
     {
         string version = ReadCentralVersion();

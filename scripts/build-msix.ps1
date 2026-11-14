@@ -134,8 +134,9 @@ foreach ($forbidden in @("parux.portable", "PaRuXData", "UpdateHelper", "Cli", "
     $path = Join-Path $stageDir $forbidden
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
 }
-Get-ChildItem -LiteralPath $stageDir -Recurse -File -Include *.pdb | Remove-Item -Force
-$bigModels = @(Get-ChildItem -LiteralPath $stageDir -Recurse -File -Include *.gguf, *.safetensors, *.onnx | Where-Object { $_.Length -gt 50MB })
+# NOTE: never combine -LiteralPath with -Include: Windows PowerShell 5.1 ignores -Include there and would delete the whole layout.
+Get-ChildItem -LiteralPath $stageDir -Recurse -File | Where-Object { $_.Extension -ieq '.pdb' } | Remove-Item -Force
+$bigModels = @(Get-ChildItem -LiteralPath $stageDir -Recurse -File | Where-Object { $_.Extension -in '.gguf', '.safetensors', '.onnx' -and $_.Length -gt 50MB })
 if ($bigModels.Count -gt 0) { throw "Model weights must not be bundled in the Store package: $($bigModels[0].FullName)" }
 
 # ---- logo assets from the approved branding -----------------------------------------------------------------------
