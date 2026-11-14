@@ -91,6 +91,8 @@ namespace PaRuX
                 SettingsStore.Current.Load();
                 // English is the base language; Italian only when chosen in Settings (not from the Windows language).
                 PaRuX.Services.UiLanguage.Apply(SettingsStore.Current.Data.UiLanguage);
+                // Framework (WinUI) strings follow the same choice; must happen before the first window is created.
+                PaRuX.Services.FrameworkResourceLanguage.Apply(SettingsStore.Current.Data.UiLanguage);
                 // The setup profile (AI only / Gaming only / Both; Both for every existing install) decides what starts.
                 SetupProfilePlan setup = SetupProfilePolicy.Plan(SetupProfilePolicy.Parse(SettingsStore.Current.Data.SetupProfileId));
                 if (setup.StartLocalAi) LocalAiController.Current.StartWatching();

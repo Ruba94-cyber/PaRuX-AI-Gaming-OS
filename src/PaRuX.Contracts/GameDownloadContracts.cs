@@ -54,6 +54,8 @@ public static class GamePostInstallStates
     public const string Installed = "installed";
     public const string Interrupted = "interrupted";
     public const string Failed = "failed";
+    /// <summary>Another portable install holds the managed-folder lease; nothing was changed and the owner may retry.</summary>
+    public const string Busy = "busy";
 }
 
 

@@ -20,6 +20,19 @@ namespace PaRuX.Services
 
         public static string For(bool ready) => ready ? Ready : NeedsSetup;
 
+        /// <summary>The Create mode whose tool the image-generation setup state describes.</summary>
+        public const string ImageMode = "Image";
+
+        /// <summary>
+        /// The setup line for the selected Create mode. The image-generation setup state is only relevant on the Image tab:
+        /// other tabs (Gallery, Video, Speech, ...) show nothing here so an unrelated banner never sits above them.
+        /// <paramref name="imageReady"/> is null until the first setup status has arrived.
+        /// </summary>
+        public static string ForMode(string? mode, bool? imageReady) =>
+            !string.Equals(mode, ImageMode, StringComparison.Ordinal) ? string.Empty
+            : imageReady is null ? Checking
+            : For(imageReady.Value);
+
         /// <summary>True when the line still shows only a setup-state message (or nothing), so the refresh may update it.</summary>
         public static bool MayReplace(string? current) =>
             string.IsNullOrWhiteSpace(current) || current == Checking || current == Ready || current == NeedsSetup;

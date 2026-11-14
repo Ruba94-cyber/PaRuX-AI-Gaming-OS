@@ -87,7 +87,7 @@ namespace PaRuX.Views
 
         public void OnShown()
         {
-            _status.Text = CreateSetupStatusLine.Checking;
+            _status.Text = CreateSetupStatusLine.ForMode(_selectedMode, _imageSetupReady);
             SetProvenance(null);
             UpdateCancelJobVisibility();
             PaRuX.Services.MediaPrewarmClient.Request("create-opened");
@@ -215,7 +215,8 @@ namespace PaRuX.Views
                 card.StatusChanged += status =>
                 {
                     if (_operations.IsBusy || _operationMessageSticky || !CreateSetupStatusLine.MayReplace(_status.Text)) return;
-                    _status.Text = CreateSetupStatusLine.For(status.Ready);
+                    _imageSetupReady = status.Ready;
+                    _status.Text = CreateSetupStatusLine.ForMode(_selectedMode, _imageSetupReady);
                 };
             _setupCards.Add(card);
             return card;

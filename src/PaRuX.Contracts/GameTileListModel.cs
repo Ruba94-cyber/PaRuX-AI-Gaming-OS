@@ -75,6 +75,34 @@ public static class GameTileListModel
         double pitch = itemWidth + Math.Max(0, spacing);
         return Math.Max(1, (int)Math.Floor((Math.Max(availableWidth, itemWidth) + Math.Max(0, spacing)) / pitch));
     }
+
+    /// <summary>
+    /// Vertical scroll offset that puts the tile at <paramref name="index"/> in the middle of the viewport, where a uniform grid
+    /// of <paramref name="columns"/> columns lays it out (rows are <paramref name="rowPitch"/> apart, the grid starts at
+    /// <paramref name="gridTop"/> in the scrolled content). Clamped to the scrollable range.
+    /// </summary>
+    public static double ScrollOffsetFor(int index, int columns, double gridTop, double rowPitch, double itemHeight,
+        double viewportHeight, double scrollableHeight)
+    {
+        double top = gridTop + Math.Max(0, index) / Math.Max(1, columns) * rowPitch;
+        double target = top - Math.Max(0, (viewportHeight - itemHeight) / 2);
+        return Math.Clamp(target, 0, Math.Max(0, scrollableHeight));
+    }
+
+    /// <summary>What one scroll-then-focus attempt does next (see <see cref="NextFocusStep"/>).</summary>
+    public enum FocusStep { Done, ScrollAndRetry, Retry, GiveUp }
+
+    /// <summary>
+    /// Decision of one attempt to focus a virtualized tile. A tile that is not realized yet (or has no size) is scrolled towards and
+    /// retried; a realized tile counts as done only when it took focus AND is inside the viewport (an element created on demand and
+    /// focused before the scroll is applied is recycled by the next layout pass); attempts are bounded.
+    /// </summary>
+    public static FocusStep NextFocusStep(bool realizedWithSize, bool tookFocus, bool inView, int attemptsLeft)
+    {
+        if (realizedWithSize && tookFocus && inView) return FocusStep.Done;
+        if (attemptsLeft <= 0) return FocusStep.GiveUp;
+        return realizedWithSize ? FocusStep.Retry : FocusStep.ScrollAndRetry;
+    }
 }
 
 /// <summary>

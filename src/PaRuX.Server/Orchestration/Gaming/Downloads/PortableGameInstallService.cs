@@ -16,6 +16,13 @@ namespace PaRuX.Server.Orchestration.Gaming.Downloads;
 /// </summary>
 public sealed class PortableGameInstallService
 {
+    /// <summary>Another portable install currently holds the managed-folder lease; nothing was changed.</summary>
+    public sealed class PortableInstallBusyException : InvalidOperationException
+    {
+        public PortableInstallBusyException()
+            : base("Another portable install is in progress. Try again when it has finished.") { }
+    }
+
     private const long MaxArchiveBytes = 8L * 1024 * 1024 * 1024;
     private const long MaxExpandedBytes = 12L * 1024 * 1024 * 1024;
     private const int MaxEntries = 200_000;
@@ -205,7 +212,7 @@ public sealed class PortableGameInstallService
             if (entry.FullName.EndsWith("/", StringComparison.Ordinal)) continue;
             if (entry.Length < 0 || entry.Length > MaxExpandedBytes - total)
                 throw new InvalidDataException("The ZIP would expand beyond the " + MaxExpandedBytes / (1024 * 1024 * 1024)
-                    + " GB budget for automatic installs. Extract it yourself and add the game's folder manually.");
+                    + " GiB budget for automatic installs. Extract it yourself and add the game's folder manually.");
             total += entry.Length;
             if (key.Equals(requiredExecutable, StringComparison.OrdinalIgnoreCase))
                 found = true;
@@ -257,10 +264,17 @@ public sealed class PortableGameInstallService
             if (File.Exists(lockPath) && (File.GetAttributes(lockPath) & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("Linked install lease is not permitted.");
             try { return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException) when (clock.Elapsed < TimeSpan.FromSeconds(5))
-            { await Task.Delay(40, ct).ConfigureAwait(false); }
+            catch (IOException ex) when (IsSharingViolation(ex))
+            {
+                if (clock.Elapsed >= TimeSpan.FromSeconds(5))
+                    throw new PortableInstallBusyException();
+                await Task.Delay(40, ct).ConfigureAwait(false);
+            }
         }
     }
+
+    // ERROR_SHARING_VIOLATION (32) / ERROR_LOCK_VIOLATION (33): another install holds the lease.
+    private static bool IsSharingViolation(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33;
 
     private static async Task<byte[]> HashFileAsync(string path, CancellationToken ct)
     {
