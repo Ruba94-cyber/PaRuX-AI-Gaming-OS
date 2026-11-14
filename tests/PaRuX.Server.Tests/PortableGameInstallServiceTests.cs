@@ -153,6 +153,23 @@ public sealed class PortableGameInstallServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_second_install_while_the_lease_is_held_is_refused_honestly_without_raw_io_text()
+    {
+        string zip = CreateZip(("Game.exe", "inert"));
+        Directory.CreateDirectory(InstallRoot);
+        using var held = new FileStream(Path.Combine(InstallRoot, ".parux-portable.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var ex = await Assert.ThrowsAsync<PortableGameInstallService.PortableInstallBusyException>(() =>
+            NewService().InstallAsync(zip, Sha(zip), "Game.exe", "Game", CancellationToken.None));
+        Assert.DoesNotContain(".lock", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("process", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("in progress", ex.Message);
+        Assert.Empty(Library.List());
+        Assert.Empty(Directory.GetDirectories(InstallRoot));
+        Assert.True(File.Exists(zip));
+    }
+
+    [Fact]
     public void Download_enqueuing_requires_opt_in_zip_and_independent_sha()
     {
         using var manager = new GameDownloadManager(new System.Net.Http.HttpClient(),

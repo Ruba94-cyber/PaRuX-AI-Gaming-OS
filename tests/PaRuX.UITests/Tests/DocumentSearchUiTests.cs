@@ -63,6 +63,15 @@ public sealed class DocumentSearchUiTests
             using JsonDocument doc = JsonDocument.Parse(_http.GetStringAsync(_endpoint + "/api/v1/rag/sources").GetAwaiter().GetResult());
             return doc.RootElement.EnumerateArray().Select(e => e.GetProperty("id").GetString()!).ToArray();
         }
+        /// <summary>Starts an Autopilot run in the supervised mode, which the Core holds as "waiting for approval". Returns the run id.</summary>
+        public string StartSupervisedAutopilotRun(string goal)
+        {
+            using HttpResponseMessage r = _http.PostAsJsonAsync(_endpoint + "/api/v1/autopilot/runs", new { goal, permissionMode = "supervised" }).GetAwaiter().GetResult();
+            string body = r.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            Assert.True(r.IsSuccessStatusCode, (int)r.StatusCode + " " + body);
+            using JsonDocument doc = JsonDocument.Parse(body);
+            return doc.RootElement.GetProperty("id").GetString()!;
+        }
         public void Dispose() => _http.Dispose();
     }
 

@@ -26,6 +26,35 @@ public sealed class CreateSetupStatusLineTests
     public void Validation_errors_results_and_progress_are_never_overwritten(string current) =>
         Assert.False(CreateSetupStatusLine.MayReplace(current));
 
+    [Theory]
+    [InlineData("Image", null, CreateSetupStatusLine.Checking)]
+    [InlineData("Image", false, CreateSetupStatusLine.NeedsSetup)]
+    [InlineData("Image", true, CreateSetupStatusLine.Ready)]
+    [InlineData("Gallery", false, "")]
+    [InlineData("Gallery", null, "")]
+    [InlineData("Video", false, "")]
+    [InlineData("Speech", true, "")]
+    [InlineData(null, false, "")]
+    public void The_image_setup_banner_is_only_shown_on_the_image_tab(string? mode, bool? ready, string expected) =>
+        Assert.Equal(expected, CreateSetupStatusLine.ForMode(mode, ready));
+
+    [Fact]
+    public void The_italian_setup_lines_are_distinct_replaceable_and_never_shown_on_other_tabs()
+    {
+        Assert.Equal(CreateSetupStatusLine.ItNeedsSetup, CreateSetupStatusLine.ForMode("Image", false, italian: true));
+        Assert.Equal(CreateSetupStatusLine.ItReady, CreateSetupStatusLine.ForMode("Image", true, italian: true));
+        Assert.Equal(CreateSetupStatusLine.ItChecking, CreateSetupStatusLine.ForMode("Image", null, italian: true));
+        Assert.Equal(string.Empty, CreateSetupStatusLine.ForMode("Gallery", false, italian: true));
+        Assert.NotEqual(CreateSetupStatusLine.NeedsSetup, CreateSetupStatusLine.ItNeedsSetup);
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItNeedsSetup));
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItReady));
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ItChecking));
+    }
+
+    [Fact]
+    public void An_empty_line_on_other_tabs_may_be_refilled_when_the_image_tab_returns() =>
+        Assert.True(CreateSetupStatusLine.MayReplace(CreateSetupStatusLine.ForMode("Gallery", false)));
+
     [Fact]
     public void The_setup_state_maps_to_distinct_honest_messages()
     {

@@ -183,7 +183,7 @@ public sealed class CreateWorkspaceModesCoverageTests
             Assert.Equal("Provenance not recorded for this older result", provenanceText.Name);
 
             var detailsButton = page.ProvenanceDetailsButton;
-            Assert.True(detailsButton.IsEnabled);
+            UiWait.AssertEnabled(detailsButton);
             Assert.Equal("Details", detailsButton.Name);
 
             page.ClickById("Create_Media_Provenance_Details_Button", ControlType.Button);

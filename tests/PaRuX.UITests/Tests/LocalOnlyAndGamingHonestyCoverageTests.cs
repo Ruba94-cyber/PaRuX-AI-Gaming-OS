@@ -77,7 +77,7 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
             Assert.Contains("heavy AI stays unloaded until requested", statusText.Name, StringComparison.Ordinal);
 
             var enterButton = page.GetEnterGamingButton();
-            Assert.True(enterButton.IsEnabled, "Enter Gaming Mode button should be enabled when not gaming");
+            UiWait.AssertEnabled(enterButton, "Enter Gaming Mode button should be enabled when not gaming");
 
             var exitButton = page.GetExitGamingButton();
             Assert.False(exitButton.IsEnabled, "Exit Gaming Mode button should be disabled when not gaming");
@@ -100,7 +100,7 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
             Assert.NotNull(orchestratorHeading);
 
             var refreshButton = UiWait.ById(app.MainWindow, "Settings_Gaming_Refresh_Button", ControlType.Button);
-            Assert.True(refreshButton.IsEnabled, "Refresh status button must be enabled");
+            UiWait.AssertEnabled(refreshButton, "Refresh status button must be enabled");
 
             var enterButton = UiWait.ById(app.MainWindow, "Settings_Gaming_Enter_Button", ControlType.Button);
             Assert.NotNull(enterButton);
@@ -199,7 +199,7 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
             page.ScrollSettingsContentUntilOnScreen(saveButton!, "Cloud fallback Save button on screen");
             UiWait.For(() => !saveButton.Properties.IsOffscreen.ValueOrDefault,
                 "Save button visible in cloud fallback detail panel");
-            Assert.True(saveButton.IsEnabled, "Save button should be enabled for explicit action");
+            UiWait.AssertEnabled(saveButton, "Save button should be enabled for explicit action");
 
             var testButton = page.GetTestCloudFallbackButton();
             Assert.NotNull(testButton);
@@ -246,7 +246,7 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
             Assert.False(enterButton.IsEnabled, "Enter Gaming Mode button should be disabled when gaming is active");
 
             var exitButton = page.GetExitGamingButton();
-            Assert.True(exitButton.IsEnabled, "Exit Gaming Mode button should be enabled when gaming is active");
+            UiWait.AssertEnabled(exitButton, "Exit Gaming Mode button should be enabled when gaming is active");
         });
 
     [Fact, Trait("Category", "Smoke"), Trait("Category", "Chat"), Trait("Category", "Gaming")]
@@ -285,7 +285,7 @@ public sealed class LocalOnlyAndGamingHonestyCoverageTests
             Assert.Contains("Ready", statusText.Name, StringComparison.Ordinal);
 
             var enterButton = page.GetEnterGamingButton();
-            Assert.True(enterButton.IsEnabled, "Enter Gaming Mode button should be enabled after gaming ends");
+            UiWait.AssertEnabled(enterButton, "Enter Gaming Mode button should be enabled after gaming ends");
 
             var exitButton = page.GetExitGamingButton();
             Assert.False(exitButton.IsEnabled, "Exit Gaming Mode button should be disabled after gaming ends");

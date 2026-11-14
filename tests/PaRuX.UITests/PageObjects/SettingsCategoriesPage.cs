@@ -42,7 +42,8 @@ internal sealed class SettingsCategoriesPage
     internal AutomationElement WaitForSectionHeadingVisible(string heading, string context = "")
     {
         AutomationElement? element = null;
-        UiWait.For(() =>
+        // Two consecutive on-screen reads: a heading is briefly on screen while the page is still scrolling to its final offset.
+        UiWait.ForStable(() =>
         {
             element = FindSectionHeading(heading);
             return element != null && !element.Properties.IsOffscreen.ValueOrDefault;

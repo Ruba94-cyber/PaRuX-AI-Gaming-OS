@@ -406,6 +406,7 @@ namespace PaRuX.Views
                     _ = RefreshAvatarEngineStatusAsync();
                     _ = RefreshTrainingEngineStatusAsync();
                     _ = RefreshThreedEngineStatusAsync();
+                    _ = RefreshDiffusersEngineStatusAsync();
                     break;
                 case "Automation":
                     _ = RefreshCustomWorkflowsAsync();
@@ -414,6 +415,9 @@ namespace PaRuX.Views
                     break;
                 case "Agents":
                     _ = RefreshAgentTasksAsync();
+                    // Waiting Autopilot runs must be actionable (Approve/Cancel) as soon as the category opens, not only
+                    // after the owner presses "Refresh waiting runs".
+                    _ = RefreshPendingAutopilotRunsAsync();
                     break;
                 case "Integrations":
                     _ = RefreshApiKeysAsync();
@@ -2234,7 +2238,11 @@ namespace PaRuX.Views
                 return;
             }
             _ = RefreshDiagnosticsAsync();
-            if (_selectedSettingsCategory == "Agents") _ = RefreshAgentTasksAsync();
+            if (_selectedSettingsCategory == "Agents")
+            {
+                _ = RefreshAgentTasksAsync();
+                _ = RefreshPendingAutopilotRunsAsync(); // runs started from a paired phone appear without a manual refresh
+            }
         }
 
         // ------------------------------------------------------------------
@@ -4927,7 +4935,11 @@ namespace PaRuX.Views
                 {
                     AvatarEngineStatusText.Text = string.IsNullOrEmpty(status.LastError)
                         ? T("Local engine not installed yet.", "Motore locale non ancora installato.")
-                        : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
+                        : status.LastErrorCode == "build_tools_required"
+                            ? AvatarBuildToolsRequiredText(T)
+                            : status.LastErrorCode == "data_path_too_long"
+                                ? AvatarDataPathTooLongText(T)
+                                : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
                     AvatarInstallButton.Visibility = Visibility.Visible;
                 }
             }
@@ -4938,6 +4950,16 @@ namespace PaRuX.Views
             }
             await RefreshAvatarStatusAsync();
         }
+
+        /// <summary>The avatar engine needs a package that is only published as source (insightface), so a C++ compiler must exist on this PC.</summary>
+        internal static string AvatarBuildToolsRequiredText(Func<string, string, string> t) =>
+            t("C++ build tools are required to install the avatar engine: one of its packages must be compiled on this PC. Install \"Visual Studio Build Tools\" with the \"Desktop development with C++\" workload, then press Install again. PaRuX does not install it for you.",
+              "Per installare il motore avatar servono gli strumenti di compilazione C++: uno dei suoi pacchetti va compilato su questo PC. Installa \"Visual Studio Build Tools\" con il carico di lavoro \"Sviluppo di applicazioni desktop con C++\", poi premi di nuovo Installa. PaRuX non lo installa al posto tuo.");
+
+        /// <summary>The data folder is too deep for the C++ linker to build a package of the avatar engine (path limit of 260 characters).</summary>
+        internal static string AvatarDataPathTooLongText(Func<string, string, string> t) =>
+            t("The avatar engine cannot be installed here: the PaRuX data folder path is too long for Windows and the C++ tools (file paths are limited to 260 characters) and no shorter PaRuX location can be used. Move the PaRuX data to a shorter folder, for example C:\\PaRuX, then press Install again.",
+              "Il motore avatar non può essere installato qui: il percorso della cartella dati di PaRuX è troppo lungo per Windows e per gli strumenti C++ (i percorsi dei file sono limitati a 260 caratteri) e non è possibile usare una posizione PaRuX più corta. Sposta i dati di PaRuX in una cartella più corta, ad esempio C:\\PaRuX, poi premi di nuovo Installa.");
 
         private async void AvatarInstall_Click(object sender, RoutedEventArgs e)
         {
@@ -5052,6 +5074,39 @@ namespace PaRuX.Views
             {
                 Log.Write("RefreshThreedEngineStatusAsync failed: " + ex.Message);
                 ThreedEngineStatusText.Text = T("Could not reach the 3D engine: ", "Impossibile raggiungere il motore 3D: ") + ex.Message;
+            }
+        }
+
+        private async Task RefreshDiffusersEngineStatusAsync()
+        {
+            if (DiffusersEngineStatusText == null) return;
+            try
+            {
+                ManagedMediaEngineStatus status = await DiffusersEngineClient.Current.GetStatusAsync(CancellationToken.None);
+                DiffusersEngineStatusText.Text = DiffusersEngineStatusPresenter.Describe(status, T);
+                DiffusersInstallButton.Visibility = DiffusersEngineStatusPresenter.CanInstall(status) ? Visibility.Visible : Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("RefreshDiffusersEngineStatusAsync failed: " + ex.Message);
+                DiffusersEngineStatusText.Text = T("Could not reach the Diffusers engine.", "Impossibile raggiungere il motore Diffusers.");
+            }
+        }
+
+        private async void DiffusersInstall_Click(object sender, RoutedEventArgs e)
+        {
+            DiffusersInstallButton.IsEnabled = false;
+            DiffusersInstallProgress.IsActive = true;
+            DiffusersInstallProgress.Visibility = Visibility.Visible;
+            DiffusersEngineStatusText.Text = T("Installing (this downloads several GB and can take a while)…", "Installazione in corso (scarica diversi GB e può richiedere un po' di tempo)…");
+            try { await DiffusersEngineClient.Current.InstallAsync(CancellationToken.None); }
+            catch (Exception ex) { Log.Write("DiffusersInstall failed: " + ex.Message); }
+            finally
+            {
+                DiffusersInstallProgress.IsActive = false;
+                DiffusersInstallProgress.Visibility = Visibility.Collapsed;
+                DiffusersInstallButton.IsEnabled = true;
+                await RefreshDiffusersEngineStatusAsync(); // the status code carries the true reason for a refusal
             }
         }
 
@@ -5665,6 +5720,8 @@ namespace PaRuX.Views
             }
         }
 
+        private string? _pendingRunsSignature;
+
         private void RefreshPendingAutopilotRuns_Click(object sender, RoutedEventArgs e) => _ = RefreshPendingAutopilotRunsAsync();
 
         /// <summary>Lists the Autopilot runs waiting for the desktop owner (started here in supervised mode or from a paired
@@ -5681,6 +5738,10 @@ namespace PaRuX.Views
                 return;
             }
 
+            // The periodic refresh must not rebuild (and so steal) the Approve/Cancel buttons while nothing changed.
+            string signature = string.Join("|", pending.Select(r => r.Id));
+            if (signature == _pendingRunsSignature && AutopilotPendingList.Children.Count == pending.Count) return;
+            _pendingRunsSignature = signature;
             AutopilotPendingList.Children.Clear();
             if (AutopilotPendingEmpty != null) AutopilotPendingEmpty.Visibility = pending.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             foreach (AutopilotRunDto run in pending)

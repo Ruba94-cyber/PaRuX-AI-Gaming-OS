@@ -2041,6 +2041,18 @@
                 </Border>
             </StackPanel>
 
+            <!-- ==================== Diffusers image engine ==================== -->
+            <StackPanel Spacing="{StaticResource PaRuXSpaceS}" Tag="Media Generation">
+                <TextBlock Text="DIFFUSERS IMAGE ENGINE" loc:Loc.ItText="MOTORE IMMAGINI DIFFUSERS" Style="{StaticResource PaRuXSectionHeaderTextStyle}" Margin="4,0,0,0" />
+                <Border Style="{StaticResource PaRuXCardStyle}">
+                    <StackPanel Spacing="{StaticResource PaRuXSpaceM}">
+                        <TextBlock x:Name="DiffusersEngineStatusText" AutomationProperties.AutomationId="Settings_Diffusers_Status" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" Text="Checking the Diffusers engine…" loc:Loc.ItText="Controllo del motore Diffusers…" />
+                        <Button x:Name="DiffusersInstallButton" AutomationProperties.AutomationId="Settings_Diffusers_Install" Content="Install engine" loc:Loc.ItContent="Installa il motore" Click="DiffusersInstall_Click" HorizontalAlignment="Left" Visibility="Collapsed" />
+                        <ProgressRing x:Name="DiffusersInstallProgress" IsActive="False" Visibility="Collapsed" HorizontalAlignment="Left" Width="20" Height="20" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
             <!-- ==================== Avatar Studio ==================== -->
             <StackPanel Spacing="{StaticResource PaRuXSpaceS}" Tag="Media Generation">
                 <TextBlock Text="AVATAR STUDIO" Style="{StaticResource PaRuXSectionHeaderTextStyle}" Margin="4,0,0,0" />

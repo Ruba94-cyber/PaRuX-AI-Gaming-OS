@@ -22,7 +22,7 @@ public sealed class CreateInpaintAndLoraStackTests
             new MainWindowPage(app.MainWindow).Click("Navigation_Create_Item", ControlType.ListItem);
 
             AutomationElement combo = UiWait.ById(app.MainWindow, "Create_LoraStack_Slot1_Combo", ControlType.ComboBox);
-            Assert.True(combo.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(combo);
             UiWait.ById(app.MainWindow, "Create_LoraStack_Slot1_Strength_Slider", ControlType.Slider);
             UiWait.ById(app.MainWindow, "Create_LoraStack_Add_Button", ControlType.Button);
 

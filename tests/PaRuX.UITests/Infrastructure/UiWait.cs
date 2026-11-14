@@ -28,6 +28,43 @@ internal static class UiWait
     }
 
     /// <summary>
+    /// Waits for a condition that has to hold on two consecutive polls (about 150 ms apart). A single true read can be a transient frame:
+    /// a control that is enabled between two layout passes, an element that is on screen only while a page transition scrolls.
+    /// The wait stays bounded and still fails with a TimeoutException when the state never settles.
+    /// </summary>
+    internal static void ForStable(Func<bool> condition, string description, TimeSpan? timeout = null)
+    {
+        DateTime until = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(20));
+        bool previous = false;
+        while (DateTime.UtcNow < until)
+        {
+            bool current = Probe(condition);
+            if (current && previous) return;
+            previous = current;
+            Thread.Sleep(150);
+        }
+        throw new TimeoutException("Timed out waiting for a stable " + description + ".");
+    }
+
+    /// <summary>Asserts that a control is enabled once its page has settled. Controls are disabled while a page loads or a job runs, and
+    /// the read must not race that transition. A control that never becomes enabled still fails the assertion.</summary>
+    internal static void AssertEnabled(AutomationElement element, string? message = null)
+    {
+        try { ForStable(() => element.Properties.IsEnabled.ValueOrDefault, "enabled state", TimeSpan.FromSeconds(10)); }
+        catch (TimeoutException) { Xunit.Assert.True(false, message ?? "The control stayed disabled: " + DescribeForFailure(element)); }
+    }
+
+    /// <summary>Waits until the element is on screen (not off screen) on two consecutive reads.</summary>
+    internal static void ForOnScreen(AutomationElement element, string description, TimeSpan? timeout = null) =>
+        ForStable(() => !element.Properties.IsOffscreen.ValueOrDefault, description + " on screen", timeout);
+
+    private static string DescribeForFailure(AutomationElement element)
+    {
+        try { return element.Properties.AutomationId.ValueOrDefault + " / " + element.Properties.Name.ValueOrDefault; }
+        catch (Exception) { return "(element no longer available)"; }
+    }
+
+    /// <summary>
     /// Sends an input action (key press or click) and waits for its observable effect. SendInput can be lost while the XAML island is still
     /// taking keyboard focus after a UIA Focus(); when the input never produced the effect it is sent again
     /// (bounded), so a lost input is not reported as a product failure and a delivered one is never repeated.

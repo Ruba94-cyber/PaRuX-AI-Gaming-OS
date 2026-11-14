@@ -457,6 +457,7 @@ internal sealed class GameDownloadsPanel : StackPanel
                 GamePostInstallStates.Installing => T("Extracting and adding to library…", "Estrazione e aggiunta alla libreria…"),
                 GamePostInstallStates.Installed => T("Portable game added to library (not launched)", "Gioco portatile aggiunto alla libreria (non avviato)"),
                 GamePostInstallStates.Interrupted => T("Portable installation interrupted; archive kept", "Installazione portatile interrotta; archivio conservato"),
+                GamePostInstallStates.Busy => T("Another portable install is in progress; retry when it finishes (archive kept)", "Un'altra installazione portatile è in corso; riprova quando termina (archivio conservato)"),
                 _ => T("Portable installation refused; archive kept", "Installazione portatile rifiutata; archivio conservato")
             };
             var installStatus = new TextBlock { Text = stage, TextWrapping = TextWrapping.Wrap };
@@ -483,7 +484,7 @@ internal sealed class GameDownloadsPanel : StackPanel
             }
         }
         if (job.State == GameDownloadStates.Completed &&
-            job.PostInstallState is GamePostInstallStates.Failed or GamePostInstallStates.Interrupted)
+            job.PostInstallState is GamePostInstallStates.Failed or GamePostInstallStates.Interrupted or GamePostInstallStates.Busy)
         {
             var retry = new Button { Content = T("Retry verified ZIP installation", "Riprova installazione ZIP verificato") };
             AutomationProperties.SetAutomationId(retry, "GameDownloads_RetryPortable_" + job.Id);

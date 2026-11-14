@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using PaRuX.Services;
 
 namespace PaRuX.Views
 {
@@ -12,6 +13,10 @@ namespace PaRuX.Views
         private readonly Dictionary<string, UIElement> _modePanels = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SelectorBarItem> _modeItems = new(StringComparer.Ordinal);
         private SelectorBar? _modeBar;
+        private string? _selectedMode;
+        private bool? _imageSetupReady;
+        private static bool SetupLineItalian =>
+            System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it";
 
         private UIElement BuildModeTabs(IReadOnlyList<(string Name, UIElement Panel)> modes)
         {
@@ -47,6 +52,10 @@ namespace PaRuX.Views
             string? selected = (_modeBar?.SelectedItem as SelectorBarItem)?.Text;
             foreach (KeyValuePair<string, UIElement> pair in _modePanels)
                 pair.Value.Visibility = pair.Key == selected ? Visibility.Visible : Visibility.Collapsed;
+            _selectedMode = selected;
+            // The setup line describes image generation only; follow the tab unless a job/validation message owns the line.
+            if (!_operations.IsBusy && !_operationMessageSticky && CreateSetupStatusLine.MayReplace(_status.Text))
+                _status.Text = CreateSetupStatusLine.ForMode(selected, _imageSetupReady, SetupLineItalian);
         }
     }
 }

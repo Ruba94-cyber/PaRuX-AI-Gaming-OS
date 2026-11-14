@@ -143,12 +143,12 @@ public sealed class InstallProgressPresentationCoverageTests
             var cancelBtn = page.RuntimeManagerCancelInstallButton;
             Assert.NotNull(cancelBtn);
             Assert.Equal("Cancel active install", cancelBtn!.Properties.Name.ValueOrDefault);
-            Assert.True(cancelBtn.Properties.IsEnabled.ValueOrDefault, "Cancel active install button must be enabled and accessible");
+            UiWait.AssertEnabled(cancelBtn, "Cancel active install button must be enabled and accessible");
 
             var refreshBtn = page.RuntimeManagerRefreshButton;
             Assert.NotNull(refreshBtn);
             Assert.Equal("Refresh", refreshBtn!.Properties.Name.ValueOrDefault);
-            Assert.True(refreshBtn.Properties.IsEnabled.ValueOrDefault, "Refresh button must be enabled");
+            UiWait.AssertEnabled(refreshBtn, "Refresh button must be enabled");
         }
         catch (Exception ex)
         {
@@ -267,7 +267,7 @@ public sealed class InstallProgressPresentationCoverageTests
             // The button is intentionally disabled while the opening discovery runs; it must be usable once idle.
             var refreshBtn = page.SettingsRefreshComponentsButton;
             Assert.NotNull(refreshBtn);
-            Assert.True(refreshBtn!.Properties.IsEnabled.ValueOrDefault, "Settings components refresh button must be enabled");
+            UiWait.AssertEnabled(refreshBtn!, "Settings components refresh button must be enabled");
 
             var progressBar = page.SettingsComponentsProgress;
             if (progressBar != null)

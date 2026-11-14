@@ -492,16 +492,25 @@ internal sealed class GameTileGrid : StackPanel
     private void FocusRealized(int index, int attemptsLeft, int request)
     {
         if (request != _focusRequest || _repeater is null || index >= _titles.Count) return;
-        if (_repeater.TryGetElement(index) is Border { Tag: TileParts parts } card && card.ActualHeight > 0)
+        Border? realizedCard = _repeater.TryGetElement(index) is Border { Tag: TileParts } border && border.ActualHeight > 0 ? border : null;
+        bool realized = realizedCard is not null, tookFocus = false, inView = false;
+        if (realizedCard is not null)
         {
+            Border card = realizedCard;
+            var parts = (TileParts)card.Tag;
             card.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
-            if (parts.Main.Focus(FocusState.Programmatic) && IsInView(card)) return;
+            tookFocus = parts.Main.Focus(FocusState.Programmatic);
+            inView = tookFocus && IsInView(card);
         }
-        else
+        switch (GameTileListModel.NextFocusStep(realized, tookFocus, inView, attemptsLeft))
         {
-            ScrollTowards(index);
+            case GameTileListModel.FocusStep.Done:
+            case GameTileListModel.FocusStep.GiveUp:
+                return;
+            case GameTileListModel.FocusStep.ScrollAndRetry:
+                ScrollTowards(index);
+                break;
         }
-        if (attemptsLeft <= 0) return;
         DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () => FocusRealized(index, attemptsLeft - 1, request));
     }
@@ -530,8 +539,8 @@ internal sealed class GameTileGrid : StackPanel
         double itemHeight = _presentation == Presentation.List ? RowHeight : CardHeight;
         double rowPitch = itemHeight + (_presentation == Presentation.List ? 8 : TileGap);
         double gridTop = _repeater.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-        double top = gridTop + index / columns * rowPitch;
-        double target = Math.Clamp(top - Math.Max(0, (viewer.ViewportHeight - itemHeight) / 2), 0, viewer.ScrollableHeight);
+        double target = GameTileListModel.ScrollOffsetFor(index, columns, gridTop, rowPitch, itemHeight,
+            viewer.ViewportHeight, viewer.ScrollableHeight);
         viewer.ChangeView(null, target, null, disableAnimation: true);
     }
 

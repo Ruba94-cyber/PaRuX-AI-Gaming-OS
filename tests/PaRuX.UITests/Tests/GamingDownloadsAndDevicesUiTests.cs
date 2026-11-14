@@ -54,9 +54,9 @@ public sealed class GamingDownloadsAndDevicesUiTests
 
             // The initial read must finish first, otherwise it could overwrite the validation message below.
             UiWait.For(() => refresh.Properties.IsEnabled.ValueOrDefault, "the downloads panel finished its initial read");
-            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(applySpeed.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(browse.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(start);
+            UiWait.AssertEnabled(applySpeed);
+            UiWait.AssertEnabled(browse);
 
             // Empty URL and destination: validation message, no consent dialog, nothing created.
             string before = status.Name;
@@ -65,7 +65,7 @@ public sealed class GamingDownloadsAndDevicesUiTests
                 "validation message for the empty download form");
             Assert.NotEqual(before, status.Name);
             Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")));
-            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(start);
 
             // Valid loopback URL and folder but a malformed checksum is still refused before the consent dialog.
             url.AsTextBox().Text = "http://127.0.0.1:9/not-a-real-game.bin";
@@ -110,9 +110,9 @@ public sealed class GamingDownloadsAndDevicesUiTests
 
             foreach (AutomationElement control in new[] { source, browse, label, create, refresh, cancel })
                 Assert.False(string.IsNullOrWhiteSpace(control.Name));
-            Assert.True(create.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(refresh.Properties.IsEnabled.ValueOrDefault);
-            Assert.True(browse.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(create);
+            UiWait.AssertEnabled(refresh);
+            UiWait.AssertEnabled(browse);
             // No operation is running, so there is nothing to cancel.
             Assert.False(cancel.Properties.IsEnabled.ValueOrDefault);
 
@@ -121,7 +121,7 @@ public sealed class GamingDownloadsAndDevicesUiTests
             create.Patterns.Invoke.Pattern.Invoke();
             UiWait.For(() => !string.IsNullOrWhiteSpace(status.Name), "validation message for the empty save folder");
             Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton")));
-            Assert.True(create.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(create);
             Assert.False(cancel.Properties.IsEnabled.ValueOrDefault);
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
@@ -158,7 +158,7 @@ public sealed class GamingDownloadsAndDevicesUiTests
                 Assert.False(string.IsNullOrWhiteSpace(control.Name));
             foreach (AutomationElement button in new[] { loadModes, apply, controllerLoad, calibrate, save, reset,
                                                          rawDetect, rawRead, hidStatus, hidRestore, mappingLoad, mappingSave })
-                Assert.True(button.Properties.IsEnabled.ValueOrDefault);
+                UiWait.AssertEnabled(button);
 
             // Number boxes are reachable by their AutomationId (same convention as the existing raw-mapping checks).
             foreach (string id in new[]

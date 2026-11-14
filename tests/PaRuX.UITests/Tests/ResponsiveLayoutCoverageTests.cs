@@ -101,8 +101,8 @@ public sealed class ResponsiveLayoutCoverageTests
                 AssertNoOverlapWithNav(app, themeCombo, $"Settings theme combo at {label}");
                 AssertNoOverlapWithNav(app, startupToggle, $"Settings startup switch at {label}");
 
-                Assert.True(themeCombo.IsEnabled, $"Theme combo must be enabled at {label}");
-                Assert.True(startupToggle.IsEnabled, $"Startup switch must be enabled at {label}");
+                UiWait.AssertEnabled(themeCombo, $"Theme combo must be enabled at {label}");
+                UiWait.AssertEnabled(startupToggle, $"Startup switch must be enabled at {label}");
             }
         }
         catch (Exception ex)
@@ -161,7 +161,7 @@ public sealed class ResponsiveLayoutCoverageTests
                 AssertNoOverlapWithNav(app, search, $"ModelHub search box at {label}");
                 AssertNoOverlapWithNav(app, searchBtn, $"ModelHub search button at {label}");
 
-                Assert.True(search.IsEnabled, $"ModelHub search box must be enabled at {label}");
+                UiWait.AssertEnabled(search, $"ModelHub search box must be enabled at {label}");
                 Assert.True(search.Properties.BoundingRectangle.ValueOrDefault.Width > 50,
                     $"ModelHub search box must maintain a usable width at {label}");
             }
@@ -253,7 +253,7 @@ public sealed class ResponsiveLayoutCoverageTests
                 AssertNoOverlapWithNav(app, title, $"Runtime Manager title at {label}");
                 AssertNoOverlapWithNav(app, refresh, $"Runtime refresh button at {label}");
 
-                Assert.True(refresh.IsEnabled, $"Runtime refresh button must be enabled at {label}");
+                UiWait.AssertEnabled(refresh, $"Runtime refresh button must be enabled at {label}");
             }
         }
         catch (Exception ex)

@@ -223,3 +223,39 @@ public sealed class GameTileListModelTests
         Assert.Contains("IndexCache.Get().TryGetValue", client);
     }
 }
+
+/// <summary>The pure scroll-then-focus decisions behind GameTileGrid.FocusIndex (no UI thread needed).</summary>
+public sealed class GameTileFocusLogicTests
+{
+    [Theory]
+    [InlineData(0, 4, 100.0, 300.0, 280.0, 800.0, 5000.0, 0.0)]            // first row: clamped at the top
+    [InlineData(40, 4, 100.0, 300.0, 280.0, 800.0, 5000.0, 2840.0)]       // row 10: 100 + 3000 - (800-280)/2
+    [InlineData(400, 4, 100.0, 300.0, 280.0, 800.0, 5000.0, 5000.0)]       // far tile: clamped at the end
+    [InlineData(7, 0, 0.0, 300.0, 280.0, 800.0, 5000.0, 1840.0)]           // zero columns never divides by zero (7 rows)
+    [InlineData(20, 4, 0.0, 300.0, 900.0, 800.0, 5000.0, 1500.0)]          // taller than the viewport: no negative centering
+    public void Scroll_offset_centres_the_tiles_row_and_stays_in_range(
+        int index, int columns, double gridTop, double pitch, double itemHeight, double viewport, double scrollable, double expected)
+        => Assert.Equal(expected, GameTileListModel.ScrollOffsetFor(index, columns, gridTop, pitch, itemHeight, viewport, scrollable), 3);
+
+    [Fact]
+    public void A_realized_focused_visible_tile_is_done()
+        => Assert.Equal(GameTileListModel.FocusStep.Done, GameTileListModel.NextFocusStep(true, true, true, 8));
+
+    [Fact]
+    public void An_unrealized_tile_is_scrolled_towards_and_retried_until_attempts_run_out()
+    {
+        Assert.Equal(GameTileListModel.FocusStep.ScrollAndRetry, GameTileListModel.NextFocusStep(false, false, false, 8));
+        Assert.Equal(GameTileListModel.FocusStep.ScrollAndRetry, GameTileListModel.NextFocusStep(false, false, false, 1));
+        Assert.Equal(GameTileListModel.FocusStep.GiveUp, GameTileListModel.NextFocusStep(false, false, false, 0));
+    }
+
+    [Theory]
+    [InlineData(true, false)]   // took focus but the scroll has not brought it into view yet (End / Page Down bug)
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void A_realized_tile_that_is_not_focused_and_visible_is_retried_without_scrolling_then_given_up(bool tookFocus, bool inView)
+    {
+        Assert.Equal(GameTileListModel.FocusStep.Retry, GameTileListModel.NextFocusStep(true, tookFocus, inView, 3));
+        Assert.Equal(GameTileListModel.FocusStep.GiveUp, GameTileListModel.NextFocusStep(true, tookFocus, inView, 0));
+    }
+}

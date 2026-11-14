@@ -33,7 +33,7 @@ public sealed class AutoSetupCoverageTests
 
             AutomationElement start = UiWait.ById(app.MainWindow, "Onboarding_AutoSetup_Start_Button", ControlType.Button);
             Assert.Equal("Set up automatically", start.Name);
-            Assert.True(start.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(start);
         });
 
     /// <summary>Regression: on a normal first launch the (hidden) navigation pane was re-opened by the width policy and

@@ -130,7 +130,7 @@ public sealed class ProjectsWorkspaceCoverageTests
 
             AutomationElement alphaButton = page.WaitForProjectButton(firstGoal);
             Assert.Equal("Select", alphaButton.Name);
-            Assert.True(alphaButton.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(alphaButton);
 
             page.SelectProject(firstGoal);
             page.WaitForActiveProject(firstGoal);
@@ -141,7 +141,7 @@ public sealed class ProjectsWorkspaceCoverageTests
 
             betaButton = page.WaitForProjectButton(secondGoal);
             Assert.Equal("Select", betaButton.Name);
-            Assert.True(betaButton.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(betaButton);
         });
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "Projects"), Trait("Category", "Persistence")]

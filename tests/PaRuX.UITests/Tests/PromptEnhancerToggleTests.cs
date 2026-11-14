@@ -20,7 +20,7 @@ public sealed class PromptEnhancerToggleTests
         {
             new MainWindowPage(app.MainWindow).Click("Navigation_Create_Item", ControlType.ListItem);
             AutomationElement toggle = UiWait.ById(app.MainWindow, "Create_EnhancePrompt_Toggle", ControlType.CheckBox);
-            Assert.True(toggle.Properties.IsEnabled.ValueOrDefault);
+            UiWait.AssertEnabled(toggle);
             Assert.Equal(FlaUI.Core.Definitions.ToggleState.Off, toggle.Patterns.Toggle.Pattern.ToggleState.Value);
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Create_workspace_exposes_enhance_prompt_toggle_default_off), ex); throw; }

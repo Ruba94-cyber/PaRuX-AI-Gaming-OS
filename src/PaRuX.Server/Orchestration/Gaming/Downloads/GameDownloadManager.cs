@@ -459,7 +459,7 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             entry = Find(id) ?? throw new InvalidOperationException("The download is not in this session.");
             if (_disposed || _gamingActive() || !entry.AutoInstallPortable ||
                 entry.State != GameDownloadStates.Completed ||
-                entry.PostInstallState is not (GamePostInstallStates.Interrupted or GamePostInstallStates.Failed) ||
+                entry.PostInstallState is not (GamePostInstallStates.Interrupted or GamePostInstallStates.Failed or GamePostInstallStates.Busy) ||
                 entry.InstallerRun is not null || entry.ExpectedSha256 is null ||
                 string.IsNullOrEmpty(entry.PublishedPath))
                 throw new InvalidOperationException("This portable install cannot be retried now.");
@@ -514,6 +514,14 @@ public sealed class GameDownloadManager : IGamingResumable, IDisposable
             {
                 e.PostInstallState = GamePostInstallStates.Interrupted;
                 e.PostInstallMessage = "Portable install stopped; the verified ZIP is still available.";
+            }
+        }
+        catch (PortableGameInstallService.PortableInstallBusyException busy)
+        {
+            lock (_gate)
+            {
+                e.PostInstallState = GamePostInstallStates.Busy;
+                e.PostInstallMessage = busy.Message;
             }
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException

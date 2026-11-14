@@ -25,6 +25,14 @@ internal static partial class ManagedRequirementLocks
 
     internal static string PathFor(string setId) => Path.Combine(Directory, setId + ".lock.txt");
 
+    /// <summary>
+    /// Hashed pins for the build-system requirements of source distributions (setuptools, wheel, numpy, cython). uv fetches those
+    /// outside <c>--require-hashes</c> unless they are passed as <c>--build-constraints</c>; a requirement not listed there is
+    /// still resolved unhashed (documented residual in docs/SECURITY_REVIEW.md).
+    /// </summary>
+    internal const string BuildConstraintsSetId = "build-constraints";
+    internal static string BuildConstraintsPath => PathFor(BuildConstraintsSetId);
+
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[A-Za-z0-9][A-Za-z0-9._+!-]*$")]
     private static partial Regex PinPattern();
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]*@https://\S+$")]
@@ -73,7 +81,9 @@ internal static partial class ManagedRequirementLocks
     {
         string path = PathFor(setId);
         Validate(path);
-        return new[] { "--require-hashes", "--no-deps", "-r", path };
+        string buildConstraints = BuildConstraintsPath;
+        Validate(buildConstraints);
+        return new[] { "--require-hashes", "--no-deps", "--build-constraints", buildConstraints, "-r", path };
     }
 
     /// <summary>The hashed torch closure for a known PyTorch index, or null for an unknown index.</summary>
@@ -111,16 +121,25 @@ internal static class ManagedPipInstallPolicy
 
         if (args.Contains("--require-hashes", StringComparer.Ordinal))
         {
-            // Exactly: --require-hashes --no-deps [--index-url <known PyTorch index>] -r <validated lock>.
+            // Exactly: --require-hashes --no-deps [--index-url <known PyTorch index>] [--build-constraints <shipped build lock>] -r <validated lock>.
             // Any other flag (--no-verify-hashes, --constraint, --extra-index-url, a second -r, ...) is refused.
-            bool hasIndex = args.Count == 6;
-            bool shape = (args.Count == 4 || hasIndex)
-                && args[0] == "--require-hashes" && args[1] == "--no-deps"
-                && (!hasIndex || (args[2] == "--index-url" && IsKnownTorchIndex(args[3])))
-                && args[^2] == "-r" && !args[^1].StartsWith('-');
+            int i = 2;
+            bool shape = args.Count >= 4 && args[0] == "--require-hashes" && args[1] == "--no-deps";
+            if (shape && i + 1 < args.Count && args[i] == "--index-url")
+            {
+                shape = IsKnownTorchIndex(args[i + 1]);
+                i += 2;
+            }
+            if (shape && i + 1 < args.Count && args[i] == "--build-constraints")
+            {
+                shape = string.Equals(args[i + 1], ManagedRequirementLocks.BuildConstraintsPath, StringComparison.OrdinalIgnoreCase);
+                if (shape) ManagedRequirementLocks.Validate(args[i + 1]);
+                i += 2;
+            }
+            shape = shape && args.Count == i + 2 && args[i] == "-r" && !args[i + 1].StartsWith('-');
             if (!shape)
                 throw new ManagedPipRefusalException(ManagedRequirementLocks.InvalidCode,
-                    "A hash-locked install must be exactly: --require-hashes --no-deps [--index-url <PyTorch index>] -r <lock>.");
+                    "A hash-locked install must be exactly: --require-hashes --no-deps [--index-url <PyTorch index>] [--build-constraints <shipped build lock>] -r <lock>.");
             ManagedRequirementLocks.Validate(args[^1]);
             return args;
         }
