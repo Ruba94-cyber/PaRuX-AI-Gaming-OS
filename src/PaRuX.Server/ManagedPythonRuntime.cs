@@ -28,8 +28,16 @@ public static class ManagedPythonRuntime
         PaRuX.Contracts.PaRuXDataRoot.Path, "ai-runtimes", "toolchain");
     public static string UvRoot => Path.Combine(Root, "uv");
     public static string UvExe => Path.Combine(UvRoot, "uv.exe");
-    public static string PythonInstallRoot => Path.Combine(Root, "python");
-    public static string CacheRoot => Path.Combine(Root, "cache");
+    public static string PythonInstallRoot => CachePlan.PythonRoot;
+    /// <summary>
+    /// Where uv keeps its cache and extracts source distributions: the data root's own folder when its path is short enough
+    /// for the C++ linker, else a short PARUX_MANAGED folder (see <see cref="ManagedUvCachePlan"/>).
+    /// </summary>
+    internal static ManagedUvCachePlan.Plan CachePlan => ManagedUvCachePlan.Resolve(
+        Path.Combine(Root, "cache"), Path.Combine(Root, "python"), PaRuX.Contracts.PaRuXDataRoot.Path,
+        PaRuX.Contracts.PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+    public static string CacheRoot => CachePlan.CacheRoot;
     public static string ToolRoot => Path.Combine(Root, "tools");
 
     public static string VenvPython(string venvRoot) => Path.Combine(venvRoot, "Scripts", "python.exe");
@@ -194,6 +202,7 @@ public static class ManagedPythonRuntime
         // environment first and only then ask uv for Python, so a version uv could not supply left
         // the machine with no training runtime at all - observed with a pinned 3.13.15 that does not
         // exist in uv's index: "Install/repair" removed a working environment and installed nothing.
+        ManagedUvCachePlan.RequireVenvPathBudget(venvRoot); // honest early refusal before any download
         string managedPython = await EnsurePythonAsync(version, ct).ConfigureAwait(false);
 
         if (Directory.Exists(venvRoot))
@@ -290,6 +299,9 @@ public static class ManagedPythonRuntime
         {
             if (ManagedBuildToolsFailure.IsMissingToolchain(log, out string buildPackage))
                 throw new ManagedBuildToolsRequiredException(buildPackage, Trim(log));
+            // A deep data folder with no short cache available (portable root, or no usable per-user folder): say so.
+            if (!CachePlan.WithinBudget && ManagedUvCachePlan.LooksLikePathLimitFailure(log))
+                throw new ManagedDataPathTooLongException(Trim(log));
             throw new InvalidOperationException("Managed package installation failed:\n" + Trim(log));
         }
         return log;
@@ -300,18 +312,7 @@ public static class ManagedPythonRuntime
         string? workingDirectory = null, string? pythonInstallDirOverride = null)
     {
         string uv = await EnsureUvAsync(ct).ConfigureAwait(false);
-        var info = new ProcessStartInfo
-        {
-            FileName = uv,
-            WorkingDirectory = workingDirectory ?? Root,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        foreach (string argument in arguments) info.ArgumentList.Add(argument);
-        ApplyEnvironment(info);
-        if (pythonInstallDirOverride != null) info.Environment["UV_PYTHON_INSTALL_DIR"] = pythonInstallDirOverride;
+        ProcessStartInfo info = CreateUvStartInfo(uv, arguments, workingDirectory ?? Root, pythonInstallDirOverride);
 
         using var process = new Process { StartInfo = info };
         // Gaming hard-off: refused (typed) while Gaming is active, killed on a Gaming start. uv/pip installs are
@@ -335,16 +336,40 @@ public static class ManagedPythonRuntime
         return (process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false));
     }
 
+    internal static ProcessStartInfo CreateUvStartInfo(
+        string uvExe, IEnumerable<string> arguments, string workingDirectory, string? pythonInstallDirOverride = null)
+    {
+        var info = new ProcessStartInfo
+        {
+            FileName = uvExe,
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            // uv prints box-drawing characters (UTF-8); the default console code page turned them into mojibake.
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8
+        };
+        foreach (string argument in arguments) info.ArgumentList.Add(argument);
+        ApplyEnvironment(info);
+        if (pythonInstallDirOverride != null) info.Environment["UV_PYTHON_INSTALL_DIR"] = pythonInstallDirOverride;
+        return info;
+    }
+
     public static void ApplyEnvironment(ProcessStartInfo info)
     {
         Directory.CreateDirectory(PythonInstallRoot);
-        Directory.CreateDirectory(CacheRoot);
+        ManagedUvCachePlan.Plan cache = CachePlan;
+        Directory.CreateDirectory(cache.CacheRoot);
+        ManagedUvCachePlan.WriteOwnerMarker(cache, PaRuX.Contracts.PaRuXDataRoot.Path);
         Directory.CreateDirectory(ToolRoot);
         info.Environment["UV_PYTHON_INSTALL_DIR"] = PythonInstallRoot;
-        info.Environment["UV_CACHE_DIR"] = CacheRoot;
+        info.Environment["UV_CACHE_DIR"] = cache.CacheRoot;
         info.Environment["UV_TOOL_DIR"] = ToolRoot;
         info.Environment["UV_PYTHON_BIN_DIR"] = Path.Combine(Root, "bin");
         info.Environment["UV_NO_PROGRESS"] = "1";
+        info.Environment["NO_COLOR"] = "1"; // plain log text: no ANSI sequences in the error shown to the user
         AppendVisualStudioInstallerToPath(info.Environment);
     }
 

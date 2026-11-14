@@ -4929,7 +4929,9 @@ namespace PaRuX.Views
                         ? T("Local engine not installed yet.", "Motore locale non ancora installato.")
                         : status.LastErrorCode == "build_tools_required"
                             ? AvatarBuildToolsRequiredText(T)
-                            : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
+                            : status.LastErrorCode == "data_path_too_long"
+                                ? AvatarDataPathTooLongText(T)
+                                : T("Last install attempt failed: ", "Ultimo tentativo di installazione non riuscito: ") + status.LastError;
                     AvatarInstallButton.Visibility = Visibility.Visible;
                 }
             }
@@ -4945,6 +4947,11 @@ namespace PaRuX.Views
         internal static string AvatarBuildToolsRequiredText(Func<string, string, string> t) =>
             t("C++ build tools are required to install the avatar engine: one of its packages must be compiled on this PC. Install \"Visual Studio Build Tools\" with the \"Desktop development with C++\" workload, then press Install again. PaRuX does not install it for you.",
               "Per installare il motore avatar servono gli strumenti di compilazione C++: uno dei suoi pacchetti va compilato su questo PC. Installa \"Visual Studio Build Tools\" con il carico di lavoro \"Sviluppo di applicazioni desktop con C++\", poi premi di nuovo Installa. PaRuX non lo installa al posto tuo.");
+
+        /// <summary>The data folder is too deep for the C++ linker to build a package of the avatar engine (path limit of 260 characters).</summary>
+        internal static string AvatarDataPathTooLongText(Func<string, string, string> t) =>
+            t("The avatar engine cannot be installed here: the PaRuX data folder path is too long for Windows and the C++ tools (file paths are limited to 260 characters) and no shorter PaRuX location can be used. Move the PaRuX data to a shorter folder, for example C:\\PaRuX, then press Install again.",
+              "Il motore avatar non può essere installato qui: il percorso della cartella dati di PaRuX è troppo lungo per Windows e per gli strumenti C++ (i percorsi dei file sono limitati a 260 caratteri) e non è possibile usare una posizione PaRuX piu' corta. Sposta i dati di PaRuX in una cartella piu' corta, ad esempio C:\\PaRuX, poi premi di nuovo Installa.");
 
         private async void AvatarInstall_Click(object sender, RoutedEventArgs e)
         {

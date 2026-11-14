@@ -142,13 +142,13 @@ public sealed class AvatarEngineService
         catch (Exception ex) when (ex is not (UnavailableDuringGamingException or OperationCanceledException))
         {
             // A Gaming interruption or a cancel is not an install defect and must not become "last install error".
-            bool buildTools = ex is ManagedBuildToolsRequiredException;
-            string detail = buildTools ? ex.Message : Trim(ex.Message);
+            string? errorCode = ManagedInstallFailureCode.Of(ex);
+            string detail = errorCode != null ? ex.Message : Trim(ex.Message);
             try { await File.WriteAllTextAsync(LastErrorPath, detail, ct); } catch { }
-            // The code lets every UI show the localized "C++ build tools required" state; other failures carry none.
+            // The code lets every UI show a localized state ("C++ build tools required", "data folder path too long"); other failures carry none.
             try
             {
-                if (buildTools) await File.WriteAllTextAsync(LastErrorCodePath, ManagedBuildToolsFailure.Code, ct);
+                if (errorCode != null) await File.WriteAllTextAsync(LastErrorCodePath, errorCode, ct);
                 else File.Delete(LastErrorCodePath);
             }
             catch { }
