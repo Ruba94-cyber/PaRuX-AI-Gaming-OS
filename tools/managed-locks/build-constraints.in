@@ -1,0 +1,7 @@
+# Build-system requirements of the source distributions PaRuX installs (for example insightface declares
+# requires = ["setuptools", "numpy", "cython"]). uv fetches these outside --require-hashes, so they are pinned and hashed
+# here and passed with --build-constraints. Keep the versions equal to the same packages in avatar.in's lock.
+setuptools==84.2.1
+wheel
+numpy==1.26.4
+cython==3.3.1

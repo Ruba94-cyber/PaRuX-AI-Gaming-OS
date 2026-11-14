@@ -10,6 +10,8 @@ public sealed class ManagedMediaEngineStatus
     public string ModelId { get; set; } = string.Empty;
     public string ModelRevision { get; set; } = string.Empty;
     public string? Detail { get; set; }
+    /// <summary>Stable reason code ("runtime_missing", "model_missing", "cuda_unavailable", "install_failed", "ready") so each UI localizes the state itself.</summary>
+    public string? StatusCode { get; set; }
 }
 
 public sealed class ManagedMediaEngineInstallResult

@@ -32,6 +32,7 @@ public sealed class ManagedDiffusersImageEngine
     private static string ModelRoot => Path.Combine(Root, "model");
     private static string RunnerPath => Path.Combine(Root, "runner.py");
     private static string ReadyMarker => Path.Combine(Root, "ready.json");
+    private static string LastInstallErrorPath => Path.Combine(Root, "last-install-error.txt");
     private static string OutputRoot => Path.Combine(PaRuXDataRoot.Path, "media", "diffusers-zimage");
 
     public ManagedDiffusersImageEngine(LocalRuntimeService runtime) => _runtime = runtime;
@@ -69,6 +70,9 @@ public sealed class ManagedDiffusersImageEngine
             detail = "Managed engine state could not be verified: " + Trim(ex.Message, 240);
         }
         bool ready = runtimeInstalled && modelInstalled && markerValid;
+        (string statusCode, string notReadyDetail) = ready
+            ? ("ready", string.Empty)
+            : DescribeNotReady(runtimeInstalled, modelInstalled, detail, ReadLastInstallError());
         return new ManagedMediaEngineStatus
         {
             EngineId = EngineId,
@@ -78,10 +82,37 @@ public sealed class ManagedDiffusersImageEngine
             Ready = ready,
             ModelId = ModelId,
             ModelRevision = ModelRevision,
+            StatusCode = statusCode,
             Detail = ready
                 ? "Ready. Generation is pinned, local_files_only/offline, uses Z-Image-Turbo guidance_scale=0 and 1024-token prompt capacity."
-                : detail ?? "Install the managed engine before racing it."
+                : notReadyDetail
         };
+    }
+
+    /// <summary>
+    /// The true reason the engine is not ready. "Install the managed engine" is only right when the runtime is absent: a
+    /// runtime that installed but was refused (no CUDA GPU on this PC) or lacks its model snapshot needs a different message.
+    /// </summary>
+    internal static (string Code, string Detail) DescribeNotReady(
+        bool runtimeInstalled, bool modelInstalled, string? manifestDetail, string? lastInstallError)
+    {
+        if (!string.IsNullOrWhiteSpace(manifestDetail)) return ("install_failed", manifestDetail);
+        if (!string.IsNullOrWhiteSpace(lastInstallError)
+            && lastInstallError.Contains("CUDA is not available", StringComparison.OrdinalIgnoreCase))
+            return ("cuda_unavailable",
+                (runtimeInstalled ? "The managed runtime is installed, but " : "")
+                + "PaRuX-managed PyTorch cannot use a CUDA GPU on this PC, so the Diffusers engine cannot run here. It needs a supported NVIDIA GPU; nothing was generated.");
+        if (!runtimeInstalled) return ("runtime_missing", "Install the managed engine before racing it.");
+        if (!modelInstalled)
+            return ("model_missing", "The managed runtime is installed, but the pinned Z-Image-Turbo model snapshot is not downloaded yet. Run the install again to finish it.");
+        return ("install_failed", "The managed engine files exist but its install manifest is missing; run the install again.");
+    }
+
+    private static string? ReadLastInstallError()
+    {
+        try { return File.Exists(LastInstallErrorPath) ? File.ReadAllText(LastInstallErrorPath) : null; }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
     }
 
     public async Task<ManagedMediaEngineInstallResult> InstallAsync(IProgress<string>? progress, CancellationToken ct)
@@ -155,8 +186,15 @@ public sealed class ManagedDiffusersImageEngine
 
             ManagedMediaEngineStatus status = GetStatus();
             if (!status.Ready) throw new InvalidOperationException(status.Detail ?? "Managed Diffusers engine did not become ready.");
+            try { File.Delete(LastInstallErrorPath); } catch (IOException) { }
             progress?.Report("PaRuX Diffusers engine installed. Engine Race now has an independent second renderer.");
             return new ManagedMediaEngineInstallResult { Status = status, Validation = validation };
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or UnavailableDuringGamingException))
+        {
+            // Keep the real reason so the status can say it (for example "CUDA is not available") instead of "not installed".
+            try { Directory.CreateDirectory(Root); File.WriteAllText(LastInstallErrorPath, ManagedPythonRuntime.Trim(ex.Message)); } catch (IOException) { }
+            throw;
         }
         finally { InstallGate.Release(); }
     }
