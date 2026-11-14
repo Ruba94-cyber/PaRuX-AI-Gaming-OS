@@ -254,6 +254,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\CapabilityOverridePresenter.cs" Link="Routing\CapabilityOverridePresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CapabilityModePresenter.cs" Link="Routing\CapabilityModePresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\OnboardingStateMachine.cs" Link="Onboarding\OnboardingStateMachine.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\OnboardingReadinessText.cs" Link="Onboarding\OnboardingReadinessText.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\OnboardingReturnPolicy.cs" Link="Onboarding\OnboardingReturnPolicy.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\InstallProgressPresenter.cs" Link="Onboarding\InstallProgressPresenter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ModelDownloadRowPresentation.cs" Link="ModelHub\ModelDownloadRowPresentation.cs" />

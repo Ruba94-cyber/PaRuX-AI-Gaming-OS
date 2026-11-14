@@ -123,6 +123,8 @@ namespace PaRuX.Services
         public string? SelectedModelRepoId { get; private set; }
         public bool IsInModelHubHandoff { get; private set; }
         public bool ChatAnswerVerified { get; private set; }
+        /// <summary>Corporate Lite ships its own CPU engine: guidance must never point at installers or the Vulkan runtime.</summary>
+        public bool CorporateEdition { get; set; }
         /// <summary>Increments when the runtime, model or storage setup changes meaningfully.</summary>
         public int ConfigurationRevision { get; private set; }
         public ChatReadinessEvidence? LastEvidence { get; private set; }
@@ -414,6 +416,7 @@ namespace PaRuX.Services
                     CurrentReadiness = ReadinessAssessment.NotReady(
                         OnboardingStep.Components,
                         "No text runtime is installed or detected.",
+                        CorporateEdition ? OnboardingReadinessText.CorporateRuntimeMissingNextAction :
                         "PaRuX bundles the Vulkan runtime in the installer — choose 'Install with PaRuX' or 'Locate existing' for llama.cpp in Components.");
                 }
                 return CurrentReadiness;

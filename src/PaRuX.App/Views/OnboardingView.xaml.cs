@@ -619,6 +619,7 @@ namespace PaRuX.Views
                 _stateMachine.SetComponents(componentStates);
 
                 bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
+                _stateMachine.CorporateEdition = corporate;
                 bool standalonePortable = !corporate &&
                     PaRuXDataRoot.FindPortableDataRoot(AppContext.BaseDirectory) != null;
                 bool runtimeHealthy = OnboardingTextReadinessPolicy.HasInstalledRuntime(
@@ -694,7 +695,7 @@ namespace PaRuX.Views
             if (SetupSummaryText == null) return;
             if (assessment.IsReady)
             {
-                SetupSummaryText.Text = assessment.Summary;
+                SetupSummaryText.Text = PaRuX.Services.OnboardingReadinessText.Localize(assessment.Summary, SetupProfileItalian);
                 if (GetStartedButton != null)
                 {
                     GetStartedButton.Content = PaRuX.Contracts.CorporateMode.IsActive
@@ -705,8 +706,9 @@ namespace PaRuX.Views
             }
             else
             {
-                SetupSummaryText.Text = assessment.Summary
-                    + (string.IsNullOrWhiteSpace(assessment.NextAction) ? string.Empty : T("\n\nNext step: ", "\n\nPassaggio successivo: ") + assessment.NextAction);
+                SetupSummaryText.Text = PaRuX.Services.OnboardingReadinessText.Localize(assessment.Summary, SetupProfileItalian)
+                    + (string.IsNullOrWhiteSpace(assessment.NextAction) ? string.Empty : T("\n\nNext step: ", "\n\nPassaggio successivo: ")
+                        + PaRuX.Services.OnboardingReadinessText.Localize(assessment.NextAction, SetupProfileItalian));
                 if (GetStartedButton != null)
                 {
                     GetStartedButton.Content = PaRuX.Contracts.CorporateMode.IsActive
