@@ -174,19 +174,19 @@ namespace PaRuX.Services.Integrations
                 ManagedFileChange? settings = manifest.Files.FirstOrDefault(f => f.Kind == "claude-settings");
                 if (settings == null || !File.Exists(settings.Path))
                 {
-                    detail = "The PaRuX profile for Claude Code is missing; reconnect to recreate it.";
+                    detail = UiText.Pick("The PaRuX profile for Claude Code is missing; reconnect to recreate it.", "Il profilo PaRuX per Claude Code manca; riconnetti per ricrearlo.");
                     return ClientIntegrationStatus.ConfigurationError;
                 }
-                detail = "Isolated PaRuX profile; your normal Claude Code login and settings are untouched.";
+                detail = UiText.Pick("Isolated PaRuX profile; your normal Claude Code login and settings are untouched.", "Profilo PaRuX isolato; l'accesso e le impostazioni normali di Claude Code non vengono toccati.");
                 return ClientIntegrationStatus.Connected;
             }
             string? foreign = ForeignBaseUrl();
             if (foreign != null)
             {
-                detail = "Claude Code is pointed at " + foreign + ".";
+                detail = UiText.Pick("Claude Code is pointed at ", "Claude Code punta a ") + foreign + ".";
                 return ClientIntegrationStatus.UsingAnotherProvider;
             }
-            detail = "Uses Anthropic by default. Connect adds a separate PaRuX profile.";
+            detail = UiText.Pick("Uses Anthropic by default. Connect adds a separate PaRuX profile.", "Usa Anthropic per impostazione predefinita. Connetti aggiunge un profilo PaRuX separato.");
             return ClientIntegrationStatus.Available;
         }
 
@@ -230,7 +230,7 @@ namespace PaRuX.Services.Integrations
             manifest.Files.RemoveAll(f => f.Kind is "claude-settings" or "claude-profile");
             manifest.Files.Add(new ManagedFileChange { Path = settingsPath, CreatedByPaRuX = true, Kind = "claude-settings" });
             manifest.Files.Add(new ManagedFileChange { Path = profile, CreatedByPaRuX = true, Kind = "claude-profile" });
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, "PaRuX profile created at " + profile + ".");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, UiText.Pick("PaRuX profile created at ", "Profilo PaRuX creato in ") + profile + ".");
         }
 
         public IntegrationOutcome Remove(IntegrationManifest manifest, IntegrationStore store)
@@ -245,7 +245,7 @@ namespace PaRuX.Services.Integrations
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, "Could not remove the PaRuX Claude profile: " + ex.Message);
+                return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, UiText.Pick("Could not remove the PaRuX Claude profile: ", "Impossibile rimuovere il profilo Claude di PaRuX: ") + ex.Message);
             }
             try
             {
@@ -254,9 +254,9 @@ namespace PaRuX.Services.Integrations
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 return new IntegrationOutcome(true, ClientIntegrationStatus.Available,
-                    "PaRuX profile removed; some session files are still in use by an open Claude Code window and stay in " + profile + ".");
+                    UiText.Pick("PaRuX profile removed; some session files are still in use by an open Claude Code window and stay in ", "Profilo PaRuX rimosso; alcuni file di sessione sono ancora usati da una finestra di Claude Code aperta e restano in ") + profile + ".");
             }
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, "PaRuX profile removed. Your own Claude Code settings were never changed.");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, UiText.Pick("PaRuX profile removed. Your own Claude Code settings were never changed.", "Profilo PaRuX rimosso. Le tue impostazioni di Claude Code non sono mai state modificate."));
         }
 
         private static void AddEnvironment(ProcessStartInfo info, GatewayEndpoint endpoint, string profile)
@@ -328,7 +328,7 @@ namespace PaRuX.Services.Integrations
                     detail = CodexConfigEditor.ProfileFileName + " is missing or was changed outside PaRuX; reconnect to repair it.";
                     return ClientIntegrationStatus.ConfigurationError;
                 }
-                detail = "Profile \"parux\" in " + _environment.CodexHome + ". Your default Codex setup is untouched.";
+                detail = UiText.Pick("Profile \"parux\" in ", "Profilo \"parux\" in ") + _environment.CodexHome + UiText.Pick(". Your default Codex setup is untouched.", ". La tua configurazione Codex predefinita non viene toccata.");
                 return ClientIntegrationStatus.Connected;
             }
             if (profile != null && !CodexConfigEditor.IsManaged(profile))
@@ -339,10 +339,10 @@ namespace PaRuX.Services.Integrations
             string? provider = MainProvider(TryRead(MainConfigPath));
             if (provider != null && provider != "openai" && provider != "parux")
             {
-                detail = "Codex default provider is \"" + provider + "\".";
+                detail = UiText.Pick("Codex default provider is \"", "Il provider predefinito di Codex è \"") + provider + "\".";
                 return ClientIntegrationStatus.UsingAnotherProvider;
             }
-            detail = "Uses OpenAI by default. Connect adds a separate \"parux\" profile.";
+            detail = UiText.Pick("Uses OpenAI by default. Connect adds a separate \"parux\" profile.", "Usa OpenAI per impostazione predefinita. Connetti aggiunge un profilo \"parux\" separato.");
             return ClientIntegrationStatus.Available;
         }
 
@@ -364,25 +364,25 @@ namespace PaRuX.Services.Integrations
         public IntegrationOutcome Apply(GatewayEndpoint endpoint, IntegrationManifest manifest, IntegrationStore store)
         {
             string? text = CodexConfigEditor.Apply(TryRead(ProfilePath), TryRead(MainConfigPath), endpoint, out string? error);
-            if (text == null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, error ?? "Codex profile rejected.");
+            if (text == null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, error ?? UiText.Pick("Codex profile rejected.", "Profilo Codex rifiutato."));
             IntegrationStore.WriteAtomically(ProfilePath, text);
             if (!manifest.Files.Any(f => f.Kind == "codex-profile"))
                 manifest.Files.Add(new ManagedFileChange { Path = ProfilePath, CreatedByPaRuX = true, Kind = "codex-profile" });
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, "Profile written to " + ProfilePath + ".");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, UiText.Pick("Profile written to ", "Profilo scritto in ") + ProfilePath + ".");
         }
 
         public IntegrationOutcome Remove(IntegrationManifest manifest, IntegrationStore store)
         {
             string? existing = TryRead(ProfilePath);
-            if (existing == null) return new IntegrationOutcome(true, ClientIntegrationStatus.Available, "No PaRuX profile to remove.");
+            if (existing == null) return new IntegrationOutcome(true, ClientIntegrationStatus.Available, UiText.Pick("No PaRuX profile to remove.", "Nessun profilo PaRuX da rimuovere."));
             if (!CodexConfigEditor.IsManaged(existing))
                 return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, CodexConfigEditor.ProfileFileName + " is not PaRuX's; it was left in place.");
             try { File.Delete(ProfilePath); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, "Could not remove the Codex profile: " + ex.Message);
+                return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, UiText.Pick("Could not remove the Codex profile: ", "Impossibile rimuovere il profilo Codex: ") + ex.Message);
             }
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, "Removed " + CodexConfigEditor.ProfileFileName + ". config.toml was never changed.");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, UiText.Pick("Removed ", "Rimosso ") + CodexConfigEditor.ProfileFileName + UiText.Pick(". config.toml was never changed.", ". config.toml non è mai stato modificato."));
         }
 
         public ProcessStartInfo CreateLaunch(string executable, GatewayEndpoint endpoint, string workingDirectory, IntegrationStore store) =>
@@ -458,20 +458,20 @@ namespace PaRuX.Services.Integrations
             {
                 if (!HasManagedProvider(text))
                 {
-                    detail = "Provider \"parux\" is missing from " + ConfigPath + "; reconnect to repair it.";
+                    detail = UiText.Pick("Provider \"parux\" is missing from ", "Il provider \"parux\" manca da ") + ConfigPath + UiText.Pick("; reconnect to repair it.", "; riconnetti per ripararlo.");
                     return ClientIntegrationStatus.ConfigurationError;
                 }
                 detail = defaultProvider != null && defaultProvider != OpenCodeConfigEditor.ProviderId
-                    ? "Provider \"parux\" added; your default stays \"" + defaultProvider + "\" (Launch uses PaRuX)."
-                    : "Provider \"parux\" added to " + ConfigPath + ".";
+                    ? UiText.Pick("Provider \"parux\" added; your default stays \"", "Provider \"parux\" aggiunto; il tuo predefinito resta \"") + defaultProvider + UiText.Pick("\" (Launch uses PaRuX).", "\" (Avvia usa PaRuX).")
+                    : UiText.Pick("Provider \"parux\" added to ", "Provider \"parux\" aggiunto a ") + ConfigPath + ".";
                 return ClientIntegrationStatus.Connected;
             }
             if (defaultProvider != null && defaultProvider != OpenCodeConfigEditor.ProviderId)
             {
-                detail = "OpenCode default provider is \"" + defaultProvider + "\".";
+                detail = UiText.Pick("OpenCode default provider is \"", "Il provider predefinito di OpenCode è \"") + defaultProvider + "\".";
                 return ClientIntegrationStatus.UsingAnotherProvider;
             }
-            detail = "Connect adds a \"parux\" provider; other providers are kept.";
+            detail = UiText.Pick("Connect adds a \"parux\" provider; other providers are kept.", "Connetti aggiunge un provider \"parux\"; gli altri provider restano.");
             return ClientIntegrationStatus.Available;
         }
 
@@ -499,7 +499,7 @@ namespace PaRuX.Services.Integrations
                 manifest.Files.Add(new ManagedFileChange { Path = path, BackupPath = backup, CreatedByPaRuX = existing == null, Kind = "opencode-config" });
             }
             IntegrationStore.WriteAtomically(path, text);
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, "Provider \"parux\" added to " + path + ".");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Connected, UiText.Pick("Provider \"parux\" added to ", "Provider \"parux\" aggiunto a ") + path + ".");
         }
 
         public IntegrationOutcome Remove(IntegrationManifest manifest, IntegrationStore store)
@@ -511,7 +511,7 @@ namespace PaRuX.Services.Integrations
                 return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError,
                     path + " now contains comments, so PaRuX cannot remove its provider safely. Remove the \"parux\" provider by hand or use Restore.");
             string? updated = OpenCodeConfigEditor.Remove(current, out bool changed);
-            if (!changed || updated == null) return new IntegrationOutcome(true, ClientIntegrationStatus.Available, "No PaRuX provider to remove.");
+            if (!changed || updated == null) return new IntegrationOutcome(true, ClientIntegrationStatus.Available, UiText.Pick("No PaRuX provider to remove.", "Nessun provider PaRuX da rimuovere."));
             ManagedFileChange? record = manifest.Files.FirstOrDefault(f => f.Kind == "opencode-config");
             // A file PaRuX created that now holds nothing else is removed instead of left behind.
             if (record?.CreatedByPaRuX == true && IsEmptyConfig(updated))
@@ -523,7 +523,7 @@ namespace PaRuX.Services.Integrations
             {
                 IntegrationStore.WriteAtomically(path, updated);
             }
-            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, "Provider \"parux\" removed; your other providers were kept.");
+            return new IntegrationOutcome(true, ClientIntegrationStatus.Available, UiText.Pick("Provider \"parux\" removed; your other providers were kept.", "Provider \"parux\" rimosso; gli altri provider sono stati conservati."));
         }
 
         private static bool IsEmptyConfig(string text)

@@ -24,8 +24,8 @@ namespace PaRuX.Views
         private readonly StackPanel _line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Visibility = Visibility.Collapsed };
         private readonly ProgressRing _ring = new ProgressRing { Width = 14, Height = 14, IsActive = true, VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBlock _lineText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 560 };
-        private readonly Button _lineCancel = new Button { Content = "Cancel", Padding = new Thickness(8, 2, 8, 2) };
-        private readonly Button _barCancel = new Button { Content = "Cancel" };
+        private readonly Button _lineCancel = new Button { Content = UiText.Pick("Cancel", "Annulla"), Padding = new Thickness(8, 2, 8, 2) };
+        private readonly Button _barCancel = new Button { Content = UiText.Pick("Cancel", "Annulla") };
         private DispatcherTimer? _timer;
         private bool _inFlight;
         private string? _cancelId;

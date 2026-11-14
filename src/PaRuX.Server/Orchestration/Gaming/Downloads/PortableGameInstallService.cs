@@ -30,6 +30,8 @@ public sealed class PortableGameInstallService
     private readonly Func<bool> _gaming;
     private readonly Func<CancellationToken> _gamingCancellation;
     private readonly string _root;
+    private readonly TimeSpan _leaseWait;
+    private readonly Func<CancellationToken, Task>? _afterLeaseAcquired;
 
     public PortableGameInstallService(ManualGameLibrary library, LocalRuntimeService runtime)
         : this(library, () => runtime.GamingMode || GamingHardOffWatch.MarkerActive(),
@@ -37,8 +39,11 @@ public sealed class PortableGameInstallService
             Path.Combine(PaRuXDataRoot.Path, "server", "portable-games")) { }
 
     internal PortableGameInstallService(ManualGameLibrary library, Func<bool> gaming,
-        Func<CancellationToken> gamingCancellation, string root)
+        Func<CancellationToken> gamingCancellation, string root, TimeSpan? leaseWait = null,
+        Func<CancellationToken, Task>? afterLeaseAcquired = null)
     {
+        _leaseWait = leaseWait ?? TimeSpan.FromSeconds(5);
+        _afterLeaseAcquired = afterLeaseAcquired; // test seam only: runs while the real lease is held
         _library = library;
         _gaming = gaming;
         _gamingCancellation = gamingCancellation;
@@ -98,6 +103,7 @@ public sealed class PortableGameInstallService
 
         EnsureLocalRegularDirectory(_root, create: true);
         using FileStream lease = await AcquireLeaseAsync(token).ConfigureAwait(false);
+        if (_afterLeaseAcquired is not null) await _afterLeaseAcquired(token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         if (_gaming()) throw new OperationCanceledException(token);
 
@@ -266,7 +272,7 @@ public sealed class PortableGameInstallService
             try { return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
             catch (IOException ex) when (IsSharingViolation(ex))
             {
-                if (clock.Elapsed >= TimeSpan.FromSeconds(5))
+                if (clock.Elapsed >= _leaseWait)
                     throw new PortableInstallBusyException();
                 await Task.Delay(40, ct).ConfigureAwait(false);
             }

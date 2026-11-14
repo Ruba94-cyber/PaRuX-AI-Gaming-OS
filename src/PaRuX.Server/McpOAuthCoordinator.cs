@@ -64,7 +64,7 @@ internal sealed class McpOAuthCoordinator
             _pending[serverId] = authorizationUrl.ToString();
             try
             {
-                return await WaitForCodeAsync(redirectUri, cancellationToken).ConfigureAwait(false);
+                return await WaitForCodeAsync(redirectUri, ExpectedState(authorizationUrl), cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -72,7 +72,24 @@ internal sealed class McpOAuthCoordinator
             }
         };
 
-    private static async Task<string?> WaitForCodeAsync(Uri redirectUri, CancellationToken cancellationToken)
+    /// <summary>The OAuth <c>state</c> the authorization server will echo back, or null when the URL carries none.</summary>
+    internal static string? ExpectedState(Uri authorizationUrl)
+    {
+        foreach (string pair in authorizationUrl.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            int equals = pair.IndexOf('=');
+            if (equals > 0 && pair[..equals] == "state") return Uri.UnescapeDataString(pair[(equals + 1)..].Replace('+', ' '));
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Waits for the redirect on the one-shot loopback listener. Only a GET to the exact callback path whose <c>state</c> equals the
+    /// one PaRuX sent is accepted; any other request (a stray local process, a web page probing loopback ports) gets a 400 and the
+    /// wait continues until the timeout, so it can neither inject a code nor end the flow early.
+    /// </summary>
+    internal static async Task<string?> WaitForCodeAsync(Uri redirectUri, string? expectedState, CancellationToken cancellationToken,
+        TimeSpan? timeoutOverride = null)
     {
         string prefix = redirectUri.GetLeftPart(UriPartial.Path);
         if (!prefix.EndsWith('/')) prefix += "/";
@@ -83,20 +100,32 @@ internal sealed class McpOAuthCoordinator
         catch (HttpListenerException) { return null; }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(AuthorizationTimeout);
+        timeout.CancelAfter(timeoutOverride ?? AuthorizationTimeout);
 
         try
         {
-            HttpListenerContext context = await listener.GetContextAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
-            string? code = context.Request.QueryString["code"];
-            string? error = context.Request.QueryString["error"];
+            while (true)
+            {
+                HttpListenerContext context = await listener.GetContextAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
+                string? state = context.Request.QueryString["state"];
+                bool genuine = context.Request.HttpMethod == "GET"
+                    && string.Equals(context.Request.Url?.AbsolutePath, new Uri(prefix).AbsolutePath, StringComparison.Ordinal)
+                    && (expectedState is null || (state is not null && FixedTimeEquals(state, expectedState)));
+                if (!genuine)
+                {
+                    await RespondAsync(context, "This request was not the expected authorization response.", 400).ConfigureAwait(false);
+                    continue;
+                }
+                string? code = context.Request.QueryString["code"];
+                string? error = context.Request.QueryString["error"];
 
-            await RespondAsync(context, code != null
-                ? "PaRuX is connected to this MCP server. You can close this tab."
-                : "Authorization failed" + (error == null ? "." : ": " + error) + " You can close this tab.")
-                .ConfigureAwait(false);
+                await RespondAsync(context, code != null
+                    ? "PaRuX is connected to this MCP server. You can close this tab."
+                    : "Authorization failed" + (error == null ? "." : ": " + error) + " You can close this tab.")
+                    .ConfigureAwait(false);
 
-            return code;
+                return code;
+            }
         }
         catch (OperationCanceledException) { return null; }
         catch (HttpListenerException) { return null; }
@@ -106,7 +135,11 @@ internal sealed class McpOAuthCoordinator
         }
     }
 
-    private static async Task RespondAsync(HttpListenerContext context, string message)
+    private static bool FixedTimeEquals(string a, string b) =>
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(a), System.Text.Encoding.UTF8.GetBytes(b));
+
+    private static async Task RespondAsync(HttpListenerContext context, string message, int status = 200)
     {
         try
         {
@@ -114,6 +147,7 @@ internal sealed class McpOAuthCoordinator
                 "<!doctype html><meta charset=\"utf-8\"><title>PaRuX</title>"
                 + "<body style=\"font:16px system-ui;padding:3rem\">"
                 + WebUtility.HtmlEncode(message) + "</body>");
+            context.Response.StatusCode = status;
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = body.Length;
             await context.Response.OutputStream.WriteAsync(body).ConfigureAwait(false);

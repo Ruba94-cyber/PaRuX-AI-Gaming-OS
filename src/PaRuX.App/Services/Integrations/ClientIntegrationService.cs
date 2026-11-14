@@ -64,7 +64,7 @@ namespace PaRuX.Services.Integrations
             if (version == null && status is ClientIntegrationStatus.Available)
             {
                 status = ClientIntegrationStatus.Detected;
-                detail = "Found at " + executable + " but it did not report a version.";
+                detail = UiText.Pick("Found at ", "Trovato in ") + executable + UiText.Pick(" but it did not report a version.", " ma non ha riportato una versione.");
             }
             else if (version != null && CompareVersions(version, client.TestedVersion) < 0)
             {
@@ -78,25 +78,25 @@ namespace PaRuX.Services.Integrations
             await _gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                progress?.Report("Detecting " + client.DisplayName + "…");
+                progress?.Report(UiText.Pick("Detecting ", "Rilevamento di ") + client.DisplayName + "…");
                 ClientDetection detection = await DetectAsync(client, ct).ConfigureAwait(false);
                 if (!detection.Installed)
                     return new IntegrationOutcome(false, ClientIntegrationStatus.NotInstalled, detection.Detail);
 
-                progress?.Report("Checking the PaRuX gateway…");
+                progress?.Report(UiText.Pick("Checking the PaRuX gateway…", "Controllo del gateway PaRuX…"));
                 string? healthError = await CheckGatewayAsync(gatewayBaseUrl, null, ct).ConfigureAwait(false);
                 if (healthError != null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, healthError);
 
                 IntegrationManifest manifest = _store.Load(client.ClientId) ?? new IntegrationManifest { ClientId = client.ClientId };
-                progress?.Report("Setting up the local access key…");
+                progress?.Report(UiText.Pick("Setting up the local access key…", "Preparazione della chiave di accesso locale…"));
                 string? key = await EnsureKeyAsync(client, manifest, ct).ConfigureAwait(false);
-                if (key == null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, "PaRuX could not issue a local access key.");
+                if (key == null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, UiText.Pick("PaRuX could not issue a local access key.", "PaRuX non è riuscito a creare una chiave di accesso locale."));
 
                 string? authError = await CheckGatewayAsync(gatewayBaseUrl, key, ct).ConfigureAwait(false);
                 if (authError != null) return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, authError);
 
                 var endpoint = new GatewayEndpoint(gatewayBaseUrl.TrimEnd('/'), key, model);
-                progress?.Report("Writing the " + client.DisplayName + " configuration (with backup)…");
+                progress?.Report(UiText.Pick("Writing the ", "Scrittura della configurazione di ") + client.DisplayName + UiText.Pick(" configuration (with backup)…", " (con backup)…"));
                 IntegrationOutcome applied = client.Apply(endpoint, manifest, _store);
                 if (!applied.Success)
                 {
@@ -111,12 +111,12 @@ namespace PaRuX.Services.Integrations
                 manifest.GatewayBaseUrl = endpoint.BaseUrl;
                 _store.Save(manifest);
 
-                progress?.Report("Running a real test with " + client.DisplayName + "…");
+                progress?.Report(UiText.Pick("Running a real test with ", "Esecuzione di un test reale con ") + client.DisplayName + "…");
                 IntegrationOutcome tested = await RunTestAsync(client, detection.ExecutablePath!, endpoint, manifest, ct).ConfigureAwait(false);
                 return tested.Success
-                    ? new IntegrationOutcome(true, ClientIntegrationStatus.Connected, "Connected. " + tested.Message)
+                    ? new IntegrationOutcome(true, ClientIntegrationStatus.Connected, UiText.Pick("Connected. ", "Connesso. ") + tested.Message)
                     : new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError,
-                        "Configured, but the test failed: " + tested.Message + " Use Test to retry or Disconnect to undo.");
+                        UiText.Pick("Configured, but the test failed: ", "Configurato, ma il test non è riuscito: ") + tested.Message + UiText.Pick(" Use Test to retry or Disconnect to undo.", " Usa Prova per riprovare o Disconnetti per annullare."));
             }
             finally
             {
@@ -149,10 +149,10 @@ namespace PaRuX.Services.Integrations
         {
             IntegrationManifest? manifest = _store.Load(client.ClientId);
             GatewayEndpoint? endpoint = EndpointFor(manifest);
-            if (endpoint == null) return new IntegrationOutcome(false, ClientIntegrationStatus.Available, "Connect " + client.DisplayName + " first.");
+            if (endpoint == null) return new IntegrationOutcome(false, ClientIntegrationStatus.Available, UiText.Pick("Connect ", "Connetti prima ") + client.DisplayName + UiText.Pick(" first.", "."));
             string? executable = client.Locate().FirstOrDefault();
             if (executable == null) return new IntegrationOutcome(false, ClientIntegrationStatus.NotInstalled, client.DisplayName + " was not found.");
-            if (!Directory.Exists(workingDirectory)) return new IntegrationOutcome(false, ClientIntegrationStatus.Connected, "Folder not found: " + workingDirectory);
+            if (!Directory.Exists(workingDirectory)) return new IntegrationOutcome(false, ClientIntegrationStatus.Connected, UiText.Pick("Folder not found: ", "Cartella non trovata: ") + workingDirectory);
             try
             {
                 using Process? process = Process.Start(client.CreateLaunch(executable, endpoint, workingDirectory, _store));
@@ -162,7 +162,7 @@ namespace PaRuX.Services.Integrations
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException)
             {
-                return new IntegrationOutcome(false, ClientIntegrationStatus.Connected, "Could not start " + client.DisplayName + ": " + ex.Message);
+                return new IntegrationOutcome(false, ClientIntegrationStatus.Connected, UiText.Pick("Could not start ", "Impossibile avviare ") + client.DisplayName + ": " + ex.Message);
             }
         }
 
@@ -196,19 +196,19 @@ namespace PaRuX.Services.Integrations
             try
             {
                 IntegrationManifest? manifest = _store.Load(client.ClientId);
-                if (manifest == null) return new IntegrationOutcome(false, ClientIntegrationStatus.Available, "Nothing to restore: " + client.DisplayName + " is not connected.");
+                if (manifest == null) return new IntegrationOutcome(false, ClientIntegrationStatus.Available, UiText.Pick("Nothing to restore: ", "Niente da ripristinare: ") + client.DisplayName + UiText.Pick(" is not connected.", " non è connesso."));
                 IntegrationOutcome removed = client.Remove(manifest, _store);
                 foreach (ManagedFileChange change in manifest.Files.Where(f => f.BackupPath != null))
                 {
                     if (!File.Exists(change.BackupPath))
-                        return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, "Backup missing: " + change.BackupPath);
+                        return new IntegrationOutcome(false, ClientIntegrationStatus.ConfigurationError, UiText.Pick("Backup missing: ", "Backup mancante: ") + change.BackupPath);
                     File.Copy(change.BackupPath!, change.Path, overwrite: true);
                 }
                 if (manifest.ApiKeyId != null) await TryRevokeAsync(manifest.ApiKeyId, ct).ConfigureAwait(false);
                 _store.Delete(client.ClientId);
                 int restored = manifest.Files.Count(f => f.BackupPath != null);
                 return new IntegrationOutcome(true, ClientIntegrationStatus.Available,
-                    (restored > 0 ? "Restored " + restored + " file(s) from the pre-connect backup." : "Removed PaRuX's configuration (nothing needed restoring).")
+                    (restored > 0 ? UiText.Pick("Restored ", "Ripristinati ") + restored + UiText.Pick(" file(s) from the pre-connect backup.", " file dal backup precedente alla connessione.") : UiText.Pick("Removed PaRuX's configuration (nothing needed restoring).", "Configurazione di PaRuX rimossa (non serviva ripristinare nulla)."))
                     + (removed.Success ? string.Empty : " Note: " + removed.Message));
             }
             finally
@@ -253,12 +253,12 @@ namespace PaRuX.Services.Integrations
                 using HttpResponseMessage response = await _http.SendAsync(request, ct).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode) return null;
                 return key == null
-                    ? "The PaRuX gateway at " + baseUrl + " answered " + (int)response.StatusCode + "."
-                    : "The PaRuX gateway rejected the access key (" + (int)response.StatusCode + ").";
+                    ? UiText.Pick("The PaRuX gateway at ", "Il gateway PaRuX a ") + baseUrl + UiText.Pick(" answered ", " ha risposto ") + (int)response.StatusCode + "."
+                    : UiText.Pick("The PaRuX gateway rejected the access key (", "Il gateway PaRuX ha rifiutato la chiave di accesso (") + (int)response.StatusCode + ").";
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
             {
-                return "The PaRuX gateway is not reachable at " + baseUrl + ". Check Settings > Integrations > Gateway.";
+                return UiText.Pick("The PaRuX gateway is not reachable at ", "Il gateway PaRuX non è raggiungibile a ") + baseUrl + UiText.Pick(". Check Settings > Integrations > Gateway.", ". Controlla Impostazioni > Integrazioni > Gateway.");
             }
         }
 
@@ -305,9 +305,9 @@ namespace PaRuX.Services.Integrations
             bool passed = content == client.TestMarker;
             string detail = passed
                 ? client.DisplayName + " created " + client.TestFileName + " through PaRuX in " + (int)watch.Elapsed.TotalSeconds + " s."
-                : timedOut ? "No result within " + (int)TestTimeout.TotalMinutes + " minutes."
-                : content == null ? "The file was not created. " + Tail(output)
-                : "The file content was \"" + Truncate(content, 80) + "\" instead of " + client.TestMarker + ".";
+                : timedOut ? UiText.Pick("No result within ", "Nessun risultato entro ") + (int)TestTimeout.TotalMinutes + UiText.Pick(" minutes.", " minuti.")
+                : content == null ? UiText.Pick("The file was not created. ", "Il file non è stato creato. ") + Tail(output)
+                : UiText.Pick("The file content was \"", "Il contenuto del file era \"") + Truncate(content, 80) + UiText.Pick("\" instead of ", "\" invece di ") + client.TestMarker + ".";
             manifest.LastTestUtc = DateTime.UtcNow;
             manifest.LastTestPassed = passed;
             manifest.LastTestDetail = detail;

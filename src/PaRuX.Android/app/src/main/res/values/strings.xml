@@ -1,5 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PaRuX</string>
+    <string name="app_name" translatable="false">PaRuX</string>
     <string name="app_tagline">Your Local AI</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_connection">Connection</string>
+    <string name="settings_pc_name" translatable="false">PaRuX PC</string>
+    <string name="settings_connected">Connected</string>
+    <string name="settings_offline">Offline</string>
+    <string name="settings_checking">Checking…</string>
+    <string name="settings_forget_title">Forget this device</string>
+    <string name="settings_forget_hint">Removes the pairing locally. Revoke the device from PaRuX Windows too if you no longer trust it.</string>
+    <string name="settings_forget_action">Forget</string>
+    <string name="settings_section_execution">Execution</string>
+    <string name="settings_quality_title">Shared quality profile</string>
+    <string name="settings_quality_hint">Uses the same Fast / Balanced / Maximum Quality / Overnight policy as PaRuX Windows. Low-level runtime tuning remains PC-owned.</string>
+    <string name="settings_quality_fast">Fast</string>
+    <string name="settings_quality_balanced">Balanced</string>
+    <string name="settings_quality_maximum">Maximum Quality</string>
+    <string name="settings_quality_overnight">Overnight</string>
+    <string name="settings_preferred_context">Preferred context</string>
+    <string name="settings_reasoning_effort">Reasoning effort</string>
+    <string name="settings_policy_evidence">Policy evidence</string>
+    <string name="settings_section_health">Workstation health</string>
+    <string name="settings_no_observability">No V2 observability evidence yet.</string>
+    <string name="settings_engine_races">Engine races</string>
+    <string name="settings_race_winners">Race winners</string>
+    <string name="settings_section_system">System</string>
+    <string name="settings_gaming_mode">Gaming Mode</string>
+    <string name="settings_active">Active</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_model_runtime">Model runtime</string>
+    <string name="settings_ready">Ready</string>
+    <string name="settings_not_loaded">Not loaded</string>
+    <string name="settings_section_advanced">Advanced</string>
+    <string name="settings_api_surface">API surface</string>
+    <string name="settings_api_surface_value" translatable="false">v1 + safe v2</string>
+    <string name="settings_app_version">App version</string>
+    <string name="settings_source_revision">Source revision</string>
+    <string name="settings_development_build">development build</string>
+    <string name="settings_profile_active">✓ Active</string>
+    <string name="settings_profile_select">Select</string>
+    <string name="settings_auto">Auto</string>
 </resources>

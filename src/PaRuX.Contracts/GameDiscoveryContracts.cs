@@ -21,4 +21,9 @@ public sealed record DiscoveredGameDto(
     string ProviderGameId,
     string Name,
     string InstallDirectory,
-    string InstallState = GameInstallStates.Unknown);
+    string InstallState = GameInstallStates.Unknown)
+{
+    /// <summary>Additive (GAM-006): the store's own manifest says a newer build is waiting while this one is still playable.
+    /// Read from the local manifest only; PaRuX never contacts a store to ask. Older payloads omit it.</summary>
+    public bool UpdatePending { get; init; }
+}

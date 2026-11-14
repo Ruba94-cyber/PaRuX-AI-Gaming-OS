@@ -33,6 +33,9 @@ public sealed record GameInstallationDto(string InstallationId, string Source, s
 
     /// <summary>Additive: one of <see cref="GameInstallStates"/>; defaults to unknown when a source cannot tell.</summary>
     public string InstallState { get; init; } = GameInstallStates.Unknown;
+
+    /// <summary>Additive (GAM-006): a newer build is waiting in the store client; this installation still starts. Older payloads omit it.</summary>
+    public bool UpdatePending { get; init; }
 }
 
 /// <summary>

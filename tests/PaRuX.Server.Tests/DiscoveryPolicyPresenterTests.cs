@@ -76,7 +76,7 @@ namespace PaRuX.Server.Tests
             Assert.Equal(DiscoveryPolicyPresenter.PromotionPolicyLabel, neverPresentation.Label);
             Assert.True(neverPresentation.IsEnabled);
             Assert.Equal("never", neverPresentation.Value);
-            Assert.Contains("Never replace pinned or manual choices", neverPresentation.Explanation);
+            Assert.Contains("Pinned or manual choices are never replaced", neverPresentation.Explanation);
 
             var options = DiscoveryPolicyPresenter.GetPromotionOptions();
             Assert.Equal(3, options.Count);

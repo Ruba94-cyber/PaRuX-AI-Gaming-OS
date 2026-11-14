@@ -10,6 +10,7 @@ namespace PaRuX.Server.Tests;
 /// guarantee that nothing outside PaRuX's own entries is changed. Clients are replaced by small
 /// .cmd scripts that behave like the real CLI's file-creation test.
 /// </summary>
+[EnglishUi]
 public sealed class ClientIntegrationTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "parux-integrations-" + Guid.NewGuid().ToString("N"));

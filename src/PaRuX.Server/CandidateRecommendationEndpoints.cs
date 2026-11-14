@@ -9,11 +9,11 @@ internal static class CandidateRecommendationEndpoints
     internal static void MapCandidateRecommendationEndpoints(this WebApplication app)
     {
         app.MapGet("/api/v1/models/candidate-recommendation/status", (CandidateRecommendationStore store,
-            LocalAiProcessManager process, HttpContext context) =>
+            LocalAiProcessManager process, CandidateRecommendationService service, HttpContext context) =>
         {
             if (!CandidateUtilityEndpoints.IsDesktopLoopbackOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
             try { return Results.Ok(BuildStatus(store.Load(), ManualSelectionGate.GetUserPinReason(
-                CandidateGeneralChatQualitySuite.RouteRole, CandidateGeneralChatQualitySuite.AutoProfile), process.GamingActive)); }
+                CandidateGeneralChatQualitySuite.RouteRole, CandidateGeneralChatQualitySuite.AutoProfile), process.GamingActive, service.LastAutomaticAttempt)); }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             { return Results.Json(Unavailable("store_unreadable", -1), statusCode: StatusCodes.Status503ServiceUnavailable); }
         });
@@ -40,7 +40,7 @@ internal static class CandidateRecommendationEndpoints
     }
 
     internal static CandidateRecommendationStatusResponse BuildStatus(CandidateRecommendationSnapshot snapshot,
-        string? pinReason, bool gaming)
+        string? pinReason, bool gaming, CandidateRecommendationService.AutomaticPromotionAttempt? lastAutomatic = null)
     {
         CandidateRecommendationRecord? active = snapshot.GetActiveRecord();
         string state = snapshot.Pending is not null ? "Pending" : snapshot.Active is not null ? "Active" : "None";
@@ -52,7 +52,8 @@ internal static class CandidateRecommendationEndpoints
             pinReason is null ? null : CandidateReasonText.Explain(pinReason), gaming,
             CanPromote: snapshot.Pending is null && pinReason is null && !gaming,
             CanRollback: snapshot.Pending is null && snapshot.Active is not null && snapshot.Previous is not null
-                && pinReason is null && !gaming);
+                && pinReason is null && !gaming,
+            lastAutomatic?.ReasonCode, lastAutomatic?.Outcome, lastAutomatic?.AtUtc);
     }
 
     /// <summary>The single mapping from a coordinator result to the typed HTTP outcome (see the response contract).</summary>

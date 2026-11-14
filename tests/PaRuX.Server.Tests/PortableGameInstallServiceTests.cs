@@ -170,6 +170,54 @@ public sealed class PortableGameInstallServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Two_concurrent_installs_one_succeeds_the_other_is_busy_and_a_retry_then_succeeds()
+    {
+        // Two different synthetic archives against the real service and the real on-disk lease (no mock of the lease).
+        // Install A is parked while it holds the lease; install B must report "busy" within its short wait and change nothing.
+        string zipA = Path.Combine(_root, "a.zip"), zipB = Path.Combine(_root, "b.zip");
+        WriteZip(zipA, ("A.exe", "inert A"));
+        WriteZip(zipB, ("B.exe", "inert B"));
+        var holding = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = new PortableGameInstallService(Library, () => false, () => CancellationToken.None, InstallRoot,
+            afterLeaseAcquired: async ct => { holding.SetResult(); await release.Task.WaitAsync(ct); });
+        var second = new PortableGameInstallService(Library, () => false, () => CancellationToken.None, InstallRoot,
+            leaseWait: TimeSpan.FromMilliseconds(300));
+
+        Task<ManualGameDto> a = first.InstallAsync(zipA, Sha(zipA), "A.exe", "Game A", CancellationToken.None);
+        await holding.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var busy = await Assert.ThrowsAsync<PortableGameInstallService.PortableInstallBusyException>(() =>
+            second.InstallAsync(zipB, Sha(zipB), "B.exe", "Game B", CancellationToken.None));
+        Assert.Contains("in progress", busy.Message);
+        Assert.True(File.Exists(zipB)); // the busy install kept its archive
+        Assert.Empty(Library.List());   // and registered nothing while A is still running
+
+        release.SetResult();
+        ManualGameDto installedA = await a.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.Equal("Game A", installedA.Name);
+
+        // Retrying B once A has finished succeeds, so the busy state is recoverable and not sticky.
+        ManualGameDto installedB = await second.InstallAsync(zipB, Sha(zipB), "B.exe", "Game B", CancellationToken.None);
+        Assert.Equal("Game B", installedB.Name);
+        Assert.Equal(new[] { "Game A", "Game B" }, Library.List().Select(g => g.Name).Order());
+        Assert.NotEqual(installedA.ExecutablePath, installedB.ExecutablePath);
+        Assert.Empty(Directory.GetDirectories(InstallRoot, "*.partial"));
+    }
+
+    private static void WriteZip(string path, params (string Path, string Body)[] files)
+    {
+        using var stream = File.Create(path);
+        using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
+        foreach ((string entryPath, string body) in files)
+        {
+            var entry = zip.CreateEntry(entryPath, CompressionLevel.NoCompression);
+            using var writer = new StreamWriter(entry.Open(), Encoding.UTF8);
+            writer.Write(body);
+        }
+    }
+
+    [Fact]
     public void Download_enqueuing_requires_opt_in_zip_and_independent_sha()
     {
         using var manager = new GameDownloadManager(new System.Net.Http.HttpClient(),

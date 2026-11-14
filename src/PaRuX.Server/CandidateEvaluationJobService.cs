@@ -67,11 +67,13 @@ internal sealed class CandidateEvaluationJobService : IHostedService, IDisposabl
     }
 
     private readonly Func<bool>? _isGamingActive;
+    private readonly Func<string, string, CancellationToken, Task>? _onCompleted;
 
     internal CandidateEvaluationJobService(ModelDiscoveryCatalogStore catalog, CandidateEvidenceService evidence,
         ICandidateTextQualityRunner quality, ICandidateTextPerformanceRunner performance,
         CancellationToken stopping, Func<DateTime>? utcNow = null, CandidateEvaluationJobStore? summaryStore = null,
-        Func<bool>? isGamingActive = null)
+        Func<bool>? isGamingActive = null,
+        Func<string, string, CancellationToken, Task>? onCompleted = null)
     {
         _catalog = catalog;
         _evidence = evidence;
@@ -81,6 +83,7 @@ internal sealed class CandidateEvaluationJobService : IHostedService, IDisposabl
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _summaryStore = summaryStore ?? new CandidateEvaluationJobStore();
         _isGamingActive = isGamingActive;
+        _onCompleted = onCompleted;
         LoadAndRecoverSummaries();
     }
 
@@ -353,7 +356,26 @@ internal sealed class CandidateEvaluationJobService : IHostedService, IDisposabl
                 }
             }
             job.Cancellation.Dispose();
+            NotifyCompleted(job, status);
         }
+    }
+
+    /// <summary>Only a fully completed evaluation of the scope that can be recommended (general chat) may reach the
+    /// policy-driven promotion hook; cancelled, failed and other-scope runs never do.</summary>
+    internal static bool ShouldNotifyCompleted(string status, string? capability) =>
+        status == "Completed" && capability == CandidateGeneralChatQualitySuite.Capability;
+
+    private void NotifyCompleted(Job job, string status)
+    {
+        if (_onCompleted is null || !ShouldNotifyCompleted(status, job.Capability) || _stopping.IsCancellationRequested) return;
+        string key = job.CandidateKey, file = job.ManagedFileName;
+        // Off the job task: stopping the service must not wait for a policy-driven model switch, which has its own
+        // cancellation (the stopping token) and typed refusals.
+        _ = Task.Run(async () =>
+        {
+            try { await _onCompleted(key, file, _stopping).ConfigureAwait(false); }
+            catch (Exception) { /* the callback records its own typed outcome; nothing may escape here */ }
+        }, CancellationToken.None);
     }
 
     private static void RecordLaunch(Job job, TextLaunchDescriptor? launch, string? refusal)

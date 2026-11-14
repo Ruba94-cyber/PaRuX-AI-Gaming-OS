@@ -36,7 +36,7 @@ public static class GameTileListModel
         {
             GameInstallationDto x = a.Installations[i], y = b.Installations[i];
             if (x.InstallationId != y.InstallationId || x.Source != y.Source || x.Kind != y.Kind || x.Platform != y.Platform
-                || x.InstallState != y.InstallState || x.EmulatorName != y.EmulatorName) return false;
+                || x.InstallState != y.InstallState || x.UpdatePending != y.UpdatePending || x.EmulatorName != y.EmulatorName) return false;
         }
         return true;
     }

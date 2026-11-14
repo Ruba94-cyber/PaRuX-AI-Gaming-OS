@@ -89,8 +89,11 @@ public sealed class SteamGameDiscoveryProvider
 
                     string location = Path.Combine(directory, "common", installFolder);
                     if (!Directory.Exists(location)) continue;
-                    games.TryAdd(id, new DiscoveredGameDto("steam", id, name, location,
-                        InstallStateFromFlags(FindValue(text, "StateFlags"))));
+                    string? stateFlags = FindValue(text, "StateFlags");
+                    games.TryAdd(id, new DiscoveredGameDto("steam", id, name, location, InstallStateFromFlags(stateFlags))
+                    {
+                        UpdatePending = UpdatePendingFromManifest(stateFlags, FindValue(text, "buildid"), FindValue(text, "TargetBuildID")),
+                    });
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or RegexMatchTimeoutException)
@@ -134,6 +137,23 @@ public sealed class SteamGameDiscoveryProvider
             return (flags & (UpdateRunning | UpdateStarted)) != 0 ? GameInstallStates.Updating : GameInstallStates.Installed;
         return (flags & (UpdateRunning | UpdatePaused | UpdateStarted)) != 0
             ? GameInstallStates.Updating : GameInstallStates.Incomplete;
+    }
+
+    /// <summary>
+    /// True when Steam's own manifest records a newer build for an installation that is still playable: "update required"
+    /// (flag 2) with "fully installed" (flag 4), or a TargetBuildID that differs from the installed buildid (both non-zero
+    /// numbers). A running or paused download is the "updating" install state instead, so it is not reported here. Local data only.
+    /// </summary>
+    internal static bool UpdatePendingFromManifest(string? rawFlags, string? buildId, string? targetBuildId)
+    {
+        if (!uint.TryParse(rawFlags, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out uint flags))
+            return false;
+        const uint UpdateRequired = 2, FullyInstalled = 4, Broken = 1 | 32 | 128 | 2048, Downloading = 256 | 1024;
+        if ((flags & FullyInstalled) == 0 || (flags & (Broken | Downloading)) != 0) return false;
+        if ((flags & UpdateRequired) != 0) return true;
+        return ulong.TryParse(buildId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong installed)
+            && ulong.TryParse(targetBuildId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong target)
+            && installed > 0 && target > 0 && installed != target;
     }
 
     private static string? FindValue(string text, string key)

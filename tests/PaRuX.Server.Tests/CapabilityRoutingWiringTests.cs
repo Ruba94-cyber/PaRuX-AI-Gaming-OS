@@ -34,11 +34,19 @@ public sealed class CapabilityRoutingWiringTests : IClassFixture<ApiSecurityTest
         try { Directory.Delete(_root, true); } catch (IOException) { }
     }
 
-    private SmartRouterService Router()
+    // Hermetic RAM: hardware fit is part of capability routing, so the host's live free RAM must not decide these tests.
+    private sealed class FixedRam(SystemRamSnapshot? snapshot) : ISystemRamSnapshotProvider
+    {
+        public SystemRamSnapshot? TryGetSnapshot() => snapshot;
+    }
+
+    private SmartRouterService Router() => Router(new SystemRamSnapshot(64UL << 30, 60UL << 30));
+
+    private SmartRouterService Router(SystemRamSnapshot ram)
     {
         string state = Path.Combine(_root, "state");
         Directory.CreateDirectory(state);
-        return new SmartRouterService(new RuntimeManagerService(new LocalAiProcessManager()),
+        return new SmartRouterService(new RuntimeManagerService(new LocalAiProcessManager(), new FixedRam(ram)),
             new ModelBenchmarkService(new ModelBenchmarkStore(state), new NeverRun()),
             new PaRuX.Server.CapabilityProfiler.CapabilityProfilerStore(state)) { CapabilityModeRoot = _root };
     }
@@ -85,6 +93,20 @@ public sealed class CapabilityRoutingWiringTests : IClassFixture<ApiSecurityTest
         Assert.Contains("b.gguf", d.Message);
         Assert.Equal("capability_force_load_failed", d.SelectionReason);
         Assert.Equal("load_failed", d.FailureReasonCode);
+    }
+
+    [Fact]
+    public async Task Force_of_an_installed_model_on_a_memory_starved_host_is_an_honest_hardware_refusal()
+    {
+        AddCoding("a.gguf");
+        CapabilityRoutingPreferenceStore.SetCapabilityMode(ModelCapabilityIds.Coding, "force", "a.gguf", _root);
+
+        RouteDecisionDto d = await Router(new SystemRamSnapshot(64UL << 30, 0)).ResolveAsync(Coding(), CancellationToken.None);
+
+        Assert.False(d.Success);
+        Assert.Equal("force", d.EffectiveOverrideMode);
+        Assert.False(d.FellBackToStandard);
+        Assert.Equal("capability_override_refused_hardware_unfit", d.SelectionReason);
     }
 
     [Fact]

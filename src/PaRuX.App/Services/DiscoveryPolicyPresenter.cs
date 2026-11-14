@@ -103,9 +103,9 @@ namespace PaRuX.Services
 
         public static readonly IReadOnlyList<PromotionOptionPresentation> PromotionOptions = new PromotionOptionPresentation[]
         {
-            new(PromotionAsk, "Ask before replacing", "Ask before switching your active model to a candidate."),
-            new(PromotionClearlyBetter, "Auto-promote only when clearly better", "Automatically switch only when a candidate demonstrates strictly better quality and speed."),
-            new(PromotionNever, "Never replace pinned or manual choices", "Never replace pinned or manual choices automatically.")
+            new(PromotionAsk, "Ask before replacing", "Ask before switching your active model to a candidate: nothing changes automatically, you confirm each change in Model Hub."),
+            new(PromotionClearlyBetter, "Auto-promote only when clearly better", "After a candidate finishes its evaluation, switch to it automatically only when it proves strictly better quality and speed than the running model. Never during Gaming and never over a pinned model; you can go back from Model Hub."),
+            new(PromotionNever, "Never replace pinned or manual choices", "Never switches models automatically. Pinned or manual choices are never replaced, and any switch needs your confirmation in Model Hub.")
         };
 
         private static string PromotionLabelText(string normalized) => normalized switch
@@ -187,12 +187,12 @@ namespace PaRuX.Services
             string normalized = NormalizePromotion(value);
             return normalized switch
             {
-                PromotionClearlyBetter => T("Automatically switch only when a candidate demonstrates strictly better quality and speed.",
-                    "Sostituisce automaticamente solo se un candidato dimostra qualità e velocità nettamente migliori."),
-                PromotionNever => T("Never replace pinned or manual choices automatically.",
-                    "Non sostituisce mai automaticamente le scelte fissate o manuali."),
-                _ => T("Ask before switching your active model to a candidate.",
-                    "Chiede conferma prima di sostituire il modello attivo con un candidato.")
+                PromotionClearlyBetter => T("After a candidate finishes its evaluation, switch to it automatically only when it proves strictly better quality and speed than the running model. Never during Gaming and never over a pinned model; you can go back from Model Hub.",
+                    "Dopo la valutazione di un candidato, passa automaticamente a esso solo se dimostra qualità e velocità nettamente migliori del modello in uso. Mai durante la Modalità Gaming e mai su un modello fissato; puoi tornare indietro da Model Hub."),
+                PromotionNever => T("Never switches models automatically. Pinned or manual choices are never replaced, and any switch needs your confirmation in Model Hub.",
+                    "Non cambia mai modello in automatico. Le scelte fissate o manuali non vengono mai sostituite e ogni cambio richiede la tua conferma in Model Hub."),
+                _ => T("Ask before switching your active model to a candidate: nothing changes automatically, you confirm each change in Model Hub.",
+                    "Chiede conferma prima di sostituire il modello attivo con un candidato: nulla cambia in automatico, confermi ogni cambio in Model Hub.")
             };
         }
 

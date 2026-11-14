@@ -44,6 +44,7 @@ public static class CandidateReasonText
         }
         switch (code)
         {
+            case "promotion_policy_requires_confirmation": return "Your promotion setting asks before replacing the active model, so PaRuX did not switch automatically. Review the candidate in Model Hub and confirm the change yourself.";
             case "consent_required": return "Confirm the change to continue; nothing was changed.";
             case "stale_generation": return "The recommendation state changed since you looked. Refresh and try again; nothing was changed.";
             case "pending_unreconciled": return "A previous change did not finish. PaRuX will settle it on its own; try again afterwards.";

@@ -96,13 +96,22 @@ internal sealed class CandidateRecommendationService
     private readonly string _profile = CandidateGeneralChatQualitySuite.AutoProfile;
     // One transition per Core process at a time, on top of the cross-process store CAS.
     private readonly SemaphoreSlim _single = new(1, 1);
+    // The persisted discovery promotion policy (ModelDiscoveryPolicyValues.Promotion*); null = the safe default (ask).
+    private readonly Func<string>? _promotionPolicy;
+    private volatile AutomaticPromotionAttempt? _lastAutomatic;
+
+    /// <summary>The outcome of the most recent policy-driven (not user-clicked) promotion attempt, for observability.</summary>
+    internal sealed record AutomaticPromotionAttempt(string Outcome, string ReasonCode, DateTime AtUtc);
+    internal AutomaticPromotionAttempt? LastAutomaticAttempt => _lastAutomatic;
 
     internal CandidateRecommendationService(ICandidateRecommendationStore store, IRecommendationRuntime runtime,
         IRecommendationProofSource proofs, ICandidateLaunchFenceSource fence, string modelsDirectory,
         Action<string>? crashPoint = null, TimeSpan? healthBudget = null,
         string? pinRoot = null, TimeSpan? reconcileWaitBound = null,
-        Func<long, TimeSpan>? healthRecoveryBudgetFor = null)
+        Func<long, TimeSpan>? healthRecoveryBudgetFor = null,
+        Func<string>? promotionPolicy = null)
     {
+        _promotionPolicy = promotionPolicy;
         _reconcileWaitBound = reconcileWaitBound ?? DefaultReconcileWaitBound;
         if (_reconcileWaitBound <= TimeSpan.Zero || _reconcileWaitBound.TotalMilliseconds > int.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(reconcileWaitBound), "The reconcile wait bound must be finite and positive.");
@@ -130,19 +139,65 @@ internal sealed class CandidateRecommendationService
     private static RecommendationTransitionResult RetryLater(string reason, long generation) =>
         new(RecommendationTransitionResult.RetryLater, reason, generation);
 
-    private string? Preflight(bool consent)
+    private string CurrentPromotionPolicy()
     {
-        if (!consent) return "consent_required";
+        string? configured = null;
+        try { configured = _promotionPolicy?.Invoke(); }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException) { }
+        // An unreadable or unknown policy falls back to the most conservative one that still allows a click.
+        return configured is ModelDiscoveryPolicyValues.PromotionAutoPromoteClearlyBetter
+            or ModelDiscoveryPolicyValues.PromotionNeverReplacePinnedOrManual
+            ? configured : ModelDiscoveryPolicyValues.PromotionAskBeforeReplacing;
+    }
+
+    private string? Preflight(bool consent, bool automatic = false)
+    {
+        // A click supplies the confirmation; a policy-driven attempt needs the persisted policy to grant it.
+        if (!automatic && !consent) return "consent_required";
         if (_runtime.StopRequested) return "server_stopping";
         if (_runtime.GamingActive) return "gaming_active";
-        return ManualSelectionGate.GetUserPinReason(_role, _profile, _pinRoot);
+        if (ManualSelectionGate.GetUserPinReason(_role, _profile, _pinRoot) is { } pin) return pin;
+        if (automatic)
+        {
+            // Strictly-better evidence is proven later by the comparison proof; here the policy decides whether the
+            // user pre-approved acting on such a proof without asking.
+            (ModelDiscoveryPromotionAction action, _) = ModelDiscoveryPolicy.DecidePromotion(
+                CurrentPromotionPolicy(), candidateIsPinnedOrManual: false, candidateIsClearlyBetter: true);
+            if (action != ModelDiscoveryPromotionAction.AutoPromote) return "promotion_policy_requires_confirmation";
+        }
+        return null;
+    }
+
+    /// <summary>Policy-driven promotion after a finished evaluation: acts only when the persisted promotion policy is
+    /// "auto-promote only when clearly better". It goes through the same transaction as a click (live proof against the
+    /// running model, pin/Gaming/STOP checks, exact load, health check, CAS, restore on failure) and never throws.</summary>
+    internal async Task<RecommendationTransitionResult> TryAutoPromoteAsync(string candidateKey, string managedFileName,
+        CancellationToken cancellationToken)
+    {
+        RecommendationTransitionResult result;
+        try
+        {
+            long generation = _store.Load().Generation;
+            result = await PromoteAsync(candidateKey, managedFileName, generation, consent: false, cancellationToken,
+                automatic: true).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            result = Refuse("cancelled", -1);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            result = Refuse("store_unreadable", -1);
+        }
+        _lastAutomatic = new AutomaticPromotionAttempt(result.Outcome, result.Reason, DateTime.UtcNow);
+        return result;
     }
 
     /// <summary>Promote <paramref name="candidateKey"/> (exact managed file) over the live incumbent.</summary>
     internal async Task<RecommendationTransitionResult> PromoteAsync(string candidateKey, string managedFileName,
-        long expectedGeneration, bool consent, CancellationToken cancellationToken)
+        long expectedGeneration, bool consent, CancellationToken cancellationToken, bool automatic = false)
     {
-        if (Preflight(consent) is { } early) return Refuse(early, expectedGeneration);
+        if (Preflight(consent, automatic) is { } early) return Refuse(early, expectedGeneration);
         if (!await _single.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             return Refuse("transition_in_progress", expectedGeneration);
         try
@@ -154,6 +209,8 @@ internal sealed class CandidateRecommendationService
             await using IAsyncDisposable writer = await _runtime.AcquireWriterAsync(cancellationToken).ConfigureAwait(false);
             if (_runtime.StopRequested) return Refuse("server_stopping", expectedGeneration);
             if (_runtime.GamingActive) return Refuse("gaming_active", expectedGeneration);
+            // The policy or a pin may have changed while this attempt waited for the writer.
+            if (automatic && Preflight(consent, automatic: true) is { } late) return Refuse(late, expectedGeneration);
 
             if (_proofs.CheckLicenseEvidence(candidateKey, managedFileName, evaluatedSide: null) is { } licenseReason)
                 return Refuse(licenseReason, expectedGeneration);

@@ -128,6 +128,34 @@ public sealed class GamingDownloadsAndDevicesUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Save_folder_suggestion_is_read_only_and_says_so_when_nothing_is_found()
+    {
+        const string name = nameof(Save_folder_suggestion_is_read_only_and_says_so_when_nothing_is_found);
+        WaitForPort();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGames(app);
+            var suggest = UiWait.ById(app.MainWindow, "GameSaves_Suggest", ControlType.Button);
+            var label = UiWait.ById(app.MainWindow, "GameSaves_Label", ControlType.Edit);
+            var source = UiWait.ById(app.MainWindow, "GameSaves_Source", ControlType.Edit);
+            var status = UiWait.ById(app.MainWindow, "GameSaves_Status", ControlType.Text);
+            Assert.False(string.IsNullOrWhiteSpace(suggest.Name));
+            UiWait.AssertEnabled(suggest);
+
+            // An invented title has no save folder anywhere: the answer is typed, nothing is selected and nothing is created.
+            label.AsTextBox().Text = "Zzyzx Synthetic Nonexistent Title 8841";
+            source.AsTextBox().Text = "";
+            suggest.Patterns.Invoke.Pattern.Invoke();
+            UiWait.For(() => status.Name.Contains("No known save folder", StringComparison.Ordinal), "the no-suggestion message");
+            Assert.Equal(string.Empty, source.AsTextBox().Text);
+            Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameSaves_UseHint_0")));
+            UiWait.AssertEnabled(suggest);
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Devices_panel_exposes_display_and_controller_controls_and_apply_without_a_mode_changes_nothing()
     {
         const string name = nameof(Devices_panel_exposes_display_and_controller_controls_and_apply_without_a_mode_changes_nothing);
