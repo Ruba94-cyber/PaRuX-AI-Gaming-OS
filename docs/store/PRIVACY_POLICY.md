@@ -1,6 +1,6 @@
 # PaRuX AI & Gaming OS - Privacy Policy
 
-Draft for the owner to review before publishing at a public URL (Partner Center requires one). Effective date: set on publication. Applies to the Microsoft Store edition of PaRuX 4.1.x. Statements about the software were checked against the source code at the commit this file was written; they must be re-checked when features change.
+Draft for the owner to review before publishing at a public URL (Partner Center requires one). Effective date: set on publication. Applies to the Microsoft Store edition of PaRuX 4.2.x. Statements about the software were checked against the source code at the commit this file was written; they must be re-checked when features change.
 
 ## Summary
 
@@ -22,6 +22,10 @@ Conversations, saved projects and memory, attachments, the search index of folde
 | Game library covers and metadata (Gaming area, optional) | Only if you use the game library features | Game metadata/cover services such as the Steam store, SteamGridDB, IGDB | Game titles you ask about |
 
 PaRuX does not sell data, does not use your content to train models, and does not share data with third parties on its own initiative. Third-party services above receive requests under their own terms and policies; PaRuX does not control them.
+
+## Purchase
+
+The Store edition is bought through the Microsoft Store. Microsoft handles the payment and the customer account under its own terms and privacy statement; the publisher does not receive card or payment details from PaRuX, and PaRuX contains no payment screen. The app contains no donation or payment function.
 
 ## Children
 

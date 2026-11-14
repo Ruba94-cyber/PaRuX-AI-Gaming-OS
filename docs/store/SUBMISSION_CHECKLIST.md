@@ -7,7 +7,7 @@ Nothing here has been submitted. Items marked OWNER need the owner's Partner Cen
 1. DONE (owner) Register a free developer account (individual) at https://storedeveloper.microsoft.com (Partner Center).
 2. DONE (owner) Reserve the app name. The build default display name is "PaRuX AI & Gaming OS"; if you reserve a different name, put it in the identity file as `appDisplayName`.
 3. DONE (owner, 2026-11-11) In Partner Center open Product management > Product identity and copy **Package/Identity/Name**, **Package/Identity/Publisher** and **Package/Properties/PublisherDisplayName** into the Git-ignored file `<main checkout>\.ai\store\store-identity.local.json` (keys `identityName`, `identityPublisher`, `publisherDisplayName`; optional `appDisplayName`). Values are case- and punctuation-sensitive. Never commit this file (`*.local.json` is ignored).
-4. TODO Pricing: Free. Markets: choose. Availability: public.
+4. TODO Pricing: paid, 0.99 USD base price, one time (see `PRICING_AND_AVAILABILITY.md`; the owner confirms the amount, per-market prices, tax/payout profile). Markets: choose. Availability: public.
 
 ## B. Build the package (agent-reproducible)
 
@@ -29,25 +29,11 @@ Output: `artifacts\msix\PaRuX_<major.minor.patch>.0_x64.msix` (+ `.sha256.txt`).
 
 ## D. Store listing (OWNER)
 
-1. TODO Paste text from `LISTING_en.md` and `LISTING_it.md` (remove the evidence references in parentheses). Add Italian as a second listing language.
-2. TODO Privacy policy URL: publish `PRIVACY_POLICY.md` at a public HTTPS address (for example a GitHub Pages page or the repository's rendered file). Required because the app accesses the internet and the network.
-3. TODO Support contact: use `SUPPORT.md` content at a public URL or an e-mail address you choose.
-4. TODO Age rating: complete the IARC questionnaire yourself (notes in `LISTING_en.md`).
-5. TODO Category: Productivity (or Developer tools); decide.
-6. TODO Store logos: Partner Center asks for a 1:1 300x300 store icon (the package already contains square tiles derived from the approved PRX Orbit artwork; export a 300x300 from `src/PaRuX.App/Assets/prx-orbit-approved.png`).
+Every field is in section I below. Short version: paste text from `LISTING_en.md` and `LISTING_it.md` (they are paste-ready; no evidence references remain), add Italian as a second listing language, publish `PRIVACY_POLICY.md` at a public HTTPS address, give a support contact (`SUPPORT.md`), complete the IARC questionnaire yourself (`POLICY_AND_CERTIFICATION.md` section 5), choose the category (recommended Productivity) and upload the 300x300 store logo.
 
-## E. Screenshots to capture (REAL, none are in the repo)
+## E. Screenshots
 
-Capture on the reference PC with a model installed, from the packaged app, 1920x1080 (min 1366x768) PNG, English UI first, then Italian UI. Use only synthetic documents (no company or personal data; the repository is public).
-
-1. Chat home with a streamed answer from a local model.
-2. Document question: a synthetic folder indexed, answer with the source shown.
-3. A refusal when the answer is not in the documents.
-4. Model Hub with a model list and the download confirmation.
-5. First-run or model setup (Detect > Locate / Install / Skip).
-6. Settings showing local-first/privacy options, with LAN pairing off.
-7. Italian UI of screen 1.
-8. Update Manager showing "managed by the Microsoft Store" (proves the self-updater is disabled).
+See `SCREENSHOTS.md` (10 shots, EN and IT, from the installed Store package, synthetic data only).
 
 ## F. Restricted capability justification (paste into the `runFullTrust` field)
 
@@ -57,7 +43,7 @@ Network capabilities declared: `internetClient`, `internetClientServer`, `privat
 
 ## G. Notes for certification (paste in Partner Center)
 
-See the "Notes for certification" section of `LISTING_en.md`. Add: no sign-in is needed; the first chat requires a downloaded model (a small model is enough to test); test with a synthetic text file for the document feature.
+Paste the English text in `POLICY_AND_CERTIFICATION.md` section 4 (it already covers: no sign-in, a small model is enough to test, synthetic text file for the document feature, no in-app purchase).
 
 ## H. Policy risks to decide before or after the first certification result
 
@@ -67,3 +53,42 @@ See the "Notes for certification" section of `LISTING_en.md`. Add: no sign-in is
 4. **Beta status**: the repository calls 4.1.0 a beta and `docs/REQUIREMENT_MATRIX.md` shows most rows as not Release Ready. A Store listing should say "early release", as the drafts do.
 5. **Data retention**: uninstall deletes downloaded models and chats (normal for MSIX). The listing and support page say so.
 6. **Name/branding**: confirm the reserved name does not conflict with third-party trademarks (the app mentions llama.cpp, Hugging Face, Steam etc.; do not use them in the title).
+
+## I. Partner Center fields, one by one
+
+Nothing was submitted and Partner Center was not opened for this list; field names follow the MSIX submission flow and may differ slightly in the live UI. Status: PRONTO = text exists in this folder, SERVE SCREENSHOT, SERVE DECISIONE = owner chooses, DONE (owner) = already done by the owner, NOT RUN = needs a run first.
+
+| Page | Field | Value / source | Status |
+|---|---|---|---|
+| Overview | Product / name reservation | Reserved by the owner; identity values live only in the Git-ignored local file | DONE (owner) |
+| Pricing and availability | Markets | All, or a chosen list (`PRICING_AND_AVAILABILITY.md` section 4) | SERVE DECISIONE |
+| | Discoverability / visibility | Public, discoverable | PRONTO |
+| | Base price | Paid, lowest tier 0.99 USD; review per market | SERVE DECISIONE |
+| | Free trial | None (recommended) | SERVE DECISIONE |
+| | Schedule | Publish when certified, only after the owner says go | SERVE DECISIONE |
+| | Payout and tax profile (account level) | Owner account; nothing in the repo | SERVE DECISIONE |
+| Properties | Category and subcategory | Productivity (alternative Developer tools) | SERVE DECISIONE |
+| | Privacy policy URL | Public HTTPS page with `PRIVACY_POLICY.md` | SERVE DECISIONE (needs a URL) |
+| | Website | Public project page (donations and free build are described there; see policy Option A) | SERVE DECISIONE |
+| | Support contact info | `SUPPORT.md` at a public URL or an owner-chosen e-mail | SERVE DECISIONE |
+| | System requirements (minimum / recommended) | `LISTING_en.md` "System requirements" | PRONTO |
+| | Product declarations | Do not tick unverified declarations (accessibility tested, etc.) | SERVE DECISIONE |
+| Age ratings | IARC questionnaire | Owner answers; facts in `POLICY_AND_CERTIFICATION.md` section 5 | SERVE DECISIONE (owner must answer) |
+| Packages | MSIX upload | `artifacts\msix\PaRuX_<ver>_x64.msix` from the packaging agent's worktree/build; version 4.2.0.0 | NOT RUN (build and install check by the packaging agent) |
+| | Device families | Windows 10/11 Desktop x64 | PRONTO |
+| | Restricted capability justification | `POLICY_AND_CERTIFICATION.md` section 3 | PRONTO |
+| Store listings (en-US) | Description | `LISTING_en.md` | PRONTO |
+| | What's new | `LISTING_en.md` (4.2.0) | PRONTO |
+| | Product features | `LISTING_en.md` | PRONTO |
+| | Search terms (7) | `LISTING_en.md` | PRONTO |
+| | Short description | `LISTING_en.md` | PRONTO |
+| | Copyright and trademark info | `LISTING_en.md` (owner fills the publisher name) | SERVE DECISIONE |
+| | Screenshots | `SCREENSHOTS.md` shots 1-8 | SERVE SCREENSHOT |
+| | Store logo 1:1 300x300 | export from the PRX Orbit approved artwork | SERVE SCREENSHOT (asset export) |
+| | Optional art / trailers | skip | PRONTO |
+| Store listings (it-IT) | Same fields | `LISTING_it.md` | PRONTO |
+| | Screenshots (Italian UI) | `SCREENSHOTS.md` shots 9-10 plus 1, 2, 4 in Italian | SERVE SCREENSHOT |
+| Submission options | Notes for certification | `POLICY_AND_CERTIFICATION.md` section 4 | PRONTO |
+| | Publishing hold / release timing | Choose manual publish after certification | SERVE DECISIONE |
+| Evidence before submit | Window check, chat with a downloaded model, Store-managed update message, WACK re-run on the final package | Section C | NOT RUN (partly) |
+| Policy decisions | Title wording; donation/free-build mention (Option A/B); category | `POLICY_AND_CERTIFICATION.md` sections 2 and 6 | SERVE DECISIONE |
