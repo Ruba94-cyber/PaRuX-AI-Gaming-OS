@@ -84,7 +84,7 @@ namespace PaRuX.Services
         {
             while (true)
             {
-                var input = new TextBox { PlaceholderText = "backend, frontend, docs…", MinWidth = 320 };
+                var input = new TextBox { PlaceholderText = UiText.Pick("backend, frontend, docs…", "backend, frontend, documenti…"), MinWidth = 320 };
                 var dialog = new ContentDialog
                 {
                     XamlRoot = xamlRoot,

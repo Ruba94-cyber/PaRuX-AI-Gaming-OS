@@ -122,7 +122,7 @@ namespace PaRuX.Views
 
             panel.Children.Add(new TextBlock
             {
-                Text = client.Protocol + ". " + detection.Detail,
+                Text = T("Protocol: ", "Protocollo: ") + client.Protocol + ". " + detection.Detail,
                 TextWrapping = TextWrapping.Wrap,
                 Style = (Style)Application.Current.Resources["PaRuXCaptionTextStyle"]
             });
@@ -145,24 +145,24 @@ namespace PaRuX.Views
             bool gatewayReady = _gatewayStatus?.Listening == true;
             if (detection.Installed)
             {
-                buttons.Children.Add(ActionButton(connected ? "Reconnect" : "Connect", automation + "_Connect_Button", gatewayReady,
+                buttons.Children.Add(ActionButton(connected ? T("Reconnect", "Riconnetti") : T("Connect", "Connetti"), automation + "_Connect_Button", gatewayReady,
                     () => RunIntegrationActionAsync(client, progress, (service, reporter) =>
                         service.ConnectAsync(client, _gatewayStatus!.BaseUrl, ClientIntegrationService.DefaultModel, reporter, CancellationToken.None))));
                 if (connected)
                 {
-                    buttons.Children.Add(ActionButton("Launch " + client.DisplayName + " with PaRuX", automation + "_Launch_Button", gatewayReady,
+                    buttons.Children.Add(ActionButton(T("Launch ", "Avvia ") + client.DisplayName + T(" with PaRuX", " con PaRuX"), automation + "_Launch_Button", gatewayReady,
                         () => RunIntegrationActionAsync(client, progress, (service, _) =>
                             Task.FromResult(service.Launch(client, IntegrationWorkingFolder)))));
-                    buttons.Children.Add(ActionButton("Test", automation + "_Test_Button", gatewayReady,
+                    buttons.Children.Add(ActionButton(T("Test", "Prova"), automation + "_Test_Button", gatewayReady,
                         () => RunIntegrationActionAsync(client, progress, (service, reporter) =>
                         {
-                            reporter.Report("Running a real test with " + client.DisplayName + "…");
+                            reporter.Report(T("Running a real test with ", "Esecuzione di un test reale con ") + client.DisplayName + "…");
                             return service.TestAsync(client, CancellationToken.None);
                         })));
-                    buttons.Children.Add(ActionButton("Disconnect", automation + "_Disconnect_Button", true,
+                    buttons.Children.Add(ActionButton(T("Disconnect", "Disconnetti"), automation + "_Disconnect_Button", true,
                         () => RunIntegrationActionAsync(client, progress, (service, _) => service.DisconnectAsync(client, CancellationToken.None))));
                     if (manifest!.Files.Any(f => f.BackupPath != null))
-                        buttons.Children.Add(ActionButton("Restore original", automation + "_Restore_Button", true,
+                        buttons.Children.Add(ActionButton(T("Restore original", "Ripristina originale"), automation + "_Restore_Button", true,
                             () => ConfirmAndRestoreAsync(client, progress)));
                 }
             }

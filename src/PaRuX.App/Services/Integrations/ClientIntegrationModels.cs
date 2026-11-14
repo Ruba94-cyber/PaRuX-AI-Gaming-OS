@@ -18,12 +18,12 @@ namespace PaRuX.Services.Integrations
     {
         public static string Label(ClientIntegrationStatus status) => status switch
         {
-            ClientIntegrationStatus.NotInstalled => "Not installed",
-            ClientIntegrationStatus.Detected => "Detected",
-            ClientIntegrationStatus.Available => "Available",
-            ClientIntegrationStatus.Connected => "Connected to PaRuX",
-            ClientIntegrationStatus.UsingAnotherProvider => "Using another provider",
-            ClientIntegrationStatus.ConfigurationError => "Configuration error",
+            ClientIntegrationStatus.NotInstalled => UiText.Pick("Not installed", "Non installato"),
+            ClientIntegrationStatus.Detected => UiText.Pick("Detected", "Rilevato"),
+            ClientIntegrationStatus.Available => UiText.Pick("Available", "Disponibile"),
+            ClientIntegrationStatus.Connected => UiText.Pick("Connected to PaRuX", "Connesso a PaRuX"),
+            ClientIntegrationStatus.UsingAnotherProvider => UiText.Pick("Using another provider", "Usa un altro provider"),
+            ClientIntegrationStatus.ConfigurationError => UiText.Pick("Configuration error", "Errore di configurazione"),
             _ => status.ToString()
         };
     }

@@ -3,6 +3,7 @@ using Xunit;
 
 namespace PaRuX.Server.Tests;
 
+[EnglishUi]
 public sealed class ShadowRecoveryDialogModelTests
 {
     [Fact]
