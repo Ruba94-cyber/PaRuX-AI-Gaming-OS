@@ -14,6 +14,8 @@ internal static class UiWait
         try { return condition(); }
         catch (System.Runtime.InteropServices.COMException) { return false; }
         catch (FlaUI.Core.Exceptions.ElementNotAvailableException) { return false; }
+        // A WinUI element can briefly report no Name while its text is being replaced; the bounded wait decides, not this read.
+        catch (FlaUI.Core.Exceptions.PropertyNotSupportedException) { return false; }
     }
 
     internal static void For(Func<bool> condition, string description, TimeSpan? timeout = null)
