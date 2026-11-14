@@ -79,6 +79,64 @@ public sealed class ResponsiveLayoutCoverageTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "Navigation"), Trait("Category", "FlaUI")]
+    public void Chat_composer_footer_controls_wrap_inside_window_at_narrow_widths()
+    {
+        const string testName = nameof(Chat_composer_footer_controls_wrap_inside_window_at_narrow_widths);
+        using var app = new UiTestApplication(testName);
+        var originalBounds = SaveWindowBounds(app);
+        try
+        {
+            string[] simpleIds = { "Chat_CodeFolder_Button", "Chat_SimpleMode_ModelPicker_Button", "Chat_SimpleMode_RouteReason_Button", "Chat_SimpleMode_RuntimeHealth_Button" };
+            string[] advancedIds = { "Chat_ModelSelector_ComboBox", "Chat_ModelRoute_Explain_Button", "Chat_SkillSelector_ComboBox" };
+            // The branch navigator is added to the same footer row at run time; it must wrap with it instead of running off the edge.
+            string[] branchNames = { "Previous conversation version", "Next conversation version", "Conversation version history" };
+            var advancedPage = new ChatSimpleAdvancedPage(app.MainWindow, app);
+            foreach (bool advanced in new[] { false, true })
+            {
+                if (advanced) advancedPage.EnableAdvanced();
+                foreach (var (width, height, label) in new[] { (1024, 700, "1024x700"), (1280, 720, "1280x720"), (1400, 850, "1400x850"), (1920, 1080, "1920x1080") })
+                {
+                    string where = (advanced ? "Advanced " : "Simple ") + label;
+                    ResizeWindow(app, width, height);
+                    var window = app.MainWindow.Properties.BoundingRectangle.ValueOrDefault;
+                    // The footer sits under the composer, so a control past the Send button's right edge is clipped by the footer's viewport
+                    // (still inside the window, but unreachable); the window alone cannot detect that.
+                    int composerRight = UiWait.ById(app.MainWindow, "Chat_Send_Button").Properties.BoundingRectangle.ValueOrDefault.Right;
+                    var controls = (advanced ? advancedIds : simpleIds)
+                        .Select(i => (Id: i, Element: UiWait.ById(app.MainWindow, i)))
+                        .Concat(branchNames.Select(n =>
+                        {
+                            AutomationElement? found = null;
+                            UiWait.For(() => (found = app.MainWindow.FindFirstDescendant(cf => cf.ByName(n))) != null, "chat control named " + n);
+                            return (Id: n, Element: found!);
+                        })).ToArray();
+                    foreach (var (id, element) in controls)
+                    {
+                        UiWait.For(() =>
+                        {
+                            var b = element.Properties.BoundingRectangle.ValueOrDefault;
+                            return b.Width > 0 && b.Left >= window.Left - 2 && b.Right <= Math.Min(window.Right, composerRight) + 2
+                                && b.Top >= window.Top - 2 && b.Bottom <= window.Bottom + 2;
+                        }, $"{id} fully inside the window at {where}");
+                        Assert.False(element.Properties.IsOffscreen.ValueOrDefault, $"{id} must not be offscreen at {where}");
+                        if (element.Properties.IsEnabled.ValueOrDefault)
+                            Assert.True(element.Properties.IsKeyboardFocusable.ValueOrDefault, $"{id} must stay keyboard focusable at {where}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            app.CaptureFailure(testName, ex);
+            throw;
+        }
+        finally
+        {
+            RestoreWindow(app, originalBounds);
+        }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "Navigation"), Trait("Category", "FlaUI")]
     public void Settings_layout_and_primary_controls_remain_bounded_across_window_sizes()
     {
         const string testName = nameof(Settings_layout_and_primary_controls_remain_bounded_across_window_sizes);

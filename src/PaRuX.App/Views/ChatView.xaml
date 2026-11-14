@@ -637,11 +637,13 @@
                 x:Name="ComposerFooterScrollViewer"
                 AutomationProperties.AutomationId="Chat_ComposerFooter_ScrollViewer"
                 Grid.Row="3"
-                HorizontalScrollBarVisibility="Visible"
-                HorizontalScrollMode="Enabled"
-                VerticalScrollBarVisibility="Disabled"
-                VerticalScrollMode="Disabled">
-                <StackPanel Orientation="Horizontal" Spacing="{StaticResource PaRuXSpaceS}" Margin="12,0,0,0">
+                MaxHeight="116"
+                HorizontalScrollBarVisibility="Disabled"
+                HorizontalScrollMode="Disabled"
+                VerticalScrollBarVisibility="Auto"
+                VerticalScrollMode="Auto">
+                <!-- Wraps to extra rows at narrow widths instead of running off the right edge; child order = focus order. -->
+                <loc:WrapRowPanel ColumnSpacing="8" RowSpacing="6" Margin="12,0,12,0">
                 <StackPanel x:Name="TuningStatusHost" Orientation="Horizontal" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <Button
@@ -839,7 +841,7 @@
                     FontSize="{StaticResource PaRuXFontSizeMicro}"
                     ToolTipService.ToolTip="Force a skill instead of AUTO routing" loc:Loc.ItToolTip="Forza una skill invece dell&#x27;instradamento AUTO"
                     SelectionChanged="SkillSelector_SelectionChanged" />
-            </StackPanel>
+            </loc:WrapRowPanel>
             </ScrollViewer>
         </Grid>
     </Grid>
