@@ -368,11 +368,19 @@ if (PaRuX.Contracts.CorporateMode.IsActive)
         string path = context.Request.Path.Value ?? string.Empty;
         bool write = !HttpMethods.IsGet(context.Request.Method);
         bool gaming = path.StartsWith("/api/v1/gaming/", StringComparison.OrdinalIgnoreCase);
+        // The real runtime/engine installers live under /runtime/builds and /runtime/engines (found on the real
+        // package: they were only stopped by the dead proxy, with a network error instead of a refusal).
         bool restricted = path.StartsWith("/api/v1/runtime/install", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/runtime/builds", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/runtime/engines", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/api/v1/media/", StringComparison.OrdinalIgnoreCase)
             || gaming;
+        // Catalog lookups of those installers reach the internet even as GET.
+        bool catalogLookup = path.EndsWith("/available", StringComparison.OrdinalIgnoreCase)
+            && (path.StartsWith("/api/v1/runtime/builds", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("/api/v1/runtime/engines", StringComparison.OrdinalIgnoreCase));
         bool modelDownload = path.StartsWith("/api/v1/models/download", StringComparison.OrdinalIgnoreCase);
-        if ((restricted && (write || gaming))
+        if ((restricted && (write || gaming || catalogLookup))
             || (modelDownload && write && !PaRuX.Contracts.CorporateMode.ModelDownloadsAllowed))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -1232,8 +1240,12 @@ app.MapGet("/api/v1/internet", (InternetSettingsService internet) =>
 
 app.MapPost("/api/v1/internet", (InternetEnabledRequest request, InternetSettingsService internet) =>
 {
+    // Corporate Lite is offline by construction: turning the switch on is refused, never acknowledged.
+    if (request.Enabled && PaRuX.Contracts.CorporateMode.IsActive)
+        return Results.Json(new { error = "This feature is disabled in PaRuX Corporate Lite." },
+            statusCode: StatusCodes.Status403Forbidden);
     internet.SetEnabled(request.Enabled);
-    return Results.Ok(new InternetStatus { Enabled = request.Enabled });
+    return Results.Ok(new InternetStatus { Enabled = internet.GetEnabled() });
 }).RequireDesktopOwnerToEnableInternet();
 
 app.MapGet("/api/v1/personas", (PersonaService personas) => Results.Ok(personas.GetAll()));
