@@ -2341,6 +2341,7 @@ app.MapPost("/api/v1/training/engine/install", async (TrainingLabService trainin
         string log = await training.InstallEngineAsync(ct);
         return Results.Ok(new { installed = true, log });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (TrainingRuntimeRefusalException exception)
     {
         return Results.Json(new { error = exception.Message, code = exception.Code }, statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -4073,6 +4074,7 @@ app.MapPost("/api/v1/cutout/engine/install", async (CutoutService cutout, Cancel
         string log = await cutout.InstallEngineAsync(ct);
         return Results.Ok(new { installed = true, log });
     }
+    catch (UnavailableDuringGamingException gaming) { return GamingHardOff.Conflict(gaming); }
     catch (Exception exception) when (exception is InvalidOperationException or InvalidDataException or IOException or HttpRequestException)
     {
         return Results.Json(new { error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
