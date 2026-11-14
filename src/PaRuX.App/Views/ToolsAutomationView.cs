@@ -248,6 +248,18 @@ namespace PaRuX.Views
                     Text = PermissionSummary(skill.Permissions) + T(" · tools: ", " · strumenti: ") + (skill.AllowedTools.Count == 0 ? T("none", "nessuno") : string.Join(", ", skill.AllowedTools)),
                     TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.72
                 });
+                // The Core disables a restored/imported skill that names an unknown tool and says why in StatusReason
+                // ("Quarantined: ..."). A bare "Disabled" switch would hide that, so the reason is shown in the row.
+                if (!string.IsNullOrWhiteSpace(skill.StatusReason))
+                {
+                    var reason = new TextBlock
+                    {
+                        Text = skill.StatusReason,
+                        TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.85
+                    };
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(reason, "Tools_Skill_StatusReason_" + skill.Id);
+                    text.Children.Add(reason);
+                }
                 Grid.SetColumn(text, 0); row.Children.Add(text);
 
                 var toggle = new ToggleSwitch { IsOn = skill.Enabled, OnContent = T("Enabled", "Abilitata"), OffContent = T("Disabled", "Disabilitata") };

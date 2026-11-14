@@ -23,6 +23,14 @@ public sealed class ProgressiveDisclosureUiContractTests
     }
 
     [Fact]
+    public void Skill_rows_show_the_core_status_reason_so_a_quarantined_skill_is_visibly_quarantined()
+    {
+        string source = ReadSource("ToolsAutomationView.cs");
+        Assert.Contains("skill.StatusReason", source, StringComparison.Ordinal);
+        Assert.Contains("Tools_Skill_StatusReason_", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Media_details_are_preserved_without_long_file_paths_in_cards()
     {
         string source = ReadSource("MediaGalleryView.cs");
