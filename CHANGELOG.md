@@ -1,3 +1,13 @@
+## 4.2.0 (release candidate, 2026-11-15; not published until the owner decides)
+
+- **RBG rebrand:** display names and executable/assembly metadata now read "RBG – PaRuX AI & Gaming OS" (Company "RBG"), including the Contracts and Intelligence assemblies; Android shows "RBG – PaRuX" as its in-app title (the launcher label stays short). Technical identifiers (package ids, namespaces, data folders, ports, API routes) are unchanged, so existing installs, pairings and data keep working.
+- **Gaming:** on-screen controller keyboard; per-game launch profiles with a UI to edit them; Games home layout fix.
+- **Chat:** composer footer controls wrap inside the window at narrow widths.
+- **Documentation:** user guides, README refresh and screenshots.
+- **Release engineering:** every first-party PE in the MSI and portable packages is signed; split/join tooling (`tools/split-release-asset.ps1`, `tools/join-release-asset.ps1`) for release assets above the 2 GiB GitHub limit, with SHA-256 verification.
+- **Fixes:** the Italian first-run text for the no-runtime path no longer shows English "Setup is incomplete"; the UI test harness waits for pane policy before toggling and exempts only pointer-only ScrollBar parts in the accessibility sweep.
+- Verification and limits are listed in `docs/RELEASE_NOTES_4.2.0.md`. The signing certificate is self-signed; SmartScreen reputation is not established.
+
 ## Unreleased (post-4.0.1, source only)
 
 - Portable Standard now stages a complete SHA-256-locked llama.cpp Vulkan engine/DLL payload while omitting the heavyweight CUDA/uv/media/model assets and optional standalone CLI. The ZIP is inspected and its native files hashed; optional Windows smoke launches the isolated Core and native binary loader.

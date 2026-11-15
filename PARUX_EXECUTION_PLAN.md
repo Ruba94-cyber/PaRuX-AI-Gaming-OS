@@ -1,3 +1,11 @@
+## 2026-11-15 — 4.2.0 release-candidate status
+
+Done since 4.1.0: RBG display-name and assembly-metadata rebrand (technical ids unchanged; Android in-app title "RBG – PaRuX"); on-screen controller keyboard; per-game launch profiles + UI; Games home and Chat composer layout fixes; guides, README, screenshots; all first-party PEs signed (self-signed, DigiCert timestamp); split/join tooling for >2 GiB assets; Italian onboarding fix; test-harness fixes. Notes: `docs/RELEASE_NOTES_4.2.0.md`.
+
+Gate: Release build 0 errors; Server xUnit 14,047 passed / 0 failed / 9 skipped (`d92dd420`); FlaUI 329/329 (`13dc0cc7`); Android unit 53/53; Corporate Lite CPU-only on Ryzen 7 8840U 32 GB: grounded 4/4, TTFT 15-17 s, 12-13 tok/s, peak RSS 4.4 GB, 0 non-loopback connections (no RTX attached).
+
+Open PARTIAL / NOT RUN: MSI install/upgrade/uninstall on a clean machine; physical controller, TV/HDR, eGPU/RTX; firewall-blocked network; real 8 GB PC; OCR; disk-full; roles/audit log (MISSING); Android real-Core pairing, physical device, upgrade; Microsoft Store certification; SmartScreen reputation. Not published; the owner decides.
+
 ## 2026-11-13 — Final-completion cycle: verified audit and work queue
 
 Read-only audit inputs: `.ai/artifacts/audit-20261113/` (module matrix, incomplete-code inventory, release environment, llama-server key check), taken on `main` `65220b10`. This branch starts at `4b9dfa9b` and contains later source; SEC statuses below follow `docs/SECURITY_REVIEW.md` on this branch. Matrix test counts are approximate file counts, not xUnit totals.
