@@ -47,6 +47,7 @@ Windows 11 x64 (details: `docs/guides/INSTALL.md`). Base Chat and document retri
 
 - MSI: use in-app Updates or install the new MSI over the old one. Portable: replace application files and keep the `PaRuXData` folder.
 - Back up your data folder first if it holds anything you cannot recreate.
+- Repository rename: the project now lives at `Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS`. The in-app update channel and the signed update manifest keep the previous repository identifier on purpose, so installed 4.1.x clients keep accepting updates; GitHub redirects the old name to the new repository (checked on 2026-11-15 for the API and release pages). An update through that redirect has not been exercised end to end before this release exists.
 
 ## Joining split release assets
 
