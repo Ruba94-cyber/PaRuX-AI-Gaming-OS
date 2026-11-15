@@ -140,7 +140,7 @@ private fun IntroContent(onScanClick: () -> Unit, onManualPayload: (PairingPaylo
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("PaRuX", style = MaterialTheme.typography.displaySmall)
+        Text(androidx.compose.ui.res.stringResource(com.parux.android.R.string.app_display_name), style = MaterialTheme.typography.displaySmall)
         Text(
             "Your Local AI",
             style = MaterialTheme.typography.bodyLarge,

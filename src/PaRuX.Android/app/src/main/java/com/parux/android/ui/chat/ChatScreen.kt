@@ -120,7 +120,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PaRuX") },
+                title = { Text(androidx.compose.ui.res.stringResource(com.parux.android.R.string.app_display_name)) },
                 actions = {
                     IconButton(onClick = { showHistory = true }) { Icon(Icons.Default.History, contentDescription = "History") }
                     IconButton(onClick = { viewModel.newConversation() }) { Icon(Icons.Default.Add, contentDescription = "New chat") }

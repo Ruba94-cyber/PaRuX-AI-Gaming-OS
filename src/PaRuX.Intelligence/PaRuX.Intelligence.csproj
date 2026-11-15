@@ -3,6 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Company>RBG</Company>
+    <Product>RBG – PaRuX AI &amp; Gaming OS</Product>
     <RootNamespace>PaRuX.Intelligence</RootNamespace>
     <AssemblyName>PaRuX.Intelligence</AssemblyName>
   </PropertyGroup>

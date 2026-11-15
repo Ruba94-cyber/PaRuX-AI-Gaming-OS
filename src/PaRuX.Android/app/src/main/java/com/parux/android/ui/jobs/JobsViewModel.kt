@@ -127,7 +127,7 @@ class JobsViewModel(private val container: AppContainer) : ViewModel() {
         val manager = appContext.getSystemService(NotificationManager::class.java) ?: return
         val notification = NotificationCompat.Builder(appContext, PaRuXApplication.CHANNEL_JOBS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("PaRuX")
+            .setContentTitle(appContext.getString(R.string.app_display_name))
             .setContentText("${job.type.replaceFirstChar { it.uppercase() }} completed")
             .setAutoCancel(true)
             .build()
