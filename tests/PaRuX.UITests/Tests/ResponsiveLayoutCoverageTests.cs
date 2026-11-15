@@ -413,15 +413,41 @@ public sealed class ResponsiveLayoutCoverageTests
     private static void EnsurePaneForWidth(UiTestApplication app, int width)
     {
         bool shouldBeOpen = width > 560;
-        if (IsPaneOpen(app) == shouldBeOpen) return;
 
-        var toggle = UiWait.ById(app.MainWindow, "TogglePaneButton", ControlType.Button);
-        app.MainWindow.SetForeground();
-        toggle.Patterns.Invoke.Pattern.Invoke();
+        // The app re-applies its width policy (pane display mode, auto open/close) asynchronously on SizeChanged.
+        // Toggling before that pass lands races with it: switching LeftCompact -> Left resets a pane the toggle has
+        // just opened, so the pane looks like it never reopened. Give the app's own policy time to settle first.
+        if (WaitForPaneState(app, shouldBeOpen, TimeSpan.FromMilliseconds(1500))) return;
+
+        // The policy left the pane in the wrong state: act as the user would, then verify. A bounded retry covers a
+        // late policy pass that undoes the first toggle; a pane that never reaches the state still fails below.
+        const int attempts = 3;
+        for (int attempt = 1; attempt <= attempts; attempt++)
+        {
+            if (IsPaneOpen(app) != shouldBeOpen)
+            {
+                var toggle = UiWait.ById(app.MainWindow, "TogglePaneButton", ControlType.Button);
+                app.MainWindow.SetForeground();
+                toggle.Patterns.Invoke.Pattern.Invoke();
+            }
+
+            if (WaitForPaneState(app, shouldBeOpen, TimeSpan.FromSeconds(2))) return;
+        }
 
         UiWait.For(() => IsPaneOpen(app) == shouldBeOpen,
             shouldBeOpen ? "navigation pane reopened for wide layout" : "navigation pane collapsed for narrow layout",
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(2));
+    }
+
+    private static bool WaitForPaneState(UiTestApplication app, bool shouldBeOpen, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (IsPaneOpen(app) == shouldBeOpen) return true;
+            Thread.Sleep(100);
+        }
+        return IsPaneOpen(app) == shouldBeOpen;
     }
 
     private static void ResizeWindow(UiTestApplication app, int targetWidth, int targetHeight, bool autoAdjustPane = true)

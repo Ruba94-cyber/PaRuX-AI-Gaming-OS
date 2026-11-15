@@ -107,7 +107,13 @@ public sealed class AccessibilitySweepCoverageTests
                 if (string.IsNullOrWhiteSpace(name) && !IsAllowed("name", id, name))
                     violations.Add(new Violation(page, "no-name", desc, "in " + AncestorHint(element)));
 
-                if (!element.Properties.IsKeyboardFocusable.ValueOrDefault && !IsAllowed("focus", id, name))
+                // WinUI ScrollBar parts (RepeatButtons) are pointer-only by design (IsTabStop=false); keyboard scrolling is
+                // provided by the owning ScrollViewer (arrows, PageUp/PageDown, Home/End). They are also transient: the
+                // auto-hiding scrollbar fades out while this scan runs, so the focus and clipped rules do not apply to them.
+                // Name and duplicate-id checks still do.
+                bool scrollBarPart = IsScrollBarPart(element, id);
+
+                if (!scrollBarPart && !element.Properties.IsKeyboardFocusable.ValueOrDefault && !IsAllowed("focus", id, name))
                     violations.Add(new Violation(page, "not-keyboard-focusable", desc, "in " + AncestorHint(element)));
 
                 if (!string.IsNullOrEmpty(id))
@@ -134,7 +140,7 @@ public sealed class AccessibilitySweepCoverageTests
                     rect = element.BoundingRectangle;
                     clipped = rect.Width < 2 || rect.Height < 2;
                 }
-                if (!string.IsNullOrWhiteSpace(name) && clipped && !IsAllowed("clipped", id, name))
+                if (!scrollBarPart && !string.IsNullOrWhiteSpace(name) && clipped && !IsAllowed("clipped", id, name))
                     violations.Add(new Violation(page, "clipped", desc, $"rect={rect.Width}x{rect.Height}@{rect.X},{rect.Y}"));
             }
             catch (Exception ex) when (ex is FlaUI.Core.Exceptions.ElementNotAvailableException
@@ -144,6 +150,20 @@ public sealed class AccessibilitySweepCoverageTests
             }
         }
         return violations;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ScrollBarPartId =
+        new("^(Vertical|Horizontal)(Small|Large)(Decrease|Increase)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>True only for the four RepeatButtons of a framework ScrollBar template (matched by id AND parent class).</summary>
+    private static bool IsScrollBarPart(AutomationElement element, string? id)
+    {
+        if (string.IsNullOrEmpty(id) || !ScrollBarPartId.IsMatch(id)) return false;
+        if (element.Properties.ClassName.ValueOrDefault != "RepeatButton") return false;
+        // The fading scrollbar can detach between the two reads; a vanished parent keeps the id+class match.
+        string? parentClass = null;
+        try { parentClass = element.Parent?.Properties.ClassName.ValueOrDefault; } catch { }
+        return parentClass == null || parentClass == "ScrollBar";
     }
 
     private static string AncestorHint(AutomationElement element)
