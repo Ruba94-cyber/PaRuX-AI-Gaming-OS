@@ -42,7 +42,6 @@ Reference PC: Ryzen 7 8840U, CPU engine (see [PARUX_EXECUTION_PLAN.md](../../PAR
 - A clean non-developer PC with only 8 GB RAM, firewall-blocked network, OCR on scanned PDFs and disk-full behaviour: **NOT RUN**.
 - Roles, per-user policies and an audit log **do not exist**.
 - LAN access and the browser passphrase portal were tested by unit tests only.
-- The Italian no-runtime onboarding message is only partly translated.
 - NTFS ACL support and IT approval may be required; FAT/exFAT is not certified.
 
 Related: [PORTABLE.md](PORTABLE.md), [PRIVACY.md](PRIVACY.md), [SECURITY_REVIEW.md](../SECURITY_REVIEW.md),
