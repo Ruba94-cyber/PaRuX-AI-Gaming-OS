@@ -8,6 +8,14 @@
 <p align="center">Local models, smart routing, chat, creative tools and agents, plus a game library and Console / TV mode — in one Windows application.</p>
 
 <p align="center">
+  <a href="https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases"><strong>Download releases</strong></a> ·
+  <a href="#what-can-you-do">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="PARUX_EXECUTION_PLAN.md">Roadmap</a> ·
+  <a href="#support-parux"><strong>Donate ❤️</strong></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/status-BETA-orange" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%2010%2B-0078D6" alt="Windows 10+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-blue" alt="FSL-1.1-MIT license"></a>
@@ -181,3 +189,7 @@ PaRuX is free to use, with **no required subscription or paid feature unlocks**.
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate?business=paolo.ruba.1913%40gmail.com&no_recurring=0&item_name=Support+PaRuX&currency_code=EUR)
 
 Thank you for supporting PaRuX — donations never unlock or restrict features.
+
+---
+
+<p align="center"><sub>Made by Paolo Rubagotti · <a href="https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases">Releases</a> · <a href="docs/guides/INSTALL.md">Documentation</a> · <a href="https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues">Feedback</a> · <a href="#support-parux">Support the project</a></sub></p>
