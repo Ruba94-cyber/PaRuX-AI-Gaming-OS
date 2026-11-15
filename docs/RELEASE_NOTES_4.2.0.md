@@ -7,7 +7,7 @@
 
 ## New branding
 
-The product is now shown as **RBG – PaRuX AI & Gaming OS** (window title, About, executable and assembly metadata, Company "RBG"). Android shows "RBG – PaRuX" in-app. Technical identifiers are unchanged (package ids, namespaces, data folders, ports, API routes), so upgrades keep settings, models, pairings and data.
+The product is now shown as **RBG – PaRuX AI & Gaming OS** (window title, About, executable and assembly metadata, the "Company" metadata field holds the author brand "RBG", the personal developer brand of Paolo Rubagotti, not a legal company). Android shows "RBG – PaRuX" in-app. Technical identifiers are unchanged (package ids, namespaces, data folders, ports, API routes), so upgrades keep settings, models, pairings and data.
 
 ## Highlights
 
