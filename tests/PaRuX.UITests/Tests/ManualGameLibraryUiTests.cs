@@ -17,9 +17,8 @@ public sealed class ManualGameLibraryUiTests
     {
         // The previous test's Core needs a moment to exit after its window closes. Wait for the port instead of failing
         // on that teardown lag; a Core that never exits (a real leftover) still fails the assertion below.
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
-        Assert.DoesNotContain(IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners(), endpoint => endpoint.Port == 51123);
+        UiTestApplication.WaitForCorePortReleased();
+        UiTestApplication.AssertCorePortFree();
         using var app = new UiTestApplication(nameof(Manual_library_adds_and_removes_entry_without_removing_game_file));
         try
         {

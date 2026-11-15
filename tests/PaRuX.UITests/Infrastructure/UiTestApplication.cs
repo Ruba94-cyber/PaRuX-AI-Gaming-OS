@@ -406,6 +406,7 @@ internal sealed class UiTestApplication : IDisposable
         try { if (!_application.HasExited) _application.Kill(); } catch { }
         // taskkill only requests the kill; confirm the desktop process is really gone before the next test launches its own.
         try { UiWait.For(() => _application.HasExited, "PaRuX desktop process to exit", TimeSpan.FromSeconds(10)); } catch { }
+        KillStrayLayoutCores();
         Automation.Dispose();
         _application.Dispose();
         _bootstrapAuthFixture?.Dispose();
@@ -415,17 +416,90 @@ internal sealed class UiTestApplication : IDisposable
 
     private const int CoreDefaultPort = 51123;
 
-    /// <summary>Waits (bounded) until no process listens on the default Core port. Never throws: a Core owned by someone else, such as a
-    /// real PaRuX session, makes the new Core pick another loopback port, so only a timeout is tolerated here, not a failure.</summary>
-    private static void WaitForPreviousCoreRelease()
+    /// <summary>Waits (bounded) until no process listens on the default Core port AND that stays true for a settle window. A single
+    /// "port is free" read is not proof: a Core that was just launched (or is being torn down) has a process but no listener yet, so
+    /// the port can read free for a moment and then be bound. The window must elapse without a listener before the port counts as
+    /// released. Throws TimeoutException when it never settles. Shared by every test that needs the default Core port.</summary>
+    internal static void WaitForCorePortReleased(TimeSpan? timeout = null, TimeSpan? settle = null)
+    {
+        TimeSpan settleWindow = settle ?? TimeSpan.FromSeconds(2);
+        DateTime until = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(30));
+        DateTime? freeSince = null;
+        while (DateTime.UtcNow < until)
+        {
+            bool listening = IsCorePortListening();
+            if (listening) freeSince = null;
+            else
+            {
+                freeSince ??= DateTime.UtcNow;
+                if (DateTime.UtcNow - freeSince.Value >= settleWindow) return;
+            }
+            Thread.Sleep(100);
+        }
+        throw new TimeoutException("Timed out waiting for the previous Core to release port " + CoreDefaultPort + " for "
+            + settleWindow.TotalSeconds + " s. " + DescribeCorePortOwner());
+    }
+
+    /// <summary>Asserts that nothing listens on the default Core port, naming the owning process when something does.</summary>
+    internal static void AssertCorePortFree() =>
+        Xunit.Assert.False(IsCorePortListening(), "Port " + CoreDefaultPort + " is still bound. " + DescribeCorePortOwner());
+
+    private static bool IsCorePortListening() =>
+        System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
+            .Any(endpoint => endpoint.Port == CoreDefaultPort);
+
+    private static string DescribeCorePortOwner()
     {
         try
         {
-            UiWait.For(() => !System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
-                    .Any(endpoint => endpoint.Port == CoreDefaultPort),
-                "previous Core released port " + CoreDefaultPort, TimeSpan.FromSeconds(20));
+            using Process netstat = Process.Start(new ProcessStartInfo("netstat.exe", "-ano -p tcp")
+                { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true })!;
+            string output = netstat.StandardOutput.ReadToEnd();
+            netstat.WaitForExit(5000);
+            var owners = new List<string>();
+            foreach (string line in output.Split('\n'))
+            {
+                string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 5 || parts[3] != "LISTENING" || !parts[1].EndsWith(":" + CoreDefaultPort, StringComparison.Ordinal)) continue;
+                int pid = int.Parse(parts[4].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                string name = "?";
+                try { using Process owner = Process.GetProcessById(pid); name = owner.ProcessName + " " + owner.MainModule?.FileName; } catch { }
+                owners.Add("pid " + pid + " " + name);
+            }
+            return owners.Count == 0 ? "No listener owner found." : "Listener owner: " + string.Join("; ", owners);
         }
+        catch (Exception ex) { return "Listener owner unknown (" + ex.GetType().Name + ")."; }
+    }
+
+    private static void WaitForPreviousCoreRelease()
+    {
+        // Tolerant: a Core owned by someone else, such as a real PaRuX session, makes the new Core pick another loopback port.
+        try { WaitForCorePortReleased(); }
         catch (TimeoutException) { /* proceed: the new Core publishes another free port */ }
+    }
+
+    /// <summary>Ends any Core started from this test layout that survived the tree kill (a Core launched in the instant the tree was
+    /// enumerated is not in the snapshot). Matches the exact image path of the layout under test, so a real installed PaRuX is never touched.</summary>
+    private static void KillStrayLayoutCores()
+    {
+        try
+        {
+            string serverExe = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Repository.AppExecutable)!, "PaRuX.Server", "PaRuX.Server.exe"));
+            foreach (Process candidate in Process.GetProcessesByName("PaRuX.Server"))
+            {
+                using (candidate)
+                {
+                    try
+                    {
+                        if (!string.Equals(Path.GetFullPath(candidate.MainModule!.FileName), serverExe, StringComparison.OrdinalIgnoreCase)) continue;
+                        candidate.Kill(entireProcessTree: true);
+                        candidate.WaitForExit(10000);
+                    }
+                    catch { /* exited meanwhile, or not accessible: not ours to touch */ }
+                }
+            }
+        }
+        catch { /* best effort */ }
     }
 
     private static void KillProcessTree(int rootProcessId)

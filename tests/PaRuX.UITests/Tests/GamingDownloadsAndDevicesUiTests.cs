@@ -213,8 +213,7 @@ public sealed class GamingDownloadsAndDevicesUiTests
     }
 
     private static void WaitForPort() =>
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
+        UiTestApplication.WaitForCorePortReleased();
 
     private static void OpenGames(UiTestApplication app)
     {

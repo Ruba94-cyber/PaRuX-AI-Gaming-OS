@@ -30,8 +30,7 @@ public sealed class GamingLibraryGroupingUiTests
     private static string? FocusedId(UiTestApplication app) => app.Automation.FocusedElement()?.Properties.AutomationId.ValueOrDefault;
 
     private static void WaitForCoreIdle() =>
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
+        UiTestApplication.WaitForCorePortReleased();
 
     private static void Press(UiTestApplication app, AutomationElement element) => new InstallProgressPage(app).Invoke(element);
 

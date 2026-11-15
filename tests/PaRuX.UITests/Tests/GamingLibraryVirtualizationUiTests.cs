@@ -119,8 +119,7 @@ public sealed class GamingLibraryVirtualizationUiTests
     }
 
     private static void WaitForCoreIdle() =>
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
+        UiTestApplication.WaitForCorePortReleased();
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Two_thousand_title_library_stays_responsive_virtualized_searchable_and_keyboard_navigable()

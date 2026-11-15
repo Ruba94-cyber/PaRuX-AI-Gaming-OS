@@ -18,8 +18,7 @@ public sealed class AdvancedGameManagementUiTests
     public void Advanced_section_inspects_a_synthetic_game_folder_and_offers_the_main_program()
     {
         const string name = nameof(Advanced_section_inspects_a_synthetic_game_folder_and_offers_the_main_program);
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
+        UiTestApplication.WaitForCorePortReleased();
         using var app = new UiTestApplication(name);
         try
         {

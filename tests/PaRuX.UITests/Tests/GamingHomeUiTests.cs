@@ -33,8 +33,7 @@ public sealed class GamingHomeUiTests
 
     private static void WaitForCoreIdle()
     {
-        UiWait.For(() => !IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 51123),
-            "previous Core released port 51123", TimeSpan.FromSeconds(20));
+        UiTestApplication.WaitForCorePortReleased();
     }
 
     private static void OpenGamingHome(UiTestApplication app)
