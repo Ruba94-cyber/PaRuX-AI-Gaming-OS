@@ -77,6 +77,25 @@ public sealed class CorporateFitAndOnboardingTests
     }
 
     [Fact]
+    public void Italian_unproven_items_in_the_no_runtime_path_are_never_English()
+    {
+        var sm = new OnboardingStateMachine { CorporateEdition = true };
+        sm.EvaluateReadiness(ChatReadinessEvidence.Create(
+            runtimeHealthy: false, runtimeSummary: "Bundled CPU text runtime missing", modelAvailable: false,
+            modelSummary: null, probeSucceeded: false, probeSummary: "unverified", errorMessage: "connection refused"));
+
+        foreach (string item in sm.GetUnprovenItems())
+        {
+            string it = OnboardingReadinessText.Localize(item, italian: true);
+            Assert.NotEqual(item, it);
+            Assert.DoesNotContain("not been", it, StringComparison.Ordinal);
+            Assert.DoesNotContain("is installed", it, StringComparison.Ordinal);
+        }
+        Assert.Contains("non è riuscito (connection refused)", OnboardingReadinessText.Localize("Local chat health probe has not succeeded (connection refused).", true), StringComparison.Ordinal);
+        Assert.StartsWith("Configurazione incompleta", OnboardingReadinessText.Localize("Setup is incomplete; unproven readiness accepted by user.", true), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Standard_edition_keeps_its_installer_hint()
     {
         var sm = new OnboardingStateMachine();

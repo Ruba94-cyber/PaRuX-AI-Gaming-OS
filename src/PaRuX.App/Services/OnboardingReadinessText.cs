@@ -25,6 +25,8 @@ namespace PaRuX.Services
                 "Il programma di installazione di PaRuX include il motore Vulkan: in Componenti scegli \"Installa con PaRuX\" o \"Individua esistente\" per llama.cpp.",
             [CorporateRuntimeMissingNextAction] =
                 "Il motore CPU fa parte del pacchetto Corporate ed è assente da questa copia. Estrai di nuovo il pacchetto o chiedi all'IT una copia completa; non viene scaricato né installato nulla.",
+            ["Chat answer has not been verified."] = "La risposta della chat non è stata verificata.",
+            ["Setup is incomplete; unproven readiness accepted by user."] = "Configurazione incompleta: prontezza non dimostrata, accettata dall'utente.",
             ["No chat model is installed or loaded."] = "Nessun modello di chat è installato o caricato.",
             ["Select a recommended model and download it in Model Hub."] = "Scegli un modello consigliato e scaricalo nel Model Hub.",
             ["Verify the local runtime service is running or retry the ready check."] = "Verifica che il servizio del motore locale sia attivo o ripeti il controllo.",
@@ -46,6 +48,10 @@ namespace PaRuX.Services
             const string incomplete = "Setup is incomplete: ";
             if (english.StartsWith(incomplete, StringComparison.Ordinal))
                 return "Configurazione incompleta: " + Localize(english.Substring(incomplete.Length), true);
+
+            const string probeNot = "Local chat health probe has not succeeded";
+            if (english.StartsWith(probeNot, StringComparison.Ordinal))
+                return "Il controllo di salute della chat locale non è riuscito" + english.Substring(probeNot.Length);
 
             const string probe = "Local chat health probe failed";
             if (english.StartsWith(probe, StringComparison.Ordinal))

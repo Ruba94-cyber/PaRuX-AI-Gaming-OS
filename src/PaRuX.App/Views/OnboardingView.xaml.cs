@@ -1041,7 +1041,8 @@ namespace PaRuX.Views
             }
 
             // Readiness is unproven. It must not complete silently.
-            IReadOnlyList<string> unprovenItems = _stateMachine.GetUnprovenItems();
+            IReadOnlyList<string> unprovenItems = _stateMachine.GetUnprovenItems()
+                .Select(item => PaRuX.Services.OnboardingReadinessText.Localize(item, SetupProfileItalian)).ToList();
             string unprovenList = string.Join(Environment.NewLine, unprovenItems.Select(item => "• " + item));
 
             if (UnprovenReadinessText != null)
