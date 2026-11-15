@@ -13,6 +13,12 @@
     requires vX.Y.Z to resolve to the same source commit. This is an offline/local release gate; it
     creates or dispatches no GitHub Actions workflow.
 
+    Split assets: GitHub release files are limited to 2 GiB, so a larger asset (the Standard Portable ZIP) is
+    published as <file>.part001... plus <file>.parts.sha256.txt (tools/split-release-asset.ps1). Every checksum
+    list found in -InstallerDirectory (or -SplitAssetDirectory) is verified: each part's size (< 2 GiB) and SHA-256,
+    consecutive numbering, no unlisted parts, the streamed concatenation equal to the listed joined-file hash and,
+    when the joined file is present, byte-identical to it. Nothing is relaxed for unsplit assets.
+
     Payload binding: provenance records the SHA-256 of every file that was harvested into the MSI.
     The verifier extracts the MSI with an administrative image (msiexec /a into a temp directory; this
     installs nothing), requires that tree to equal the provenance payload exactly, requires the four
@@ -42,7 +48,9 @@ param(
     [int]$PreviousAndroidVersionCode = -1,
     # When set, a single release-candidate manifest binding commit, version and every verified asset
     # hash is written here after all checks passed. Local file only; nothing is uploaded.
-    [string]$ManifestOutput = ""
+    [string]$ManifestOutput = "",
+    # Directory holding <file>.partNNN + <file>.parts.sha256.txt. Defaults to -InstallerDirectory.
+    [string]$SplitAssetDirectory = ""
 )
 
 Set-StrictMode -Version Latest
@@ -314,6 +322,68 @@ if (-not [string]::IsNullOrWhiteSpace($SbomPath)) {
     $sbomAsset = [ordered]@{ fileName = [IO.Path]::GetFileName($SbomPath); sizeBytes = (Get-Item -LiteralPath $SbomPath).Length; sha256 = (Get-CanonicalHash $SbomPath) }
     $manifestAssets += $sbomAsset
     Write-Host "[release verify] SBOM bound: $($sbomAsset.fileName) $($sbomAsset.sha256)"
+}
+
+# ---- split (multi-part) assets ------------------------------------------------------------------
+if ([string]::IsNullOrWhiteSpace($SplitAssetDirectory)) { $SplitAssetDirectory = $InstallerDirectory }
+$SplitAssetDirectory = [IO.Path]::GetFullPath($SplitAssetDirectory)
+$githubAssetLimit = 2147483648
+foreach ($list in @(Get-ChildItem -LiteralPath $SplitAssetDirectory -File -Filter "*.parts.sha256.txt" -ErrorAction SilentlyContinue)) {
+    $joinedName = $list.Name.Substring(0, $list.Name.Length - ".parts.sha256.txt".Length)
+    $entries = [ordered]@{}
+    foreach ($line in [IO.File]::ReadAllLines($list.FullName)) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line -notmatch '^(?<h>[0-9a-fA-F]{64})  (?<f>[^\\/]+)$') { throw "$($list.Name): malformed line '$line'." }
+        if ($entries.Contains($Matches['f'])) { throw "$($list.Name): $($Matches['f']) listed twice." }
+        $entries[$Matches['f']] = $Matches['h'].ToLowerInvariant()
+    }
+    if (-not $entries.Contains($joinedName)) { throw "$($list.Name): no SHA-256 for the joined file $joinedName." }
+    $partNames = @($entries.Keys | Where-Object { $_ -cne $joinedName })
+    if ($partNames.Count -lt 2) { throw "$($list.Name): fewer than two parts listed." }
+    for ($i = 0; $i -lt $partNames.Count; $i++) {
+        $wantName = "{0}.part{1:D3}" -f $joinedName, ($i + 1)
+        if ($partNames[$i] -cne $wantName) { throw "$($list.Name): part #$($i + 1) must be $wantName, found $($partNames[$i])." }
+    }
+    $unlisted = @(Get-ChildItem -LiteralPath $SplitAssetDirectory -File -Filter "$joinedName.part*" |
+        Where-Object { $_.Name.Substring($joinedName.Length) -match '^\.part\d+$' -and $partNames -cnotcontains $_.Name })
+    if ($unlisted.Count -gt 0) { throw "$($list.Name): unlisted part file $($unlisted[0].Name)." }
+    $concat = [Security.Cryptography.SHA256]::Create()
+    $buffer = New-Object byte[] (8MB)
+    foreach ($part in $partNames) {
+        $partPath = Join-Path $SplitAssetDirectory $part
+        if (-not (Test-Path -LiteralPath $partPath -PathType Leaf)) { throw "Split asset part is missing: $part" }
+        $partSize = (Get-Item -LiteralPath $partPath).Length
+        if ($partSize -ge $githubAssetLimit -or $partSize -le 0) { throw "$part is $partSize bytes; each part must be 1..2 GiB-1 so GitHub accepts it." }
+        $partHash = [Security.Cryptography.SHA256]::Create()
+        $in = [IO.File]::OpenRead($partPath)
+        try {
+            while (($read = $in.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                [void]$partHash.TransformBlock($buffer, 0, $read, $null, 0)
+                [void]$concat.TransformBlock($buffer, 0, $read, $null, 0)
+            }
+        } finally { $in.Dispose() }
+        [void]$partHash.TransformFinalBlock([byte[]]::new(0), 0, 0)
+        $actualPart = [BitConverter]::ToString($partHash.Hash).Replace('-', '').ToLowerInvariant()
+        if ($actualPart -cne $entries[$part]) { throw "Split asset part $part SHA-256 mismatch." }
+        $manifestAssets += [ordered]@{ fileName = $part; sizeBytes = $partSize; sha256 = $actualPart }
+    }
+    [void]$concat.TransformFinalBlock([byte[]]::new(0), 0, 0)
+    $joinedHash = [BitConverter]::ToString($concat.Hash).Replace('-', '').ToLowerInvariant()
+    if ($joinedHash -cne $entries[$joinedName]) { throw "Concatenated parts of $joinedName do not hash to the listed joined SHA-256." }
+    $joinedPath = Join-Path $SplitAssetDirectory $joinedName
+    if (Test-Path -LiteralPath $joinedPath -PathType Leaf) {
+        if ((Get-CanonicalHash $joinedPath) -cne $joinedHash) { throw "$joinedName on disk differs from the concatenation of its parts." }
+        $manifestAssets += [ordered]@{ fileName = $joinedName; sizeBytes = (Get-Item -LiteralPath $joinedPath).Length; sha256 = $joinedHash }
+        if ($joinedName -like '*.zip') {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [IO.Compression.ZipFile]::OpenRead($joinedPath)
+            try { if ($zip.Entries.Count -eq 0) { throw "$joinedName has an empty ZIP central directory." } } finally { $zip.Dispose() }
+        }
+    } else {
+        Write-Host "[release verify] $joinedName itself is not present; parts verified against the list only."
+    }
+    $manifestAssets += [ordered]@{ fileName = $list.Name; sizeBytes = $list.Length; sha256 = (Get-CanonicalHash $list.FullName) }
+    Write-Host "[release verify] split asset $joinedName ($($partNames.Count) parts, joined SHA-256 $joinedHash): PASS"
 }
 
 function Find-ApkSigner {

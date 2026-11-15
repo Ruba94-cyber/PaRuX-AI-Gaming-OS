@@ -34,11 +34,13 @@ $appProject = Join-Path $repoRoot "src\PaRuX.App\PaRuX.App.csproj"
 $coreProject = Join-Path $repoRoot "src\PaRuX.Server\PaRuX.Server.csproj"
 $cliProject = Join-Path $repoRoot "src\PaRuX.Cli\PaRuX.Cli.csproj"
 $updateHelperProject = Join-Path $repoRoot "src\PaRuX.UpdateHelper\PaRuX.UpdateHelper.csproj"
+$winMlWorkerProject = Join-Path $repoRoot "src\PaRuX.WinMlWorker\PaRuX.WinMlWorker.csproj"
 $releaseToolProject = Join-Path $repoRoot "tools\PaRuX.ReleaseTool\PaRuX.ReleaseTool.csproj"
 $trustAnchorPath = Join-Path $repoRoot "src\PaRuX.App\Services\ReleaseTrustAnchor.cs"
 $wixProject = Join-Path $repoRoot "installer\PaRuX.Setup\PaRuX.Setup.wixproj"
 $publishDir = Join-Path $repoRoot "artifacts\publish\win-x64"
 $corePublishDir = Join-Path $publishDir "PaRuX.Server"
+$winMlPublishDir = Join-Path $corePublishDir "winml"
 $cliPublishDir = Join-Path $publishDir "Cli"
 $updateHelperPublishDir = Join-Path $publishDir "UpdateHelper"
 $installerDir = Join-Path $repoRoot "artifacts\installer"
@@ -182,6 +184,12 @@ if (-not $SkipPublish) {
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
     if ($LASTEXITCODE -ne 0) { throw "PaRuX Update Helper dotnet publish failed with exit code $LASTEXITCODE." }
 
+    # Publish the Windows ML worker here (not only inside the WiX project) so its exe/dll are signed
+    # before WiX harvests them; the wixproj skips its own unsigned re-publish when this one exists.
+    Write-Host "Publishing PaRuX Windows ML worker $Version self-contained win-x64..."
+    & dotnet publish $winMlWorkerProject -c Release -r win-x64 --self-contained true -o $winMlPublishDir $commonVersionArgs
+    if ($LASTEXITCODE -ne 0) { throw "PaRuX Windows ML worker dotnet publish failed with exit code $LASTEXITCODE." }
+
     Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination (Join-Path $publishDir "LICENSE.txt") -Force
     Copy-Item -LiteralPath (Join-Path $repoRoot "NVIDIA_CUDA_NOTICE.txt") -Destination (Join-Path $publishDir "NVIDIA_CUDA_NOTICE.txt") -Force
     if (Test-Path -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md")) {
@@ -223,13 +231,10 @@ $publisherSigned = $false
 if ($signTool) {
     # Sign the binaries that cross user/security boundaries before WiX harvests them. In particular,
     # the update helper must show the same trusted publisher at the UAC prompt as the MSI itself.
-    foreach ($binary in @($desktopExe, $coreExe, $cliExe, $updateHelperExe)) {
-        Write-Host "Authenticode signing $([IO.Path]::GetFileName($binary))..."
-        & $signTool sign /fd SHA256 /td SHA256 /tr "http://timestamp.digicert.com" /f $pfx /p $pfxPassword $binary
-        if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $binary with exit code $LASTEXITCODE." }
-        & $signTool verify /pa /v $binary
-        if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $binary." }
-    }
+    # Every first-party PE (exes AND own DLLs, including the Windows ML worker) is signed, not only the
+    # four boundary executables. Third-party runtime binaries are intentionally left untouched.
+    & (Join-Path $PSScriptRoot "sign-first-party.ps1") -Root $publishDir -SignTool $signTool
+    if (-not $?) { throw "First-party Authenticode signing failed." }
     $publisherSigned = $true
 } elseif ($Release) {
     Write-Warning "Building an explicitly UNSIGNED public release. Expect Windows SmartScreen/Unknown Publisher warnings."
@@ -246,7 +251,8 @@ Write-Host "Building PaRuX MSI with WiX v7..."
     "-p:ProductVersion=$Version" `
     "-p:PublishDir=$publishDir" `
     -p:AcceptEula=wix7 `
-    "-p:OutputPath=$installerDir"
+    "-p:OutputPath=$installerDir" `
+    "-p:PaRuXWinMlPrepublished=$(if (Test-Path -LiteralPath (Join-Path $winMlPublishDir 'PaRuX.WinMlWorker.exe') -PathType Leaf) { 'true' } else { 'false' })"
 if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed with exit code $LASTEXITCODE." }
 
 $msi = Get-ChildItem -LiteralPath $installerDir -Recurse -File -Filter "PaRuX-$Version-win-x64.msi" |
@@ -297,7 +303,7 @@ Write-Host ""
 Write-Host "MSI ready: $($msi.FullName)"
 Write-Host "SHA-256:   $($hash.Hash.ToLowerInvariant())"
 Write-Host "Source:    $sourceCommit"
-Write-Host "Authenticode: $(if ($publisherSigned) { 'verified on primary binaries + MSI' } else { 'not present' })"
+Write-Host "Authenticode: $(if ($publisherSigned) { 'verified on every first-party PE + MSI' } else { 'not present' })"
 Write-Host "Desktop:   PaRuX.exe"
 Write-Host "Server:    PaRuX.Server\PaRuX.Server.exe"
 Write-Host "CLI:       Cli\parux.exe"

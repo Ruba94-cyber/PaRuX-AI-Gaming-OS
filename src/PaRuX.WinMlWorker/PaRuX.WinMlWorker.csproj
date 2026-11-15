@@ -9,6 +9,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>PaRuX.WinMlWorker</AssemblyName>
     <RootNamespace>PaRuX.WinMlWorker</RootNamespace>
+    <AssemblyTitle>PaRuX Windows ML Worker</AssemblyTitle>
+    <Product>RBG – PaRuX AI &amp; Gaming OS</Product>
+    <Company>RBG</Company>
+    <Copyright>Copyright © RBG</Copyright>
+    <Description>RBG – PaRuX AI &amp; Gaming OS Windows ML inference worker</Description>
     <Version>$(PaRuXProductVersion)</Version>
   </PropertyGroup>
   <ItemGroup>

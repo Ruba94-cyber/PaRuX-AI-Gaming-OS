@@ -16,6 +16,10 @@ Short name: RBG – PaRuX. Status: **BETA** (v4.1.0 pre-release). Read [Known li
 | Corporate Lite (CPU, offline, AI + documents) | Managed or offline PCs | [CORPORATE.md](CORPORATE.md) |
 | Android APK | Companion for a paired Windows PC (not standalone) | [Android setup](../PARUX_ANDROID_README.md) |
 
+Large assets: GitHub limits each release file to 2 GiB, so the Standard Portable ZIP may be published as `.part001`, `.part002`, ...
+plus a `.parts.sha256.txt` list. Download every part, then join and verify them with the PowerShell steps in
+[PORTABLE.md](PORTABLE.md#download-in-parts-large-standard-portable) before extracting. The MSI is a single file.
+
 ## Install with the MSI
 
 1. Download the MSI and `SHA256SUMS.txt` from the same release.

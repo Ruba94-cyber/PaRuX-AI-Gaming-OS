@@ -5,6 +5,11 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>PaRuX.UpdateHelper</RootNamespace>
     <AssemblyName>PaRuX.UpdateHelper</AssemblyName>
+    <AssemblyTitle>PaRuX Update Helper</AssemblyTitle>
+    <Product>RBG – PaRuX AI &amp; Gaming OS</Product>
+    <Company>RBG</Company>
+    <Copyright>Copyright © RBG</Copyright>
+    <Description>RBG – PaRuX AI &amp; Gaming OS protected update helper</Description>
     <Version>$(PaRuXProductVersion)</Version>
     <FileVersion>$(PaRuXProductVersion).0</FileVersion>
     <AssemblyVersion>$(PaRuXProductVersion).0</AssemblyVersion>

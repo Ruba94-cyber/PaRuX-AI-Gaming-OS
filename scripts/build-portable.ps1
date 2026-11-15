@@ -18,7 +18,7 @@
     MSI editions have neither the portable marker nor an adjacent PaRuXData directory, so
     they keep the original per-user %LOCALAPPDATA%\PaRuX behavior.
 
-    The ZIP is not signed by this script and does nothing to bypass Windows SmartScreen, Defender or IT policy.
+    The ZIP container is not signed; when PARUX_SIGN_PFX/PARUX_SIGN_PFX_PASSWORD are set, every first-party PE inside it is Authenticode-signed. This script does nothing to bypass Windows SmartScreen, Defender or IT policy.
     The MSI-only protected update helper is not part of the portable package: update by downloading the new ZIP.
 
     Verification (always on) re-opens the ZIP, checks the runtime selection and required files, refuses forbidden payload
@@ -216,6 +216,16 @@ Le funzioni avanzate che richiedono modelli aggiuntivi possono scaricarli su ric
 Non sono inclusi driver Windows, giochi e client degli store. Nessuna elusione delle policy IT.
 "@
 Set-Content -LiteralPath (Join-Path $stageDir "README-portable.txt") -Value $readme -Encoding UTF8
+
+# Authenticode: every first-party PE (PaRuX*.exe/.dll, parux.exe) is signed BEFORE the file inventory is hashed, so the
+# MANIFEST-portable.json hashes describe the signed bytes. Third-party/runtime binaries are not touched. Without
+# PARUX_SIGN_PFX the ZIP is built unsigned (local/test builds). The ZIP container itself cannot carry a signature.
+if (-not [string]::IsNullOrWhiteSpace($env:PARUX_SIGN_PFX)) {
+    & (Join-Path $PSScriptRoot "sign-first-party.ps1") -Root $stageDir
+    if (-not $?) { throw "First-party Authenticode signing of the portable stage failed." }
+} else {
+    Write-Warning "PARUX_SIGN_PFX is not set: the portable package's first-party binaries are UNSIGNED."
+}
 
 # Full packages get a per-file inventory. The final ZIP verifier re-hashes
 # every archive member, not merely the executable. The manifest excludes
