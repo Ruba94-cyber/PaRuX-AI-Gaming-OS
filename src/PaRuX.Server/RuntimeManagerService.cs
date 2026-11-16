@@ -1007,6 +1007,22 @@ public sealed class RuntimeManagerService
         string path, string role, HardwareFitEstimate? fit, bool residentTextRuntime)
     {
         if (fit?.Compatible == true) return null;
+        if (CorporateMode.IsActive)
+        {
+            string reason = fit is null
+                ? "Corporate CPU memory availability could not be measured; model load was refused. Check Runtime Manager and retry."
+                : "Not enough free memory for CPU mode: this model needs about "
+                    + (fit.NeededMib / 1024d).ToString("0.0", Inv)
+                    + " GB but only " + (fit.AvailableMib / 1024d).ToString("0.0", Inv)
+                    + " GB is available within the memory limit. Select a smaller installed model or free RAM in Windows. No other program was stopped.";
+            return new RuntimeLoadResult
+            {
+                Success = false,
+                Role = role,
+                ModelPath = path,
+                Message = reason
+            };
+        }
         if (fit == null)
             return new RuntimeLoadResult
             {
