@@ -62,7 +62,9 @@ if ($Fetch -and (-not [string]::IsNullOrWhiteSpace($ModelOrigin) -or
     throw "Pinned -Fetch has its own model origin and licence. Do not attach custom metadata."
 }
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$outRoot = Join-Path $repoRoot "artifacts\corporate-lite"
+# Keep experimental low-memory builds separate from the existing standard Corporate
+# stage, archive, manifest and downloaded assets. Never overwrite a verified 4B package.
+$outRoot = Join-Path $repoRoot $(if ($LowMemoryStarter) { "artifacts\corporate-lite-low-memory" } else { "artifacts\corporate-lite" })
 $work = Join-Path $outRoot "stage"
 $stage = Join-Path $work "PaRuX-Corporate-Lite"
 $assets = Join-Path $outRoot "assets"
@@ -371,7 +373,8 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stage "MANIFEST.js
 
 # --- 5. ZIP ('/' separators, one top-level folder) -----------------------------------------------------------------------
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$zipPath = Join-Path $outRoot "PaRuX-Corporate-Lite-Offline-win-x64.zip"
+$zipName = if ($LowMemoryStarter) { "PaRuX-Corporate-Lite-LowMemory-Offline-win-x64.zip" } else { "PaRuX-Corporate-Lite-Offline-win-x64.zip" }
+$zipPath = Join-Path $outRoot $zipName
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 $fs = [IO.File]::Open($zipPath, [IO.FileMode]::Create, [IO.FileAccess]::Write)
 try {
