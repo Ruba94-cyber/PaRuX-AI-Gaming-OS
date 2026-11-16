@@ -1623,7 +1623,6 @@ public sealed class LocalAiProcessManager
         // that release and choose the largest CPU KV context the user's existing
         // memory ceiling permits. The model itself is never silently changed.
         SystemRamSnapshot? ram = ExecutionResourceGuard.TryGetSystemRamSnapshot();
-        string? ramRefusal = CpuFallbackAdmission.Check(model, ram, 0);
         double memoryCeiling = ExecutionProfileStore.Current.Get(model).Effective.Budget.MaxSystemRamPercent;
         CorporateCpuMemoryPlanner.Plan memory;
         try { memory = CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling); }
@@ -1634,9 +1633,7 @@ public sealed class LocalAiProcessManager
                 "The Corporate CPU model memory footprint could not be measured safely (" + ex.GetType().Name + "). No model was started.");
         }
         if (!memory.Fits)
-            return new RuntimeResult(false,
-                CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling)
-                + (ramRefusal is not null ? " The normal 4096-token context also exceeds the current budget." : string.Empty));
+            return new RuntimeResult(false, CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling));
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
         int idleUnloadSeconds = CorporateCpuMemoryPlanner.IdleUnloadSeconds(memory);
