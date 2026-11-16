@@ -38,6 +38,14 @@ public static class GamePostLaunchStates
     public const string FullscreenAndClickPosted = "fullscreen-and-click-posted";
 }
 
+/// <summary>Truthful emulator display request. A command-line fullscreen switch
+/// does not prove the game actually entered fullscreen.</summary>
+public static class GameEmulatorDisplayStates
+{
+    public const string NotRequested = "";
+    public const string NativeFullscreenArgument = "native-fullscreen-argument";
+}
+
 /// <summary>
 /// Result of an explicit desktop-owner launch from the existing manual library.
 /// Monitoring is true only when PaRuX verified the created process identity.
@@ -67,4 +75,6 @@ public sealed record ManualGameLaunchResult(
     /// <summary>Observed/posting outcome of optional one-shot owned-window actions.
     /// Not proof of fullscreen or an actual in-game click.</summary>
     public string PostLaunch { get; init; } = GamePostLaunchStates.NotRequested;
+    /// <summary>Command-line fullscreen intent for a verified emulator entry, not observed fullscreen.</summary>
+    public string EmulatorDisplay { get; init; } = GameEmulatorDisplayStates.NotRequested;
 }
