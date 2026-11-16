@@ -30,7 +30,7 @@ public sealed class RuntimeRecoveryGuidanceTests
     [Fact]
     public void Corporate_memory_503_body_is_localized_instead_of_exposing_raw_json()
     {
-        const string body = "{\\"error\\":{\\"message\\":\\"Not enough free memory for CPU mode: model needs 2.9 GB; only 2.1 GB is available within the memory limit.\\"}}";
+        const string body = """{"error":{"message":"Not enough free memory for CPU mode: model needs 2.9 GB; only 2.1 GB is available within the memory limit."}}""";
         Assert.Equal(RuntimeRecoveryGuidance.Reason.OutOfMemory, RuntimeRecoveryGuidance.Classify(body));
         string italian = RuntimeRecoveryGuidance.Describe(body, italian: true);
         Assert.Contains("memoria", italian, StringComparison.OrdinalIgnoreCase);
@@ -41,7 +41,7 @@ public sealed class RuntimeRecoveryGuidanceTests
     [Fact]
     public void Corporate_llama_crash_body_is_actionable_without_leaking_stderr_or_paths()
     {
-        const string body = "{\\"error\\":{\\"message\\":\\"llama-server.exe exited unexpectedly. C:\\\\Users\\\\private\\\\runtime\\\\llama-server.exe: srv init\\n\\"}}";
+        const string body = """{"error":{"message":"llama-server.exe exited unexpectedly. C:\\Users\\private\\runtime\\llama-server.exe: srv init\n"}}""";
         Assert.Equal(RuntimeRecoveryGuidance.Reason.RuntimeCrashed, RuntimeRecoveryGuidance.Classify(body));
         string italian = RuntimeRecoveryGuidance.Describe(body, italian: true);
         Assert.Contains("codice di uscita", italian);
