@@ -154,6 +154,9 @@ public sealed class CorporateCpuMemoryPlannerTests
         string policy = Read("src", "PaRuX.Server", "CorporateCpuMemoryPlanner.cs");
         Assert.Contains("CorporateCpuMemoryPlanner.ForModel(", admission);
         Assert.Contains("CorporateCpuMemoryPlanner.ForModel(", launch);
+        Assert.Contains("estimate(CorporateCpuMemoryPlanner.MinimumUsefulContextTokens)", admission);
+        Assert.Contains("estimate(CorporateCpuMemoryPlanner.NormalContextTokens)", admission);
+        Assert.Contains("CorporateCpuMemoryPlanner.IdleUnloadSeconds(memory)", launch);
         Assert.Contains("memory.ContextTokens", launch);
         Assert.Contains("memory.Reduced", launch);
         Assert.Contains("GetReclaimableTextWorkingSetBytes()", admission);
