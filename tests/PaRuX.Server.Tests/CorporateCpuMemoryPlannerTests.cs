@@ -116,6 +116,24 @@ public sealed class CorporateCpuMemoryPlannerTests
     }
 
     [Fact]
+    public void Under_pressure_only_the_purchased_idle_runtime_memory_is_released_earlier()
+    {
+        var roomy = new CorporateCpuMemoryPlanner.Plan(4096, 3000, 5000, true);
+        var moderate = new CorporateCpuMemoryPlanner.Plan(4096, 3000, 4000, true);
+        var tight = new CorporateCpuMemoryPlanner.Plan(3072, 2750, 3050, true);
+        var refused = new CorporateCpuMemoryPlanner.Plan(2048, 3000, 0, false);
+
+        Assert.Equal(LocalAiProcessManager.CorporateIdleUnloadSeconds,
+            CorporateCpuMemoryPlanner.IdleUnloadSeconds(roomy));
+        Assert.Equal(180, CorporateCpuMemoryPlanner.IdleUnloadSeconds(moderate));
+        Assert.Equal(120, CorporateCpuMemoryPlanner.IdleUnloadSeconds(tight));
+        Assert.Equal(LocalAiProcessManager.CorporateIdleUnloadSeconds,
+            CorporateCpuMemoryPlanner.IdleUnloadSeconds(refused));
+        var argv = LocalAiProcessManager.BuildCorporateCpuArguments("m", 1234, 8, 3072, 120);
+        Assert.Equal("120", argv[argv.IndexOf("--sleep-idle-seconds") + 1]);
+    }
+
+    [Fact]
     public void Cpu_launch_argument_builder_uses_same_context_without_touching_threads_or_cpu_only_settings()
     {
         var args = LocalAiProcessManager.BuildCorporateCpuArguments("model.gguf", 8123, 16, 3072);
