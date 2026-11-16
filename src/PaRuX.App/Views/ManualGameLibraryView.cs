@@ -1638,6 +1638,17 @@ public sealed class ManualGameLibraryView : UserControl
                     _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
                         "Posizionamento sulla TV non confermato. Il gioco resta avviato; usa le sue impostazioni schermo.")
                 });
+            if (!string.IsNullOrEmpty(launch.HdrReadiness))
+                _status.Text += "\n" + (launch.HdrReadiness switch
+                {
+                    "hdr-ready" => T(
+                        "Windows HDR was verified active on the selected display before launch; game HDR rendering is not guaranteed.",
+                        "HDR Windows verificato attivo sullo schermo scelto prima dell'avvio; il rendering HDR del gioco non è garantito."),
+                    "hdr-preference-not-ready" => T(
+                        "HDR was preferred but not confirmed. The game started using unchanged Windows color settings.",
+                        "HDR preferito ma non confermato. Il gioco è stato avviato senza modificare le impostazioni colore di Windows."),
+                    _ => T("HDR readiness not confirmed.", "Verifica HDR non confermata.")
+                });
             if (launch.EmulatorDisplay == GameEmulatorDisplayStates.NativeFullscreenArgument)
                 _status.Text += "\n" + T(
                     "The emulator received its native fullscreen launch option. The actual display mode is not confirmed; an extra Alt+Enter toggle was avoided.",
