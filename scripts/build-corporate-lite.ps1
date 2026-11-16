@@ -46,6 +46,21 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+# Reject contradictory package options BEFORE publishing a shell, creating staging
+# directories or fetching third-party assets.
+if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) {
+    throw "-NoModel and -ModelPath are mutually exclusive."
+}
+if ($LowMemoryStarter -and (-not $Fetch -or $NoModel)) {
+    throw "-LowMemoryStarter requires -Fetch and cannot be combined with -NoModel or a custom local GGUF."
+}
+if ($Fetch -and -not [string]::IsNullOrWhiteSpace($ModelPath)) {
+    throw "-Fetch selects the official pinned model. Use -ModelPath without -Fetch for a custom GGUF."
+}
+if ($Fetch -and (-not [string]::IsNullOrWhiteSpace($ModelOrigin) -or
+    -not [string]::IsNullOrWhiteSpace($ModelLicenseId))) {
+    throw "Pinned -Fetch has its own model origin and licence. Do not attach custom metadata."
+}
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $outRoot = Join-Path $repoRoot "artifacts\corporate-lite"
 $work = Join-Path $outRoot "stage"
@@ -210,14 +225,6 @@ if ($Fetch) {
     $rerRev = "a09144355adeed5f58c8ed011d209bf8ee5a1fec"
     Get-PinnedAsset $rerRepo $rerRev "onnx/model.onnx" (Join-Path $RerankerDir "model.onnx") 90992115 "sha256" "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"
     Get-PinnedAsset $rerRepo $rerRev "vocab.txt" (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
-}
-if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
-if ($LowMemoryStarter -and (-not $Fetch -or $NoModel)) {
-    throw "-LowMemoryStarter requires -Fetch and cannot be combined with -NoModel or a custom local GGUF."
-}
-if ($Fetch -and -not [string]::IsNullOrWhiteSpace($ModelOrigin) -or
-    $Fetch -and -not [string]::IsNullOrWhiteSpace($ModelLicenseId)) {
-    throw "Pinned -Fetch has its own model origin and licence. Do not attach custom metadata."
 }
 # The remote pinned -Fetch asset is distinguishable from a user-provided replacement.
 # Do not claim Qwen/Apache licensing for arbitrary files simply because they are GGUF.
