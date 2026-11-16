@@ -679,7 +679,7 @@ public sealed class SmartRouterService : IRoleRouter
             // A manual lock or explicit role never reaches this automatic pool. Unknown
             // OS RAM and candidates that cannot fit must not be promoted as successful
             // AUTO suggestions. No model installation, profile widening or forced swap.
-            candidates = candidates.Where(c => c.HardwareCompatible == true).ToList();
+            candidates = EligibleCorporateAutoCandidates(candidates);
             if (candidates.Count == 0)
                 return Failure(normalizedTextRole,
                     "No installed Corporate CPU model fits the memory available under the current PaRuX profile. "
@@ -713,6 +713,11 @@ public sealed class SmartRouterService : IRoleRouter
         capture(null);
         return await _runtimeManager.EnsureRoleLoadedAsync(roleToLoad, ct);
     }
+
+    /// <summary>Pure AUTO-only gate: unknown fit is not a confirmed fit on constrained corporate CPU.</summary>
+    internal static IReadOnlyList<CandidateEvidenceDto> EligibleCorporateAutoCandidates(
+        IReadOnlyList<CandidateEvidenceDto> candidates) =>
+        candidates.Where(candidate => candidate.HardwareCompatible == true).ToList();
 
     private static bool IsSafeManagedFileName(string value) =>
         !string.IsNullOrWhiteSpace(value)
