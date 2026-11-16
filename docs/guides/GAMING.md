@@ -101,7 +101,9 @@ and [post-launch policy](../validation/GAMING_POST_LAUNCH_OWNED_WINDOW.md).
 | HTTPS and BitTorrent downloads with SHA-256 | Experimental; no peer-swarm proof, no unattended installers |
 | Drop-in ZIP mods and AI asset studios | PARTIAL; no real game loading a ZIP was run |
 | Controller input | Read-only detection; physical button presses NOT RUN (hardware-presence tests are simulated) |
-| TV routing, HDR/VRR, streaming | MISSING |
+| Console TV routing and per-game monitor selection | Source implemented; selected-TV mode editor and HDR/WCG indication not Windows-verified |
+| HDR/WCG read-only detection and per-game System/Prefer/Require | Source implemented, physical TV and native x64 CCD acceptance NOT RUN |
+| Automatic HDR ON/OFF, crash-safe restore, VRR and HDR streaming | MISSING; tracked in issue #11 |
 
 PaRuX does not bypass DRM, anti-cheat or store terms, and does not provide game piracy sources.
 Console / TV presentation: [CONSOLE_MODE.md](CONSOLE_MODE.md). Problems: [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
