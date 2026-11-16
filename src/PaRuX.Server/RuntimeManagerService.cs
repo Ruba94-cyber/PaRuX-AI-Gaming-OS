@@ -498,16 +498,23 @@ public sealed class RuntimeManagerService
         try { sizeBytes = new FileInfo(path).Length; }
         catch { return null; }
 
-        // Corporate Lite runs the bundled CPU engine with a 4,096-token context. Its fit is a fixed, per-profile
-        // capacity check against total RAM (deterministic), not a 32k-context GPU estimate against the instantaneous
-        // free RAM: that one refused a model that then ran (real package, 3 of 4 chat questions answered 503).
-        // The real launch still goes through CpuFallbackAdmission, which reports honestly when memory is short.
+        // This total-capacity hint is intentionally stable for Model Hub and
+        // manual selections. Accept a GGUF on a CPU-only Corporate host if it
+        // can potentially fit at either the normal 4K or the adaptive minimum
+        // useful 2K context, then sample live RAM again at actual launch.
         if (PaRuX.Contracts.CorporateMode.IsActive)
         {
             SystemRamSnapshot? total = TryGetSystemRamSnapshot();
             if (total?.IsValid != true) return null;
             double pct = ExecutionProfileStore.Current.Get(path).Effective.Budget.MaxSystemRamPercent;
-            return CorporateFitPolicy.Estimate(CpuFallbackAdmission.EstimateNeededMib(path), total.TotalBytesAsLong, pct);
+            Func<int, double> estimate = CpuFallbackAdmission.CreateContextEstimator(path);
+            HardwareFitEstimate normal = CorporateFitPolicy.Estimate(
+                estimate(CorporateCpuMemoryPlanner.NormalContextTokens), total.TotalBytesAsLong, pct);
+            return normal.Compatible
+                ? normal
+                : CorporateFitPolicy.Estimate(
+                    estimate(CorporateCpuMemoryPlanner.MinimumUsefulContextTokens),
+                    total.TotalBytesAsLong, pct);
         }
 
         // Fast estimate used by SmartRouter ranking and as the cheap LoadRole preflight before it
