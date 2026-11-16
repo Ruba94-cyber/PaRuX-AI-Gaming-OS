@@ -27,7 +27,7 @@ public sealed class GamingDisplayTopologyService
             var modes = NormalizeModes(_read());
             return modes.Length == 0
                 ? new(false, "Windows did not expose an active desktop monitor.", Array.Empty<GamingDisplayModeDto>())
-                : new(true, "Current display topology only. HDR, VRR and pending changes are not verified.", modes);
+                : new(true, "Current topology with read-only HDR/WCG state where Windows reports it. VRR and pending display changes are not verified.", modes);
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or
             BadImageFormatException or InvalidOperationException)
@@ -192,10 +192,15 @@ public sealed class GamingDisplayTopologyService
                         hz = (int)settings.Frequency;
                 }
 
+                GamingHdrDisplayProbe.ColorState color =
+                    GamingHdrDisplayProbe.Read(info.Device);
                 result.Add(new GamingDisplayModeDto(info.Device, (info.Flags & PrimaryMonitor) != 0,
                     left, top, width, height, hz)
                 {
-                    FriendlyName = ReadFriendlyName(info.Device)
+                    FriendlyName = ReadFriendlyName(info.Device),
+                    HdrSupported = color.HdrSupported,
+                    HdrEnabled = color.HdrEnabled,
+                    ColorMode = color.ColorMode
                 });
                 return true;
             }, IntPtr.Zero);
