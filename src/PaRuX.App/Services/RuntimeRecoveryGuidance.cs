@@ -62,6 +62,7 @@ namespace PaRuX.Services
                 || Has(raw, "failed to allocate memory") || Has(raw, "not enough VRAM")
                 || Has(raw, "insufficient VRAM") || Has(raw, "not enough system memory")
                 || Has(raw, "not enough free memory for CPU mode")
+                || Has(raw, "no installed corporate cpu model fits")
                 || Has(raw, "ran out of available RAM or virtual memory"))
                 return Reason.OutOfMemory;
 
