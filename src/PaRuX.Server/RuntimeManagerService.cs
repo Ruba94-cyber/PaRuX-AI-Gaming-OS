@@ -539,10 +539,16 @@ public sealed class RuntimeManagerService
         if (snapshot?.IsValid != true) return null;
         try
         {
-            double neededMib = CpuFallbackAdmission.EstimateNeededMib(path);
             double profileLimit = ExecutionProfileStore.Current.Get(path).Effective.Budget.MaxSystemRamPercent;
-            return CorporateFitPolicy.EstimateLive(
-                neededMib, snapshot, profileLimit, GetReclaimableTextWorkingSetBytes());
+            CorporateCpuMemoryPlanner.Plan adaptive = CorporateCpuMemoryPlanner.ForModel(
+                path, snapshot, profileLimit, GetReclaimableTextWorkingSetBytes());
+            // AUTO scores the model using the same bounded 4K/3K/2K choice
+            // used immediately before the real CPU launch. The caller still
+            // reruns this after stopping PaRuX-owned outgoing text.
+            return adaptive.NeededMib > 0
+                ? new HardwareFitEstimate(adaptive.Fits, adaptive.NeededMib,
+                    adaptive.AvailableMib, null, adaptive.ContextTokens)
+                : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
             or InvalidDataException or ArgumentException or NotSupportedException)
