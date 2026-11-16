@@ -186,7 +186,8 @@ internal sealed class GamingDevicesPanel : StackPanel
         _displayId = null;
         _advancedColorProtected = true;
         _modes.Items.Clear();
-        SetPendingUi(false);
+        if (_applyButton is not null) _applyButton.IsEnabled = false;
+        // Do not hide an already pending 15-second restore confirmation.
         try
         {
             var topology = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
@@ -220,7 +221,8 @@ internal sealed class GamingDevicesPanel : StackPanel
                     Tag = mode
                 });
             _modes.SelectedIndex = list.FindIndex(m => m.Width == selected.Width && m.Height == selected.Height && m.RefreshRateHz == selected.RefreshRateHz) is var i and >= 0 ? i : 0;
-            SetPendingUi(false);
+            var existingChange = await GamingOrchestratorClient.Current.GetDisplayChangeAsync();
+            SetPendingUi(existingChange.Value?.Pending == true);
             string label = string.IsNullOrWhiteSpace(selected.FriendlyName) ? selected.DisplayId : selected.FriendlyName;
             _displayStatus.Text = T(
                 $"{list.Count} modes for {label}. HDR/WCG: {selected.ColorMode}.",
