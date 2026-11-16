@@ -1632,6 +1632,37 @@ public sealed class LocalAiProcessManager
             return new RuntimeResult(false,
                 "The Corporate CPU model memory footprint could not be measured safely (" + ex.GetType().Name + "). No model was started.");
         }
+        // One bounded pressure-recovery pass: only PaRuX's own *idle* ONNX
+        // embedding/reranker sessions may be released. Active RAG/indexing,
+        // the selected GGUF, Outlook, Teams and IT protections are untouched.
+        // Re-read Windows memory after disposal; do not assume reported
+        // available RAM increased merely because a session was disposed.
+        if (!memory.Fits && corporate && !ct.IsCancellationRequested)
+        {
+            int released = 0;
+            try
+            {
+                released = PaRuX.Server.Knowledge.KnowledgeContextProvider.Current
+                    ?.ReleaseIdleRetrievalModelsForMemoryPressure() ?? 0;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "Corporate retrieval memory reclaim was skipped: " + ex.GetType().Name);
+            }
+            if (released > 0)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), ct).ConfigureAwait(false);
+                ram = ExecutionResourceGuard.TryGetSystemRamSnapshot();
+                try { memory = CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                    or InvalidDataException or ArgumentException or NotSupportedException)
+                {
+                    return new RuntimeResult(false,
+                        "PaRuX released its idle retrieval engines, but the CPU model footprint could not be measured safely. No model was started.");
+                }
+            }
+        }
         if (!memory.Fits)
             return new RuntimeResult(false, CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling));
         string? portRefusal = ChooseTextPortForLaunch();
