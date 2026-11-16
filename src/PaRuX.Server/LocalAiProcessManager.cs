@@ -1576,14 +1576,15 @@ public sealed class LocalAiProcessManager
     internal const int CorporateIdleUnloadSeconds = 300;
 
     /// <summary>The argument list of the Corporate Lite launch. Pure, so it is unit-tested without starting a process.</summary>
-    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores, int contextTokens = 4096) =>
+    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores, int contextTokens = 4096,
+        int idleUnloadSeconds = CorporateIdleUnloadSeconds) =>
     [
         "--model", model, "--alias", "local-coder", "--host", "127.0.0.1", "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture),
         "--jinja", "--reasoning", "off",
         "--ctx-size", contextTokens.ToString(System.Globalization.CultureInfo.InvariantCulture), "--parallel", "1",
         // Leave cores to Teams/Outlook/Excel: half the logical cores, at least 2 and at most 8.
         "--threads", Math.Clamp(logicalCores / 2, 2, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        "--sleep-idle-seconds", CorporateIdleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        "--sleep-idle-seconds", idleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
         // Repacking keeps a second, private copy of the weights next to the memory-mapped file. Measured with the bundled
         // Qwen3-4B Q4_K_M on an 8-core laptop CPU: private memory 2.5 GB -> 0.8 GB, same generation speed, faster prompt
         // processing. On an 8 GB office PC that copy is the difference between fitting and paging.
@@ -1638,7 +1639,9 @@ public sealed class LocalAiProcessManager
                 + (ramRefusal is not null ? " The normal 4096-token context also exceeds the current budget." : string.Empty));
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
-        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount, memory.ContextTokens);
+        int idleUnloadSeconds = CorporateCpuMemoryPlanner.IdleUnloadSeconds(memory);
+        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount,
+            memory.ContextTokens, idleUnloadSeconds);
         string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
@@ -1649,6 +1652,9 @@ public sealed class LocalAiProcessManager
             ? " Corporate memory-aware mode used a " + memory.ContextTokens
                 + "-token context (instead of 4096) to keep the selected model within the configured RAM limit."
             : string.Empty;
+        if (result.Success && idleUnloadSeconds < CorporateIdleUnloadSeconds)
+            contextNotice += " The CPU engine was configured to release its idle model after "
+                + idleUnloadSeconds + " seconds to reduce PaRuX RAM use between requests.";
         return result.Success && (choice.RecoveredFromSavedChoice || contextNotice.Length > 0)
             ? new RuntimeResult(true, result.Message + contextNotice + fallbackNotice)
             : result;
