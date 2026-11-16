@@ -36,9 +36,16 @@ internal static class CpuFallbackAdmission
         double availableMib = availableBytes / 1024d / 1024d;
         if (neededMib <= availableMib) return null;
         var inv = System.Globalization.CultureInfo.InvariantCulture;
+        double windowsAvailableGiB = ram.AvailableBytes / 1024d / 1024d / 1024d;
+        double profilePercent = double.IsFinite(maxSystemRamPercent)
+            ? Math.Clamp(maxSystemRamPercent, 0d, 100d)
+            : 0d;
         return "Not enough free memory for CPU mode: this model needs about " + (neededMib / 1024d).ToString("0.0", inv)
             + " GB of RAM but only " + (availableMib / 1024d).ToString("0.0", inv)
-            + " GB is available within the memory limit. Close other applications or choose a smaller model in Model Hub. No other program was stopped.";
+            + " GB is available within the memory limit. Windows reports " + windowsAvailableGiB.ToString("0.0", inv)
+            + " GB available, while the PaRuX profile caps total system RAM usage (including other applications) at "
+            + profilePercent.ToString("0.#", inv)
+            + "%. Close competing applications or choose a smaller model in Model Hub; no other program was stopped.";
     }
 
     internal static string? Check(string modelPath, SystemRamSnapshot? ram, long reclaimableBytes)
