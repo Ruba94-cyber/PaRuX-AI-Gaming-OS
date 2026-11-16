@@ -21,6 +21,8 @@ public sealed class GameLaunchProfile
     public int? Height { get; set; }
     public int? RefreshHz { get; set; }
     public bool? Fullscreen { get; set; }
+    /// <summary>system (default) | prefer | require. Never changes OS HDR.</summary>
+    public string HdrMode { get; set; } = "system";
     /// <summary>Honest statement for clients: fullscreen is stored as a preference. PaRuX never forces a window state on an
     /// arbitrary executable (the owned-window service refuses to resize games); emulator launches carry their own
     /// fullscreen switch. Read-only: ignored on input.</summary>
@@ -33,8 +35,27 @@ public sealed class GameLaunchProfile
     /// May contain {width}, {height} and {refresh}.</summary>
     public List<string> LaunchArgs { get; set; } = new();
     public GameStreamingSettings Streaming { get; set; } = new();
+    /// <summary>Optional, opt-in one-shot actions targeting only a uniquely verified owned game window.</summary>
+    public GamePostLaunchSettings PostLaunch { get; set; } = new();
     /// <summary>Only "hard_off": AI children stay off while the game runs. Any other value is rejected.</summary>
     public string AiConcurrency { get; set; } = GameLaunchProfileValidator.AiHardOff;
+}
+
+/// <summary>
+/// Optional actions after an explicit direct executable game launch.
+/// All flags default off: a legacy profile never activates, types or clicks on Windows.
+/// This cannot guarantee exclusive fullscreen or override OS foreground restrictions.
+/// </summary>
+public sealed class GamePostLaunchSettings
+{
+    public bool BringToForeground { get; set; }
+    public bool RequestAltEnterFullscreen { get; set; }
+    public bool ClickClientCenter { get; set; }
+    /// <summary>Delay after the verified process starts. Hard-capped by validation.</summary>
+    public int DelayMs { get; set; } = 1200;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool Requested => BringToForeground || RequestAltEnterFullscreen || ClickClientCenter;
 }
 
 public sealed class GameStreamingSettings
@@ -55,6 +76,7 @@ public static class GameLaunchProfileValidator
     private static readonly string[] Controllers = { "auto", "xbox", "playstation", "switch", "generic", "keyboard_mouse" };
     private static readonly string[] Performance = { "balanced", "performance", "quality", "quiet" };
     private static readonly string[] Codecs = { "auto", "h264", "hevc", "av1" };
+    private static readonly string[] HdrModes = { "system", "prefer", "require" };
     private static readonly string[] Placeholders = { "{width}", "{height}", "{refresh}" };
     /// <summary>Rejected even though ArgumentList never reaches a shell: they only make sense as injection.</summary>
     private static readonly char[] Forbidden = "&|;<>^`$%\"".ToCharArray();
@@ -71,6 +93,7 @@ public static class GameLaunchProfileValidator
         if (p.RefreshHz is { } r && (r < 24 || r > 1000)) return "Refresh rate must be 24-1000 Hz.";
         if (!In(Controllers, p.ControllerPreset)) return "Unknown controller preset.";
         if (!In(Performance, p.PerformanceProfile)) return "Unknown performance profile.";
+        if (!In(HdrModes, p.HdrMode)) return "HDR mode must be system, prefer or require.";
         if (!string.Equals(p.AiConcurrency, AiHardOff, StringComparison.Ordinal))
             return "AI concurrency must be 'hard_off': AI stays off while a game runs.";
         if (p.LaunchArgs is null || p.LaunchArgs.Count > MaxArgs) return "At most 32 launch arguments.";
@@ -90,6 +113,10 @@ public static class GameLaunchProfileValidator
         if (s.Width is { } sw && (sw < 320 || sw > 7680)) return "Streaming width must be 320-7680.";
         if (s.Height is { } sh && (sh < 240 || sh > 4320)) return "Streaming height must be 240-4320.";
         if (!In(Codecs, s.Codec)) return "Unknown streaming codec.";
+        GamePostLaunchSettings a = p.PostLaunch ?? new();
+        if (a.DelayMs is < 0 or > 8000) return "Post-launch delay must be 0-8000 ms.";
+        if ((a.RequestAltEnterFullscreen || a.ClickClientCenter) && !a.BringToForeground)
+            return "Fullscreen toggle and click require the opt-in foreground action.";
         return null;
     }
 
@@ -174,8 +201,10 @@ public sealed class GameLaunchProfileStore
     {
         p.LaunchArgs ??= new();
         p.Streaming ??= new();
+        p.PostLaunch ??= new();
         p.ControllerPreset ??= "auto";
         p.PerformanceProfile ??= "balanced";
+        p.HdrMode ??= "system";
         p.AiConcurrency ??= GameLaunchProfileValidator.AiHardOff;
         p.Streaming.Codec ??= "auto";
     }

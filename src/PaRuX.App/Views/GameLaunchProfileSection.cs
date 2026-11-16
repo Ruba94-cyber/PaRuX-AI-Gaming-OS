@@ -23,16 +23,18 @@ internal sealed class GameLaunchProfileSection : StackPanel
 
     private readonly string _key;
     private readonly double _body, _target;
-    private readonly ComboBox _display = new(), _performance = new(), _controller = new();
+    private readonly ComboBox _display = new(), _performance = new(), _controller = new(), _postPreset = new(), _hdrMode = new();
     private readonly CheckBox _fullscreen = new();
+    private readonly CheckBox _postFocus = new(), _postAltEnter = new(), _postClick = new();
+    private readonly TextBox _postDelay = new() { MaxLength = 4, Text = "1200" };
     private readonly TextBox _width = new() { MaxLength = 5 }, _height = new() { MaxLength = 5 }, _refresh = new() { MaxLength = 4 };
     private readonly TextBox _args = new() { MaxLength = 2048 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _save = new(), _reset = new(), _retry = new() { Visibility = Visibility.Collapsed };
     private GameLaunchProfileDto _loaded = new();
-    private bool _busy, _loaded_ok;
+    private bool _busy, _loaded_ok, _syncingPostPreset;
 
-    internal GameLaunchProfileSection(string gameKey, bool console)
+    internal GameLaunchProfileSection(string gameKey, bool console, bool emulator = false)
     {
         _key = gameKey;
         _body = console ? 20 : 14;
@@ -44,12 +46,38 @@ internal sealed class GameLaunchProfileSection : StackPanel
                             "Preferenze di avvio facoltative per questo gioco. Vuoto significa: avvia come salvato nella libreria.")));
 
         Setup(_display, T("Display", "Schermo"), "Display");
+        Setup(_hdrMode, T("HDR readiness for this game", "Verifica HDR per questo gioco"), "HdrMode");
+        foreach (var (tag, en, it) in new[]
+        {
+            ("system", "Use current Windows settings (default)", "Usa le impostazioni Windows attuali (predefinito)"),
+            ("prefer", "Prefer HDR (warn only)", "Preferisci HDR (solo avviso)"),
+            ("require", "Require HDR already active on selected display", "Richiedi HDR già attivo sullo schermo selezionato")
+        })
+            _hdrMode.Items.Add(new ComboBoxItem { Content = T(en, it), Tag = tag });
+        Children.Add(Note(T(
+            "Read-only: PaRuX checks HDR versus WCG on the selected monitor; it does NOT turn Windows HDR on/off. Require prevents launch if HDR is not positively verified. Select an exact connected display first.",
+            "Solo lettura: PaRuX distingue HDR e WCG sullo schermo scelto; NON attiva o disattiva l'HDR di Windows. Richiedi impedisce l'avvio se HDR non è verificato. Seleziona prima lo schermo esatto.")));
         Setup(_performance, T("Performance profile", "Profilo prestazioni"), "Performance");
         foreach (string p in GameLaunchProfileForm.PerformanceProfiles)
             _performance.Items.Add(new ComboBoxItem { Content = PerformanceLabel(p), Tag = p });
         Setup(_controller, T("Controller", "Controller"), "Controller");
         foreach (string c in GameLaunchProfileForm.ControllerPresets)
             _controller.Items.Add(new ComboBoxItem { Content = ControllerLabel(c), Tag = c });
+
+        // Quick Playnite-like one-click startup preset; advanced checkboxes below
+        // still allow inspecting/editing the exact actions and launch wait.
+        Setup(_postPreset, T("After-launch assistance", "Assistenza dopo l'avvio"), "PostPreset");
+        foreach (var (tag, en, it) in new[]
+        {
+            ("none", "None (default)", "Nessuna (predefinita)"),
+            ("focus", "Bring game to foreground", "Porta il gioco in primo piano"),
+            ("fullscreen", "Foreground + Alt+Enter fullscreen toggle", "Primo piano + commutazione Alt+Invio"),
+            ("click", "Foreground + one center click", "Primo piano + un click centrale"),
+            ("all", "Foreground + Alt+Enter + click", "Primo piano + Alt+Invio + click")
+        })
+            _postPreset.Items.Add(new ComboBoxItem { Content = T(en, it), Tag = tag });
+        _postPreset.SelectionChanged += (_, _) => ApplyPostPreset();
+        Select(_postPreset, "none");
 
         _fullscreen.Content = T("Fullscreen (saved as a preference)", "Schermo intero (salvato come preferenza)");
         _fullscreen.MinHeight = _target; _fullscreen.FontSize = _body;
@@ -80,6 +108,58 @@ internal sealed class GameLaunchProfileSection : StackPanel
         };
         AutomationProperties.SetAutomationId(expander, "GameLaunchProfile_Advanced_" + gameKey);
         Children.Add(expander);
+
+        // Explicit per-game startup assistance. No action is enabled by default,
+        // and the Core will require an exact process + uniquely verified HWND.
+        var postPanel = new StackPanel { Spacing = 6 };
+        void AddPostAction(CheckBox check, string label, string id)
+        {
+            check.Content = label;
+            check.MinHeight = _target;
+            check.FontSize = _body;
+            AutomationProperties.SetAutomationId(check, "GameLaunchProfile_" + id + "_" + gameKey);
+            postPanel.Children.Add(check);
+        }
+        AddPostAction(_postFocus,
+            T("Bring this game to the foreground after launch", "Porta il gioco in primo piano dopo l'avvio"),
+            "PostFocus");
+        AddPostAction(_postAltEnter,
+            T("Request fullscreen once (Alt+Enter toggle)", "Richiedi schermo intero una volta (Alt+Invio, commutazione)"),
+            "PostAltEnter");
+        AddPostAction(_postClick,
+            T("Send one click to the center of the game window", "Invia un click al centro della finestra del gioco"),
+            "PostClick");
+        _postFocus.Checked += (_, _) => { EnablePostChildren(); UpdatePostPreset(); };
+        _postFocus.Unchecked += (_, _) =>
+        {
+            _postAltEnter.IsChecked = false;
+            _postClick.IsChecked = false;
+            EnablePostChildren();
+            UpdatePostPreset();
+        };
+        _postAltEnter.Checked += (_, _) => UpdatePostPreset();
+        _postAltEnter.Unchecked += (_, _) => UpdatePostPreset();
+        _postClick.Checked += (_, _) => UpdatePostPreset();
+        _postClick.Unchecked += (_, _) => UpdatePostPreset();
+        Field(_postDelay, T("Wait after launch (milliseconds, 0–8000)", "Attesa dopo l'avvio (millisecondi, 0–8000)"), "PostDelay");
+        postPanel.Children.Add(_postDelay);
+        postPanel.Children.Add(Note(T(
+            "Only for directly launched games with one verified window. Alt+Enter may be ignored or toggle an already-fullscreen game back to windowed. A click can activate an in-game control. No actions on store/Playnite handoffs or other apps; Windows may reject elevated game windows.",
+            "Solo per giochi avviati direttamente con una finestra verificata. Alt+Invio può essere ignorato o riportare un gioco già a schermo intero in finestra. Il click può attivare un comando nel gioco. Nessuna azione su passaggi a store/Playnite o altre app; Windows può rifiutare le finestre dei giochi elevati.")));
+        var postExpander = new Expander
+        {
+            Header = T("After launch (advanced, opt-in)", "Dopo l'avvio (avanzate, facoltative)"),
+            Content = postPanel, IsExpanded = false, MinHeight = _target,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetAutomationId(postExpander, "GameLaunchProfile_PostLaunch_" + gameKey);
+        Children.Add(postExpander);
+        if (emulator)
+            Children.Add(Note(T(
+                "Emulator games can already request fullscreen with their own launch flags. PaRuX avoids a second Alt+Enter toggle when it recognizes that documented fullscreen option. Separate emulator settings, controller layouts and firmware remain under your control.",
+                "Gli emulatori possono già richiedere lo schermo intero tramite i propri argomenti. PaRuX evita un secondo Alt+Invio quando riconosce quell'opzione. Impostazioni dell'emulatore, controller e firmware restano sotto il tuo controllo.")));
+        EnablePostChildren();
 
         _save.Content = T("Save launch profile", "Salva il profilo di avvio");
         _reset.Content = T("Reset to defaults", "Ripristina predefiniti");
@@ -141,10 +221,48 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _ => T("Automatic", "Automatico")
     };
 
+    private void ApplyPostPreset()
+    {
+        if (_syncingPostPreset || !_loaded_ok || _busy) return;
+        string value = (string?)(_postPreset.SelectedItem as ComboBoxItem)?.Tag ?? "none";
+        _syncingPostPreset = true;
+        try
+        {
+            _postFocus.IsChecked = value != "none";
+            _postAltEnter.IsChecked = value is "fullscreen" or "all";
+            _postClick.IsChecked = value is "click" or "all";
+        }
+        finally { _syncingPostPreset = false; }
+        EnablePostChildren();
+    }
+
+    private void UpdatePostPreset()
+    {
+        if (_syncingPostPreset) return;
+        _syncingPostPreset = true;
+        try
+        {
+            bool focus = _postFocus.IsChecked == true;
+            bool alt = _postAltEnter.IsChecked == true;
+            bool click = _postClick.IsChecked == true;
+            string tag = !focus ? "none" : alt && click ? "all" : alt ? "fullscreen" : click ? "click" : "focus";
+            Select(_postPreset, tag);
+        }
+        finally { _syncingPostPreset = false; }
+    }
+
+    private void EnablePostChildren()
+    {
+        bool enabled = _loaded_ok && !_busy;
+        _postAltEnter.IsEnabled = enabled && _postFocus.IsChecked == true;
+        _postClick.IsEnabled = enabled && _postFocus.IsChecked == true;
+    }
+
     private void SetEditable(bool on)
     {
-        foreach (Control c in new Control[] { _display, _performance, _controller, _fullscreen, _width, _height, _refresh, _args, _save, _reset })
+        foreach (Control c in new Control[] { _display, _hdrMode, _performance, _controller, _postPreset, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
             c.IsEnabled = on && !_busy;
+        EnablePostChildren();
     }
 
     private void ShowStatus(string text, bool error)
@@ -175,13 +293,22 @@ internal sealed class GameLaunchProfileSection : StackPanel
             foreach (GamingDisplayModeDto d in snapshot.Displays)
                 _display.Items.Add(new ComboBoxItem
                 {
-                    Content = (string.IsNullOrWhiteSpace(d.FriendlyName) ? d.DisplayId : d.FriendlyName) + $" · {d.Width}x{d.Height}",
+                    Content = (string.IsNullOrWhiteSpace(d.FriendlyName) ? d.DisplayId : d.FriendlyName)
+                        + $" · {d.Width}x{d.Height} · " + (d.ColorMode switch
+                        {
+                            "hdr" => "HDR",
+                            "wcg" => "WCG (not HDR)",
+                            "sdr" => "SDR",
+                            "advanced-color-unknown" => T("Advanced Color (HDR unknown)", "Colore avanzato (HDR non verificato)"),
+                            _ => T("HDR unknown", "HDR non verificato")
+                        }),
                     Tag = d.DisplayId
                 });
         string saved = _loaded.DisplayId ?? "";
         if (saved.Length > 0 && !_display.Items.OfType<ComboBoxItem>().Any(i => (string?)i.Tag == saved))
             _display.Items.Add(new ComboBoxItem { Content = T("Saved display (not connected)", "Schermo salvato (non collegato)"), Tag = saved });
         Select(_display, saved);
+        Select(_hdrMode, _loaded.HdrMode ?? "system");
         Select(_performance, _loaded.PerformanceProfile);
         Select(_controller, _loaded.ControllerPreset);
         _fullscreen.IsChecked = _loaded.Fullscreen == true;
@@ -189,6 +316,12 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _height.Text = _loaded.Height?.ToString() ?? "";
         _refresh.Text = _loaded.RefreshHz?.ToString() ?? "";
         _args.Text = GameLaunchProfileForm.JoinArgs(_loaded.LaunchArgs);
+        GamePostLaunchDto post = _loaded.PostLaunch ?? new();
+        _postFocus.IsChecked = post.BringToForeground;
+        _postAltEnter.IsChecked = post.RequestAltEnterFullscreen;
+        _postClick.IsChecked = post.ClickClientCenter;
+        _postDelay.Text = post.DelayMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        UpdatePostPreset();
         _loaded_ok = true;
         SetEditable(true);
         ShowStatus("", false);
@@ -222,9 +355,25 @@ internal sealed class GameLaunchProfileSection : StackPanel
             next.DisplayId = display.Length == 0 ? null : display;
             next.Width = w; next.Height = h; next.RefreshHz = hz;
             next.Fullscreen = _fullscreen.IsChecked == true ? true : null;
+            next.HdrMode = (string?)(_hdrMode.SelectedItem as ComboBoxItem)?.Tag ?? "system";
             next.ControllerPreset = (string?)(_controller.SelectedItem as ComboBoxItem)?.Tag ?? "auto";
             next.PerformanceProfile = (string?)(_performance.SelectedItem as ComboBoxItem)?.Tag ?? "balanced";
             next.LaunchArgs = GameLaunchProfileForm.ParseArgs(_args.Text);
+            if (!int.TryParse(_postDelay.Text, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int postDelay) ||
+                postDelay is < 0 or > 8000)
+            {
+                ShowStatus(T("Post-launch delay must be a number from 0 to 8000 ms.",
+                    "L'attesa dopo l'avvio deve essere un numero da 0 a 8000 ms."), true);
+                return;
+            }
+            next.PostLaunch = new GamePostLaunchDto
+            {
+                BringToForeground = _postFocus.IsChecked == true,
+                RequestAltEnterFullscreen = _postAltEnter.IsChecked == true,
+                ClickClientCenter = _postClick.IsChecked == true,
+                DelayMs = postDelay
+            };
         }
         _busy = true; SetEditable(true);
         ShowStatus(T("Saving...", "Salvataggio..."), false);

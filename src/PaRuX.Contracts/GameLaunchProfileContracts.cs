@@ -9,14 +9,27 @@ public sealed class GameLaunchProfileDto
     public int? Height { get; set; }
     public int? RefreshHz { get; set; }
     public bool? Fullscreen { get; set; }
+    /// <summary>system | prefer | require. Readiness check only; no OS HDR toggle.</summary>
+    public string HdrMode { get; set; } = "system";
     public string ControllerPreset { get; set; } = "auto";
     public string PerformanceProfile { get; set; } = "balanced";
     public List<string> LaunchArgs { get; set; } = new();
+    /// <summary>Opt-in owned game-window actions; absent in legacy profiles.</summary>
+    public GamePostLaunchDto PostLaunch { get; set; } = new();
     /// <summary>Opaque pass-through so a save from the UI never drops streaming settings.</summary>
     public System.Text.Json.JsonElement? Streaming { get; set; }
     public string AiConcurrency { get; set; } = "hard_off";
     /// <summary>Server statement of what Fullscreen does ("preference_only").</summary>
     public string? FullscreenSupport { get; set; }
+}
+
+/// <summary>Per-game post-start actions only for a directly started and verified game window.</summary>
+public sealed class GamePostLaunchDto
+{
+    public bool BringToForeground { get; set; }
+    public bool RequestAltEnterFullscreen { get; set; }
+    public bool ClickClientCenter { get; set; }
+    public int DelayMs { get; set; } = 1200;
 }
 
 /// <summary>Pure form helpers for the launch-profile section (parsing only; the server owns validation).</summary>

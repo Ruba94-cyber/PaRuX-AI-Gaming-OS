@@ -308,6 +308,7 @@ builder.Services.AddSingleton<GameLaunchHookStore>();
 builder.Services.AddSingleton<GameLaunchHookService>();
 builder.Services.AddSingleton<GamingDisplayTopologyService>();
 builder.Services.AddSingleton<OwnedGameWindowPlacementService>();
+builder.Services.AddSingleton<OwnedGamePostLaunchService>();
 builder.Services.AddSingleton<GamingDisplayModeService>();
 builder.Services.AddSingleton<GgufQuantizeService>();
 builder.Services.AddSingleton<GameTitleStore>();

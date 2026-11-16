@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Providers;
+using PaRuX.Server.Orchestration.Gaming.Emulators;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
@@ -23,6 +24,8 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
+    private readonly OwnedGamePostLaunchService? _postLaunch;
+    private readonly GamingDisplayTopologyService? _displayTopology;
     private readonly ExtraStoreCatalog _extra;
     private readonly GameLaunchHookService? _hooks;
     private readonly GameLaunchProfileStore? _launchProfiles;
@@ -37,13 +40,16 @@ public sealed class ManualGameSessionService : IDisposable
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
         GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
         ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null,
-        GameLaunchProfileStore? launchProfiles = null)
+        GameLaunchProfileStore? launchProfiles = null, OwnedGamePostLaunchService? postLaunch = null,
+        GamingDisplayTopologyService? displayTopology = null)
     {
         _launchProfiles = launchProfiles;
         _hooks = hooks;
         _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
         _windowPlacement = windowPlacement;
+        _postLaunch = postLaunch;
+        _displayTopology = displayTopology;
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
@@ -76,7 +82,11 @@ public sealed class ManualGameSessionService : IDisposable
             if (!IsSafeLocalExecutable(game.ExecutablePath))
                 return new(false, false, "The saved executable is missing, linked or unsafe to launch.");
             // The profile's preferred display applies unless the caller chose one explicitly.
-            targetDisplayId ??= _launchProfiles?.Get(game.Id)?.DisplayId;
+            GameLaunchProfile? launchProfile = _launchProfiles?.Get(game.Id);
+            targetDisplayId ??= launchProfile?.DisplayId;
+            if (launchProfile is not null &&
+                GameLaunchProfileValidator.Validate(launchProfile) is { } preflightProfileProblem)
+                return new(false, false, "The saved game launch profile is invalid: " + preflightProfileProblem);
 
             // No implicit switch away from another game, remote stream or failed transition.
             if (_orchestrator.CurrentState != "AiReady")
@@ -97,6 +107,14 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false,
                     "The selected game TV is unavailable. Check the connected displays in Settings; no game was launched.");
 
+            // The HDR preflight is read-only. Require must be backed by an
+            // exact connected monitor reporting actual HDR (not WCG) before
+            // Gaming hard-off, hooks or any game process is started.
+            GameHdrReadinessPolicy.Verdict hdr = GameHdrReadinessPolicy.Check(
+                launchProfile?.HdrMode, targetDisplayId, launchProfile?.HdrMode is "prefer" or "require" ? _displayTopology?.Snapshot() : null);
+            if (!hdr.MayLaunch)
+                return new(false, false, hdr.Refusal ?? "HDR readiness could not be verified.");
+
             await RunHookAsync(GameHookPhase.Pre, SessionTitleKey(game), ct).ConfigureAwait(false);
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
@@ -113,9 +131,12 @@ public sealed class ManualGameSessionService : IDisposable
                 if (changedFile is not null) throw new InvalidOperationException(changedFile);
                 string path = Path.GetFullPath(game.ExecutablePath);
                 // Per-game launch profile (extra args via ArgumentList). No profile = unchanged legacy launch.
-                GameLaunchProfile? launchProfile = _launchProfiles?.Get(game.Id);
-                if (launchProfile is not null && GameLaunchProfileValidator.Validate(launchProfile) is { } profileProblem)
-                    throw new InvalidOperationException(profileProblem);
+                // Recheck just before creating the process: a TV can disconnect
+                // or change HDR state while Gaming is releasing AI resources.
+                hdr = GameHdrReadinessPolicy.Check(
+                    launchProfile?.HdrMode, targetDisplayId, launchProfile?.HdrMode is "prefer" or "require" ? _displayTopology?.Snapshot() : null);
+                if (!hdr.MayLaunch)
+                    throw new InvalidOperationException(hdr.Refusal ?? "HDR readiness changed during launch.");
                 var info = GameLaunchProfileApplier.BuildStartInfo(game, launchProfile);
                 process = new Process { StartInfo = info };
                 try
@@ -203,10 +224,45 @@ public sealed class ManualGameSessionService : IDisposable
                     placement = await _windowPlacement.TryPlaceAsync(
                         process, path, targetDisplayId, observationToken).ConfigureAwait(false);
                 }
+                string postLaunch = GamePostLaunchStates.NotRequested;
+                // Imported emulators may already request fullscreen via their own
+                // documented launch switch. Do not post Alt+Enter on top of it:
+                // that toggle can unexpectedly make an already-fullscreen game windowed.
+                EmulatorPostLaunchPolicy.Decision emulator = EmulatorPostLaunchPolicy.Resolve(
+                    game, launchProfile?.PostLaunch ?? new GamePostLaunchSettings());
+                if (launchProfile?.PostLaunch?.Requested == true)
+                {
+                    // TV placement must be confirmed before asking a game to take foreground.
+                    // A failed/unsupported placement cannot authorize focus on a different monitor.
+                    bool targetConfirmed = string.IsNullOrEmpty(targetDisplayId) ||
+                        placement is GameWindowPlacementStates.Placed or GameWindowPlacementStates.AlreadyOnTv;
+                    if (targetConfirmed && _postLaunch != null)
+                    {
+                        try
+                        {
+                            postLaunch = await _postLaunch.TryApplyAsync(process, path,
+                                emulator.Actions, observationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
+                        {
+                            // Post-start polish must NEVER turn a successfully launched,
+                            // monitored game into a false launch failure or orphan its session.
+                            _logger?.LogWarning("Optional owned-game window assistance was not confirmed: {Type}",
+                                ex.GetType().Name);
+                            postLaunch = GamePostLaunchStates.NotConfirmed;
+                        }
+                    }
+                    else postLaunch = GamePostLaunchStates.NotConfirmed;
+                }
                 return new ManualGameLaunchResult(true, true,
                     "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")
                 {
-                    WindowPlacement = placement
+                    WindowPlacement = placement,
+                    PostLaunch = postLaunch,
+                    HdrReadiness = hdr.Status,
+                    EmulatorDisplay = emulator.NativeFullscreenRequested
+                        ? GameEmulatorDisplayStates.NativeFullscreenArgument
+                        : GameEmulatorDisplayStates.NotRequested
                 };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception

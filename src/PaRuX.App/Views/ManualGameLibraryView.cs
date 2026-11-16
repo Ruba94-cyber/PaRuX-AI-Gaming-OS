@@ -1638,6 +1638,43 @@ public sealed class ManualGameLibraryView : UserControl
                     _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
                         "Posizionamento sulla TV non confermato. Il gioco resta avviato; usa le sue impostazioni schermo.")
                 });
+            if (!string.IsNullOrEmpty(launch.HdrReadiness))
+                _status.Text += "\n" + (launch.HdrReadiness switch
+                {
+                    "hdr-ready" => T(
+                        "Windows HDR was verified active on the selected display before launch; game HDR rendering is not guaranteed.",
+                        "HDR Windows verificato attivo sullo schermo scelto prima dell'avvio; il rendering HDR del gioco non è garantito."),
+                    "hdr-preference-not-ready" => T(
+                        "HDR was preferred but not confirmed. The game started using unchanged Windows color settings.",
+                        "HDR preferito ma non confermato. Il gioco è stato avviato senza modificare le impostazioni colore di Windows."),
+                    _ => T("HDR readiness not confirmed.", "Verifica HDR non confermata.")
+                });
+            if (launch.EmulatorDisplay == GameEmulatorDisplayStates.NativeFullscreenArgument)
+                _status.Text += "\n" + T(
+                    "The emulator received its native fullscreen launch option. The actual display mode is not confirmed; an extra Alt+Enter toggle was avoided.",
+                    "L'emulatore ha ricevuto la propria opzione di avvio a schermo intero. Il risultato non è confermato; è stato evitato un secondo Alt+Invio.");
+            if (!string.IsNullOrEmpty(launch.PostLaunch))
+                _status.Text += "\n" + (launch.PostLaunch switch
+                {
+                    GamePostLaunchStates.ForegroundConfirmed => T(
+                        "The owned game window was confirmed in the foreground.",
+                        "La finestra verificata del gioco è stata portata in primo piano."),
+                    GamePostLaunchStates.FullscreenRequested => T(
+                        "Alt+Enter was posted to the verified game window; fullscreen is not guaranteed.",
+                        "Alt+Invio è stato inviato alla finestra verificata del gioco; lo schermo intero non è garantito."),
+                    GamePostLaunchStates.ClickPosted => T(
+                        "A center click was posted to the verified foreground game window; the game's response is unknown.",
+                        "Click centrale inviato alla finestra verificata in primo piano; la risposta del gioco non è verificabile."),
+                    GamePostLaunchStates.FullscreenAndClickPosted => T(
+                        "Alt+Enter and a center click were posted to the verified game window; the game may ignore them.",
+                        "Alt+Invio e click centrale inviati alla finestra verificata; il gioco potrebbe ignorarli."),
+                    GamePostLaunchStates.ForegroundDenied => T(
+                        "Windows did not grant game foreground focus; no keyboard or mouse messages were sent.",
+                        "Windows non ha concesso il primo piano al gioco; nessun tasto o click è stato inviato."),
+                    _ => T(
+                        "The optional post-launch actions were not confirmed. The game is still running; use its own display or input settings.",
+                        "Le azioni facoltative dopo l'avvio non sono state confermate. Il gioco è in esecuzione; usa le sue impostazioni di schermo o input.")
+                });
         }
         catch (Exception)
         {

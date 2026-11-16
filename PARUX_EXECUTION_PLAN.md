@@ -1,3 +1,23 @@
+## 2026-11-16 — Draft Gaming HDR / TV source checkpoint (PR #9; NOT RELEASED)
+
+**PARTIAL / unverified:** Read-only per-output Windows CCD HDR/WCG probe,
+with legacy Advanced Color treated as unknown; per-game System/Prefer/Require
+HDR readiness policy (Require blocks before Gaming hard-off and rechecks
+before process creation). Console TV and game profile show observations,
+and Gaming Devices now selects the explicitly configured TV instead of
+silently targeting the primary monitor. Direct display mode changes are
+blocked when HDR/WCG/ambiguous Advanced Color is active, because the
+existing 15s resolution/Hz rollback does not restore HDR color state.
+Offline unit/source fixtures authored for dual-monitor, WCG, invalid
+profiles, hot cable/state changes and no OS mutation. This is not a
+Windows-tested HDR toggle and does not implement VRR or HDR streaming.
+**BLOCKED-EXTERNAL:** native Windows SDK interop, 4K HDR TV / 120 Hz,
+eGPU/iGPU, controllers, FlaUI, full xUnit and gaming FPS/performance.
+**P0 next:** transactional opt-in HDR state toggle/restoration journal
+with genuine Windows native acceptance and explicit original-state
+comparison; never merge before build/test/hardware approval.
+Keep PR #8 Corporate independently draft. No Actions/merge/tag/release.
+
 ## 2026-11-15 — 4.2.0 PUBLISHED as GitHub pre-release
 
 Release https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/releases/tag/v4.2.0 (pre-release, tag `v4.2.0` = `070578af`). Final gate on that source: Release build 0 errors; Server xUnit 14,052 passed / 0 failed / 9 skipped (`b7b51049`, only tests/docs changed since); FlaUI 329/329 (`070578af`); Android unit 53/53. 12 assets uploaded (MSI, update envelope, provenance x2, APK, portable and Corporate zips as 2 parts each + parts hashes, SHA256SUMS). Downloaded back from GitHub: 12/12 identical to local, joined zips match the published SHA-256. All first-party PEs signed (self-signed CN=Paolo Rubagotti, DigiCert timestamp); SmartScreen reputation not established. Stays PARTIAL: MSI clean-machine install/upgrade/uninstall (needs elevated session), physical pad/TV/RTX, firewall-blocked and real 8 GB runs, Android real-Core pairing and device, Store submission (owner step), update through the renamed-repo redirect. The FlaUI Core-port race (ManualGameLibraryUiTests) was intermittent and not reproduced; the wait was hardened.
