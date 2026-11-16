@@ -387,7 +387,7 @@ try {
     } finally { $zip.Dispose() }
 } finally { $fs.Dispose() }
 $sha = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content (Join-Path $outRoot "PaRuX-Corporate-Lite-Offline-win-x64.sha256.txt") "$sha  PaRuX-Corporate-Lite-Offline-win-x64.zip" -Encoding ASCII
+Set-Content (Join-Path $outRoot ($zipName + ".sha256.txt")) "$sha  $zipName" -Encoding ASCII
 Write-Host "ZIP: $zipPath ($([math]::Round((Get-Item $zipPath).Length / 1MB, 1)) MB) SHA-256 $sha"
 
 # --- 6. Verify the finished ZIP ------------------------------------------------------------------------------------------
