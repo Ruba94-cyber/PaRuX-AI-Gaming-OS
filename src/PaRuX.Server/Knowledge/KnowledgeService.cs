@@ -74,9 +74,13 @@ public sealed class KnowledgeJobService : IDisposable
     /// processes. Do not interfere with active indexing or in-flight ONNX calls.
     /// A later query transparently reloads exactly the same installed models.
     /// </summary>
+    internal static bool MayReclaimIdleRetrieval(bool corporate, bool indexingBusy) =>
+        corporate && !indexingBusy;
+
     public int ReleaseIdleRetrievalModelsForMemoryPressure()
     {
-        if (!CorporateMode.IsActive || _jobs.Any(job => !job.Value.Task.IsCompleted))
+        if (!MayReclaimIdleRetrieval(CorporateMode.IsActive,
+                _jobs.Any(job => !job.Value.Task.IsCompleted)))
             return 0;
         int released = 0;
         if (_embeddings?.UnloadIfIdle(TimeSpan.Zero) == true) released++;
