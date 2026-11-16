@@ -51,8 +51,15 @@ internal static class CorporateCpuMemoryPlanner
         if (ram?.IsValid != true || plan.NeededMib <= 0)
             return "Corporate CPU memory availability or the model footprint could not be measured safely. "
                 + "Retry in Runtime Manager; no other application was stopped.";
-        return CpuFallbackAdmission.Evaluate(
-            ram, maxSystemRamPercent, 0, plan.NeededMib)
-            + " PaRuX also checked a reduced 2048-token context, but that did not fit.";
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        double availableWindowsGiB = ram.AvailableBytes / 1073741824d;
+        return "Not enough free memory for CPU mode: the selected model needs about "
+            + (plan.NeededMib / 1024d).ToString("0.0", inv)
+            + " GB even with a 2048-token context, but only "
+            + (plan.AvailableMib / 1024d).ToString("0.0", inv)
+            + " GB is permitted by the existing PaRuX profile (maximum total system RAM use "
+            + maxSystemRamPercent.ToString("0.#", inv)
+            + "%). Windows reports " + availableWindowsGiB.ToString("0.0", inv)
+            + " GB physically available. PaRuX did not expand the profile limit, close other programs or substitute the selected model.";
     }
 }
