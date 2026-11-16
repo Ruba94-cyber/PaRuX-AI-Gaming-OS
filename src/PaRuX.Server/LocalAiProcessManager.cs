@@ -2444,12 +2444,14 @@ public sealed class LocalAiProcessManager
             ManagedRuntimeCredentials.BeginTextLaunch(psi, LaunchPort(args));
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = false };
+        Task? stderrDrain = null;
         try
         {
             process.Start();
             ChildProcessJob.Assign(process); // result is logged inside; ownership does not depend on it
             _ = DrainToFileAsync(process.StandardOutput, outLog);
-            _ = DrainToFileAsync(process.StandardError, errLog);
+            // Keep the task so the final diagnostics include the last stderr lines after an early exit.
+            stderrDrain = DrainToFileAsync(process.StandardError, errLog);
         }
         catch (Exception ex)
         {
@@ -2500,6 +2502,14 @@ public sealed class LocalAiProcessManager
             }
             if (process.HasExited)
             {
+                // Stderr is drained asynchronously. Reading the file immediately after HasExited can
+                // capture only startup chatter and lose the actual allocation/loader failure at EOF.
+                // Keep this wait bounded if a grandchild inherited the pipe.
+                if (stderrDrain is not null)
+                {
+                    try { await stderrDrain.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
+                    catch (TimeoutException) { /* Preserve the available tail, never hang a failed launch. */ }
+                }
                 string tail = TailSafe(errLog, 40);
                 ForgetManagedProcess(pidFile);
                 if (profileToRecord != null) TryDelete(LocalAiPaths.ActiveProfileFile);
@@ -2508,7 +2518,8 @@ public sealed class LocalAiProcessManager
                 // The exit code and stderr name the cause when they can, so the user gets a CPU-specific reason and build instead of a bare exit.
                 RuntimeLaunchFailureDiagnosis.Diagnosis? diagnosis = RuntimeLaunchFailureDiagnosis.Diagnose(process.ExitCode, tail);
                 string cause = diagnosis is null ? string.Empty : " " + diagnosis.Cause + " " + diagnosis.SuggestedBuildVariant;
-                return new RuntimeResult(false, Path.GetFileName(exe) + " exited unexpectedly." + cause + "\n" + tail);
+                string exitCode = "0x" + unchecked((uint)process.ExitCode).ToString("X8", System.Globalization.CultureInfo.InvariantCulture);
+                return new RuntimeResult(false, Path.GetFileName(exe) + " exited unexpectedly (exit code " + exitCode + ")." + cause + "\n" + tail);
             }
             await Task.Delay(LaunchHealthPollMs, ct).ConfigureAwait(false);
         }
