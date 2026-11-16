@@ -46,6 +46,21 @@ internal static class CorporateCpuMemoryPlanner
         return new Plan(MinimumUsefulContextTokens, lastNeededMib, availableMib, false);
     }
 
+    /// <summary>
+    /// The CPU runtime itself releases its idle model state; shorten that wait
+    /// when the *approved* headroom left after the selected model is small.
+    /// This does not unload a model while it is answering and does not modify
+    /// system apps, the RAM ceiling, or the selected GGUF.
+    /// </summary>
+    internal static int IdleUnloadSeconds(Plan plan)
+    {
+        if (!plan.Fits) return LocalAiProcessManager.CorporateIdleUnloadSeconds;
+        double remainingMib = Math.Max(0, plan.AvailableMib - plan.NeededMib);
+        if (remainingMib < 768) return 120;
+        if (remainingMib < 1536) return 180;
+        return LocalAiProcessManager.CorporateIdleUnloadSeconds;
+    }
+
     internal static string Shortfall(Plan plan, SystemRamSnapshot? ram, double maxSystemRamPercent)
     {
         if (ram?.IsValid != true || plan.NeededMib <= 0)
