@@ -79,8 +79,19 @@ public sealed class GamingDisplayModeService : IDisposable
                 throw new InvalidOperationException("Confirm or revert the pending display change first.");
 
             string id = request.DisplayId ?? string.Empty;
-            if (!_topology.Snapshot().Displays.Any(d => string.Equals(d.DisplayId, id, StringComparison.OrdinalIgnoreCase)))
-                throw new ArgumentException("That monitor is not part of the current display topology.");
+            GamingDisplaySnapshotDto topology = _topology.Snapshot();
+            GamingDisplayModeDto[] matchingDisplays = topology is { Supported: true }
+                ? topology.Displays.Where(d =>
+                    string.Equals(d.DisplayId, id, StringComparison.OrdinalIgnoreCase)).Take(2).ToArray()
+                : Array.Empty<GamingDisplayModeDto>();
+            if (matchingDisplays.Length != 1)
+                throw new ArgumentException("That monitor is not uniquely part of the current display topology.");
+            // A resolution/Hz switch is NOT an atomic HDR/WCG restore operation.
+            // Reject advanced-color mode changes at the Core boundary until a
+            // separately tested, crash-safe full display-state transaction exists.
+            if (GameDisplayModeTargetPolicy.NeedsColorSafeTransaction(matchingDisplays[0]))
+                throw new InvalidOperationException(
+                    "HDR or Wide Color is active on this monitor. A resolution/refresh change may disable it; use Windows display settings until PaRuX supports crash-safe color restoration.");
 
             DisplayModeEntry current = _api.Current(id)
                 ?? throw new InvalidOperationException("Windows did not report the current mode of that monitor.");
@@ -99,9 +110,19 @@ public sealed class GamingDisplayModeService : IDisposable
             }
             if (!_api.Test(id, target))
                 throw new InvalidOperationException("The display driver rejected that mode.");
-            // Re-check right before the change: Gaming may have started while the driver was testing the mode.
+            // Re-check right before the change: the TV can reconnect or
+            // enable HDR between the driver test and the session mode write.
             if (_gamingActive())
                 throw new InvalidOperationException("Leave Gaming before changing the display mode.");
+            GamingDisplaySnapshotDto latest = _topology.Snapshot();
+            GamingDisplayModeDto[] currentDisplay = latest is { Supported: true }
+                ? latest.Displays.Where(d =>
+                    string.Equals(d.DisplayId, id, StringComparison.OrdinalIgnoreCase)).Take(2).ToArray()
+                : Array.Empty<GamingDisplayModeDto>();
+            if (currentDisplay.Length != 1 ||
+                GameDisplayModeTargetPolicy.NeedsColorSafeTransaction(currentDisplay[0]))
+                throw new InvalidOperationException(
+                    "The display or its HDR/WCG state changed during validation; nothing was applied.");
 
             var record = new PendingRecord(id, current, DateTime.UtcNow + _timeout);
             SaveRecord(record);
