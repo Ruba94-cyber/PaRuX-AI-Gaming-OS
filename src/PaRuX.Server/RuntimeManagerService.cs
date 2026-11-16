@@ -153,6 +153,7 @@ public sealed class RuntimeManagerService
             GpuDetected = vramMib >= LocalAiProcessManager.HeavyGpuVramThresholdMib,
             VramTotalMib = vramMib,
             RamTotalBytes = ramSnapshot?.TotalBytesAsLong ?? 0,
+            RamAvailableBytes = ramSnapshot?.IsValid == true ? (long)ramSnapshot.AvailableBytes : null,
             GamingActive = _process.GamingActive,
             GamingShutdownPending = _process.GamingShutdown.Pending,
             LastGamingShutdownFailure = _process.GamingShutdown.LastFailure,
@@ -166,6 +167,30 @@ public sealed class RuntimeManagerService
             LaunchPlanExplanation = _process.LastLaunchPlanExplanation,
             TextLaunchTrace = _process.LastTextLaunchTrace.ToList()
         };
+        // Measure what the CURRENT Corporate profile allows without stealing
+        // memory from Outlook/Teams or crediting PaRuX processes that are still
+        // serving requests. This is a status observation, not the admission
+        // verdict for a future model swap (which may reclaim PaRuX-owned RAM).
+        if (CorporateMode.IsActive && ramSnapshot?.IsValid == true)
+        {
+            string? selected = result.ActiveModelPath ?? LocalAiPaths.GetRoleModelPathOrNull("standard");
+            if (!string.IsNullOrWhiteSpace(selected) && File.Exists(selected))
+            {
+                try
+                {
+                    double limit = ExecutionProfileStore.Current.Get(selected)
+                        .Effective.Budget.MaxSystemRamPercent;
+                    if (double.IsFinite(limit))
+                    {
+                        result.CorporateSystemRamLimitPercent = limit;
+                        result.CorporateAdmissibleBytes =
+                            RuntimeMemoryBudget.CalculateAvailableSystemRamBytes(ramSnapshot, limit);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                    or InvalidDataException or ArgumentException or NotSupportedException) { }
+            }
+        }
         try { result.VramFreeMib = await ResolveVramFreeMibAsync(result, result.RamTotalBytes, ct).ConfigureAwait(false); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { result.VramFreeMib = null; } // a failed sample is unknown, never a guess
