@@ -212,10 +212,23 @@ public sealed class ManualGameSessionService : IDisposable
                     // A failed/unsupported placement cannot authorize focus on a different monitor.
                     bool targetConfirmed = string.IsNullOrEmpty(targetDisplayId) ||
                         placement is GameWindowPlacementStates.Placed or GameWindowPlacementStates.AlreadyOnTv;
-                    postLaunch = targetConfirmed && _postLaunch != null
-                        ? await _postLaunch.TryApplyAsync(process, path, launchProfile.PostLaunch,
-                            observationToken).ConfigureAwait(false)
-                        : GamePostLaunchStates.NotConfirmed;
+                    if (targetConfirmed && _postLaunch != null)
+                    {
+                        try
+                        {
+                            postLaunch = await _postLaunch.TryApplyAsync(process, path,
+                                launchProfile.PostLaunch, observationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
+                        {
+                            // Post-start polish must NEVER turn a successfully launched,
+                            // monitored game into a false launch failure or orphan its session.
+                            _logger?.LogWarning("Optional owned-game window assistance was not confirmed: {Type}",
+                                ex.GetType().Name);
+                            postLaunch = GamePostLaunchStates.NotConfirmed;
+                        }
+                    }
+                    else postLaunch = GamePostLaunchStates.NotConfirmed;
                 }
                 return new ManualGameLaunchResult(true, true,
                     "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")
