@@ -25,6 +25,8 @@ internal sealed class GameLaunchProfileSection : StackPanel
     private readonly double _body, _target;
     private readonly ComboBox _display = new(), _performance = new(), _controller = new();
     private readonly CheckBox _fullscreen = new();
+    private readonly CheckBox _postFocus = new(), _postAltEnter = new(), _postClick = new();
+    private readonly TextBox _postDelay = new() { MaxLength = 4, Text = "1200" };
     private readonly TextBox _width = new() { MaxLength = 5 }, _height = new() { MaxLength = 5 }, _refresh = new() { MaxLength = 4 };
     private readonly TextBox _args = new() { MaxLength = 2048 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
@@ -80,6 +82,49 @@ internal sealed class GameLaunchProfileSection : StackPanel
         };
         AutomationProperties.SetAutomationId(expander, "GameLaunchProfile_Advanced_" + gameKey);
         Children.Add(expander);
+
+        // Explicit per-game startup assistance. No action is enabled by default,
+        // and the Core will require an exact process + uniquely verified HWND.
+        var postPanel = new StackPanel { Spacing = 6 };
+        void AddPostAction(CheckBox check, string label, string id)
+        {
+            check.Content = label;
+            check.MinHeight = _target;
+            check.FontSize = _body;
+            AutomationProperties.SetAutomationId(check, "GameLaunchProfile_" + id + "_" + gameKey);
+            postPanel.Children.Add(check);
+        }
+        AddPostAction(_postFocus,
+            T("Bring this game to the foreground after launch", "Porta il gioco in primo piano dopo l'avvio"),
+            "PostFocus");
+        AddPostAction(_postAltEnter,
+            T("Request fullscreen once (Alt+Enter toggle)", "Richiedi schermo intero una volta (Alt+Invio, commutazione)"),
+            "PostAltEnter");
+        AddPostAction(_postClick,
+            T("Send one click to the center of the game window", "Invia un click al centro della finestra del gioco"),
+            "PostClick");
+        _postFocus.Checked += (_, _) => EnablePostChildren();
+        _postFocus.Unchecked += (_, _) =>
+        {
+            _postAltEnter.IsChecked = false;
+            _postClick.IsChecked = false;
+            EnablePostChildren();
+        };
+        Field(_postDelay, T("Wait after launch (milliseconds, 0–8000)", "Attesa dopo l'avvio (millisecondi, 0–8000)"), "PostDelay");
+        postPanel.Children.Add(_postDelay);
+        postPanel.Children.Add(Note(T(
+            "Only for directly launched games with one verified window. Alt+Enter may be ignored or toggle an already-fullscreen game back to windowed. A click can activate an in-game control. No actions on store/Playnite handoffs, other apps, or elevated windows.",
+            "Solo per giochi avviati direttamente con una finestra verificata. Alt+Invio può essere ignorato o riportare un gioco già a schermo intero in finestra. Il click può attivare un comando nel gioco. Nessuna azione su passaggi a store/Playnite, altre app o finestre elevate.")));
+        var postExpander = new Expander
+        {
+            Header = T("After launch (advanced, opt-in)", "Dopo l'avvio (avanzate, facoltative)"),
+            Content = postPanel, IsExpanded = false, MinHeight = _target,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetAutomationId(postExpander, "GameLaunchProfile_PostLaunch_" + gameKey);
+        Children.Add(postExpander);
+        EnablePostChildren();
 
         _save.Content = T("Save launch profile", "Salva il profilo di avvio");
         _reset.Content = T("Reset to defaults", "Ripristina predefiniti");
@@ -141,10 +186,18 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _ => T("Automatic", "Automatico")
     };
 
+    private void EnablePostChildren()
+    {
+        bool enabled = _loaded_ok && !_busy;
+        _postAltEnter.IsEnabled = enabled && _postFocus.IsChecked == true;
+        _postClick.IsEnabled = enabled && _postFocus.IsChecked == true;
+    }
+
     private void SetEditable(bool on)
     {
-        foreach (Control c in new Control[] { _display, _performance, _controller, _fullscreen, _width, _height, _refresh, _args, _save, _reset })
+        foreach (Control c in new Control[] { _display, _performance, _controller, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
             c.IsEnabled = on && !_busy;
+        EnablePostChildren();
     }
 
     private void ShowStatus(string text, bool error)
@@ -189,6 +242,11 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _height.Text = _loaded.Height?.ToString() ?? "";
         _refresh.Text = _loaded.RefreshHz?.ToString() ?? "";
         _args.Text = GameLaunchProfileForm.JoinArgs(_loaded.LaunchArgs);
+        GamePostLaunchDto post = _loaded.PostLaunch ?? new();
+        _postFocus.IsChecked = post.BringToForeground;
+        _postAltEnter.IsChecked = post.RequestAltEnterFullscreen;
+        _postClick.IsChecked = post.ClickClientCenter;
+        _postDelay.Text = post.DelayMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _loaded_ok = true;
         SetEditable(true);
         ShowStatus("", false);
@@ -225,6 +283,21 @@ internal sealed class GameLaunchProfileSection : StackPanel
             next.ControllerPreset = (string?)(_controller.SelectedItem as ComboBoxItem)?.Tag ?? "auto";
             next.PerformanceProfile = (string?)(_performance.SelectedItem as ComboBoxItem)?.Tag ?? "balanced";
             next.LaunchArgs = GameLaunchProfileForm.ParseArgs(_args.Text);
+            if (!int.TryParse(_postDelay.Text, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int postDelay) ||
+                postDelay is < 0 or > 8000)
+            {
+                ShowStatus(T("Post-launch delay must be a number from 0 to 8000 ms.",
+                    "L'attesa dopo l'avvio deve essere un numero da 0 a 8000 ms."), true);
+                return;
+            }
+            next.PostLaunch = new GamePostLaunchDto
+            {
+                BringToForeground = _postFocus.IsChecked == true,
+                RequestAltEnterFullscreen = _postAltEnter.IsChecked == true,
+                ClickClientCenter = _postClick.IsChecked == true,
+                DelayMs = postDelay
+            };
         }
         _busy = true; SetEditable(true);
         ShowStatus(T("Saving...", "Salvataggio..."), false);
