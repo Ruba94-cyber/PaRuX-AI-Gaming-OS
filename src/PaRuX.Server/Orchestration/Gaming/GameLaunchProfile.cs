@@ -21,6 +21,8 @@ public sealed class GameLaunchProfile
     public int? Height { get; set; }
     public int? RefreshHz { get; set; }
     public bool? Fullscreen { get; set; }
+    /// <summary>system (default) | prefer | require. Never changes OS HDR.</summary>
+    public string HdrMode { get; set; } = "system";
     /// <summary>Honest statement for clients: fullscreen is stored as a preference. PaRuX never forces a window state on an
     /// arbitrary executable (the owned-window service refuses to resize games); emulator launches carry their own
     /// fullscreen switch. Read-only: ignored on input.</summary>
@@ -74,6 +76,7 @@ public static class GameLaunchProfileValidator
     private static readonly string[] Controllers = { "auto", "xbox", "playstation", "switch", "generic", "keyboard_mouse" };
     private static readonly string[] Performance = { "balanced", "performance", "quality", "quiet" };
     private static readonly string[] Codecs = { "auto", "h264", "hevc", "av1" };
+    private static readonly string[] HdrModes = { "system", "prefer", "require" };
     private static readonly string[] Placeholders = { "{width}", "{height}", "{refresh}" };
     /// <summary>Rejected even though ArgumentList never reaches a shell: they only make sense as injection.</summary>
     private static readonly char[] Forbidden = "&|;<>^`$%\"".ToCharArray();
@@ -90,6 +93,7 @@ public static class GameLaunchProfileValidator
         if (p.RefreshHz is { } r && (r < 24 || r > 1000)) return "Refresh rate must be 24-1000 Hz.";
         if (!In(Controllers, p.ControllerPreset)) return "Unknown controller preset.";
         if (!In(Performance, p.PerformanceProfile)) return "Unknown performance profile.";
+        if (!In(HdrModes, p.HdrMode)) return "HDR mode must be system, prefer or require.";
         if (!string.Equals(p.AiConcurrency, AiHardOff, StringComparison.Ordinal))
             return "AI concurrency must be 'hard_off': AI stays off while a game runs.";
         if (p.LaunchArgs is null || p.LaunchArgs.Count > MaxArgs) return "At most 32 launch arguments.";
@@ -200,6 +204,7 @@ public sealed class GameLaunchProfileStore
         p.PostLaunch ??= new();
         p.ControllerPreset ??= "auto";
         p.PerformanceProfile ??= "balanced";
+        p.HdrMode ??= "system";
         p.AiConcurrency ??= GameLaunchProfileValidator.AiHardOff;
         p.Streaming.Codec ??= "auto";
     }
