@@ -133,8 +133,8 @@ internal sealed class GameLaunchProfileSection : StackPanel
         Field(_postDelay, T("Wait after launch (milliseconds, 0–8000)", "Attesa dopo l'avvio (millisecondi, 0–8000)"), "PostDelay");
         postPanel.Children.Add(_postDelay);
         postPanel.Children.Add(Note(T(
-            "Only for directly launched games with one verified window. Alt+Enter may be ignored or toggle an already-fullscreen game back to windowed. A click can activate an in-game control. No actions on store/Playnite handoffs, other apps, or elevated windows.",
-            "Solo per giochi avviati direttamente con una finestra verificata. Alt+Invio può essere ignorato o riportare un gioco già a schermo intero in finestra. Il click può attivare un comando nel gioco. Nessuna azione su passaggi a store/Playnite, altre app o finestre elevate.")));
+            "Only for directly launched games with one verified window. Alt+Enter may be ignored or toggle an already-fullscreen game back to windowed. A click can activate an in-game control. No actions on store/Playnite handoffs or other apps; Windows may reject elevated game windows.",
+            "Solo per giochi avviati direttamente con una finestra verificata. Alt+Invio può essere ignorato o riportare un gioco già a schermo intero in finestra. Il click può attivare un comando nel gioco. Nessuna azione su passaggi a store/Playnite o altre app; Windows può rifiutare le finestre dei giochi elevati.")));
         var postExpander = new Expander
         {
             Header = T("After launch (advanced, opt-in)", "Dopo l'avvio (avanzate, facoltative)"),
