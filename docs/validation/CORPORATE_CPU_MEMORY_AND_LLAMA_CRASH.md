@@ -36,6 +36,31 @@ Never put company documents, actual machine/domain names, tokens, private logs o
   invoke the bundled CPU engine rather than selecting CUDA/Vulkan after ranking.
   LoRA adapters are refused in this CPU-only path.
 
+## Separate low-memory Corporate package candidate (source only)
+
+Corporate packaging has a **separate opt-in build switch** for Qwen3-0.6B Q8_0
+from the official Qwen Apache-2.0 repository. The exact weight file SHA-256
+is checked before packaging. **No Qwen weights are included in Git and no
+new ZIP or release was produced in this session.**
+
+On the trusted Windows build machine (never the corporate target PC):
+
+```powershell
+pwsh -File scripts/build-corporate-lite.ps1 -Fetch -LowMemoryStarter -RequireReranker -Smoke
+```
+
+The generated manifest identifies `starterProfile=low-memory-0.6b`, the
+source and declared licence, and every packaged byte. A smaller model uses
+less RAM for weights but may still exceed the live execution-profile limit
+due to KV cache and OS workload; its QA/RAG quality is materially weaker
+than the default 4B. **Do not silently substitute it for a manually selected
+model or describe it as verified on 8 GB systems.**
+
+The builder also accepts `-ModelPath` for an explicit local GGUF. Its
+README and manifest now reflect the *actual* model filename, and custom
+origins/licences are marked unverified unless the builder supplies metadata.
+The package-builder's origin/label is not independent legal clearance.
+
 ## Local acceptance commands (Windows x64 build machine)
 
 ```powershell
