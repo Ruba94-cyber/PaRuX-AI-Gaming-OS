@@ -23,7 +23,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
 
     private readonly string _key;
     private readonly double _body, _target;
-    private readonly ComboBox _display = new(), _performance = new(), _controller = new();
+    private readonly ComboBox _display = new(), _performance = new(), _controller = new(), _postPreset = new();
     private readonly CheckBox _fullscreen = new();
     private readonly CheckBox _postFocus = new(), _postAltEnter = new(), _postClick = new();
     private readonly TextBox _postDelay = new() { MaxLength = 4, Text = "1200" };
@@ -32,7 +32,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _save = new(), _reset = new(), _retry = new() { Visibility = Visibility.Collapsed };
     private GameLaunchProfileDto _loaded = new();
-    private bool _busy, _loaded_ok;
+    private bool _busy, _loaded_ok, _syncingPostPreset;
 
     internal GameLaunchProfileSection(string gameKey, bool console)
     {
@@ -52,6 +52,21 @@ internal sealed class GameLaunchProfileSection : StackPanel
         Setup(_controller, T("Controller", "Controller"), "Controller");
         foreach (string c in GameLaunchProfileForm.ControllerPresets)
             _controller.Items.Add(new ComboBoxItem { Content = ControllerLabel(c), Tag = c });
+
+        // Quick Playnite-like one-click startup preset; advanced checkboxes below
+        // still allow inspecting/editing the exact actions and launch wait.
+        Setup(_postPreset, T("After-launch assistance", "Assistenza dopo l'avvio"), "PostPreset");
+        foreach (var (tag, en, it) in new[]
+        {
+            ("none", "None (default)", "Nessuna (predefinita)"),
+            ("focus", "Bring game to foreground", "Porta il gioco in primo piano"),
+            ("fullscreen", "Foreground + Alt+Enter fullscreen toggle", "Primo piano + commutazione Alt+Invio"),
+            ("click", "Foreground + one center click", "Primo piano + un click centrale"),
+            ("all", "Foreground + Alt+Enter + click", "Primo piano + Alt+Invio + click")
+        })
+            _postPreset.Items.Add(new ComboBoxItem { Content = T(en, it), Tag = tag });
+        _postPreset.SelectionChanged += (_, _) => ApplyPostPreset();
+        Select(_postPreset, "none");
 
         _fullscreen.Content = T("Fullscreen (saved as a preference)", "Schermo intero (salvato come preferenza)");
         _fullscreen.MinHeight = _target; _fullscreen.FontSize = _body;
@@ -103,13 +118,18 @@ internal sealed class GameLaunchProfileSection : StackPanel
         AddPostAction(_postClick,
             T("Send one click to the center of the game window", "Invia un click al centro della finestra del gioco"),
             "PostClick");
-        _postFocus.Checked += (_, _) => EnablePostChildren();
+        _postFocus.Checked += (_, _) => { EnablePostChildren(); UpdatePostPreset(); };
         _postFocus.Unchecked += (_, _) =>
         {
             _postAltEnter.IsChecked = false;
             _postClick.IsChecked = false;
             EnablePostChildren();
+            UpdatePostPreset();
         };
+        _postAltEnter.Checked += (_, _) => UpdatePostPreset();
+        _postAltEnter.Unchecked += (_, _) => UpdatePostPreset();
+        _postClick.Checked += (_, _) => UpdatePostPreset();
+        _postClick.Unchecked += (_, _) => UpdatePostPreset();
         Field(_postDelay, T("Wait after launch (milliseconds, 0–8000)", "Attesa dopo l'avvio (millisecondi, 0–8000)"), "PostDelay");
         postPanel.Children.Add(_postDelay);
         postPanel.Children.Add(Note(T(
@@ -186,6 +206,36 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _ => T("Automatic", "Automatico")
     };
 
+    private void ApplyPostPreset()
+    {
+        if (_syncingPostPreset || !_loaded_ok || _busy) return;
+        string value = (string?)(_postPreset.SelectedItem as ComboBoxItem)?.Tag ?? "none";
+        _syncingPostPreset = true;
+        try
+        {
+            _postFocus.IsChecked = value != "none";
+            _postAltEnter.IsChecked = value is "fullscreen" or "all";
+            _postClick.IsChecked = value is "click" or "all";
+        }
+        finally { _syncingPostPreset = false; }
+        EnablePostChildren();
+    }
+
+    private void UpdatePostPreset()
+    {
+        if (_syncingPostPreset) return;
+        _syncingPostPreset = true;
+        try
+        {
+            bool focus = _postFocus.IsChecked == true;
+            bool alt = _postAltEnter.IsChecked == true;
+            bool click = _postClick.IsChecked == true;
+            string tag = !focus ? "none" : alt && click ? "all" : alt ? "fullscreen" : click ? "click" : "focus";
+            Select(_postPreset, tag);
+        }
+        finally { _syncingPostPreset = false; }
+    }
+
     private void EnablePostChildren()
     {
         bool enabled = _loaded_ok && !_busy;
@@ -195,7 +245,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
 
     private void SetEditable(bool on)
     {
-        foreach (Control c in new Control[] { _display, _performance, _controller, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
+        foreach (Control c in new Control[] { _display, _performance, _controller, _postPreset, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
             c.IsEnabled = on && !_busy;
         EnablePostChildren();
     }
@@ -247,6 +297,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
         _postAltEnter.IsChecked = post.RequestAltEnterFullscreen;
         _postClick.IsChecked = post.ClickClientCenter;
         _postDelay.Text = post.DelayMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        UpdatePostPreset();
         _loaded_ok = true;
         SetEditable(true);
         ShowStatus("", false);
