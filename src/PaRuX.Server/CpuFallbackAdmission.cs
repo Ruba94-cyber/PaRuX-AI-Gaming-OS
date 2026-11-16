@@ -45,7 +45,10 @@ internal static class CpuFallbackAdmission
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or InvalidDataException or ArgumentException) { }
-            return weightsMib * WeightsOverheadFactor;
+            // Missing/unparseable GGUF geometry cannot justify silently dropping
+            // the CPU runtime reserve. The old 1.20x-only heuristic could claim
+            // that a tiny model fits while leaving almost no RAM for the process.
+            return Math.Max(weightsMib * WeightsOverheadFactor, weightsMib + ReserveMib);
         };
     }
 
