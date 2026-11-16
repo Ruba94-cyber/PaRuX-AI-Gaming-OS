@@ -7,6 +7,23 @@ namespace PaRuX.Server;
 /// </summary>
 internal static class CorporateFitPolicy
 {
+    /// <summary>
+    /// AUTO-only live CPU fit: unlike the stable capacity hint, this observes the same
+    /// profile-wide headroom formula as the final CPU launch. The snapshot is sampled once
+    /// per AUTO candidate pass; resident memory credit is only for PaRuX-owned text models.
+    /// Unknown memory stays unknown (null), never "compatible".
+    /// </summary>
+    internal static HardwareFitEstimate? EstimateLive(
+        double neededMib, SystemRamSnapshot? snapshot, double maxSystemRamPercent,
+        long reclaimableOwnedTextBytes = 0)
+    {
+        if (snapshot?.IsValid != true) return null;
+        long availableBytes = RuntimeMemoryBudget.CalculateAvailableSystemRamBytes(
+            snapshot, maxSystemRamPercent, reclaimableOwnedTextBytes);
+        double availableMib = availableBytes / 1024d / 1024d;
+        return new HardwareFitEstimate(neededMib <= availableMib, neededMib, availableMib, null, null);
+    }
+
     internal static HardwareFitEstimate Estimate(double neededMib, long totalRamBytes, double maxSystemRamPercent)
     {
         double percent = double.IsFinite(maxSystemRamPercent) ? Math.Clamp(maxSystemRamPercent, 0d, 100d) : 0d;
