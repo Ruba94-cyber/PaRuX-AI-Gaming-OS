@@ -92,6 +92,11 @@ internal static class GamingHdrDisplayProbe
                     for (int i = 0; i < (int)pathCount; i++)
                     {
                         DisplayPath path = paths[i];
+                        // A just-disconnected target can remain in an active
+                        // CCD path momentarily. Never authorize HDR readiness
+                        // for a monitor that Windows marks unavailable.
+                        if ((path.Flags & 1u) == 0 || path.Target.Available == 0)
+                            continue;
                         var source = new SourceName
                         {
                             Header = new DeviceInfoHeader
