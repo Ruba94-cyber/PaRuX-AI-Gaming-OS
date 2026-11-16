@@ -52,6 +52,7 @@ public sealed class GamePostLaunchSettings
     /// <summary>Delay after the verified process starts. Hard-capped by validation.</summary>
     public int DelayMs { get; set; } = 1200;
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool Requested => BringToForeground || RequestAltEnterFullscreen || ClickClientCenter;
 }
 
