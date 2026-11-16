@@ -463,7 +463,8 @@ internal sealed class GameDetailPanel : UserControl
         GameInstallationDto profileOwner = managed[0];
         _body.Children.Add(BuildAdvancedSection(T("Launch profile", "Profilo di avvio"),
             "GameDetail_LaunchProfile_Expander_" + profileOwner.SourceGameId,
-            new GameLaunchProfileSection(profileOwner.SourceGameId, _console)));
+            new GameLaunchProfileSection(profileOwner.SourceGameId, _console,
+                profileOwner.Source == GameInstallationSources.Emulator)));
 
         Dictionary<string, ManualGameDto> saved = new(StringComparer.Ordinal);
         try
