@@ -196,6 +196,12 @@ internal static class GamingHdrDisplayProbe
     /// <summary>Fails closed if a runtime layout ever differs from Windows x64.</summary>
     internal static bool NativeX64LayoutValid() =>
         IntPtr.Size == 8 &&
+        Marshal.SizeOf<DeviceInfoHeader>() == 20 &&
+        Marshal.SizeOf<SourceInfo>() == 20 &&
+        Marshal.SizeOf<TargetInfo>() == 48 &&
+        Marshal.SizeOf<DisplayPath>() == 72 &&
+        Marshal.OffsetOf<DisplayPath>(nameof(DisplayPath.Target)).ToInt32() == 20 &&
+        Marshal.OffsetOf<DisplayPath>(nameof(DisplayPath.Flags)).ToInt32() == 68 &&
         Marshal.SizeOf<ColorInfo1>() == 40 &&
         Marshal.SizeOf<ColorInfo2>() == 48 &&
         Marshal.OffsetOf<ColorInfo2>(nameof(ColorInfo2.Flags)).ToInt32() == 24 &&
