@@ -101,6 +101,31 @@ public sealed class RuntimeLaunchFailureDiagnosisTests
     }
 
     [Fact]
+    public async Task Early_process_exit_captures_the_final_stderr_line_and_exit_code()
+    {
+        string work = Path.Combine(Path.GetTempPath(), "parux-stderr-" + Guid.NewGuid().ToString("N"));
+        using IDisposable root = LocalAiPaths.UseRootForTests(Path.Combine(work, "localai"));
+        using IDisposable state = LocalAiPaths.UseStateDirForTests(Path.Combine(work, "state"));
+        try
+        {
+            string shell = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+            var manager = new LocalAiProcessManager(0);
+            LocalAiProcessManager.RuntimeResult result = await manager.LaunchAndWaitAsync(
+                shell, ["/c", "echo parux-final-stderr-marker 1>&2 & exit /b 17"], Environment.SystemDirectory, null,
+                Path.Combine(LocalAiPaths.StateDir, "stderr-probe.pid"), null,
+                () => Task.FromResult(false), () => { }, TimeSpan.FromSeconds(60), CancellationToken.None);
+
+            Assert.False(result.Success);
+            Assert.Contains("exit code 0x00000011", result.Message);
+            Assert.Contains("parux-final-stderr-marker", result.Message);
+        }
+        finally
+        {
+            try { Directory.Delete(work, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public async Task A_real_child_that_exits_with_the_illegal_instruction_status_reports_the_cause()
     {
         string work = Path.Combine(Path.GetTempPath(), "parux-illegal-" + Guid.NewGuid().ToString("N"));
