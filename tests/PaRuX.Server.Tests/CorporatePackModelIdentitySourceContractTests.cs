@@ -34,6 +34,21 @@ public sealed class CorporatePackModelIdentitySourceContractTests
         Assert.Contains("Local GGUF included:", script, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Optional_low_memory_package_is_pinned_to_official_qwen3_06b_bytes()
+    {
+        string script = Read("scripts", "build-corporate-lite.ps1");
+        Assert.Contains("[switch]$LowMemoryStarter", script, StringComparison.Ordinal);
+        Assert.Contains("Qwen/Qwen3-0.6B-GGUF", script, StringComparison.Ordinal);
+        Assert.Contains("Qwen3-0.6B-Q8_0.gguf", script, StringComparison.Ordinal);
+        Assert.Contains("9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+            script, StringComparison.Ordinal);
+        Assert.Contains("low-memory-0.6b", script, StringComparison.Ordinal);
+        Assert.Contains("not a quality replacement for the 4B model", script, StringComparison.Ordinal);
+        Assert.Contains("requires -Fetch and cannot be combined with -NoModel", script,
+            StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
