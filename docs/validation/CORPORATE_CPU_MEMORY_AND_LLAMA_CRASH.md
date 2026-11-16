@@ -65,11 +65,57 @@ README and manifest now reflect the *actual* model filename, and custom
 origins/licences are marked unverified unless the builder supplies metadata.
 The package-builder's origin/label is not independent legal clearance.
 
+## Adaptive Corporate RAM policy (source-only, unverified)
+
+On every CPU text-model transition, the existing PaRuX-owned outgoing text
+runtime is stopped (not external Windows processes) and OS RAM is sampled again.
+The memory planner estimates the SAME selected GGUF with **4096, 3072 and
+2048 tokens**, accepting the largest context that fits within both the OS RAM
+headroom and the **unchanged user/profile maximum total RAM percentage**.
+GGUF metadata is read once per decision; AUTO uses the same policy while
+ranking candidates, then the actual process launch repeats the calculation
+with a fresh OS snapshot. An old saved/manual choice is never silently
+replaced by a lower-quality model.
+
+When less than 768 MiB of permitted headroom remains after the model estimate,
+the bundled llama-server is requested to release its own idle model after
+120 seconds instead of 300 seconds; for 768-1535 MiB spare, after 180 seconds.
+With at least 1536 MiB spare the usual 300 seconds remains. These are
+**llama.cpp idle release requests**, not proof of physical memory returned
+or instant trimming when another program starts. No RAM is reserved or created,
+and Windows/EDR/Outlook/Teams are untouched.
+
+A **2048-token** context may reduce document chunk coverage and Chat/RAG
+quality. PaRuX must tell the user when a reduced context was selected.
+When the 2048-token estimate is still above available headroom (or OS RAM
+cannot be measured), admission refuses safely rather than paging aggressively,
+starting a crash loop, expanding the cap or degrading to an unverified 1024-token
+context. The optional packaged 0.6B model remains a separate user-selected
+build profile, not an automatic replacement.
+
+### Validation additions
+
+- Focused xUnit: `CorporateCpuMemoryPlannerTests`, including 16 GiB synthetic
+  pressure at 4096/3072/2048 tokens, no-fit, unknown RAM, owned-model
+  reclamation credit and adaptive idle thresholds.
+- Run the real Corporate Lite 4B build under 16 GB pressure with and without
+  Teams/Outlook. Record OS available memory, allowed profile RAM, selected
+  context, loaded model, idle unload request, first-token time and **actual**
+  peak RSS/private bytes. Confirm the same model remains selected.
+- Test long synthetic corporate PDFs and large prompts at 3072 and 2048 tokens:
+  reduced context must not be marketed as unchanged RAG quality. Verify
+  short prompts remain useful, and the app reports context overflow honestly.
+- Test two concurrent Chat requests, model switch, a resident runtime failing to
+  exit and memory change between preflight and native start. No external
+  process terminations or uncontrolled retries.
+- Do not label this DONE until the Windows Release build, focused/full xUnit,
+  FlaUI, offline real-model test and independent resource review pass.
+
 ## Local acceptance commands (Windows x64 build machine)
 
 ```powershell
 dotnet build PaRuX.sln -c Release -p:Platform=x64
-dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj -c Release --filter "FullyQualifiedName~RuntimeLaunchFailureDiagnosisTests|FullyQualifiedName~RuntimeRecoveryGuidanceTests|FullyQualifiedName~SecurityMediumM123Tests|FullyQualifiedName~CorporateAutoMemoryRoutingTests|FullyQualifiedName~CorporateCpuWiringSourceContractTests"
+dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj -c Release --filter "FullyQualifiedName~RuntimeLaunchFailureDiagnosisTests|FullyQualifiedName~RuntimeRecoveryGuidanceTests|FullyQualifiedName~SecurityMediumM123Tests|FullyQualifiedName~CorporateAutoMemoryRoutingTests|FullyQualifiedName~CorporateCpuMemoryPlannerTests|FullyQualifiedName~CorporateCpuWiringSourceContractTests"
 # Then the full Server xUnit suite and exclusive FlaUI regression, in that order.
 ```
 
