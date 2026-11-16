@@ -49,6 +49,10 @@ On the trusted Windows build machine (never the corporate target PC):
 pwsh -File scripts/build-corporate-lite.ps1 -Fetch -LowMemoryStarter -RequireReranker -Smoke
 ```
 
+This switch writes into `artifacts/corporate-lite-low-memory/` with a distinct
+`PaRuX-Corporate-Lite-LowMemory-Offline-win-x64.zip`; the existing
+standard Corporate 4B archive in `artifacts/corporate-lite/` is not replaced.
+
 The generated manifest identifies `starterProfile=low-memory-0.6b`, the
 source and declared licence, and every packaged byte. A smaller model uses
 less RAM for weights but may still exceed the live execution-profile limit
