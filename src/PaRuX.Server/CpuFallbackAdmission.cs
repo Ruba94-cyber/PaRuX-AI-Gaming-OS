@@ -8,19 +8,20 @@ namespace PaRuX.Server;
 /// </summary>
 internal static class CpuFallbackAdmission
 {
-    private const int CpuContextTokens = 4096; // matches LocalAiProcessManager.BuildCorporateCpuArguments
+    internal const int DefaultCpuContextTokens = 4096; // matches LocalAiProcessManager.BuildCorporateCpuArguments
     private const double ReserveMib = 768;
     private const double WeightsOverheadFactor = 1.20;
 
     /// <summary>Estimated resident footprint of the CPU launch, in MiB: weights + KV cache at the CPU context + runtime reserve.</summary>
-    internal static double EstimateNeededMib(string modelPath)
+    internal static double EstimateNeededMib(string modelPath, int contextTokens = DefaultCpuContextTokens)
     {
+        if (contextTokens is < 2048 or > DefaultCpuContextTokens) throw new ArgumentOutOfRangeException(nameof(contextTokens));
         double weightsMib = new FileInfo(modelPath).Length / 1024d / 1024d;
         try
         {
             PaRuX.Intelligence.GgufModelInfo info = PaRuX.Intelligence.GgufMetadataReader.Read(modelPath);
             long? kv = info.ParsedSuccessfully
-                ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(info, CpuContextTokens, "f16", "f16")
+                ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(info, contextTokens, "f16", "f16")
                 : null;
             if (kv.HasValue) return weightsMib + kv.Value / 1024d / 1024d + ReserveMib;
         }
