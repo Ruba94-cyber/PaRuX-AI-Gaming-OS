@@ -254,8 +254,24 @@ namespace PaRuX.Views
                     + latestRegression.CandidateTag + " · active " + latestRegression.ActiveTag
                     + (latestRegression.ImprovementPercent.HasValue
                         ? " · " + latestRegression.ImprovementPercent.Value.ToString("+0.0;-0.0;0.0") + "%" : string.Empty);
+            string corporateRam = string.Empty;
+            if (CorporateMode.IsActive && runtime.RamAvailableBytes is long windowsAvailable)
+            {
+                corporateRam = T("\nWindows available RAM: ", "\nRAM disponibile in Windows: ")
+                    + (windowsAvailable / 1073741824d).ToString("0.0") + " GiB";
+                if (runtime.CorporateAdmissibleBytes is long profileAvailable &&
+                    runtime.CorporateSystemRamLimitPercent is double profileLimit)
+                    corporateRam += T(" · PaRuX additional RAM allowance: ",
+                        " · RAM aggiuntiva consentita a PaRuX: ")
+                        + (profileAvailable / 1073741824d).ToString("0.0") + " GiB"
+                        + T(" (system profile cap ", " (limite RAM totale del profilo ")
+                        + profileLimit.ToString("0.#") + "%)";
+                corporateRam += T(
+                    "\nThis is live headroom, not a guarantee that the selected model will load. PaRuX can reclaim its own idle runtimes when needed.",
+                    "\nÈ la memoria disponibile al momento, non la garanzia di caricamento del modello. PaRuX può liberare i propri runtime inattivi se necessario.");
+            }
             _performanceSummary.Text = T("Mode ", "Modalità ") + performance.Mode + T(" · runtime ", " · runtime ") + (performance.ActiveRuntimeTag ?? T("unknown", "sconosciuto"))
-                + "\n" + gpu + "\n" + measured + "\n" + regression;
+                + corporateRam + "\n" + gpu + "\n" + measured + "\n" + regression;
             _advisorSummary.Text = BuildAdvisorSummary(runtime, latest);
         }
 
