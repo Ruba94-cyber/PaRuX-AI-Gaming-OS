@@ -23,6 +23,22 @@ public static class GameWindowPlacementStates
 }
 
 /// <summary>
+/// One-shot, opt-in, verified-owned HWND post-start actions. "Requested"/"posted"
+/// means Windows accepted a message, NOT that the renderer changed mode or
+/// the game consumed input. Empty is an old/disabled profile.
+/// </summary>
+public static class GamePostLaunchStates
+{
+    public const string NotRequested = "";
+    public const string NotConfirmed = "not-confirmed";
+    public const string ForegroundDenied = "foreground-denied";
+    public const string ForegroundConfirmed = "foreground-confirmed";
+    public const string FullscreenRequested = "fullscreen-requested";
+    public const string ClickPosted = "click-posted";
+    public const string FullscreenAndClickPosted = "fullscreen-and-click-posted";
+}
+
+/// <summary>
 /// Result of an explicit desktop-owner launch from the existing manual library.
 /// Monitoring is true only when PaRuX verified the created process identity.
 /// <see cref="StartState"/> separates a request to a launcher from a process PaRuX started and from a
@@ -47,4 +63,8 @@ public sealed record ManualGameLaunchResult(
     /// owned game. Empty means no routing was requested (legacy Core behavior).
     /// "placed" is not a guarantee of emulator exclusive-fullscreen output.</summary>
     public string WindowPlacement { get; init; } = GameWindowPlacementStates.NotRequested;
+
+    /// <summary>Observed/posting outcome of optional one-shot owned-window actions.
+    /// Not proof of fullscreen or an actual in-game click.</summary>
+    public string PostLaunch { get; init; } = GamePostLaunchStates.NotRequested;
 }
