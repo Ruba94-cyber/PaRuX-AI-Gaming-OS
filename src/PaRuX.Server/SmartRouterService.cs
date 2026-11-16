@@ -176,6 +176,38 @@ public sealed class SmartRouterService : IRoleRouter
                 AvailableMib = fit?.AvailableMib
             });
         }
+        // One bounded memory-recovery pass before declaring every AUTO model
+        // unusable. Only idle ONNX sessions owned by this PaRuX Core may be
+        // disposed. Never touch an in-progress index, an external application
+        // or a locked/manual model choice.
+        if (corporateAuto && corporateRam?.IsValid == true && results.Count > 0 &&
+            results.All(candidate => candidate.HardwareCompatible != true))
+        {
+            int released = 0;
+            try
+            {
+                released = Knowledge.KnowledgeContextProvider.Current
+                    ?.ReleaseIdleRetrievalModelsForMemoryPressure() ?? 0;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "Corporate AUTO retrieval memory reclaim skipped: " + ex.GetType().Name);
+            }
+            if (released > 0)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), ct).ConfigureAwait(false);
+                corporateRam = _runtimeManager.SampleCorporateAutoRam();
+                foreach (CandidateEvidenceDto candidate in results)
+                {
+                    HardwareFitEstimate? refreshed =
+                        _runtimeManager.EstimateCorporateAutoFit(candidate.FilePath, corporateRam);
+                    candidate.HardwareCompatible = refreshed?.Compatible;
+                    candidate.EstimatedNeededMib = refreshed?.NeededMib;
+                    candidate.AvailableMib = refreshed?.AvailableMib;
+                }
+            }
+        }
         return results;
     }
 
