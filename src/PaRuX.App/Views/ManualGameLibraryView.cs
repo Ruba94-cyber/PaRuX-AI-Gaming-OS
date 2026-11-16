@@ -1638,7 +1638,7 @@ public sealed class ManualGameLibraryView : UserControl
                     _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
                         "Posizionamento sulla TV non confermato. Il gioco resta avviato; usa le sue impostazioni schermo.")
                 });
-            if (launch.PostLaunch.Length > 0)
+            if (!string.IsNullOrEmpty(launch.PostLaunch))
                 _status.Text += "\n" + (launch.PostLaunch switch
                 {
                     GamePostLaunchStates.ForegroundConfirmed => T(
