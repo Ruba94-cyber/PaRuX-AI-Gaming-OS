@@ -1633,7 +1633,9 @@ public sealed class LocalAiProcessManager
                 "The Corporate CPU model memory footprint could not be measured safely (" + ex.GetType().Name + "). No model was started.");
         }
         if (!memory.Fits)
-            return new RuntimeResult(false, CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling));
+            return new RuntimeResult(false,
+                CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling)
+                + (ramRefusal is not null ? " The normal 4096-token context also exceeds the current budget." : string.Empty));
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
         List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount, memory.ContextTokens);
