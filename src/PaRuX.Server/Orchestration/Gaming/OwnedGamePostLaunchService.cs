@@ -99,10 +99,12 @@ public sealed class OwnedGamePostLaunchService
                         // Targeted window messages, not system-wide keyboard injection.
                         // Alt+Enter is a TOGGLE: only an explicitly enabled per-game profile
                         // may post it. The game's renderer may ignore this request.
-                        if (!PostMessage(candidate, WmSysKeyDown, (UIntPtr)VkReturn,
-                                new IntPtr(unchecked((int)0x20000001u))) ||
-                            !PostMessage(candidate, WmSysKeyUp, (UIntPtr)VkReturn,
-                                new IntPtr(unchecked((int)0xE0000001u))))
+                        bool keyDownPosted = PostMessage(candidate, WmSysKeyDown, (UIntPtr)VkReturn,
+                            new IntPtr(unchecked((int)0x20000001u)));
+                        // Always attempt the matching release, including after a failed press.
+                        bool keyUpPosted = PostMessage(candidate, WmSysKeyUp, (UIntPtr)VkReturn,
+                            new IntPtr(unchecked((int)0xE0000001u)));
+                        if (!keyDownPosted || !keyUpPosted)
                             return GamePostLaunchStates.NotConfirmed;
                         fullscreenPosted = true;
                     }
@@ -123,9 +125,13 @@ public sealed class OwnedGamePostLaunchService
                                 : GamePostLaunchStates.NotConfirmed;
 
                         IntPtr point = MouseLParam(center.Value.X, center.Value.Y);
-                        if (!PostMessage(candidate, WmMouseMove, UIntPtr.Zero, point) ||
-                            !PostMessage(candidate, WmLeftDown, (UIntPtr)MkLeft, point) ||
-                            !PostMessage(candidate, WmLeftUp, UIntPtr.Zero, point))
+                        if (!PostMessage(candidate, WmMouseMove, UIntPtr.Zero, point))
+                            return fullscreenPosted ? GamePostLaunchStates.FullscreenRequested
+                                : GamePostLaunchStates.NotConfirmed;
+                        bool mouseDownPosted = PostMessage(candidate, WmLeftDown, (UIntPtr)MkLeft, point);
+                        // Never intentionally leave the target window holding a posted mouse button.
+                        bool mouseUpPosted = PostMessage(candidate, WmLeftUp, UIntPtr.Zero, point);
+                        if (!mouseDownPosted || !mouseUpPosted)
                             return fullscreenPosted ? GamePostLaunchStates.FullscreenRequested
                                 : GamePostLaunchStates.NotConfirmed;
 
