@@ -141,7 +141,7 @@ public sealed class SecurityMediumM123Tests : IDisposable
     public void Cpu_start_path_runs_admission_before_launching_and_does_not_kill_other_processes()
     {
         string ai = Read("src", "PaRuX.Server", "LocalAiProcessManager.cs");
-        int admission = ai.IndexOf("CpuFallbackAdmission.Check", StringComparison.Ordinal);
+        int admission = ai.IndexOf("CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling)", StringComparison.Ordinal);
         int launch = ai.IndexOf("BuildCorporateCpuArguments(model, TextPort", StringComparison.Ordinal);
         Assert.True(admission > 0 && launch > admission);
         string guard = Read("src", "PaRuX.Server", "CpuFallbackAdmission.cs");
