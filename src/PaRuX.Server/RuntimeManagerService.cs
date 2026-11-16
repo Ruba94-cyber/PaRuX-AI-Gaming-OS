@@ -173,10 +173,10 @@ public sealed class RuntimeManagerService
         // verdict for a future model swap (which may reclaim PaRuX-owned RAM).
         if (CorporateMode.IsActive && ramSnapshot?.IsValid == true)
         {
-            string? selected = result.ActiveModelPath ?? LocalAiPaths.GetRoleModelPathOrNull("standard");
-            if (!string.IsNullOrWhiteSpace(selected) && File.Exists(selected))
+            try
             {
-                try
+                string? selected = result.ActiveModelPath ?? LocalAiPaths.GetRoleModelPathOrNull("standard");
+                if (!string.IsNullOrWhiteSpace(selected) && File.Exists(selected))
                 {
                     double limit = ExecutionProfileStore.Current.Get(selected)
                         .Effective.Budget.MaxSystemRamPercent;
@@ -187,8 +187,11 @@ public sealed class RuntimeManagerService
                             RuntimeMemoryBudget.CalculateAvailableSystemRamBytes(ramSnapshot, limit);
                     }
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                    or InvalidDataException or ArgumentException or NotSupportedException) { }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidDataException or ArgumentException or NotSupportedException)
+            {
+                // Status must not fail because a saved model path/profile is unreadable.
             }
         }
         try { result.VramFreeMib = await ResolveVramFreeMibAsync(result, result.RamTotalBytes, ct).ConfigureAwait(false); }
