@@ -1967,6 +1967,22 @@ public sealed class LocalAiProcessManager
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
             if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
                 return new RuntimeResult(false, "File not found: " + modelPath);
+
+            // Corporate routes from SmartRouter and role/Force selections must reach the
+            // same bundled CPU engine as ordinary Corporate Chat. The generic arbitrary
+            // launch below selects a GPU runtime and 32K launch profile; that violates the
+            // offline CPU-only package contract even when AUTO picked a fitting GGUF.
+            if (CorporateMode.IsActive)
+            {
+                if (adapterPaths?.Any(path => !string.IsNullOrWhiteSpace(path)) == true)
+                    return new RuntimeResult(false,
+                        "Corporate CPU mode does not support LoRA adapter launches. No model was substituted.");
+                if (freshExact && !StopText())
+                    return new RuntimeResult(false,
+                        "The previous Corporate CPU runtime could not be stopped for the exact fresh load.");
+                return await StartCorporateCpuTextAsync(ct, modelPath).ConfigureAwait(false);
+            }
+
             if (!await StopMediaAwaitingVramReleaseAsync(ct).ConfigureAwait(false)) return new RuntimeResult(false, "The media runtime did not stop, so the requested model was not started.");
 
             bool hasGpu = await HasHeavyGpuAsync(ct).ConfigureAwait(false);
