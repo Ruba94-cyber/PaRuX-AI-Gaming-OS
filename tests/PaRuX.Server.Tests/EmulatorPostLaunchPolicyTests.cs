@@ -114,6 +114,27 @@ public sealed class EmulatorPostLaunchPolicyTests
             game with { Arguments = "-fullscreen -- " + EmulatorCommandBuilder.Quote("other.iso") }));
     }
 
+    [Theory]
+    [InlineData("pcsx2", "pcsx2-qt.exe", ".iso", "-fullscreen -nofullscreen", false)]
+    [InlineData("pcsx2", "pcsx2-qt.exe", ".iso", "-nofullscreen -fullscreen", true)]
+    [InlineData("dolphin", "Dolphin.exe", ".rvz", "-C Dolphin.Display.Fullscreen=True -C Dolphin.Display.Fullscreen=False", false)]
+    [InlineData("dolphin", "Dolphin.exe", ".rvz", "-C Dolphin.Display.Fullscreen=False -C Dolphin.Display.Fullscreen=True", true)]
+    [InlineData("cemu", "Cemu.exe", ".wua", "-f --fullscreen=false", false)]
+    [InlineData("cemu", "Cemu.exe", ".wua", "--fullscreen=false -f", true)]
+    [InlineData("mame", "mame.exe", ".zip", "-nowindow -window", false)]
+    [InlineData("mame", "mame.exe", ".zip", "-window -nowindow", true)]
+    public void Last_native_display_switch_wins_even_if_advanced_args_conflict(
+        string emulatorId, string exeName, string ext, string flags, bool expectedFullscreen)
+    {
+        string rom = Path.Combine(Path.GetTempPath(), "parux-emulator-readiness", "game" + ext);
+        string emulator = Path.Combine(Path.GetTempPath(), "parux-emulator-readiness", exeName);
+        string command = flags + " " + (emulatorId == "mame"
+            ? "game" : EmulatorCommandBuilder.Quote(rom));
+        var game = new ManualGameDto("g", "Game", emulator, command, "", "game", "",
+            emulatorId, rom);
+        Assert.Equal(expectedFullscreen, EmulatorPostLaunchPolicy.HasNativeFullscreenRequest(game));
+    }
+
     [Fact]
     public void Launcher_session_keeps_emulator_decision_inside_the_exact_verified_process()
     {
