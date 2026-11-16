@@ -36,12 +36,16 @@ internal static class CpuFallbackAdmission
         {
             if (contextTokens is < 2048 or > DefaultCpuContextTokens)
                 throw new ArgumentOutOfRangeException(nameof(contextTokens));
-            long? kv = metadata is not null
-                ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(metadata, contextTokens, "f16", "f16")
-                : null;
-            return kv.HasValue
-                ? weightsMib + kv.Value / 1024d / 1024d + ReserveMib
-                : weightsMib * WeightsOverheadFactor;
+            try
+            {
+                long? kv = metadata is not null
+                    ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(metadata, contextTokens, "f16", "f16")
+                    : null;
+                if (kv.HasValue) return weightsMib + kv.Value / 1024d / 1024d + ReserveMib;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidDataException or ArgumentException) { }
+            return weightsMib * WeightsOverheadFactor;
         };
     }
 
