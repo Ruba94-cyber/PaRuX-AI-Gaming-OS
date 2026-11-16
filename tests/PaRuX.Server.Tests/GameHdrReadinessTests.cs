@@ -32,6 +32,7 @@ public sealed class GameHdrReadinessTests
     [InlineData(0x10u, 1, true, false, "wcg")]
     [InlineData(0x10u, 0, true, false, "sdr")]
     [InlineData(0x00u, 1, false, false, "wcg")]
+    [InlineData(0x00u, 2, null, null, "unknown")]
     [InlineData(0x10u, 99, null, null, "unknown")]
     public void Modern_windows_color_info_never_conflates_HDR_and_WCG(
         uint flags, int mode, bool? supported, bool? enabled, string expectedMode)
