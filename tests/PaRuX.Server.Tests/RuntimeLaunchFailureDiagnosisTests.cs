@@ -57,6 +57,43 @@ public sealed class RuntimeLaunchFailureDiagnosisTests
     }
 
     [Fact]
+    public void Windows_out_of_memory_and_commitment_limit_statuses_are_diagnosed()
+    {
+        foreach (int exitCode in new[]
+        {
+            RuntimeLaunchFailureDiagnosis.WindowsNoMemoryExitCode,
+            RuntimeLaunchFailureDiagnosis.WindowsCommitmentLimitExitCode
+        })
+        {
+            RuntimeLaunchFailureDiagnosis.Diagnosis? diagnosis =
+                RuntimeLaunchFailureDiagnosis.Diagnose(exitCode, "srv init: booting");
+            Assert.NotNull(diagnosis);
+            Assert.Equal(RuntimeLaunchFailureDiagnosis.CauseKind.MemoryExhausted, diagnosis.Kind);
+            Assert.Contains("RAM", diagnosis.Cause);
+            Assert.Contains("smaller model", diagnosis.SuggestedBuildVariant);
+        }
+    }
+
+    [Theory]
+    [InlineData("ggml: failed to allocate buffer of size 3156213760")]
+    [InlineData("llama_model_load: std::bad_alloc")]
+    [InlineData("error: failed to allocate memory for KV cache")]
+    public void Explicit_allocation_failure_is_distinguished_from_a_generic_runtime_crash(string stderr)
+    {
+        RuntimeLaunchFailureDiagnosis.Diagnosis? diagnosis =
+            RuntimeLaunchFailureDiagnosis.Diagnose(1, "srv init: booting\n" + stderr);
+        Assert.NotNull(diagnosis);
+        Assert.Equal(RuntimeLaunchFailureDiagnosis.CauseKind.MemoryExhausted, diagnosis.Kind);
+    }
+
+    [Fact]
+    public void Healthy_memory_status_messages_do_not_cause_false_out_of_memory_diagnoses()
+    {
+        const string stderr = "system_info: total memory 16384 MiB; use mlock = 0; srv init: listening";
+        Assert.Null(RuntimeLaunchFailureDiagnosis.Diagnose(1, stderr));
+    }
+
+    [Fact]
     public void An_ordinary_failure_with_no_cpu_evidence_is_not_diagnosed()
     {
         Assert.Null(RuntimeLaunchFailureDiagnosis.Diagnose(1, "error: failed to load model: file not found"));
