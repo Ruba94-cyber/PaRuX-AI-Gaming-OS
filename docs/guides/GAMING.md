@@ -25,12 +25,21 @@ request; it is not reloaded automatically except in the always-on Local AI mode.
 Open **Games**, then **Add & import**: add a local game executable, scan your stores, or import an emulator folder.
 Steam, Epic and GOG discovery is read-only and opt-in. Launch needs your confirmation. Real scans of all three stores are not yet recorded.
 
+## A game starts behind another window or does not enter fullscreen
+
+**Source-only option, not yet verified on physical Windows games:** for a game added by choosing its local executable, open **Games → Game details → Launch profile → After-launch assistance**. The default is **None**. You can opt into **Bring to foreground**, **Foreground + Alt+Enter**, **Foreground + one center click**, or **All**. The advanced section also offers an optional delay and individual toggles.
+
+These actions run only after PaRuX has started and verified the game's exact process, and has observed one stable, eligible game window. They never send system-wide keyboard/mouse input, never touch unrelated applications, never bypass Windows foreground restrictions and do not silently persist a different model/game configuration. Launching through Steam/Epic/GOG/Playnite is currently a launcher handoff without a trustworthy target window; automatic focus/click is not yet offered there.
+
+**Alt+Enter toggles display mode** in games that support it; it can also undo fullscreen and some games ignore it. Similarly, a window-targeted click may be ignored by a raw-input game or may activate an in-game menu. PaRuX reports whether foreground was observed and messages were *posted*, not whether fullscreen or a game action actually happened. Use the game's own graphics/launch options when needed. Real Windows + controller/TV testing is still required; see [post-launch acceptance](../validation/GAMING_POST_LAUNCH_OWNED_WINDOW.md).
+
 ## Features by status
 
 | Feature | Status |
 |---|---|
 | Library with 2,000 synthetic titles (virtualized) | Verified on the real app; cover-size control and grouping not built |
 | Store discovery (Steam, Epic, GOG) | Unit-tested; real scan NOT RUN |
+| Per-game post-launch foreground / Alt+Enter / center-click | Source-only, opt-in for directly verified manual games; native Windows test pending |
 | Quick Resume (pause a launched game) and per-game save backup | Source and tests; see the plan for current evidence |
 | HTTPS and BitTorrent downloads with SHA-256 | Experimental; no peer-swarm proof, no unattended installers |
 | Drop-in ZIP mods and AI asset studios | PARTIAL; no real game loading a ZIP was run |
