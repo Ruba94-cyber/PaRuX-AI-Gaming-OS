@@ -18,11 +18,15 @@
     ./scripts/build-corporate-lite.ps1 -ModelPath D:\assets\model.gguf -EmbeddingDir D:\assets\embeddings -RuntimeDir D:\assets\llama-cpu
     ./scripts/build-corporate-lite.ps1 -Fetch -RequireReranker -Smoke
     ./scripts/build-corporate-lite.ps1 -Fetch -NoModel -RequireReranker
+    # For a smaller, licence-reviewed GGUF on 8–16 GB machines, supply local assets.
+    ./scripts/build-corporate-lite.ps1 -ModelPath D:\assets\light.gguf -ModelOrigin 'publisher/revision' -ModelLicenseId 'Apache-2.0' -EmbeddingDir D:\assets\embeddings -RuntimeDir D:\assets\llama-cpu
 #>
 [CmdletBinding()]
 param(
     [string]$Version = "",
     [string]$ModelPath = "",
+    [string]$ModelOrigin = "",
+    [string]$ModelLicenseId = "",
     [switch]$NoModel,
     [string]$EmbeddingDir = "",
     [string]$RerankerDir = "",
@@ -199,6 +203,16 @@ if ($Fetch) {
     Get-PinnedAsset $rerRepo $rerRev "vocab.txt" (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
 }
 if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
+# The remote pinned -Fetch asset is distinguishable from a user-provided replacement.
+# Do not claim Qwen/Apache licensing for arbitrary files simply because they are GGUF.
+foreach ($v in @($ModelOrigin, $ModelLicenseId)) {
+    if ($v.Length -gt 180 -or $v -match '[\x00-\x1F\x7F<>]') {
+        throw "Model origin and licence metadata must be short, single-line text without markup."
+    }
+}
+$modelOriginLabel = if ($NoModel) { "none" } elseif ($Fetch) { "Qwen/Qwen3-4B-GGUF pinned SHA-256" } elseif ($ModelOrigin.Trim()) { $ModelOrigin.Trim() } else { "user-supplied (origin not verified)" }
+$modelLicenseLabel = if ($NoModel) { "none" } elseif ($Fetch) { "Apache-2.0" } elseif ($ModelLicenseId.Trim()) { $ModelLicenseId.Trim() + " (builder-declared; verify before redistribution)" } else { "NOT VERIFIED - confirm licence before redistribution" }
+
 $requiredInputs = @(@("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))
 if (-not $NoModel) { $requiredInputs = @(,@("ModelPath", $ModelPath)) + $requiredInputs }
 foreach ($pair in $requiredInputs) {
@@ -292,19 +306,21 @@ set "PARUX_DATA_ROOT=%~dp0PaRuXData"
 set "PARUX_LOCALAI_STATE_DIR=%~dp0PaRuXData"
 start "" "%~dp0PaRuX.exe"
 '@ | Set-Content (Join-Path $stage "Start PaRuX Corporate Model Downloads.cmd") -Encoding ASCII
-$modelGuide = if ($NoModel) { "This NoModel edition has NO chat model: import a compatible GGUF before expecting local chat answers." } else { "Local Qwen3-4B GGUF chat model included, no additional download required." }
+$modelGuide = if ($NoModel) { "This NoModel edition has NO chat model: import a compatible GGUF before expecting local chat answers." } else { "Local GGUF included: $([IO.Path]::GetFileName($ModelPath)). The model is not guaranteed to fit every 8-16 GB PC; verify memory headroom before running." }
+$modelLicenceGuide = "Bundled model origin: $modelOriginLabel. Licence: $modelLicenseLabel. The package checksum proves included bytes, not model origin or redistribution rights."
 $ragGuide = if ([string]::IsNullOrWhiteSpace($RerankerDir)) { "Local embeddings included; advanced second-stage reranking is NOT included in this reduced package." } else { "Local embeddings and cross-encoder reranking included for document retrieval." }
 @"
 PaRuX Corporate Lite Offline $Version
 Start with "Start PaRuX Corporate Lite.cmd". No installation and no administrator rights are needed by the application.
 CPU runtime and embedding model are included. No runtime setup or Internet needed.
 $modelGuide
+$modelLicenceGuide
 $ragGuide
 Offline: "Start PaRuX Corporate Lite.cmd". Import further GGUF files in Model Hub (files are copied into PaRuXData/models).
 For IT-approved GGUF downloads only: "Start PaRuX Corporate Model Downloads.cmd". Model inference remains entirely local;
 Gaming, media, online runtime installers, cloud inference and automatic updates stay disabled.
 IT network rules still apply; downloads require network permission. Documents remain on this PC.
-Licences: see LICENSE.txt and THIRD_PARTY_NOTICES.md (model: Qwen3-4B, Apache-2.0; embeddings: all-MiniLM-L6-v2, Apache-2.0;
+Licences: see LICENSE.txt and THIRD_PARTY_NOTICES.md. Bundled GGUF licence is stated above and must be verified independently; embeddings: all-MiniLM-L6-v2, Apache-2.0;
 llama.cpp: MIT; optional cross-encoder reranker: Xenova/ms-marco-MiniLM-L-6-v2, review source licence before redistribution).
 
 Avvio offline con motore CPU gia' incluso: "Start PaRuX Corporate Lite.cmd".
@@ -319,6 +335,7 @@ $manifest = [ordered]@{
     product = "PaRuX Corporate Lite Offline"; version = $Version; generatedUtc = [DateTime]::UtcNow.ToString("o")
     modelIncluded = (-not $NoModel)
     model = $(if ($NoModel) { $null } else { [IO.Path]::GetFileName($ModelPath) }); modelSha256 = $(if ($NoModel) { $null } else { (Get-FileHash $ModelPath -Algorithm SHA256).Hash.ToLowerInvariant() })
+    modelOrigin = $modelOriginLabel; modelLicense = $modelLicenseLabel; modelSourceVerifiedByBuilder = [bool]($Fetch -and -not $NoModel)
     runtimeTag = $tag; runtimeIncluded = $true; embeddingIncluded = $true; rerankerIncluded = (-not [string]::IsNullOrWhiteSpace($RerankerDir)); modelImportAllowed = $true; modelDownloadsRequireOptIn = $true
     nativeRuntimeSha256 = (Get-FileHash (Join-Path $runtimeDest "llama-server.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
     fileCount = $files.Count; files = $files
