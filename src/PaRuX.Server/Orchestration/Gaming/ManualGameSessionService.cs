@@ -23,6 +23,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly ILogger<ManualGameSessionService>? _logger;
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
+    private readonly OwnedGamePostLaunchService? _postLaunch;
     private readonly ExtraStoreCatalog _extra;
     private readonly GameLaunchHookService? _hooks;
     private readonly GameLaunchProfileStore? _launchProfiles;
@@ -37,13 +38,14 @@ public sealed class ManualGameSessionService : IDisposable
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
         GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
         ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null,
-        GameLaunchProfileStore? launchProfiles = null)
+        GameLaunchProfileStore? launchProfiles = null, OwnedGamePostLaunchService? postLaunch = null)
     {
         _launchProfiles = launchProfiles;
         _hooks = hooks;
         _extra = extraStores ?? new ExtraStoreCatalog();
         _titles = titles;
         _windowPlacement = windowPlacement;
+        _postLaunch = postLaunch;
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
@@ -203,10 +205,23 @@ public sealed class ManualGameSessionService : IDisposable
                     placement = await _windowPlacement.TryPlaceAsync(
                         process, path, targetDisplayId, observationToken).ConfigureAwait(false);
                 }
+                string postLaunch = GamePostLaunchStates.NotRequested;
+                if (launchProfile?.PostLaunch?.Requested == true)
+                {
+                    // TV placement must be confirmed before asking a game to take foreground.
+                    // A failed/unsupported placement cannot authorize focus on a different monitor.
+                    bool targetConfirmed = string.IsNullOrEmpty(targetDisplayId) ||
+                        placement is GameWindowPlacementStates.Placed or GameWindowPlacementStates.AlreadyOnTv;
+                    postLaunch = targetConfirmed && _postLaunch != null
+                        ? await _postLaunch.TryApplyAsync(process, path, launchProfile.PostLaunch,
+                            observationToken).ConfigureAwait(false)
+                        : GamePostLaunchStates.NotConfirmed;
+                }
                 return new ManualGameLaunchResult(true, true,
                     "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")
                 {
-                    WindowPlacement = placement
+                    WindowPlacement = placement,
+                    PostLaunch = postLaunch
                 };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
