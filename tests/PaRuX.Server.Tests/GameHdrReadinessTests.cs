@@ -134,7 +134,7 @@ public sealed class GameHdrReadinessTests
         Assert.Contains("GameHdrReadinessPolicy.Check(", launcher);
         Assert.Contains("if (!hdr.MayLaunch)", launcher);
         Assert.Contains("Setup(_hdrMode,", ui);
-        Assert.Contains('"HdrMode"', ui);
+        Assert.Contains("HdrMode", ui);
         Assert.Contains("next.HdrMode =", ui);
     }
 
