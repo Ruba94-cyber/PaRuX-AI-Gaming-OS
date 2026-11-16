@@ -51,12 +51,16 @@ internal static class GamingHdrDisplayProbe
 
     public static ColorState Read(string displayId)
     {
-        if (!OperatingSystem.IsWindows() ||
+        // The current Core package is Windows x64. CCD's anonymous color
+        // union has an 8-byte native alignment there, and our explicit
+        // x64 offsets below must never be used in an x86 process.
+        if (!OperatingSystem.IsWindows() || IntPtr.Size != 8 ||
             !ConsoleDisplaySelectionPolicy.ValidDisplayId(displayId))
             return ColorState.Unknown;
 
         try
         {
+            if (!NativeX64LayoutValid()) return ColorState.Unknown;
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 if (GetDisplayConfigBufferSizes(ActivePaths, out uint pathCount,
@@ -167,19 +171,35 @@ internal static class GamingHdrDisplayProbe
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string DeviceName;
     }
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ColorInfo1
+    // The CCD color structs are NOT tightly packed on x64: the native
+    // anonymous union is 8-byte aligned at offset 24, then the v2 active
+    // color mode is at offset 40. Sequential uint fields incorrectly place
+    // flags at 20 and activeColorMode at 32, producing a false HDR result.
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    internal struct ColorInfo1
     {
-        public DeviceInfoHeader Header;
-        public uint Flags, ColorEncoding, BitsPerChannel;
+        [FieldOffset(0)] public DeviceInfoHeader Header;
+        [FieldOffset(24)] public uint Flags;
+        [FieldOffset(32)] public uint ColorEncoding;
+        [FieldOffset(36)] public uint BitsPerChannel;
     }
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ColorInfo2
+    [StructLayout(LayoutKind.Explicit, Size = 48)]
+    internal struct ColorInfo2
     {
-        public DeviceInfoHeader Header;
-        public uint Flags, ColorEncoding, BitsPerChannel;
-        public int ActiveColorMode;
+        [FieldOffset(0)] public DeviceInfoHeader Header;
+        [FieldOffset(24)] public uint Flags;
+        [FieldOffset(32)] public uint ColorEncoding;
+        [FieldOffset(36)] public uint BitsPerChannel;
+        [FieldOffset(40)] public int ActiveColorMode;
     }
+
+    /// <summary>Fails closed if a runtime layout ever differs from Windows x64.</summary>
+    internal static bool NativeX64LayoutValid() =>
+        IntPtr.Size == 8 &&
+        Marshal.SizeOf<ColorInfo1>() == 40 &&
+        Marshal.SizeOf<ColorInfo2>() == 48 &&
+        Marshal.OffsetOf<ColorInfo2>(nameof(ColorInfo2.Flags)).ToInt32() == 24 &&
+        Marshal.OffsetOf<ColorInfo2>(nameof(ColorInfo2.ActiveColorMode)).ToInt32() == 40;
 
     [DllImport("user32.dll")]
     private static extern int GetDisplayConfigBufferSizes(uint flags, out uint pathCount, out uint modeCount);
