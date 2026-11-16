@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PaRuX.Contracts;
 using PaRuX.Server.Orchestration.Gaming.Providers;
+using PaRuX.Server.Orchestration.Gaming.Emulators;
 
 namespace PaRuX.Server.Orchestration.Gaming;
 
@@ -206,6 +207,11 @@ public sealed class ManualGameSessionService : IDisposable
                         process, path, targetDisplayId, observationToken).ConfigureAwait(false);
                 }
                 string postLaunch = GamePostLaunchStates.NotRequested;
+                // Imported emulators may already request fullscreen via their own
+                // documented launch switch. Do not post Alt+Enter on top of it:
+                // that toggle can unexpectedly make an already-fullscreen game windowed.
+                EmulatorPostLaunchPolicy.Decision emulator = EmulatorPostLaunchPolicy.Resolve(
+                    game, launchProfile?.PostLaunch ?? new GamePostLaunchSettings());
                 if (launchProfile?.PostLaunch?.Requested == true)
                 {
                     // TV placement must be confirmed before asking a game to take foreground.
@@ -217,7 +223,7 @@ public sealed class ManualGameSessionService : IDisposable
                         try
                         {
                             postLaunch = await _postLaunch.TryApplyAsync(process, path,
-                                launchProfile.PostLaunch, observationToken).ConfigureAwait(false);
+                                emulator.Actions, observationToken).ConfigureAwait(false);
                         }
                         catch (Exception ex) when (ex is not OutOfMemoryException)
                         {
@@ -234,7 +240,10 @@ public sealed class ManualGameSessionService : IDisposable
                     "Game started. PaRuX monitors this exact process; early bootstrap exits require manual Return to AI.")
                 {
                     WindowPlacement = placement,
-                    PostLaunch = postLaunch
+                    PostLaunch = postLaunch,
+                    EmulatorDisplay = emulator.NativeFullscreenRequested
+                        ? GameEmulatorDisplayStates.NativeFullscreenArgument
+                        : GameEmulatorDisplayStates.NotRequested
                 };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
