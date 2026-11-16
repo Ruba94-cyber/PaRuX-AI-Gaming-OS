@@ -44,6 +44,9 @@ public sealed class CorporatePackModelIdentitySourceContractTests
         Assert.Contains("9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
             script, StringComparison.Ordinal);
         Assert.Contains("low-memory-0.6b", script, StringComparison.Ordinal);
+        Assert.Contains("artifacts\\corporate-lite-low-memory", script, StringComparison.Ordinal);
+        Assert.Contains("PaRuX-Corporate-Lite-LowMemory-Offline-win-x64.zip", script, StringComparison.Ordinal);
+        Assert.Contains("-Fetch selects the official pinned model", script, StringComparison.Ordinal);
         Assert.Contains("not a quality replacement for the 4B model", script, StringComparison.Ordinal);
         Assert.Contains("requires -Fetch and cannot be combined with -NoModel", script,
             StringComparison.Ordinal);
