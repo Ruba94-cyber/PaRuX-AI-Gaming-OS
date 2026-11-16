@@ -33,8 +33,26 @@ public sealed class GameLaunchProfile
     /// May contain {width}, {height} and {refresh}.</summary>
     public List<string> LaunchArgs { get; set; } = new();
     public GameStreamingSettings Streaming { get; set; } = new();
+    /// <summary>Optional, opt-in one-shot actions targeting only a uniquely verified owned game window.</summary>
+    public GamePostLaunchSettings PostLaunch { get; set; } = new();
     /// <summary>Only "hard_off": AI children stay off while the game runs. Any other value is rejected.</summary>
     public string AiConcurrency { get; set; } = GameLaunchProfileValidator.AiHardOff;
+}
+
+/// <summary>
+/// Optional actions after an explicit direct executable game launch.
+/// All flags default off: a legacy profile never activates, types or clicks on Windows.
+/// This cannot guarantee exclusive fullscreen or override OS foreground restrictions.
+/// </summary>
+public sealed class GamePostLaunchSettings
+{
+    public bool BringToForeground { get; set; }
+    public bool RequestAltEnterFullscreen { get; set; }
+    public bool ClickClientCenter { get; set; }
+    /// <summary>Delay after the verified process starts. Hard-capped by validation.</summary>
+    public int DelayMs { get; set; } = 1200;
+
+    public bool Requested => BringToForeground || RequestAltEnterFullscreen || ClickClientCenter;
 }
 
 public sealed class GameStreamingSettings
@@ -90,6 +108,10 @@ public static class GameLaunchProfileValidator
         if (s.Width is { } sw && (sw < 320 || sw > 7680)) return "Streaming width must be 320-7680.";
         if (s.Height is { } sh && (sh < 240 || sh > 4320)) return "Streaming height must be 240-4320.";
         if (!In(Codecs, s.Codec)) return "Unknown streaming codec.";
+        GamePostLaunchSettings a = p.PostLaunch ?? new();
+        if (a.DelayMs is < 0 or > 8000) return "Post-launch delay must be 0-8000 ms.";
+        if ((a.RequestAltEnterFullscreen || a.ClickClientCenter) && !a.BringToForeground)
+            return "Fullscreen toggle and click require the opt-in foreground action.";
         return null;
     }
 
@@ -174,6 +196,7 @@ public sealed class GameLaunchProfileStore
     {
         p.LaunchArgs ??= new();
         p.Streaming ??= new();
+        p.PostLaunch ??= new();
         p.ControllerPreset ??= "auto";
         p.PerformanceProfile ??= "balanced";
         p.AiConcurrency ??= GameLaunchProfileValidator.AiHardOff;
