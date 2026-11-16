@@ -111,6 +111,64 @@ build profile, not an automatic replacement.
 - Do not label this DONE until the Windows Release build, focused/full xUnit,
   FlaUI, offline real-model test and independent resource review pass.
 
+## Conditional retrieval-memory reclamation (source-only, Windows evidence pending)
+
+The low-memory Corporate path now attempts one additional **PaRuX-owned
+memory-recovery pass** when even an adaptive context cannot fit:
+
+1. The normal CPU planner first calculates available Windows RAM and
+   configured profile headroom and tries the SAME selected GGUF at 4K/3K/2K.
+2. Only if no context fits, PaRuX asks its existing Knowledge service to
+   dispose idle in-process ONNX **embedding/reranker** sessions. In-progress
+   index jobs or ONNX inference are not unloaded; no document/index data is
+   removed. Non-Corporate editions do not use this path.
+3. After a bounded 150 ms observation interval, PaRuX re-reads Windows RAM.
+   If the OS really reports more admissible headroom, the same GGUF is tried
+   again. This recovery pass is attempted at most once; no process kill,
+   forced GC, global working-set trim, paging-policy change or automatic
+   model substitution.
+4. Chat AUTO has the corresponding one-pass recovery **before** refusing
+   an empty compatible-candidate pool; otherwise it would reject everything
+   before the final model-start recovery could run.
+5. Both ONNX engines continue to use their existing lazy-load semantics,
+   and the reranker now participates in the Knowledge idle timer. Corporate
+   status reads do **not** accidentally preload an idle model.
+
+Runtime status now exposes three optional fields (without changes to existing
+fields): `ramAvailableBytes`, `corporateSystemRamLimitPercent`,
+`corporateAdmissibleBytes`. The latter is **additional currently allowed
+headroom without stopping any resident process**, not an amount promised for
+a particular model. Runtime Manager displays the observed values
+separately, rather than treating 16 GB installed as 16 GB available.
+
+**Important limitation:** closing a PaRuX-owned ONNX session does not
+guarantee Windows will immediately report a corresponding increase in
+available physical RAM. A 4B GGUF may still not fit, and reducing the
+context may degrade RAG quality. This feature does not dynamically shrink
+an *already-running* llama-server mid-answer, and does not pretend to do so.
+
+### Additional Windows acceptance gates
+
+- With installed MiniLM embedding/reranker ONNX models, load then let them
+  become idle; verify the reranker and embedder truly unload native memory,
+  and a subsequent search reloads them with identical embeddings/scores.
+- With one 16 GB standard-user Corporate PC and Teams/Outlook running,
+  trigger a genuine low-headroom refusal with the same selected 4B GGUF,
+  then let both ONNX models idle. Record before/after Windows available
+  RAM, PaRuX private bytes, model context chosen and genuine first-token
+  success. Do not count a simulated snapshot as an actual recovery.
+- During large-PDF indexing, parallel search and concurrent RAG calls,
+  ensure the recovery path refuses to unload active sessions or corrupt
+  index state; after indexing stops, confirm idle unload is allowed again.
+- Verify GET runtime status, hardware status and Runtime Manager (IT/EN)
+  never load a reclaimed engine just to show a status; check that
+  `ramAvailableBytes` can be null when measurement is missing.
+- Run focused `CorporateIdleRetrievalReclamationTests`,
+  `RerankerServiceTests`, `EmbeddingServiceTests`,
+  `RuntimeStatusHardwareShapeTests`, `CorporateCpuMemoryPlannerTests`,
+  full Server xUnit, Windows UI tests and real Corporate 8/16 GB offline
+  evidence before merging.
+
 ## Local acceptance commands (Windows x64 build machine)
 
 ```powershell
