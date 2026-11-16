@@ -150,7 +150,15 @@ public sealed partial class SettingsView
                     ? deviceId : display.FriendlyName + " · " + deviceId) +
                     $" · {display.Width} × {display.Height}" +
                     (display.RefreshRateHz > 0 ? $" · {display.RefreshRateHz} Hz" : "") +
-                    (display.Primary ? TvT(" · Primary", " · Principale") : ""),
+                    (display.Primary ? TvT(" · Primary", " · Principale") : "") +
+                    " · " + (display.ColorMode switch
+                    {
+                        "hdr" => "HDR",
+                        "wcg" => TvT("WCG (not HDR)", "WCG (non HDR)"),
+                        "sdr" => "SDR",
+                        "advanced-color-unknown" => TvT("Advanced Color, HDR unknown", "Colore avanzato, HDR non verificato"),
+                        _ => TvT("HDR status unavailable", "Stato HDR non disponibile")
+                    }),
                 TextWrapping = TextWrapping.Wrap
             });
             var roleBox = new ComboBox
