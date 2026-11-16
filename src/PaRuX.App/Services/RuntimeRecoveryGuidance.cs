@@ -112,7 +112,7 @@ namespace PaRuX.Services
                     : "The required local runtime is missing. Open Runtime Manager to locate an existing installation or review and install a compatible component.",
                 Reason.OutOfMemory => italian
                     ? "Memoria insufficiente per avviare questo modello. La RAM libera di Windows può essere superiore a quella concessa dal limite del profilo PaRuX. Controlla la memoria disponibile e il profilo in Runtime Manager, oppure scegli un modello più piccolo in Model Hub; nessuna impostazione verrà cambiata automaticamente."
-                    : "Not enough memory to start this model. Windows free RAM may exceed the amount allowed by the PaRuX profile limit. Review available memory and the profile in Runtime Manager, or choose a smaller model in Model Hub; no settings will change automatically.",
+                    : "Not enough RAM/VRAM to start this model. Windows free RAM may exceed the amount allowed by the PaRuX profile limit. Review available memory and the profile in Runtime Manager, or choose a smaller model in Model Hub; no settings will change automatically.",
                 Reason.RuntimeCrashed => italian
                     ? "Il motore locale llama-server si è chiuso durante l’avvio. Controlla i log e il codice di uscita in Runtime Manager: possono indicare memoria insufficiente, runtime non compatibile o restrizioni IT. PaRuX non disattiva le protezioni aziendali."
                     : "The local llama-server engine stopped during startup. Check its logs and exit code in Runtime Manager for memory pressure, incompatible runtime or IT restrictions. PaRuX does not bypass corporate protections.",
