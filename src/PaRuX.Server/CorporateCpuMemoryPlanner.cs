@@ -70,7 +70,7 @@ internal static class CorporateCpuMemoryPlanner
     internal static string Shortfall(Plan plan, SystemRamSnapshot? ram, double maxSystemRamPercent)
     {
         if (ram?.IsValid != true || plan.NeededMib <= 0)
-            return "Corporate CPU memory availability or the model footprint could not be measured safely. "
+            return "Corporate CPU memory availability could not be measured safely, or the model footprint is unknown. "
                 + "Retry in Runtime Manager; no other application was stopped.";
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         double availableWindowsGiB = ram.AvailableBytes / 1073741824d;
