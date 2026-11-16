@@ -32,6 +32,7 @@ internal sealed class GamingDevicesPanel : StackPanel
     private readonly TextBlock _displayStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly DispatcherTimer _countdown = new() { Interval = TimeSpan.FromSeconds(1) };
     private string? _displayId;
+    private bool _advancedColorProtected = true;
     private int _secondsLeft;
 
     private readonly NumberBox _leftDeadzone = new() { Minimum = 0, Maximum = GamingControllerProfile.MaxDeadzone, SmallChange = 250, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
@@ -146,14 +147,15 @@ internal sealed class GamingDevicesPanel : StackPanel
         });
         Children.Add(new TextBlock
         {
-            Text = T("A change is temporary: confirm it, or PaRuX restores the previous mode after 15 seconds. HDR and VRR are never changed.",
-                     "La modifica è temporanea: confermala, altrimenti PaRuX ripristina il modo precedente dopo 15 secondi. HDR e VRR non vengono mai modificati."),
+            Text = T(
+                "A mode change is temporary until confirmed within 15 seconds. PaRuX now uses your explicitly selected Console TV, if any. HDR/WCG displays are protected from unsafe mode changes; VRR is not configured here.",
+                "La modifica del modo è temporanea finché non la confermi entro 15 secondi. PaRuX usa la TV Console selezionata, se presente. I display HDR/WCG sono protetti da modifiche non sicure; VRR non viene configurato qui."),
             TextWrapping = TextWrapping.Wrap
         });
         AutomationProperties.SetAutomationId(_modes, "GameDevices_DisplayModes_ComboBox");
         AutomationProperties.SetName(_modes, T("Available display modes", "Modi schermo disponibili"));
 
-        var loadModes = MakeButton(T("Load primary display modes", "Carica i modi dello schermo principale"),
+        var loadModes = MakeButton(T("Load selected TV / monitor modes", "Carica i modi TV / monitor selezionato"),
             "GameDevices_DisplayModes_Load_Button", LoadModesAsync);
         var apply = MakeButton(T("Apply temporarily", "Applica temporaneamente"), "GameDevices_Display_Apply_Button", ApplyAsync);
         var confirm = MakeButton(T("Keep this mode", "Mantieni questo modo"), "GameDevices_Display_Confirm_Button", ConfirmAsync);
@@ -181,22 +183,35 @@ internal sealed class GamingDevicesPanel : StackPanel
     private async Task LoadModesAsync()
     {
         _displayStatus.Text = T("Reading display modes…", "Lettura dei modi schermo…");
+        _displayId = null;
+        _advancedColorProtected = true;
+        _modes.Items.Clear();
+        SetPendingUi(false);
         try
         {
             var topology = await GamingOrchestratorClient.Current.GetDisplayTopologyAsync();
-            var primary = topology.Value?.Displays.FirstOrDefault(d => d.Primary) ?? topology.Value?.Displays.FirstOrDefault();
-            if (!topology.Succeeded || primary is null)
+            var preferences = SettingsStore.Current.Data;
+            string? selectedTvId = preferences.ConsoleTargetDisplayId;
+            GamingDisplayModeDto? selected = topology.Succeeded
+                ? GameDisplayModeTargetPolicy.Select(topology.Value,
+                    preferences.ConsoleDisplays, selectedTvId)
+                : null;
+            if (selected is null)
             {
-                _displayStatus.Text = T("Windows display information is unavailable.", "Informazioni sugli schermi Windows non disponibili.");
+                _displayStatus.Text = string.IsNullOrWhiteSpace(selectedTvId)
+                    ? T("The primary display could not be identified uniquely.", "Lo schermo principale non è identificabile in modo univoco.")
+                    : T("The selected Console TV is disconnected, changed identity or is no longer assigned as TV. No other monitor was selected.",
+                        "La TV Console scelta è scollegata, ha cambiato identità o non è più assegnata come TV. Nessun altro schermo è stato selezionato.");
                 return;
             }
-            var modes = await GamingOrchestratorClient.Current.GetDisplayModesAsync(primary.DisplayId);
+            var modes = await GamingOrchestratorClient.Current.GetDisplayModesAsync(selected.DisplayId);
             if (!modes.Succeeded || modes.Value is not { Count: > 0 } list)
             {
                 _displayStatus.Text = T("The driver did not list selectable modes.", "Il driver non ha elencato modi selezionabili.");
                 return;
             }
-            _displayId = primary.DisplayId;
+            _displayId = selected.DisplayId;
+            _advancedColorProtected = GameDisplayModeTargetPolicy.NeedsColorSafeTransaction(selected);
             _modes.Items.Clear();
             foreach (var mode in list)
                 _modes.Items.Add(new ComboBoxItem
@@ -204,8 +219,16 @@ internal sealed class GamingDevicesPanel : StackPanel
                     Content = $"{mode.Width} × {mode.Height} @ {mode.RefreshRateHz} Hz",
                     Tag = mode
                 });
-            _modes.SelectedIndex = list.FindIndex(m => m.Width == primary.Width && m.Height == primary.Height && m.RefreshRateHz == primary.RefreshRateHz) is var i and >= 0 ? i : 0;
-            _displayStatus.Text = T($"{list.Count} modes available for the primary display.", $"{list.Count} modi disponibili per lo schermo principale.");
+            _modes.SelectedIndex = list.FindIndex(m => m.Width == selected.Width && m.Height == selected.Height && m.RefreshRateHz == selected.RefreshRateHz) is var i and >= 0 ? i : 0;
+            SetPendingUi(false);
+            string label = string.IsNullOrWhiteSpace(selected.FriendlyName) ? selected.DisplayId : selected.FriendlyName;
+            _displayStatus.Text = T(
+                $"{list.Count} modes for {label}. HDR/WCG: {selected.ColorMode}.",
+                $"{list.Count} modi disponibili per {label}. HDR/WCG: {selected.ColorMode}.")
+                + (_advancedColorProtected ? T(
+                    " Windows advanced color is active. Mode changes are disabled here to protect HDR/WCG; use Windows Display Settings.",
+                    " Il colore avanzato di Windows è attivo. Le modifiche al modo sono disabilitate per proteggere HDR/WCG; usa le impostazioni schermo di Windows.")
+                    : string.Empty);
         }
         catch (Exception)
         {
@@ -215,6 +238,13 @@ internal sealed class GamingDevicesPanel : StackPanel
 
     private async Task ApplyAsync()
     {
+        if (_advancedColorProtected)
+        {
+            _displayStatus.Text = T(
+                "HDR/WCG must not be changed through this incomplete display transaction. Use Windows Display Settings.",
+                "Non è sicuro modificare HDR/WCG con questa procedura. Usa le impostazioni schermo di Windows.");
+            return;
+        }
         if (_displayId is null || (_modes.SelectedItem as ComboBoxItem)?.Tag is not GamingDisplayModeOptionDto mode)
         {
             _displayStatus.Text = T("Load and select a mode first.", "Carica e seleziona prima un modo.");
@@ -288,7 +318,7 @@ internal sealed class GamingDevicesPanel : StackPanel
     {
         if (_confirmButton is not null) _confirmButton.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
         if (_revertButton is not null) _revertButton.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
-        if (_applyButton is not null) _applyButton.IsEnabled = !pending;
+        if (_applyButton is not null) _applyButton.IsEnabled = !pending && !_advancedColorProtected && _displayId != null;
         if (pending) _confirmButton?.Focus(FocusState.Programmatic);
     }
 
