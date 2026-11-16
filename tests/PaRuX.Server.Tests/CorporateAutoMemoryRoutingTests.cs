@@ -100,7 +100,7 @@ public sealed class CorporateAutoMemoryRoutingTests
         Assert.Contains("EligibleCorporateAutoCandidates(candidates)", router, StringComparison.Ordinal);
         Assert.Contains("EstimateHardwareFitAsync(path, ct)", router, StringComparison.Ordinal);
         Assert.Contains("GetReclaimableTextWorkingSetBytes()", runtime, StringComparison.Ordinal);
-        Assert.Contains("CpuFallbackAdmission.Check(model, ram, 0)", launch, StringComparison.Ordinal);
+        Assert.Contains("SystemRamSnapshot? ram = ExecutionResourceGuard.TryGetSystemRamSnapshot()", launch, StringComparison.Ordinal);
         Assert.Contains("CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling)", launch, StringComparison.Ordinal);
     }
 
