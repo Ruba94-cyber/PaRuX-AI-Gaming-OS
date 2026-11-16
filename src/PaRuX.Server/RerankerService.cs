@@ -105,7 +105,8 @@ public sealed class RerankerService : IDisposable, PaRuX.Server.Knowledge.IUnloa
         return new RerankerEngineStatus
         {
             Installed = installed,
-            Loaded = installed && TryEnsureLoaded(),
+            // Corporate status must not reload a reclaimed reranker into RAM.
+            Loaded = installed && (CorporateMode.IsActive ? IsLoaded : TryEnsureLoaded()),
             LastError = installed ? null : SafeRead(LastErrorPath)
         };
     }
