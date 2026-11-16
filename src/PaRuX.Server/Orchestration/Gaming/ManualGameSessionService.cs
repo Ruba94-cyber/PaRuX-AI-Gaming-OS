@@ -25,6 +25,7 @@ public sealed class ManualGameSessionService : IDisposable
     private readonly GameTitleStore? _titles;
     private readonly OwnedGameWindowPlacementService? _windowPlacement;
     private readonly OwnedGamePostLaunchService? _postLaunch;
+    private readonly GamingDisplayTopologyService? _displayTopology;
     private readonly ExtraStoreCatalog _extra;
     private readonly GameLaunchHookService? _hooks;
     private readonly GameLaunchProfileStore? _launchProfiles;
@@ -39,7 +40,8 @@ public sealed class ManualGameSessionService : IDisposable
         GogGameDiscoveryProvider? gog = null, EpicGameDiscoveryProvider? epic = null,
         GameTitleStore? titles = null, OwnedGameWindowPlacementService? windowPlacement = null,
         ExtraStoreCatalog? extraStores = null, GameLaunchHookService? hooks = null,
-        GameLaunchProfileStore? launchProfiles = null, OwnedGamePostLaunchService? postLaunch = null)
+        GameLaunchProfileStore? launchProfiles = null, OwnedGamePostLaunchService? postLaunch = null,
+        GamingDisplayTopologyService? displayTopology = null)
     {
         _launchProfiles = launchProfiles;
         _hooks = hooks;
@@ -47,6 +49,7 @@ public sealed class ManualGameSessionService : IDisposable
         _titles = titles;
         _windowPlacement = windowPlacement;
         _postLaunch = postLaunch;
+        _displayTopology = displayTopology;
         _library = library;
         _orchestrator = orchestrator;
         _steam = steam;
@@ -79,7 +82,11 @@ public sealed class ManualGameSessionService : IDisposable
             if (!IsSafeLocalExecutable(game.ExecutablePath))
                 return new(false, false, "The saved executable is missing, linked or unsafe to launch.");
             // The profile's preferred display applies unless the caller chose one explicitly.
-            targetDisplayId ??= _launchProfiles?.Get(game.Id)?.DisplayId;
+            GameLaunchProfile? launchProfile = _launchProfiles?.Get(game.Id);
+            targetDisplayId ??= launchProfile?.DisplayId;
+            if (launchProfile is not null &&
+                GameLaunchProfileValidator.Validate(launchProfile) is { } preflightProfileProblem)
+                return new(false, false, "The saved game launch profile is invalid: " + preflightProfileProblem);
 
             // No implicit switch away from another game, remote stream or failed transition.
             if (_orchestrator.CurrentState != "AiReady")
@@ -100,6 +107,14 @@ public sealed class ManualGameSessionService : IDisposable
                 return new(false, false,
                     "The selected game TV is unavailable. Check the connected displays in Settings; no game was launched.");
 
+            // The HDR preflight is read-only. Require must be backed by an
+            // exact connected monitor reporting actual HDR (not WCG) before
+            // Gaming hard-off, hooks or any game process is started.
+            GameHdrReadinessPolicy.Verdict hdr = GameHdrReadinessPolicy.Check(
+                launchProfile?.HdrMode, targetDisplayId, _displayTopology?.Snapshot());
+            if (!hdr.MayLaunch)
+                return new(false, false, hdr.Refusal ?? "HDR readiness could not be verified.");
+
             await RunHookAsync(GameHookPhase.Pre, SessionTitleKey(game), ct).ConfigureAwait(false);
             bool entered = await _orchestrator.EnterManualGameSessionAsync(ct).ConfigureAwait(false);
             if (!entered)
@@ -116,9 +131,12 @@ public sealed class ManualGameSessionService : IDisposable
                 if (changedFile is not null) throw new InvalidOperationException(changedFile);
                 string path = Path.GetFullPath(game.ExecutablePath);
                 // Per-game launch profile (extra args via ArgumentList). No profile = unchanged legacy launch.
-                GameLaunchProfile? launchProfile = _launchProfiles?.Get(game.Id);
-                if (launchProfile is not null && GameLaunchProfileValidator.Validate(launchProfile) is { } profileProblem)
-                    throw new InvalidOperationException(profileProblem);
+                // Recheck just before creating the process: a TV can disconnect
+                // or change HDR state while Gaming is releasing AI resources.
+                hdr = GameHdrReadinessPolicy.Check(
+                    launchProfile?.HdrMode, targetDisplayId, _displayTopology?.Snapshot());
+                if (!hdr.MayLaunch)
+                    throw new InvalidOperationException(hdr.Refusal ?? "HDR readiness changed during launch.");
                 var info = GameLaunchProfileApplier.BuildStartInfo(game, launchProfile);
                 process = new Process { StartInfo = info };
                 try
@@ -241,6 +259,7 @@ public sealed class ManualGameSessionService : IDisposable
                 {
                     WindowPlacement = placement,
                     PostLaunch = postLaunch,
+                    HdrReadiness = hdr.Status,
                     EmulatorDisplay = emulator.NativeFullscreenRequested
                         ? GameEmulatorDisplayStates.NativeFullscreenArgument
                         : GameEmulatorDisplayStates.NotRequested
