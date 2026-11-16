@@ -1576,11 +1576,11 @@ public sealed class LocalAiProcessManager
     internal const int CorporateIdleUnloadSeconds = 300;
 
     /// <summary>The argument list of the Corporate Lite launch. Pure, so it is unit-tested without starting a process.</summary>
-    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores) =>
+    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores, int contextTokens = 4096) =>
     [
         "--model", model, "--alias", "local-coder", "--host", "127.0.0.1", "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture),
         "--jinja", "--reasoning", "off",
-        "--ctx-size", "4096", "--parallel", "1",
+        "--ctx-size", contextTokens.ToString(System.Globalization.CultureInfo.InvariantCulture), "--parallel", "1",
         // Leave cores to Teams/Outlook/Excel: half the logical cores, at least 2 and at most 8.
         "--threads", Math.Clamp(logicalCores / 2, 2, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
         "--sleep-idle-seconds", CorporateIdleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -1618,18 +1618,37 @@ public sealed class LocalAiProcessManager
             return new RuntimeResult(true, "Already running: " + profile + fallbackNotice);
         if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
             return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
-        // The previous text process (if any) has been stopped above, so its memory is already free in the snapshot.
-        string? ramRefusal = CpuFallbackAdmission.Check(model, ExecutionResourceGuard.TryGetSystemRamSnapshot(), 0);
-        if (ramRefusal != null) return new RuntimeResult(false, ramRefusal);
+        // Only PaRuX-owned outgoing text was stopped above. Sample the OS AFTER
+        // that release and choose the largest CPU KV context the user's existing
+        // memory ceiling permits. The model itself is never silently changed.
+        SystemRamSnapshot? ram = ExecutionResourceGuard.TryGetSystemRamSnapshot();
+        string? ramRefusal = CpuFallbackAdmission.Check(model, ram, 0);
+        double memoryCeiling = ExecutionProfileStore.Current.Get(model).Effective.Budget.MaxSystemRamPercent;
+        CorporateCpuMemoryPlanner.Plan memory;
+        try { memory = CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+            or ArgumentException or NotSupportedException)
+        {
+            return new RuntimeResult(false,
+                "The Corporate CPU model memory footprint could not be measured safely (" + ex.GetType().Name + "). No model was started.");
+        }
+        if (!memory.Fits)
+            return new RuntimeResult(false, CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling));
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
-        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount);
+        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount, memory.ContextTokens);
         string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
         if (result.Success) { _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null); GamingTextMemory.Clear(); }
-        return result.Success && choice.RecoveredFromSavedChoice
-            ? new RuntimeResult(true, result.Message + fallbackNotice)
+        // Tell the user what changed, rather than claiming a 4096-token context
+        // while a memory-constrained 2048/3072-token instance is running.
+        string contextNotice = result.Success && memory.Reduced
+            ? " Corporate memory-aware mode used a " + memory.ContextTokens
+                + "-token context (instead of 4096) to keep the selected model within the configured RAM limit."
+            : string.Empty;
+        return result.Success && (choice.RecoveredFromSavedChoice || contextNotice.Length > 0)
+            ? new RuntimeResult(true, result.Message + contextNotice + fallbackNotice)
             : result;
     }
 
