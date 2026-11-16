@@ -18,6 +18,15 @@ public sealed class GameHdrReadinessTests
     private static GamingDisplaySnapshotDto Screens(params GamingDisplayModeDto[] displays) =>
         new(true, "snapshot", displays);
 
+    [Fact]
+    public void Native_64_bit_CCD_color_layout_must_match_real_Windows_offsets()
+    {
+        if (IntPtr.Size == 8)
+            Assert.True(GamingHdrDisplayProbe.NativeX64LayoutValid());
+        else
+            Assert.False(GamingHdrDisplayProbe.NativeX64LayoutValid());
+    }
+
     [Theory]
     [InlineData(0x10u, 2, true, true, "hdr")]
     [InlineData(0x10u, 1, true, false, "wcg")]
