@@ -20,6 +20,29 @@ Response PostLaunch statuses:
 - foreground-denied or not-confirmed: no fabricated success; user can manually activate/configure game
 - empty: no actions requested, legacy behavior
 
+## Emulator support in this branch (source only)
+
+PaRuX can already import user-installed Eden/Eden CLI, Dolphin, Cemu,
+PCSX2, RPCS3, DuckStation, PPSSPP, RetroArch and MAME. This branch adds
+a pure emulator command-line policy that recognizes the **actual imported
+ROM path and exact emulator executable name** and reads only whole
+documented fullscreen/windowed option tokens. The **last native display
+option wins**. If an explicit native fullscreen argument was used, it
+suppresses the extra post-launch Alt+Enter toggle without changing the
+saved profile. This avoids the common "fullscreen became windowed"
+problem. It reports only that the native argument was supplied, NOT
+that the renderer entered exclusive fullscreen.
+
+Additional focused unit fixtures: EmulatorPostLaunchPolicyTests tests
+nine built-in definitions (including RPCS3 without a documented flag),
+conflicting fullscreen/windowed switches, changed executable name,
+missing ROM identity, false-positive substrings and profile nonmutation.
+
+Windows must still test emulator sessions with an actual ROM/homebrew
+file, physical pad, GUI and renderer windows, splash/Qt dialogs, window
+focus restrictions, and suspend/resume; this is not a general emulator
+automation guarantee.
+
 ## Known limitations
 Steam/Epic/GOG and Playnite launcher handoffs lack trusted target-game HWND ownership in the current launcher orchestration. No blind focus, clicks or keyboard events on those processes. A full Playnite-style recovery system requires a new verified identity handoff and distinct tested policies. Some engines ignore Win32 posted input and need their own native fullscreen option or user-configured launch parameters.
 
