@@ -168,7 +168,7 @@ public sealed class OwnedGamePostLaunchPolicyTests : IDisposable
         Assert.Contains("targetConfirmed && _postLaunch != null", session, StringComparison.Ordinal);
         Assert.Contains("_postLaunch.TryApplyAsync(process, path", session, StringComparison.Ordinal);
         Assert.Contains("GameLaunchProfile_PostLaunch_", ui, StringComparison.Ordinal);
-        Assert.Contains("GameLaunchProfile_PostFocus_", ui, StringComparison.Ordinal);
+        Assert.Contains('"' + "PostFocus" + '"', ui, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] components)
