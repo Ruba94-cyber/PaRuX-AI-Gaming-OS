@@ -11,6 +11,11 @@ internal static class RuntimeLaunchFailureDiagnosis
     /// <summary>STATUS_ILLEGAL_INSTRUCTION (0xC000001D) as Process.ExitCode reports it on Windows (signed 32-bit).</summary>
     internal const int WindowsIllegalInstructionExitCode = unchecked((int)0xC000001D);
 
+    // Windows STATUS_NO_MEMORY and STATUS_COMMITMENT_LIMIT. These are not interchangeable with
+    // access violations; only explicit memory status codes or allocation errors indicate OOM.
+    internal const int WindowsNoMemoryExitCode = unchecked((int)0xC0000017);
+    internal const int WindowsCommitmentLimitExitCode = unchecked((int)0xC000012D);
+
     /// <summary>128 + SIGILL (4): the shell and .NET convention for a process killed by an illegal-instruction signal.</summary>
     internal const int PosixIllegalInstructionExitCode = 132;
 
@@ -26,7 +31,10 @@ internal static class RuntimeLaunchFailureDiagnosis
         MissingCpuFeature,
 
         /// <summary>llama.cpp does not know the GGUF architecture: the runtime build is older than the model.</summary>
-        UnsupportedModelArchitecture
+        UnsupportedModelArchitecture,
+
+        /// <summary>The OS or llama.cpp explicitly reported exhausted memory during launch.</summary>
+        MemoryExhausted
     }
 
     /// <param name="Kind">The machine-readable cause.</param>
@@ -51,6 +59,15 @@ internal static class RuntimeLaunchFailureDiagnosis
                 CauseKind.UnsupportedModelArchitecture,
                 "This model needs a newer llama.cpp runtime: the installed build does not know its architecture.",
                 "Update the llama.cpp runtime in Runtime Manager (PaRuX-managed runtimes can be updated on approval; a user-managed or system llama.cpp is never modified, so update it yourself).");
+        }
+
+        if (exitCode is WindowsNoMemoryExitCode or WindowsCommitmentLimitExitCode
+            || MentionsMemoryExhaustion(text))
+        {
+            return new Diagnosis(
+                CauseKind.MemoryExhausted,
+                "The local model server ran out of available RAM or virtual memory while loading the model.",
+                "Review memory availability and the PaRuX RAM profile limit, or select a smaller model or context in Model Hub. PaRuX will not close other programs.");
         }
 
         if (IsIllegalInstructionExit(exitCode)
@@ -82,6 +99,15 @@ internal static class RuntimeLaunchFailureDiagnosis
     /// A feature name next to an explicit refusal. The feature name alone is not enough: llama-server prints its
     /// detected feature list ("AVX2 = 1") on every healthy start, so only an explicit "not supported" style phrase counts.
     /// </summary>
+    private static bool MentionsMemoryExhaustion(string text) =>
+        text.Contains("out of memory", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("cannot allocate memory", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("failed to allocate memory", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("failed to allocate buffer", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("std::bad_alloc", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("not enough memory", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("failed to reserve memory", StringComparison.OrdinalIgnoreCase);
+
     private static bool MentionsUnsupportedVectorExtension(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;

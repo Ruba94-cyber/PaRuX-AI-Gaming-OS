@@ -42,7 +42,7 @@ namespace PaRuX.Server;
 /// RagStore's reranking pass is always optional - callers fall back to the existing
 /// embedding+keyword ranking exactly as it worked before this feature existed.
 /// </summary>
-public sealed class RerankerService : IDisposable
+public sealed class RerankerService : IDisposable, PaRuX.Server.Knowledge.IUnloadableModel
 {
     // Per-side (query, document) truncation - matches EmbeddingService's own truncate-not-fail
     // policy for inputs longer than the model's real max sequence length.
@@ -54,6 +54,32 @@ public sealed class RerankerService : IDisposable
     private BertTokenizer? _tokenizer;
     private string? _outputName;
     private bool _loadAttempted;
+    private long _lastUsedTicks = DateTime.UtcNow.Ticks;
+    private int _inFlight;
+
+    public bool IsLoaded => Volatile.Read(ref _session) is not null;
+    public DateTime LastUsedUtc => new(Interlocked.Read(ref _lastUsedTicks), DateTimeKind.Utc);
+
+    /// <summary>
+    /// Return ONLY the reranker's own native ONNX buffers after the last inference
+    /// completed; never interrupt an in-flight document search or touch other apps.
+    /// Later searches lazily reload the exact same ONNX model and tokenizer.
+    /// </summary>
+    public bool UnloadIfIdle(TimeSpan idle)
+    {
+        lock (_loadGate)
+        {
+            if (_session is null || Volatile.Read(ref _inFlight) != 0 ||
+                DateTime.UtcNow - LastUsedUtc < idle)
+                return false;
+            _session.Dispose();
+            _session = null;
+            _tokenizer = null;
+            _outputName = null;
+            _loadAttempted = false;
+            return true;
+        }
+    }
 
     public RerankerService() : this(DefaultRuntimeRoot)
     {
@@ -79,7 +105,8 @@ public sealed class RerankerService : IDisposable
         return new RerankerEngineStatus
         {
             Installed = installed,
-            Loaded = installed && TryEnsureLoaded(),
+            // Corporate status must not reload a reclaimed reranker into RAM.
+            Loaded = installed && (CorporateMode.IsActive ? IsLoaded : TryEnsureLoaded()),
             LastError = installed ? null : SafeRead(LastErrorPath)
         };
     }
@@ -117,10 +144,11 @@ public sealed class RerankerService : IDisposable
     public float? TryScore(string? query, string? document)
     {
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(document)) return null;
-        if (!TryEnsureLoaded()) return null;
-
+        Interlocked.Increment(ref _inFlight);
         try
         {
+            if (!TryEnsureLoaded()) return null;
+            Interlocked.Exchange(ref _lastUsedTicks, DateTime.UtcNow.Ticks);
             IReadOnlyList<int> idsA = _tokenizer!.EncodeToIds(query, addSpecialTokens: false);
             IReadOnlyList<int> idsB = _tokenizer!.EncodeToIds(document, addSpecialTokens: false);
             if (idsA.Count > MaxTokensPerSequence) idsA = idsA.Take(MaxTokensPerSequence).ToList();
@@ -155,6 +183,13 @@ public sealed class RerankerService : IDisposable
         catch
         {
             return null;
+        }
+        finally
+        {
+            // An idle unloader cannot dispose the session until the last
+            // inference has fully completed, even when a score failed.
+            Interlocked.Decrement(ref _inFlight);
+            Interlocked.Exchange(ref _lastUsedTicks, DateTime.UtcNow.Ticks);
         }
     }
 

@@ -15,6 +15,11 @@ public sealed class RuntimeRecoveryGuidanceTests
     [InlineData("File not found: C:\\runtime\\llama-server.exe", RuntimeRecoveryGuidance.Reason.MissingRuntime)]
     [InlineData("The bundled CPU runtime (llama.cpp-*-cpu) was not found.", RuntimeRecoveryGuidance.Reason.MissingRuntime)]
     [InlineData("cudaMalloc failed: out of memory", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
+    [InlineData("No installed Corporate CPU model fits the memory available under the current PaRuX profile.", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
+    [InlineData("Corporate CPU memory availability could not be measured; model load was refused.", RuntimeRecoveryGuidance.Reason.MemoryUnavailable)]
+    [InlineData("Corporate CPU memory availability could not be measured safely, or the model footprint is unknown.", RuntimeRecoveryGuidance.Reason.MemoryUnavailable)]
+    [InlineData("Not enough free memory for CPU mode: this model needs about 2.9 GB but only 2.1 GB is available within the memory limit.", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
+    [InlineData("llama-server.exe exited unexpectedly (exit code 0x00000001).", RuntimeRecoveryGuidance.Reason.RuntimeCrashed)]
     [InlineData("unknown model architecture 'qwen99'", RuntimeRecoveryGuidance.Reason.IncompatibleModel)]
     [InlineData("listen tcp: bind: address already in use", RuntimeRecoveryGuidance.Reason.PortOccupied)]
     [InlineData("Connection refused by local Core", RuntimeRecoveryGuidance.Reason.CoreUnavailable)]
@@ -23,6 +28,40 @@ public sealed class RuntimeRecoveryGuidanceTests
         string raw, RuntimeRecoveryGuidance.Reason reason)
     {
         Assert.Equal(reason, RuntimeRecoveryGuidance.Classify(raw));
+    }
+
+    [Fact]
+    public void Corporate_memory_503_body_is_localized_instead_of_exposing_raw_json()
+    {
+        const string body = """{"error":{"message":"Not enough free memory for CPU mode: model needs 2.9 GB; only 2.1 GB is available within the memory limit."}}""";
+        Assert.Equal(RuntimeRecoveryGuidance.Reason.OutOfMemory, RuntimeRecoveryGuidance.Classify(body));
+        string italian = RuntimeRecoveryGuidance.Describe(body, italian: true);
+        Assert.Contains("memoria", italian, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Runtime Manager", italian);
+        Assert.DoesNotContain("{", italian);
+    }
+
+    [Fact]
+    public void Corporate_llama_crash_body_is_actionable_without_leaking_stderr_or_paths()
+    {
+        const string body = """{"error":{"message":"llama-server.exe exited unexpectedly. C:\\Users\\private\\runtime\\llama-server.exe: srv init\n"}}""";
+        Assert.Equal(RuntimeRecoveryGuidance.Reason.RuntimeCrashed, RuntimeRecoveryGuidance.Classify(body));
+        string italian = RuntimeRecoveryGuidance.Describe(body, italian: true);
+        Assert.Contains("codice di uscita", italian);
+        Assert.DoesNotContain("private", italian);
+        Assert.DoesNotContain("srv init", italian);
+    }
+
+    [Fact]
+    public void Corporate_unknown_memory_is_not_misreported_as_confirmed_out_of_memory()
+    {
+        const string raw = "Corporate CPU memory availability could not be measured; model load was refused.";
+        Assert.Equal(RuntimeRecoveryGuidance.Reason.MemoryUnavailable,
+            RuntimeRecoveryGuidance.Classify(raw));
+        string italian = RuntimeRecoveryGuidance.Describe(raw, italian: true);
+        Assert.Contains("misurare", italian);
+        Assert.Contains("Runtime Manager", italian);
+        Assert.DoesNotContain("insufficiente", italian, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

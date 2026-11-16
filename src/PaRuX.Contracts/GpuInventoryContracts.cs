@@ -84,6 +84,9 @@ public sealed class RuntimeManagerHardwareStatus
     public int VramTotalMib { get; set; }
     public int? VramFreeMib { get; set; }
     public long RamTotalBytes { get; set; }
+    public long? RamAvailableBytes { get; set; }
+    public double? CorporateSystemRamLimitPercent { get; set; }
+    public long? CorporateAdmissibleBytes { get; set; }
     public bool GamingActive { get; set; }
     public bool GamingShutdownPending { get; set; }
     public string? LastGamingShutdownFailure { get; set; }

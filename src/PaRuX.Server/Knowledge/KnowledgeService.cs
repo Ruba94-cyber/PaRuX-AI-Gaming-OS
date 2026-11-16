@@ -37,13 +37,15 @@ public static class KnowledgeContextProvider
 /// source, pausable and cancellable, at below-normal priority with an optional throttle so small PCs stay responsive.
 /// Reads documents only; the index lives in the user's data root.
 /// </summary>
-public sealed class KnowledgeJobService
+public sealed class KnowledgeJobService : IDisposable
 {
     private readonly RagStore _sources;
     private readonly KnowledgeSettingsStore _settings;
     private readonly EmbeddingService? _embeddings;
     private readonly IOcrEngine _ocr;
     private readonly IdleModelUnloader? _unloader;
+    private readonly RerankerService? _reranker;
+    private readonly IdleModelUnloader? _rerankerUnloader;
     private readonly ConcurrentDictionary<string, (CancellationTokenSource Cts, IndexControl Control, Task Task)> _jobs = new();
     private readonly ConcurrentDictionary<string, KnowledgeJobStatus> _status = new();
 
@@ -52,7 +54,7 @@ public sealed class KnowledgeJobService
 
     public KnowledgeJobService(RagStore sources, KnowledgeSettingsStore? settings = null, EmbeddingService? embeddings = null,
         KnowledgeIndex? index = null, IOcrEngine? ocr = null, IRetrievalEmbeddingProvider? embedder = null,
-        IRetrievalRerankerProvider? reranker = null)
+        IRetrievalRerankerProvider? reranker = null, RerankerService? rerankerService = null)
     {
         _sources = sources;
         _settings = settings ?? KnowledgeSettingsStore.Shared;
@@ -61,6 +63,35 @@ public sealed class KnowledgeJobService
         Index = index ?? CreateIndex(PaRuXDataRoot.Combine("knowledge", "knowledge.db"), embedder, BuildOptions(), reranker);
         if (embeddings != null)
             _unloader = new IdleModelUnloader(embeddings, () => CurrentPlan().IdleUnload);
+        _reranker = rerankerService;
+        if (_reranker != null)
+            _rerankerUnloader = new IdleModelUnloader(_reranker, () => CurrentPlan().IdleUnload);
+    }
+
+    /// <summary>
+    /// The only opportunistic low-memory reclaim action available to Corporate:
+    /// dispose OUR idle ONNX retrieval sessions, not documents, indexes or system
+    /// processes. Do not interfere with active indexing or in-flight ONNX calls.
+    /// A later query transparently reloads exactly the same installed models.
+    /// </summary>
+    internal static bool MayReclaimIdleRetrieval(bool corporate, bool indexingBusy) =>
+        corporate && !indexingBusy;
+
+    public int ReleaseIdleRetrievalModelsForMemoryPressure()
+    {
+        if (!MayReclaimIdleRetrieval(CorporateMode.IsActive,
+                _jobs.Any(job => !job.Value.Task.IsCompleted)))
+            return 0;
+        int released = 0;
+        if (_embeddings?.UnloadIfIdle(TimeSpan.Zero) == true) released++;
+        if (_reranker?.UnloadIfIdle(TimeSpan.Zero) == true) released++;
+        return released;
+    }
+
+    public void Dispose()
+    {
+        _unloader?.Dispose();
+        _rerankerUnloader?.Dispose();
     }
 
     /// <summary>The resource plan the current settings and this PC resolve to.</summary>

@@ -153,6 +153,7 @@ public sealed class RuntimeManagerService
             GpuDetected = vramMib >= LocalAiProcessManager.HeavyGpuVramThresholdMib,
             VramTotalMib = vramMib,
             RamTotalBytes = ramSnapshot?.TotalBytesAsLong ?? 0,
+            RamAvailableBytes = ramSnapshot?.IsValid == true ? (long)ramSnapshot.AvailableBytes : null,
             GamingActive = _process.GamingActive,
             GamingShutdownPending = _process.GamingShutdown.Pending,
             LastGamingShutdownFailure = _process.GamingShutdown.LastFailure,
@@ -166,6 +167,33 @@ public sealed class RuntimeManagerService
             LaunchPlanExplanation = _process.LastLaunchPlanExplanation,
             TextLaunchTrace = _process.LastTextLaunchTrace.ToList()
         };
+        // Measure what the CURRENT Corporate profile allows without stealing
+        // memory from Outlook/Teams or crediting PaRuX processes that are still
+        // serving requests. This is a status observation, not the admission
+        // verdict for a future model swap (which may reclaim PaRuX-owned RAM).
+        if (CorporateMode.IsActive && ramSnapshot?.IsValid == true)
+        {
+            try
+            {
+                string? selected = result.ActiveModelPath ?? LocalAiPaths.GetRoleModelPathOrNull("standard");
+                if (!string.IsNullOrWhiteSpace(selected) && File.Exists(selected))
+                {
+                    double limit = ExecutionProfileStore.Current.Get(selected)
+                        .Effective.Budget.MaxSystemRamPercent;
+                    if (double.IsFinite(limit))
+                    {
+                        result.CorporateSystemRamLimitPercent = limit;
+                        result.CorporateAdmissibleBytes =
+                            RuntimeMemoryBudget.CalculateAvailableSystemRamBytes(ramSnapshot, limit);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidDataException or ArgumentException or NotSupportedException)
+            {
+                // Status must not fail because a saved model path/profile is unreadable.
+            }
+        }
         try { result.VramFreeMib = await ResolveVramFreeMibAsync(result, result.RamTotalBytes, ct).ConfigureAwait(false); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { result.VramFreeMib = null; } // a failed sample is unknown, never a guess
@@ -498,16 +526,23 @@ public sealed class RuntimeManagerService
         try { sizeBytes = new FileInfo(path).Length; }
         catch { return null; }
 
-        // Corporate Lite runs the bundled CPU engine with a 4,096-token context. Its fit is a fixed, per-profile
-        // capacity check against total RAM (deterministic), not a 32k-context GPU estimate against the instantaneous
-        // free RAM: that one refused a model that then ran (real package, 3 of 4 chat questions answered 503).
-        // The real launch still goes through CpuFallbackAdmission, which reports honestly when memory is short.
+        // This total-capacity hint is intentionally stable for Model Hub and
+        // manual selections. Accept a GGUF on a CPU-only Corporate host if it
+        // can potentially fit at either the normal 4K or the adaptive minimum
+        // useful 2K context, then sample live RAM again at actual launch.
         if (PaRuX.Contracts.CorporateMode.IsActive)
         {
             SystemRamSnapshot? total = TryGetSystemRamSnapshot();
             if (total?.IsValid != true) return null;
             double pct = ExecutionProfileStore.Current.Get(path).Effective.Budget.MaxSystemRamPercent;
-            return CorporateFitPolicy.Estimate(CpuFallbackAdmission.EstimateNeededMib(path), total.TotalBytesAsLong, pct);
+            Func<int, double> estimate = CpuFallbackAdmission.CreateContextEstimator(path);
+            HardwareFitEstimate normal = CorporateFitPolicy.Estimate(
+                estimate(CorporateCpuMemoryPlanner.NormalContextTokens), total.TotalBytesAsLong, pct);
+            return normal.Compatible
+                ? normal
+                : CorporateFitPolicy.Estimate(
+                    estimate(CorporateCpuMemoryPlanner.MinimumUsefulContextTokens),
+                    total.TotalBytesAsLong, pct);
         }
 
         // Fast estimate used by SmartRouter ranking and as the cheap LoadRole preflight before it
@@ -522,8 +557,50 @@ public sealed class RuntimeManagerService
         return BuildHardwareFitEstimate(path, sizeBytes, availableMib);
     }
 
+    /// <summary>
+    /// A single live OS RAM sample for one Corporate AUTO routing pass. This never reads
+    /// per-model GPU telemetry and does not mutate profiles, roles or external processes.
+    /// </summary>
+    internal SystemRamSnapshot? SampleCorporateAutoRam() => TryGetSystemRamSnapshot();
+
+    /// <summary>
+    /// Corporate AUTO scores candidates against present CPU launch headroom, not just
+    /// installed RAM. The stable EstimateHardwareFitAsync capacity hint stays unchanged
+    /// for Model Hub/manual preflight. The process manager still checks live RAM again
+    /// immediately before spawning llama-server, protecting against changing workloads.
+    /// </summary>
+    internal HardwareFitEstimate? EstimateCorporateAutoFit(string path, SystemRamSnapshot? snapshot)
+    {
+        if (snapshot?.IsValid != true) return null;
+        try
+        {
+            double profileLimit = ExecutionProfileStore.Current.Get(path).Effective.Budget.MaxSystemRamPercent;
+            CorporateCpuMemoryPlanner.Plan adaptive = CorporateCpuMemoryPlanner.ForModel(
+                path, snapshot, profileLimit, GetReclaimableTextWorkingSetBytes());
+            // AUTO scores the model using the same bounded 4K/3K/2K choice
+            // used immediately before the real CPU launch. The caller still
+            // reruns this after stopping PaRuX-owned outgoing text.
+            return adaptive.NeededMib > 0
+                ? new HardwareFitEstimate(adaptive.Fits, adaptive.NeededMib,
+                    adaptive.AvailableMib, null, adaptive.ContextTokens)
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private async Task<HardwareFitEstimate?> EstimateHardwareFitForAdmissionAsync(string path, CancellationToken ct)
     {
+        // The Corporate package always launches the bundled CPU llama-server with 4K
+        // context. Never evaluate its final gate with the 32K GPU context estimator.
+        // This sample occurs after the text-transition writer is acquired; the process
+        // manager independently rechecks RAM after the old model has stopped.
+        if (CorporateMode.IsActive)
+            return EstimateCorporateAutoFit(path, TryGetSystemRamSnapshot());
+
         long sizeBytes;
         try { sizeBytes = new FileInfo(path).Length; }
         catch { return null; }
@@ -744,7 +821,7 @@ public sealed class RuntimeManagerService
         // EnsureRoleLoaded follows the active profile's normal hardware fallback (the small model
         // on hosts without a heavy GPU). An explicit Managed Model Library load instead pins the
         // user's requested GGUF, regardless of whether that assignment is persisted.
-        string launchPath = useRequestedModelPath || await _process.HasHeavyGpuAsync(ct).ConfigureAwait(false)
+        string launchPath = CorporateMode.IsActive || useRequestedModelPath || await _process.HasHeavyGpuAsync(ct).ConfigureAwait(false)
             ? path
             : LocalAiPaths.SmallModel;
 
@@ -908,7 +985,7 @@ public sealed class RuntimeManagerService
     {
         HardwareFitEstimate? fit = await EstimateHardwareFitForAdmissionAsync(path, ct).ConfigureAwait(false);
         bool resident = _process.GetTextProcessId() != null;
-        if (fit is { Compatible: false } && resident)
+        if (fit is { Compatible: false } && resident && !CorporateMode.IsActive)
             fit = ApplyResidentCredit(fit, await ResolveAdmissionHardwareAsync(ct).ConfigureAwait(false),
                 path, _process.GetActiveTextModelPath());
         return CreateHardwareCompatibilityFailure(path, role, fit, fit?.Compatible != true && resident);
@@ -971,6 +1048,22 @@ public sealed class RuntimeManagerService
         string path, string role, HardwareFitEstimate? fit, bool residentTextRuntime)
     {
         if (fit?.Compatible == true) return null;
+        if (CorporateMode.IsActive)
+        {
+            string reason = fit is null
+                ? "Corporate CPU memory availability could not be measured; model load was refused. Check Runtime Manager and retry."
+                : "Not enough free memory for CPU mode: this model needs about "
+                    + (fit.NeededMib / 1024d).ToString("0.0", Inv)
+                    + " GB but only " + (fit.AvailableMib / 1024d).ToString("0.0", Inv)
+                    + " GB is available within the memory limit. Select a smaller installed model or free RAM in Windows. No other program was stopped.";
+            return new RuntimeLoadResult
+            {
+                Success = false,
+                Role = role,
+                ModelPath = path,
+                Message = reason
+            };
+        }
         if (fit == null)
             return new RuntimeLoadResult
             {

@@ -19,6 +19,8 @@ namespace PaRuX.Services
             MissingModel,
             MissingRuntime,
             OutOfMemory,
+            MemoryUnavailable,
+            RuntimeCrashed,
             IncompatibleModel,
             PortOccupied,
             CoreUnavailable,
@@ -57,14 +59,25 @@ namespace PaRuX.Services
                 || (Has(raw, "File not found:") && Has(raw, "llama-server")))
                 return Reason.MissingRuntime;
 
+            if (Has(raw, "corporate cpu memory availability could not be measured"))
+                return Reason.MemoryUnavailable;
+
             if (Has(raw, "out of memory") || Has(raw, "CUDA_ERROR_OUT_OF_MEMORY")
                 || Has(raw, "failed to allocate memory") || Has(raw, "not enough VRAM")
-                || Has(raw, "insufficient VRAM") || Has(raw, "not enough system memory"))
+                || Has(raw, "insufficient VRAM") || Has(raw, "not enough system memory")
+                || Has(raw, "not enough free memory for CPU mode")
+                || Has(raw, "no installed corporate cpu model fits")
+                || Has(raw, "ran out of available RAM or virtual memory"))
                 return Reason.OutOfMemory;
 
             if (Has(raw, "unknown model architecture") || Has(raw, "unsupported model architecture")
                 || Has(raw, "unsupported GGUF architecture"))
                 return Reason.IncompatibleModel;
+
+            // Preserve actionable diagnostics, but do not print the raw JSON + arbitrary stderr
+            // in a Chat bubble when a corporate CPU-only llama process terminates unexpectedly.
+            if (Has(raw, "llama-server") && Has(raw, "exited unexpectedly"))
+                return Reason.RuntimeCrashed;
 
             // Do not classify any occurrence of the word "bind" as a port
             // conflict: it appears in unrelated component / model binding logs.
@@ -103,8 +116,14 @@ namespace PaRuX.Services
                     ? "Il runtime locale richiesto non è presente. Apri Runtime Manager per individuare un'installazione esistente oppure verificare e installare il componente compatibile."
                     : "The required local runtime is missing. Open Runtime Manager to locate an existing installation or review and install a compatible component.",
                 Reason.OutOfMemory => italian
-                    ? "Memoria RAM/VRAM insufficiente per avviare questo modello. Chiudi altre attività o scegli in Model Hub un modello/quantizzazione più piccolo; nessuna impostazione verrà cambiata automaticamente."
-                    : "Not enough RAM/VRAM to start this model. Close competing workloads or choose a smaller model/quantization in Model Hub; settings will not be changed automatically.",
+                    ? "Memoria insufficiente per avviare questo modello. La RAM libera di Windows può essere superiore a quella concessa dal limite del profilo PaRuX. Controlla la memoria disponibile e il profilo in Runtime Manager, oppure scegli un modello più piccolo in Model Hub; nessuna impostazione verrà cambiata automaticamente."
+                    : "Not enough RAM/VRAM to start this model. Windows free RAM may exceed the amount allowed by the PaRuX profile limit. Review available memory and the profile in Runtime Manager, or choose a smaller model in Model Hub; no settings will change automatically.",
+                Reason.MemoryUnavailable => italian
+                    ? "Impossibile misurare in sicurezza la memoria disponibile per il modello CPU Corporate. Verifica lo stato in Runtime Manager e riprova; PaRuX non aumenterà i limiti né interromperà altri programmi."
+                    : "Corporate CPU model memory could not be measured safely. Check Runtime Manager and retry; PaRuX will not increase limits or stop other programs.",
+                Reason.RuntimeCrashed => italian
+                    ? "Il motore locale llama-server si è chiuso durante l’avvio. Controlla i log e il codice di uscita in Runtime Manager: possono indicare memoria insufficiente, runtime non compatibile o restrizioni IT. PaRuX non disattiva le protezioni aziendali."
+                    : "The local llama-server engine stopped during startup. Check its logs and exit code in Runtime Manager for memory pressure, incompatible runtime or IT restrictions. PaRuX does not bypass corporate protections.",
                 Reason.IncompatibleModel => italian
                     ? "Il runtime non riconosce l'architettura di questo modello. Controlla compatibilità e versione in Runtime Manager e valuta una versione compatibile, senza sovrascrivere runtime gestiti dall'utente."
                     : "The runtime does not recognise this model architecture. Check compatibility and version in Runtime Manager and review a compatible version without overwriting user-managed runtimes.",

@@ -1576,14 +1576,15 @@ public sealed class LocalAiProcessManager
     internal const int CorporateIdleUnloadSeconds = 300;
 
     /// <summary>The argument list of the Corporate Lite launch. Pure, so it is unit-tested without starting a process.</summary>
-    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores) =>
+    internal static List<string> BuildCorporateCpuArguments(string model, int port, int logicalCores, int contextTokens = 4096,
+        int idleUnloadSeconds = CorporateIdleUnloadSeconds) =>
     [
         "--model", model, "--alias", "local-coder", "--host", "127.0.0.1", "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture),
         "--jinja", "--reasoning", "off",
-        "--ctx-size", "4096", "--parallel", "1",
+        "--ctx-size", contextTokens.ToString(System.Globalization.CultureInfo.InvariantCulture), "--parallel", "1",
         // Leave cores to Teams/Outlook/Excel: half the logical cores, at least 2 and at most 8.
         "--threads", Math.Clamp(logicalCores / 2, 2, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        "--sleep-idle-seconds", CorporateIdleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        "--sleep-idle-seconds", idleUnloadSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
         // Repacking keeps a second, private copy of the weights next to the memory-mapped file. Measured with the bundled
         // Qwen3-4B Q4_K_M on an 8-core laptop CPU: private memory 2.5 GB -> 0.8 GB, same generation speed, faster prompt
         // processing. On an 8 GB office PC that copy is the difference between fitting and paging.
@@ -1618,18 +1619,72 @@ public sealed class LocalAiProcessManager
             return new RuntimeResult(true, "Already running: " + profile + fallbackNotice);
         if (ManagedRuntimeMayBeRunning(LocalAiPaths.TextPidFile, "llama-server") && !StopText())
             return new RuntimeResult(false, "The previous text runtime did not stop, so the requested model was not started.");
-        // The previous text process (if any) has been stopped above, so its memory is already free in the snapshot.
-        string? ramRefusal = CpuFallbackAdmission.Check(model, ExecutionResourceGuard.TryGetSystemRamSnapshot(), 0);
-        if (ramRefusal != null) return new RuntimeResult(false, ramRefusal);
+        // Only PaRuX-owned outgoing text was stopped above. Sample the OS AFTER
+        // that release and choose the largest CPU KV context the user's existing
+        // memory ceiling permits. The model itself is never silently changed.
+        SystemRamSnapshot? ram = ExecutionResourceGuard.TryGetSystemRamSnapshot();
+        double memoryCeiling = ExecutionProfileStore.Current.Get(model).Effective.Budget.MaxSystemRamPercent;
+        CorporateCpuMemoryPlanner.Plan memory;
+        try { memory = CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+            or ArgumentException or NotSupportedException)
+        {
+            return new RuntimeResult(false,
+                "The Corporate CPU model memory footprint could not be measured safely (" + ex.GetType().Name + "). No model was started.");
+        }
+        // One bounded pressure-recovery pass: only PaRuX's own *idle* ONNX
+        // embedding/reranker sessions may be released. Active RAG/indexing,
+        // the selected GGUF, Outlook, Teams and IT protections are untouched.
+        // Re-read Windows memory after disposal; do not assume reported
+        // available RAM increased merely because a session was disposed.
+        if (!memory.Fits && corporate && !ct.IsCancellationRequested)
+        {
+            int released = 0;
+            try
+            {
+                released = PaRuX.Server.Knowledge.KnowledgeContextProvider.Current
+                    ?.ReleaseIdleRetrievalModelsForMemoryPressure() ?? 0;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "Corporate retrieval memory reclaim was skipped: " + ex.GetType().Name);
+            }
+            if (released > 0)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), ct).ConfigureAwait(false);
+                ram = ExecutionResourceGuard.TryGetSystemRamSnapshot();
+                try { memory = CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                    or InvalidDataException or ArgumentException or NotSupportedException)
+                {
+                    return new RuntimeResult(false,
+                        "PaRuX released its idle retrieval engines, but the CPU model footprint could not be measured safely. No model was started.");
+                }
+            }
+        }
+        if (!memory.Fits)
+            return new RuntimeResult(false, CorporateCpuMemoryPlanner.Shortfall(memory, ram, memoryCeiling));
         string? portRefusal = ChooseTextPortForLaunch();
         if (portRefusal != null) return new RuntimeResult(false, portRefusal);
-        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount);
+        int idleUnloadSeconds = CorporateCpuMemoryPlanner.IdleUnloadSeconds(memory);
+        List<string> args = BuildCorporateCpuArguments(model, TextPort, Environment.ProcessorCount,
+            memory.ContextTokens, idleUnloadSeconds);
         string exe = Path.Combine(runtime, LocalAiPaths.LlamaServerExecutable);
         RuntimeResult result = await LaunchAndWaitAsync(exe, args, runtime, profile, LocalAiPaths.TextPidFile, null,
             () => IsTextHealthyAsync(ct), () => StopText(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
         if (result.Success) { _lastTextLaunch = new TextLaunchSnapshot(model, exe, runtime, args, profile, null); GamingTextMemory.Clear(); }
-        return result.Success && choice.RecoveredFromSavedChoice
-            ? new RuntimeResult(true, result.Message + fallbackNotice)
+        // Tell the user what changed, rather than claiming a 4096-token context
+        // while a memory-constrained 2048/3072-token instance is running.
+        string contextNotice = result.Success && memory.Reduced
+            ? " Corporate memory-aware mode used a " + memory.ContextTokens
+                + "-token context (instead of 4096) to keep the selected model within the configured RAM limit."
+            : string.Empty;
+        if (result.Success && idleUnloadSeconds < CorporateIdleUnloadSeconds)
+            contextNotice += " The CPU engine was configured to release its idle model after "
+                + idleUnloadSeconds + " seconds to reduce PaRuX RAM use between requests.";
+        return result.Success && (choice.RecoveredFromSavedChoice || contextNotice.Length > 0)
+            ? new RuntimeResult(true, result.Message + contextNotice + fallbackNotice)
             : result;
     }
 
@@ -1967,6 +2022,22 @@ public sealed class LocalAiProcessManager
             if (GamingActive) return new RuntimeResult(false, "A game is currently active; local AI start is blocked.");
             if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
                 return new RuntimeResult(false, "File not found: " + modelPath);
+
+            // Corporate routes from SmartRouter and role/Force selections must reach the
+            // same bundled CPU engine as ordinary Corporate Chat. The generic arbitrary
+            // launch below selects a GPU runtime and 32K launch profile; that violates the
+            // offline CPU-only package contract even when AUTO picked a fitting GGUF.
+            if (CorporateMode.IsActive)
+            {
+                if (adapterPaths?.Any(path => !string.IsNullOrWhiteSpace(path)) == true)
+                    return new RuntimeResult(false,
+                        "Corporate CPU mode does not support LoRA adapter launches. No model was substituted.");
+                if (freshExact && !StopText())
+                    return new RuntimeResult(false,
+                        "The previous Corporate CPU runtime could not be stopped for the exact fresh load.");
+                return await StartCorporateCpuTextAsync(ct, modelPath).ConfigureAwait(false);
+            }
+
             if (!await StopMediaAwaitingVramReleaseAsync(ct).ConfigureAwait(false)) return new RuntimeResult(false, "The media runtime did not stop, so the requested model was not started.");
 
             bool hasGpu = await HasHeavyGpuAsync(ct).ConfigureAwait(false);
@@ -2444,12 +2515,14 @@ public sealed class LocalAiProcessManager
             ManagedRuntimeCredentials.BeginTextLaunch(psi, LaunchPort(args));
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = false };
+        Task? stderrDrain = null;
         try
         {
             process.Start();
             ChildProcessJob.Assign(process); // result is logged inside; ownership does not depend on it
             _ = DrainToFileAsync(process.StandardOutput, outLog);
-            _ = DrainToFileAsync(process.StandardError, errLog);
+            // Keep the task so the final diagnostics include the last stderr lines after an early exit.
+            stderrDrain = DrainToFileAsync(process.StandardError, errLog);
         }
         catch (Exception ex)
         {
@@ -2500,6 +2573,14 @@ public sealed class LocalAiProcessManager
             }
             if (process.HasExited)
             {
+                // Stderr is drained asynchronously. Reading the file immediately after HasExited can
+                // capture only startup chatter and lose the actual allocation/loader failure at EOF.
+                // Keep this wait bounded if a grandchild inherited the pipe.
+                if (stderrDrain is not null)
+                {
+                    try { await stderrDrain.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
+                    catch (TimeoutException) { /* Preserve the available tail, never hang a failed launch. */ }
+                }
                 string tail = TailSafe(errLog, 40);
                 ForgetManagedProcess(pidFile);
                 if (profileToRecord != null) TryDelete(LocalAiPaths.ActiveProfileFile);
@@ -2508,7 +2589,8 @@ public sealed class LocalAiProcessManager
                 // The exit code and stderr name the cause when they can, so the user gets a CPU-specific reason and build instead of a bare exit.
                 RuntimeLaunchFailureDiagnosis.Diagnosis? diagnosis = RuntimeLaunchFailureDiagnosis.Diagnose(process.ExitCode, tail);
                 string cause = diagnosis is null ? string.Empty : " " + diagnosis.Cause + " " + diagnosis.SuggestedBuildVariant;
-                return new RuntimeResult(false, Path.GetFileName(exe) + " exited unexpectedly." + cause + "\n" + tail);
+                string exitCode = "0x" + unchecked((uint)process.ExitCode).ToString("X8", System.Globalization.CultureInfo.InvariantCulture);
+                return new RuntimeResult(false, Path.GetFileName(exe) + " exited unexpectedly (exit code " + exitCode + ")." + cause + "\n" + tail);
             }
             await Task.Delay(LaunchHealthPollMs, ct).ConfigureAwait(false);
         }

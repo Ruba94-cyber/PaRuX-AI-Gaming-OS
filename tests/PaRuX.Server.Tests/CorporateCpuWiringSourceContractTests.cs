@@ -52,6 +52,30 @@ public sealed class CorporateCpuWiringSourceContractTests
         Assert.Contains("OnboardingTextReadinessPolicy.MissingModelMessage(", onboarding, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Corporate_auto_role_and_exact_loads_never_choose_gpu_runtime()
+    {
+        string manager = Read("src", "PaRuX.Server", "RuntimeManagerService.cs");
+        string process = Read("src", "PaRuX.Server", "LocalAiProcessManager.cs");
+
+        int finalGate = manager.IndexOf("private async Task<HardwareFitEstimate?> EstimateHardwareFitForAdmissionAsync(", StringComparison.Ordinal);
+        int cpuGuard = manager.IndexOf("if (CorporateMode.IsActive)", finalGate, StringComparison.Ordinal);
+        int gpuProbe = manager.IndexOf("_process.GetVramMibAsync(ct)", finalGate, StringComparison.Ordinal);
+        Assert.True(finalGate > 0 && cpuGuard > finalGate && gpuProbe > cpuGuard,
+            "Final corporate admission must use CPU live fit before reading GPU telemetry.");
+
+        Assert.Contains("CorporateMode.IsActive || useRequestedModelPath", manager, StringComparison.Ordinal);
+        Assert.Contains("resident && !CorporateMode.IsActive", manager, StringComparison.Ordinal);
+
+        int arbitrary = process.IndexOf("private async Task<RuntimeResult> StartArbitraryTextModelCoreAsync(", StringComparison.Ordinal);
+        int corporate = process.IndexOf("if (CorporateMode.IsActive)", arbitrary, StringComparison.Ordinal);
+        int cpuLaunch = process.IndexOf("StartCorporateCpuTextAsync(ct, modelPath)", corporate, StringComparison.Ordinal);
+        int gpuRuntime = process.IndexOf("LocalAiPaths.ResolveGpuTextRuntimePath(hasGpu)", arbitrary, StringComparison.Ordinal);
+        Assert.True(arbitrary > 0 && corporate > arbitrary && cpuLaunch > corporate && gpuRuntime > cpuLaunch,
+            "Corporate arbitrary and exact candidate launches must reach the bundled CPU engine before GPU runtime selection.");
+        Assert.Contains("Corporate CPU mode does not support LoRA adapter launches", process, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] path)
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);

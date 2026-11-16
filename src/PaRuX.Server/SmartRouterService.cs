@@ -133,6 +133,11 @@ public sealed class SmartRouterService : IRoleRouter
             .GroupBy(m => m.ModelPath, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().AverageTokensPerSecond!.Value, StringComparer.OrdinalIgnoreCase);
 
+        // A static total-RAM fit wrongly ranks the bundled 4B model as launchable on busy
+        // 16 GB corporate PCs. Sample once for this AUTO pass, then preserve the final
+        // admission check immediately before launch to handle subsequent RAM changes.
+        bool corporateAuto = CorporateMode.IsActive && includeManagedLibrary;
+        SystemRamSnapshot? corporateRam = corporateAuto ? _runtimeManager.SampleCorporateAutoRam() : null;
         var results = new List<CandidateEvidenceDto>();
         foreach (string path in paths)
         {
@@ -146,7 +151,9 @@ public sealed class SmartRouterService : IRoleRouter
 
             long sizeBytes = 0;
             try { sizeBytes = new FileInfo(path).Length; } catch { }
-            HardwareFitEstimate? fit = await _runtimeManager.EstimateHardwareFitAsync(path, ct);
+            HardwareFitEstimate? fit = corporateAuto
+                ? _runtimeManager.EstimateCorporateAutoFit(path, corporateRam)
+                : await _runtimeManager.EstimateHardwareFitAsync(path, ct);
 
             results.Add(new CandidateEvidenceDto
             {
@@ -168,6 +175,38 @@ public sealed class SmartRouterService : IRoleRouter
                 EstimatedNeededMib = fit?.NeededMib,
                 AvailableMib = fit?.AvailableMib
             });
+        }
+        // One bounded memory-recovery pass before declaring every AUTO model
+        // unusable. Only idle ONNX sessions owned by this PaRuX Core may be
+        // disposed. Never touch an in-progress index, an external application
+        // or a locked/manual model choice.
+        if (corporateAuto && corporateRam?.IsValid == true && results.Count > 0 &&
+            results.All(candidate => candidate.HardwareCompatible != true))
+        {
+            int released = 0;
+            try
+            {
+                released = Knowledge.KnowledgeContextProvider.Current
+                    ?.ReleaseIdleRetrievalModelsForMemoryPressure() ?? 0;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "Corporate AUTO retrieval memory reclaim skipped: " + ex.GetType().Name);
+            }
+            if (released > 0)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), ct).ConfigureAwait(false);
+                corporateRam = _runtimeManager.SampleCorporateAutoRam();
+                foreach (CandidateEvidenceDto candidate in results)
+                {
+                    HardwareFitEstimate? refreshed =
+                        _runtimeManager.EstimateCorporateAutoFit(candidate.FilePath, corporateRam);
+                    candidate.HardwareCompatible = refreshed?.Compatible;
+                    candidate.EstimatedNeededMib = refreshed?.NeededMib;
+                    candidate.AvailableMib = refreshed?.AvailableMib;
+                }
+            }
         }
         return results;
     }
@@ -263,7 +302,9 @@ public sealed class SmartRouterService : IRoleRouter
             // Evidence-qualified recommendation: explicit AUTO only, Standard x Balanced only, after every lock,
             // Force and Prefer attempt. Any doubt falls through to the ordinary ranker, and the reason is reported.
             RuntimeLoadResult? recommended = null;
-            if (_recommendation is not null && mode == RouteMode.Auto && string.IsNullOrWhiteSpace(request.Role)
+            // Corporate AUTO must never bypass the same live CPU admission ranking with
+            // a performance-recommendation whose evidence could predate this RAM sample.
+            if (!CorporateMode.IsActive && _recommendation is not null && mode == RouteMode.Auto && string.IsNullOrWhiteSpace(request.Role)
                 && normalizedTextRole == "standard" && autoProfile == AutoIntelligenceProfile.Balanced)
             {
                 (RecommendedRoute? route, string? skip) = await _recommendation.ConsultAsync(ct).ConfigureAwait(false);
@@ -665,6 +706,18 @@ public sealed class SmartRouterService : IRoleRouter
         Action<string?>? explainEscalation = null)
     {
         bool automaticMode = mode is RouteMode.Auto or RouteMode.Smart or RouteMode.Quality or RouteMode.Performance or RouteMode.LowVram;
+        if (automaticMode && normalizedTextRole != null && CorporateMode.IsActive && mode == RouteMode.Auto)
+        {
+            // A manual lock or explicit role never reaches this automatic pool. Unknown
+            // OS RAM and candidates that cannot fit must not be promoted as successful
+            // AUTO suggestions. No model installation, profile widening or forced swap.
+            candidates = EligibleCorporateAutoCandidates(candidates);
+            if (candidates.Count == 0)
+                return Failure(normalizedTextRole,
+                    "No installed Corporate CPU model fits the memory available under the current PaRuX profile. "
+                    + "Try again after freeing RAM or explicitly choose a smaller installed model in Model Hub. "
+                    + "No other application was stopped.");
+        }
         if (automaticMode && normalizedTextRole != null && candidates.Count > 0)
         {
             if (candidates.All(candidate => candidate.HardwareCompatible == false))
@@ -692,6 +745,11 @@ public sealed class SmartRouterService : IRoleRouter
         capture(null);
         return await _runtimeManager.EnsureRoleLoadedAsync(roleToLoad, ct);
     }
+
+    /// <summary>Pure AUTO-only gate: unknown fit is not a confirmed fit on constrained corporate CPU.</summary>
+    internal static IReadOnlyList<CandidateEvidenceDto> EligibleCorporateAutoCandidates(
+        IReadOnlyList<CandidateEvidenceDto> candidates) =>
+        candidates.Where(candidate => candidate.HardwareCompatible == true).ToList();
 
     private static bool IsSafeManagedFileName(string value) =>
         !string.IsNullOrWhiteSpace(value)

@@ -108,6 +108,21 @@ public sealed class SecurityMediumM123Tests : IDisposable
     }
 
     [Fact]
+    public void Cpu_refusal_distinguishes_available_windows_ram_from_the_profile_ceiling()
+    {
+        // 16 GiB total, 4 GiB available in Windows, but the profile permits only
+        // 86% system-wide use: with 12 GiB used by others, headroom is 1.76 GiB.
+        var ram = SystemRamSnapshot.TryCreate(16 * Gib, 4 * Gib);
+        string? refusal = CpuFallbackAdmission.Evaluate(ram, 86, 0, neededMib: 2.9 * 1024);
+
+        Assert.NotNull(refusal);
+        Assert.Contains("2.9 GB", refusal, StringComparison.Ordinal);
+        Assert.Contains("Windows reports 4.0 GB available", refusal, StringComparison.Ordinal);
+        Assert.Contains("at 86%", refusal, StringComparison.Ordinal);
+        Assert.Contains("No other program was stopped", refusal, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Cpu_fallback_is_admitted_when_it_fits_or_when_ram_cannot_be_measured()
     {
         Assert.Null(CpuFallbackAdmission.Evaluate(SystemRamSnapshot.TryCreate(16 * Gib, 12 * Gib), 85, 0, neededMib: 4 * 1024));
@@ -126,7 +141,7 @@ public sealed class SecurityMediumM123Tests : IDisposable
     public void Cpu_start_path_runs_admission_before_launching_and_does_not_kill_other_processes()
     {
         string ai = Read("src", "PaRuX.Server", "LocalAiProcessManager.cs");
-        int admission = ai.IndexOf("CpuFallbackAdmission.Check", StringComparison.Ordinal);
+        int admission = ai.IndexOf("CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling)", StringComparison.Ordinal);
         int launch = ai.IndexOf("BuildCorporateCpuArguments(model, TextPort", StringComparison.Ordinal);
         Assert.True(admission > 0 && launch > admission);
         string guard = Read("src", "PaRuX.Server", "CpuFallbackAdmission.cs");
