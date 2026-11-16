@@ -17,6 +17,9 @@
 .EXAMPLE
     ./scripts/build-corporate-lite.ps1 -ModelPath D:\assets\model.gguf -EmbeddingDir D:\assets\embeddings -RuntimeDir D:\assets\llama-cpu
     ./scripts/build-corporate-lite.ps1 -Fetch -RequireReranker -Smoke
+    # Small official Qwen3 0.6B Q8_0 pinned GGUF, intended as a low-memory
+    # basic-chat alternative (not equivalent in reasoning quality to the 4B model).
+    ./scripts/build-corporate-lite.ps1 -Fetch -LowMemoryStarter -RequireReranker -Smoke
     ./scripts/build-corporate-lite.ps1 -Fetch -NoModel -RequireReranker
     # For a smaller, licence-reviewed GGUF on 8–16 GB machines, supply local assets.
     ./scripts/build-corporate-lite.ps1 -ModelPath D:\assets\light.gguf -ModelOrigin 'publisher/revision' -ModelLicenseId 'Apache-2.0' -EmbeddingDir D:\assets\embeddings -RuntimeDir D:\assets\llama-cpu
@@ -28,6 +31,7 @@ param(
     [string]$ModelOrigin = "",
     [string]$ModelLicenseId = "",
     [switch]$NoModel,
+    [switch]$LowMemoryStarter,
     [string]$EmbeddingDir = "",
     [string]$RerankerDir = "",
     [switch]$RequireReranker,
@@ -179,10 +183,15 @@ if ($Fetch) {
     # Qwen3-4B Q4_K_M, Apache-2.0 (official Qwen repository): clearly better answers than 1.7B for technical questions,
     # still CPU-usable on 16 GB. Q4_K_M is the quality floor PaRuX uses for technical work.
     if (-not $NoModel) {
-        $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
-        # Publisher-provided GGUF SHA-256; immutable file content even if the remote
-        # branch changes. The official Qwen model page lists this exact digest.
-        Get-PinnedAsset "Qwen/Qwen3-4B-GGUF" "main" "Qwen3-4B-Q4_K_M.gguf" $ModelPath 0 "sha256" "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
+        # Qwen publishes both models under Apache-2.0. Content is pinned to
+        # official per-file SHA-256, never the mutable name/main ref alone.
+        if ($LowMemoryStarter) {
+            $ModelPath = Join-Path $assets "Qwen3-0.6B-Q8_0.gguf"
+            Get-PinnedAsset "Qwen/Qwen3-0.6B-GGUF" "main" "Qwen3-0.6B-Q8_0.gguf" $ModelPath 0 "sha256" "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+        } else {
+            $ModelPath = Join-Path $assets "Qwen3-4B-Q4_K_M.gguf"
+            Get-PinnedAsset "Qwen/Qwen3-4B-GGUF" "main" "Qwen3-4B-Q4_K_M.gguf" $ModelPath 0 "sha256" "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
+        }
     }
     # all-MiniLM-L6-v2 (Apache-2.0): the files the Core's EmbeddingService expects.
     $EmbeddingDir = Join-Path $assets "embeddings"
@@ -203,6 +212,9 @@ if ($Fetch) {
     Get-PinnedAsset $rerRepo $rerRev "vocab.txt" (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
 }
 if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
+if ($LowMemoryStarter -and (-not $Fetch -or $NoModel)) {
+    throw "-LowMemoryStarter requires -Fetch and cannot be combined with -NoModel or a custom local GGUF."
+}
 if ($Fetch -and -not [string]::IsNullOrWhiteSpace($ModelOrigin) -or
     $Fetch -and -not [string]::IsNullOrWhiteSpace($ModelLicenseId)) {
     throw "Pinned -Fetch has its own model origin and licence. Do not attach custom metadata."
@@ -214,7 +226,7 @@ foreach ($v in @($ModelOrigin, $ModelLicenseId)) {
         throw "Model origin and licence metadata must be short, single-line text without markup."
     }
 }
-$modelOriginLabel = if ($NoModel) { "none" } elseif ($Fetch) { "Qwen/Qwen3-4B-GGUF pinned SHA-256" } elseif ($ModelOrigin.Trim()) { $ModelOrigin.Trim() } else { "user-supplied (origin not verified)" }
+$modelOriginLabel = if ($NoModel) { "none" } elseif ($Fetch -and $LowMemoryStarter) { "Qwen/Qwen3-0.6B-GGUF pinned SHA-256" } elseif ($Fetch) { "Qwen/Qwen3-4B-GGUF pinned SHA-256" } elseif ($ModelOrigin.Trim()) { $ModelOrigin.Trim() } else { "user-supplied (origin not verified)" }
 $modelLicenseLabel = if ($NoModel) { "none" } elseif ($Fetch) { "Apache-2.0" } elseif ($ModelLicenseId.Trim()) { $ModelLicenseId.Trim() + " (builder-declared; verify before redistribution)" } else { "NOT VERIFIED - confirm licence before redistribution" }
 
 $requiredInputs = @(@("EmbeddingDir", $EmbeddingDir), @("RuntimeDir", $RuntimeDir))
@@ -312,6 +324,9 @@ start "" "%~dp0PaRuX.exe"
 '@ | Set-Content (Join-Path $stage "Start PaRuX Corporate Model Downloads.cmd") -Encoding ASCII
 $modelGuide = if ($NoModel) { "This NoModel edition has NO chat model: import a compatible GGUF before expecting local chat answers." } else { "Local GGUF included: $([IO.Path]::GetFileName($ModelPath)). The model is not guaranteed to fit every 8-16 GB PC; verify memory headroom before running." }
 $modelLicenceGuide = "Bundled model origin: $modelOriginLabel. Licence: $modelLicenseLabel. The package checksum proves included bytes, not model origin or redistribution rights."
+if ($LowMemoryStarter) {
+    $modelLicenceGuide += " LOW-MEMORY STARTER: 0.6B is primarily for basic chat; it is not a quality replacement for the 4B model, especially for complex corporate RAG or reasoning."
+}
 $ragGuide = if ([string]::IsNullOrWhiteSpace($RerankerDir)) { "Local embeddings included; advanced second-stage reranking is NOT included in this reduced package." } else { "Local embeddings and cross-encoder reranking included for document retrieval." }
 @"
 PaRuX Corporate Lite Offline $Version
@@ -340,6 +355,7 @@ $manifest = [ordered]@{
     modelIncluded = (-not $NoModel)
     model = $(if ($NoModel) { $null } else { [IO.Path]::GetFileName($ModelPath) }); modelSha256 = $(if ($NoModel) { $null } else { (Get-FileHash $ModelPath -Algorithm SHA256).Hash.ToLowerInvariant() })
     modelOrigin = $modelOriginLabel; modelLicense = $modelLicenseLabel; modelSourceVerifiedByBuilder = [bool]($Fetch -and -not $NoModel)
+    starterProfile = $(if ($NoModel) { "none" } elseif ($LowMemoryStarter) { "low-memory-0.6b" } else { "standard-or-user-supplied" })
     runtimeTag = $tag; runtimeIncluded = $true; embeddingIncluded = $true; rerankerIncluded = (-not [string]::IsNullOrWhiteSpace($RerankerDir)); modelImportAllowed = $true; modelDownloadsRequireOptIn = $true
     nativeRuntimeSha256 = (Get-FileHash (Join-Path $runtimeDest "llama-server.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
     fileCount = $files.Count; files = $files
