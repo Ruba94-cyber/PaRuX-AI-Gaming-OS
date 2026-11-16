@@ -45,7 +45,7 @@ internal static class CpuFallbackAdmission
             + " GB is available within the memory limit. Windows reports " + windowsAvailableGiB.ToString("0.0", inv)
             + " GB available, while the PaRuX profile caps total system RAM usage (including other applications) at "
             + profilePercent.ToString("0.#", inv)
-            + "%. Close competing applications or choose a smaller model in Model Hub; no other program was stopped.";
+            + "%. Close competing applications or choose a smaller model in Model Hub. No other program was stopped.";
     }
 
     internal static string? Check(string modelPath, SystemRamSnapshot? ram, long reclaimableBytes)
