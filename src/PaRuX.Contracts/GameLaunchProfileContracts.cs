@@ -9,6 +9,8 @@ public sealed class GameLaunchProfileDto
     public int? Height { get; set; }
     public int? RefreshHz { get; set; }
     public bool? Fullscreen { get; set; }
+    /// <summary>system | prefer | require. Readiness check only; no OS HDR toggle.</summary>
+    public string HdrMode { get; set; } = "system";
     public string ControllerPreset { get; set; } = "auto";
     public string PerformanceProfile { get; set; } = "balanced";
     public List<string> LaunchArgs { get; set; } = new();
