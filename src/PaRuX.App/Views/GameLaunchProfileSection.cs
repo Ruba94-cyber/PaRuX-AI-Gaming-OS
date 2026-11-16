@@ -34,7 +34,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
     private GameLaunchProfileDto _loaded = new();
     private bool _busy, _loaded_ok, _syncingPostPreset;
 
-    internal GameLaunchProfileSection(string gameKey, bool console)
+    internal GameLaunchProfileSection(string gameKey, bool console, bool emulator = false)
     {
         _key = gameKey;
         _body = console ? 20 : 14;
@@ -144,6 +144,10 @@ internal sealed class GameLaunchProfileSection : StackPanel
         };
         AutomationProperties.SetAutomationId(postExpander, "GameLaunchProfile_PostLaunch_" + gameKey);
         Children.Add(postExpander);
+        if (emulator)
+            Children.Add(Note(T(
+                "Emulator games can already request fullscreen with their own launch flags. PaRuX avoids a second Alt+Enter toggle when it recognizes that documented fullscreen option. Separate emulator settings, controller layouts and firmware remain under your control.",
+                "Gli emulatori possono già richiedere lo schermo intero tramite i propri argomenti. PaRuX evita un secondo Alt+Invio quando riconosce quell'opzione. Impostazioni dell'emulatore, controller e firmware restano sotto il tuo controllo.")));
         EnablePostChildren();
 
         _save.Content = T("Save launch profile", "Salva il profilo di avvio");
