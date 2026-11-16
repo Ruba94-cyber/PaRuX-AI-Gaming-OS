@@ -176,7 +176,7 @@ internal static class GamingHdrDisplayProbe
     // color mode is at offset 40. Sequential uint fields incorrectly place
     // flags at 20 and activeColorMode at 32, producing a false HDR result.
     [StructLayout(LayoutKind.Explicit, Size = 40)]
-    internal struct ColorInfo1
+    private struct ColorInfo1
     {
         [FieldOffset(0)] public DeviceInfoHeader Header;
         [FieldOffset(24)] public uint Flags;
@@ -184,7 +184,7 @@ internal static class GamingHdrDisplayProbe
         [FieldOffset(36)] public uint BitsPerChannel;
     }
     [StructLayout(LayoutKind.Explicit, Size = 48)]
-    internal struct ColorInfo2
+    private struct ColorInfo2
     {
         [FieldOffset(0)] public DeviceInfoHeader Header;
         [FieldOffset(24)] public uint Flags;
