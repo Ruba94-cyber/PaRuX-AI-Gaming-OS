@@ -48,6 +48,7 @@ public sealed class CorporateIdleRetrievalReclamationTests
     public void Owned_retrieval_reclamation_is_in_the_corporate_load_boundary_not_on_every_prompt()
     {
         string launch = Read("src", "PaRuX.Server", "LocalAiProcessManager.cs");
+        string router = Read("src", "PaRuX.Server", "SmartRouterService.cs");
         string knowledge = Read("src", "PaRuX.Server", "Knowledge", "KnowledgeService.cs");
         string reranker = Read("src", "PaRuX.Server", "RerankerService.cs");
         string embedding = Read("src", "PaRuX.Server", "EmbeddingService.cs");
@@ -56,6 +57,10 @@ public sealed class CorporateIdleRetrievalReclamationTests
         Assert.Contains("ReleaseIdleRetrievalModelsForMemoryPressure()", launch);
         Assert.Contains("if (released > 0)", launch);
         Assert.Contains("ram = ExecutionResourceGuard.TryGetSystemRamSnapshot()", launch);
+        Assert.Contains("results.All(candidate => candidate.HardwareCompatible != true)", router);
+        Assert.Contains("ReleaseIdleRetrievalModelsForMemoryPressure()", router);
+        Assert.Contains("corporateRam = _runtimeManager.SampleCorporateAutoRam()", router);
+        Assert.Contains("candidate.HardwareCompatible = refreshed?.Compatible", router);
         Assert.Contains("CorporateCpuMemoryPlanner.ForModel(model, ram, memoryCeiling)", launch);
         Assert.Contains("Task.Delay(TimeSpan.FromMilliseconds(150), ct)", launch);
         Assert.Contains("_jobs.Any(job => !job.Value.Task.IsCompleted)", knowledge);
