@@ -111,7 +111,7 @@ public sealed class ManualGameSessionService : IDisposable
             // exact connected monitor reporting actual HDR (not WCG) before
             // Gaming hard-off, hooks or any game process is started.
             GameHdrReadinessPolicy.Verdict hdr = GameHdrReadinessPolicy.Check(
-                launchProfile?.HdrMode, targetDisplayId, _displayTopology?.Snapshot());
+                launchProfile?.HdrMode, targetDisplayId, launchProfile?.HdrMode is "prefer" or "require" ? _displayTopology?.Snapshot() : null);
             if (!hdr.MayLaunch)
                 return new(false, false, hdr.Refusal ?? "HDR readiness could not be verified.");
 
@@ -134,7 +134,7 @@ public sealed class ManualGameSessionService : IDisposable
                 // Recheck just before creating the process: a TV can disconnect
                 // or change HDR state while Gaming is releasing AI resources.
                 hdr = GameHdrReadinessPolicy.Check(
-                    launchProfile?.HdrMode, targetDisplayId, _displayTopology?.Snapshot());
+                    launchProfile?.HdrMode, targetDisplayId, launchProfile?.HdrMode is "prefer" or "require" ? _displayTopology?.Snapshot() : null);
                 if (!hdr.MayLaunch)
                     throw new InvalidOperationException(hdr.Refusal ?? "HDR readiness changed during launch.");
                 var info = GameLaunchProfileApplier.BuildStartInfo(game, launchProfile);
