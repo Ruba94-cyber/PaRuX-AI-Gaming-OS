@@ -19,9 +19,15 @@ internal static class CorporateCpuMemoryPlanner
     }
 
     internal static Plan ForModel(string modelPath, SystemRamSnapshot? ram, double maxSystemRamPercent,
-        long reclaimableOwnedTextBytes = 0) =>
-        Select(ram, maxSystemRamPercent, reclaimableOwnedTextBytes,
+        long reclaimableOwnedTextBytes = 0)
+    {
+        // Do not read a multi-GB model's metadata if Windows RAM could not be
+        // measured in the first place. Fail closed with an actionable reason.
+        if (ram?.IsValid != true)
+            return new Plan(NormalContextTokens, 0, 0, false);
+        return Select(ram, maxSystemRamPercent, reclaimableOwnedTextBytes,
             CpuFallbackAdmission.CreateContextEstimator(modelPath));
+    }
 
     /// <summary>Pure deterministic test seam; no Windows APIs or file access.</summary>
     internal static Plan Select(SystemRamSnapshot? ram, double maxSystemRamPercent,
