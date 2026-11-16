@@ -30,6 +30,10 @@ internal static class EmulatorPostLaunchPolicy
 
     internal static bool HasNativeFullscreenRequest(ManualGameDto game)
     {
+        // Metadata can come from a migrated or edited library entry. A malformed
+        // path must disable this *optional* optimization, not fail the game launch.
+        try
+        {
         if (string.IsNullOrWhiteSpace(game.EmulatorId) || game.Kind != ManualEntryKinds.Game)
             return false;
         EmulatorDefinition? definition = EmulatorRegistry.Find(game.EmulatorId);
@@ -57,6 +61,12 @@ internal static class EmulatorPostLaunchPolicy
         int lastWindowed = definition.WindowedArguments is { Count: > 0 } windowed
             ? FindLastSequence(arguments, windowed) : -1;
         return lastFullscreen >= 0 && lastFullscreen > lastWindowed;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException
+            or PathTooLongException)
+        {
+            return false;
+        }
     }
 
     private static int FindLastSequence(IReadOnlyList<string> arguments, IReadOnlyList<string> sequence)
