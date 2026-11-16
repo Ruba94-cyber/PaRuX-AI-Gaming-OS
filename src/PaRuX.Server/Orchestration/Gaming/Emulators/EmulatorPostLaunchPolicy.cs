@@ -50,15 +50,27 @@ internal static class EmulatorPostLaunchPolicy
             !(definition.Id == "mame" && arguments.Contains(
                 Path.GetFileNameWithoutExtension(game.GameFilePath), StringComparer.OrdinalIgnoreCase)))
             return false;
-        for (int start = 0; start + fullscreen.Count <= arguments.Count; start++)
+        // The emulator builder places its explicit mode AFTER advanced user
+        // arguments. Last documented display option wins (for example
+        // "-fullscreen -nofullscreen" is windowed, not fullscreen).
+        int lastFullscreen = FindLastSequence(arguments, fullscreen);
+        int lastWindowed = definition.WindowedArguments is { Count: > 0 } windowed
+            ? FindLastSequence(arguments, windowed) : -1;
+        return lastFullscreen >= 0 && lastFullscreen > lastWindowed;
+    }
+
+    private static int FindLastSequence(IReadOnlyList<string> arguments, IReadOnlyList<string> sequence)
+    {
+        int found = -1;
+        for (int start = 0; start + sequence.Count <= arguments.Count; start++)
         {
             bool match = true;
-            for (int j = 0; j < fullscreen.Count; j++)
-                if (!string.Equals(arguments[start + j], fullscreen[j],
+            for (int j = 0; j < sequence.Count; j++)
+                if (!string.Equals(arguments[start + j], sequence[j],
                     StringComparison.OrdinalIgnoreCase))
                 { match = false; break; }
-            if (match) return true;
+            if (match) found = start;
         }
-        return false;
+        return found;
     }
 }
