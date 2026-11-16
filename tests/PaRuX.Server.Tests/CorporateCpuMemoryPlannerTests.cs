@@ -87,6 +87,25 @@ public sealed class CorporateCpuMemoryPlannerTests
     }
 
     [Fact]
+    public void Unknown_gguf_geometry_keeps_native_runtime_reserve_in_the_memory_estimate()
+    {
+        string path = Path.Combine(Path.GetTempPath(),
+            "parux-corporate-unknown-kv-" + Guid.NewGuid().ToString("N") + ".gguf");
+        try
+        {
+            // Sparse fake model: deliberately no valid GGUF metadata, never loaded.
+            using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write))
+                output.SetLength(64 * 1024);
+            double estimatedMib = CpuFallbackAdmission.EstimateNeededMib(path);
+            Assert.True(estimatedMib >= 768, "Unknown KV shape cannot erase the native runtime RAM reserve.");
+        }
+        finally
+        {
+            try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public void Bad_or_unmeasurable_model_footprint_cannot_be_promoted_to_compatible()
     {
         var ram = new SystemRamSnapshot(16 * GiB, 8 * GiB);
