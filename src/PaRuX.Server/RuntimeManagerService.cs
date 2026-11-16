@@ -553,6 +553,13 @@ public sealed class RuntimeManagerService
 
     private async Task<HardwareFitEstimate?> EstimateHardwareFitForAdmissionAsync(string path, CancellationToken ct)
     {
+        // The Corporate package always launches the bundled CPU llama-server with 4K
+        // context. Never evaluate its final gate with the 32K GPU context estimator.
+        // This sample occurs after the text-transition writer is acquired; the process
+        // manager independently rechecks RAM after the old model has stopped.
+        if (CorporateMode.IsActive)
+            return EstimateCorporateAutoFit(path, TryGetSystemRamSnapshot());
+
         long sizeBytes;
         try { sizeBytes = new FileInfo(path).Length; }
         catch { return null; }
@@ -773,7 +780,7 @@ public sealed class RuntimeManagerService
         // EnsureRoleLoaded follows the active profile's normal hardware fallback (the small model
         // on hosts without a heavy GPU). An explicit Managed Model Library load instead pins the
         // user's requested GGUF, regardless of whether that assignment is persisted.
-        string launchPath = useRequestedModelPath || await _process.HasHeavyGpuAsync(ct).ConfigureAwait(false)
+        string launchPath = CorporateMode.IsActive || useRequestedModelPath || await _process.HasHeavyGpuAsync(ct).ConfigureAwait(false)
             ? path
             : LocalAiPaths.SmallModel;
 
@@ -937,7 +944,7 @@ public sealed class RuntimeManagerService
     {
         HardwareFitEstimate? fit = await EstimateHardwareFitForAdmissionAsync(path, ct).ConfigureAwait(false);
         bool resident = _process.GetTextProcessId() != null;
-        if (fit is { Compatible: false } && resident)
+        if (fit is { Compatible: false } && resident && !CorporateMode.IsActive)
             fit = ApplyResidentCredit(fit, await ResolveAdmissionHardwareAsync(ct).ConfigureAwait(false),
                 path, _process.GetActiveTextModelPath());
         return CreateHardwareCompatibilityFailure(path, role, fit, fit?.Compatible != true && resident);
