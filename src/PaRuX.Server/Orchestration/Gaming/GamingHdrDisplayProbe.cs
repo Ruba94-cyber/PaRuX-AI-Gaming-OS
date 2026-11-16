@@ -64,7 +64,7 @@ internal static class GamingHdrDisplayProbe
                     pathCount is 0 or > MaxPaths || modeCount > MaxModes)
                     return ColorState.Unknown;
 
-                var paths = new DisplayPath[pathCount];
+                var paths = new DisplayPath[checked((int)pathCount)];
                 IntPtr modes = IntPtr.Zero;
                 try
                 {
@@ -77,7 +77,7 @@ internal static class GamingHdrDisplayProbe
                     if (rc != 0) return ColorState.Unknown;
 
                     (Luid Adapter, uint Id)? target = null;
-                    for (int i = 0; i < pathCount; i++)
+                    for (int i = 0; i < (int)pathCount; i++)
                     {
                         DisplayPath path = paths[i];
                         var source = new SourceName
@@ -92,7 +92,7 @@ internal static class GamingHdrDisplayProbe
                             DeviceName = string.Empty
                         };
                         if (DisplayConfigGetSourceName(ref source) != 0 ||
-                            !string.Equals(source.DeviceName.TrimEnd('\0'),
+                            !string.Equals(source.DeviceName?.TrimEnd('\0'),
                                 displayId, StringComparison.OrdinalIgnoreCase))
                             continue;
                         // Multiple output targets for a mirrored GDI display are
