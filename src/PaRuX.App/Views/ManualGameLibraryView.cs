@@ -1638,6 +1638,10 @@ public sealed class ManualGameLibraryView : UserControl
                     _ => T("TV placement could not be confirmed. The game remains running; use its own display settings.",
                         "Posizionamento sulla TV non confermato. Il gioco resta avviato; usa le sue impostazioni schermo.")
                 });
+            if (launch.EmulatorDisplay == GameEmulatorDisplayStates.NativeFullscreenArgument)
+                _status.Text += "\n" + T(
+                    "The emulator received its native fullscreen launch option. The actual display mode is not confirmed; an extra Alt+Enter toggle was avoided.",
+                    "L'emulatore ha ricevuto la propria opzione di avvio a schermo intero. Il risultato non è confermato; è stato evitato un secondo Alt+Invio.");
             if (!string.IsNullOrEmpty(launch.PostLaunch))
                 _status.Text += "\n" + (launch.PostLaunch switch
                 {
