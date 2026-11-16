@@ -28,7 +28,15 @@ internal static class GamingHdrDisplayProbe
     internal static ColorState FromV2(uint flags, int activeColorMode)
     {
         bool supported = (flags & (1u << 4)) != 0; // highDynamicRangeSupported
-        if (!supported) return new(false, false, activeColorMode == 1 ? "wcg" : "sdr");
+        // Inconsistent driver flags must never be interpreted as confirmed
+        // SDR if the active mode itself says HDR. Preserve uncertainty instead.
+        if (!supported)
+            return activeColorMode switch
+            {
+                0 => new(false, false, "sdr"),
+                1 => new(false, false, "wcg"),
+                _ => ColorState.Unknown
+            };
         return activeColorMode switch
         {
             0 => new(true, false, "sdr"),
