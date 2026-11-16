@@ -103,6 +103,8 @@ internal static class RuntimeLaunchFailureDiagnosis
         text.Contains("out of memory", StringComparison.OrdinalIgnoreCase)
         || text.Contains("cannot allocate memory", StringComparison.OrdinalIgnoreCase)
         || text.Contains("failed to allocate memory", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("failed to allocate buffer", StringComparison.OrdinalIgnoreCase)
+        || text.Contains("std::bad_alloc", StringComparison.OrdinalIgnoreCase)
         || text.Contains("not enough memory", StringComparison.OrdinalIgnoreCase)
         || text.Contains("failed to reserve memory", StringComparison.OrdinalIgnoreCase);
 
