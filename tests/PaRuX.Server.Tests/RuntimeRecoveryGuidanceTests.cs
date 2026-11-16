@@ -17,6 +17,7 @@ public sealed class RuntimeRecoveryGuidanceTests
     [InlineData("cudaMalloc failed: out of memory", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
     [InlineData("No installed Corporate CPU model fits the memory available under the current PaRuX profile.", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
     [InlineData("Corporate CPU memory availability could not be measured; model load was refused.", RuntimeRecoveryGuidance.Reason.MemoryUnavailable)]
+    [InlineData("Corporate CPU memory availability could not be measured safely, or the model footprint is unknown.", RuntimeRecoveryGuidance.Reason.MemoryUnavailable)]
     [InlineData("Not enough free memory for CPU mode: this model needs about 2.9 GB but only 2.1 GB is available within the memory limit.", RuntimeRecoveryGuidance.Reason.OutOfMemory)]
     [InlineData("llama-server.exe exited unexpectedly (exit code 0x00000001).", RuntimeRecoveryGuidance.Reason.RuntimeCrashed)]
     [InlineData("unknown model architecture 'qwen99'", RuntimeRecoveryGuidance.Reason.IncompatibleModel)]
