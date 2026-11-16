@@ -522,6 +522,35 @@ public sealed class RuntimeManagerService
         return BuildHardwareFitEstimate(path, sizeBytes, availableMib);
     }
 
+    /// <summary>
+    /// A single live OS RAM sample for one Corporate AUTO routing pass. This never reads
+    /// per-model GPU telemetry and does not mutate profiles, roles or external processes.
+    /// </summary>
+    internal SystemRamSnapshot? SampleCorporateAutoRam() => TryGetSystemRamSnapshot();
+
+    /// <summary>
+    /// Corporate AUTO scores candidates against present CPU launch headroom, not just
+    /// installed RAM. The stable EstimateHardwareFitAsync capacity hint stays unchanged
+    /// for Model Hub/manual preflight. The process manager still checks live RAM again
+    /// immediately before spawning llama-server, protecting against changing workloads.
+    /// </summary>
+    internal HardwareFitEstimate? EstimateCorporateAutoFit(string path, SystemRamSnapshot? snapshot)
+    {
+        if (snapshot?.IsValid != true) return null;
+        try
+        {
+            double neededMib = CpuFallbackAdmission.EstimateNeededMib(path);
+            double profileLimit = ExecutionProfileStore.Current.Get(path).Effective.Budget.MaxSystemRamPercent;
+            return CorporateFitPolicy.EstimateLive(
+                neededMib, snapshot, profileLimit, GetReclaimableTextWorkingSetBytes());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private async Task<HardwareFitEstimate?> EstimateHardwareFitForAdmissionAsync(string path, CancellationToken ct)
     {
         long sizeBytes;
