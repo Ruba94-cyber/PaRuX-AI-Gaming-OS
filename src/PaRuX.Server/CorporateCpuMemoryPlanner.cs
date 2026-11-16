@@ -21,7 +21,7 @@ internal static class CorporateCpuMemoryPlanner
     internal static Plan ForModel(string modelPath, SystemRamSnapshot? ram, double maxSystemRamPercent,
         long reclaimableOwnedTextBytes = 0) =>
         Select(ram, maxSystemRamPercent, reclaimableOwnedTextBytes,
-            context => CpuFallbackAdmission.EstimateNeededMib(modelPath, context));
+            CpuFallbackAdmission.CreateContextEstimator(modelPath));
 
     /// <summary>Pure deterministic test seam; no Windows APIs or file access.</summary>
     internal static Plan Select(SystemRamSnapshot? ram, double maxSystemRamPercent,
