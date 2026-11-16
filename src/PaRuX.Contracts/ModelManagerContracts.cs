@@ -812,6 +812,12 @@ public sealed class RuntimeManagerStatus
     /// </summary>
     public int? VramFreeMib { get; set; }
     public long RamTotalBytes { get; set; }
+    /// <summary>Live Windows available physical RAM. Null means no valid OS measurement.</summary>
+    public long? RamAvailableBytes { get; set; }
+    /// <summary>Corporate profile's maximum total system RAM percentage for the active/selected text model; null if unknown.</summary>
+    public double? CorporateSystemRamLimitPercent { get; set; }
+    /// <summary>Additional CPU headroom allowed RIGHT NOW without stopping any existing process; not a promise that a GGUF fits.</summary>
+    public long? CorporateAdmissibleBytes { get; set; }
     public bool GamingActive { get; set; }
     /// <summary>True while Gaming Mode is on and a local AI runtime has not confirmed stopped; the Gaming guard retries the shutdown with backoff.</summary>
     public bool GamingShutdownPending { get; set; }
