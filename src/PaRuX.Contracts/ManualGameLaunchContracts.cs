@@ -77,4 +77,6 @@ public sealed record ManualGameLaunchResult(
     public string PostLaunch { get; init; } = GamePostLaunchStates.NotRequested;
     /// <summary>Command-line fullscreen intent for a verified emulator entry, not observed fullscreen.</summary>
     public string EmulatorDisplay { get; init; } = GameEmulatorDisplayStates.NotRequested;
+    /// <summary>Prelaunch read-only HDR readiness, not proof of HDR rendering.</summary>
+    public string HdrReadiness { get; init; } = "";
 }
