@@ -27,12 +27,20 @@ Never put company documents, actual machine/domain names, tokens, private logs o
   llama.cpp allocation failures. Unknown exits remain unknown.
 - Map recognized CPU memory refusals and llama-server exits to localized recovery text
   instead of presenting raw JSON/paths/stdout/stderr in a Chat bubble.
+- Corporate Chat AUTO now samples live RAM for its candidate ranking pass and uses the
+  same effective budget formula as CPU launch (including **only verified PaRuX-owned**
+  resident working-set credit). Unmeasurable and oversized candidates do not pass
+  automatic selection; exact/manual model requests remain separate.
+- The final Corporate text transition uses the CPU/4K GGUF footprint instead of
+  the generic GPU/32K estimate. Corporate arbitrary and fresh-exact role paths
+  invoke the bundled CPU engine rather than selecting CUDA/Vulkan after ranking.
+  LoRA adapters are refused in this CPU-only path.
 
 ## Local acceptance commands (Windows x64 build machine)
 
 ```powershell
 dotnet build PaRuX.sln -c Release -p:Platform=x64
-dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj -c Release --filter "FullyQualifiedName~RuntimeLaunchFailureDiagnosisTests|FullyQualifiedName~RuntimeRecoveryGuidanceTests|FullyQualifiedName~SecurityMediumM123Tests"
+dotnet test tests/PaRuX.Server.Tests/PaRuX.Server.Tests.csproj -c Release --filter "FullyQualifiedName~RuntimeLaunchFailureDiagnosisTests|FullyQualifiedName~RuntimeRecoveryGuidanceTests|FullyQualifiedName~SecurityMediumM123Tests|FullyQualifiedName~CorporateAutoMemoryRoutingTests|FullyQualifiedName~CorporateCpuWiringSourceContractTests"
 # Then the full Server xUnit suite and exclusive FlaUI regression, in that order.
 ```
 
@@ -47,6 +55,8 @@ and all actual test names against the checkout before recording results.
 | 16 GB CPU-only; background collaboration tools active | Safe refusal before spawn when the selected model cannot fit; intelligible suggestion |
 | 8 GB CPU-only low-memory test | No model-start crash loops, fabricated success, automatic downloads or unsafe RAM-cap override |
 | 16–32 GB CPU-only sufficient headroom | Bundled GGUF loads and responds to a *real* prompt, no stale runtime process |
+| Corporate AUTO and manually locked model | AUTO uses live RAM budget; manual choice stays exact and does not silently substitute |
+| Corporate role, arbitrary candidate and fresh-exact load | All use bundled CPU llama-server, 4K context estimate, no CUDA/Vulkan launch |
 | Explicit incompatible llama binary | Exit code + redacted stderr preserved locally, helpful CPU-variant guidance |
 | Deliberately broken GGUF or unavailable model | Correct distinct message, no accidental fallback to the wrong saved/explicit model |
 | Unexpected crash with incomplete stderr | Correct unknown-cause message with diagnostic route; no speculation that it was OOM |
@@ -62,9 +72,12 @@ log contents.
 
 - **P0:** Perform real offline 16 GB and 8 GB test runs under memory pressure. Confirm
   recovery and user experience; these cannot be inferred from unit tests.
-- **P0:** Evaluate Chat AUTO routing *before launch* against live RAM, profile ceiling and
-  quantization footprint, without overriding explicit model choice or changing a model silently.
-  Offer an explicit user-confirmed smaller-model option when one is already installed and verified.
+- **P0:** Exercise new source-wired Chat AUTO live fit, capability routing, recommended
+  winners, strict RAM refusal and final CPU-only launch on real Windows with native models;
+  source tests alone cannot prove the feature works.
+- **P0:** Offer an explicit user-confirmed smaller-model option when no fitting installed
+  candidate exists; current code refuses safely, it does **not** add an interactive model
+  picker or silently download a different model.
 - **P0:** Validate Corporate Lite package with a suitable light GGUF for 8–16 GB machines,
   respecting model licensing, offline operation and predictable quality; don't force a 4B starter
   when it will not fit.
