@@ -57,6 +57,39 @@ altered silently by PaRuX. Tests with physical controllers, TV, multi-monitor,
 suspend/resume and launcher handoffs are still required. The current policy is
 documented under [verified post-launch acceptance](../validation/GAMING_POST_LAUNCH_OWNED_WINDOW.md).
 
+## HDR, WCG and the selected TV — verified-readiness option (draft)
+
+PaRuX now has a **source-only read-only Windows HDR probe** for each active
+monitor. On Windows/driver versions that expose an explicit HDR color mode,
+it distinguishes **HDR**, **WCG (wide color gamut, not HDR)** and **SDR**.
+A legacy Advanced Color bit is NOT treated as evidence that HDR is active:
+the UI says `HDR unknown` when the OS cannot prove it. Do not infer HDR,
+VRR or OLED capability from a 4K resolution or refresh rate.
+
+In **Games → Game details → Launch profile → HDR readiness**:
+- **Use Windows settings** is the default; existing game profiles are unchanged.
+- **Prefer HDR (warn only)** reports whether HDR is ready but still starts
+  the game when it is off/unknown. Windows color state is untouched.
+- **Require HDR already active** needs an exact connected monitor selected
+  in the profile and **refuses before AI hard-off or executable launch** when
+  Windows does not positively report HDR on THAT monitor. Rechecks immediately
+  before process start in case a cable/OS state changed. It does NOT enable HDR
+  and does NOT prove the game actually rendered HDR.
+
+Console → Display Settings now shows the per-monitor HDR/WCG observation.
+Games → Devices → Display Modes now targets the **selected Console TV**, not
+always the primary monitor; if the TV is missing or unassigned PaRuX does
+NOT silently change another screen. While HDR or WCG is active, direct
+resolution/Hz mutation is disabled until a coordinated crash-safe restore
+can preserve color state. The existing SDR mode-change feature still uses
+its 15-second confirm/revert transaction.
+
+Automatic HDR toggle/restore, Windows Auto HDR, VRR, 10-bit output, tone
+mapping and Sunshine/Moonlight HDR streaming are NOT implemented by these
+changes. Physical TV/eGPU/controller testing is still pending. See
+[HDR & Playnite comparison](../validation/GAMING_HDR_PLAYNITE_PARITY.md)
+and [post-launch policy](../validation/GAMING_POST_LAUNCH_OWNED_WINDOW.md).
+
 ## Features by status
 
 | Feature | Status |
