@@ -203,6 +203,10 @@ if ($Fetch) {
     Get-PinnedAsset $rerRepo $rerRev "vocab.txt" (Join-Path $RerankerDir "vocab.txt") 231508 "git-sha1" "fb140275c155a9c7c5a3b3e0e77a9e839594a938"
 }
 if ($NoModel -and -not [string]::IsNullOrWhiteSpace($ModelPath)) { throw "-NoModel and -ModelPath are mutually exclusive." }
+if ($Fetch -and -not [string]::IsNullOrWhiteSpace($ModelOrigin) -or
+    $Fetch -and -not [string]::IsNullOrWhiteSpace($ModelLicenseId)) {
+    throw "Pinned -Fetch has its own model origin and licence. Do not attach custom metadata."
+}
 # The remote pinned -Fetch asset is distinguishable from a user-provided replacement.
 # Do not claim Qwen/Apache licensing for arbitrary files simply because they are GGUF.
 foreach ($v in @($ModelOrigin, $ModelLicenseId)) {
