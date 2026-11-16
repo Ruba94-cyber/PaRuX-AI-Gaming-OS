@@ -104,7 +104,6 @@ public sealed class CorporateCpuMemoryPlannerTests
     [Fact]
     public void One_decision_never_tries_an_unusable_tiny_context()
     {
-        int[] checkedContexts = [];
         var seen = new List<int>();
         var ram = new SystemRamSnapshot(16 * GiB, 2 * GiB);
         _ = CorporateCpuMemoryPlanner.Select(ram, 86, 0, ctx =>
