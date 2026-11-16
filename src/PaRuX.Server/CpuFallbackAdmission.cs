@@ -13,20 +13,36 @@ internal static class CpuFallbackAdmission
     private const double WeightsOverheadFactor = 1.20;
 
     /// <summary>Estimated resident footprint of the CPU launch, in MiB: weights + KV cache at the CPU context + runtime reserve.</summary>
-    internal static double EstimateNeededMib(string modelPath, int contextTokens = DefaultCpuContextTokens)
+    internal static double EstimateNeededMib(string modelPath, int contextTokens = DefaultCpuContextTokens) =>
+        CreateContextEstimator(modelPath)(contextTokens);
+
+    /// <summary>
+    /// Parse GGUF metadata once per admission decision. An adaptive 4K/3K/2K
+    /// context search otherwise repeatedly scans the same model header.
+    /// </summary>
+    internal static Func<int, double> CreateContextEstimator(string modelPath)
     {
-        if (contextTokens is < 2048 or > DefaultCpuContextTokens) throw new ArgumentOutOfRangeException(nameof(contextTokens));
         double weightsMib = new FileInfo(modelPath).Length / 1024d / 1024d;
+        PaRuX.Intelligence.GgufModelInfo? metadata = null;
         try
         {
-            PaRuX.Intelligence.GgufModelInfo info = PaRuX.Intelligence.GgufMetadataReader.Read(modelPath);
-            long? kv = info.ParsedSuccessfully
-                ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(info, contextTokens, "f16", "f16")
-                : null;
-            if (kv.HasValue) return weightsMib + kv.Value / 1024d / 1024d + ReserveMib;
+            PaRuX.Intelligence.GgufModelInfo candidate = PaRuX.Intelligence.GgufMetadataReader.Read(modelPath);
+            if (candidate.ParsedSuccessfully) metadata = candidate;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException) { }
-        return weightsMib * WeightsOverheadFactor;
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or ArgumentException) { }
+
+        return contextTokens =>
+        {
+            if (contextTokens is < 2048 or > DefaultCpuContextTokens)
+                throw new ArgumentOutOfRangeException(nameof(contextTokens));
+            long? kv = metadata is not null
+                ? PaRuX.Intelligence.KvCacheSizeEstimator.Estimate(metadata, contextTokens, "f16", "f16")
+                : null;
+            return kv.HasValue
+                ? weightsMib + kv.Value / 1024d / 1024d + ReserveMib
+                : weightsMib * WeightsOverheadFactor;
+        };
     }
 
     /// <summary>Returns a readable refusal, or null to admit. Pure: the snapshot and the estimate are inputs.</summary>
