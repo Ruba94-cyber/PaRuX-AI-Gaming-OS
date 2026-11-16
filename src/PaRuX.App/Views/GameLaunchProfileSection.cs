@@ -23,7 +23,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
 
     private readonly string _key;
     private readonly double _body, _target;
-    private readonly ComboBox _display = new(), _performance = new(), _controller = new(), _postPreset = new();
+    private readonly ComboBox _display = new(), _performance = new(), _controller = new(), _postPreset = new(), _hdrMode = new();
     private readonly CheckBox _fullscreen = new();
     private readonly CheckBox _postFocus = new(), _postAltEnter = new(), _postClick = new();
     private readonly TextBox _postDelay = new() { MaxLength = 4, Text = "1200" };
@@ -46,6 +46,17 @@ internal sealed class GameLaunchProfileSection : StackPanel
                             "Preferenze di avvio facoltative per questo gioco. Vuoto significa: avvia come salvato nella libreria.")));
 
         Setup(_display, T("Display", "Schermo"), "Display");
+        Setup(_hdrMode, T("HDR readiness for this game", "Verifica HDR per questo gioco"), "HdrMode");
+        foreach (var (tag, en, it) in new[]
+        {
+            ("system", "Use current Windows settings (default)", "Usa le impostazioni Windows attuali (predefinito)"),
+            ("prefer", "Prefer HDR (warn only)", "Preferisci HDR (solo avviso)"),
+            ("require", "Require HDR already active on selected display", "Richiedi HDR già attivo sullo schermo selezionato")
+        })
+            _hdrMode.Items.Add(new ComboBoxItem { Content = T(en, it), Tag = tag });
+        Children.Add(Note(T(
+            "Read-only: PaRuX checks HDR versus WCG on the selected monitor; it does NOT turn Windows HDR on/off. Require prevents launch if HDR is not positively verified. Select an exact connected display first.",
+            "Solo lettura: PaRuX distingue HDR e WCG sullo schermo scelto; NON attiva o disattiva l'HDR di Windows. Richiedi impedisce l'avvio se HDR non è verificato. Seleziona prima lo schermo esatto.")));
         Setup(_performance, T("Performance profile", "Profilo prestazioni"), "Performance");
         foreach (string p in GameLaunchProfileForm.PerformanceProfiles)
             _performance.Items.Add(new ComboBoxItem { Content = PerformanceLabel(p), Tag = p });
@@ -249,7 +260,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
 
     private void SetEditable(bool on)
     {
-        foreach (Control c in new Control[] { _display, _performance, _controller, _postPreset, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
+        foreach (Control c in new Control[] { _display, _hdrMode, _performance, _controller, _postPreset, _fullscreen, _width, _height, _refresh, _args, _postFocus, _postDelay, _save, _reset })
             c.IsEnabled = on && !_busy;
         EnablePostChildren();
     }
@@ -282,13 +293,22 @@ internal sealed class GameLaunchProfileSection : StackPanel
             foreach (GamingDisplayModeDto d in snapshot.Displays)
                 _display.Items.Add(new ComboBoxItem
                 {
-                    Content = (string.IsNullOrWhiteSpace(d.FriendlyName) ? d.DisplayId : d.FriendlyName) + $" · {d.Width}x{d.Height}",
+                    Content = (string.IsNullOrWhiteSpace(d.FriendlyName) ? d.DisplayId : d.FriendlyName)
+                        + $" · {d.Width}x{d.Height} · " + (d.ColorMode switch
+                        {
+                            "hdr" => "HDR",
+                            "wcg" => "WCG (not HDR)",
+                            "sdr" => "SDR",
+                            "advanced-color-unknown" => T("Advanced Color (HDR unknown)", "Colore avanzato (HDR non verificato)"),
+                            _ => T("HDR unknown", "HDR non verificato")
+                        }),
                     Tag = d.DisplayId
                 });
         string saved = _loaded.DisplayId ?? "";
         if (saved.Length > 0 && !_display.Items.OfType<ComboBoxItem>().Any(i => (string?)i.Tag == saved))
             _display.Items.Add(new ComboBoxItem { Content = T("Saved display (not connected)", "Schermo salvato (non collegato)"), Tag = saved });
         Select(_display, saved);
+        Select(_hdrMode, _loaded.HdrMode ?? "system");
         Select(_performance, _loaded.PerformanceProfile);
         Select(_controller, _loaded.ControllerPreset);
         _fullscreen.IsChecked = _loaded.Fullscreen == true;
@@ -335,6 +355,7 @@ internal sealed class GameLaunchProfileSection : StackPanel
             next.DisplayId = display.Length == 0 ? null : display;
             next.Width = w; next.Height = h; next.RefreshHz = hz;
             next.Fullscreen = _fullscreen.IsChecked == true ? true : null;
+            next.HdrMode = (string?)(_hdrMode.SelectedItem as ComboBoxItem)?.Tag ?? "system";
             next.ControllerPreset = (string?)(_controller.SelectedItem as ComboBoxItem)?.Tag ?? "auto";
             next.PerformanceProfile = (string?)(_performance.SelectedItem as ComboBoxItem)?.Tag ?? "balanced";
             next.LaunchArgs = GameLaunchProfileForm.ParseArgs(_args.Text);
