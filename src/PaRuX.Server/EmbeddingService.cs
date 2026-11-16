@@ -85,7 +85,9 @@ public sealed class EmbeddingService : IDisposable, PaRuX.Server.Knowledge.IUnlo
         return new EmbeddingEngineStatus
         {
             Installed = installed,
-            Loaded = installed && TryEnsureLoaded(),
+            // Corporate status must be observational: checking a UI badge cannot
+            // rehydrate an idle ONNX session after low-RAM reclamation.
+            Loaded = installed && (CorporateMode.IsActive ? IsLoaded : TryEnsureLoaded()),
             Dimensions = installed ? Dimensions : null,
             LastError = installed ? null : SafeRead(LastErrorPath)
         };
