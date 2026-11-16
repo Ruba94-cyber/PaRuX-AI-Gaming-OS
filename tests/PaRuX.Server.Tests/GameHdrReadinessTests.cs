@@ -133,7 +133,8 @@ public sealed class GameHdrReadinessTests
         Assert.Contains("GamingHdrDisplayProbe.Read(info.Device)", topology);
         Assert.Contains("GameHdrReadinessPolicy.Check(", launcher);
         Assert.Contains("if (!hdr.MayLaunch)", launcher);
-        Assert.Contains("GameLaunchProfile_HdrMode_", ui);
+        Assert.Contains("Setup(_hdrMode,", ui);
+        Assert.Contains('"HdrMode"', ui);
         Assert.Contains("next.HdrMode =", ui);
     }
 
