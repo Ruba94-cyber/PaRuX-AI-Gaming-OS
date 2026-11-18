@@ -88,6 +88,7 @@ builder.Services.AddSingleton<ExternalTextProviderService>();
 builder.Services.AddSingleton<CloudFallbackService>();
 builder.Services.AddSingleton<PaRuX.Server.DesktopIntegration.DesktopIntegrationService>();
 builder.Services.AddSingleton<PaRuX.Server.DesktopIntegration.DocumentWriteService>();
+builder.Services.AddSingleton<PaRuX.Server.DesktopIntegration.WorkbookEditProposalService>();
 builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<ComfyWorkflowRunner>();
 builder.Services.AddSingleton<ComfyWorkflowImportService>();
@@ -801,7 +802,12 @@ app.MapPost("/api/v1/chat/completions", async (
     // cancellation matched the silent "client disconnected" branch here first and never reached the
     // wrapper's correct 409 handling: the request silently completed as an empty HTTP 200, a fake
     // success with no visible answer and no error. Let the exception propagate to the wrapper instead.
-    await proxy.ProxyAsync(request, context.Response, ct);
+    string workbookTurnId = Guid.NewGuid().ToString("N");
+    context.Items["WorkbookTurnId"] = workbookTurnId;
+    var proposals = context.RequestServices.GetRequiredService<PaRuX.Server.DesktopIntegration.WorkbookEditProposalService>();
+    bool completed = false;
+    try { await proxy.ProxyAsync(request, context.Response, ct); completed = !ct.IsCancellationRequested && context.Items["WorkbookTurnSucceeded"] is true; }
+    finally { proposals.CompleteTurn(workbookTurnId, completed); }
 });
 
 app.MapPost("/api/v1/runtime/actions", async (
@@ -1600,6 +1606,18 @@ app.MapPost("/api/v1/desktop/documents/output", (
     }
     catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
 });
+
+app.MapGet("/api/v1/desktop/workbook-edits", (string conversationId, PaRuX.Server.DesktopIntegration.WorkbookEditProposalService proposals) =>
+    Results.Ok(proposals.List(conversationId))).RequireDesktopOwner();
+app.MapDelete("/api/v1/desktop/workbook-edits/{id}", (string id, string conversationId, PaRuX.Server.DesktopIntegration.WorkbookEditProposalService proposals) =>
+    proposals.Delete(conversationId, id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
+app.MapPost("/api/v1/desktop/workbook-edits/{id}/save", (string id, WorkbookEditSaveRequest request, PaRuX.Server.DesktopIntegration.WorkbookEditProposalService proposals) =>
+{
+    try { return Results.Ok(proposals.Save(request.ConversationId, id)); }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+    catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException or UnauthorizedAccessException)
+    { return Results.Conflict(new { error = ex.Message }); }
+}).RequireDesktopOwner();
 
 // The status carries each server's launch command, arguments and URL. That is this machine's own configuration, so only the
 // desktop owner reads it; a browser session is refused the same way it is refused every other MCP route.

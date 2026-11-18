@@ -134,36 +134,43 @@ public sealed class DocumentWriteService
             throw new InvalidDataException(
                 "The document name must be a plain file name with no folders in it.");
 
-        string folder = OutputFolder;
-        Directory.CreateDirectory(folder);
-
-        string path = NextAvailablePath(folder, baseName, extension, out bool renamed);
-        File.WriteAllBytes(path, bytes);
-
-        return new DocumentWriteResult
-        {
-            Path = path,
-            FileName = Path.GetFileName(path),
-            SizeBytes = bytes.LongLength,
-            RenamedToAvoidOverwrite = renamed
-        };
+        return PublishNew(baseName, extension, bytes);
     }
 
-    internal static string NextAvailablePath(string folder, string baseName, string extension, out bool renamed)
+    // Shared by generated documents and approved edits: never overwrite, even with concurrent writers.
+    internal DocumentWriteResult PublishNew(string baseName, string extension, byte[] bytes, string? expectedFolder = null)
     {
-        renamed = false;
-        string candidate = Path.Combine(folder, baseName + extension);
-        if (!File.Exists(candidate)) return candidate;
-
-        for (int suffix = 2; suffix <= 1000; suffix++)
+        if (!PaRuXPathSafety.IsSimpleFileName(baseName + extension))
+            throw new InvalidDataException("The document name must be a plain file name with no folders in it.");
+        lock (_gate)
         {
-            candidate = Path.Combine(folder, baseName + " (" + suffix + ")" + extension);
-            if (File.Exists(candidate)) continue;
-            renamed = true;
-            return candidate;
+            string folder = Path.GetFullPath(OutputFolder);
+            if (expectedFolder != null && !string.Equals(folder, expectedFolder, PaRuXPathSafety.PathComparison))
+                throw new InvalidOperationException("Output folder changed; propose again.");
+            Directory.CreateDirectory(folder);
+            string temporary = Path.Combine(folder, ".parux-" + Guid.NewGuid().ToString("N") + ".tmp");
+            bool ownsTemporary = false;
+            try
+            {
+                using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                { ownsTemporary = true; file.Write(bytes); file.Flush(true); }
+                for (int n = 1; n <= 1000; n++)
+                {
+                    string name = baseName + (n == 1 ? "" : " (" + n + ")") + extension;
+                    string path = Path.Combine(folder, name);
+                    try { File.Move(temporary, path, overwrite: false); }
+                    catch (IOException) when (File.Exists(path)) { continue; }
+                    ownsTemporary = false;
+                    return new DocumentWriteResult { Path = path, FileName = name, SizeBytes = bytes.LongLength, RenamedToAvoidOverwrite = n != 1 };
+                }
+                throw new IOException("No available output filename.");
+            }
+            finally
+            {
+                if (ownsTemporary)
+                    try { File.Delete(temporary); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
         }
-        throw new IOException(
-            "There are already a thousand documents named \"" + baseName + "\" in " + folder + ".");
     }
 
     private sealed class Config

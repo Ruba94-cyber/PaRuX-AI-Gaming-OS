@@ -54,6 +54,19 @@ namespace PaRuX.Services
                 HttpMethod.Post, "/api/v1/desktop/documents/output",
                 new SetDocumentOutputRequest { Folder = folder }, ct);
 
+        public Task<List<WorkbookEditProposal>> GetWorkbookEditsAsync(string conversationId, CancellationToken ct) =>
+            SendAsync<List<WorkbookEditProposal>>(HttpMethod.Get,
+                "/api/v1/desktop/workbook-edits?conversationId=" + Uri.EscapeDataString(conversationId), null, ct);
+
+        public Task<DocumentWriteResult> SaveWorkbookEditAsync(string id, string conversationId, CancellationToken ct) =>
+            SendAsync<DocumentWriteResult>(HttpMethod.Post,
+                "/api/v1/desktop/workbook-edits/" + Uri.EscapeDataString(id) + "/save",
+                new WorkbookEditSaveRequest { ConversationId = conversationId }, ct);
+
+        public Task DiscardWorkbookEditAsync(string id, string conversationId, CancellationToken ct) =>
+            SendNoContentAsync(HttpMethod.Delete, "/api/v1/desktop/workbook-edits/" + Uri.EscapeDataString(id)
+                + "?conversationId=" + Uri.EscapeDataString(conversationId), ct);
+
         private static async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct)
         {
             ServerBootstrap server = await PaRuXServerController.Current.EnsureRunningAsync(null, ct).ConfigureAwait(false);

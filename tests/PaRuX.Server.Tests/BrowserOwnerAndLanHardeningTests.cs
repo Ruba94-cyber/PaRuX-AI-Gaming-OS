@@ -104,6 +104,9 @@ public sealed class BrowserOwnerAndLanHardeningTests : IClassFixture<ApiSecurity
     }
 
     [Theory]
+    [InlineData("GET", "/api/v1/desktop/workbook-edits?conversationId=chat", null)]
+    [InlineData("POST", "/api/v1/desktop/workbook-edits/id/save", "{\"conversationId\":\"chat\"}")]
+    [InlineData("DELETE", "/api/v1/desktop/workbook-edits/id?conversationId=chat", null)]
     [InlineData("GET", "/api/v1/ai/backends/remote-policy", null)]
     [InlineData("GET", "/api/v1/ai/backends/cloud-fallback", null)]
     [InlineData("GET", "/api/v1/remote/status", null)]

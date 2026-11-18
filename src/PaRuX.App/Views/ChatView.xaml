@@ -420,13 +420,33 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
+
+            <Border x:Name="WorkbookEditPanel" Grid.Row="0" Visibility="Collapsed"
+                    AutomationProperties.AutomationId="Chat_WorkbookEdit_Preview"
+                    Background="{ThemeResource PaRuXSurfaceCardBrush}" BorderBrush="{ThemeResource PaRuXStrokeBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Review workbook changes" loc:Loc.ItText="Controlla le modifiche al foglio di calcolo" FontWeight="SemiBold" />
+                    <TextBlock x:Name="WorkbookEditFiles" TextWrapping="Wrap" />
+                    <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="WorkbookEditCells" Spacing="6" AutomationProperties.AutomationId="Chat_WorkbookEdit_Cells" />
+                    </ScrollViewer>
+                    <TextBlock x:Name="WorkbookEditValidation" TextWrapping="Wrap" />
+                    <TextBlock x:Name="WorkbookEditStatus" AutomationProperties.AutomationId="Chat_WorkbookEdit_Status" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="WorkbookEditSave" AutomationProperties.AutomationId="Chat_WorkbookEdit_Save_Button" Content="Save copy" loc:Loc.ItContent="Salva copia" Click="WorkbookEditSave_Click" />
+                        <Button x:Name="WorkbookEditDiscard" AutomationProperties.AutomationId="Chat_WorkbookEdit_Discard_Button" Content="Discard" loc:Loc.ItContent="Scarta" Click="WorkbookEditDiscard_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <!-- Transient status: never a bare "loading…" string, always paired
                  with a live ring so a five-minute cold model load looks alive. -->
             <Border
                 x:Name="StatusPanel"
-                Grid.Row="0"
+                Grid.Row="1"
                 Visibility="Collapsed"
                 HorizontalAlignment="Left"
                 Background="{ThemeResource PaRuXBrandSubtleBrush}"
@@ -454,7 +474,7 @@
 
             <ScrollViewer
                 x:Name="AttachmentPanel"
-                Grid.Row="1"
+                Grid.Row="2"
                 Visibility="Collapsed"
                 HorizontalScrollBarVisibility="Auto"
                 VerticalScrollBarVisibility="Disabled">
@@ -463,7 +483,7 @@
 
             <Border
                 x:Name="ComposerBorder"
-                Grid.Row="2"
+                Grid.Row="3"
                 Background="{ThemeResource PaRuXSurfaceRaisedBrush}"
                 BorderBrush="{ThemeResource PaRuXStrokeStrongBrush}"
                 BorderThickness="1"
@@ -636,7 +656,7 @@
             <ScrollViewer
                 x:Name="ComposerFooterScrollViewer"
                 AutomationProperties.AutomationId="Chat_ComposerFooter_ScrollViewer"
-                Grid.Row="3"
+                Grid.Row="4"
                 MaxHeight="116"
                 HorizontalScrollBarVisibility="Disabled"
                 HorizontalScrollMode="Disabled"

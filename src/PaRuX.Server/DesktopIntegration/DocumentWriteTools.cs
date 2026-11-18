@@ -37,7 +37,7 @@ public sealed class DocumentWriteTools
         return schemas;
     }
 
-    public Task<string> CallAsync(string toolName, string argumentsJson, CancellationToken ct)
+    public Task<string> CallAsync(string toolName, string argumentsJson, CancellationToken ct, WorkbookEditProposalService? proposals = null, string? conversationId = null, string? turnId = null)
     {
         if (!IsBuiltInTool(toolName)) throw new InvalidOperationException("Unknown PaRuX document tool.");
         ct.ThrowIfCancellationRequested();
@@ -65,7 +65,16 @@ public sealed class DocumentWriteTools
                 string source = root?["sourceFileName"]?.GetValue<string>()?.Trim() ?? string.Empty;
                 if (source.Length == 0)
                     return Task.FromResult("Document tool failed: sourceFileName is required for workbook editing.");
-                result = _documents.EditWorkbook(source, fileName, ReadWorkbookContent(root));
+                if (proposals == null || !WorkbookEditProposalService.ValidConversation(conversationId))
+                    return Task.FromResult("Document tool failed: workbook review is unavailable for this conversation.");
+                if (root is not JsonObject obj || obj.Any(x => x.Key is not ("sourceFileName" or "fileName" or "sheets"))
+                    || obj["sheets"] is not JsonArray sheetNodes || sheetNodes.Any(s => s is not JsonObject sheet
+                        || sheet.Any(x => x.Key is not ("name" or "structuredCells"))
+                        || sheet["structuredCells"] is not JsonArray cellNodes
+                        || cellNodes.Any(c => c is not JsonObject cell || (cell.Any(x => x.Key is not ("reference" or "value" or "dataType")) || cell["value"] is not JsonValue))))
+                    return Task.FromResult("Document tool failed: only explicit cell content edits can be reviewed.");
+                WorkbookEditProposal proposal = proposals.Propose(conversationId!, source, fileName, ReadWorkbookContent(root), ct, turnId);
+                return Task.FromResult("Workbook edit prepared for review in PaRuX. The user must review and save it; no output was saved.");
             }
             else
             {
@@ -88,6 +97,7 @@ public sealed class DocumentWriteTools
                 + workbookEvidence
                 + " Tell the user this exact path and do not describe an uncomputed formula as already recalculated.");
         }
+        catch (InvalidOperationException ex) { return Task.FromResult("Document tool failed: " + ex.Message); }
         catch (InvalidDataException ex) { return Task.FromResult("Document tool failed: " + ex.Message); }
         catch (FileNotFoundException ex) { return Task.FromResult("Document tool failed: " + ex.Message); }
         catch (IOException ex) { return Task.FromResult("Document tool failed: " + ex.Message); }
@@ -151,6 +161,14 @@ public sealed class DocumentWriteTools
         JsonObject properties = WorkbookProperties();
         if (edit)
         {
+            properties.Remove("recalculateOnOpen");
+            var sheetProperties = (JsonObject)properties["sheets"]!["items"]!["properties"]!;
+            sheetProperties.Remove("rows"); sheetProperties.Remove("charts");
+            var cellProperties = (JsonObject)sheetProperties["structuredCells"]!["items"]!["properties"]!;
+            cellProperties.Remove("style"); cellProperties.Remove("formula");
+        }
+        if (edit)
+        {
             properties["sourceFileName"] = new JsonObject
             {
                 ["type"] = "string",
@@ -164,7 +182,7 @@ public sealed class DocumentWriteTools
             {
                 ["name"] = edit ? EditWorkbookToolName : WriteWorkbookToolName,
                 ["description"] = edit
-                    ? "Edit selected cells/charts in an existing PaRuX-output XLSX and save a new copy. Unmentioned workbook content/styles are preserved; the source is never overwritten. Formula results are reported as locally cached or uncomputed/recalculate-on-open."
+                    ? "Propose explicit typed cell value edits to an existing PaRuX-output XLSX for user review. No file is saved until the user approves in PaRuX. Use only sheet name and structuredCells; no rows, styles, charts or other properties."
                     : "Create a native Excel XLSX with typed cells, formulas, formatting and charts. Use structuredCells for formula semantics; legacy rows remain available for simple tables. Supported formulas receive independently calculated cached results; unsupported formulas remain uncomputed and are recalculated by the spreadsheet app on open.",
                 ["parameters"] = new JsonObject
                 {

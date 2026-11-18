@@ -1,3 +1,4 @@
+using PaRuX.Server.DesktopIntegration;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -281,6 +282,16 @@ public sealed class ChatProxyService
             mcpTools = context.ToolSchemas;
         }
 
+        // Workbook review is available only to the local desktop owner and a scoped conversation.
+        bool workbookReviewAvailable = DesktopOwnerRouteExtensions.IsDesktopOwner(downstream.HttpContext)
+            && WorkbookEditProposalService.ValidConversation(request.ConversationId) && !_runtime.UsesExternalProvider;
+        if (!workbookReviewAvailable)
+        {
+            for (int i = mcpTools.Count - 1; i >= 0; i--)
+                if (string.Equals(mcpTools[i]?["function"]?["name"]?.GetValue<string>(), DocumentWriteTools.EditWorkbookToolName, StringComparison.Ordinal))
+                    mcpTools.RemoveAt(i);
+        }
+
         // Snapshot the physical context while the baseline resident is still available. A direct
         // engine transition may legitimately stop llama.cpp before prompt fitting; querying /props
         // afterwards would turn a known context into zero and silently skip the safety gate.
@@ -395,7 +406,8 @@ public sealed class ChatProxyService
 
         if (toolLoop != null && toolLoopFirstTurn != null)
         {
-            await toolLoop.RunAsync(toolLoopFirstTurn, cancellationToken).ConfigureAwait(false);
+            bool succeeded = await toolLoop.RunAsync(toolLoopFirstTurn, cancellationToken).ConfigureAwait(false);
+            downstream.HttpContext.Items["WorkbookTurnSucceeded"] = succeeded;
             return;
         }
 
@@ -930,7 +942,8 @@ public sealed class ChatProxyService
                 ExternalTextProviderService.ApplyRemoteAuthorization(upstreamRequest, _runtime.ProviderEndpoint);
                 return await Http.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             },
-            invokeTool: (name, args, ct) => _mcp.CallToolAsync(name, args, ct, advertisedToolNames),
+            invokeTool: (name, args, ct) => _mcp.CallToolAsync(name, args, ct, advertisedToolNames,
+                DesktopOwnerRouteExtensions.IsDesktopOwner(downstream.HttpContext) && !_runtime.UsesExternalProvider ? request.ConversationId : null, downstream.HttpContext.Items["WorkbookTurnId"] as string),
             writeFrame: async (frame, ct) =>
             {
                 await downstream.WriteAsync(frame, ct).ConfigureAwait(false);

@@ -148,6 +148,7 @@ namespace PaRuX.Views
         {
             // Re-attach (or settle) any media job this conversation was waiting on when the app last closed.
             ChatSession.Current.ReconcileMediaJobs();
+            _ = RefreshWorkbookEditAsync();
             // UserControl.OnApplyTemplate() is not reliably invoked for a plain UserControl that has
             // no Style/ControlTemplate of its own (ChatView has none) - confirmed live via a temporary
             // diagnostic log: at the point right after InitializeComponent() runs in the constructor,
@@ -406,6 +407,7 @@ namespace PaRuX.Views
                     InputBox.SelectionStart = draft.Length;
                 }
                 RebuildMessages();
+                _ = RefreshWorkbookEditAsync();
                 ChatSession.Current.ReconcileMediaJobs();
             });
             _dispatcher.TryEnqueue(() => { _ = RefreshHeaderAsync(); });
@@ -440,6 +442,7 @@ namespace PaRuX.Views
             _dispatcher.TryEnqueue(() =>
             {
                 bool busy = ChatSession.Current.IsBusy;
+                UpdateWorkbookTurnState(busy);
                 SendButton.Visibility = busy ? Visibility.Collapsed : Visibility.Visible;
                 StopButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
                 InputBox.IsEnabled = !_isSwitchingProfile;

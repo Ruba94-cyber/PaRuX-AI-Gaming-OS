@@ -72,7 +72,7 @@ internal sealed class StreamingMcpToolLoop
     }
 
     /// <summary>Runs the loop to completion. Once called the response has started: failures become a terminal error event.</summary>
-    public async Task RunAsync(HttpResponseMessage first, CancellationToken cancellationToken)
+    public async Task<bool> RunAsync(HttpResponseMessage first, CancellationToken cancellationToken)
     {
         HttpResponseMessage? response = first;
         try
@@ -92,7 +92,7 @@ internal sealed class StreamingMcpToolLoop
                         response = null;
                         await WriteTerminalErrorAsync(
                             "The model provider returned HTTP " + status + ": " + Trim(detail), cancellationToken).ConfigureAwait(false);
-                        return;
+                        return false;
                     }
                 }
 
@@ -106,13 +106,13 @@ internal sealed class StreamingMcpToolLoop
                 if (turn.Failed)
                 {
                     await WriteTerminalErrorAsync(turn.FailureMessage!, cancellationToken).ConfigureAwait(false);
-                    return;
+                    return false;
                 }
-                if (turn.Errored) return; // the provider's own error line was already forwarded, [DONE] sent
+                if (turn.Errored) return false; // the provider's own error line was already forwarded, [DONE] sent
                 if (turn.ToolCalls.Count == 0 || !toolsAllowed)
                 {
                     await _writeFrame("data: [DONE]\n\n", cancellationToken).ConfigureAwait(false);
-                    return;
+                    return true;
                 }
 
                 await ExecuteToolsAsync(turn, round, cancellationToken).ConfigureAwait(false);
@@ -123,6 +123,7 @@ internal sealed class StreamingMcpToolLoop
         {
             // Headers are already on the wire: a rethrow would end the stream with a clean-looking 200.
             await WriteTerminalErrorAsync(Trim(failure.Message), cancellationToken).ConfigureAwait(false);
+            return false;
         }
         finally
         {

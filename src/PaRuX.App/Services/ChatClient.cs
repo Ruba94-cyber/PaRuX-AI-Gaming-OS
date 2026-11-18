@@ -286,7 +286,15 @@ namespace PaRuX.Services
 
                 string data = line.Substring(5).Trim();
                 if (data.Length == 0) continue;
-                if (data == "[DONE]") break;
+                if (data == "[DONE]")
+                {
+                    // Core finalizes the turn after writing [DONE]. Keep the response open until
+                    // EOF so its completion (including pending workbook proposals) is observable.
+                    // Drain through the same reader because it may already buffer trailing bytes.
+                    var drainBuffer = new char[4096];
+                    while (await reader.ReadAsync(drainBuffer.AsMemory(), ct).ConfigureAwait(false) != 0) { }
+                    break;
+                }
 
                 ChatModelRouteInfo? modelRoute = TryExtractModelRouted(data);
                 if (modelRoute != null)

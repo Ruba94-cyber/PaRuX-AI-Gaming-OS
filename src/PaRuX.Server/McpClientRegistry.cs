@@ -572,7 +572,7 @@ public sealed class McpClientRegistry : IAsyncDisposable
     /// results are never retained.</summary>
     public async Task<string> CallToolAsync(
         string toolName, string argumentsJson, CancellationToken ct,
-        IReadOnlyCollection<string>? allowedTools = null)
+        IReadOnlyCollection<string>? allowedTools = null, string? workbookConversationId = null, string? workbookTurnId = null)
     {
         long started = Stopwatch.GetTimestamp();
         bool success = false;
@@ -590,7 +590,7 @@ public sealed class McpClientRegistry : IAsyncDisposable
 
             if (DocumentWriteTools.IsBuiltInTool(toolName))
             {
-                string documentResult = await _documents.CallAsync(toolName, argumentsJson, ct).ConfigureAwait(false);
+                string documentResult = await _documents.CallAsync(toolName, argumentsJson, ct, _services?.GetService<WorkbookEditProposalService>(), workbookConversationId, workbookTurnId).ConfigureAwait(false);
                 success = !documentResult.StartsWith("Document tool failed:", StringComparison.OrdinalIgnoreCase);
                 outcome = success ? "success" : "tool-error";
                 return documentResult;

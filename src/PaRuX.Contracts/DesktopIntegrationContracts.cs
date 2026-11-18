@@ -163,3 +163,28 @@ public sealed class SetDocumentOutputRequest
 {
     public string? Folder { get; set; }
 }
+
+
+public sealed class WorkbookEditProposal
+{
+    public string Id { get; set; } = string.Empty;
+    public string SourceFileName { get; set; } = string.Empty;
+    public string OutputFileName { get; set; } = string.Empty;
+    public List<WorkbookEditCellPreview> Cells { get; set; } = new();
+    public string CalculationStatus { get; set; } = string.Empty;
+    public bool OpenXmlValidated { get; set; }
+    public List<string> ValidationWarnings { get; set; } = new();
+}
+
+public sealed class WorkbookEditCellPreview
+{
+    public string Sheet { get; set; } = string.Empty;
+    public string Cell { get; set; } = string.Empty;
+    public string Before { get; set; } = string.Empty;
+    public string After { get; set; } = string.Empty;
+}
+
+public sealed class WorkbookEditSaveRequest
+{
+    public string ConversationId { get; set; } = string.Empty;
+}
