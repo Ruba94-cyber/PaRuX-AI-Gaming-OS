@@ -5,7 +5,7 @@ namespace PaRuX.UITests.PageObjects;
 
 /// <summary>
 /// Page object for the Gaming tab's structure. The Gaming page is split into sections
-/// (Library / Downloads / Add &amp; import / Devices &amp; session, selector <c>GameLibrary_Sections</c>) and the library toolbar keeps its
+/// (Library / Downloads / Add &amp; import / Emulators / Devices, selector <c>GameLibrary_Sections</c>) and the library toolbar keeps its
 /// secondary controls in two menus (<c>Filters</c> and <c>More</c>). Controls in an unselected section or a closed menu are not
 /// in the UIA tree, so a test that names such a control must first reveal it. <see cref="Reveal"/> is called by
 /// <c>UiWait.ById</c> whenever a lookup misses, so tests keep asking for controls by AutomationId only.
@@ -33,14 +33,18 @@ internal static class GamingSectionsPage
     /// <summary>Home, tiles, shelf, detail panel, saves/hooks, advanced management and Quick Resume all live in the default Library section.</summary>
     private static readonly string[] LibraryPrefixes =
     {
-        "GameHome_", "GameTitles_", "GameTitle_", "GameTile", "GameContinue", "GameDetail_", "GameSide_", "GameSaves_",
-        "GameHooks_", "GameImport_", "QuickResume_", "AdvancedGameManagement_", "Emulators_",
+        "GameHome_", "GameTitles_", "GameTitle_", "GameTile", "GameContinue", "GameDetail_", "GameSide_",
+        "GameHooks_", "QuickResume_",
     };
 
     /// <summary>The section that owns a Gaming control, or null when the id is not a section-hosted control (dialogs, shell, tiles).</summary>
     internal static string? SectionOf(string id)
     {
         if (id.StartsWith("GameDownloads_", StringComparison.Ordinal)) return "Downloads";
+        if (id.StartsWith("Emulators_", StringComparison.Ordinal)) return "Emulators";
+        if (id.StartsWith("AdvancedGameManagement_", StringComparison.Ordinal)
+            || id.StartsWith("GameImport_", StringComparison.Ordinal)) return "Add";
+        if (id.StartsWith("GameSaves_", StringComparison.Ordinal)) return "Devices";
         if (id.StartsWith("GameDevices_", StringComparison.Ordinal)
             || id.StartsWith("GameLibrary_Gaming_", StringComparison.Ordinal)
             || id.StartsWith("GameLibrary_Displays_", StringComparison.Ordinal)
@@ -49,8 +53,7 @@ internal static class GamingSectionsPage
         // The Gaming-active strip sits above every section, so it needs no section selected.
         if (id == SectionBar || id.StartsWith("GameLibrary_Section_", StringComparison.Ordinal)
             || id.StartsWith("GameLibrary_Strip", StringComparison.Ordinal)) return null;
-        // The first-visit "find my installed games" banner sits at the top of the Library section.
-        if (id.StartsWith("GameLibrary_FirstRunScan_", StringComparison.Ordinal)) return "Library";
+        // The first-visit scan offer is part of Add & import.
         if (id.StartsWith("GameLibrary_", StringComparison.Ordinal)) return "Add";
         foreach (string prefix in LibraryPrefixes)
             if (id.StartsWith(prefix, StringComparison.Ordinal)) return "Library";

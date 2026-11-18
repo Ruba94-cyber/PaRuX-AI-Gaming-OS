@@ -20,6 +20,36 @@ internal sealed class UiTestApplication : IDisposable
     private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+
+    /// <summary>
+    /// Saves the whole PaRuX window in physical pixels. The test host is DPI-unaware, so UIA rectangles and CopyFromScreen use
+    /// virtualized coordinates there while the app renders at the real scale (200% on the owner's 2560x1600 panel); capturing
+    /// through <c>MainWindow.Capture()</c> then kept only the top-left quarter and made the UI look cut off.
+    /// </summary>
+    private void SaveWindowPng(string path)
+    {
+        IntPtr handle = new(MainWindow.Properties.NativeWindowHandle.ValueOrDefault);
+        IntPtr previous = SetThreadDpiAwarenessContext(new IntPtr(-4)); // PER_MONITOR_AWARE_V2
+        try
+        {
+            if (!GetWindowRect(handle, out NativeRect r) || r.Right <= r.Left || r.Bottom <= r.Top)
+            {
+                MainWindow.Capture().Save(path, ImageFormat.Png);
+                return;
+            }
+            using var bitmap = new System.Drawing.Bitmap(r.Right - r.Left, r.Bottom - r.Top);
+            using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+                graphics.CopyFromScreen(r.Left, r.Top, 0, 0, bitmap.Size);
+            bitmap.Save(path, ImageFormat.Png);
+        }
+        finally { if (previous != IntPtr.Zero) SetThreadDpiAwarenessContext(previous); }
+    }
     private readonly string _testRoot;
     private readonly string _localAiStateRoot;
     private readonly string _artifacts;
@@ -315,7 +345,7 @@ internal sealed class UiTestApplication : IDisposable
         {
             MainWindow.SetForeground();
             if (GetForegroundWindow() == new IntPtr(MainWindow.Properties.NativeWindowHandle.ValueOrDefault))
-                MainWindow.Capture().Save(Path.Combine(_artifacts, "failure.png"), ImageFormat.Png);
+                SaveWindowPng(Path.Combine(_artifacts, "failure.png"));
             else
                 File.AppendAllText(report, "\nScreenshot omitted: PaRuX was not the foreground window.\n");
         }
@@ -352,7 +382,7 @@ internal sealed class UiTestApplication : IDisposable
         }
 
         string path = Path.Combine(_artifacts, name + ".png");
-        MainWindow.Capture().Save(path, ImageFormat.Png);
+        SaveWindowPng(path);
         File.WriteAllLines(Path.Combine(_artifacts, name + "-uia.txt"), DumpRawTree(MainWindow));
         return path;
     }

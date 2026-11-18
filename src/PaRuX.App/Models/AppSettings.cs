@@ -39,6 +39,8 @@ namespace PaRuX.Models
         public bool GameLibraryShowHidden { get; set; }
         /// <summary>Additive: up to 12 named saved Gaming library filters (see <see cref="GameFilterPresets"/>). Older files load as empty.</summary>
         public List<GameFilterPreset> GameLibraryPresets { get; set; } = new();
+        /// <summary>Explicitly saved local emulator setups keyed by emulator ID.</summary>
+        public Dictionary<string, EmulatorSetupSettings> EmulatorSetups { get; set; } = new();
         public bool OnboardingCompleted { get; set; }
         /// <summary>What this PC is used for: "both" (also the value for every existing installation and when empty), "ai" or
         /// "gaming". Decides which services start and which workspaces show; changing it never deletes data. See
@@ -144,5 +146,16 @@ namespace PaRuX.Models
         public bool NotifyOnGeneration { get; set; } = true;
         public bool NotifyOnDownloads { get; set; } = true;
         public bool NotifyOnInstalls { get; set; } = true;
+    }
+
+    public sealed class EmulatorSetupSettings
+    {
+        public string Executable { get; set; } = string.Empty;
+        public string Folder { get; set; } = string.Empty;
+        public string Core { get; set; } = string.Empty;
+        public string Arguments { get; set; } = string.Empty;
+        public string LaunchMode { get; set; } = string.Empty;
+        public string InputProfile { get; set; } = string.Empty;
+        public bool Pcsx2BigPicture { get; set; }
     }
 }

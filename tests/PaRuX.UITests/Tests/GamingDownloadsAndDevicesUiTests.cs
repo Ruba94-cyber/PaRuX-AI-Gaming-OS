@@ -219,10 +219,5 @@ public sealed class GamingDownloadsAndDevicesUiTests
     {
         var navigation = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
         new InstallProgressPage(app).Invoke(navigation);
-        // Advanced Game Management is collapsed by default; expanding it is the owner's opt-in.
-        AutomationElement? expander = null;
-        UiWait.For(() => (expander = app.MainWindow.FindFirstDescendant(
-            cf => cf.ByAutomationId("AdvancedGameManagement_Expander"))) != null, "advanced section");
-        expander!.Patterns.ExpandCollapse.Pattern.Expand();
     }
 }

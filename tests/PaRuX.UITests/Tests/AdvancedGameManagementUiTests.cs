@@ -29,6 +29,7 @@ public sealed class AdvancedGameManagementUiTests
 
             var item = UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem);
             new InstallProgressPage(app).Invoke(item);
+            GamingSectionsPage.SelectSection(app.MainWindow, "Add");
 
             // The advanced section is collapsed by default; expanding it is the opt-in.
             AutomationElement expander = Find(() => app.MainWindow.FindFirstDescendant(
@@ -70,6 +71,8 @@ public sealed class AdvancedGameManagementUiTests
             Assert.False(savesCancel.Properties.IsEnabled.ValueOrDefault);
             Assert.False(string.IsNullOrWhiteSpace(savesRefresh.Name));
 
+            GamingSectionsPage.SelectSection(app.MainWindow, "Add");
+            UiWait.ExpandById(app.MainWindow, "AdvancedGameManagement_Expander");
             var folder = UiWait.ById(app.MainWindow, "GameImport_Folder_TextBox", ControlType.Edit).AsTextBox();
             folder.Text = gameFolder;
             var inspect = UiWait.ById(app.MainWindow, "GameImport_Inspect_Button", ControlType.Button);

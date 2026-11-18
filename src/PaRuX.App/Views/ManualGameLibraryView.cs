@@ -399,13 +399,14 @@ public sealed class ManualGameLibraryView : UserControl
         root.Children.Add(all[0]);   // page title
         var sections = new (string Id, string Title, List<UIElement> Items)[]
         {
-            ("Library", T("Library", "Libreria"), all.Skip(1).Take(sessionStart - 1).ToList()),
+            ("Library", T("Library", "Libreria"), new List<UIElement> { _universal }),
             ("Downloads", T("Downloads", "Download"), all.Skip(downloadsStart).Take(addStart - downloadsStart).ToList()),
             ("Add", T("Add & import", "Aggiungi e importa"),
-                all.Skip(addStart).Take(displayStart - addStart).Concat(all.Skip(displayEnd)).ToList()),
-            ("Devices", T("Devices & session", "Dispositivi e sessione"),
+                new UIElement[] { _storeDiscoveryOffer, _universal.AddTools }.Concat(all.Skip(addStart).Take(displayStart - addStart)).Concat(all.Skip(displayEnd)).ToList()),
+            ("Emulators", T("Emulators & ROMs", "Emulatori e ROM"), new List<UIElement> { _universal.EmulatorTools }),
+            ("Devices", T("Gaming settings", "Impostazioni gaming"),
                 all.Skip(sessionStart).Take(downloadsStart - sessionStart)
-                    .Concat(all.Skip(displayStart).Take(displayEnd - displayStart)).ToList()),
+                    .Concat(all.Skip(displayStart).Take(displayEnd - displayStart)).Append(_universal.BackupTools).ToList()),
         };
         var bar = new SelectorBar { HorizontalAlignment = HorizontalAlignment.Left };
         AutomationProperties.SetAutomationId(bar, "GameLibrary_Sections");
@@ -424,6 +425,13 @@ public sealed class ManualGameLibraryView : UserControl
         {
             string? tag = (sender.SelectedItem as SelectorBarItem)?.Tag as string;
             foreach (var pair in panels) pair.Value.Visibility = pair.Key == tag ? Visibility.Visible : Visibility.Collapsed;
+        };
+        _universal.ImportGamesRequested += () =>
+        {
+            var addItem = bar.Items.OfType<SelectorBarItem>().First(item => (string?)item.Tag == "Add");
+            bar.SelectedItem = addItem;
+            if (Content is ScrollViewer viewer) viewer.ChangeView(null, 0, null, disableAnimation: true);
+            addItem.Focus(FocusState.Programmatic);
         };
         root.Children.Add(bar);
         BuildGamingStrip();

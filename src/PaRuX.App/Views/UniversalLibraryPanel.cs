@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using PaRuX.Contracts;
+using PaRuX.Models;
 using PaRuX.Services;
 using Windows.Storage.Pickers;
 
@@ -29,10 +30,17 @@ internal sealed class UniversalLibraryPanel : StackPanel
     private readonly Func<Task> _refreshLibrary;
     private bool _console;
     private Expander? _advanced;
+    private readonly StackPanel _emulatorEditor = new() { Spacing = 14 };
+    private readonly TextBlock _emulatorConsoleNote = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+    internal UIElement AddTools => _advanced!;
+    internal StackPanel EmulatorTools { get; } = new() { Spacing = 14 };
+    internal GameSaveBackupPanel BackupTools { get; } = new();
+    private int _scanGeneration;
 
     // titles: the Gaming home (Continue shelf, tile grid, detail panel) lives in GamingHomeView
     private readonly GamingHomeView _home;
     public event Func<string, IReadOnlyList<string>, bool>? GameGuideChatRequested;
+    internal event Action? ImportGamesRequested;
 
     // advanced
     private readonly TextBox _folder = new();
@@ -62,6 +70,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         _home = new GamingHomeView(launch, refreshLibrary);
         _home.GameGuideChatRequested += (question, sources) =>
             GameGuideChatRequested?.Invoke(question, sources) == true;
+        _home.ImportGamesRequested += () => ImportGamesRequested?.Invoke();
         Children.Add(_home);
         BuildAdvanced();
     }
@@ -81,6 +90,9 @@ internal sealed class UniversalLibraryPanel : StackPanel
             button.FontSize = enabled ? 20 : 14;
             button.MinHeight = enabled ? 56 : 32;
         }
+        _emulatorEditor.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        _emulatorConsoleNote.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        BackupTools.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
         _home.SetConsolePresentation(enabled);
     }
 
@@ -128,20 +140,22 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetLiveSetting(_folderStatus, AutomationLiveSetting.Polite);
         content.Children.Add(_folderStatus); content.Children.Add(_candidates);
 
-        // Opt-in save backups are fully isolated from game launch and never restore files.
-        content.Children.Add(new GameSaveBackupPanel());
-
-        // emulators
-        content.Children.Add(Heading(T("Emulators", "Emulatori")));
+        // Emulator import uses the same controls and Core operations, in its own section.
+        _emulatorConsoleNote.Text = T("Emulator setup is available in desktop mode.", "La configurazione degli emulatori è disponibile in modalità desktop.");
+        EmulatorTools.Children.Add(_emulatorConsoleNote);
+        EmulatorTools.Children.Add(_emulatorEditor);
+        var emulatorContent = _emulatorEditor;
+        emulatorContent.Children.Add(Heading(T("1. Detect and choose an emulator", "1. Rileva e scegli un emulatore")));
         var loadEmulators = new Button { Content = T("Look for installed emulators", "Cerca gli emulatori installati"), MinHeight = 32 };
         AutomationProperties.SetAutomationId(loadEmulators, "Emulators_Detect_Button");
         loadEmulators.Click += async (_, _) => await LoadEmulatorsAsync();
         _emulatorBox.Header = T("Emulator", "Emulatore");
         AutomationProperties.SetAutomationId(_emulatorBox, "Emulators_Select_ComboBox");
         _emulatorBox.SelectionChanged += (_, _) => OnEmulatorSelected();
+        _emulatorFolder.TextChanged += (_, _) => InvalidateScan();
         _emulatorExe.Header = T("Emulator program (.exe)", "Programma dell'emulatore (.exe)");
         _emulatorExe.TextChanged += (_, _) => UpdatePcsx2ControllerUiAvailability();
-        _emulatorFolder.Header = T("Folder with your game files", "Cartella con i tuoi file di gioco");
+        _emulatorFolder.Header = T("ROM folder", "Cartella ROM");
         _emulatorCore.Header = T("Core file (RetroArch only)", "File core (solo RetroArch)");
         _emulatorExtra.Header = T("Extra arguments (optional)", "Argomenti aggiuntivi (facoltativi)");
         _emulatorInputProfile.Header = T("Eden controller input profile (player 1, optional)",
@@ -167,23 +181,44 @@ internal sealed class UniversalLibraryPanel : StackPanel
         var import = new Button { Content = T("Add selected games to my library", "Aggiungi i giochi selezionati alla libreria"), MinHeight = 32 };
         AutomationProperties.SetAutomationId(import, "Emulators_Import_Button");
         import.Click += async (_, _) => await ImportEmulatorGamesAsync();
-        content.Children.Add(loadEmulators); content.Children.Add(_emulatorBox);
-        content.Children.Add(_emulatorExe); content.Children.Add(_emulatorCore); content.Children.Add(_emulatorExtra);
-        content.Children.Add(_emulatorInputProfile);
-        content.Children.Add(_emulatorLaunchMode); content.Children.Add(_emulatorPcsx2BigPicture);
-        content.Children.Add(_emulatorFolder);
-        content.Children.Add(new TextBlock
+        emulatorContent.Children.Add(loadEmulators); emulatorContent.Children.Add(_emulatorBox);
+        emulatorContent.Children.Add(Heading(T("2. Configure the program and launch", "2. Configura il programma e l’avvio")));
+        emulatorContent.Children.Add(_emulatorExe);
+        var browseExecutable = new Button { Content = T("Browse emulator program", "Sfoglia programma emulatore"), MinHeight = 44 };
+        AutomationProperties.SetAutomationId(browseExecutable, "Emulators_BrowseExe_Button");
+        browseExecutable.Click += async (_, _) =>
+        {
+            var picker = new FileOpenPicker();
+            picker.FileTypeFilter.Add(".exe");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+            var file = await picker.PickSingleFileAsync();
+            if (file is not null) _emulatorExe.Text = file.Path;
+        };
+        emulatorContent.Children.Add(browseExecutable);
+        emulatorContent.Children.Add(_emulatorCore); emulatorContent.Children.Add(_emulatorExtra);
+        emulatorContent.Children.Add(_emulatorInputProfile);
+        emulatorContent.Children.Add(_emulatorLaunchMode); emulatorContent.Children.Add(_emulatorPcsx2BigPicture);
+        var saveSetup = new Button { Content = T("Save emulator setup", "Salva configurazione emulatore"), MinHeight = 44 };
+        AutomationProperties.SetAutomationId(saveSetup, "Emulators_SaveSetup_Button");
+        saveSetup.Click += (_, _) => SaveEmulatorSetup();
+        emulatorContent.Children.Add(saveSetup);
+        emulatorContent.Children.Add(new TextBlock { Text = T("Save these settings for future imports on this PC. Selecting the emulator restores them without scanning or importing. Games already imported are not changed.",
+            "Salva queste impostazioni per le future importazioni su questo PC. Selezionando l'emulatore vengono ripristinate senza cercare o importare giochi. I giochi già importati non vengono modificati."), TextWrapping = TextWrapping.Wrap });
+        emulatorContent.Children.Add(Heading(T("3. Find and import local games", "3. Trova e importa i giochi locali")));
+        emulatorContent.Children.Add(_emulatorFolder);
+        emulatorContent.Children.Add(new TextBlock
         {
             Text = T("Fullscreen and windowed launch switches are offered only where documented. 'Use emulator settings' keeps its own saved video preferences. Your selected mode is stored with the imported game; verify it on your installed emulator version.",
                      "I comandi schermo intero e finestra sono disponibili solo dove documentati. 'Usa impostazioni emulatore' mantiene le preferenze video dell'emulatore. Il modo scelto viene salvato con il gioco importato: verificalo sulla versione installata."),
             TextWrapping = TextWrapping.Wrap
         });
         var emulatorRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        emulatorRow.Children.Add(browseFolder); emulatorRow.Children.Add(scan); emulatorRow.Children.Add(import);
-        content.Children.Add(emulatorRow);
+        emulatorRow.Children.Add(browseFolder); emulatorRow.Children.Add(scan);
+        emulatorContent.Children.Add(emulatorRow);
         AutomationProperties.SetAutomationId(_emulatorStatus, "Emulators_Status_Text");
         AutomationProperties.SetLiveSetting(_emulatorStatus, AutomationLiveSetting.Polite);
-        content.Children.Add(_emulatorStatus); content.Children.Add(_emulatorGames);
+        emulatorContent.Children.Add(_emulatorStatus); emulatorContent.Children.Add(_emulatorGames);
+        emulatorContent.Children.Add(import);
 
         var expander = new Expander
         {
@@ -195,7 +230,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         };
         AutomationProperties.SetAutomationId(expander, "AdvancedGameManagement_Expander");
         _advanced = expander;
-        Children.Add(expander);
+        // The parent places these existing tools in the Add section.
     }
 
     private static TextBlock Heading(string text) => new()
@@ -313,6 +348,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
 
     private void OnEmulatorSelected()
     {
+        InvalidateScan();
         if (SelectedEmulator is not { } emulator || _emulators is null) return;
         var detected = _emulators.Detected.FirstOrDefault(d => d.EmulatorId == emulator.Id);
         _emulatorExe.Text = detected?.ExecutablePath ?? string.Empty;
@@ -340,19 +376,69 @@ internal sealed class UniversalLibraryPanel : StackPanel
                 Tag = EmulatorLaunchModes.Windowed
             });
         _emulatorLaunchMode.SelectedIndex = emulator.FullscreenSupported ? 1 : 0;
+        if (SettingsStore.Current.Data.EmulatorSetups?.TryGetValue(emulator.Id, out EmulatorSetupSettings? setup) == true && setup is not null)
+        {
+            _emulatorExe.Text = setup.Executable ?? "";
+            _emulatorFolder.Text = setup.Folder ?? "";
+            _emulatorCore.Text = setup.Core ?? "";
+            _emulatorExtra.Text = setup.Arguments ?? "";
+            _emulatorInputProfile.Text = _emulatorInputProfile.IsEnabled ? setup.InputProfile ?? "" : "";
+            foreach (ComboBoxItem item in _emulatorLaunchMode.Items)
+                if (string.Equals(item.Tag as string, setup.LaunchMode, StringComparison.Ordinal)) { _emulatorLaunchMode.SelectedItem = item; break; }
+            UpdatePcsx2ControllerUiAvailability();
+            _emulatorPcsx2BigPicture.IsChecked = _emulatorPcsx2BigPicture.IsEnabled && setup.Pcsx2BigPicture;
+        }
+        else
+        {
+            _emulatorFolder.Text = _emulatorCore.Text = _emulatorExtra.Text = _emulatorInputProfile.Text = "";
+        }
+    }
+
+    private void InvalidateScan()
+    {
+        _scanGeneration++;
         _emulatorGames.Children.Clear();
         _gameChecks.Clear();
+        _emulatorStatus.Text = string.Empty;
+    }
+
+    private void SaveEmulatorSetup()
+    {
+        if (SelectedEmulator is not { } emulator) { _emulatorStatus.Text = T("Choose an emulator first.", "Scegli prima un emulatore."); return; }
+        SettingsStore settings = SettingsStore.Current;
+        var previous = settings.Data.EmulatorSetups;
+        var setups = previous is null
+            ? new Dictionary<string, EmulatorSetupSettings>()
+            : new Dictionary<string, EmulatorSetupSettings>(previous);
+        setups[emulator.Id] = new EmulatorSetupSettings
+        {
+            Executable = _emulatorExe.Text, Folder = _emulatorFolder.Text, Core = _emulatorCore.Text,
+            Arguments = _emulatorExtra.Text, LaunchMode = (_emulatorLaunchMode.SelectedItem as ComboBoxItem)?.Tag as string ?? EmulatorLaunchModes.Default,
+            InputProfile = _emulatorInputProfile.IsEnabled ? _emulatorInputProfile.Text : "",
+            Pcsx2BigPicture = _emulatorPcsx2BigPicture.IsEnabled && _emulatorPcsx2BigPicture.IsChecked == true,
+        };
+        settings.Data.EmulatorSetups = setups;
+        if (settings.TrySave())
+        {
+            _emulatorStatus.Text = T("Emulator setup saved.", "Configurazione emulatore salvata.");
+            return;
+        }
+        settings.Data.EmulatorSetups = previous ?? new();
+        _emulatorStatus.Text = T("Could not save emulator setup. Check the local settings folder and try again.",
+            "Impossibile salvare la configurazione. Controlla la cartella delle impostazioni locali e riprova.");
     }
 
     private async Task ScanEmulatorAsync()
     {
-        _emulatorGames.Children.Clear();
-        _gameChecks.Clear();
+        InvalidateScan();
         if (SelectedEmulator is not { } emulator) { _emulatorStatus.Text = T("Choose an emulator first.", "Scegli prima un emulatore."); return; }
+        int generation = _scanGeneration;
+        string folder = _emulatorFolder.Text ?? "";
         _emulatorStatus.Text = T("Looking for game files…", "Ricerca dei file di gioco…");
         try
         {
-            var result = await GamingOrchestratorClient.Current.ScanEmulatorGamesAsync(emulator.Id, _emulatorFolder.Text ?? "");
+            var result = await GamingOrchestratorClient.Current.ScanEmulatorGamesAsync(emulator.Id, folder);
+            if (generation != _scanGeneration || SelectedEmulator?.Id != emulator.Id || _emulatorFolder.Text != folder) return;
             if (!result.Succeeded || result.Value is null) { _emulatorStatus.Text = T("The scan failed.", "La ricerca non è riuscita."); return; }
             if (result.Value.Error != null) { _emulatorStatus.Text = result.Value.Error; return; }
             foreach (EmulatedGameDto game in result.Value.Games.Take(200))
@@ -367,7 +453,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
                 : T($"{result.Value.Games.Count} compatible files" + (result.Value.Truncated ? " (list truncated)" : "") + ". Untick anything you do not want.",
                     $"{result.Value.Games.Count} file compatibili" + (result.Value.Truncated ? " (elenco troncato)" : "") + ". Togli la spunta a ciò che non vuoi.");
         }
-        catch (Exception) { _emulatorStatus.Text = T("Could not scan the folder.", "Impossibile esaminare la cartella."); }
+        catch (Exception) { if (generation == _scanGeneration) _emulatorStatus.Text = T("Could not scan the folder.", "Impossibile esaminare la cartella."); }
     }
 
     private async Task ImportEmulatorGamesAsync()

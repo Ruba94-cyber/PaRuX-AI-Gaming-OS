@@ -29,6 +29,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Func<Task> _refreshLibrary;
     /// <summary>Returns true only if the existing Chat accepted the read-only draft.</summary>
     public event Func<string, IReadOnlyList<string>, bool>? GameGuideChatRequested;
+    internal event Action? ImportGamesRequested;
 
     // toolbar
     private readonly TextBox _search = new() { MaxLength = 100 };
@@ -73,6 +74,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly TextBlock _emptyTitle = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _emptyDescription = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _clearFilters = new() { Visibility = Visibility.Collapsed, MinWidth = 160 };
+    private readonly Button _importGames = new() { Visibility = Visibility.Collapsed, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Left };
 
     // bulk
     private readonly Border _bulkBar = new() { Visibility = Visibility.Collapsed, Padding = new Thickness(12), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1) };
@@ -1125,6 +1127,10 @@ internal sealed class GamingHomeView : StackPanel
         AutomationProperties.SetName(_clearFilters, T("Clear all game filters", "Cancella tutti i filtri dei giochi"));
         _clearFilters.Click += async (_, _) => await ClearFiltersAsync();
         emptyLayout.Children.Add(_clearFilters);
+        _importGames.Content = T("Import games", "Importa giochi");
+        AutomationProperties.SetAutomationId(_importGames, "GameHome_ImportGames_Button");
+        _importGames.Click += (_, _) => ImportGamesRequested?.Invoke();
+        emptyLayout.Children.Add(_importGames);
         _emptyState.Child = emptyLayout;
         AutomationProperties.SetAutomationId(_emptyState, "GameHome_EmptyState");
         _mainColumn.Children.Add(_emptyState);
@@ -1248,8 +1254,9 @@ internal sealed class GamingHomeView : StackPanel
         double width = _main.ActualWidth > 0 ? _main.ActualWidth : ActualWidth;
         // 13-inch laptops (about 1280 DIP) must keep the rail beside the library; stacking it above hid the covers.
         bool rail = width >= 700;
-        bool movingToRail = rail && _compactFilters.Content == _side;
-        bool movingToCompact = !rail && _compactFilters.Content != _side;
+        bool inCompact = ReferenceEquals(_compactFilters.Content, _side);
+        bool movingToRail = rail && inCompact;
+        bool movingToCompact = !rail && !inCompact;
         var focused = (movingToRail || movingToCompact) && XamlRoot is { } root
             ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
         bool focusInRail = focused is not null && GameSideFilterPanel.Contains(_side, focused);
@@ -1310,6 +1317,7 @@ internal sealed class GamingHomeView : StackPanel
     internal void SetConsolePresentation(bool enabled)
     {
         _console = enabled;
+        _importGames.Visibility = !enabled && _titles.Count == 0 && !FiltersActive && _emptyState.Visibility == Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
         double size = enabled ? 20 : 14;
         foreach (TextBox box in _boxes) { box.FontSize = size; box.MinHeight = enabled ? 56 : 44; }
         foreach (Button button in _buttons) { button.FontSize = size; button.MinHeight = enabled ? 56 : 44; }
@@ -1767,6 +1775,7 @@ internal sealed class GamingHomeView : StackPanel
         bool filtered = FiltersActive;
         _emptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         _clearFilters.Visibility = empty && filtered ? Visibility.Visible : Visibility.Collapsed;
+        _importGames.Visibility = empty && !filtered && !_console ? Visibility.Visible : Visibility.Collapsed;
         _emptyTitle.Text = filtered
             ? T("Nothing matches your filters", "Nessun risultato per questi filtri")
             : T("Your library starts here", "La tua libreria comincia qui");

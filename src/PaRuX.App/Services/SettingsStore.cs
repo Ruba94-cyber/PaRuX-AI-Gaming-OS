@@ -51,8 +51,13 @@ namespace PaRuX.Services
             }
         }
 
-        public void Save()
+        public void Save() => TrySave(notifyOnFailure: true);
+
+        internal bool TrySave() => TrySave(notifyOnFailure: false);
+
+        private bool TrySave(bool notifyOnFailure)
         {
+            bool saved = false;
             try
             {
                 AppPaths.EnsureCreated();
@@ -92,14 +97,15 @@ namespace PaRuX.Services
                             File.Move(tmp, AppPaths.SettingsFile);
                     });
                 }
+                saved = true;
             }
             catch (Exception ex)
             {
                 Log.Write("SettingsStore.Save failed: " + ex.Message);
             }
 
-            EventHandler? h = Changed;
-            if (h != null) h(this, EventArgs.Empty);
+            if (saved || notifyOnFailure) Changed?.Invoke(this, EventArgs.Empty);
+            return saved;
         }
 
         private static void CopyCoreRoutingMirror(AppSettings source, AppSettings target)

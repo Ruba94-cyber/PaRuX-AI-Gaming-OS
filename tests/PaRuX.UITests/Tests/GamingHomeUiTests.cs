@@ -41,8 +41,6 @@ public sealed class GamingHomeUiTests
         var page = new InstallProgressPage(app);
         page.Invoke(ById(app, GamingTab));
         ById(app, "GameHome_Sort");
-        var add = ById(app, "GameLibrary_Add_Button");
-        UiWait.For(() => add.Properties.IsEnabled.ValueOrDefault, "library finished loading");
     }
 
     /// <summary>Title key of a tile: the normalised game name (letters and digits, lower case).</summary>
@@ -85,6 +83,8 @@ public sealed class GamingHomeUiTests
         try
         {
             OpenGamingHome(app);
+            Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameLibrary_FirstRunScan_Start")));
+            Press(app, ById(app, "GameHome_ImportGames_Button"));
             // The banner container is a Border, which has no UI Automation peer: assert on its
             // text and buttons, which are what a user (and a screen reader) actually reaches.
             Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Description"));
