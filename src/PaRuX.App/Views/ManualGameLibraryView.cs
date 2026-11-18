@@ -433,7 +433,15 @@ public sealed class ManualGameLibraryView : UserControl
             if (Content is ScrollViewer viewer) viewer.ChangeView(null, 0, null, disableAnimation: true);
             addItem.Focus(FocusState.Programmatic);
         };
-        root.Children.Add(bar);
+        // Five sections do not fit a narrow window: the strip scrolls sideways instead of cutting the last tab off.
+        root.Children.Add(new ScrollViewer
+        {
+            Content = bar,
+            HorizontalScrollMode = ScrollMode.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        });
         BuildGamingStrip();
         root.Children.Add(_gamingStrip);
         foreach (var panel in panels.Values) root.Children.Add(panel);

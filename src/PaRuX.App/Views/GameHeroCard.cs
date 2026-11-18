@@ -87,7 +87,7 @@ internal sealed class GameHeroCard : UserControl
     {
         _compact = compact;
         _stacked = stacked;
-        _layout.Margin = new Thickness(compact ? 16 : 24);
+        _layout.Margin = new Thickness(compact ? 14 : _console ? 24 : 16);
         _layout.ColumnSpacing = compact ? 14 : 24;
         _layout.ColumnDefinitions.Clear();
         _layout.RowDefinitions.Clear();
@@ -110,9 +110,9 @@ internal sealed class GameHeroCard : UserControl
             Grid.SetColumn(_text, 1);
         }
         _cover.HorizontalAlignment = HorizontalAlignment.Left;
-        _cover.Width = stacked ? 120 : compact ? 132 : _console ? 228 : 192;
+        _cover.Width = stacked ? 104 : compact ? 112 : _console ? 228 : 144;
         _cover.Height = _cover.Width * 4 / 3;
-        _name.FontSize = compact ? 26 : _console ? 40 : 34;
+        _name.FontSize = compact ? 24 : _console ? 40 : 30;
     }
 
     private void ApplyBrushes()

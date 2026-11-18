@@ -65,4 +65,35 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    private static readonly string[] AiWorkspaces =
+    {
+        "Navigation_Chat_Item", "Navigation_ModelHub_Item", "Navigation_Create_Item", "Navigation_Projects_Item",
+        "Navigation_Tools_Item", "Navigation_Settings_Item",
+    };
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_every_ai_workspace_at_each_geometry()
+    {
+        const string name = nameof(Capture_every_ai_workspace_at_each_geometry);
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            foreach (var (w, h, tag) in Geometries)
+            {
+                app.ResizeMainWindow(w, h);
+                foreach (string id in AiWorkspaces)
+                {
+                    var item = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+                    if (item == null) continue;
+                    var selection = item.Patterns.SelectionItem.PatternOrDefault;
+                    if (selection != null) selection.Select(); else item.Patterns.Invoke.PatternOrDefault?.Invoke();
+                    Thread.Sleep(1200);
+                    app.CaptureSnapshot($"ai-{tag}-{id.Replace("Navigation_", "").Replace("_Item", "")}");
+                }
+            }
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }
