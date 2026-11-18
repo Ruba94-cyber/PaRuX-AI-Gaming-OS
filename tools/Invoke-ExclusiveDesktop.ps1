@@ -25,8 +25,14 @@ $statusPath = Join-Path $dir 'fla-ui.status.json'
 
 function Get-ForeignUiRunners {
     # Processes that indicate another session is driving the desktop. Our own tree is excluded by PID ancestry.
-    $mine = @{}; $cur = $PID
-    while ($cur) { $mine[[int]$cur] = $true; $p = Get-CimInstance Win32_Process -Filter "ProcessId=$cur" -ErrorAction SilentlyContinue; $cur = if ($p) { $p.ParentProcessId } else { 0 } }
+    $mine = @{}; $cur = Get-CimInstance Win32_Process -Filter "ProcessId=$PID" -ErrorAction SilentlyContinue
+    $mine[[int]$PID] = $true
+    while ($cur -and $cur.ParentProcessId -and -not $mine.ContainsKey([int]$cur.ParentProcessId)) {
+        $parent = Get-CimInstance Win32_Process -Filter "ProcessId=$($cur.ParentProcessId)" -ErrorAction SilentlyContinue
+        if (-not $parent -or -not $cur.CreationDate -or -not $parent.CreationDate -or $parent.CreationDate -ge $cur.CreationDate) { break }
+        $mine[[int]$parent.ProcessId] = $true
+        $cur = $parent
+    }
     Get-CimInstance Win32_Process | Where-Object {
         -not $mine.ContainsKey([int]$_.ProcessId) -and (
             ($_.Name -eq 'testhost.exe' -and $_.CommandLine -match 'UITests|GuiTests|FlaUI') -or
