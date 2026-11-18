@@ -20,7 +20,15 @@ internal sealed class GameHeroCard : UserControl
     private static string T(string en, string it) => GameUi.T(en, it);
 
     private readonly Border _frame = new();
-    private readonly Border _cover = new() { Width = 132, Height = 176, CornerRadius = new CornerRadius(8) };
+    private readonly Border _backdrop = new() { IsHitTestVisible = false, CornerRadius = new CornerRadius(14) };
+    private readonly Border _scrim = new() { IsHitTestVisible = false, CornerRadius = new CornerRadius(14) };
+    private readonly Border _cover = new() { Width = 200, Height = 250, CornerRadius = new CornerRadius(10) };
+    private readonly Grid _layout = new() { ColumnSpacing = 24, RowSpacing = 16, Margin = new Thickness(24) };
+    private readonly StackPanel _text = new() { Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+    private readonly WrapRowPanel _buttons = new() { ColumnSpacing = 10, RowSpacing = 8, Margin = new Thickness(0, 12, 0, 0) };
+    private bool _console;
+    private bool _compact;
+    private bool _stacked;
     private readonly TextBlock _kicker = new() { FontSize = 13, Opacity = 0.8 };
     private readonly TextBlock _name = new() { FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
@@ -38,7 +46,6 @@ internal sealed class GameHeroCard : UserControl
         Content = _frame;
         _frame.CornerRadius = new CornerRadius(14);
         _frame.BorderThickness = new Thickness(1);
-        _frame.Padding = new Thickness(20);
         AutomationProperties.SetAutomationId(this, "GameHome_Hero");
         AutomationProperties.SetName(this, T("Continue playing", "Continua a giocare"));
 
@@ -54,48 +61,105 @@ internal sealed class GameHeroCard : UserControl
         _play.Click += (_, _) => { if (_title is not null) PlayRequested?.Invoke(_title); };
         _details.Click += (_, _) => { if (_title is not null) DetailsRequested?.Invoke(_title); };
 
-        var text = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(_kicker);
-        text.Children.Add(_name);
-        text.Children.Add(_summary);
-        text.Children.Add(_source);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 8, 0, 0) };
-        buttons.Children.Add(_play);
-        buttons.Children.Add(_details);
-        text.Children.Add(buttons);
+        _text.Children.Add(_kicker);
+        _text.Children.Add(_name);
+        _text.Children.Add(_summary);
+        _text.Children.Add(_source);
+        _buttons.Children.Add(_play);
+        _buttons.Children.Add(_details);
+        _text.Children.Add(_buttons);
 
-        var layout = new Grid { ColumnSpacing = 20 };
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        layout.Children.Add(_cover);
-        Grid.SetColumn(text, 1);
-        layout.Children.Add(text);
-        _frame.Child = layout;
+        _layout.Children.Add(_cover);
+        _layout.Children.Add(_text);
+        _frame.Child = new Grid { Children = { _backdrop, _scrim, _layout } };
+        UpdateLayoutMode(false, false);
+        SizeChanged += (_, e) =>
+        {
+            bool compact = e.NewSize.Width < 560;
+            bool stacked = e.NewSize.Width < 380;
+            if (compact != _compact || stacked != _stacked) UpdateLayoutMode(compact, stacked);
+        };
         ApplyBrushes();
         ActualThemeChanged += (_, _) => ApplyBrushes();
+    }
+
+    private void UpdateLayoutMode(bool compact, bool stacked)
+    {
+        _compact = compact;
+        _stacked = stacked;
+        _layout.Margin = new Thickness(compact ? 16 : 24);
+        _layout.ColumnSpacing = compact ? 14 : 24;
+        _layout.ColumnDefinitions.Clear();
+        _layout.RowDefinitions.Clear();
+        if (stacked)
+        {
+            _layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetColumn(_cover, 0);
+            Grid.SetRow(_cover, 0);
+            Grid.SetColumn(_text, 0);
+            Grid.SetRow(_text, 1);
+        }
+        else
+        {
+            _layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(_cover, 0);
+            Grid.SetColumn(_cover, 0);
+            Grid.SetRow(_text, 0);
+            Grid.SetColumn(_text, 1);
+        }
+        _cover.HorizontalAlignment = HorizontalAlignment.Left;
+        _cover.Width = stacked ? 120 : compact ? 132 : _console ? 228 : 192;
+        _cover.Height = _cover.Width * 4 / 3;
+        _name.FontSize = compact ? 26 : _console ? 40 : 34;
     }
 
     private void ApplyBrushes()
     {
         _frame.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceCardBrush");
         _frame.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
+        UpdateBackdropTheme();
         _kicker.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
         _name.Foreground = GameUi.ThemeBrush(this, "PaRuXTextPrimaryBrush");
         _summary.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
         _source.Foreground = GameUi.ThemeBrush(this, "PaRuXTextSecondaryBrush");
-        if (_cover.Child is null && _cover.Background is not ImageBrush) _cover.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        if (_cover.Background is not ImageBrush)
+        {
+            _cover.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+            if (_cover.Child is TextBlock initials) initials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
+        }
+    }
+
+    private void UpdateBackdropTheme()
+    {
+        bool highContrast = GameUi.IsHighContrast(this);
+        _backdrop.Visibility = _scrim.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
+        _backdrop.Opacity = ActualTheme == ElementTheme.Light ? 0.14 : 0.30;
+        if (_frame.Background is not SolidColorBrush surface) return;
+
+        var fadingSurface = new LinearGradientBrush
+        {
+            StartPoint = new Windows.Foundation.Point(0, 0.5),
+            EndPoint = new Windows.Foundation.Point(1, 0.5)
+        };
+        fadingSurface.GradientStops.Add(new GradientStop { Color = surface.Color, Offset = 0.44 });
+        fadingSurface.GradientStops.Add(new GradientStop
+        {
+            Color = Windows.UI.Color.FromArgb(0, surface.Color.R, surface.Color.G, surface.Color.B), Offset = 1
+        });
+        _scrim.Background = fadingSurface;
     }
 
     internal void SetConsole(bool enabled)
     {
-        _name.FontSize = enabled ? 38 : 28;
+        _console = enabled;
         _summary.FontSize = enabled ? 20 : 14;
         _source.FontSize = enabled ? 17 : 13;
         _kicker.FontSize = enabled ? 17 : 13;
         _play.MinHeight = _details.MinHeight = enabled ? 56 : 44;
         _play.FontSize = _details.FontSize = enabled ? 20 : 14;
-        _cover.Width = enabled ? 172 : 132;
-        _cover.Height = enabled ? 230 : 176;
+        UpdateLayoutMode(_compact, _stacked);
     }
 
     internal GameTitleDto? Current => _title;
@@ -106,7 +170,12 @@ internal sealed class GameHeroCard : UserControl
     internal void Show(GameTitleDto? title)
     {
         _title = title;
-        if (title is null) { Visibility = Visibility.Collapsed; return; }
+        if (title is null)
+        {
+            Visibility = Visibility.Collapsed;
+            _cover.Background = _backdrop.Background = null;
+            return;
+        }
         Visibility = Visibility.Visible;
         _name.Text = title.Name;
         _summary.Text = GameUi.PlaySummary(title);
@@ -117,30 +186,38 @@ internal sealed class GameHeroCard : UserControl
         AutomationProperties.SetName(_play, GameUi.PlayLabel(chosen) + " " + title.Name);
         AutomationProperties.SetName(_details, T("Details of ", "Dettagli di ") + title.Name);
 
-        _cover.Child = null;
-        _cover.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        ShowFallback(title.Name);
         string? path = GameCoverStore.TryGetPath(title.TitleKey);
-        bool image = false;
-        if (path is not null)
+        if (path is null) return;
+        try
         {
-            try
+            var bitmap = new BitmapImage { DecodePixelWidth = 360 };
+            bitmap.ImageFailed += (_, _) =>
             {
-                var bitmap = new BitmapImage { DecodePixelWidth = 300 };
-                bitmap.UriSource = new Uri(path);
-                _cover.Background = new ImageBrush { ImageSource = bitmap, Stretch = Stretch.UniformToFill };
-                image = true;
-            }
-            catch (Exception) { /* a damaged cover falls back to the lettered tile */ }
-        }
-        if (!image)
-            _cover.Child = new TextBlock
-            {
-                Text = GameUi.Initials(title.Name),
-                FontSize = 40,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush")
+                // A recycled hero must not replace the new title's cover after an old decode fails.
+                if (_cover.Background is ImageBrush brush && ReferenceEquals(brush.ImageSource, bitmap))
+                    ShowFallback(_title?.Name ?? string.Empty);
             };
+            _cover.Child = null;
+            _cover.Background = new ImageBrush { ImageSource = bitmap, Stretch = Stretch.UniformToFill };
+            _backdrop.Background = new ImageBrush { ImageSource = bitmap, Stretch = Stretch.UniformToFill };
+            bitmap.UriSource = new Uri(path);
+        }
+        catch (Exception) { ShowFallback(title.Name); }
+    }
+
+    private void ShowFallback(string name)
+    {
+        _cover.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        _backdrop.Background = null;
+        _cover.Child = new TextBlock
+        {
+            Text = GameUi.Initials(name),
+            FontSize = 48,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush")
+        };
     }
 }

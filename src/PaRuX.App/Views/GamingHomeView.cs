@@ -93,6 +93,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly GameDetailPanel _detail;
     private readonly GameHeroCard _hero = new();
     private readonly GameSideFilterPanel _side = new();
+    private readonly Expander _compactFilters = new();
     private readonly Grid _main = new();
     private readonly StackPanel _mainColumn = new() { Spacing = 12 };
     private readonly TextBlock _quickResumeSummary = new() { TextWrapping = TextWrapping.Wrap };
@@ -1041,6 +1042,10 @@ internal sealed class GamingHomeView : StackPanel
         _introDescription.Visibility = Visibility.Collapsed;
         Children.Add(_introDescription);
 
+        _hero.PlayRequested += async t => await PlayAsync(t);
+        _hero.DetailsRequested += async t => await OpenAsync(t);
+        Children.Add(_hero);
+
         // Quick Resume status near the top: what is paused now and what the start-up recovery did. The full panel stays below.
         AutomationProperties.SetAutomationId(_quickResumeSummary, "GameHome_QuickResume_Summary");
         AutomationProperties.SetLiveSetting(_quickResumeSummary, AutomationLiveSetting.Polite);
@@ -1079,10 +1084,6 @@ internal sealed class GamingHomeView : StackPanel
         // The status line sits after the buttons at its natural size and wraps onto the next row only when the width is short.
         _quickResumeSummary.Margin = new Thickness(8, 12, 0, 8);
         quickRow.Children.Add(_quickResumeSummary);
-
-        _hero.PlayRequested += async t => await PlayAsync(t);
-        _hero.DetailsRequested += async t => await OpenAsync(t);
-        Children.Add(_hero);
 
         _continueHeading.Text = T("Continue", "Continua");
         _continueHeading.FontSize = 18;
@@ -1156,6 +1157,7 @@ internal sealed class GamingHomeView : StackPanel
         _side.FavoritesChosen += on => Quiet(() => _favoritesOnly.IsChecked = on);
         _side.RecentChosen += on => _recentOnly = on;
         _side.GenreChosen += genre => _genre = genre;
+        _side.CollectionChosen += collection => Quiet(() => _collectionFilter.Text = collection);
         _side.Applied += async () =>
         {
             SavePreferences();
@@ -1168,6 +1170,10 @@ internal sealed class GamingHomeView : StackPanel
         _main.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _main.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _main.Children.Add(_side);
+        _compactFilters.Header = T("Library filters", "Filtri della libreria");
+        AutomationProperties.SetAutomationId(_compactFilters, "GameHome_CompactFilters");
+        _compactFilters.Visibility = Visibility.Collapsed;
+        _main.Children.Add(_compactFilters);
         _main.Children.Add(_mainColumn);
         _main.SizeChanged += (_, _) => ApplyMainLayout();
         ApplyMainLayout();
@@ -1242,6 +1248,25 @@ internal sealed class GamingHomeView : StackPanel
         double width = _main.ActualWidth > 0 ? _main.ActualWidth : ActualWidth;
         // 13-inch laptops (about 1280 DIP) must keep the rail beside the library; stacking it above hid the covers.
         bool rail = width >= 700;
+        bool movingToRail = rail && _compactFilters.Content == _side;
+        bool movingToCompact = !rail && _compactFilters.Content != _side;
+        var focused = (movingToRail || movingToCompact) && XamlRoot is { } root
+            ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
+        bool focusInRail = focused is not null && GameSideFilterPanel.Contains(_side, focused);
+        bool focusInCompact = focused is not null && GameSideFilterPanel.Contains(_compactFilters, focused);
+        if (movingToRail)
+        {
+            _compactFilters.Content = null;
+            _main.Children.Add(_side);
+            if (focusInRail || focusInCompact) _side.FocusFirst();
+        }
+        else if (movingToCompact)
+        {
+            _main.Children.Remove(_side);
+            _compactFilters.Content = _side;
+            _compactFilters.IsExpanded = false;
+        }
+        _compactFilters.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
         _side.Width = rail ? (_console ? 300 : 210) : double.NaN;
         _side.VerticalAlignment = VerticalAlignment.Top;
         if (rail)
@@ -1251,9 +1276,12 @@ internal sealed class GamingHomeView : StackPanel
         }
         else
         {
-            Grid.SetRow(_side, 0); Grid.SetColumn(_side, 0); Grid.SetColumnSpan(_side, 2);
+            Grid.SetRow(_compactFilters, 0); Grid.SetColumn(_compactFilters, 0); Grid.SetColumnSpan(_compactFilters, 2);
             Grid.SetRow(_mainColumn, 1); Grid.SetColumn(_mainColumn, 0); Grid.SetColumnSpan(_mainColumn, 2);
         }
+        if (movingToCompact && focusInRail
+            && (FocusManager.FindFirstFocusableElement(_compactFilters) is not Control target || !target.Focus(FocusState.Programmatic)))
+            _search.Focus(FocusState.Programmatic);
     }
 
     /// <summary>Wide windows show the detail card beside the library; narrow ones put it above the tiles.</summary>
@@ -1779,6 +1807,7 @@ internal sealed class GamingHomeView : StackPanel
         FavoritesOnly = _favoritesOnly.IsChecked == true,
         RecentlyPlayedOnly = _recentOnly,
         Genre = _genre,
+        Collection = _collectionFilter.Text.Trim(),
     };
 
     /// <summary>

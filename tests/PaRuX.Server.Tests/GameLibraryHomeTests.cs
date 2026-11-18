@@ -88,6 +88,30 @@ public sealed class GameLibraryHomeTests
     }
 
     [Fact]
+    public void Collection_facets_count_visible_titles_once_and_mark_filter_active()
+    {
+        var titles = new[]
+        {
+            Title("Alpha") with { Collections = new[] { "Racing", "racing", "Co-op" } },
+            Title("Bravo") with { Collections = new[] { "RACING" } },
+            Title("Ghost", hidden: true) with { Collections = new[] { "Racing", "Secret" } },
+        };
+        var facets = GameLibraryHome.Facets(titles, NoGenres, Now);
+        Assert.Equal(2, facets.Collections.Single(x => x.Key == "Racing").Value);
+        Assert.Contains(facets.Collections, x => x.Key == "Co-op" && x.Value == 1);
+        Assert.DoesNotContain(facets.Collections, x => x.Key == "Secret");
+        Assert.False(new GameHomeFilter { Collection = "Racing" }.IsEmpty);
+    }
+
+    [Fact]
+    public void Apply_collection_matches_core_case_insensitively_and_keeps_punctuation()
+    {
+        var titles = new[] { Title("Alpha") with { Collections = new[] { "Città & Co-op" } }, Title("Bravo") with { Collections = new[] { "Città Co-op" } } };
+        var actual = GameLibraryHome.Apply(titles, new GameHomeFilter { Collection = " città & co-OP " }, null, NoGenres, Now);
+        Assert.Equal("Alpha", Assert.Single(actual).Name);
+    }
+
+    [Fact]
     public void Apply_combines_filters_with_and()
     {
         var titles = new[]

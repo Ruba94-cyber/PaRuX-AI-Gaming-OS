@@ -64,6 +64,8 @@ internal static class GameUi
     /// <summary>Drops the remembered brushes (an element's theme changed, so the same key may now resolve differently).</summary>
     internal static void ResetBrushCache() => BrushCache.Clear();
 
+    internal static bool IsHighContrast(FrameworkElement owner) => ActiveTheme(owner) == "HighContrast";
+
     private static string ThemeName(FrameworkElement? owner) =>
         (owner?.ActualTheme ?? (Application.Current.RequestedTheme == ApplicationTheme.Light ? ElementTheme.Light : ElementTheme.Dark))
         == ElementTheme.Light ? "Light" : "Dark";
@@ -780,7 +782,7 @@ internal sealed class GameTileGrid : StackPanel, IGameTileSurface
     {
         label = new TextBlock { FontSize = _console ? 20 : 14, VerticalAlignment = VerticalAlignment.Center };
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
-        content.Children.Add(new FontIcon { Glyph = "", FontSize = _console ? 20 : 14 });
+        content.Children.Add(new FontIcon { Glyph = "\uE768", FontSize = _console ? 20 : 14 });
         content.Children.Add(label);
         var play = new Button
         {
@@ -840,8 +842,10 @@ internal sealed class GameTileGrid : StackPanel, IGameTileSurface
         var cover = new Grid { Width = width, Height = height };
         surface = new Border
         {
-            CornerRadius = new CornerRadius(8),
-            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush")
+            CornerRadius = new CornerRadius(10),
+            Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush"),
+            BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush"),
+            BorderThickness = new Thickness(1)
         };
         cover.Children.Add(surface);
         initials = new TextBlock
@@ -905,6 +909,7 @@ internal sealed class GameTileGrid : StackPanel, IGameTileSurface
     private void RepaintTile(TileParts parts)
     {
         if (parts.Cover is null) parts.Surface.Background = GameUi.ThemeBrush(this, "PaRuXSurfaceRaisedBrush");
+        parts.Surface.BorderBrush = GameUi.ThemeBrush(this, "PaRuXStrokeBrush");
         parts.Initials.Foreground = GameUi.ThemeBrush(this, "PaRuXBrandTextBrush");
         foreach (Border pill in new[] { parts.FavoritePill, parts.HiddenPill })
         {

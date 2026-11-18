@@ -17,7 +17,7 @@ internal static class SyntheticGameLibrary
     internal static string NameOf(int n) => "Synthetic Game " + n.ToString("D4");
 
     /// <summary>Creates a new isolated data root (settings included) holding <paramref name="count"/> synthetic games and returns it.</summary>
-    internal static string CreateRoot(int count)
+    internal static string CreateRoot(int count, bool includeCollections = false, bool manyCollections = false)
     {
         string isolatedRoot = Path.Combine(Repository.Root, ".ai", "artifacts", "ui-data");
         string root = Path.Combine(isolatedRoot, Guid.NewGuid().ToString("N")[..16]);
@@ -28,11 +28,11 @@ internal static class SyntheticGameLibrary
             ["StudioModeEnabled"] = false,
             ["BubbleMode"] = "Disabled"
         }));
-        Write(root, count);
+        Write(root, count, includeCollections, manyCollections);
         return root;
     }
 
-    internal static void Write(string root, int count)
+    internal static void Write(string root, int count, bool includeCollections = false, bool manyCollections = false)
     {
         string server = Path.Combine(root, "server");
         string covers = Path.Combine(root, "game-covers");
@@ -60,7 +60,9 @@ internal static class SyntheticGameLibrary
             state[key] = new
             {
                 Favorite = i % 7 == 0, Hidden = false, AddedUtc = epoch.AddMinutes(i),
-                Tags = Array.Empty<string>(), Collections = Array.Empty<string>(),
+                Tags = Array.Empty<string>(), Collections = includeCollections
+                    ? new[] { i < 2 ? "Racing" : manyCollections ? "Zeta" + (i - 2).ToString("D2") : "Other" }
+                    : Array.Empty<string>(),
                 PlaySeconds = played ? 600 + i : 0,
                 LastPlayedUtc = played ? epoch.AddMinutes(i * 3) : (DateTime?)null,
                 DefaultInstallationId = (string?)null,

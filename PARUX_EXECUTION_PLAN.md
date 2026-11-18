@@ -1,3 +1,13 @@
+## 2026-11-19 — Gaming library layout and collection navigation
+
+The Games library gives the most recently played title the first position. Its hero uses the existing cached cover as both a portrait and a restrained backdrop. The heading and actions adapt to the available width, and narrow screens keep filters in a collapsed panel. The artwork treatment uses the existing PaRuX theme and the same decoded image. Grid tiles retain the existing virtualized surface, artwork cache and launch workflow.
+
+The filter panel shows up to eight direct collection shortcuts with counts from the visible catalog. A complete picker covers larger sets. Both use the existing title query and collection data, with case-insensitive matching and distinct automation IDs for names with spaces and punctuation. Layout transitions and query updates restore a useful focus target.
+
+App and Core Release x64 builds passed. Server regression passed 223 of 223. The published desktop candidate passed 16 of 16 focused FlaUI tests, including collection browsing and keyboard navigation and virtualization with 2,000 synthetic titles. Visual checks across display scaling and physical controller/TV acceptance remain open. Evidence is under `.ai/artifacts/gaming-library-20261119/`.
+
+The next comparison should measure library startup, cover and action reachability with keyboard and controller, and switching saved views from the TV interface. Playnite provides an Explorer panel and fullscreen filter presets. Hydra provides themes, achievements, playtime and cloud saves. For PaRuX, complete compact and 10-foot navigation first, then test owned-store install and repair and conflict-safe save recovery. Comparative rank remains unmeasured. [Playnite filters and presets](https://api.playnite.link/docs/manual/features/filtersAndFiltersPresets.html) · [Hydra features](https://hydralauncher.gg/)
+
 ## 2026-11-18 — UAI-04 workbook review in Chat
 
 PaRuX Chat can propose literal cell changes to an existing local XLSX in the configured documents folder. The desktop owner sees the old and proposed values and chooses whether to discard or save. Core publishes the reviewed bytes as a new file with an atomic move, preserves the original and refuses stale source bytes or a changed destination. The proposal stays in memory and expires after 30 minutes. The workbook edit tool preserves existing formulas and limits new edits to cell values.

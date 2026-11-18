@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using PaRuX.Contracts;
 
 namespace PaRuX.Views;
@@ -25,12 +26,14 @@ internal sealed class GameSideFilterPanel : StackPanel
     private readonly List<ToggleButton> _buttons = new();
     private bool _console;
     private bool _updating;
+    private const int QuickCollectionLimit = 8;
 
     internal event Action<string>? StoreChosen;          // "" = all stores
     internal event Action<string>? InstalledChosen;      // "", "installed", "notinstalled"
     internal event Action<bool>? FavoritesChosen;
     internal event Action<bool>? RecentChosen;
     internal event Action<string>? GenreChosen;          // "" = all genres
+    internal event Action<string>? CollectionChosen;
     /// <summary>Raised once after the choice events of one click, so the host reloads exactly once.</summary>
     internal event Action? Applied;
 
@@ -51,11 +54,18 @@ internal sealed class GameSideFilterPanel : StackPanel
     {
         _console = enabled;
         foreach (ToggleButton b in _buttons) { b.FontSize = enabled ? 20 : 14; b.MinHeight = enabled ? 56 : 44; }
+        foreach (ComboBox picker in _entries.Children.OfType<ComboBox>())
+        {
+            picker.FontSize = enabled ? 20 : 14;
+            picker.MinHeight = enabled ? 56 : 44;
+        }
     }
 
     /// <summary>Rebuilds the entries from the facets. Called after every successful load; selection is shown from <paramref name="filter"/>.</summary>
     internal void Update(GameHomeFacets facets, GameHomeFilter filter)
     {
+        string? focusedId = XamlRoot is { } root && FocusManager.GetFocusedElement(root) is DependencyObject focused && Contains(this, focused)
+            ? AutomationProperties.GetAutomationId(focused) : null;
         _updating = true;
         try
         {
@@ -65,6 +75,30 @@ internal sealed class GameSideFilterPanel : StackPanel
             Entry("GameSide_All", T("All games", "Tutti i giochi"), facets.Total, filter.IsEmpty, on => { ClearAll(); });
             Entry("GameSide_Favorites", "★ " + T("Favorites", "Preferiti"), facets.Favorites, filter.FavoritesOnly, on => FavoritesChosen?.Invoke(on));
             Entry("GameSide_Recent", T("Recently played", "Giocati di recente"), facets.RecentlyPlayed, filter.RecentlyPlayedOnly, on => RecentChosen?.Invoke(on));
+            if (facets.Collections.Count > 0)
+            {
+                Section(T("Collections", "Collezioni"));
+                foreach (var collection in facets.Collections.Take(QuickCollectionLimit))
+                {
+                    string name = collection.Key;
+                    Entry("GameSide_Collection_" + CollectionId(name), name, collection.Value,
+                        string.Equals(filter.Collection, name, StringComparison.OrdinalIgnoreCase), on => CollectionChosen?.Invoke(on ? name : ""));
+                }
+                if (facets.Collections.Count > QuickCollectionLimit)
+                {
+                    var picker = new ComboBox { Header = T("All collections", "Tutte le collezioni"), HorizontalAlignment = HorizontalAlignment.Stretch,
+                        ItemsSource = facets.Collections.Select(c => new CollectionChoice(c.Key, c.Value)).ToList(), DisplayMemberPath = nameof(CollectionChoice.Label) };
+                    AutomationProperties.SetAutomationId(picker, "GameSide_AllCollections");
+                    picker.SelectedItem = ((IEnumerable<CollectionChoice>)picker.ItemsSource).FirstOrDefault(c => string.Equals(c.Name, filter.Collection, StringComparison.OrdinalIgnoreCase));
+                    picker.SelectionChanged += (_, _) =>
+                    {
+                        if (_updating || picker.SelectedItem is not CollectionChoice choice) return;
+                        CollectionChosen?.Invoke(choice.Name);
+                        Applied?.Invoke();
+                    };
+                    _entries.Children.Add(picker);
+                }
+            }
             Section(T("Install state", "Stato installazione"));
             Entry("GameSide_Installed", T("Installed", "Installati"), facets.Installed, filter.Installed == true, on => InstalledChosen?.Invoke(on ? "installed" : ""));
             Entry("GameSide_NotInstalled", T("Not installed", "Non installati"), facets.NotInstalled, filter.Installed == false, on => InstalledChosen?.Invoke(on ? "notinstalled" : ""));
@@ -91,6 +125,30 @@ internal sealed class GameSideFilterPanel : StackPanel
         }
         finally { _updating = false; }
         SetConsole(_console);
+        if (!string.IsNullOrEmpty(focusedId))
+            foreach (var child in _entries.Children.OfType<Control>())
+                if (AutomationProperties.GetAutomationId(child) == focusedId) { child.Focus(FocusState.Programmatic); break; }
+    }
+
+    private sealed record CollectionChoice(string Name, int Count)
+    {
+        public string Label => $"{Name}  ({Count})";
+    }
+
+    internal static bool Contains(DependencyObject container, DependencyObject node)
+    {
+        for (DependencyObject? current = node; current is not null; current = VisualTreeHelper.GetParent(current))
+            if (ReferenceEquals(current, container)) return true;
+        return false;
+    }
+
+    internal void FocusFirst() => _buttons.FirstOrDefault()?.Focus(FocusState.Programmatic);
+
+    internal static string CollectionId(string name)
+    {
+        string clean = IdPart(name);
+        if (clean == name) return clean;
+        return clean + "_" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(name));
     }
 
     private void ClearAll()
@@ -100,6 +158,7 @@ internal sealed class GameSideFilterPanel : StackPanel
         FavoritesChosen?.Invoke(false);
         RecentChosen?.Invoke(false);
         GenreChosen?.Invoke("");
+        CollectionChosen?.Invoke("");
     }
 
     /// <summary>Genre ids are letters and digits only so they stay stable and valid whatever the catalogue returns.</summary>

@@ -7,11 +7,12 @@ public sealed record GameHomeFilter
     public string Source { get; init; } = string.Empty;
     /// <summary>Empty (all) or a genre label (case-insensitive).</summary>
     public string Genre { get; init; } = string.Empty;
+    public string Collection { get; init; } = string.Empty;
     /// <summary>True: installed only. False: not installed only. Null: both.</summary>
     public bool? Installed { get; init; }
     public bool FavoritesOnly { get; init; }
     public bool RecentlyPlayedOnly { get; init; }
-    public bool IsEmpty => Source.Length == 0 && Genre.Length == 0 && Installed is null && !FavoritesOnly && !RecentlyPlayedOnly;
+    public bool IsEmpty => Source.Length == 0 && Genre.Length == 0 && Collection.Length == 0 && Installed is null && !FavoritesOnly && !RecentlyPlayedOnly;
 }
 
 /// <summary>Counts shown next to each side-filter entry. Counted over the visible (non-hidden) library, ignoring the filter itself.</summary>
@@ -22,7 +23,10 @@ public sealed record GameHomeFacets(
     int Installed,
     int NotInstalled,
     int Favorites,
-    int RecentlyPlayed);
+    int RecentlyPlayed)
+{
+    public IReadOnlyList<KeyValuePair<string, int>> Collections { get; init; } = Array.Empty<KeyValuePair<string, int>>();
+}
 
 /// <summary>
 /// Pure rules of the Playnite / Hydra style home: which title the hero shows, the side-filter facets and counts,
@@ -74,9 +78,14 @@ public static class GameLibraryHome
                 genreCounts[g] = genreCounts.GetValueOrDefault(g) + 1;
         var genres = genreCounts.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.CurrentCultureIgnoreCase)
             .Take(MaxGenres).Select(p => new KeyValuePair<string, int>(p.Key, p.Value)).ToList();
+        var collectionCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (GameTitleDto t in visible)
+            foreach (string name in t.Collections.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+                collectionCounts[name] = collectionCounts.GetValueOrDefault(name) + 1;
         int installed = visible.Count(IsInstalled);
         return new GameHomeFacets(visible.Count, stores, genres, installed, visible.Count - installed,
-            visible.Count(t => t.Favorite), visible.Count(t => IsRecent(t, nowUtc)));
+            visible.Count(t => t.Favorite), visible.Count(t => IsRecent(t, nowUtc)))
+        { Collections = collectionCounts.OrderBy(p => p.Key, StringComparer.CurrentCultureIgnoreCase).ToList() };
     }
 
     public static IReadOnlyList<GameTitleDto> Apply(IEnumerable<GameTitleDto> titles, GameHomeFilter filter, string? sort,
@@ -86,6 +95,8 @@ public static class GameLibraryHome
         if (filter.Source.Length > 0) q = q.Where(t => t.Installations.Any(i => i.Source == filter.Source));
         if (filter.Genre.Length > 0)
             q = q.Where(t => genresOf(t.TitleKey).Any(g => string.Equals(g.Trim(), filter.Genre, StringComparison.CurrentCultureIgnoreCase)));
+        if (!string.IsNullOrWhiteSpace(filter.Collection))
+            q = q.Where(t => t.Collections.Any(c => string.Equals(c, filter.Collection.Trim(), StringComparison.OrdinalIgnoreCase)));
         if (filter.Installed is { } installed) q = q.Where(t => IsInstalled(t) == installed);
         if (filter.FavoritesOnly) q = q.Where(t => t.Favorite);
         if (filter.RecentlyPlayedOnly) q = q.Where(t => IsRecent(t, nowUtc));
