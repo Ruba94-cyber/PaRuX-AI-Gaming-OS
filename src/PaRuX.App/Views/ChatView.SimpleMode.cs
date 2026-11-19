@@ -347,6 +347,8 @@ namespace PaRuX.Views
             if (SimpleModeAnsweringModelLabel != null)
             {
                 string badge = ApplyManualChoiceToBadge(info.BadgeText);
+                // The composer footer badge is built in English by the formatter; keep the screen in one language.
+                badge = T(badge, badge.Replace("Model: ", "Modello: ", StringComparison.Ordinal).Replace("(Manual)", "(Manuale)", StringComparison.Ordinal));
                 SimpleModeAnsweringModelLabel.Text = badge;
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeAnsweringModelLabel,
                     string.Equals(badge, info.BadgeText, StringComparison.Ordinal) ? info.AccessibleName : T("Answering model: ", "Modello che risponde: ") + badge);

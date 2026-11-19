@@ -140,9 +140,10 @@ namespace PaRuX.Views
                 _selectedSettingsCategory = categories.FirstOrDefault() ?? "General";
             foreach (string category in categories)
             {
+                // Long names (Italian "Generazione multimediale", "Gaming e condivisione IA") wrap instead of being cut off.
                 var button = new Button
                 {
-                    Content = CategoryLabel(category),
+                    Content = new TextBlock { Text = CategoryLabel(category), TextWrapping = TextWrapping.Wrap },
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Left,
                     Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0)),
@@ -152,6 +153,7 @@ namespace PaRuX.Views
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(
                     button,
                     "Settings_Category_" + string.Concat(category.Where(char.IsLetterOrDigit)) + "_Button");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, CategoryLabel(category));
                 string capturedCategory = category;
                 button.Click += (s, e) => SelectSettingsCategory(capturedCategory);
                 _categoryButtons[category] = button;

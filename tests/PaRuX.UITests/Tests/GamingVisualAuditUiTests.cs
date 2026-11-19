@@ -176,4 +176,26 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_ai_workspaces_in_italian()
+    {
+        const string name = nameof(Capture_ai_workspaces_in_italian);
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name, uiLanguage: "it");
+        try
+        {
+            app.ResizeMainWindow(1280, 800);
+            foreach (string id in AiWorkspaces)
+            {
+                var item = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+                if (item == null) continue;
+                var selection = item.Patterns.SelectionItem.PatternOrDefault;
+                if (selection != null) selection.Select(); else item.Patterns.Invoke.PatternOrDefault?.Invoke();
+                Thread.Sleep(1500);
+                app.CaptureSnapshot("it-" + id.Replace("Navigation_", "").Replace("_Item", ""));
+            }
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }
