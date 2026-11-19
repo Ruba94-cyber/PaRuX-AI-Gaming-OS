@@ -65,7 +65,28 @@ public sealed record GameTitleDto(
     // and a 0-10 score (0 = unrated). Older payloads omit both.
     public string Status { get; init; } = string.Empty;
     public int Score { get; init; }
+
+    // Optional additive property: the owner's private notes for this title (older payloads omit it).
+    public string Notes { get; init; } = string.Empty;
 }
+
+/// <summary>The owner's private note for a title: plain text, at most <see cref="MaxLength"/> characters.</summary>
+public static class GameTitleNotes
+{
+    public const int MaxLength = 4000;
+
+    /// <summary>Normalized note, or null when it is too long or holds control characters other than line breaks and tabs.</summary>
+    public static string? Clean(string? notes)
+    {
+        string text = (notes ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+        if (text.Length > MaxLength) return null;
+        foreach (char c in text)
+            if (char.IsControl(c) && c is not '\n' and not '\t') return null;
+        return text;
+    }
+}
+
+public sealed record SetGameNotesRequest(string Notes);
 
 /// <summary>Allowlisted personal progress labels (Playnite-style completion status). Empty means not set.</summary>
 public static class GameCompletionStatuses
@@ -162,6 +183,8 @@ public sealed class GameTitleState
     public string Status { get; set; } = string.Empty;
     /// <summary>0 = unrated, 1-10. Absent in older files.</summary>
     public int Score { get; set; }
+    /// <summary>The owner's private notes. Absent in older files.</summary>
+    public string Notes { get; set; } = string.Empty;
 }
 
 public sealed record SetGameTagsRequest(List<string> Tags);

@@ -30,7 +30,7 @@ public static class EmulatorRegistry
 {
     private static readonly string[] None = Array.Empty<string>();
 
-    public static readonly IReadOnlyList<EmulatorDefinition> Builtin = new EmulatorDefinition[]
+    private static readonly EmulatorDefinition[] HandTuned = new EmulatorDefinition[]
     {
         new("eden", "Eden", "Nintendo Switch", new[] { "eden.exe" },
             new[] { ".nsp", ".xci", ".nro", ".nso", ".nca" }, None,
@@ -72,6 +72,14 @@ public static class EmulatorRegistry
             new[] { "-nowindow" }, false,
             WindowedArguments: new[] { "-window" }),
     };
+
+    /// <summary>
+    /// Everything PaRuX can start: the hand-tuned definitions below (their templates carry the documented display-mode switches)
+    /// followed by definitions generated from Playnite's MIT-licensed emulator list (<see cref="PlayniteEmulatorDefinitions"/>).
+    /// A generated definition never replaces a hand-tuned one with the same id.
+    /// </summary>
+    public static readonly IReadOnlyList<EmulatorDefinition> Builtin =
+        HandTuned.Concat(PlayniteEmulatorDefinitions.All.Where(g => HandTuned.All(h => !string.Equals(h.Id, g.Id, StringComparison.OrdinalIgnoreCase)))).ToArray();
 
     public static EmulatorDefinition? Find(string? id) =>
         Builtin.FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));

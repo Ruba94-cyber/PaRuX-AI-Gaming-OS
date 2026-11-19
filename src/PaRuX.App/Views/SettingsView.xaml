@@ -1581,6 +1581,10 @@
                             <Button Grid.Column="2" Content="Import backup…" loc:Loc.ItContent="Importa il backup…" Click="ImportBackup_Click" />
                         </Grid>
 
+                        <Button Content="Export all chats as readable files…" loc:Loc.ItContent="Esporta tutte le chat come file leggibili…"
+                                AutomationProperties.AutomationId="Settings_ExportAllChats_Button"
+                                Click="ExportAllChats_Click" HorizontalAlignment="Left"
+                                ToolTipService.ToolTip="Writes every saved chat as its own Markdown (.md) file into a folder you choose. Nothing is uploaded; incognito chats are never saved, so they are not included." loc:Loc.ItToolTip="Scrive ogni chat salvata come file Markdown (.md) in una cartella a tua scelta. Nulla viene caricato; le chat in incognito non vengono mai salvate, quindi non sono incluse." />
                         <TextBlock x:Name="BackupStatus" TextWrapping="Wrap" Style="{StaticResource PaRuXCaptionTextStyle}" />
                     </StackPanel>
                 </Border>

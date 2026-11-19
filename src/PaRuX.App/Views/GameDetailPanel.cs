@@ -428,6 +428,9 @@ internal sealed class GameDetailPanel : UserControl
                 return true;
             }));
 
+        // private notes
+        _body.Children.Add(BuildNotesEditor(title));
+
         // cover
         _body.Children.Add(BuildCoverControls(title));
 
@@ -614,6 +617,45 @@ internal sealed class GameDetailPanel : UserControl
         box.KeyDown += async (_, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                e.Handled = true;
+                await CommitAsync();
+            }
+        };
+        return box;
+    }
+
+    /// <summary>Free-text private notes (Playnite-style): saved when the box loses focus or with Ctrl+Enter; Enter alone adds a line.</summary>
+    private UIElement BuildNotesEditor(GameTitleDto title)
+    {
+        string key = title.TitleKey;
+        var box = new TextBox
+        {
+            Header = T("Notes", "Note"), Text = title.Notes ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+            MaxLength = GameTitleNotes.MaxLength, FontSize = Body, MinHeight = 96, MaxHeight = 240,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            PlaceholderText = T("Where you stopped, mods you use, tips...", "A che punto sei, mod che usi, consigli..."),
+        };
+        AutomationProperties.SetAutomationId(box, "GameDetail_Notes_" + key);
+        string saved = box.Text;
+        async Task CommitAsync()
+        {
+            if (box.Text == saved) return;
+            var result = await GamingOrchestratorClient.Current.SetTitleNotesAsync(key, box.Text ?? string.Empty);
+            if (!result.Succeeded)
+            {
+                StatusMessage?.Invoke(T("Notes were not saved: at most 4,000 characters of plain text.", "Note non salvate: al massimo 4.000 caratteri di testo semplice."));
+                return;
+            }
+            saved = box.Text ?? string.Empty;
+            Apply((_title ?? title) with { Notes = saved });
+        }
+        box.LostFocus += async (_, _) => await CommitAsync();
+        box.KeyDown += async (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter
+                && Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                    .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
             {
                 e.Handled = true;
                 await CommitAsync();

@@ -95,6 +95,7 @@ public sealed class GameTitleReadCache
                     Favorite = state.Favorite,
                     Status = state.Status ?? string.Empty,
                     Score = state.Score,
+                    Notes = state.Notes ?? string.Empty,
                     Hidden = state.Hidden,
                     AddedUtc = state.AddedUtc,
                     Tags = state.Tags?.ToArray() ?? Array.Empty<string>(),

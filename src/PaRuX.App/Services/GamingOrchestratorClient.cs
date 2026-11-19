@@ -240,6 +240,9 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> SetTitleTagsAsync(string key, List<string> tags, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/tags", new SetGameTagsRequest(tags), ct);
 
+        public Task<GamingCallResult<object>> SetTitleNotesAsync(string key, string notes, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/notes", new SetGameNotesRequest(notes), ct);
+
         public Task<GamingCallResult<object>> SetTitleDefaultInstallationAsync(string key, string? installationId, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/default-installation",
                 new SetDefaultInstallationRequest(installationId), ct);

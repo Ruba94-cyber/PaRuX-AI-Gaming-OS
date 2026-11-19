@@ -83,7 +83,13 @@ public static class EmulatorCommandBuilder
                     if (extra.Length > 0) { arguments.Add(extra); plain.Add(extra); }
                     break;
                 default:
-                    arguments.Add(Quote(token)); plain.Add(token);
+                    // Imported definitions can carry the game path inside one argument (--exec={rom}, -cdimage={rom}).
+                    string value = token.Contains("{rom", StringComparison.Ordinal)
+                        ? token.Replace("{rom}", full, StringComparison.Ordinal)
+                               .Replace("{romdir}", Path.GetDirectoryName(full) ?? string.Empty, StringComparison.Ordinal)
+                               .Replace("{romname}", Path.GetFileNameWithoutExtension(full), StringComparison.Ordinal)
+                        : token;
+                    arguments.Add(Quote(value)); plain.Add(value);
                     break;
             }
         }

@@ -51,6 +51,10 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ToggleButton _metadata = new();
     private bool _metadataRunning;
     private readonly Button _steamGridDb = new();
+    private readonly Button _pickRandom = new();
+    private readonly Button _insightsButton = new();
+    private readonly Button _exportLibrary = new();
+    private readonly Random _random = new();
     private readonly Button _igdb = new();
     private readonly Button _externalPreview = new();
     private readonly Button _externalSaved = new();
@@ -239,6 +243,96 @@ internal sealed class GamingHomeView : StackPanel
 
     private void AddToolbar(FrameworkElement element) => _toolbar.Children.Add(element);
 
+    private async Task PickRandomAsync()
+    {
+        GameTitleDto? pick = GameRandomPicker.Pick(_titles, _random);
+        if (pick is null)
+        {
+            _status.Text = T("Nothing to pick from here: no game shown can start right now.",
+                "Niente da scegliere qui: nessuno dei giochi mostrati è avviabile ora.");
+            return;
+        }
+        _status.Text = T($"How about {pick.Name}? Its card is open; press Play when you are ready.",
+            $"Che ne dici di {pick.Name}? La sua scheda è aperta; premi Gioca quando vuoi.");
+        await OpenAsync(pick);
+    }
+
+    private async Task<List<GameTitleDto>?> QueryWholeLibraryAsync(bool includeHidden)
+    {
+        var result = await GamingLibraryClient.Current.QueryTitlesAsync(
+            new GameTitleListQuery { Sort = GameTitleSorts.Name, Hidden = includeHidden ? "include" : null });
+        return result.Succeeded ? result.Value : null;
+    }
+
+    private async Task ShowInsightsAsync()
+    {
+        List<GameTitleDto>? all = await QueryWholeLibraryAsync(includeHidden: false);
+        if (all is null) { _status.Text = T("The library could not be read.", "Impossibile leggere la libreria."); return; }
+        GameLibraryInsights i = GameLibraryInsightsPolicy.Compute(all);
+        var panel = new StackPanel { Spacing = 6, MinWidth = 320 };
+        TextBlock Line(string text, bool bold = false) => new() { Text = text, TextWrapping = TextWrapping.Wrap, FontWeight = bold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal };
+        panel.Children.Add(Line(T($"{i.Titles} games · {i.Played} played · {i.NeverPlayed} never played", $"{i.Titles} giochi · {i.Played} giocati · {i.NeverPlayed} mai giocati")));
+        panel.Children.Add(Line(T($"{i.TotalPlaySeconds / 3600d:0.#} hours played in total · {i.Favorites} favourites",
+            $"{i.TotalPlaySeconds / 3600d:0.#} ore giocate in totale · {i.Favorites} preferiti")));
+        if (i.RatedTitles > 0)
+            panel.Children.Add(Line(T($"Average rating {i.AverageScore:0.#}/10 over {i.RatedTitles} rated games", $"Voto medio {i.AverageScore:0.#}/10 su {i.RatedTitles} giochi votati")));
+        if (i.LastPlayedName is not null && i.LastPlayedUtc is { } last)
+            panel.Children.Add(Line(T($"Last played: {i.LastPlayedName} ({last.ToLocalTime():d})", $"Ultimo giocato: {i.LastPlayedName} ({last.ToLocalTime():d})")));
+        if (i.MostPlayed.Count > 0)
+        {
+            panel.Children.Add(Line(T("Most played", "Più giocati"), bold: true));
+            foreach (GameInsightEntry e in i.MostPlayed)
+                panel.Children.Add(Line($"{e.Name} · {e.PlaySeconds / 3600d:0.#} h"));
+        }
+        panel.Children.Add(Line(T("By status", "Per stato"), bold: true));
+        foreach (string status in GameCompletionStatuses.All.Append(string.Empty))
+            if (i.ByStatus.TryGetValue(status, out int count))
+                panel.Children.Add(Line($"{StatusName(status)} · {count}"));
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = T("Library insights", "Statistiche libreria"),
+            Content = new ScrollViewer { Content = panel, MaxHeight = 520 },
+            CloseButtonText = T("Close", "Chiudi"),
+        };
+        AutomationProperties.SetAutomationId(dialog, "GameHome_Insights_Dialog");
+        await dialog.ShowAsync();
+    }
+
+    private static string StatusName(string status) => status switch
+    {
+        GameCompletionStatuses.Backlog => T("Backlog", "Da giocare"),
+        GameCompletionStatuses.Playing => T("Playing", "In corso"),
+        GameCompletionStatuses.Completed => T("Completed", "Completato"),
+        GameCompletionStatuses.OnHold => T("On hold", "In pausa"),
+        GameCompletionStatuses.Dropped => T("Dropped", "Abbandonato"),
+        _ => T("No status", "Nessuno stato"),
+    };
+
+    private async Task ExportLibraryAsync()
+    {
+        try
+        {
+            List<GameTitleDto>? all = await QueryWholeLibraryAsync(includeHidden: true);
+            if (all is null) { _status.Text = T("The library could not be read.", "Impossibile leggere la libreria."); return; }
+            var picker = new Windows.Storage.Pickers.FileSavePicker { SuggestedFileName = "PaRuX game library", SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary };
+            picker.FileTypeChoices.Add("CSV", new List<string> { ".csv" });
+            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+            Windows.Storage.StorageFile? file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            bool json = string.Equals(System.IO.Path.GetExtension(file.Path), ".json", StringComparison.OrdinalIgnoreCase);
+            string content = json ? GameLibraryExport.ToJson(all, DateTime.UtcNow) : GameLibraryExport.ToCsv(all);
+            await System.IO.File.WriteAllTextAsync(file.Path, content, new System.Text.UTF8Encoding(!json));
+            _status.Text = T($"Exported {all.Count} games to {file.Name}. File paths are not included.", $"Esportati {all.Count} giochi in {file.Name}. I percorsi dei file non sono inclusi.");
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Library export failed: " + ex.Message);
+            _status.Text = T("The export failed; nothing was written.", "Esportazione non riuscita; non è stato scritto nulla.");
+        }
+    }
+
     /// <summary>A vertical, scrollable menu holding the secondary library controls; they keep their AutomationIds.</summary>
     private static Flyout BuildToolbarFlyout(IEnumerable<FrameworkElement> controls)
     {
@@ -392,6 +486,20 @@ internal sealed class GamingHomeView : StackPanel
         _metadata.IsChecked = SettingsStore.Current.Data.GameMetadataEnabled;
         _metadata.Click += async (_, _) => await OnMetadataToggledAsync();
 
+        _pickRandom.Content = T("Pick for me", "Scegli per me");
+        Track(_pickRandom, "GameHome_PickRandom_Button",
+            T("Pick a game to play from the games shown now; backlog and unplayed titles are likelier",
+              "Scegli un gioco tra quelli mostrati ora; arretrati e mai giocati sono più probabili"));
+        _pickRandom.Click += async (_, _) => await PickRandomAsync();
+        _insightsButton.Content = T("Library insights", "Statistiche libreria");
+        Track(_insightsButton, "GameHome_Insights_Button",
+            T("Play time, most played, status and rating overview of your library", "Panoramica di tempo di gioco, più giocati, stati e voti della libreria"));
+        _insightsButton.Click += async (_, _) => await ShowInsightsAsync();
+        _exportLibrary.Content = T("Export library...", "Esporta libreria...");
+        Track(_exportLibrary, "GameHome_ExportLibrary_Button",
+            T("Save your library as a CSV or JSON file: names, status, rating, play time, tags (no file paths)",
+              "Salva la libreria come file CSV o JSON: nomi, stato, voto, tempo di gioco, tag (nessun percorso di file)"));
+        _exportLibrary.Click += async (_, _) => await ExportLibraryAsync();
         _steamGridDb.Content = T("SteamGridDB key...", "Chiave SteamGridDB...");
         Track(_steamGridDb, "GameHome_SteamGridDb_Button",
             T("Set the optional SteamGridDB API key for better covers", "Imposta la chiave API SteamGridDB facoltativa per copertine migliori"));
@@ -448,7 +556,7 @@ internal sealed class GamingHomeView : StackPanel
         Track(libraryTools, "GameHome_LibraryTools_Button", T("Library tools: covers, imports, game guide, wishlist, multi-select",
             "Strumenti libreria: copertine, importazione, guida giochi, lista desideri, selezione multipla"));
         libraryTools.Flyout = BuildToolbarFlyout(new FrameworkElement[]
-            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode });
+            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _insightsButton, _exportLibrary });
         // Grouping and cover size are set-and-forget: one "View" menu instead of two always-visible drop-downs.
         var viewMenu = new Button { Content = T("View", "Vista") + "  ▾" };
         Track(viewMenu, "GameHome_View_Button", T("View options: group games, cover size", "Opzioni di vista: raggruppa i giochi, dimensione copertine"));
@@ -457,7 +565,7 @@ internal sealed class GamingHomeView : StackPanel
         VariableSizedWrapGrid.SetColumnSpan(_sort, 2);
         VariableSizedWrapGrid.SetColumnSpan(_source, 2);
         foreach (FrameworkElement element in new FrameworkElement[]
-                 { _search, _sort, _source, _favoritesOnly, _layout, viewMenu, moreFilters, libraryTools, _refresh })
+                 { _search, _sort, _source, _favoritesOnly, _layout, viewMenu, moreFilters, libraryTools, _pickRandom, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -1859,13 +1967,18 @@ internal sealed class GamingHomeView : StackPanel
     {
         _health = GameLibraryHealthPolicy.Summarize(cachedTitles);
         GameLibraryHealthSummary health = _health;
-        _healthSummary.Text = T(
-            $"Library overview · {health.VisibleTitles} visible · {health.LaunchCandidates} launch candidates · " +
-            $"{health.ExplicitlyInstalledTitles} reported installed · {health.MetadataOnlyTitles} metadata-only · " +
-            $"{health.Favorites} favorites · {health.TotalPlaySeconds / 3600d:0.#} h played",
-            $"Panoramica libreria · {health.VisibleTitles} visibili · {health.LaunchCandidates} possibili avvii · " +
-            $"{health.ExplicitlyInstalledTitles} segnalati installati · {health.MetadataOnlyTitles} solo metadati · " +
-            $"{health.Favorites} preferiti · {health.TotalPlaySeconds / 3600d:0.#} h giocate");
+        // Everything startable: one short line. The technical breakdown only appears when something needs the owner's attention.
+        bool allReady = health.VisibleTitles > 0 && health.LaunchCandidates == health.VisibleTitles && health.MetadataOnlyTitles == 0;
+        _healthSummary.Text = allReady
+            ? T($"{health.VisibleTitles} games · all ready to play · {health.Favorites} favorites · {health.TotalPlaySeconds / 3600d:0.#} h played",
+                $"{health.VisibleTitles} giochi · tutti pronti da giocare · {health.Favorites} preferiti · {health.TotalPlaySeconds / 3600d:0.#} h giocate")
+            : T(
+                $"Library overview · {health.VisibleTitles} visible · {health.LaunchCandidates} launch candidates · " +
+                $"{health.ExplicitlyInstalledTitles} reported installed · {health.MetadataOnlyTitles} metadata-only · " +
+                $"{health.Favorites} favorites · {health.TotalPlaySeconds / 3600d:0.#} h played",
+                $"Panoramica libreria · {health.VisibleTitles} visibili · {health.LaunchCandidates} possibili avvii · " +
+                $"{health.ExplicitlyInstalledTitles} segnalati installati · {health.MetadataOnlyTitles} solo metadati · " +
+                $"{health.Favorites} preferiti · {health.TotalPlaySeconds / 3600d:0.#} h giocate");
         _healthSummary.Visibility = Visibility.Visible;
         _healthAttention.Content = _attentionOnly
             ? T("Show all titles", "Mostra tutti i titoli")

@@ -33,7 +33,7 @@ public sealed class EmulatorManagerTests : IDisposable
         {
             Assert.Equal("unverified", d.TemplateStatus); // nothing here has been checked against an installed version
             Assert.NotEmpty(d.ExecutableNames);
-            Assert.True(d.Template.Any(t => t is "{rom}" or "{romname}"), d.Id);
+            Assert.True(d.Template.Any(t => t.Contains("{rom}", StringComparison.Ordinal) || t.Contains("{romname}", StringComparison.Ordinal)), d.Id);
             Assert.All(d.ExecutableNames, n => Assert.EndsWith(".exe", n, StringComparison.OrdinalIgnoreCase));
             Assert.All(d.GameExtensions, e => Assert.StartsWith(".", e));
         }

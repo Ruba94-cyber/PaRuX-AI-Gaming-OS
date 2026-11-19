@@ -79,6 +79,7 @@ public static class GameTitleCatalog
                     AddedUtc = s?.AddedUtc,
                     Status = s?.Status ?? string.Empty,
                     Score = s?.Score ?? 0,
+                    Notes = s?.Notes ?? string.Empty,
                 });
         }
         return titles.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(t => t.TitleKey, StringComparer.Ordinal).ToArray();

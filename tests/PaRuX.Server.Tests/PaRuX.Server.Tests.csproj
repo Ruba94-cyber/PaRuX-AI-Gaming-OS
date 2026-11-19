@@ -32,6 +32,9 @@
     <Compile Include="..\..\src\PaRuX.App\Services\ChatDocumentScopeState.cs" Link="Linked\ChatDocumentScopeState.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\HistoryBackupSafety.cs" Link="Linked\HistoryBackupSafety.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\UiLanguage.cs" Link="Linked\UiLanguage.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\PromptLibrary.cs" Link="Linked\PromptLibrary.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\ConversationMarkdown.cs" Link="Linked\ConversationMarkdown.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\CommandPaletteFilter.cs" Link="Linked\CommandPaletteFilter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\UiText.cs" Link="Linked\UiText.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -29,6 +29,7 @@ The GitHub MSI includes the self-contained WinUI desktop application, self-conta
 | System.Security.Cryptography.ProtectedData | MIT | Server | Windows DPAPI protection of local secrets |
 | Microsoft.ML.Tokenizers | MIT | Server | Tokenization for local embedding/retrieval pipeline |
 | Parquet.Net | MIT | Server | Dataset Hub Parquet reading/writing |
+| LiteDB | MIT | Server | Reads a private copy of a Playnite library as untyped BSON (Playnite importer) |
 | SharpCompress | MIT | Server | Safe extraction support for managed runtime archives; retain any notices present in the upstream package/distribution |
 | MonoTorrent | MIT | Server | Version 3.0.2. In-process BitTorrent transfer backend for individually authorized magnet and local `.torrent` inputs; no separate qBittorrent process required. Retain the upstream MIT license/copyright notices in redistributions; package dependency closure and Windows release build remain to be verified. |
 | llama.cpp `convert_lora_to_gguf.py` + conversion package | MIT (llama.cpp) | Server | Vendored adapter conversion scripts under `llama-cpp-conversion/`; exact upstream text is in `llama-cpp-conversion/LICENSE-llama.cpp` |
@@ -145,3 +146,11 @@ PaRuX never installs drivers. These are programs the user may install; PaRuX onl
 | Component | License | How PaRuX uses it |
 |---|---|---|
 | PdfPig 0.1.16 (NuGet id `PdfPig`, github.com/UglyToad/PdfPig) | Apache-2.0 | Read-only PDF text extraction with page numbers in `PaRuX.Server/Knowledge/StructuredDocumentExtractor.cs`; no code copied. The look-alike NuGet id `UglyToad.PdfPig` is NOT used. |
+
+## Playnite (emulator definitions) and LiteDB (library import)
+
+| Component | License | How PaRuX uses it |
+|---|---|---|
+| Playnite emulator definitions (`Emulation/Emulators/*/emulator.yaml`, `Platforms.yaml`; github.com/JosefNemec/Playnite) | MIT (Copyright (c) Josef Nemec) | `tools/generate-playnite-emulator-registry.py` converts the launch arguments, executable names, file extensions and platform names of about 90 emulators into `EmulatorRegistry.Playnite.cs`. Entries are marked `unverified`; hand-tuned PaRuX definitions take precedence. No Playnite code is copied. |
+| LiteDB 5.0.21 (NuGet id `LiteDB`, github.com/mbdavid/LiteDB) | MIT | Reads a private temporary COPY of a Playnite library as untyped BSON documents in the Playnite importer. Playnite's own files are never opened for writing. |
+| Playnite (the application) | MIT | Optional launcher front-end and migration source; PaRuX does not bundle or redistribute it. |

@@ -250,4 +250,86 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_settings_create_and_model_hub_pages()
+    {
+        const string name = nameof(Capture_settings_create_and_model_hub_pages);
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            void Nav(string id)
+            {
+                var item = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+                if (item == null) return;
+                var selection = item.Patterns.SelectionItem.PatternOrDefault;
+                if (selection != null) selection.Select(); else item.Patterns.Invoke.PatternOrDefault?.Invoke();
+                Thread.Sleep(1200);
+            }
+            void Pick(string id)
+            {
+                var el = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id));
+                if (el == null) return;
+                var sel = el.Patterns.SelectionItem.PatternOrDefault;
+                if (sel != null) sel.Select(); else el.Patterns.Invoke.PatternOrDefault?.Invoke();
+                Thread.Sleep(900);
+            }
+            app.ResizeMainWindow(1280, 800);
+            Nav("Navigation_Settings_Item");
+            foreach (string category in new[] { "Models", "ChatBehavior", "YourPCapps", "MediaGeneration", "Automation", "Agents", "Integrations", "GamingAISharing", "PaRuXPlatform", "PrivacyNetwork", "Data", "Advanced" })
+            {
+                Pick("Settings_Category_" + category + "_Button");
+                Snap(app, "settings-" + category);
+            }
+            Nav("Navigation_Create_Item");
+            foreach (string mode in new[] { "Video", "Music", "Edit", "3D", "Speech", "Workflows", "Gallery" })
+            {
+                Pick("Create_Mode_" + mode);
+                Snap(app, "create-" + mode);
+            }
+            Nav("Navigation_ModelHub_Item");
+            foreach (string tab in new[] { "ModelHub_Tab_Text", "ModelHub_Tab_Media", "ModelHub_Tab_Downloads" })
+            {
+                Pick(tab);
+                Snap(app, "modelhub-" + tab.Replace("ModelHub_Tab_", ""));
+            }
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_new_overlays_palette_prompts_and_insights()
+    {
+        const string name = nameof(Capture_new_overlays_palette_prompts_and_insights);
+        UiTestApplication.WaitForCorePortReleased();
+        string root = SyntheticGameLibrary.CreateRoot(24, includeCollections: true);
+        using var app = new UiTestApplication(name, restartDataRoot: root);
+        try
+        {
+            var page = new InstallProgressPage(app);
+            app.ResizeMainWindow(1280, 800);
+            // Ctrl+K palette
+            app.MainWindow.SetForeground();
+            FlaUI.Core.Input.Keyboard.TypeSimultaneously(FlaUI.Core.WindowsAPI.VirtualKeyShort.CONTROL, FlaUI.Core.WindowsAPI.VirtualKeyShort.KEY_K);
+            UiWait.ById(app.MainWindow, "CommandPalette_Search");
+            Thread.Sleep(700);
+            Snap(app, "overlay-palette");
+            FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+            Thread.Sleep(500);
+            // Prompts flyout
+            page.Invoke(UiWait.ById(app.MainWindow, "Chat_Prompts_Button"));
+            Thread.Sleep(700);
+            Snap(app, "overlay-prompts");
+            FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+            Thread.Sleep(500);
+            // Gaming insights
+            page.Invoke(UiWait.ById(app.MainWindow, "MainWindow_ModeTab_Gaming"));
+            page.Invoke(UiWait.ById(app.MainWindow, "GameHome_Insights_Button"));
+            UiWait.ById(app.MainWindow, "GameHome_Insights_Dialog");
+            Thread.Sleep(700);
+            Snap(app, "overlay-insights");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }

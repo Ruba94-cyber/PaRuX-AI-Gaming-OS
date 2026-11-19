@@ -1253,6 +1253,35 @@ namespace PaRuX.Views
             }
         }
 
+        private async void ExportAllChats_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+                picker.FileTypeFilter.Add("*");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+                Windows.Storage.StorageFolder folder = await picker.PickSingleFolderAsync();
+                if (folder == null) return;
+                ShowBackupStatus("Exporting chats…");
+                int written = await Task.Run(() =>
+                {
+                    var plan = ConversationMarkdown.PlanFileNames(HistoryStore.LoadAll());
+                    foreach (var (conversation, fileName) in plan)
+                    {
+                        // Messages are loaded per conversation; LoadAll returns the saved documents.
+                        File.WriteAllText(Path.Combine(folder.Path, fileName), ConversationMarkdown.ToMarkdown(conversation), new System.Text.UTF8Encoding(false));
+                    }
+                    return plan.Count;
+                });
+                ShowBackupStatus("Exported " + written + " chats to " + folder.Path);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("ExportAllChats failed: " + ex.Message);
+                ShowBackupStatus("Export failed: " + ex.Message);
+            }
+        }
+
         private async void ImportBackup_Click(object sender, RoutedEventArgs e)
         {
             try

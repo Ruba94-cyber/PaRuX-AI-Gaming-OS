@@ -65,6 +65,7 @@ namespace PaRuX
             InitializeComponent();
             InitializeAccessibilityKeyboardHandling();
             InitializeModeTabs();
+            InitializeCommandPalette();
             TrayIcon.LeftClickCommand = new ActionCommand(ExecuteNotificationOrOpenMainWindow);
             TrayIcon.DoubleClickCommand = new ActionCommand(ExecuteNotificationOrOpenMainWindow);
             // H.NotifyIcon turns a WinUI ContextFlyout into a native Win32 menu by
@@ -667,27 +668,9 @@ namespace PaRuX
             }
         }
 
-        private static string ToMarkdown(Conversation conversation)
-        {
-            var builder = new StringBuilder();
-            builder.AppendLine("# " + (conversation.Title ?? "PaRuX chat")).AppendLine();
-            foreach (ChatMessage message in conversation.Messages)
-            {
-                builder.AppendLine("## " + (message.Role == "user" ? "You" : "PaRuX"));
-                builder.AppendLine().AppendLine(message.Content ?? string.Empty).AppendLine();
-                foreach (ChatAttachment attachment in message.Attachments ?? new List<ChatAttachment>())
-                    builder.AppendLine("- Attachment: `" + attachment.FileName.Replace("`", "") + "`");
-                if (message.Attachments != null && message.Attachments.Count > 0) builder.AppendLine();
-            }
-            return builder.ToString();
-        }
+        private static string ToMarkdown(Conversation conversation) => ConversationMarkdown.ToMarkdown(conversation);
 
-        private static string SafeFileName(string value)
-        {
-            string name = string.IsNullOrWhiteSpace(value) ? "PaRuX chat" : value.Trim();
-            foreach (char invalid in Path.GetInvalidFileNameChars()) name = name.Replace(invalid, '_');
-            return name.Length > 80 ? name.Substring(0, 80) : name;
-        }
+        private static string SafeFileName(string value) => ConversationMarkdown.SafeFileName(value);
 
         private async Task RenameConversationAsync(Conversation conversation)
         {

@@ -79,6 +79,13 @@ public sealed class GameTitleStore
     public bool SetScore(string titleKey, int score) =>
         GameCompletionStatuses.IsValidScore(score) && Mutate(titleKey, s => s.Score = score);
 
+    /// <returns>False when the note is too long or holds control characters (nothing is changed).</returns>
+    public bool SetNotes(string titleKey, string? notes)
+    {
+        string? clean = GameTitleNotes.Clean(notes);
+        return clean is not null && Mutate(titleKey, s => s.Notes = clean);
+    }
+
     /// <summary>Trim, drop empties, de-duplicate case-insensitively; null when any item or the count is invalid.</summary>
     private static List<string>? CleanList(IEnumerable<string>? items, int maxLength, int maxCount)
     {
@@ -281,5 +288,6 @@ public sealed class GameTitleStore
         DefaultInstallationId = s.DefaultInstallationId,
         Status = s.Status ?? string.Empty,
         Score = s.Score,
+        Notes = s.Notes ?? string.Empty,
     };
 }

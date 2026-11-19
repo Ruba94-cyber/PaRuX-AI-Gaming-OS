@@ -24,6 +24,7 @@ DENY DELETE /api/v1/chat/model-routing/tuning
 DENY DELETE /api/v1/context/entities/{id}
 DENY DELETE /api/v1/context/relations/{id}
 DENY DELETE /api/v1/desktop/integrations/{id}
+DENY DELETE /api/v1/desktop/workbook-edits/{id}
 DENY DELETE /api/v1/gaming/controller-profile
 DENY DELETE /api/v1/gaming/discover/hidden/{store}/{id}
 DENY DELETE /api/v1/gaming/downloads/torrent-client
@@ -32,6 +33,7 @@ DENY DELETE /api/v1/gaming/installers/staged/{id}
 DENY DELETE /api/v1/gaming/library/imported/{provider}/{externalId}
 DENY DELETE /api/v1/gaming/library/{id}
 DENY DELETE /api/v1/gaming/profiles/{id}
+DENY DELETE /api/v1/gaming/titles/{key}/launch-profile
 DENY DELETE /api/v1/gaming/wishlist/{productId}
 DENY DELETE /api/v1/knowledge/sources/{id}
 DENY DELETE /api/v1/lifecycle/quantize
@@ -115,6 +117,7 @@ DENY GET /api/v1/datasets/search
 DENY GET /api/v1/desktop/documents/output
 DENY GET /api/v1/desktop/integrations
 DENY GET /api/v1/desktop/integrations/{id}/preview
+DENY GET /api/v1/desktop/workbook-edits
 DENY GET /api/v1/embeddings/engine
 DENY GET /api/v1/eval/datasets
 DENY GET /api/v1/eval/datasets/{id}/cases
@@ -146,6 +149,7 @@ DENY GET /api/v1/gaming/library/discover/gog
 DENY GET /api/v1/gaming/library/discover/steam
 DENY GET /api/v1/gaming/library/discover/store/{provider}
 DENY GET /api/v1/gaming/library/imported
+DENY GET /api/v1/gaming/library/playnite/detect
 DENY GET /api/v1/gaming/mods/adapters
 DENY GET /api/v1/gaming/mods/assets/drafts
 DENY GET /api/v1/gaming/mods/drop-in
@@ -158,6 +162,7 @@ DENY GET /api/v1/gaming/quick-resume
 DENY GET /api/v1/gaming/save-backups
 DENY GET /api/v1/gaming/status
 DENY GET /api/v1/gaming/titles
+DENY GET /api/v1/gaming/titles/{key}/launch-profile
 DENY GET /api/v1/gaming/virtual-controller
 DENY GET /api/v1/gaming/wishlist
 DENY GET /api/v1/gateway/status
@@ -379,6 +384,7 @@ DENY POST /api/v1/datasets/split
 DENY POST /api/v1/datasets/training-recipe
 DENY POST /api/v1/desktop/documents/output
 DENY POST /api/v1/desktop/integrations/{id}/connect
+DENY POST /api/v1/desktop/workbook-edits/{id}/save
 DENY POST /api/v1/diff/text
 DENY POST /api/v1/embeddings/engine/install
 DENY POST /api/v1/eval/datasets
@@ -414,6 +420,8 @@ DENY POST /api/v1/gaming/library/discover/store/{provider}/{id}/launch
 DENY POST /api/v1/gaming/library/import
 DENY POST /api/v1/gaming/library/import-preview
 DENY POST /api/v1/gaming/library/inspect-folder
+DENY POST /api/v1/gaming/library/playnite/import
+DENY POST /api/v1/gaming/library/playnite/preview
 DENY POST /api/v1/gaming/library/{id}/launch
 DENY POST /api/v1/gaming/mods/assets/export
 DENY POST /api/v1/gaming/mods/assets/generate
@@ -642,13 +650,12 @@ DENY PUT /api/v1/gaming/hooks/enabled
 DENY PUT /api/v1/gaming/library/{id}
 DENY PUT /api/v1/gaming/titles/bulk
 DENY PUT /api/v1/gaming/titles/{key}/collections
-DENY GET /api/v1/gaming/titles/{key}/launch-profile
-DENY PUT /api/v1/gaming/titles/{key}/launch-profile
-DENY DELETE /api/v1/gaming/titles/{key}/launch-profile
 DENY PUT /api/v1/gaming/titles/{key}/default-installation
 DENY PUT /api/v1/gaming/titles/{key}/favorite
 DENY PUT /api/v1/gaming/titles/{key}/hidden
 DENY PUT /api/v1/gaming/titles/{key}/hooks
+DENY PUT /api/v1/gaming/titles/{key}/launch-profile
+DENY PUT /api/v1/gaming/titles/{key}/notes
 DENY PUT /api/v1/gaming/titles/{key}/score
 DENY PUT /api/v1/gaming/titles/{key}/status
 DENY PUT /api/v1/gaming/titles/{key}/tags
