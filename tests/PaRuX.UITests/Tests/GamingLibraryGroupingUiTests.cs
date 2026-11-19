@@ -119,6 +119,9 @@ public sealed class GamingLibraryGroupingUiTests
         }
     }
 
+    /// <summary>The View menu is a flyout: it stays open after a choice, and its light-dismiss layer keeps the grid from being measured or scrolled.</summary>
+    private static void CloseViewMenu() => FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Cover_size_changes_the_tile_size_in_the_running_grid()
     {
@@ -132,11 +135,13 @@ public sealed class GamingLibraryGroupingUiTests
             double WidthOf() => ById(app, first).BoundingRectangle.Width;
 
             ById(app, "GameHome_CoverSize").AsComboBox().Select(0); // small
+            CloseViewMenu();
             GamingLibraryVirtualizationUiTests.ScrollPageUntil(app, () => TryById(app, first) != null, "first tile after choosing small covers");
             double small = 0;
             UiWait.ForStable(() => (small = WidthOf()) > 0, "small tile measured");
 
             ById(app, "GameHome_CoverSize").AsComboBox().Select(2); // large
+            CloseViewMenu();
             GamingLibraryVirtualizationUiTests.ScrollPageUntil(app, () => TryById(app, first) != null, "first tile after choosing large covers");
             double large = 0;
             UiWait.ForStable(() => (large = WidthOf()) > small * 1.3, "large tiles wider than small tiles (small " + small + ")");
