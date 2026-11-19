@@ -96,4 +96,35 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_console_tv_and_italian_gaming()
+    {
+        const string name = nameof(Capture_console_tv_and_italian_gaming);
+        UiTestApplication.WaitForCorePortReleased();
+        string root = SyntheticGameLibrary.CreateRoot(24, includeCollections: true);
+        string settings = Path.Combine(root, "settings.json");
+        File.WriteAllText(settings, File.ReadAllText(settings).Replace("\"OnboardingCompleted\"", "\"UiLanguage\":\"it\",\"OnboardingCompleted\""));
+        using var app = new UiTestApplication(name, restartDataRoot: root);
+        try
+        {
+            var page = new InstallProgressPage(app);
+            page.Invoke(UiWait.ById(app.MainWindow, "MainWindow_ModeTab_Gaming"));
+            if (GamingSectionsPage.TryFind(app.MainWindow, "GameLibrary_FirstRunScan_Dismiss") is { } d) page.Invoke(d);
+            app.ResizeMainWindow(1280, 800);
+            foreach (string section in new[] { "Library", "Emulators", "Devices" })
+            {
+                GamingSectionsPage.SelectSection(app.MainWindow, section);
+                Thread.Sleep(900);
+                app.CaptureSnapshot("it-" + section);
+            }
+            GamingSectionsPage.SelectSection(app.MainWindow, "Library");
+            page.Invoke(UiWait.ById(app.MainWindow, "MainWindow_ConsoleMode_Button"));
+            Thread.Sleep(2500);
+            app.CaptureSnapshot("tv-Library-it");
+            for (int i = 0; i < 3; i++) { FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.DOWN); Thread.Sleep(300); }
+            app.CaptureSnapshot("tv-Library-it-after-down");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }

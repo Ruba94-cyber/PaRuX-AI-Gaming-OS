@@ -264,7 +264,7 @@
                         <ToggleSwitch
                             x:Name="ContentStudioModeToggle"
                             AutomationProperties.AutomationId="MainWindow_StudioMode_Content_Toggle"
-                            Header="Interface" loc:Loc.ItHeader="Interfaccia"
+                            AutomationProperties.Name="Interface" loc:Loc.ItName="Interfaccia"
                             OffContent="Simple" loc:Loc.ItOffContent="Semplice"
                             OnContent="Advanced" loc:Loc.ItOnContent="Avanzata"
                             Toggled="StudioModeToggle_Toggled"

@@ -28,6 +28,7 @@ public sealed class ManualGameLibraryView : UserControl
     private readonly StackPanel _root = new() { Spacing = 16, Padding = new Thickness(24), MaxWidth = 1500, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _heading = new();
     private bool _consolePresentation;
+    private SelectorBar? _sectionBar;
     private readonly StackPanel _discoveredGames = new() { Spacing = 8 };
     private readonly TextBlock _discoveryStatus = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _steamRefresh = new();
@@ -409,6 +410,7 @@ public sealed class ManualGameLibraryView : UserControl
                     .Concat(all.Skip(displayStart).Take(displayEnd - displayStart)).Append(_universal.BackupTools).ToList()),
         };
         var bar = new SelectorBar { HorizontalAlignment = HorizontalAlignment.Left };
+        _sectionBar = bar;
         AutomationProperties.SetAutomationId(bar, "GameLibrary_Sections");
         AutomationProperties.SetName(bar, T("Game library sections", "Sezioni della libreria giochi"));
         var panels = new Dictionary<string, StackPanel>();
@@ -525,6 +527,9 @@ public sealed class ManualGameLibraryView : UserControl
         _storeDiscoveryOfferScan.MinHeight = enabled ? 56 : 44;
         _storeDiscoveryOfferDismiss.MinHeight = enabled ? 56 : 44;
         _universal?.SetConsolePresentation(enabled);
+        if (_sectionBar is not null)
+            foreach (SelectorBarItem item in _sectionBar.Items.OfType<SelectorBarItem>())
+            { item.FontSize = enabled ? 22 : 14; item.MinHeight = enabled ? 56 : 44; }
         _discoveryStatus.FontSize = bodySize;
         _displayStatus.FontSize = bodySize;
         _controllerStatus.FontSize = bodySize;

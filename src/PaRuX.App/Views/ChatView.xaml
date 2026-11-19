@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <UserControl
     x:Class="PaRuX.Views.ChatView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -316,6 +316,16 @@
                     HorizontalAlignment="Center"
                     TextAlignment="Center"
                     MaxWidth="420" />
+                <!-- Shown only while no local chat engine is installed: one obvious next step instead of a silent dead end. -->
+                <Button
+                    x:Name="HomeSetupButton"
+                    AutomationProperties.AutomationId="Chat_Home_Setup_Button"
+                    Content="Set up local chat" loc:Loc.ItContent="Configura la chat locale"
+                    Style="{StaticResource AccentButtonStyle}"
+                    MinHeight="44"
+                    HorizontalAlignment="Center"
+                    Visibility="Collapsed"
+                    Click="HomeSetup_Click" />
             </StackPanel>
 
             <!-- Starters. These only prefill the composer; they never send. -->

@@ -150,6 +150,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
         AutomationProperties.SetAutomationId(loadEmulators, "Emulators_Detect_Button");
         loadEmulators.Click += async (_, _) => await LoadEmulatorsAsync();
         _emulatorBox.Header = T("Emulator", "Emulatore");
+        _emulatorBox.PlaceholderText = T("Press \"Look for installed emulators\" first", "Prima premi \"Cerca gli emulatori installati\"");
         AutomationProperties.SetAutomationId(_emulatorBox, "Emulators_Select_ComboBox");
         _emulatorBox.SelectionChanged += (_, _) => OnEmulatorSelected();
         _emulatorFolder.TextChanged += (_, _) => InvalidateScan();

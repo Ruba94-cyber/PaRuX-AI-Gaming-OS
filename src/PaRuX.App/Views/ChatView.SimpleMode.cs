@@ -453,11 +453,16 @@ namespace PaRuX.Views
                 ToolTipService.SetToolTip(SimpleModeRuntimeHealthButton, info.TooltipText);
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SimpleModeRuntimeHealthButton, info.AccessibleName);
             }
+            if (HomeSetupButton != null)
+                HomeSetupButton.Visibility = !info.IsInstalled && !info.IsSkipped && info.NextAction.StartsWith("Install or locate", StringComparison.Ordinal)
+                    ? Visibility.Visible : Visibility.Collapsed;
             if (SimpleModeRuntimeHealthIcon != null)
             {
                 SimpleModeRuntimeHealthIcon.Glyph = info.IsHealthy ? "\uE73E" : (info.IsInstalled ? "\uE783" : "\uE711");
             }
         }
+
+        private void HomeSetup_Click(object sender, RoutedEventArgs e) => App.MainWin?.ShowModelHub();
 
         private void SimpleModeRuntimeHealthButton_Click(object sender, RoutedEventArgs e)
         {
