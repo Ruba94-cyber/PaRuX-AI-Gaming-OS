@@ -23,6 +23,11 @@ internal static class GamingSectionsPage
         "GameTitles_Collection_Apply", "GameHome_ShowHidden", "GameHome_Presets", "GameHome_PresetSave", "GameHome_PresetDelete",
     };
 
+    internal const string ViewMenuButton = "GameHome_View_Button";
+
+    /// <summary>Controls hosted by the toolbar's View menu (grouping and cover size).</summary>
+    private static readonly HashSet<string> ViewMenu = new(StringComparer.Ordinal) { "GameHome_Group", "GameHome_CoverSize" };
+
     /// <summary>Controls hosted by the toolbar's More menu.</summary>
     private static readonly HashSet<string> MoreMenu = new(StringComparer.Ordinal)
     {
@@ -69,7 +74,7 @@ internal static class GamingSectionsPage
             string? section = SectionOf(id);
             if (section == null) return;
             SelectSection(root, section);
-            string? menu = FiltersMenu.Contains(id) ? FiltersMenuButton : MoreMenu.Contains(id) ? MoreMenuButton : null;
+            string? menu = FiltersMenu.Contains(id) ? FiltersMenuButton : MoreMenu.Contains(id) ? MoreMenuButton : ViewMenu.Contains(id) ? ViewMenuButton : null;
             if (menu != null) OpenMenu(root, menu);
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException

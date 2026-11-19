@@ -89,16 +89,26 @@ public sealed class GamingHomeUiTests
             // text and buttons, which are what a user (and a screen reader) actually reaches.
             Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Description"));
             Assert.NotNull(ById(app, "GameLibrary_FirstRunScan_Start"));
-            var skip = ById(app, "GameLibrary_FirstRunScan_Dismiss");
-            Press(app, skip);
-
             string settings = Path.Combine(app.DataRoot, "settings.json");
-            UiWait.For(() =>
+            bool Saved()
             {
                 if (!File.Exists(settings)) return false;
                 using var json = JsonDocument.Parse(SharedFile.ReadAllText(settings));
                 return json.RootElement.TryGetProperty("GameStoreDiscoveryPromptDismissed", out var dismissed)
                     && dismissed.ValueKind == JsonValueKind.True;
+            }
+            // The section switch that revealed the offer can still be re-laying out, and an Invoke on an element from that
+            // moment is silently dropped: press again (the offer is gone after the first effective press) until it is saved.
+            DateTime lastPress = DateTime.MinValue;
+            UiWait.For(() =>
+            {
+                if (Saved()) return true;
+                if (DateTime.UtcNow - lastPress > TimeSpan.FromSeconds(2) && TryById(app, "GameLibrary_FirstRunScan_Dismiss") is { } skip)
+                {
+                    lastPress = DateTime.UtcNow;
+                    try { Press(app, skip); } catch (Exception ex) when (ex is FlaUI.Core.Exceptions.ElementNotAvailableException or System.Runtime.InteropServices.COMException) { }
+                }
+                return false;
             }, "first-visit scan declined and saved");
             UiWait.For(() => TryById(app, "GameLibrary_FirstRunScan_Start") is null,
                 "first-visit scan offer removed");

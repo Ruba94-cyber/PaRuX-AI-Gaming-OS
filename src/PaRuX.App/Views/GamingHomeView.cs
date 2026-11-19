@@ -449,13 +449,15 @@ internal sealed class GamingHomeView : StackPanel
             "Strumenti libreria: copertine, importazione, guida giochi, lista desideri, selezione multipla"));
         libraryTools.Flyout = BuildToolbarFlyout(new FrameworkElement[]
             { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode });
+        // Grouping and cover size are set-and-forget: one "View" menu instead of two always-visible drop-downs.
+        var viewMenu = new Button { Content = T("View", "Vista") + "  ▾" };
+        Track(viewMenu, "GameHome_View_Button", T("View options: group games, cover size", "Opzioni di vista: raggruppa i giochi, dimensione copertine"));
+        viewMenu.Flyout = BuildToolbarFlyout(new FrameworkElement[] { _group, _coverSize });
         VariableSizedWrapGrid.SetColumnSpan(_search, 2);
         VariableSizedWrapGrid.SetColumnSpan(_sort, 2);
         VariableSizedWrapGrid.SetColumnSpan(_source, 2);
-        VariableSizedWrapGrid.SetColumnSpan(_group, 2);
-        VariableSizedWrapGrid.SetColumnSpan(_coverSize, 2);
         foreach (FrameworkElement element in new FrameworkElement[]
-                 { _search, _sort, _source, _favoritesOnly, _layout, _group, _coverSize, moreFilters, libraryTools, _refresh })
+                 { _search, _sort, _source, _favoritesOnly, _layout, viewMenu, moreFilters, libraryTools, _refresh })
             AddToolbar(element);
 
         AutomationProperties.SetAutomationId(_status, "GameTitles_Status_Text");
@@ -1476,7 +1478,9 @@ internal sealed class GamingHomeView : StackPanel
                 SettingsStore.Current.Save();
             };
         }
-        _coversPrompt.IsOpen = !data.GameMetadataEnabled && !data.GameMetadataPromptDismissed && _titles.Count > 0;
+        // Covers the owner already has (picked by hand or brought from another launcher) answer the question: no card in the way.
+        _coversPrompt.IsOpen = !data.GameMetadataEnabled && !data.GameMetadataPromptDismissed && _titles.Count > 0
+            && !_titles.Take(200).Any(t => GameCoverStore.TryGetPath(t.TitleKey) is not null);
     }
 
     private async Task OnMetadataToggledAsync()
