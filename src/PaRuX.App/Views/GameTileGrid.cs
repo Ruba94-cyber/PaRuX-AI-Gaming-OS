@@ -406,6 +406,10 @@ internal sealed class GameTileGrid : StackPanel, IGameTileSurface
             _repeater.ItemsSource = null;
             _factory.Clear();
         }
+        // WinUI's UniformGridLayout divides by the number of tiles that fit in a row: measured with no width (a narrow window
+        // with the detail card open produces such a pass) it throws DivideByZeroException and takes the layout pass down.
+        // A repeater that is never narrower than one tile cannot be measured that way.
+        _repeater.MinWidth = _presentation == Presentation.Grid ? CardWidth : 0;
         if (_repeater.Layout is null || forceReset) _repeater.Layout = NewLayout();
 
         switch (delta.Change)

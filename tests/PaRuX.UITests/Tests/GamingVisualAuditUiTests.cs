@@ -198,4 +198,56 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    /// <summary>The detail view can briefly re-raise UIA events while it settles; retry the snapshot instead of failing the audit.</summary>
+    private static void Snap(UiTestApplication app, string name)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try { app.CaptureSnapshot(name); return; }
+            catch (System.Runtime.InteropServices.COMException) when (attempt < 4) { Thread.Sleep(1200); }
+        }
+    }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_game_detail_with_a_real_library_copy()
+    {
+        const string name = nameof(Capture_game_detail_with_a_real_library_copy);
+        string? library = Environment.GetEnvironmentVariable("PARUX_AUDIT_PLAYNITE_COPY");
+        if (string.IsNullOrWhiteSpace(library) || !File.Exists(Path.Combine(library, "games.db"))) return;
+        UiTestApplication.WaitForCorePortReleased();
+        string root = SyntheticGameLibrary.CreateRoot(0);
+        using var app = new UiTestApplication(name, restartDataRoot: root,
+            extraEnvironment: new Dictionary<string, string> { ["PARUX_PLAYNITE_LIBRARY"] = library });
+        try
+        {
+            var page = new InstallProgressPage(app);
+            page.Invoke(UiWait.ById(app.MainWindow, "MainWindow_ModeTab_Gaming"));
+            app.ResizeMainWindow(1280, 800);
+            GamingSectionsPage.SelectSection(app.MainWindow, "Add");
+            page.Invoke(UiWait.ById(app.MainWindow, "GameImport_Playnite_Look_Button"));
+            page.Invoke(UiWait.ById(app.MainWindow, "GameImport_Playnite_Import_Button"));
+            UiWait.For(() => (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameImport_Playnite_Summary"))?.Name ?? "").StartsWith("Imported", StringComparison.Ordinal), "imported");
+            GamingSectionsPage.SelectSection(app.MainWindow, "Library");
+            var tile = UiWait.ById(app.MainWindow, "GameTile_mariokart8deluxe");
+            UiWait.ForOnScreen(tile, "tile on screen");
+            DateTime lastClick = DateTime.MinValue;
+            UiWait.For(() =>
+            {
+                if (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameDetail_Panel")) != null) return true;
+                if (DateTime.UtcNow - lastClick > TimeSpan.FromSeconds(2))
+                {
+                    lastClick = DateTime.UtcNow;
+                    try { UiWait.ById(app.MainWindow, "GameTile_mariokart8deluxe").Click(); } catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or FlaUI.Core.Exceptions.ElementNotAvailableException) { }
+                }
+                return false;
+            }, "detail panel");
+            Thread.Sleep(1500);
+            Snap(app, "detail-wide");
+            app.ResizeMainWindow(700, 800);
+            Thread.Sleep(1500);
+            Snap(app, "detail-narrow");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }
