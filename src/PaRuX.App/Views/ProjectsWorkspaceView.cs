@@ -64,7 +64,7 @@ namespace PaRuX.Views
             body.Children.Add(new TextBlock { Text = T("Projects & Artifacts", "Progetti e artefatti"), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             body.Children.Add(new TextBlock
             {
-                Text = T("Select a durable Project as the active workspace. Coding/Binary tasks and read-only repository-aware specialists receive explicit task-scoped repository authority; selecting another Project never reuses the previous Project's repository implicitly.", "Seleziona un progetto duraturo come area di lavoro attiva. Le attività di programmazione/binarie e gli specialisti di sola lettura consapevoli del repository ricevono un'autorità esplicita sul repository, limitata all'attività; selezionare un altro progetto non riusa mai in modo implicito il repository del progetto precedente."),
+                Text = T("Select a durable Project as the active workspace. A repository is shared with a task only when you start that task in the Project; switching Projects never reuses the previous repository.", "Seleziona un progetto duraturo come area di lavoro attiva. Un repository viene condiviso con un'attività solo quando la avvii nel progetto; cambiando progetto non si riusa mai il repository precedente."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.78
             });
