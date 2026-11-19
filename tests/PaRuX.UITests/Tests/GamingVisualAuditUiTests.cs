@@ -156,4 +156,24 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_model_hub_start_card()
+    {
+        const string name = nameof(Capture_model_hub_start_card);
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            app.ResizeMainWindow(1280, 800);
+            var item = UiWait.ById(app.MainWindow, "Navigation_ModelHub_Item");
+            var selection = item.Patterns.SelectionItem.PatternOrDefault;
+            if (selection != null) selection.Select(); else item.Patterns.Invoke.PatternOrDefault?.Invoke();
+            Thread.Sleep(4000);
+            app.CaptureSnapshot("modelhub-start");
+            File.WriteAllLines(Path.Combine(Repository.Root, "TestResults", "UIArtifacts", "modelhub-start-texts.txt"),
+                app.MainWindow.FindAllDescendants().Select(e => { try { return e.Name; } catch { return ""; } }).Where(n => n.Contains("Suggested", StringComparison.OrdinalIgnoreCase) || n.Contains("Suggerito", StringComparison.OrdinalIgnoreCase)));
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }

@@ -297,6 +297,10 @@ namespace PaRuX.Views
             _ => fallback
         };
 
+        /// <summary>No accelerator with room for a 12 GB class model: integrated graphics or CPU only, where a big first download "fits" but answers slowly.</summary>
+        private static bool IsConstrainedForStarter(ModelHardwareFitEstimate fit) =>
+            fit.UsesSharedSystemMemory || fit.PreferredGpuDedicatedBytes < 12L * 1024 * 1024 * 1024;
+
         private StartModelInput BuildStartTextModel(bool known)
         {
             bool it = StartItalian;
@@ -316,7 +320,17 @@ namespace PaRuX.Views
 
             RecommendedModel? offer = null;
             string? fitWords = null;
-            foreach (RecommendedModel candidate in _startRecommended)
+            // A first model should answer quickly. Without a discrete GPU (integrated graphics share system memory), a 13 GB
+            // model "fits" but crawls, so the starter is the largest candidate of about 8B at 4-bit or smaller when one exists.
+            const long ResponsiveStarterBytes = 7L * 1024 * 1024 * 1024;
+            IEnumerable<RecommendedModel> ordered = _startRecommended;
+            if (_startRecommended.Any(c => IsConstrainedForStarter(ModelHardwareFitEstimator.Estimate(c.EstimatedSizeBytes, _hardware)))
+                && _startRecommended.Any(c => c.EstimatedSizeBytes > 0 && c.EstimatedSizeBytes <= ResponsiveStarterBytes))
+                ordered = _startRecommended
+                    .Where(c => c.EstimatedSizeBytes > 0 && c.EstimatedSizeBytes <= ResponsiveStarterBytes)
+                    .OrderByDescending(c => c.EstimatedSizeBytes)
+                    .Concat(_startRecommended);
+            foreach (RecommendedModel candidate in ordered)
             {
                 ModelHardwareFitEstimate fit = ModelHardwareFitEstimator.Estimate(candidate.EstimatedSizeBytes, _hardware);
                 if (fit.Verdict == ModelFitVerdict.Big) continue;
