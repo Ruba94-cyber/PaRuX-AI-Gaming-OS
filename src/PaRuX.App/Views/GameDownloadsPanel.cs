@@ -136,7 +136,13 @@ internal sealed class GameDownloadsPanel : StackPanel
             }
             finally { _busy = false; }
         };
-        var destinationRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        // The path box takes the free width; in a horizontal stack it shrank to a stub that could not show a folder path.
+        var destinationRow = new Grid { ColumnSpacing = 8 };
+        destinationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        destinationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _destination.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _browse.VerticalAlignment = VerticalAlignment.Bottom;
+        Grid.SetColumn(_browse, 1);
         destinationRow.Children.Add(_destination);
         destinationRow.Children.Add(_browse);
         Children.Add(destinationRow);
