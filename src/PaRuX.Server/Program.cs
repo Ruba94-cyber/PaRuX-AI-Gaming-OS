@@ -4139,6 +4139,7 @@ app.MapPost("/api/v1/music/generate", async (MusicGenerateRequest request, Music
 }).RequireDesktopOwner();
 
 app.MapGamingEndpoints();
+app.MapPlayniteImportEndpoints();
 app.MapTemporaryGameModEndpoints();
 app.MapGameSkinStudioEndpoints();
 app.MapGameAssetModEndpoints();

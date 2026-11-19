@@ -109,6 +109,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
     internal bool FocusSearch() => _home.FocusSearch();
 
     private Task ReloadTitlesAsync() => _home.ReloadAsync();
+    internal Task ReloadTitlesNowAsync() => _home.ReloadAsync(refresh: true);
 
     // ---------------------------------------------------------------- advanced
 

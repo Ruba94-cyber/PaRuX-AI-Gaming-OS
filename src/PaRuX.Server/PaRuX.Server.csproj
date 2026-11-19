@@ -65,6 +65,8 @@
     <PackageReference Include="SharpCompress" Version="0.50.4" />
     <!-- Integrated BitTorrent v1 single-file transport; MIT licence; no external client required. -->
     <PackageReference Include="MonoTorrent" Version="3.0.2" />
+    <!-- LiteDB (MIT): reads a private COPY of a Playnite library as untyped BSON for the Playnite importer only. -->
+    <PackageReference Include="LiteDB" Version="5.0.21" />
     <!-- Windows-only GDI+ decode and nearest-neighbor 64x64 PNG export for the local Minecraft skin preview; no external image tools. -->
     <PackageReference Include="System.Drawing.Common" Version="10.0.15" />
   </ItemGroup>

@@ -14,7 +14,8 @@ param(
   [string]$Label = ([IO.Path]::GetFileNameWithoutExtension($Exe)),
   [string]$Arguments = '',
   [int]$Runs = 3,
-  [int]$IdleSeconds = 20,
+  [int]$IdleSeconds = 30,
+  [int]$SettleSeconds = 90,
   [int]$TimeoutSeconds = 90,
   [string]$OutFile
 )
@@ -39,14 +40,14 @@ for ($i = 1; $i -le $Runs; $i++) {
   }
   $cpu0 = 0.0; $samples = @()
   if ($visible) {
-    Start-Sleep -Seconds 5   # let start-up work settle before the idle window
+    Start-Sleep -Seconds $SettleSeconds   # start-up work (GPU probes, warm-up, plugin loading) must finish before the idle window
     $tree = Get-Tree $proc.Id
     $cpuStart = ($tree | % { (Get-Process -Id $_ -ErrorAction SilentlyContinue).TotalProcessorTime.TotalSeconds } | Measure -Sum).Sum
     Start-Sleep -Seconds $IdleSeconds
     $tree = Get-Tree $proc.Id
     $cpuEnd = ($tree | % { (Get-Process -Id $_ -ErrorAction SilentlyContinue).TotalProcessorTime.TotalSeconds } | Measure -Sum).Sum
     $ws = ($tree | % { (Get-Process -Id $_ -ErrorAction SilentlyContinue).WorkingSet64 } | Measure -Sum).Sum
-    $results += [pscustomobject]@{ Run = $i; WindowVisibleMs = $visible; IdleCpuSecondsOver = [math]::Round($cpuEnd - $cpuStart, 3); IdleWindowSeconds = $IdleSeconds; WorkingSetMB = [math]::Round($ws / 1MB, 1); ProcessCount = @($tree).Count }
+    $results += [pscustomobject]@{ Run = $i; WindowVisibleMs = $visible; IdleCpuSecondsOver = [math]::Round($cpuEnd - $cpuStart, 3); IdleWindowSeconds = $IdleSeconds; SettleSeconds = $SettleSeconds; WorkingSetMB = [math]::Round($ws / 1MB, 1); ProcessCount = @($tree).Count }
   } else { $results += [pscustomobject]@{ Run = $i; WindowVisibleMs = $null; Note = 'no window before timeout' } }
   foreach ($id in (Get-Tree $proc.Id)) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
   Start-Sleep -Seconds 3

@@ -403,7 +403,7 @@ public sealed class ManualGameLibraryView : UserControl
             ("Library", T("Library", "Libreria"), new List<UIElement> { _universal }),
             ("Downloads", T("Downloads", "Download"), all.Skip(downloadsStart).Take(addStart - downloadsStart).ToList()),
             ("Add", T("Add & import", "Aggiungi e importa"),
-                new UIElement[] { _storeDiscoveryOffer, _universal.AddTools }.Concat(all.Skip(addStart).Take(displayStart - addStart)).Concat(all.Skip(displayEnd)).ToList()),
+                new UIElement[] { _storeDiscoveryOffer, new PlayniteImportPanel(async () => { await LoadAsync(); if (_universal is not null) await _universal.ReloadTitlesNowAsync(); }), _universal.AddTools }.Concat(all.Skip(addStart).Take(displayStart - addStart)).Concat(all.Skip(displayEnd)).ToList()),
             ("Emulators", T("Emulators & ROMs", "Emulatori e ROM"), new List<UIElement> { _universal.EmulatorTools }),
             ("Devices", T("Gaming settings", "Impostazioni gaming"),
                 all.Skip(sessionStart).Take(downloadsStart - sessionStart)

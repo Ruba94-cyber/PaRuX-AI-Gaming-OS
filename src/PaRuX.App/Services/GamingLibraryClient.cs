@@ -113,6 +113,19 @@ namespace PaRuX.Services
             SendAsync<ExternalLibraryImportResultDto>(HttpMethod.Post, "/api/v1/gaming/library/import",
                 new ExternalLibraryImportRequest(provider, json, consent), ct);
 
+        public Task<GamingCallResult<System.Text.Json.JsonElement>> DetectPlayniteLibraryAsync(CancellationToken ct = default) =>
+            SendAsync<System.Text.Json.JsonElement>(HttpMethod.Get, "/api/v1/gaming/library/playnite/detect", null, ct);
+
+        /// <summary>Read-only look at a Playnite library; nothing is added or launched.</summary>
+        public Task<GamingCallResult<List<PlayniteGamePreviewDto>>> PreviewPlayniteLibraryAsync(CancellationToken ct = default) =>
+            SendAsync<List<PlayniteGamePreviewDto>>(HttpMethod.Post, "/api/v1/gaming/library/playnite/preview",
+                new PlayniteImportRequest(null, null, false), ct);
+
+        /// <summary>Adds the importable Playnite games to the PaRuX library after the owner's separate confirmation.</summary>
+        public Task<GamingCallResult<PlayniteImportResultDto>> ImportPlayniteLibraryAsync(bool consent, CancellationToken ct = default) =>
+            SendAsync<PlayniteImportResultDto>(HttpMethod.Post, "/api/v1/gaming/library/playnite/import",
+                new PlayniteImportRequest(null, null, consent), ct);
+
         public Task<GamingCallResult<List<ExternalLibraryGamePreviewDto>>> GetImportedLibraryAsync(
             CancellationToken ct = default) =>
             SendAsync<List<ExternalLibraryGamePreviewDto>>(HttpMethod.Get,

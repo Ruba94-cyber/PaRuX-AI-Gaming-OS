@@ -127,4 +127,33 @@ public sealed class GamingVisualAuditUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [Fact, Trait("Category", "VisualAudit"), Trait("Category", "FlaUI")]
+    public void Capture_playnite_migration_with_a_real_library_copy()
+    {
+        const string name = nameof(Capture_playnite_migration_with_a_real_library_copy);
+        string? library = Environment.GetEnvironmentVariable("PARUX_AUDIT_PLAYNITE_COPY");
+        if (string.IsNullOrWhiteSpace(library) || !File.Exists(Path.Combine(library, "games.db"))) return;
+        UiTestApplication.WaitForCorePortReleased();
+        string root = SyntheticGameLibrary.CreateRoot(0);
+        using var app = new UiTestApplication(name, restartDataRoot: root,
+            extraEnvironment: new Dictionary<string, string> { ["PARUX_PLAYNITE_LIBRARY"] = library });
+        try
+        {
+            var page = new InstallProgressPage(app);
+            page.Invoke(UiWait.ById(app.MainWindow, "MainWindow_ModeTab_Gaming"));
+            app.ResizeMainWindow(1280, 800);
+            GamingSectionsPage.SelectSection(app.MainWindow, "Add");
+            page.Invoke(UiWait.ById(app.MainWindow, "GameImport_Playnite_Look_Button"));
+            UiWait.For(() => app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameImport_Playnite_Import_Button")) != null, "import offered");
+            Thread.Sleep(600);
+            app.CaptureSnapshot("playnite-preview");
+            page.Invoke(UiWait.ById(app.MainWindow, "GameImport_Playnite_Import_Button"));
+            UiWait.For(() => (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("GameImport_Playnite_Summary"))?.Name ?? "").StartsWith("Imported", StringComparison.Ordinal), "imported");
+            GamingSectionsPage.SelectSection(app.MainWindow, "Library");
+            Thread.Sleep(2500);
+            app.CaptureSnapshot("playnite-library-after-import");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }
