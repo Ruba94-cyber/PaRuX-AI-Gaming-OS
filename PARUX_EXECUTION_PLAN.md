@@ -1,3 +1,9 @@
+## 2026-11-19 (late) — Certification run and layout fixes
+
+**Full Debug FlaUI Regression on `main` 8c29f426 (this PC, isolated profiles): 282 tests, 281 passed, 35 m 51 s.** The one failure (Model Hub Start board: the tile's accessible name empties for an instant when the board re-renders) is a test timing race; the assertion now needs the name to stay present across a settled interval, and the Start board tests pass 2/2. This is a Debug run with a published Core in the app folder, not a packaged-MSI or physical-hardware pass.
+
+Fixes since the sections tranche, each seen in a real-app capture at 1280x800 DIP (200% scale) and covered by FlaUI: Gaming Downloads destination field shrank to a stub (now fills the row); Italian Settings categories were cut off (now wrap) and the Italian Chat footer showed an English "Model: Auto" (now "Modello: Auto"); the Projects intro (two sentences of authority wording) is one plain explanation. Measured comparison, with every missing measurement named, is in `docs/COMPETITOR_MEASURED_2026-11-19.md`.
+
 ## 2026-11-19 — AI first-run and Debug regression truth
 
 **First model suggestion.** Model Hub's Start card offered Qwen3.8-27B (13.3 GB) as the first chat model on this iGPU/CPU PC because the estimator rated it "fits". It now prefers the largest recommended model of about 8B/4-bit or smaller (7 GiB) whenever no accelerator has 12 GiB of dedicated memory, so this PC is offered Qwen3-4B (2.2 GB); machines with a large discrete GPU keep the old choice. FlaUI Model Hub, onboarding, routing, recommendation and smoke tests: 95/95 on the Debug build. No timing of a first answer was measured.

@@ -38,8 +38,10 @@ public sealed class ModelHubStartBoardCoverageTests
                 // The tile exists before the board's async status load has filled in its accessible name (it is empty for a moment).
                 UiWait.For(() => (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))?.Properties.Name.ValueOrDefault ?? string.Empty).Contains(':'),
                     "tile " + id + " to carry its status");
-                AutomationElement tile = app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))!;
-                Assert.Contains(":", tile.Properties.Name.ValueOrDefault ?? string.Empty);   // "<title>: <status>" - the state is part of the accessible name
+                // "<title>: <status>" - the state is part of the accessible name. The board re-renders when its async status
+                // arrives, so the name must stay present across a settled interval, not just at one instant.
+                UiWait.ForStable(() => (app.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(id))?.Properties.Name.ValueOrDefault ?? string.Empty).Contains(':'),
+                    "tile " + id + " keeps its status in the accessible name");
             }
         });
 
