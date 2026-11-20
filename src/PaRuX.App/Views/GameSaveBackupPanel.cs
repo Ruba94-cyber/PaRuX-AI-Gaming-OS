@@ -113,7 +113,122 @@ internal sealed class GameSaveBackupPanel : StackPanel
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Children.Add(_status);
         Children.Add(_archives);
+        if (gameName is null) BuildSyncSection();
         Unloaded += (_, _) => _operation?.Cancel();
+    }
+
+    private readonly TextBlock _syncStatus = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly Button _syncNow = new();
+
+    /// <summary>Copies the backups to a folder the owner picks (a cloud-synced folder, a NAS share or a USB drive) and brings back the ones this PC lacks.</summary>
+    private void BuildSyncSection()
+    {
+        Children.Add(new TextBlock
+        {
+            Text = T("Keep a copy elsewhere", "Tieni una copia altrove"),
+            FontSize = 16,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 12, 0, 0)
+        });
+        Children.Add(new TextBlock
+        {
+            Text = T("Pick a folder that your cloud app, NAS or USB drive already keeps safe. PaRuX copies new backups there and brings back the ones this PC does not have. It never talks to a cloud service itself, checks every file before keeping it, and never overwrites or deletes anything on either side.",
+                     "Scegli una cartella che la tua app cloud, il NAS o la chiavetta USB già custodiscono. PaRuX vi copia i nuovi backup e riporta qui quelli che questo PC non ha. Non contatta mai un servizio cloud da solo, controlla ogni file prima di tenerlo e non sovrascrive né elimina nulla da nessuna delle due parti."),
+            TextWrapping = TextWrapping.Wrap
+        });
+        var pick = new Button { Content = T("Choose sync folder", "Scegli cartella di sincronizzazione") };
+        AutomationProperties.SetAutomationId(pick, Id("GameSaves_Sync_Choose"));
+        pick.Click += async (_, _) => await ChooseSyncFolderAsync();
+        var off = new Button { Content = T("Turn off", "Disattiva") };
+        AutomationProperties.SetAutomationId(off, Id("GameSaves_Sync_Off"));
+        off.Click += async (_, _) => await SetSyncFolderAsync(null);
+        _syncNow.Content = T("Sync now", "Sincronizza ora");
+        AutomationProperties.SetAutomationId(_syncNow, Id("GameSaves_Sync_Now"));
+        _syncNow.IsEnabled = false;
+        _syncNow.Click += async (_, _) => await SyncNowAsync();
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        row.Children.Add(pick); row.Children.Add(_syncNow); row.Children.Add(off);
+        Children.Add(row);
+        AutomationProperties.SetAutomationId(_syncStatus, Id("GameSaves_Sync_Status"));
+        AutomationProperties.SetLiveSetting(_syncStatus, AutomationLiveSetting.Polite);
+        Children.Add(_syncStatus);
+        Loaded += async (_, _) => await LoadSyncStatusAsync();
+    }
+
+    private async Task LoadSyncStatusAsync()
+    {
+        var result = await GamingOrchestratorClient.Current.GetGameSaveSyncAsync();
+        ShowSyncStatus(result.Value);
+    }
+
+    private void ShowSyncStatus(GameSaveSyncStatusDto? status)
+    {
+        bool on = status is { Configured: true };
+        _syncNow.IsEnabled = on && !_busy;
+        _syncStatus.Text = on
+            ? T("Mirroring to: ", "Copia in: ") + status!.Folder
+            : T("No sync folder chosen. Backups stay on this PC only.", "Nessuna cartella scelta. I backup restano solo su questo PC.");
+    }
+
+    private async Task ChooseSyncFolderAsync()
+    {
+        if (_busy) return;
+        try
+        {
+            var picker = new FolderPicker();
+            picker.FileTypeFilter.Add("*");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+            var choice = await picker.PickSingleFolderAsync();
+            if (choice is not null) await SetSyncFolderAsync(choice.Path);
+        }
+        catch (Exception)
+        {
+            _syncStatus.Text = T("Could not open folder selection.", "Impossibile aprire la selezione cartelle.");
+        }
+    }
+
+    /// <summary>Also used by tests: the folder is saved by the Core, which checks it exists and is separate from PaRuX's own backups.</summary>
+    internal async Task SetSyncFolderAsync(string? folder)
+    {
+        var result = await GamingOrchestratorClient.Current.SetGameSaveSyncFolderAsync(folder);
+        if (!result.Succeeded || result.Value is null)
+        {
+            _syncStatus.Text = T("That folder cannot be used: it must exist and be separate from PaRuX's own backup folder. It is also unavailable while a game is running.",
+                "Questa cartella non è utilizzabile: deve esistere ed essere separata dai backup di PaRuX. Non è disponibile nemmeno mentre un gioco è in esecuzione.");
+            return;
+        }
+        ShowSyncStatus(result.Value);
+    }
+
+    private async Task SyncNowAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _syncNow.IsEnabled = false;
+        _syncStatus.Text = T("Syncing…", "Sincronizzazione…");
+        try
+        {
+            var result = await GamingOrchestratorClient.Current.RunGameSaveSyncAsync();
+            if (!result.Succeeded || result.Value is null)
+            {
+                _syncStatus.Text = T("The sync did not run (it is paused while a game is running, or the folder is missing).",
+                    "La sincronizzazione non è partita (è sospesa mentre un gioco è in esecuzione, oppure la cartella manca).");
+                return;
+            }
+            var r = result.Value;
+            string text = string.Format(CultureInfo.CurrentCulture,
+                T("Done: {0} copied out, {1} brought in, {2} already in both places.", "Fatto: {0} copiati fuori, {1} riportati qui, {2} già presenti ovunque."),
+                r.Pushed, r.Pulled, r.AlreadyThere);
+            if (r.Problems.Count > 0) text += " " + T("Skipped: ", "Saltati: ") + string.Join(" ", r.Problems);
+            _syncStatus.Text = text;
+            _busy = false;
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+            _syncNow.IsEnabled = true;
+        }
     }
 
     /// <summary>Read-only lookup of existing folders that probably hold this game's saves; choosing one only fills the folder field.</summary>

@@ -27,3 +27,12 @@ public sealed record GameSaveRestorePlanDto(string Id, bool Ok, string Message, 
 
 /// <summary>Outcome of a confirmed restore. PreRestoreBackupId names the automatic backup of the target made first (null when the target held no files).</summary>
 public sealed record GameSaveRestoreResultDto(string Id, bool Success, string Message, int FilesWritten, string? PreRestoreBackupId);
+
+/// <summary>The folder (cloud-synced, NAS or USB) the save backups are mirrored to; empty when none is chosen.</summary>
+public sealed record GameSaveSyncStatusDto(string Folder, bool Configured);
+
+/// <summary>Choose the mirror folder; an empty path turns mirroring off.</summary>
+public sealed record GameSaveSyncFolderRequest(string? Folder);
+
+/// <summary>What one sync did: backups copied out, backups brought in, backups both sides already had, and anything skipped with the reason.</summary>
+public sealed record GameSaveSyncResultDto(int Pushed, int Pulled, int AlreadyThere, IReadOnlyList<string> Problems);

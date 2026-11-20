@@ -43,6 +43,26 @@ public static class GameSaveBackupEndpoints
             { return Results.Problem("The backup could not be written."); }
         }).RequireDesktopOwner();
 
+        app.MapGet("/api/v1/gaming/save-backups/sync", (GameSaveBackupService backup) => Results.Ok(backup.SyncStatus())).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/save-backups/sync", (GameSaveSyncFolderRequest request, GameSaveBackupService backup) =>
+        {
+            if (request is null) return Results.BadRequest();
+            try { return Results.Ok(backup.SetSyncFolder(request.Folder)); }
+            catch (Exception ex) when (ex is InvalidDataException or ArgumentException) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Results.Problem("The sync folder could not be saved."); }
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/save-backups/sync", async (GameSaveBackupService backup, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await backup.SyncAsync(ct)); }
+            catch (OperationCanceledException) { return Results.StatusCode(499); }
+            catch (Exception ex) when (ex is InvalidDataException or ArgumentException) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Results.Problem("The sync could not be completed."); }
+        }).RequireDesktopOwner();
+
         app.MapPost("/api/v1/gaming/save-backups/{id}/verify", async (
             string id, GameSaveBackupService backup, CancellationToken ct) =>
         {

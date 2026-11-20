@@ -169,6 +169,7 @@ DENY GET /api/v1/gaming/profiles
 DENY GET /api/v1/gaming/providers
 DENY GET /api/v1/gaming/quick-resume
 DENY GET /api/v1/gaming/save-backups
+DENY GET /api/v1/gaming/save-backups/sync
 DENY GET /api/v1/gaming/status
 DENY GET /api/v1/gaming/titles
 DENY GET /api/v1/gaming/titles/{key}/launch-profile
@@ -457,6 +458,7 @@ DENY POST /api/v1/gaming/quick-resume/resume-all
 DENY POST /api/v1/gaming/quick-resume/suspend
 DENY POST /api/v1/gaming/resume
 DENY POST /api/v1/gaming/save-backups
+DENY POST /api/v1/gaming/save-backups/sync
 DENY POST /api/v1/gaming/save-backups/{id}/restore
 DENY POST /api/v1/gaming/save-backups/{id}/restore-plan
 DENY POST /api/v1/gaming/save-backups/{id}/verify
@@ -675,6 +677,7 @@ DENY PUT /api/v1/gaming/downloads/limit
 DENY PUT /api/v1/gaming/downloads/torrent-client
 DENY PUT /api/v1/gaming/hooks/enabled
 DENY PUT /api/v1/gaming/library/{id}
+DENY PUT /api/v1/gaming/save-backups/sync
 DENY PUT /api/v1/gaming/titles/bulk
 DENY PUT /api/v1/gaming/titles/{key}/collections
 DENY PUT /api/v1/gaming/titles/{key}/default-installation

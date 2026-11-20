@@ -126,6 +126,16 @@ namespace PaRuX.Services
             GameSaveHintRequest request, CancellationToken ct = default) =>
             SendAsync<List<GameSaveHintDto>>(HttpMethod.Post, "/api/v1/gaming/save-hints", request, ct);
 
+        /// <summary>The folder the save backups are mirrored to (cloud-synced folder, NAS or USB), if one is chosen.</summary>
+        public Task<GamingCallResult<GameSaveSyncStatusDto>> GetGameSaveSyncAsync(CancellationToken ct = default) =>
+            SendAsync<GameSaveSyncStatusDto>(HttpMethod.Get, "/api/v1/gaming/save-backups/sync", null, ct);
+
+        public Task<GamingCallResult<GameSaveSyncStatusDto>> SetGameSaveSyncFolderAsync(string? folder, CancellationToken ct = default) =>
+            SendAsync<GameSaveSyncStatusDto>(HttpMethod.Put, "/api/v1/gaming/save-backups/sync", new GameSaveSyncFolderRequest(folder), ct);
+
+        public Task<GamingCallResult<GameSaveSyncResultDto>> RunGameSaveSyncAsync(CancellationToken ct = default) =>
+            SendAsync<GameSaveSyncResultDto>(HttpMethod.Post, "/api/v1/gaming/save-backups/sync", null, ct, InspectionHttpClient);
+
         public Task<GamingCallResult<GameSaveBackupDto>> CreateGameSaveBackupAsync(
             GameSaveBackupRequest request, CancellationToken ct = default) =>
             SendAsync<GameSaveBackupDto>(HttpMethod.Post, "/api/v1/gaming/save-backups", request, ct, InspectionHttpClient);
