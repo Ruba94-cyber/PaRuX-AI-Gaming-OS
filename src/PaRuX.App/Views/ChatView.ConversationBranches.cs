@@ -171,6 +171,11 @@ namespace PaRuX.Views
             _conversationPreviousButton.IsEnabled = !ChatSession.Current.IsBusy && state.ActiveIndex > 0;
             _conversationNextButton.IsEnabled = !ChatSession.Current.IsBusy && state.ActiveIndex + 1 < state.Paths.Count;
             _conversationVersionsButton.IsEnabled = !ChatSession.Current.IsBusy && state.HasRetainedVersions;
+            // A lone "1/1" with a disabled Versions button is noise in an empty or linear chat; competitors show version
+            // controls only once an alternative exists. The controls reappear as soon as a retained version does.
+            Visibility navigatorVisibility = state.HasRetainedVersions ? Visibility.Visible : Visibility.Collapsed;
+            _conversationPreviousButton.Visibility = _conversationNextButton.Visibility =
+                _conversationVersionsButton.Visibility = _conversationBranchCounter.Visibility = navigatorVisibility;
             ToolTipService.SetToolTip(_conversationBranchCounter,
                 state.HasRetainedVersions
                     ? T($"Alternative {state.ActiveIndex + 1} of {state.Paths.Count} at the nearest retained fork", $"Alternativa {state.ActiveIndex + 1} di {state.Paths.Count} nella diramazione conservata più vicina")
