@@ -58,6 +58,7 @@ namespace PaRuX.Views
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             _executionQualityCombo = new ComboBox { MinWidth = 190 };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_executionQualityCombo, T("Execution quality profile", "Profilo di qualità di esecuzione"));
             _executionQualityCombo.Items.Add(new ComboBoxItem { Content = T("Fast", "Veloce"), Tag = ExecutionQualityProfile.Fast });
             _executionQualityCombo.Items.Add(new ComboBoxItem { Content = T("Balanced", "Bilanciato"), Tag = ExecutionQualityProfile.Balanced });
             _executionQualityCombo.Items.Add(new ComboBoxItem { Content = T("Maximum quality", "Qualità massima"), Tag = ExecutionQualityProfile.MaximumQuality });

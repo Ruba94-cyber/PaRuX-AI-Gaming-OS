@@ -64,9 +64,63 @@ namespace PaRuX.Views
             card.Children.Add(add);
             SettingsContentPanel.Children.Add(webhooks);
 
+            SettingsContentPanel.Children.Add(BuildSteamSection());
+
             _ = RefreshInstalledPluginsAsync();
             _ = RefreshAuditAsync();
             _ = RefreshWebhooksAsync();
+        }
+
+        private TextBlock? _steamStatus;
+
+        /// <summary>Steam achievements need the owner's own Web API key and SteamID. Nothing is requested until both are saved and the Internet switch is on.</summary>
+        private StackPanel BuildSteamSection()
+        {
+            StackPanel section = OwnerSection("Integrations", T("STEAM ACHIEVEMENTS", "RISULTATI STEAM"),
+                T("Show your Steam achievements on a game's card. You use your own Steam Web API key (steamcommunity.com/dev/apikey) and your SteamID64, and your Steam profile's Game details must be Public. The key is stored encrypted and never shown again. Needs the Internet switch on.",
+                  "Mostra i tuoi risultati Steam nella scheda di un gioco. Usi la tua chiave Steam Web API (steamcommunity.com/dev/apikey) e il tuo SteamID64, e i Dettagli di gioco del profilo Steam devono essere Pubblici. La chiave è salvata cifrata e non viene più mostrata. Richiede l'interruttore Internet acceso."),
+                out _, out _steamStatus, "Settings_Steam");
+            var card = (StackPanel)((Border)section.Children[1]).Child;
+            var key = new PasswordBox { Header = T("Steam Web API key", "Chiave Steam Web API") };
+            var id = new TextBox { Header = "SteamID64", PlaceholderText = "76561198000000000" };
+            AutomationProperties.SetAutomationId(key, "Settings_Steam_Key_PasswordBox");
+            AutomationProperties.SetAutomationId(id, "Settings_Steam_Id_TextBox");
+            var save = new Button { Content = T("Save", "Salva") };
+            var remove = new Button { Content = T("Remove", "Rimuovi") };
+            AutomationProperties.SetAutomationId(save, "Settings_Steam_Save_Button");
+            AutomationProperties.SetAutomationId(remove, "Settings_Steam_Remove_Button");
+            save.Click += async (_, _) =>
+            {
+                try
+                {
+                    var status = await OwnerRecordsClient.Current.SaveSteamAsync(new SteamCredentialsRequest { ApiKey = key.Password, SteamId = id.Text }, CancellationToken.None);
+                    key.Password = string.Empty;
+                    _steamStatus!.Text = T("Saved for SteamID ", "Salvato per lo SteamID ") + status.SteamId + ".";
+                }
+                catch (Exception ex) { _steamStatus!.Text = ex.Message; }
+            };
+            remove.Click += async (_, _) =>
+            {
+                try { await OwnerRecordsClient.Current.DeleteSteamAsync(CancellationToken.None); _steamStatus!.Text = T("Removed.", "Rimossa."); }
+                catch (Exception ex) { _steamStatus!.Text = ex.Message; }
+            };
+            card.Children.Add(key);
+            card.Children.Add(id);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(save);
+            row.Children.Add(remove);
+            card.Children.Add(row);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var status = await OwnerRecordsClient.Current.SteamStatusAsync(CancellationToken.None);
+                    _dispatcher.TryEnqueue(() => _steamStatus!.Text = status.Configured
+                        ? T("Saved for SteamID ", "Salvato per lo SteamID ") + status.SteamId + "." : T("Not set up.", "Non configurato."));
+                }
+                catch (Exception) { }
+            });
+            return section;
         }
 
         private StackPanel OwnerSection(string category, string title, string description, out StackPanel list, out TextBlock status,

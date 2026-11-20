@@ -31,7 +31,7 @@ internal static class GamingSectionsPage
     /// <summary>Controls hosted by the toolbar's More menu.</summary>
     private static readonly HashSet<string> MoreMenu = new(StringComparer.Ordinal)
     {
-        "GameHome_Metadata_Toggle", "GameHome_Insights_Button", "GameHome_ExportLibrary_Button", "GameHome_RestoreLibrary_Button", "GameHome_SteamGridDb_Button", "GameHome_Igdb_Button", "GameHome_ExternalLibraryPreview_Button",
+        "GameHome_Metadata_Toggle", "GameHome_Insights_Button", "GameHome_SmartCollections_Button", "GameHome_ExportLibrary_Button", "GameHome_RestoreLibrary_Button", "GameHome_SteamGridDb_Button", "GameHome_Igdb_Button", "GameHome_ExternalLibraryPreview_Button",
         "GameHome_ExternalLibrarySaved_Button", "GameHome_LocalGuide_Button", "GameHome_Wishlist_Button", "GameHome_SelectMode",
     };
 

@@ -96,6 +96,8 @@ public static class ProductV2Endpoints
             { return Results.BadRequest(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        var sharedInternet = app.Services.GetRequiredService<InternetSettingsService>();
+        WebhookRuntime.Configure(() => sharedInternet.GetEnabled());
         _ = WebhookRuntime.Service;   // subscribe to the audit log at startup so every entry can reach a hook
         app.MapGet("/api/v2/sampling-presets", () => Results.Ok(SamplingPresetStore.Default.List())).RequireDesktopOwner();
 

@@ -112,9 +112,27 @@ public sealed class SteamAchievementsService
         return result;
     }
 
+    /// <summary>
+    /// Real Steam, always. The one exception exists so end-to-end tests can point the Core at a fake Steam on this PC: an
+    /// http://127.0.0.1 or http://localhost base in <c>PARUX_STEAM_API_BASE_TEST</c>, honoured only while PARUX_DATA_ROOT is set (an
+    /// isolated test profile). Anything else in the variable is ignored.
+    /// </summary>
+    internal static string BaseUrl()
+    {
+        string? over = Environment.GetEnvironmentVariable("PARUX_STEAM_API_BASE_TEST");
+        if (!string.IsNullOrWhiteSpace(over)
+            && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PARUX_DATA_ROOT"))
+            && Uri.TryCreate(over, UriKind.Absolute, out Uri? uri)
+            && uri.Scheme == Uri.UriSchemeHttp
+            && (uri.Host == "127.0.0.1" || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+            && string.IsNullOrEmpty(uri.UserInfo))
+            return uri.GetLeftPart(UriPartial.Authority);
+        return "https://" + Host;
+    }
+
     private async Task<JsonDocument> GetJsonAsync(string pathAndQuery, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://" + Host + "/" + pathAndQuery);
+        using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl() + "/" + pathAndQuery);
         using HttpResponseMessage response = await _http.SendAsync(request, ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) throw new HttpRequestException("Steam answered " + (int)response.StatusCode, null, response.StatusCode);
         byte[] bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);

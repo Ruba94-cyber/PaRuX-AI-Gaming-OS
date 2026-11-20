@@ -386,6 +386,29 @@ internal sealed class GamingDevicesPanel : StackPanel
         Children.Add(liveToggle);
         Children.Add(liveView);
 
+        // Guided mapping (XOutput style): press each control when asked; the numbers below fill themselves.
+        var wizard = new ControllerMappingWizard(new[]
+        {
+            new MappingStep("button A", "il pulsante A", _rawA, true), new MappingStep("button B", "il pulsante B", _rawB, true),
+            new MappingStep("button X", "il pulsante X", _rawX, true), new MappingStep("button Y", "il pulsante Y", _rawY, true),
+            new MappingStep("the left bumper (LB)", "il dorsale sinistro (LB)", _rawLb, true), new MappingStep("the right bumper (RB)", "il dorsale destro (RB)", _rawRb, true),
+            new MappingStep("Back / Select", "Back / Select", _rawBack, true), new MappingStep("Start", "Start", _rawStart, true),
+            new MappingStep("the left stick click (L3)", "il clic della levetta sinistra (L3)", _rawL3, true), new MappingStep("the right stick click (R3)", "il clic della levetta destra (R3)", _rawR3, true),
+            new MappingStep("the left stick sideways", "la levetta sinistra di lato", _rawLx, false), new MappingStep("the left stick up", "la levetta sinistra in su", _rawLy, false),
+            new MappingStep("the right stick sideways", "la levetta destra di lato", _rawRx, false), new MappingStep("the right stick up", "la levetta destra in su", _rawRy, false),
+            new MappingStep("the left trigger (LT)", "il grilletto sinistro (LT)", _rawLt, false), new MappingStep("the right trigger (RT)", "il grilletto destro (RT)", _rawRt, false),
+        });
+        var startWizard = MakeButton(T("Guided mapping: press each control", "Mappatura guidata: premi ogni controllo"), "GameDevices_Wizard_Start_Button", () =>
+        {
+            string? id = (_rawDevices.SelectedItem as ComboBoxItem)?.Tag as string;
+            if (!wizard.Begin(id))
+                _rawDeviceStatus.Text = T("Choose a controller first (Find controllers).", "Scegli prima un controller (Trova controller).");
+            return System.Threading.Tasks.Task.CompletedTask;
+        });
+        wizard.Ended += message => _rawDeviceStatus.Text = message;
+        Children.Add(startWizard);
+        Children.Add(wizard);
+
         Children.Add(new TextBlock
         {
             Text = T("Raw controller mapping — manual, -1 disables a control", "Mappatura controller — manuale, -1 disabilita un controllo"),

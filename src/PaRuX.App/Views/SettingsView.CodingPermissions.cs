@@ -58,6 +58,7 @@ namespace PaRuX.Views
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 PlaceholderText = T("Coding permission profile", "Profilo dei permessi di programmazione")
             };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, T("Coding permission profile", "Profilo dei permessi di programmazione"));
             picker.Items.Add(new ComboBoxItem
             {
                 Content = T("Offline — no dependency downloads", "Offline: nessun download di dipendenze"),

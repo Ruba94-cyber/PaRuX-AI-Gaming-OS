@@ -24,6 +24,32 @@ namespace PaRuX.Services
             return null;
         }
 
+        /// <summary>
+        /// Guided mapping ("press the control you want to use"): the index of the button that is newly pressed since the baseline, or
+        /// of the axis that moved furthest (at least <paramref name="axisDelta"/>) since the baseline. Null while nothing qualifies.
+        /// Comparing with a baseline taken when the step began ignores a stick that rests off-centre.
+        /// </summary>
+        public static int? DetectIndex(bool[]? baselineButtons, double[]? baselineAxes, bool[]? buttons, double[]? axes, bool wantButton, double axisDelta = 0.5)
+        {
+            if (wantButton)
+            {
+                if (buttons is null) return null;
+                for (int i = 0; i < buttons.Length; i++)
+                    if (buttons[i] && !(baselineButtons is not null && i < baselineButtons.Length && baselineButtons[i])) return i;
+                return null;
+            }
+            if (axes is null) return null;
+            int? best = null;
+            double bestDelta = axisDelta;
+            for (int i = 0; i < axes.Length; i++)
+            {
+                double before = baselineAxes is not null && i < baselineAxes.Length ? baselineAxes[i] : 0;
+                double delta = Math.Abs(axes[i] - before);
+                if (delta >= bestDelta) { best = i; bestDelta = delta; }
+            }
+            return best;
+        }
+
         /// <summary>Stick position for the axis pair starting at <paramref name="firstAxis"/>, each clamped to -1..1; (0,0) when the axes do not exist.</summary>
         public static (double X, double Y) StickPoint(double[]? axes, int firstAxis)
         {

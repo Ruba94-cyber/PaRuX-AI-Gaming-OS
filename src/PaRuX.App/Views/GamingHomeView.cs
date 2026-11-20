@@ -53,6 +53,8 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _steamGridDb = new();
     private readonly Button _pickRandom = new();
     private readonly Button _insightsButton = new();
+    private readonly Button _smartCollectionsButton = new();
+    private GameSmartCollection? _smartFilter;
     private readonly Button _exportLibrary = new();
     private readonly Button _restoreLibrary = new();
     private readonly Random _random = new();
@@ -256,6 +258,15 @@ internal sealed class GamingHomeView : StackPanel
         _status.Text = T($"How about {pick.Name}? Its card is open; press Play when you are ready.",
             $"Che ne dici di {pick.Name}? La sua scheda è aperta; premi Gioca quando vuoi.");
         await OpenAsync(pick);
+    }
+
+    private async Task ShowSmartCollectionsAsync()
+    {
+        List<GameTitleDto>? whole = await QueryWholeLibraryAsync(includeHidden: false);
+        SmartCollectionChoice choice = await SmartCollectionsDialog.ShowAsync(XamlRoot, whole ?? _allTitles);
+        if (!choice.Changed) return;
+        _smartFilter = choice.Collection;
+        await ReloadAsync(queryOnly: true);
     }
 
     private async Task<List<GameTitleDto>?> QueryWholeLibraryAsync(bool includeHidden)
@@ -542,6 +553,11 @@ internal sealed class GamingHomeView : StackPanel
         Track(_insightsButton, "GameHome_Insights_Button",
             T("Play time, most played, status and rating overview of your library", "Panoramica di tempo di gioco, più giocati, stati e voti della libreria"));
         _insightsButton.Click += async (_, _) => await ShowInsightsAsync();
+        _smartCollectionsButton.Content = T("Smart collections...", "Collezioni intelligenti...");
+        Track(_smartCollectionsButton, "GameHome_SmartCollections_Button",
+            T("Saved filters that fill themselves, such as games you are playing and rated 8 or more",
+              "Filtri salvati che si riempiono da soli, per esempio i giochi che stai giocando con voto 8 o più"));
+        _smartCollectionsButton.Click += async (_, _) => await ShowSmartCollectionsAsync();
         _exportLibrary.Content = T("Export library...", "Esporta libreria...");
         Track(_exportLibrary, "GameHome_ExportLibrary_Button",
             T("Save your library as a CSV or JSON file: names, status, rating, play time, tags (no file paths)",
@@ -608,7 +624,7 @@ internal sealed class GamingHomeView : StackPanel
         Track(libraryTools, "GameHome_LibraryTools_Button", T("Library tools: covers, imports, game guide, wishlist, multi-select",
             "Strumenti libreria: copertine, importazione, guida giochi, lista desideri, selezione multipla"));
         libraryTools.Flyout = BuildToolbarFlyout(new FrameworkElement[]
-            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _insightsButton, _exportLibrary, _restoreLibrary });
+            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _insightsButton, _smartCollectionsButton, _exportLibrary, _restoreLibrary });
         // Grouping and cover size are set-and-forget: one "View" menu instead of two always-visible drop-downs.
         var viewMenu = new Button { Content = T("View", "Vista") + "  ▾" };
         Track(viewMenu, "GameHome_View_Button", T("View options: group games, cover size", "Opzioni di vista: raggruppa i giochi, dimensione copertine"));
@@ -1570,7 +1586,8 @@ internal sealed class GamingHomeView : StackPanel
     private bool FiltersActive =>
         !string.IsNullOrWhiteSpace(_search.Text) || !string.IsNullOrEmpty(TagOf(_source)) || !string.IsNullOrEmpty(TagOf(_platform))
         || !string.IsNullOrEmpty(TagOf(_installed)) || _favoritesOnly.IsChecked == true || !string.IsNullOrEmpty(TagOf(_tag))
-        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true || _recentOnly || _genre.Length > 0 || _attentionOnly;
+        || !string.IsNullOrWhiteSpace(_collectionFilter.Text) || _showHidden.IsChecked == true || _recentOnly || _genre.Length > 0 || _attentionOnly
+        || _smartFilter is not null;
 
     /// <summary>
     /// Recover from a zero-result filter combination without resetting the user's
@@ -1595,6 +1612,7 @@ internal sealed class GamingHomeView : StackPanel
             _recentOnly = false;
             _genre = string.Empty;
             _attentionOnly = false;
+            _smartFilter = null;
         }
         finally { _applying = false; }
         ++_searchEditGeneration;
@@ -1948,7 +1966,8 @@ internal sealed class GamingHomeView : StackPanel
                 "Cancella i filtri per vedere tutta la libreria. Giochi e impostazioni non verranno modificati.")
             : T("Open “Add & import” above to add a local game, find the games from your installed stores, or import emulator games.",
                 "Apri “Aggiungi e importa” qui sopra per aggiungere un gioco locale, trovare quelli degli store installati o importare giochi per emulatore.");
-        _libraryHeading.Text = T("Library", "Libreria") + (_titles.Count > 0 ? $" · {_titles.Count}" : string.Empty);
+        _libraryHeading.Text = T("Library", "Libreria") + (_titles.Count > 0 ? $" · {_titles.Count}" : string.Empty)
+            + (_smartFilter is null ? string.Empty : " · " + _smartFilter.Name);
         _status.Text = _titles.Count == 0
             ? FiltersActive
                 ? T("No games match these filters.", "Nessun gioco corrisponde ai filtri.")
@@ -1966,6 +1985,13 @@ internal sealed class GamingHomeView : StackPanel
     /// <summary>The recently-played and genre rail choices are applied here; store, install state and favourites go to the Core with the query.</summary>
     private List<GameTitleDto> ApplySideFilter(List<GameTitleDto> fromCore)
     {
+        if (_smartFilter is not null)
+        {
+            // A smart collection narrows the Core's list; the Core's order is kept.
+            DateTime now = DateTime.UtcNow;
+            GameSmartCollection smart = _smartFilter;
+            fromCore = fromCore.Where(t => GameSmartCollectionRules.Matches(t, smart, now)).ToList();
+        }
         if (!_recentOnly && _genre.Length == 0) return fromCore;
         var filter = new GameHomeFilter { RecentlyPlayedOnly = _recentOnly, Genre = _genre };
         // The Core already ordered the list; keep that order by filtering without re-sorting.

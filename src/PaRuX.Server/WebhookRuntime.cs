@@ -6,10 +6,16 @@ namespace PaRuX.Server;
 /// </summary>
 internal static class WebhookRuntime
 {
+    private static Func<bool>? _internetEnabled;
+
+    /// <summary>Called once at startup with the app's own Internet switch, so webhooks and Steam read the live value instead of a private copy.</summary>
+    public static void Configure(Func<bool> internetEnabled) => _internetEnabled = internetEnabled;
+
+    private static bool InternetEnabled() => _internetEnabled?.Invoke() ?? false;
+
     private static readonly Lazy<WebhookService> Instance = new(() =>
     {
-        var internet = new InternetSettingsService();
-        var service = new WebhookService(ServerState.StateDirectory, () => internet.GetEnabled());
+        var service = new WebhookService(ServerState.StateDirectory, InternetEnabled);
         AuditLogService.Appended += service.Dispatch;
         return service;
     });
@@ -17,10 +23,7 @@ internal static class WebhookRuntime
     public static WebhookService Service => Instance.Value;
 
     private static readonly Lazy<SteamAchievementsService> Steam = new(() =>
-    {
-        var internet = new InternetSettingsService();
-        return new SteamAchievementsService(ServerState.StateDirectory, () => internet.GetEnabled());
-    });
+        new SteamAchievementsService(ServerState.StateDirectory, InternetEnabled));
 
     public static SteamAchievementsService SteamAchievements => Steam.Value;
 }

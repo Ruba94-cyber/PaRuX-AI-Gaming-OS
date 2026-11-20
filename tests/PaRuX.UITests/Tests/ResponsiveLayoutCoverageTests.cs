@@ -104,12 +104,15 @@ public sealed class ResponsiveLayoutCoverageTests
                     int composerRight = UiWait.ById(app.MainWindow, "Chat_Send_Button").Properties.BoundingRectangle.ValueOrDefault.Right;
                     var controls = (advanced ? advancedIds : simpleIds)
                         .Select(i => (Id: i, Element: UiWait.ById(app.MainWindow, i)))
-                        .Concat(branchNames.Select(n =>
-                        {
-                            AutomationElement? found = null;
-                            UiWait.For(() => (found = app.MainWindow.FindFirstDescendant(cf => cf.ByName(n))) != null, "chat control named " + n);
-                            return (Id: n, Element: found!);
-                        })).ToArray();
+                        .ToArray();
+                    // A new chat has no alternative versions, so the version navigator is not shown at all (it used to sit there as a
+                    // meaningless "1/1"); it must not take footer space at any width.
+                    foreach (string n in branchNames)
+                    {
+                        AutomationElement? hidden = app.MainWindow.FindFirstDescendant(cf => cf.ByName(n));
+                        Assert.True(hidden is null || hidden.Properties.IsOffscreen.ValueOrDefault || hidden.Properties.BoundingRectangle.ValueOrDefault.Width <= 0,
+                            n + " must be hidden in a chat with no versions at " + where);
+                    }
                     foreach (var (id, element) in controls)
                     {
                         UiWait.For(() =>

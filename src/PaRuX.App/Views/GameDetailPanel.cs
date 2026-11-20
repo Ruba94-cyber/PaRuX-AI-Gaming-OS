@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -428,6 +429,10 @@ internal sealed class GameDetailPanel : UserControl
                 return true;
             }));
 
+        // Steam achievements (read-only, through the owner's own key; only for titles with a Steam installation)
+        UIElement? achievements = BuildAchievementsSection(title);
+        if (achievements is not null) _body.Children.Add(achievements);
+
         // private notes
         _body.Children.Add(BuildNotesEditor(title));
 
@@ -626,6 +631,44 @@ internal sealed class GameDetailPanel : UserControl
     }
 
     /// <summary>Free-text private notes (Playnite-style): saved when the box loses focus or with Ctrl+Enter; Enter alone adds a line.</summary>
+    private UIElement? BuildAchievementsSection(GameTitleDto title)
+    {
+        GameInstallationDto? steam = title.Installations.FirstOrDefault(i =>
+            string.Equals(i.Source, "steam", StringComparison.OrdinalIgnoreCase) && int.TryParse(i.SourceGameId, out int id) && id > 0);
+        if (steam is null) return null;
+        int appId = int.Parse(steam.SourceGameId, System.Globalization.CultureInfo.InvariantCulture);
+        var panel = new StackPanel { Spacing = 6 };
+        var button = new Button { Content = T("Show Steam achievements", "Mostra i risultati Steam") };
+        AutomationProperties.SetAutomationId(button, "GameDetail_Achievements_Button");
+        var summary = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
+        AutomationProperties.SetAutomationId(summary, "GameDetail_Achievements_Summary");
+        var list = new StackPanel { Spacing = 2 };
+        button.Click += async (_, _) =>
+        {
+            summary.Text = T("Asking Steam…", "Chiedo a Steam…");
+            list.Children.Clear();
+            try
+            {
+                SteamAchievementsResult r = await OwnerRecordsClient.Current.SteamAchievementsAsync(appId, CancellationToken.None);
+                if (r.Problem.Length > 0) { summary.Text = r.Problem; return; }
+                summary.Text = r.Unlocked + " / " + r.Total + T(" unlocked", " sbloccati");
+                foreach (SteamAchievementDto a in r.Achievements.OrderByDescending(x => x.Achieved).ThenBy(x => x.Name).Take(12))
+                    list.Children.Add(new TextBlock
+                    {
+                        Text = (a.Achieved ? "✔ " : "○ ") + a.Name + (string.IsNullOrWhiteSpace(a.Description) ? "" : " — " + a.Description),
+                        TextWrapping = TextWrapping.Wrap, Opacity = a.Achieved ? 1 : 0.6,
+                    });
+                if (r.Total > 12) list.Children.Add(new TextBlock { Text = T("…and " + (r.Total - 12) + " more", "…e altri " + (r.Total - 12)), Opacity = 0.6 });
+            }
+            catch (Exception ex) { summary.Text = ex.Message; }
+        };
+        panel.Children.Add(new TextBlock { Text = T("ACHIEVEMENTS", "RISULTATI"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
+        panel.Children.Add(button);
+        panel.Children.Add(summary);
+        panel.Children.Add(list);
+        return panel;
+    }
+
     private UIElement BuildNotesEditor(GameTitleDto title)
     {
         string key = title.TitleKey;

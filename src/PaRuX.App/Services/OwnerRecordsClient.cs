@@ -30,6 +30,20 @@ namespace PaRuX.Services
         public Task DeleteWebhookAsync(string id, CancellationToken ct) =>
             SendNoContent(HttpMethod.Delete, "/api/v2/webhooks/" + Uri.EscapeDataString(id), ct);
 
+        public Task<SteamCredentialsStatus> SteamStatusAsync(CancellationToken ct) => Get<SteamCredentialsStatus>("/api/v2/steam/credentials", ct);
+        public Task<SteamCredentialsStatus> SaveSteamAsync(SteamCredentialsRequest request, CancellationToken ct) =>
+            Send<SteamCredentialsStatus>(HttpMethod.Put, "/api/v2/steam/credentials", request, ct);
+        public Task DeleteSteamAsync(CancellationToken ct) => SendNoContent(HttpMethod.Delete, "/api/v2/steam/credentials", ct);
+        public Task<SteamAchievementsResult> SteamAchievementsAsync(int appId, CancellationToken ct) =>
+            Get<SteamAchievementsResult>("/api/v2/steam/achievements/" + appId, ct);
+
+        public Task<List<GameSmartCollection>> ListSmartCollectionsAsync(CancellationToken ct) =>
+            Get<List<GameSmartCollection>>("/api/v1/gaming/smart-collections", ct);
+        public Task<GameSmartCollection> SaveSmartCollectionAsync(GameSmartCollection collection, CancellationToken ct) =>
+            Send<GameSmartCollection>(HttpMethod.Put, "/api/v1/gaming/smart-collections", collection, ct);
+        public Task DeleteSmartCollectionAsync(string id, CancellationToken ct) =>
+            SendNoContent(HttpMethod.Delete, "/api/v1/gaming/smart-collections/" + Uri.EscapeDataString(id), ct);
+
         public Task<List<SamplingPreset>> ListPresetsAsync(CancellationToken ct) => Get<List<SamplingPreset>>("/api/v2/sampling-presets", ct);
         public Task<SamplingPreset> SavePresetAsync(SamplingPreset preset, CancellationToken ct) =>
             Send<SamplingPreset>(HttpMethod.Put, "/api/v2/sampling-presets", preset, ct);

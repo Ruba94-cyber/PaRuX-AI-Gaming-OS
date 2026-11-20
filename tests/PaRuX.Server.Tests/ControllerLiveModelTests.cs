@@ -27,6 +27,23 @@ public sealed class ControllerLiveModelTests
     }
 
     [Fact]
+    public void Guided_mapping_picks_the_newly_pressed_button_and_ignores_one_already_held()
+    {
+        bool[] baseline = { true, false, false };
+        Assert.Null(ControllerLiveModel.DetectIndex(baseline, new double[2], new[] { true, false, false }, new double[2], wantButton: true));
+        Assert.Equal(2, ControllerLiveModel.DetectIndex(baseline, new double[2], new[] { true, false, true }, new double[2], wantButton: true));
+    }
+
+    [Fact]
+    public void Guided_mapping_picks_the_axis_that_moved_furthest_from_where_it_rested()
+    {
+        double[] rest = { 0.0, 0.8, 0.0 };   // axis 1 rests off-centre
+        Assert.Null(ControllerLiveModel.DetectIndex(null, rest, null, new[] { 0.1, 0.85, 0.0 }, wantButton: false));
+        Assert.Equal(2, ControllerLiveModel.DetectIndex(null, rest, null, new[] { 0.6, 0.85, -1.0 }, wantButton: false));
+        Assert.Equal(0, ControllerLiveModel.DetectIndex(null, rest, null, new[] { -0.9, 0.8, 0.0 }, wantButton: false));
+    }
+
+    [Fact]
     public void Stick_points_are_clamped_and_missing_axes_sit_in_the_centre()
     {
         Assert.Equal((1.0, -1.0), ControllerLiveModel.StickPoint(new[] { 3.0, -5.0 }, 0));
