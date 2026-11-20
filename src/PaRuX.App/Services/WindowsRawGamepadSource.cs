@@ -34,6 +34,47 @@ public sealed class WindowsRawGamepadSource : IRawGamepadSource
 
     public string DeviceId { get; }
 
+    /// <summary>True when Windows reports at least one force-feedback motor on this controller.</summary>
+    public bool HasRumble
+    {
+        get { try { return _device.ForceFeedbackMotors.Count > 0; } catch (Exception) { return false; } }
+    }
+
+    private Windows.Gaming.Input.ForceFeedback.ConstantForceEffect? _rumble;
+    private Windows.Gaming.Input.ForceFeedback.ForceFeedbackMotor? _motor;
+
+    /// <summary>
+    /// Vibrates the controller for about a quarter of a second at the strength of the stronger of the two XInput motors (a generic
+    /// HID pad has one motor channel, so the two are merged). Strength 0 stops it. Best effort: a pad without a motor, or a failed
+    /// effect load, simply does nothing; a game never fails because vibration did.
+    /// </summary>
+    public async System.Threading.Tasks.Task<bool> RumbleAsync(ushort low, ushort high)
+    {
+        try
+        {
+            _motor ??= _device.ForceFeedbackMotors.FirstOrDefault();
+            if (_motor is null) return false;
+            double strength = Math.Max(low, high) / 65535.0;
+            if (strength <= 0)
+            {
+                _rumble?.Stop();
+                return true;
+            }
+            _motor.MasterGain = Math.Clamp(strength, 0.0, 1.0);
+            if (_rumble is null)
+            {
+                var effect = new Windows.Gaming.Input.ForceFeedback.ConstantForceEffect();
+                effect.SetParameters(new System.Numerics.Vector3(1, 0, 0), TimeSpan.FromMilliseconds(250));
+                var load = await _motor.LoadEffectAsync(effect);
+                if (load != Windows.Gaming.Input.ForceFeedback.ForceFeedbackLoadEffectResult.Succeeded) return false;
+                _rumble = effect;
+            }
+            _rumble.Start();
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
     public static IReadOnlyList<RawGamepadDeviceInfo> ListDevices()
     {
         var list = new List<RawGamepadDeviceInfo>();

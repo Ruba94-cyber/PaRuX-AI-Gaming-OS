@@ -139,6 +139,8 @@ public sealed class XInputShimTests
             // A game's rumble request lands in the section for PaRuX to forward.
             var vib = new XVib { Left = 40000, Right = 12345 };
             Assert.Equal(Success, setState(0, ref vib));
+            Assert.Equal(((ushort)40000, (ushort)12345), SharedMemoryXInputBackend.ReadRumble(0));   // what the bridge forwards to the physical pad
+            Assert.Equal(((ushort)0, (ushort)0), SharedMemoryXInputBackend.ReadRumble(3));            // an unused slot has none
 
             // A slot PaRuX does not serve still goes to Windows.
             var other = new XState();

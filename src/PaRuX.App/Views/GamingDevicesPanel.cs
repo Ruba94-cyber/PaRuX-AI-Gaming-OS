@@ -755,6 +755,9 @@ internal sealed class GamingDevicesPanel : StackPanel
             var status = XInputShimBridge.Current.Start(id, resolved.Mapping);
             _driverlessStatus.Text = status.Running
                 ? T("The Xbox pad is on. Games that have the PaRuX file see this controller as an Xbox pad.", "Il pad Xbox è attivo. I giochi che hanno il file di PaRuX vedono questo controller come un pad Xbox.")
+                    + (XInputShimBridge.Current.PadHasRumble
+                        ? T(" Game vibration is passed to the controller.", " La vibrazione del gioco viene inviata al controller.")
+                        : T(" This controller reports no vibration motor, so game vibration is ignored.", " Questo controller non dichiara un motore di vibrazione, quindi la vibrazione del gioco viene ignorata."))
                 : status.Message;
             return Task.CompletedTask;
         });

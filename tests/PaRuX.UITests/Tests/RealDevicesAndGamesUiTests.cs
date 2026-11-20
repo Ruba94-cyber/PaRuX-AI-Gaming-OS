@@ -216,6 +216,10 @@ public sealed class RealDevicesAndGamesUiTests
     private struct XState { public uint Packet; public ushort Buttons; public byte Lt, Rt; public short Lx, Ly, Rx, Ry; }
     [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Winapi)]
     private delegate uint GetStateFn(uint index, ref XState state);
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct XVib { public ushort Left, Right; }
+    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Winapi)]
+    private delegate uint SetStateFn(uint index, ref XVib vib);
     [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr LoadLibraryW(string path);
     [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Ansi, SetLastError = true)]
@@ -266,6 +270,9 @@ public sealed class RealDevicesAndGamesUiTests
             Press(app, "GameDevices_Driverless_Start_Button");
             var padStatus = UiWait.ById(app.MainWindow, "GameDevices_Driverless_Status_Text", ControlType.Text);
             UiWait.For(() => Text(padStatus).Contains("is on", StringComparison.Ordinal), "the Xbox pad starts", TimeSpan.FromSeconds(30));
+            // The panel says plainly whether this controller can vibrate for the game.
+            Assert.True(Text(padStatus).Contains("vibration", StringComparison.OrdinalIgnoreCase), "the vibration support is stated");
+            File.WriteAllText(Path.Combine(app.DataRoot, "driverless-status.txt"), Text(padStatus));
 
             // Load the shim from the game's own folder and call it like a game does.
             IntPtr module = LoadLibraryW(Path.Combine(game, "xinput1_4.dll"));
@@ -280,6 +287,14 @@ public sealed class RealDevicesAndGamesUiTests
             // At rest nobody is pressing a trigger.
             Assert.Equal(0, state.Lt);
             Assert.Equal(0, state.Rt);
+
+            // A game's vibration request is accepted (a quarter of a second, then silence), whether or not this pad has a motor.
+            var setState = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetStateFn>(GetProcAddress(module, "XInputSetState"));
+            var buzz = new XVib { Left = 20000, Right = 20000 };
+            Assert.Equal(0u, setState(0, ref buzz));
+            Thread.Sleep(400);
+            var silence = new XVib();
+            Assert.Equal(0u, setState(0, ref silence));
 
             // Stop: the shim forwards to Windows again (this PC's pad is not XInput, so "not connected" or a real pad).
             Press(app, "GameDevices_Driverless_Stop_Button");

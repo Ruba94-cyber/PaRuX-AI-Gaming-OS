@@ -110,6 +110,22 @@ public sealed class SharedMemoryXInputBackend : IVirtualControllerBackend
         }
     }
 
+    /// <summary>
+    /// The vibration a game last asked for on a slot (the shim writes it), or (0, 0) when no pad is published. The bridge forwards it to
+    /// the physical controller. Reading never changes the section.
+    /// </summary>
+    public static (ushort Low, ushort High) ReadRumble(int slot)
+    {
+        if (slot < 0 || slot >= XInputSectionLayout.Slots) return (0, 0);
+        lock (Gate)
+        {
+            if (_view is null) return (0, 0);
+            var buffer = new byte[XInputSectionLayout.TotalSize];
+            _view.ReadArray(0, buffer, 0, buffer.Length);
+            return XInputSectionLayout.ReadRumble(buffer, slot);
+        }
+    }
+
     private static void PublishHeader()
     {
         if (_view is null) return;
