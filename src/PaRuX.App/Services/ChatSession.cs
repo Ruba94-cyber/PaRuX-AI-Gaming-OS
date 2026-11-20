@@ -283,6 +283,26 @@ namespace PaRuX.Services
             return RunTurnAsync(route, oneShotSkillId, forcedModelRoute);
         }
 
+        /// <summary>
+        /// Edit-and-resend for the owner's own message (ChatGPT, Open WebUI and Jan do the same): the message and everything
+        /// after it are dropped, then the edited text is sent as a new turn with the same attachments. Like Regenerate, the
+        /// earlier path is retained by the conversation-branch history, so nothing is lost.
+        /// </summary>
+        public Task ResendEditedUserMessageAsync(ChatMessage? target, string editedText)
+        {
+            if (IsBusy || target == null || target.Role != "user") return Task.CompletedTask;
+            string text = (editedText ?? string.Empty).Trim();
+            if (text.Length == 0) return Task.CompletedTask;
+            List<ChatMessage> msgs = Conversation.Messages;
+            int index = msgs.IndexOf(target);
+            if (index < 0) return Task.CompletedTask;
+            var attachments = target.Attachments is { Count: > 0 } ? target.Attachments.ToList() : null;
+            msgs.RemoveRange(index, msgs.Count - index);
+            Action? changed = ConversationChanged;
+            if (changed != null) changed();
+            return SendAsync(text, attachments);
+        }
+
         public Task RegenerateAsync(ChatMessage? targetAssistant = null)
         {
             if (IsBusy) return Task.CompletedTask;

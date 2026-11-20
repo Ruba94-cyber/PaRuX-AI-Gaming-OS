@@ -1073,6 +1073,7 @@ namespace PaRuX.Views
                     stack.Children.Add(BuildRouteBadge(message.Route));
                 }
                 stack.Children.Add(BuildTimestampCaption(message.TimestampUtc, HorizontalAlignment.Right));
+                stack.Children.Add(BuildUserMessageActions(message));
                 row = stack;
             }
             else
@@ -1760,6 +1761,64 @@ namespace PaRuX.Views
         /// a Style, so the control keeps its stock WinUI template and therefore its
         /// hover / pressed / focus visuals.
         /// </summary>
+        /// <summary>Copy and "Edit and resend" under the owner's own message, like the assistant reply row.</summary>
+        private StackPanel BuildUserMessageActions(ChatMessage message)
+        {
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 2 };
+            Button copy = BuildActionButton("", T("Copy message", "Copia messaggio"));
+            AutomationProperties.SetAutomationId(copy, "Chat_UserMessage_Copy_Button");
+            copy.Click += (_, _) =>
+            {
+                try
+                {
+                    var package = new DataPackage();
+                    package.SetText(message.Content ?? string.Empty);
+                    Clipboard.SetContent(package);
+                    ShowTransientStatus(T("Copied to clipboard.", "Copiato negli appunti."));
+                }
+                catch (Exception ex) { Log.Write("Copy failed: " + ex.Message); }
+            };
+            Button edit = BuildActionButton("", T("Edit and resend", "Modifica e rinvia"));
+            AutomationProperties.SetAutomationId(edit, "Chat_UserMessage_Edit_Button");
+            edit.Click += async (_, _) => await EditAndResendAsync(message);
+            actions.Children.Add(copy);
+            actions.Children.Add(edit);
+            return actions;
+        }
+
+        private async Task EditAndResendAsync(ChatMessage message)
+        {
+            if (ChatSession.Current.IsBusy)
+            {
+                ShowTransientStatus(T("Stop the current generation before editing a message.", "Interrompi la generazione in corso prima di modificare un messaggio."));
+                return;
+            }
+            var box = new TextBox { Text = message.Content ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 120, MinWidth = 420 };
+            AutomationProperties.SetAutomationId(box, "Chat_UserMessage_Edit_TextBox");
+            var dialog = new ContentDialog
+            {
+                Title = T("Edit and resend", "Modifica e rinvia"),
+                Content = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        box,
+                        new TextBlock { Opacity = 0.7, TextWrapping = TextWrapping.Wrap,
+                            Text = T("The replies after this message are replaced by a new answer. The earlier version stays in Versions.",
+                                     "Le risposte dopo questo messaggio vengono sostituite da una nuova risposta. La versione precedente resta in Versioni.") },
+                    },
+                },
+                PrimaryButtonText = T("Resend", "Rinvia"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot,
+            };
+            AutomationProperties.SetAutomationId(dialog, "Chat_UserMessage_Edit_Dialog");
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            await ChatSession.Current.ResendEditedUserMessageAsync(message, box.Text);
+        }
+
         private Button BuildActionButton(string glyph, string tooltip)
         {
             var button = new Button
