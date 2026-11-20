@@ -6,7 +6,11 @@ public sealed record DetectedEmulator(string EmulatorId, string ExecutablePath);
 
 public sealed record EmulatedGameCandidate(string Path, string Title, long SizeBytes);
 
-public sealed record EmulatorScanResult(IReadOnlyList<EmulatedGameCandidate> Games, bool Truncated, string? Error);
+public sealed record EmulatorScanResult(IReadOnlyList<EmulatedGameCandidate> Games, bool Truncated, string? Error)
+{
+    /// <summary>Switch update and add-on files found next to the games and left out of the list (they belong to a game, they are not games).</summary>
+    public int SkippedAddOns { get; init; }
+}
 
 /// <summary>
 /// Finds emulators the user already installed and game files in folders the user chose. Read-only: it lists directory
@@ -149,6 +153,7 @@ public static class EmulatorDiscovery
 
         var games = new List<EmulatedGameCandidate>();
         int entries = 0;
+        int skippedAddOns = 0;
         bool truncated = false;
 
         void Walk(string directory, int depth)
@@ -164,6 +169,7 @@ public static class EmulatorDiscovery
                     if (++entries > MaxScanEntries || games.Count >= MaxGames)
                     { truncated = true; return; }
                     if (!EmulatorRegistry.IsGameFile(definition, file) || IsLink(file)) continue;
+                    if (SwitchTitleFiles.IsAddOn(Path.GetFileName(file))) { skippedAddOns++; continue; }
                     long size;
                     try { size = new FileInfo(file).Length; }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
@@ -188,7 +194,8 @@ public static class EmulatorDiscovery
         }
 
         Walk(root, 0);
-        return new(games.OrderBy(g => g.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(g => g.Path, StringComparer.OrdinalIgnoreCase).ToArray(), truncated, null);
+        return new(games.OrderBy(g => g.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(g => g.Path, StringComparer.OrdinalIgnoreCase).ToArray(), truncated, null)
+        { SkippedAddOns = skippedAddOns };
     }
 
     private static readonly HashSet<string> StructuralFolders = new(StringComparer.OrdinalIgnoreCase) { "USRDIR", "PS3_GAME" };

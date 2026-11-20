@@ -18,6 +18,9 @@ public sealed class RealDevicesAndGamesUiTests
 {
     private static string Text(AutomationElement e) { try { return e.Name ?? string.Empty; } catch { return string.Empty; } }
 
+    private static void Press(UiTestApplication app, string id) =>
+        new InstallProgressPage(app).Invoke(UiWait.ById(app.MainWindow, id));
+
     private static void OpenGames(UiTestApplication app) =>
         new InstallProgressPage(app).Invoke(UiWait.ById(app.MainWindow, "Navigation_GameLibrary_Item", ControlType.ListItem));
 
@@ -157,6 +160,54 @@ public sealed class RealDevicesAndGamesUiTests
             button.AsButton().Invoke();
             var summary = UiWait.ById(app.MainWindow, "GameDetail_Achievements_Summary", ControlType.Text);
             UiWait.For(() => Text(summary).Contains("Steam Web API key", StringComparison.OrdinalIgnoreCase), "an honest request for the key", TimeSpan.FromSeconds(30));
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "RealHardware"), Trait("Category", "FlaUI")]
+    public void The_real_eden_and_switch_rom_folder_offer_only_the_games_not_their_updates()
+    {
+        // Real: Eden and the owner's Switch ROM folder on this PC, the Emulators section, the scan and the import. Nothing is launched.
+        const string name = nameof(The_real_eden_and_switch_rom_folder_offer_only_the_games_not_their_updates);
+        string eden = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Eden-Windows-v0.0.3-rc2-amd64", "eden.exe");
+        string roms = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Switch Roms");
+        if (!File.Exists(eden) || !Directory.Exists(roms)) return;
+        // Independent of the product's own rule: a Switch base title has an id ending in 000 and no update or DLC tag.
+        int baseGames = Directory.EnumerateFiles(roms, "*.nsp", SearchOption.TopDirectoryOnly).Count(f =>
+        {
+            string n = Path.GetFileName(f);
+            var id = System.Text.RegularExpressions.Regex.Match(n, @"\[([0-9A-Fa-f]{16})\]");
+            return id.Success && id.Groups[1].Value.EndsWith("000", StringComparison.Ordinal)
+                && !System.Text.RegularExpressions.Regex.IsMatch(n, @"\[(UPD|DLC)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        });
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            Press(app, "MainWindow_ModeTab_Gaming");
+            GamingSectionsPage.SelectSection(app.MainWindow, "Emulators");
+            Press(app, "Emulators_Detect_Button");
+            var combo = UiWait.ById(app.MainWindow, "Emulators_Select_ComboBox").AsComboBox();
+            DateTime last = DateTime.MinValue;
+            UiWait.For(() =>
+            {
+                string selected = "";
+                try { selected = combo.SelectedItem?.Name ?? ""; } catch { }
+                if (selected.StartsWith("Eden", StringComparison.Ordinal) && !selected.StartsWith("Eden CLI", StringComparison.Ordinal)) return true;
+                if (DateTime.UtcNow - last > TimeSpan.FromSeconds(2)) { last = DateTime.UtcNow; try { combo.Focus(); FlaUI.Core.Input.Keyboard.Type("Eden"); } catch { } }
+                return false;
+            }, "Eden chosen", TimeSpan.FromSeconds(90));
+
+            UiWait.ById(app.MainWindow, "Emulators_Exe_TextBox").AsTextBox().Text = eden;
+            UiWait.ById(app.MainWindow, "Emulators_Folder_TextBox").AsTextBox().Text = roms;
+            Press(app, "Emulators_SaveSetup_Button");
+            Press(app, "Emulators_Scan_Button");
+            var status = UiWait.ById(app.MainWindow, "Emulators_Status_Text", ControlType.Text);
+            UiWait.For(() => Text(status).Contains(baseGames.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal),
+                "the scan reports the games found", TimeSpan.FromSeconds(60));
+            // An update file's title must never be offered as a game of its own.
+            Assert.Null(app.MainWindow.FindFirstDescendant(cf => cf.ByName("Mario Kart 8 Deluxe Booster Course")));
+            Assert.Null(app.MainWindow.FindAllDescendants().FirstOrDefault(e => Text(e).Contains("[UPD]", StringComparison.Ordinal)));
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }

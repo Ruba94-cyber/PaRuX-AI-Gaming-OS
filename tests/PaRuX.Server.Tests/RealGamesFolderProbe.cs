@@ -45,4 +45,31 @@ public sealed class RealGamesFolderProbe(ITestOutputHelper output)
         bool registered = Directory.Exists(apps) && Directory.EnumerateFiles(apps, "appmanifest_*.acf").Any(f => !f.EndsWith("appmanifest_228980.acf", StringComparison.OrdinalIgnoreCase));
         if (registered) Assert.NotEmpty(games); else Assert.Empty(games);
     }
+
+    [Fact]
+    public void A_real_rom_folder_is_scanned_with_the_matching_emulator_definition()
+    {
+        string? roms = Environment.GetEnvironmentVariable("PARUX_REAL_ROMS_DIR");
+        string? emulatorId = Environment.GetEnvironmentVariable("PARUX_REAL_ROMS_EMULATOR");
+        if (string.IsNullOrWhiteSpace(roms) || string.IsNullOrWhiteSpace(emulatorId) || !Directory.Exists(roms)) return;
+        var definition = PaRuX.Server.Orchestration.Gaming.Emulators.EmulatorRegistry.Builtin.First(d => string.Equals(d.Id, emulatorId, StringComparison.OrdinalIgnoreCase));
+        var result = PaRuX.Server.Orchestration.Gaming.Emulators.EmulatorDiscovery.Scan(definition, roms);
+        foreach (var g in result.Games) output.WriteLine("rom: " + g.GetType().GetProperty("Name")?.GetValue(g) + " | " + g.GetType().GetProperty("FilePath")?.GetValue(g));
+        output.WriteLine("count=" + result.Games.Count + " error=" + result.Error);
+        Assert.Null(result.Error);
+        Assert.NotEmpty(result.Games);
+    }
+
+    [Fact]
+    public async Task A_real_installer_is_checksummed_without_being_run()
+    {
+        string? file = Environment.GetEnvironmentVariable("PARUX_REAL_INSTALLER");
+        if (string.IsNullOrWhiteSpace(file) || !File.Exists(file)) return;
+        var service = new GameInstallerInspectionService(() => false);
+        var result = await service.InspectAsync(new PaRuX.Contracts.GameInstallerInspectionRequest(file), CancellationToken.None);
+        output.WriteLine($"installer: {result.FileName} | {result.SizeBytes} bytes | sha256={result.Sha256[..16]}... | advisory={result.Advisory}");
+        Assert.Equal(64, result.Sha256.Length);
+        Assert.Equal(new FileInfo(file).Length, result.SizeBytes);
+        Assert.Contains("did not check malware", result.Advisory, StringComparison.OrdinalIgnoreCase);
+    }
 }
