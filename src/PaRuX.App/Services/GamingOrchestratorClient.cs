@@ -222,6 +222,15 @@ namespace PaRuX.Services
         public Task<GamingCallResult<GamingControllerProfile>> SaveControllerProfileAsync(GamingControllerProfile profile, CancellationToken ct = default) =>
             SendAsync<GamingControllerProfile>(HttpMethod.Put, "/api/v1/gaming/controller-profile", profile, ct);
 
+        public Task<GamingCallResult<GameControllerProfileEnvelope>> GetGameControllerProfileAsync(string titleKey, CancellationToken ct = default) =>
+            SendAsync<GameControllerProfileEnvelope>(HttpMethod.Get, "/api/v1/gaming/controller-profile/game/" + Uri.EscapeDataString(titleKey), null, ct);
+
+        public Task<GamingCallResult<GameControllerProfileEnvelope>> SaveGameControllerProfileAsync(string titleKey, GamingControllerProfile profile, CancellationToken ct = default) =>
+            SendAsync<GameControllerProfileEnvelope>(HttpMethod.Put, "/api/v1/gaming/controller-profile/game/" + Uri.EscapeDataString(titleKey), profile, ct);
+
+        public Task<GamingCallResult<object>> RemoveGameControllerProfileAsync(string titleKey, CancellationToken ct = default) =>
+            SendAsync<object>(HttpMethod.Delete, "/api/v1/gaming/controller-profile/game/" + Uri.EscapeDataString(titleKey), null, ct);
+
         public Task<GamingCallResult<GamingControllerProfile>> ResetControllerProfileAsync(CancellationToken ct = default) =>
             SendAsync<GamingControllerProfile>(HttpMethod.Delete, "/api/v1/gaming/controller-profile", null, ct);
 

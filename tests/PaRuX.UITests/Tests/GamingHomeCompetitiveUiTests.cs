@@ -444,4 +444,44 @@ public sealed class GamingHomeCompetitiveUiTests
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Igdb_credentials_are_validated_stored_encrypted_and_removable_without_any_lookup), ex); throw; }
     }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void A_game_can_have_its_own_controller_settings_and_go_back_to_the_shared_profile()
+    {
+        WaitForCoreIdle();
+        using var app = new UiTestApplication(nameof(A_game_can_have_its_own_controller_settings_and_go_back_to_the_shared_profile));
+        try
+        {
+            OpenGamingHome(app);
+            const string name = "Pad Fixture";
+            AddGame(app, name);
+            string key = KeyOf(name);
+            Press(app, ById(app, "GameTile_" + key));
+            UiWait.ExpandById(app.MainWindow, "GameDetail_Controller_Expander_" + key);
+
+            var source = UiWait.ById(app.MainWindow, "GameController_Source_" + key, ControlType.Text);
+            UiWait.For(() => source.Name.Contains("shared profile", StringComparison.OrdinalIgnoreCase), "the game starts on the shared profile");
+            Assert.False(UiWait.ById(app.MainWindow, "GameController_Remove_" + key, ControlType.Button).Properties.IsEnabled.ValueOrDefault);
+
+            var deadzone = UiWait.ById(app.MainWindow, "GameController_LeftDeadzone_" + key);
+            var deadzoneEdit = deadzone.ControlType == ControlType.Edit ? deadzone : deadzone.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit));
+            Assert.NotNull(deadzoneEdit);
+            deadzoneEdit!.AsTextBox().Text = "12000";
+            deadzoneEdit.AsTextBox().Focus();
+            FlaUI.Core.Input.Keyboard.Press(FlaUI.Core.WindowsAPI.VirtualKeyShort.TAB);
+            UiWait.ById(app.MainWindow, "GameController_InvertLeft_" + key, ControlType.CheckBox).AsCheckBox().IsChecked = true;
+            Press(app, ById(app, "GameController_Save_" + key));
+            UiWait.For(() => source.Name.Contains("its own", StringComparison.OrdinalIgnoreCase), "the game now has its own settings");
+            Assert.True(UiWait.ById(app.MainWindow, "GameController_Remove_" + key, ControlType.Button).Properties.IsEnabled.ValueOrDefault);
+
+            // The Core really stored it for this game only, and the shared profile is untouched.
+            string profilePath = Directory.GetFiles(app.DataRoot, "*controller*profile*.json", SearchOption.AllDirectories)
+                .FirstOrDefault(f => File.ReadAllText(f).Contains("12000", StringComparison.Ordinal)) ?? string.Empty;
+            Assert.NotEqual(string.Empty, profilePath);
+
+            Press(app, ById(app, "GameController_Remove_" + key));
+            UiWait.For(() => source.Name.Contains("shared profile", StringComparison.OrdinalIgnoreCase), "back on the shared profile");
+        }
+        catch (Exception ex) { app.CaptureFailure(nameof(A_game_can_have_its_own_controller_settings_and_go_back_to_the_shared_profile), ex); throw; }
+    }
 }

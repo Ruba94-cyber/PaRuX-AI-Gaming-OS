@@ -55,3 +55,6 @@ public sealed record ControllerCalibrationResult(int LeftDeadzone, int RightDead
 
 /// <summary>GET controller-profile response: the active profile and, when the stored file was unreadable, why.</summary>
 public sealed record ControllerProfileEnvelope(GamingControllerProfile Profile, string? LoadError);
+
+/// <summary>A game's controller settings and where they come from: "game" when it has its own, "global" when the shared profile applies.</summary>
+public sealed record GameControllerProfileEnvelope(GamingControllerProfile Profile, string Source);

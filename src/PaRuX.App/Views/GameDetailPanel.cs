@@ -452,6 +452,8 @@ internal sealed class GameDetailPanel : UserControl
         _body.Children.Add(BuildAdvancedSection(T("Save games: back up and restore", "Salvataggi: backup e ripristino"),
             "GameDetail_Saves_Expander_" + key, new GameSaveBackupPanel(title.Name, "_" + key,
                 title.Installations.FirstOrDefault(i => i.Source == GameInstallationSources.Steam)?.SourceGameId)));
+        _body.Children.Add(BuildAdvancedSection(T("Controller settings for this game", "Impostazioni controller per questo gioco"),
+            "GameDetail_Controller_Expander_" + key, new GameControllerProfileSection(key)));
         _body.Children.Add(BuildAdvancedSection(T("Launch helpers (advanced)", "Helper di avvio (avanzato)"),
             "GameDetail_Hooks_Expander_" + key, new GameHooksSection(key)));
 
