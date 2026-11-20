@@ -55,6 +55,16 @@ public sealed class PluginBundleService
         _stateDirectory = Path.GetFullPath(stateDirectory);
         _skills = skills;
         _automations = automations;
+        _audit = new AuditLogService(Path.Combine(_stateDirectory, "audit-log.jsonl"));
+    }
+
+    private readonly AuditLogService _audit;
+
+    /// <summary>The audit record must never decide whether an install or removal works.</summary>
+    private void Audit(string action, string subject, string detail)
+    {
+        try { _audit.Append(action, subject, detail); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     public PluginBundleInspection Inspect(string bundlePath)
@@ -126,7 +136,12 @@ public sealed class PluginBundleService
                 stagedMcp.Add(mcp);
             }
             File.WriteAllText(Path.Combine(installDir, "staged-mcp.json"), JsonSerializer.Serialize(stagedMcp, JsonOptions));
+            // The receipt records exactly what this install created, so Uninstall removes those and nothing else.
+            File.WriteAllText(Path.Combine(installDir, ReceiptFileName), JsonSerializer.Serialize(
+                new PluginReceipt { SkillIds = skillIds, AutomationIds = automationIds, InstalledUtc = DateTime.UtcNow }, JsonOptions));
 
+            Audit("plugin.install", pluginId + " " + version,
+                (inspection.SignatureValid ? "signed" : "unsigned") + ", " + skillIds.Count + " skill(s), " + automationIds.Count + " automation(s), all disabled");
             return new PluginInstallResult
             {
                 PluginId = pluginId,
@@ -146,6 +161,98 @@ public sealed class PluginBundleService
             try { if (Directory.Exists(installDir)) Directory.Delete(installDir, recursive: true); } catch { }
             throw;
         }
+    }
+
+    private const string ReceiptFileName = "receipt.json";
+
+    private sealed class PluginReceipt
+    {
+        public List<string> SkillIds { get; set; } = new();
+        public List<string> AutomationIds { get; set; } = new();
+        public DateTime InstalledUtc { get; set; }
+    }
+
+    /// <summary>Installed plugin versions (one entry per plugin id and version folder).</summary>
+    public IReadOnlyList<InstalledPluginDto> ListInstalled()
+    {
+        var list = new List<InstalledPluginDto>();
+        if (!Directory.Exists(PluginsRoot)) return list;
+        foreach (string idDir in Directory.EnumerateDirectories(PluginsRoot))
+            foreach (string versionDir in Directory.EnumerateDirectories(idDir))
+            {
+                try
+                {
+                    string manifestPath = Path.Combine(versionDir, "plugin.json");
+                    if (!File.Exists(manifestPath)) continue;
+                    var manifest = JsonSerializer.Deserialize<PaRuXPluginManifest>(File.ReadAllText(manifestPath), JsonOptions);
+                    if (manifest is null) continue;
+                    PluginReceipt? receipt = ReadReceipt(versionDir);
+                    list.Add(new InstalledPluginDto
+                    {
+                        PluginId = Path.GetFileName(idDir), Version = Path.GetFileName(versionDir),
+                        Name = manifest.DisplayName ?? string.Empty, Publisher = manifest.Publisher ?? string.Empty,
+                        SkillIds = receipt?.SkillIds ?? new List<string>(),
+                        AutomationCount = receipt?.AutomationIds.Count ?? 0,
+                        HasReceipt = receipt is not null,
+                    });
+                }
+                catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { /* skip a damaged folder */ }
+            }
+        return list;
+    }
+
+    private static PluginReceipt? ReadReceipt(string versionDir)
+    {
+        try
+        {
+            string path = Path.Combine(versionDir, ReceiptFileName);
+            return File.Exists(path) ? JsonSerializer.Deserialize<PluginReceipt>(File.ReadAllText(path), JsonOptions) : null;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException) { return null; }
+    }
+
+    /// <summary>
+    /// Removes one installed plugin version: the skills and automations its install recorded, then its folder. Nothing outside the
+    /// plugin's own folder is deleted; a folder that does not resolve inside the plugins root is refused. Safe to run twice.
+    /// </summary>
+    public PluginUninstallResult Uninstall(string pluginId, string version)
+    {
+        string id = NormalizeId(pluginId, "plugin id");
+        string ver = NormalizeVersion(version);
+        string root = Path.GetFullPath(PluginsRoot) + Path.DirectorySeparatorChar;
+        string dir = Path.GetFullPath(Path.Combine(PluginsRoot, id, ver));
+        if (!dir.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Plugin folder is outside the plugin store.");
+        var result = new PluginUninstallResult { PluginId = id, Version = ver };
+        if (!Directory.Exists(dir))
+        {
+            result.Message = "Plugin " + id + " version " + ver + " is not installed.";
+            return result;
+        }
+        PluginReceipt? receipt = ReadReceipt(dir);
+        if (receipt is not null)
+        {
+            foreach (string skillId in receipt.SkillIds)
+                try { if (_skills.DeleteUserSkill(skillId)) result.SkillsRemoved++; } catch (Exception) { /* already gone */ }
+            foreach (string automationId in receipt.AutomationIds)
+                try { _automations.Delete(automationId); result.AutomationsRemoved++; } catch (Exception) { /* already gone */ }
+        }
+        else
+        {
+            // Installed before receipts: skill ids are namespaced by the plugin id, so those can still be matched safely.
+            foreach (SkillManifest skill in _skills.List().Where(s => s.Id.StartsWith(id + ".", StringComparison.Ordinal)).ToList())
+                try { if (_skills.DeleteUserSkill(skill.Id)) result.SkillsRemoved++; } catch (Exception) { }
+            result.AutomationsLeftBehind = true;
+        }
+        Directory.Delete(dir, recursive: true);
+        string parent = Path.GetDirectoryName(dir)!;
+        try { if (!Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent); } catch (IOException) { }
+        result.Removed = true;
+        Audit("plugin.uninstall", id + " " + ver, result.SkillsRemoved + " skill(s), " + result.AutomationsRemoved + " automation(s) removed");
+        result.Message = "Removed " + id + " " + ver + ": " + result.SkillsRemoved + " skill(s), " + result.AutomationsRemoved + " automation(s)."
+            + (result.AutomationsLeftBehind ? " Automations from this older install cannot be matched; review them in Tools and Automation." : string.Empty)
+            + " The publisher trust entry is kept; revoke it separately if you want.";
+        return result;
     }
 
     public IReadOnlyList<PluginPublisherTrustDto> ListTrustedPublishers()

@@ -65,6 +65,30 @@ public sealed class PluginInstallResult
     public string Message { get; set; } = string.Empty;
 }
 
+public sealed class InstalledPluginDto
+{
+    public string PluginId { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Publisher { get; set; } = string.Empty;
+    public List<string> SkillIds { get; set; } = new();
+    public int AutomationCount { get; set; }
+    /// <summary>False for a plugin installed before receipts existed: its automations cannot be removed automatically.</summary>
+    public bool HasReceipt { get; set; }
+}
+
+public sealed class PluginUninstallResult
+{
+    public string PluginId { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+    public bool Removed { get; set; }
+    public int SkillsRemoved { get; set; }
+    public int AutomationsRemoved { get; set; }
+    /// <summary>Automations that could not be matched to this plugin (no receipt); they stay and are listed in Tools and Automation.</summary>
+    public bool AutomationsLeftBehind { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
 public sealed class PluginPublisherTrustDto
 {
     public string Fingerprint { get; set; } = string.Empty;

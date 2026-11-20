@@ -749,21 +749,21 @@ app.MapPost("/api/v1/remote/config", (
     RemoteAccessConfigRequest request, RemoteAccessService remote, HttpContext context) =>
 {
     if (!IsDesktopOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
-    try { return Results.Ok(remote.SaveConfiguration(request)); }
+    try { var saved = remote.SaveConfiguration(request); AuditLogService.TryRecord("remote.config", "saved"); return Results.Ok(saved); }
     catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
 });
 
 app.MapPost("/api/v1/remote/pair/start", (RemoteAccessService remote, HttpContext context) =>
 {
     if (!IsDesktopOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
-    try { return Results.Ok(remote.StartPairing()); }
+    try { var started = remote.StartPairing(); AuditLogService.TryRecord("remote.pairing", "started"); return Results.Ok(started); }
     catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
 });
 
 app.MapPost("/api/v1/remote/pair/complete", (
     PairingCompleteRequest request, RemoteAccessService remote, HttpContext context) =>
 {
-    try { return Results.Ok(remote.CompletePairing(request, context.Connection.RemoteIpAddress)); }
+    try { var completed = remote.CompletePairing(request, context.Connection.RemoteIpAddress); AuditLogService.TryRecord("remote.pairing", "completed"); return Results.Ok(completed); }
     catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
     catch (RemoteAccessService.PairingLockedException ex)
     {
@@ -776,13 +776,16 @@ app.MapPost("/api/v1/remote/pair/complete", (
 app.MapDelete("/api/v1/remote/devices/{id}", (string id, RemoteAccessService remote, HttpContext context) =>
 {
     if (!IsDesktopOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
-    return remote.Revoke(id) ? Results.NoContent() : Results.NotFound(new { error = "Device not found" });
+    bool revokedDevice = remote.Revoke(id);
+    if (revokedDevice) AuditLogService.TryRecord("remote.device", "revoked");
+    return revokedDevice ? Results.NoContent() : Results.NotFound(new { error = "Device not found" });
 });
 
 app.MapDelete("/api/v1/remote/devices", (RemoteAccessService remote, HttpContext context) =>
 {
     if (!IsDesktopOwner(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
     int revoked = remote.RevokeAll();
+    AuditLogService.TryRecord("remote.device", "all revoked", revoked + " device(s)");
     return Results.Ok(new { count = revoked });
 });
 
@@ -1252,6 +1255,7 @@ app.MapPost("/api/v1/internet", (InternetEnabledRequest request, InternetSetting
         return Results.Json(new { error = "This feature is disabled in PaRuX Corporate Lite." },
             statusCode: StatusCodes.Status403Forbidden);
     internet.SetEnabled(request.Enabled);
+    AuditLogService.TryRecord("internet.policy", request.Enabled ? "enabled" : "disabled");
     return Results.Ok(new InternetStatus { Enabled = internet.GetEnabled() });
 }).RequireDesktopOwnerToEnableInternet();
 
@@ -1426,7 +1430,7 @@ app.MapPost("/api/v1/apikeys", (ApiKeyCreateRequest request, HttpContext context
 {
     if (!IsLoopback(context) || context.Items["PaRuXOwner"] as string != "desktop")
         return Results.StatusCode(StatusCodes.Status403Forbidden);
-    try { return Results.Ok(keys.Create(request?.Name)); }
+    try { var created = keys.Create(request?.Name); AuditLogService.TryRecord("apikey.create", "created"); return Results.Ok(created); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { error = exception.Message }); }
 });
 
@@ -1434,7 +1438,9 @@ app.MapDelete("/api/v1/apikeys/{id}", (string id, HttpContext context, ApiKeySer
 {
     if (!IsLoopback(context) || context.Items["PaRuXOwner"] as string != "desktop")
         return Results.StatusCode(StatusCodes.Status403Forbidden);
-    return keys.Revoke(id) ? Results.NoContent() : Results.NotFound(new { error = "No such API key." });
+    bool revokedKey = keys.Revoke(id);
+    if (revokedKey) AuditLogService.TryRecord("apikey.revoke", id);
+    return revokedKey ? Results.NoContent() : Results.NotFound(new { error = "No such API key." });
 });
 
 // Universal Gateway: settings and live status for Settings > Integrations. Desktop only; the

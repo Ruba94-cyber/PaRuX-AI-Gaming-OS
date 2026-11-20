@@ -237,6 +237,81 @@ public sealed class PluginBundleServiceTests : IDisposable
         output.Write(data, 0, data.Length);
     }
 
+    [Fact]
+    public void Uninstall_removes_exactly_what_the_install_created_and_is_safe_to_repeat()
+    {
+        string bundle = BuildBundle("removable", includeSkill: true, includeAutomation: true, declaredAutomations: true);
+        PluginInstallResult installed = _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true });
+        InstalledPluginDto listed = Assert.Single(_service.ListInstalled());
+        Assert.Equal("removable", listed.PluginId);
+        Assert.True(listed.HasReceipt);
+        Assert.Equal(1, listed.AutomationCount);
+
+        PluginUninstallResult removed = _service.Uninstall(installed.PluginId, installed.Version);
+
+        Assert.True(removed.Removed);
+        Assert.Equal(1, removed.SkillsRemoved);
+        Assert.Equal(1, removed.AutomationsRemoved);
+        Assert.False(removed.AutomationsLeftBehind);
+        Assert.Null(_skills.Get(installed.SkillIds[0]));
+        Assert.Null(_automations.Get(installed.AutomationIds[0]));
+        Assert.False(Directory.Exists(installed.InstallDirectory));
+        Assert.Empty(_service.ListInstalled());
+
+        PluginUninstallResult again = _service.Uninstall(installed.PluginId, installed.Version);
+        Assert.False(again.Removed);
+    }
+
+    [Fact]
+    public void A_removed_plugin_can_be_installed_again()
+    {
+        string bundle = BuildBundle("reinstall", includeSkill: true);
+        PluginInstallResult first = _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true });
+        Assert.Throws<InvalidDataException>(() => _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true }));
+        _service.Uninstall(first.PluginId, first.Version);
+        PluginInstallResult second = _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true });
+        Assert.True(second.Installed);
+    }
+
+    [Fact]
+    public void An_install_without_a_receipt_still_loses_its_namespaced_skills_and_reports_the_automations_it_could_not_match()
+    {
+        string bundle = BuildBundle("legacy", includeSkill: true, includeAutomation: true, declaredAutomations: true);
+        PluginInstallResult installed = _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true });
+        File.Delete(Path.Combine(installed.InstallDirectory, "receipt.json"));
+
+        PluginUninstallResult removed = _service.Uninstall(installed.PluginId, installed.Version);
+
+        Assert.True(removed.Removed);
+        Assert.Equal(1, removed.SkillsRemoved);
+        Assert.True(removed.AutomationsLeftBehind);
+        Assert.NotNull(_automations.Get(installed.AutomationIds[0]));
+    }
+
+    [Fact]
+    public void Install_and_uninstall_leave_a_verifiable_audit_trail()
+    {
+        string bundle = BuildBundle("audited", includeSkill: true);
+        PluginInstallResult installed = _service.Install(new PluginInstallRequest { BundlePath = bundle, AllowUnsigned = true });
+        _service.Uninstall(installed.PluginId, installed.Version);
+
+        var log = new AuditLogService(Path.Combine(_root, "audit-log.jsonl"));
+        Assert.Equal(new[] { "plugin.uninstall", "plugin.install" }, log.Recent(5).Select(e => e.Action));
+        Assert.True(log.Verify().Intact);
+        Assert.Contains("unsigned", log.Recent(5)[1].Detail);
+    }
+
+    [Theory]
+    [InlineData("..", "1.0.0")]
+    [InlineData("removable", "..")]
+    [InlineData("a/b", "1.0.0")]
+    [InlineData("", "1.0.0")]
+    public void Uninstall_refuses_ids_that_could_leave_the_plugin_store(string id, string version)
+    {
+        Assert.ThrowsAny<Exception>(() => _service.Uninstall(id, version));
+        Assert.True(Directory.Exists(_root));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); } catch { }

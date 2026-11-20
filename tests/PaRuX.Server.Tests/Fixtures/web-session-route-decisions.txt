@@ -61,6 +61,8 @@ DENY DELETE /api/v1/web/access/sessions
 DENY DELETE /api/v1/workflows/{id}
 DENY DELETE /api/v2/execution-profiles/models/{modelKey}
 DENY DELETE /api/v2/plugins/trusted-publishers/{fingerprint}
+DENY DELETE /api/v2/plugins/{pluginId}/{version}
+DENY DELETE /api/v2/webhooks/{id}
 DENY DELETE /api/v2/semantic-index/repositories/{alias}
 DENY DELETE /api/v2/training/engine
 DENY DELETE /api/v2/visual-context/snapshots/{id}
@@ -312,6 +314,10 @@ DENY GET /api/v2/mobile/goals/{goalId}/versions
 DENY GET /api/v2/mobile/observability/dashboard
 DENY GET /api/v2/observability/dashboard
 DENY GET /api/v2/observability/engine-races
+DENY GET /api/v2/audit
+DENY GET /api/v2/webhooks
+DENY GET /api/v2/audit/verify
+DENY GET /api/v2/plugins
 DENY GET /api/v2/plugins/trusted-publishers
 DENY GET /api/v2/semantic-index/repositories
 DENY GET /api/v2/training/engine
@@ -623,6 +629,8 @@ DENY POST /api/v2/mobile/goals/tasks
 DENY POST /api/v2/mobile/goals/{goalId}/versions
 DENY POST /api/v2/plugins/inspect
 DENY POST /api/v2/plugins/install
+DENY POST /api/v2/webhooks
+DENY POST /api/v2/webhooks/{id}/test
 DENY POST /api/v2/semantic-index/search
 DENY POST /api/v2/semantic-index/sync
 DENY POST /api/v2/speech/synthesize/stream

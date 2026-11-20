@@ -96,6 +96,42 @@ public static class ProductV2Endpoints
             { return Results.BadRequest(new { error = ex.Message }); }
         }).RequireDesktopOwner();
 
+        _ = WebhookRuntime.Service;   // subscribe to the audit log at startup so every entry can reach a hook
+        app.MapGet("/api/v2/webhooks", () => Results.Ok(WebhookRuntime.Service.List())).RequireDesktopOwner();
+
+        app.MapPost("/api/v2/webhooks", (CreateWebhookRequest request) =>
+        {
+            try { return Results.Ok(WebhookRuntime.Service.Create(request)); }
+            catch (InvalidDataException ex) { return Results.BadRequest(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v2/webhooks/{id}", (string id) =>
+            WebhookRuntime.Service.Delete(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
+
+        app.MapPost("/api/v2/webhooks/{id}/test", async (string id, CancellationToken ct) =>
+        {
+            WebhookTestResult? result = await WebhookRuntime.Service.TestAsync(id, ct);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequireDesktopOwner();
+
+        app.MapGet("/api/v2/audit", (int? limit) => Results.Ok(new AuditLogService().Recent(limit ?? 50))).RequireDesktopOwner();
+        app.MapGet("/api/v2/audit/verify", () => Results.Ok(new AuditLogService().Verify())).RequireDesktopOwner();
+
+        app.MapGet("/api/v2/plugins", (SkillRegistryService skills, AutomationStore automations) =>
+            Results.Ok(new PluginBundleService(skills, automations).ListInstalled())).RequireDesktopOwner();
+
+        app.MapDelete("/api/v2/plugins/{pluginId}/{version}", (
+            string pluginId, string version, SkillRegistryService skills, AutomationStore automations) =>
+        {
+            try
+            {
+                PluginUninstallResult result = new PluginBundleService(skills, automations).Uninstall(pluginId, version);
+                return result.Removed ? Results.Ok(result) : Results.NotFound(result);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or ArgumentException)
+            { return Results.BadRequest(new { error = ex.Message }); }
+        }).RequireDesktopOwner();
+
         app.MapGet("/api/v2/plugins/trusted-publishers", (SkillRegistryService skills, AutomationStore automations) =>
             Results.Ok(new PluginBundleService(skills, automations).ListTrustedPublishers()));
 
