@@ -38,6 +38,13 @@ Avviso: PaRuX usa il motore di inferenza llama.cpp (licenza MIT), incluso nel pa
 
 ## Novità di questa versione
 
+Versione 4.3.1:
+- Chat: impostazioni di generazione e preset salvati, modifica e reinvio dei tuoi messaggi, schermata iniziale piu' pulita e barra di scrittura adattiva.
+- Libreria giochi: raccolte intelligenti, opzione parte alta compatta, obiettivi Steam (solo edizioni online) e download reali con pausa, ripresa e controllo checksum.
+- Controller: vista in tempo reale, mappatura guidata e pad Xbox senza driver per i giochi XInput.
+- Impostazioni: elenco plugin, registro attivita' a prova di manomissione, accesso in sola lettura per dispositivo e webhook (non in Corporate Lite).
+- Corporate Lite resta completamente offline.
+
 Versione 4.3.0:
 - Libreria giochi: pagine separate Libreria, Download, Aggiungi e importa, Emulatori e Impostazioni gaming; «Scegli per me», statistiche della libreria, note per gioco, esportazione e ripristino dei dati della libreria e importazione da una libreria Playnite presente sul PC.
 - Emulatori: oltre 100 emulatori noti si configurano con rilevamento, scansione della cartella ROM e impostazioni salvate; i programmi in sé non vengono mai scaricati da PaRuX.

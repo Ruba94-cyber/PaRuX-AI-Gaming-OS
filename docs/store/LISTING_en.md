@@ -37,6 +37,13 @@ Notice: PaRuX uses the llama.cpp inference engine (MIT license), included in the
 
 ## What's new in this version
 
+Version 4.3.1:
+- Chat: generation settings and saved presets, edit-and-resend of your own messages, a calmer empty state and a responsive composer.
+- Game library: smart collections, a compact top option, achievements from Steam (online editions only), and real downloads with pause, resume and checksum.
+- Controllers: live view, a guided mapping wizard and an Xbox pad without a driver for games that use XInput.
+- Settings: plugin list, a tamper-evident activity log, per-device read-only access and webhooks (not in Corporate Lite).
+- Corporate Lite stays fully offline.
+
 Version 4.3.0:
 - Game library: separate Library, Downloads, Add & import, Emulators and Gaming settings pages; "Pick for me", library insights, notes per game, export and restore of your library data, and import from a Playnite library on your PC.
 - Emulators: more than 100 known emulators can be set up with detection, ROM folder scan and saved settings; the programs themselves are never downloaded by PaRuX.
