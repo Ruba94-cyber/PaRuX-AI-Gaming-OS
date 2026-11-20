@@ -38,10 +38,11 @@ Avviso: PaRuX usa il motore di inferenza llama.cpp (licenza MIT), incluso nel pa
 
 ## Novità di questa versione
 
-Versione 4.2.0:
-- Prima versione sul Microsoft Store.
-- Chat locale, domande sui documenti con fonti, Model Hub, libreria giochi con Modalità Gaming, interfaccia in inglese e italiano.
-- Gli aggiornamenti dell'app arrivano ora dal Microsoft Store.
+Versione 4.3.0:
+- Libreria giochi: pagine separate Libreria, Download, Aggiungi e importa, Emulatori e Impostazioni gaming; «Scegli per me», statistiche della libreria, note per gioco, esportazione e ripristino dei dati della libreria e importazione da una libreria Playnite presente sul PC.
+- Emulatori: oltre 100 emulatori noti si configurano con rilevamento, scansione della cartella ROM e impostazioni salvate; i programmi in sé non vengono mai scaricati da PaRuX.
+- Chat: libreria di prompt con campi da compilare, tavolozza dei comandi Ctrl+K, esportazione di tutte le chat come file leggibili e un primo modello suggerito adatto al tuo PC.
+- Correzioni: la libreria giochi non va più in errore se la finestra si restringe con una scheda gioco aperta; testi italiani più chiari; diverse correzioni di layout.
 
 ## Funzionalità del prodotto (una per riga)
 

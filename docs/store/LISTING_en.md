@@ -37,10 +37,11 @@ Notice: PaRuX uses the llama.cpp inference engine (MIT license), included in the
 
 ## What's new in this version
 
-Version 4.2.0:
-- First Microsoft Store release.
-- Local chat, document questions with sources, Model Hub, game library with Gaming Mode, English and Italian interface.
-- App updates now come from the Microsoft Store.
+Version 4.3.0:
+- Game library: separate Library, Downloads, Add & import, Emulators and Gaming settings pages; "Pick for me", library insights, notes per game, export and restore of your library data, and import from a Playnite library on your PC.
+- Emulators: more than 100 known emulators can be set up with detection, ROM folder scan and saved settings; the programs themselves are never downloaded by PaRuX.
+- Chat: a prompt library with fill-in fields, a Ctrl+K command palette, export of all chats as readable files, and a suggested first model that suits your PC.
+- Fixes: the game library no longer fails when the window is narrowed with a game card open; clearer Italian text; several layout fixes.
 
 ## Product features (one per line)
 
