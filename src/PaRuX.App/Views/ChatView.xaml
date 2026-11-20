@@ -601,6 +601,22 @@
                             ToolTipService.ToolTip="Prompts: ready-made and saved prompts with fill-in fields (nothing is sent until you press Send)" loc:Loc.ItToolTip="Prompt: prompt pronti e salvati con campi da compilare (non viene inviato nulla finché non premi Invia)">
                             <FontIcon Glyph="&#xE8F1;" FontSize="15" />
                         </Button>
+                        <Button
+                            x:Name="SamplingButton"
+                            AutomationProperties.AutomationId="Chat_Generation_Button"
+                            AutomationProperties.Name="Generation settings" loc:Loc.ItName="Impostazioni di generazione"
+                            Click="SamplingButton_Click"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            CornerRadius="{StaticResource PaRuXRadiusMedium}"
+                            Foreground="{ThemeResource PaRuXTextTertiaryBrush}"
+                            VerticalAlignment="Bottom"
+                            Height="36"
+                            Width="36"
+                            Padding="0"
+                            ToolTipService.ToolTip="Generation settings: creativity, reply length and a repeatable seed (default: chosen by PaRuX)" loc:Loc.ItToolTip="Impostazioni di generazione: creatività, lunghezza della risposta e seed ripetibile (predefinito: scelto da PaRuX)">
+                            <FontIcon Glyph="&#xE9E9;" FontSize="15" />
+                        </Button>
                     </StackPanel>
 
                     <TextBox

@@ -236,6 +236,12 @@ namespace PaRuX.Services
                 Documents = ChatDocumentScopeState.ToRequest()
             };
             ApplyDocumentMention(payload, wire);
+            // The owner's optional generation settings (Chat > Generation). Unset values are not sent, so defaults are unchanged.
+            ChatSamplingValues sampling = ChatSamplingState.Current;
+            payload.Temperature = sampling.Temperature;
+            payload.TopP = sampling.TopP;
+            payload.MaxTokens = sampling.MaxTokens;
+            payload.Seed = sampling.Seed;
             if (!string.IsNullOrWhiteSpace(projectId))
                 payload.SkillParameters[ProjectScopeParameter] = projectId;
             if (structuredOutput != null)
