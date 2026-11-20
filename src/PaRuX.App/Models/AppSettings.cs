@@ -22,6 +22,8 @@ namespace PaRuX.Models
         public string GameLibraryGroup { get; set; } = "none";
         /// <summary>Cover size of the grid: "small", "medium" (default) or "large". Unknown values mean medium.</summary>
         public string GameLibraryCoverSize { get; set; } = "medium";
+        /// <summary>Hide the last-played card and the Continue shelf so the covers start higher on the page (Playnite-style density).</summary>
+        public bool GameLibraryCompactTop { get; set; }
         /// <summary>Opt-in: look game covers and descriptions up by name on Steam and Wikipedia (off by default).</summary>
         public bool GameMetadataEnabled { get; set; }
         /// <summary>True once the owner closed the "show covers?" banner in the Gaming library (it never returns).</summary>

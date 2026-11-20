@@ -36,6 +36,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly ComboBox _sort = new();
     private readonly ComboBox _group = new();
     private readonly ComboBox _coverSize = new();
+    private readonly CheckBox _compactTop = new();
     private readonly ComboBox _source = new();
     private readonly ComboBox _platform = new();
     private readonly ComboBox _installed = new();
@@ -174,6 +175,7 @@ internal sealed class GamingHomeView : StackPanel
             SelectByTag(_source, SourceKeys.Contains(data.GameLibrarySource) ? data.GameLibrarySource : "");
             SelectByTag(_group, GameGroupModes.Normalize(data.GameLibraryGroup));
             SelectByTag(_coverSize, GameCoverSizes.Normalize(data.GameLibraryCoverSize));
+            _compactTop.IsChecked = data.GameLibraryCompactTop;
             SelectByTag(_installed, data.GameLibraryInstalled is "installed" or "notinstalled" ? data.GameLibraryInstalled : "");
             if (!string.IsNullOrWhiteSpace(data.GameLibraryPlatform)) _knownPlatforms.Add(data.GameLibraryPlatform.Trim());
             if (!string.IsNullOrWhiteSpace(data.GameLibraryTag)) _knownTags.Add(data.GameLibraryTag.Trim());
@@ -201,6 +203,15 @@ internal sealed class GamingHomeView : StackPanel
         return surface;
     }
 
+    /// <summary>With "compact top" on, the last-played card and the Continue shelf are not shown, so the library starts higher.</summary>
+    private void ApplyCompactTop()
+    {
+        if (_compactTop.IsChecked != true) return;
+        _hero.Visibility = Visibility.Collapsed;
+        _continueHeading.Visibility = Visibility.Collapsed;
+        _shelf.Visibility = Visibility.Collapsed;
+    }
+
     private void SavePreferences()
     {
         if (_applying) return;
@@ -210,6 +221,7 @@ internal sealed class GamingHomeView : StackPanel
         data.GameLibrarySource = TagOf(_source) ?? "";
         data.GameLibraryGroup = GameGroupModes.Normalize(TagOf(_group));
         data.GameLibraryCoverSize = GameCoverSizes.Normalize(TagOf(_coverSize));
+        data.GameLibraryCompactTop = _compactTop.IsChecked == true;
         data.GameLibraryPlatform = TagOf(_platform) ?? "";
         data.GameLibraryInstalled = TagOf(_installed) ?? "";
         data.GameLibraryFavoritesOnly = _favoritesOnly.IsChecked == true;
@@ -628,7 +640,10 @@ internal sealed class GamingHomeView : StackPanel
         // Grouping and cover size are set-and-forget: one "View" menu instead of two always-visible drop-downs.
         var viewMenu = new Button { Content = T("View", "Vista") + "  ▾" };
         Track(viewMenu, "GameHome_View_Button", T("View options: group games, cover size", "Opzioni di vista: raggruppa i giochi, dimensione copertine"));
-        viewMenu.Flyout = BuildToolbarFlyout(new FrameworkElement[] { _group, _coverSize });
+        _compactTop.Content = T("Compact top: hide the last-played card and the Continue shelf", "Parte alta compatta: nascondi l'ultimo gioco e la fila Continua");
+        Track(_compactTop, "GameHome_CompactTop_CheckBox", T("Show the covers higher on the page", "Mostra le copertine più in alto nella pagina"));
+        _compactTop.Click += async (_, _) => { SavePreferences(); if (_compactTop.IsChecked == true) ApplyCompactTop(); else await ReloadAsync(); };
+        viewMenu.Flyout = BuildToolbarFlyout(new FrameworkElement[] { _group, _coverSize, _compactTop });
         VariableSizedWrapGrid.SetColumnSpan(_search, 2);
         VariableSizedWrapGrid.SetColumnSpan(_sort, 2);
         VariableSizedWrapGrid.SetColumnSpan(_source, 2);
@@ -2037,6 +2052,7 @@ internal sealed class GamingHomeView : StackPanel
         _continueHeading.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         _shelf.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         _shelf.Render(recent, new HashSet<string>(StringComparer.Ordinal), null);
+        ApplyCompactTop();
         _side.Update(GameLibraryHome.Facets(_allTitles, GenresOf, DateTime.UtcNow), ActiveSideFilter());
         await RefreshQuickResumeSummaryAsync(ct, generation);
     }
