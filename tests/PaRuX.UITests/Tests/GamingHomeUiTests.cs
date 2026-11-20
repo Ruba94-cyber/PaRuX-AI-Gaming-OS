@@ -484,7 +484,10 @@ public sealed class GamingHomeUiTests
             UiWait.For(() => TryById(app, "GameTile_" + key) == null, "hidden tile left the library");
 
             Press(app, ById(app, "GameHome_ShowHidden"));
-            UiWait.For(() => TryById(app, "GameTile_" + key) != null, "hidden tile returns with Show hidden");
+            // The Filters flyout stays open and the detail card sits above the grid, so the returned tile can be off screen
+            // (virtualized): close the flyout and scroll the page until the tile is realized.
+            FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+            GamingLibraryVirtualizationUiTests.ScrollPageUntil(app, () => TryById(app, "GameTile_" + key) != null, "hidden tile returns with Show hidden");
         }
         catch (Exception ex) { app.CaptureFailure(nameof(Hidden_titles_leave_the_library_until_show_hidden_is_chosen), ex); throw; }
     }

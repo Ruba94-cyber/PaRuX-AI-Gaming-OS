@@ -21,7 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-blue" alt="FSL-1.1-MIT license"></a>
 </p>
 
-> **BETA — v4.1.0 pre-release published 10 November 2026; 4.2.0 is a release candidate until the owner publishes it (not stable).** The 4.0.1 stable-channel release is still the default GitHub `latest` until the owner promotes a newer version. PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues).
+> **BETA — v4.3.0 pre-release (20 November 2026); earlier pre-releases: v4.2.0 (15 November) and v4.1.0 (10 November).** The 4.0.1 stable-channel release is still the default GitHub `latest` until the owner promotes a newer version. PaRuX is an experimental project, **not yet a stable release**. Features and interfaces may change, some capabilities are still being tested on real hardware, and bugs are possible. Please use it with this in mind and [report issues](https://github.com/Ruba94-cyber/RBG-PaRuX-AI-Gaming-OS/issues).
 
 ## What is PaRuX?
 
