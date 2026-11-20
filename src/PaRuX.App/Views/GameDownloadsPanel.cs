@@ -74,8 +74,8 @@ internal sealed class GameDownloadsPanel : StackPanel
         Children.Add(new TextBlock
         {
             Text = T(
-                "Download files from addresses you choose. PaRuX never searches for unauthorized copies, starts an installer or bypasses a store. Transfers pause for Gaming. A SHA-256 checksum proves file integrity only when you obtained the expected hash independently.",
-                "Scarica file dagli indirizzi che scegli. PaRuX non cerca copie non autorizzate, non avvia installer e non aggira gli store. I trasferimenti si sospendono durante il gioco. SHA-256 verifica l'integrità solo rispetto a un hash ottenuto indipendentemente."),
+                "Download a file from an address you choose. Transfers pause while you play. To check the file, paste the SHA-256 from the publisher (optional).",
+                "Scarica un file da un indirizzo che scegli. I trasferimenti si sospendono mentre giochi. Per verificare il file, incolla lo SHA-256 del publisher (facoltativo)."),
             TextWrapping = TextWrapping.Wrap
         });
 

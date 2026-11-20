@@ -499,14 +499,18 @@
                 BorderThickness="1"
                 CornerRadius="{StaticResource PaRuXRadiusXLarge}"
                 Padding="8">
-                <Grid ColumnSpacing="{StaticResource PaRuXSpaceXS}">
+                <Grid x:Name="ComposerGrid" ColumnSpacing="{StaticResource PaRuXSpaceXS}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <StackPanel x:Name="ComposerTools" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom">
                         <Button
                             x:Name="AttachButton"
                             AutomationProperties.Name="Attach images" loc:Loc.ItName="Allega immagini"

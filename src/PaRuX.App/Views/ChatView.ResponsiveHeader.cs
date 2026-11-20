@@ -36,6 +36,31 @@ namespace PaRuX.Views
             ApplyResponsiveLayout(e.NewSize.Width, e.NewSize.Height);
         }
 
+        private const double ComposerToolsBelowWidth = 760;
+        private bool _composerToolsBelow;
+
+        /// <summary>
+        /// In a narrow window the tool buttons (attach, voice, prompts, generation...) used to take most of the row and squeeze
+        /// the message box into a four-line sliver. They now drop to their own row under the box, like mobile chat apps.
+        /// </summary>
+        private void ApplyComposerToolsPlacement(double width)
+        {
+            if (ComposerGrid == null || ComposerTools == null || InputBox == null) return;
+            bool below = width < ComposerToolsBelowWidth;
+            if (below == _composerToolsBelow) return;
+            _composerToolsBelow = below;
+            if (below)
+            {
+                Grid.SetRow(InputBox, 0); Grid.SetColumn(InputBox, 0); Grid.SetColumnSpan(InputBox, 2);
+                Grid.SetRow(ComposerTools, 1); Grid.SetColumn(ComposerTools, 0); Grid.SetColumnSpan(ComposerTools, 3);
+            }
+            else
+            {
+                Grid.SetRow(InputBox, 0); Grid.SetColumn(InputBox, 1); Grid.SetColumnSpan(InputBox, 1);
+                Grid.SetRow(ComposerTools, 0); Grid.SetColumn(ComposerTools, 0); Grid.SetColumnSpan(ComposerTools, 1);
+            }
+        }
+
         internal void ApplyResponsiveLayout(double width, double height)
         {
             if (width <= 0 || height <= 0) return;
@@ -45,6 +70,8 @@ namespace PaRuX.Views
             {
                 InputBox.MaxHeight = profile.ComposerMaxInputHeight;
             }
+
+            ApplyComposerToolsPlacement(width);
 
             if (CodeFolderButton != null)
             {
