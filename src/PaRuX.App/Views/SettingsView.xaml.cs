@@ -279,6 +279,24 @@ namespace PaRuX.Views
             SelectSettingsCategory(category);
         }
 
+        /// <summary>One plain sentence saying what the chosen category is for (the page used to repeat the General sentence everywhere).</summary>
+        private static string SettingsCategorySubtitle(string category) => category switch
+        {
+            "Models" => T("Which model answers, and the local models PaRuX found.", "Quale modello risponde e i modelli locali trovati da PaRuX."),
+            "Chat Behavior" => T("How chats answer, remember and speak.", "Come le chat rispondono, ricordano e parlano."),
+            "Your PC apps" => T("Apps on this PC that PaRuX may help with, only with your permission.", "App di questo PC con cui PaRuX può aiutare, solo con il tuo permesso."),
+            "Media Generation" => T("Images, video, music and speech made on this PC.", "Immagini, video, musica e voce create su questo PC."),
+            "Automation" => T("Tasks PaRuX may do for you, and what needs your approval.", "Attività che PaRuX può svolgere per te e cosa richiede la tua approvazione."),
+            "Agents" => T("Helpers that work on longer tasks, and what they may touch.", "Assistenti per attività lunghe e cosa possono toccare."),
+            "Integrations" => T("Connect other tools and servers. Off until you add them.", "Collega altri strumenti e server. Spento finché non li aggiungi."),
+            "Gaming & AI Sharing" => T("How the AI steps aside while you play.", "Come l'IA si mette da parte mentre giochi."),
+            "PaRuX Platform" => T("Updates, remote access and the PaRuX engine itself.", "Aggiornamenti, accesso remoto e il motore di PaRuX."),
+            "Privacy & Network" => T("What can leave this PC. By default nothing does.", "Cosa può uscire da questo PC. Di base niente."),
+            "Data" => T("Where your chats and files live, backups and clean-up.", "Dove stanno chat e file, backup e pulizia."),
+            "Advanced" => T("Expert options. The defaults are fine for most people.", "Opzioni per esperti. I valori predefiniti vanno bene per la maggior parte delle persone."),
+            _ => T("How PaRuX looks, when it appears, and what it runs on.", "Aspetto di PaRuX, quando compare e su cosa viene eseguito."),
+        };
+
         private void SelectSettingsCategory(string category)
         {
             if (!_categoryButtons.ContainsKey(category)) return;
@@ -304,6 +322,7 @@ namespace PaRuX.Views
                 kvp.Value.FontWeight = selected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
             }
 
+            if (SettingsSubtitle != null) SettingsSubtitle.Text = SettingsCategorySubtitle(category);
             if (SettingsContentPanel == null) return;
             foreach (object child in SettingsContentPanel.Children)
             {

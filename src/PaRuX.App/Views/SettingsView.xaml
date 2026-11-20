@@ -65,6 +65,7 @@
             <StackPanel Spacing="{StaticResource PaRuXSpaceXS}">
                 <TextBlock Text="Settings" loc:Loc.ItText="Impostazioni" Style="{StaticResource PaRuXDisplayTextStyle}" />
                 <TextBlock
+                    x:Name="SettingsSubtitle"
                     Text="How PaRuX looks, when it appears, and what it runs on." loc:Loc.ItText="Aspetto di PaRuX, quando compare e su cosa viene eseguito."
                     Style="{StaticResource PaRuXCaptionTextStyle}" />
             </StackPanel>
