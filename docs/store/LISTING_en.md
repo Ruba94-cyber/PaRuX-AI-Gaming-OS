@@ -37,6 +37,10 @@ Notice: PaRuX uses the llama.cpp inference engine (MIT license), included in the
 
 ## What's new in this version
 
+Version 4.4.0:
+- Game saves: copy your save backups to a folder you choose (a cloud-synced folder, a NAS or a USB drive) and bring back the ones this PC lacks; every file is checked and nothing is overwritten.
+- Controllers: each game can have its own dead zones, trigger threshold and stick inversion.
+
 Version 4.3.1:
 - Chat: generation settings and saved presets, edit-and-resend of your own messages, a calmer empty state and a responsive composer.
 - Game library: smart collections, a compact top option, achievements from Steam (online editions only), and real downloads with pause, resume and checksum.

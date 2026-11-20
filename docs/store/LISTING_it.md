@@ -38,6 +38,10 @@ Avviso: PaRuX usa il motore di inferenza llama.cpp (licenza MIT), incluso nel pa
 
 ## Novità di questa versione
 
+Versione 4.4.0:
+- Salvataggi: copia i backup in una cartella a tua scelta (cartella cloud sincronizzata, NAS o chiavetta USB) e riporta qui quelli che questo PC non ha; ogni file viene controllato e nulla viene sovrascritto.
+- Controller: ogni gioco puo' avere zone morte, soglia dei grilletti e inversione degli stick propri.
+
 Versione 4.3.1:
 - Chat: impostazioni di generazione e preset salvati, modifica e reinvio dei tuoi messaggi, schermata iniziale piu' pulita e barra di scrittura adattiva.
 - Libreria giochi: raccolte intelligenti, opzione parte alta compatta, obiettivi Steam (solo edizioni online) e download reali con pausa, ripresa e controllo checksum.

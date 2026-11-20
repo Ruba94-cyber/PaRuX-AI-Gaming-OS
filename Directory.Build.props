@@ -6,6 +6,6 @@
     Change it here only; tests/PaRuX.Server.Tests/ReleaseVersionSourceContractTests.cs enforces it.
   -->
   <PropertyGroup>
-    <PaRuXProductVersion>4.3.1</PaRuXProductVersion>
+    <PaRuXProductVersion>4.4.0</PaRuXProductVersion>
   </PropertyGroup>
 </Project>
