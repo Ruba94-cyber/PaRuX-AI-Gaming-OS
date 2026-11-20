@@ -211,4 +211,85 @@ public sealed class RealDevicesAndGamesUiTests
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct XState { public uint Packet; public ushort Buttons; public byte Lt, Rt; public short Lx, Ly, Rx, Ry; }
+    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Winapi)]
+    private delegate uint GetStateFn(uint index, ref XState state);
+    [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr LoadLibraryW(string path);
+    [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Ansi, SetLastError = true)]
+    private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+    [Fact, Trait("Category", "RealHardware"), Trait("Category", "FlaUI")]
+    public void The_real_controller_reaches_a_game_as_an_xbox_pad_through_the_driverless_shim()
+    {
+        // Real: the 8BitDo pad, Windows.Gaming.Input, PaRuX's mapper, the shared memory, the shim file installed into a game folder by the
+        // Core, and the shim DLL loaded from THAT folder and called the way a game calls XInput. Simulated: only the "game" (a folder
+        // with an empty executable header) and the fact that nobody presses a button, so the pad is read at rest.
+        const string name = nameof(The_real_controller_reaches_a_game_as_an_xbox_pad_through_the_driverless_shim);
+        if (!Environment.Is64BitProcess) return;
+        UiTestApplication.WaitForCorePortReleased();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGames(app);
+            if (!FindFirstController(app)) { Note(app, "NOT RUN: Windows lists no raw game controller on this PC."); return; }
+
+            // The fake game: an x64 executable header and nothing else.
+            string game = Path.Combine(app.DataRoot, "games", "fakegame");
+            Directory.CreateDirectory(game);
+            var exe = new byte[4096];
+            exe[0] = (byte)'M'; exe[1] = (byte)'Z';
+            BitConverter.GetBytes(128).CopyTo(exe, 0x3C);
+            exe[128] = (byte)'P'; exe[129] = (byte)'E';
+            BitConverter.GetBytes((ushort)0x8664).CopyTo(exe, 132);
+            File.WriteAllBytes(Path.Combine(game, "fakegame.exe"), exe);
+
+            // Map the pad's first four axes to the two sticks and save (the buttons keep their defaults).
+            UiWait.ById(app.MainWindow, "GameDevices_RawMapping_LeftX_Index").AsTextBox().Text = "0";
+            UiWait.ById(app.MainWindow, "GameDevices_RawMapping_LeftY_Index").AsTextBox().Text = "1";
+            UiWait.ById(app.MainWindow, "GameDevices_RawMapping_RightX_Index").AsTextBox().Text = "2";
+            UiWait.ById(app.MainWindow, "GameDevices_RawMapping_RightY_Index").AsTextBox().Text = "3";
+            Press(app, "GameDevices_RawMapping_Save_Button");
+            var rawStatus = UiWait.ById(app.MainWindow, "GameDevices_Raw_Status_Text", ControlType.Text);
+            UiWait.For(() => Text(rawStatus).Contains("Mapping saved", StringComparison.Ordinal), "the mapping is saved", TimeSpan.FromSeconds(20));
+
+            // Put the shim next to the game through the UI and check what landed there.
+            UiWait.ById(app.MainWindow, "GameDevices_Shim_Folder_TextBox").AsTextBox().Text = game;
+            Press(app, "GameDevices_Shim_Install_Button");
+            var shimStatus = UiWait.ById(app.MainWindow, "GameDevices_Shim_Status_Text", ControlType.Text);
+            UiWait.For(() => Text(shimStatus).StartsWith("Installed", StringComparison.Ordinal), "the shim is installed", TimeSpan.FromSeconds(60));
+            foreach (string n in new[] { "xinput1_3.dll", "xinput1_4.dll", "xinput9_1_0.dll" }) Assert.True(File.Exists(Path.Combine(game, n)), n);
+
+            // Start the Xbox pad from the UI.
+            Press(app, "GameDevices_Driverless_Start_Button");
+            var padStatus = UiWait.ById(app.MainWindow, "GameDevices_Driverless_Status_Text", ControlType.Text);
+            UiWait.For(() => Text(padStatus).Contains("is on", StringComparison.Ordinal), "the Xbox pad starts", TimeSpan.FromSeconds(30));
+
+            // Load the shim from the game's own folder and call it like a game does.
+            IntPtr module = LoadLibraryW(Path.Combine(game, "xinput1_4.dll"));
+            Assert.NotEqual(IntPtr.Zero, module);
+            var getState = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<GetStateFn>(GetProcAddress(module, "XInputGetState"));
+            var state = new XState();
+            uint result = 1;
+            UiWait.For(() => (result = getState(0, ref state)) == 0, "the game reads slot 0 as connected", TimeSpan.FromSeconds(20));
+            Assert.True(state.Packet > 0, "a packet number was published");
+            Assert.InRange((int)state.Lt, 0, 255);
+            Assert.InRange((int)state.Lx, short.MinValue, short.MaxValue);
+            // At rest nobody is pressing a trigger.
+            Assert.Equal(0, state.Lt);
+            Assert.Equal(0, state.Rt);
+
+            // Stop: the shim forwards to Windows again (this PC's pad is not XInput, so "not connected" or a real pad).
+            Press(app, "GameDevices_Driverless_Stop_Button");
+            UiWait.For(() => { var after = new XState(); uint r = getState(0, ref after); return r == 1167 || r == 0; }, "pass-through after stop", TimeSpan.FromSeconds(20));
+
+            // Remove it again through the UI: the game folder returns to its original files.
+            Press(app, "GameDevices_Shim_Remove_Button");
+            UiWait.For(() => Text(shimStatus).StartsWith("Removed", StringComparison.Ordinal), "the shim is removed", TimeSpan.FromSeconds(60));
+            Assert.Equal(new[] { "fakegame.exe" }, Directory.EnumerateFiles(game).Select(Path.GetFileName).ToArray());
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
 }

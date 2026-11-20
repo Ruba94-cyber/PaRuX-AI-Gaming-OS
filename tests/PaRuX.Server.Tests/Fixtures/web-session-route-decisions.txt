@@ -132,6 +132,7 @@ DENY GET /api/v1/eval/runs/{id}/compare/{previousRunId}
 DENY GET /api/v1/eval/runs/{id}/results
 DENY GET /api/v1/gaming/agent-confirmations
 DENY GET /api/v1/gaming/controller-profile
+DENY GET /api/v1/gaming/xinput-shim
 DENY GET /api/v1/gaming/smart-collections
 DENY GET /api/v1/gaming/controller-profile/game/{titleKey}
 DENY GET /api/v1/gaming/controllers
@@ -662,6 +663,8 @@ DENY POST /v1/responses
 DENY POST /v1/videos
 DENY PUT /api/v1/chat/capability-overrides/{role}/{profile}
 DENY PUT /api/v1/coding/model-selection/mode
+DENY POST /api/v1/gaming/xinput-shim/install
+DENY POST /api/v1/gaming/xinput-shim/uninstall
 DENY PUT /api/v1/gaming/controller-profile
 DENY PUT /api/v1/gaming/smart-collections
 DENY PUT /api/v1/gaming/controller-profile/game/{titleKey}

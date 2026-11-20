@@ -17,6 +17,12 @@
     <Description>RBG – PaRuX AI &amp; Gaming OS Server - local AI backend and workstation control plane</Description>
     <RootNamespace>PaRuX.Server</RootNamespace>
   </PropertyGroup>
+  <!-- The driverless XInput shim (scripts\build-xinput-shim.ps1) travels with the Core when it has been built. -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\artifacts\xinput-shim\x64\parux_xinput.dll')">
+    <None Include="..\..\artifacts\xinput-shim\**\parux_xinput.dll" Link="xinput-shim\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Embedded rather than copied next to the binary: the web client is served from memory, so a
          self-contained publish cannot ship a Core whose UI file was left behind. -->

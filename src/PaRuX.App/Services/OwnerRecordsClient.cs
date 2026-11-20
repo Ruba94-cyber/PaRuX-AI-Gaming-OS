@@ -30,6 +30,21 @@ namespace PaRuX.Services
         public Task DeleteWebhookAsync(string id, CancellationToken ct) =>
             SendNoContent(HttpMethod.Delete, "/api/v2/webhooks/" + Uri.EscapeDataString(id), ct);
 
+        public Task<XInputShimStatus> XInputShimStatusAsync(CancellationToken ct) => Get<XInputShimStatus>("/api/v1/gaming/xinput-shim", ct);
+        public Task<XInputShimResult> InstallXInputShimAsync(string folder, CancellationToken ct) =>
+            SendKeepBody<XInputShimResult>(HttpMethod.Post, "/api/v1/gaming/xinput-shim/install", new XInputShimFolderRequest { Folder = folder }, ct);
+        public Task<XInputShimResult> UninstallXInputShimAsync(string folder, CancellationToken ct) =>
+            SendKeepBody<XInputShimResult>(HttpMethod.Post, "/api/v1/gaming/xinput-shim/uninstall", new XInputShimFolderRequest { Folder = folder }, ct);
+
+        /// <summary>Like Send, but a refusal (HTTP 400/409) still carries the result object with its plain-language reason.</summary>
+        private static async Task<T> SendKeepBody<T>(HttpMethod method, string path, object? body, CancellationToken ct)
+        {
+            using HttpRequestMessage request = await Build(method, path, body, ct).ConfigureAwait(false);
+            using HttpResponseMessage response = await Http.SendAsync(request, ct).ConfigureAwait(false);
+            T? value = await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct).ConfigureAwait(false);
+            return value ?? throw new LocalAiException("PaRuX Core answered " + (int)response.StatusCode + ".");
+        }
+
         public Task<SteamCredentialsStatus> SteamStatusAsync(CancellationToken ct) => Get<SteamCredentialsStatus>("/api/v2/steam/credentials", ct);
         public Task<SteamCredentialsStatus> SaveSteamAsync(SteamCredentialsRequest request, CancellationToken ct) =>
             Send<SteamCredentialsStatus>(HttpMethod.Put, "/api/v2/steam/credentials", request, ct);

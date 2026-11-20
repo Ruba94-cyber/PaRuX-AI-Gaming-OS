@@ -70,6 +70,7 @@
        No separate driver/runtime package; the host owns all physical input observation. -->
   <ItemGroup>
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\Xbox360Report.cs" Link="Gaming\Xbox360Report.cs" />
+    <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\SharedMemoryXInput.cs" Link="Gaming\SharedMemoryXInput.cs" />
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\ViGEmBusClient.cs" Link="Gaming\ViGEmBusClient.cs" />
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\VirtualPadForwardingSession.cs" Link="Gaming\VirtualPadForwardingSession.cs" />
     <Compile Include="..\PaRuX.Server\Orchestration\Gaming\Providers\VirtualPad\RawPadMappingStore.cs" Link="Gaming\RawPadMappingStore.cs" />

@@ -25,6 +25,7 @@ code search on 2026-11-20).
 | Owned-store install, update and repair | Heroic (Epic, GOG, Amazon), Hydra | MISSING | PaRuX deliberately never installs from stores today |
 | Downloads: HTTP, torrent, checksum, pause for Gaming | Hydra, Playnite (extensions) | PARTIAL | unit-tested; no peer proof, restart recovery NOT RUN |
 | Library scripting or extension API | Playnite (PowerShell and C#), Heroic | MISSING | plugin bundles cover AI skills only, not the game library |
+| Virtual Xbox pad and hiding the physical pad (ViGEmBus, HidHide, XOutput) | XOutput, x360ce, DS4Windows, Steam Input | PARTIAL | Driverless replacement for games that read XInput: `native/xinput-shim` (user-mode DLL, forwards to Windows when PaRuX is off), shared-memory backend, installer with receipt and anti-cheat refusal, UI in Gaming > Devices. Not covered: games that read DirectInput/raw HID (needs a kernel driver to hide the physical pad), rumble forwarding, anti-cheat games, a signed 32-bit shim run in a real game |
 | Controller mapping | Playnite (fullscreen), Steam Input | PARTIAL | raw mapping and live view; no per-game profiles, no virtual pad without a separately installed driver |
 | Cold start | Playnite, Locally Uncensored | PARTIAL | slower on the test PC; see `COMPETITOR_MEASURED_2026-11-19.md` |
 

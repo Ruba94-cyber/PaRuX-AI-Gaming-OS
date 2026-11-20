@@ -294,6 +294,18 @@ builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<GameControllerProfileStore>();
 builder.Services.AddSingleton<GameSmartCollectionStore>();
+builder.Services.AddSingleton<XInputShimInstaller>(_ =>
+{
+    // Packaged builds carry the shims next to the Core; a source checkout has them under artifacts\xinput-shim.
+    string packaged = Path.Combine(AppContext.BaseDirectory, "xinput-shim");
+    string? root = Directory.Exists(packaged) ? packaged : null;
+    for (var d = new DirectoryInfo(AppContext.BaseDirectory); root is null && d is not null; d = d.Parent)
+    {
+        string dev = Path.Combine(d.FullName, "artifacts", "xinput-shim");
+        if (Directory.Exists(dev)) root = dev;
+    }
+    return new XInputShimInstaller(root ?? packaged, ServerState.StateDirectory);
+});
 builder.Services.AddSingleton<ManualGameLibrary>();
 builder.Services.AddSingleton<ExternalGameLibraryStore>();
 builder.Services.AddSingleton<LocalWishlistStore>();

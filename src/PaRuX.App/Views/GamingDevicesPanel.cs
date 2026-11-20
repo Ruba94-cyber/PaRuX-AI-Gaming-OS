@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -469,9 +470,15 @@ internal sealed class GamingDevicesPanel : StackPanel
         AutomationProperties.SetAutomationId(_rawA, "GameDevices_RawMapping_A_Index");
         AutomationProperties.SetAutomationId(_rawB, "GameDevices_RawMapping_B_Index");
         AutomationProperties.SetAutomationId(_rawLx, "GameDevices_RawMapping_LeftX_Index");
+        AutomationProperties.SetAutomationId(_rawLy, "GameDevices_RawMapping_LeftY_Index");
+        AutomationProperties.SetAutomationId(_rawRx, "GameDevices_RawMapping_RightX_Index");
+        AutomationProperties.SetAutomationId(_rawRy, "GameDevices_RawMapping_RightY_Index");
+        AutomationProperties.SetAutomationId(_rawLt, "GameDevices_RawMapping_LT_Index");
+        AutomationProperties.SetAutomationId(_rawRt, "GameDevices_RawMapping_RT_Index");
         AutomationProperties.SetAutomationId(_rawDeadzone, "GameDevices_RawMapping_Deadzone");
         AutomationProperties.SetAutomationId(_rawDpad, "GameDevices_RawMapping_HatEnabled_CheckBox");
         AutomationProperties.SetAutomationId(_rawInvertY, "GameDevices_RawMapping_InvertY_CheckBox");
+        BuildDriverlessSection();
         BuildGuidedSection();
         ApplyToUi(GamingControllerProfile.Default);
     }
@@ -664,6 +671,106 @@ internal sealed class GamingDevicesPanel : StackPanel
         {
             _rawDeviceStatus.Text = T("Could not list games.", "Impossibile elencare i giochi.");
         }
+    }
+
+    private readonly TextBlock _driverlessStatus = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
+    private readonly TextBlock _shimStatus = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
+    private readonly TextBox _shimFolder = new() { PlaceholderText = @"C:\Games\My Game" };
+
+    /// <summary>
+    /// The driverless way (what HidHide plus ViGEmBus plus XOutput do together, for games that read XInput): PaRuX publishes the
+    /// pad, and a small shim placed in that one game's folder hands it to the game as an Xbox pad. No driver, nothing system-wide.
+    /// </summary>
+    private void BuildDriverlessSection()
+    {
+        Children.Add(new TextBlock
+        {
+            Text = T("Xbox pad without a driver", "Pad Xbox senza driver"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 0),
+        });
+        Children.Add(new TextBlock
+        {
+            Text = T("Makes your controller look like an Xbox pad to games that use XInput, with no driver to install. Two steps: put the PaRuX file next to the game, then start the pad. Games that read DirectInput or raw HID are not covered, and games with an anti-cheat are refused because anti-cheat treats the file as tampering.",
+                     "Fa apparire il tuo controller come un pad Xbox ai giochi che usano XInput, senza installare driver. Due passi: metti il file di PaRuX accanto al gioco, poi avvia il pad. I giochi che usano DirectInput o HID grezzo non sono coperti e i giochi con anti-cheat vengono rifiutati, perché l'anti-cheat considera il file una manomissione."),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        AutomationProperties.SetAutomationId(_shimFolder, "GameDevices_Shim_Folder_TextBox");
+        var browse = MakeButton(T("Choose the game folder…", "Scegli la cartella del gioco…"), "GameDevices_Shim_Browse_Button", async () =>
+        {
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FolderPicker();
+                picker.FileTypeFilter.Add("*");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+                var folder = await picker.PickSingleFolderAsync();
+                if (folder is not null) _shimFolder.Text = folder.Path;
+            }
+            catch (Exception) { _shimStatus.Text = T("Folder selection is unavailable.", "Selezione cartella non disponibile."); }
+        });
+        var install = MakeButton(T("Put the file next to this game", "Metti il file accanto a questo gioco"), "GameDevices_Shim_Install_Button", async () =>
+        {
+            try
+            {
+                XInputShimResult r = await OwnerRecordsClient.Current.InstallXInputShimAsync(_shimFolder.Text.Trim(), CancellationToken.None);
+                _shimStatus.Text = r.Message;
+            }
+            catch (Exception ex) { _shimStatus.Text = ex.Message; }
+        });
+        var remove = MakeButton(T("Remove it from this game", "Rimuovilo da questo gioco"), "GameDevices_Shim_Remove_Button", async () =>
+        {
+            try
+            {
+                XInputShimResult r = await OwnerRecordsClient.Current.UninstallXInputShimAsync(_shimFolder.Text.Trim(), CancellationToken.None);
+                _shimStatus.Text = r.Message;
+            }
+            catch (Exception ex) { _shimStatus.Text = ex.Message; }
+        });
+        AutomationProperties.SetAutomationId(_shimStatus, "GameDevices_Shim_Status_Text");
+        AutomationProperties.SetLiveSetting(_shimStatus, AutomationLiveSetting.Polite);
+        var folderRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        _shimFolder.MinWidth = 320;
+        folderRow.Children.Add(_shimFolder);
+        folderRow.Children.Add(browse);
+        Children.Add(folderRow);
+        var fileRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        fileRow.Children.Add(install);
+        fileRow.Children.Add(remove);
+        Children.Add(fileRow);
+        Children.Add(_shimStatus);
+
+        var start = MakeButton(T("Start the Xbox pad", "Avvia il pad Xbox"), "GameDevices_Driverless_Start_Button", () =>
+        {
+            if (SelectedDeviceId is not { } id)
+            {
+                _driverlessStatus.Text = T("Choose a controller first (Find controllers above).", "Scegli prima un controller (Trova controller qui sopra).");
+                return Task.CompletedTask;
+            }
+            var resolved = VirtualPadActivationController.Current.Profiles.Resolve(id, SelectedGameId);
+            if (resolved.Mapping is null)
+            {
+                _driverlessStatus.Text = T("Save a mapping for this controller first (Guided mapping, then Save mapping).", "Salva prima una mappatura per questo controller (Mappatura guidata, poi Salva mappatura).");
+                return Task.CompletedTask;
+            }
+            var status = XInputShimBridge.Current.Start(id, resolved.Mapping);
+            _driverlessStatus.Text = status.Running
+                ? T("The Xbox pad is on. Games that have the PaRuX file see this controller as an Xbox pad.", "Il pad Xbox è attivo. I giochi che hanno il file di PaRuX vedono questo controller come un pad Xbox.")
+                : status.Message;
+            return Task.CompletedTask;
+        });
+        var stop = MakeButton(T("Stop the Xbox pad", "Ferma il pad Xbox"), "GameDevices_Driverless_Stop_Button", async () =>
+        {
+            var status = await XInputShimBridge.Current.StopAsync();
+            _driverlessStatus.Text = status.Running ? status.Message : T("The Xbox pad is off. Games see Windows' own controllers again.", "Il pad Xbox è spento. I giochi tornano a vedere i controller di Windows.");
+        });
+        AutomationProperties.SetAutomationId(_driverlessStatus, "GameDevices_Driverless_Status_Text");
+        AutomationProperties.SetLiveSetting(_driverlessStatus, AutomationLiveSetting.Polite);
+        _driverlessStatus.Text = T("The Xbox pad is off.", "Il pad Xbox è spento.");
+        var padRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        padRow.Children.Add(start);
+        padRow.Children.Add(stop);
+        Children.Add(padRow);
+        Children.Add(_driverlessStatus);
     }
 
     private string? SelectedGameId => (_gameChoice.SelectedItem as ComboBoxItem)?.Tag as string;

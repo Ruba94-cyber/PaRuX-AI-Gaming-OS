@@ -500,6 +500,27 @@ public static class GamingEndpoints
             return Results.NoContent();
         }).RequireDesktopOwner();
 
+        // Driverless virtual Xbox pad: the XInput shim is put next to one game on the owner's request and removed again.
+        app.MapGet("/api/v1/gaming/xinput-shim", (XInputShimInstaller shim) =>
+            Results.Ok(new XInputShimStatus(shim.Available, shim.List()))).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/xinput-shim/install", (XInputShimFolderRequest request, XInputShimInstaller shim, LocalRuntimeService runtime) =>
+        {
+            // Never change a game's files while Gaming owns the machine.
+            if (runtime.GamingMode) return Results.Conflict(new XInputShimResult(false, "Return to AI before changing a game's files."));
+            XInputShimResult result = shim.Install(request.Folder);
+            AuditLogService.TryRecord("xinput-shim.install", result.Ok ? "installed" : "refused", result.Ok ? result.Install?.Architecture : null);
+            return result.Ok ? Results.Ok(result) : Results.BadRequest(result);
+        }).RequireDesktopOwner();
+
+        app.MapPost("/api/v1/gaming/xinput-shim/uninstall", (XInputShimFolderRequest request, XInputShimInstaller shim, LocalRuntimeService runtime) =>
+        {
+            if (runtime.GamingMode) return Results.Conflict(new XInputShimResult(false, "Return to AI before changing a game's files."));
+            XInputShimResult result = shim.Uninstall(request.Folder);
+            AuditLogService.TryRecord("xinput-shim.uninstall", result.Ok ? "removed" : "refused");
+            return result.Ok ? Results.Ok(result) : Results.BadRequest(result);
+        }).RequireDesktopOwner();
+
         // Smart collections: saved filters that fill themselves. The rules are evaluated by the client over its own title list.
         app.MapGet("/api/v1/gaming/smart-collections", (GameSmartCollectionStore store) =>
             Results.Ok(store.List())).RequireDesktopOwner();
