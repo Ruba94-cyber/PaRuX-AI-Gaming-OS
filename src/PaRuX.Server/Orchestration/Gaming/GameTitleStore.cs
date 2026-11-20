@@ -156,6 +156,56 @@ public sealed class GameTitleStore
         }
     }
 
+    /// <summary>
+    /// Merges personal data from a library export into the stored state in ONE write. Nothing the owner already set is overwritten:
+    /// a favourite is only added, status/score/notes only fill empty fields, tags and collections are united (within the limits),
+    /// play time only grows. Returns the number of titles changed, or null when the store could not be read or written.
+    /// </summary>
+    public int? RestoreMerge(IReadOnlyList<(string Key, GameLibraryRestoreEntry Entry)> entries)
+    {
+        if (entries is null || entries.Count == 0) return 0;
+        lock (_gate)
+        {
+            if (_loadError is not null) return null;
+            try
+            {
+                using var lease = AcquireLease();
+                Load();
+                if (_loadError is not null) return null;
+                var next = new Dictionary<string, GameTitleState>(_titles, StringComparer.Ordinal);
+                int changed = 0;
+                foreach ((string key, GameLibraryRestoreEntry e) in entries)
+                {
+                    if (!GameTitleEndpoints.ValidTitleKey(key)) continue;
+                    bool exists = next.TryGetValue(key, out GameTitleState? existing);
+                    if (!exists && next.Count >= MaxTitles) continue;
+                    GameTitleState state = exists ? Clone(existing!) : new GameTitleState { AddedUtc = DateTime.UtcNow };
+                    bool before = exists;
+                    string snapshot = System.Text.Json.JsonSerializer.Serialize(state);
+                    if (e.Favorite) state.Favorite = true;
+                    if (string.IsNullOrEmpty(state.Status) && GameCompletionStatuses.IsValid(e.Status)) state.Status = GameCompletionStatuses.Normalize(e.Status);
+                    if (state.Score == 0 && GameCompletionStatuses.IsValidScore(e.Score)) state.Score = e.Score;
+                    if (string.IsNullOrEmpty(state.Notes)) state.Notes = e.Notes ?? string.Empty;
+                    List<string>? tags = CleanList((state.Tags ?? new List<string>()).Concat(e.Tags ?? Array.Empty<string>()), MaxTagLength, int.MaxValue);
+                    if (tags is not null) state.Tags = tags.Take(MaxTags).ToList();
+                    List<string>? collections = CleanList((state.Collections ?? new List<string>()).Concat(e.Collections ?? Array.Empty<string>()), MaxCollectionLength, int.MaxValue);
+                    if (collections is not null) state.Collections = collections.Take(MaxCollections).ToList();
+                    if (e.PlaySeconds > state.PlaySeconds) state.PlaySeconds = e.PlaySeconds;
+                    if (e.LastPlayedUtc is { } last && (state.LastPlayedUtc is null || last > state.LastPlayedUtc)) state.LastPlayedUtc = last;
+                    if (!before || System.Text.Json.JsonSerializer.Serialize(state) != snapshot) { next[key] = state; changed++; }
+                }
+                if (changed == 0) return 0;
+                if (!Persist(next)) return null;
+                _titles = next;
+                return changed;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        }
+    }
+
     public bool SetDefaultInstallation(string titleKey, string? installationId)
     {
         if (installationId is { Length: > 300 } || installationId?.Any(char.IsControl) == true) return false;

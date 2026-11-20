@@ -20,8 +20,20 @@ public sealed class GamingSectionsAndEmulatorUiTests
         GamingSectionsPage.SelectSection(app.MainWindow, "Emulators");
         Press(app, "Emulators_Detect_Button");
         var combo = UiWait.ById(app.MainWindow, "Emulators_Select_ComboBox").AsComboBox();
-        UiWait.For(() => combo.Items.Any(i => i.Name.StartsWith("Dolphin", StringComparison.Ordinal)), "Dolphin descriptor loaded");
-        combo.Select(combo.Items.First(i => i.Name.StartsWith("Dolphin", StringComparison.Ordinal)).Name);
+        // The list holds over a hundred emulators and the drop-down only realizes the rows in view, so choose by typing the name.
+        DateTime last = DateTime.MinValue;
+        UiWait.For(() =>
+        {
+            string selected = "";
+            try { selected = combo.SelectedItem?.Name ?? ""; } catch { }
+            if (selected.StartsWith("Dolphin", StringComparison.Ordinal)) return true;
+            if (DateTime.UtcNow - last > TimeSpan.FromSeconds(2))
+            {
+                last = DateTime.UtcNow;
+                try { combo.Focus(); FlaUI.Core.Input.Keyboard.Type("Dolphin"); } catch { }
+            }
+            return false;
+        }, "Dolphin descriptor chosen", TimeSpan.FromSeconds(75)); // detection walks the disk and takes longer on a busy PC
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]

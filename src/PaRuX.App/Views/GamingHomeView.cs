@@ -54,6 +54,7 @@ internal sealed class GamingHomeView : StackPanel
     private readonly Button _pickRandom = new();
     private readonly Button _insightsButton = new();
     private readonly Button _exportLibrary = new();
+    private readonly Button _restoreLibrary = new();
     private readonly Random _random = new();
     private readonly Button _igdb = new();
     private readonly Button _externalPreview = new();
@@ -309,6 +310,52 @@ internal sealed class GamingHomeView : StackPanel
         _ => T("No status", "Nessuno stato"),
     };
 
+    private async Task RestoreLibraryAsync()
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary };
+            picker.FileTypeFilter.Add(".json");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWin));
+            Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
+            if (file is null) return;
+            var info = new System.IO.FileInfo(file.Path);
+            if (info.Length > GameLibraryRestoreParser.MaxJsonCharacters)
+            {
+                _status.Text = T("That file is too large to be a library export.", "Il file è troppo grande per essere un'esportazione della libreria.");
+                return;
+            }
+            string json = await System.IO.File.ReadAllTextAsync(file.Path);
+            var confirm = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = T("Restore library data?", "Ripristinare i dati della libreria?"),
+                Content = T("Favourites, status, rating, notes, tags, collections and play time from this file are added to games that are already in your library. Nothing you set here is overwritten, no game is added and nothing is started.",
+                    "Preferiti, stato, voto, note, tag, collezioni e tempo di gioco di questo file vengono aggiunti ai giochi già presenti nella libreria. Nulla di ciò che hai impostato qui viene sovrascritto, nessun gioco viene aggiunto e nulla viene avviato."),
+                PrimaryButtonText = T("Restore", "Ripristina"),
+                CloseButtonText = T("Cancel", "Annulla"),
+                DefaultButton = ContentDialogButton.Close,
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            var result = await GamingOrchestratorClient.Current.RestoreLibraryStatesAsync(json);
+            if (!result.Succeeded || result.Value is null)
+            {
+                _status.Text = T("The file could not be restored: it is not a PaRuX library export, or the library is not open yet.",
+                    "Impossibile ripristinare il file: non è un'esportazione della libreria PaRuX, oppure la libreria non è ancora aperta.");
+                return;
+            }
+            GameLibraryRestoreResult r = result.Value;
+            _status.Text = T($"Restored data for {r.Updated} games; {r.NotInLibrary} in the file are not in this library and {r.Invalid} entries were unreadable.",
+                $"Dati ripristinati per {r.Updated} giochi; {r.NotInLibrary} del file non sono in questa libreria e {r.Invalid} voci erano illeggibili.");
+            await ReloadAsync(refresh: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Library restore failed: " + ex.Message);
+            _status.Text = T("The restore failed; nothing was changed.", "Ripristino non riuscito; non è stato modificato nulla.");
+        }
+    }
+
     private async Task ExportLibraryAsync()
     {
         try
@@ -500,6 +547,11 @@ internal sealed class GamingHomeView : StackPanel
             T("Save your library as a CSV or JSON file: names, status, rating, play time, tags (no file paths)",
               "Salva la libreria come file CSV o JSON: nomi, stato, voto, tempo di gioco, tag (nessun percorso di file)"));
         _exportLibrary.Click += async (_, _) => await ExportLibraryAsync();
+        _restoreLibrary.Content = T("Restore library data...", "Ripristina i dati della libreria...");
+        Track(_restoreLibrary, "GameHome_RestoreLibrary_Button",
+            T("Bring favourites, status, rating, notes, tags and play time from a PaRuX library export onto the games that are here",
+              "Riporta preferiti, stato, voto, note, tag e tempo di gioco da un'esportazione PaRuX sui giochi presenti"));
+        _restoreLibrary.Click += async (_, _) => await RestoreLibraryAsync();
         _steamGridDb.Content = T("SteamGridDB key...", "Chiave SteamGridDB...");
         Track(_steamGridDb, "GameHome_SteamGridDb_Button",
             T("Set the optional SteamGridDB API key for better covers", "Imposta la chiave API SteamGridDB facoltativa per copertine migliori"));
@@ -556,7 +608,7 @@ internal sealed class GamingHomeView : StackPanel
         Track(libraryTools, "GameHome_LibraryTools_Button", T("Library tools: covers, imports, game guide, wishlist, multi-select",
             "Strumenti libreria: copertine, importazione, guida giochi, lista desideri, selezione multipla"));
         libraryTools.Flyout = BuildToolbarFlyout(new FrameworkElement[]
-            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _insightsButton, _exportLibrary });
+            { _metadata, _steamGridDb, _igdb, _externalPreview, _externalSaved, _localGuide, _wishlist, _selectMode, _insightsButton, _exportLibrary, _restoreLibrary });
         // Grouping and cover size are set-and-forget: one "View" menu instead of two always-visible drop-downs.
         var viewMenu = new Button { Content = T("View", "Vista") + "  ▾" };
         Track(viewMenu, "GameHome_View_Button", T("View options: group games, cover size", "Opzioni di vista: raggruppa i giochi, dimensione copertine"));

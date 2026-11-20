@@ -240,6 +240,9 @@ namespace PaRuX.Services
         public Task<GamingCallResult<object>> SetTitleTagsAsync(string key, List<string> tags, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/tags", new SetGameTagsRequest(tags), ct);
 
+        public Task<GamingCallResult<GameLibraryRestoreResult>> RestoreLibraryStatesAsync(string json, CancellationToken ct = default) =>
+            SendAsync<GameLibraryRestoreResult>(HttpMethod.Post, "/api/v1/gaming/titles/restore-states", new RestoreGameLibraryRequest(json, true), ct);
+
         public Task<GamingCallResult<object>> SetTitleNotesAsync(string key, string notes, CancellationToken ct = default) =>
             SendAsync<object>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/notes", new SetGameNotesRequest(notes), ct);
 
@@ -254,10 +257,11 @@ namespace PaRuX.Services
             SendAsync<GameLaunchProfileDto>(HttpMethod.Put, "/api/v1/gaming/titles/" + Uri.EscapeDataString(key) + "/launch-profile", profile, ct);
 
         public Task<GamingCallResult<EmulatorListDto>> GetEmulatorsAsync(CancellationToken ct = default) =>
-            SendAsync<EmulatorListDto>(HttpMethod.Get, "/api/v1/gaming/emulators", null, ct);
+            // Detection walks the disk (up to 4,000 entries): on a busy or slow disk that exceeds the ten-second control-plane budget.
+            SendAsync<EmulatorListDto>(HttpMethod.Get, "/api/v1/gaming/emulators", null, ct, InspectionHttpClient);
 
         public Task<GamingCallResult<EmulatorScanDto>> ScanEmulatorGamesAsync(string emulatorId, string folder, CancellationToken ct = default) =>
-            SendAsync<EmulatorScanDto>(HttpMethod.Post, "/api/v1/gaming/emulators/scan", new EmulatorScanRequestDto(emulatorId, folder), ct);
+            SendAsync<EmulatorScanDto>(HttpMethod.Post, "/api/v1/gaming/emulators/scan", new EmulatorScanRequestDto(emulatorId, folder), ct, InspectionHttpClient);
 
         public Task<GamingCallResult<EmulatorImportResultDto>> ImportEmulatorGamesAsync(EmulatorImportRequestDto request, CancellationToken ct = default) =>
             SendAsync<EmulatorImportResultDto>(HttpMethod.Post, "/api/v1/gaming/emulators/import", request, ct);

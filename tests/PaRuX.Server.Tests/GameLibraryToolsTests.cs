@@ -111,4 +111,65 @@ public sealed class GameLibraryToolsTests
         }
         finally { try { File.Delete(path); } catch { } }
     }
+
+    [Fact]
+    public void An_export_reads_back_with_every_personal_field_and_bad_entries_are_counted_not_trusted()
+    {
+        string json = GameLibraryExport.ToJson(new[]
+        {
+            Title("Alpha", 7200, GameCompletionStatuses.Completed, 8, favorite: true, last: new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc)),
+        }, new DateTime(2026, 11, 19, 0, 0, 0, DateTimeKind.Utc));
+        var entries = GameLibraryRestoreParser.Parse(json, out int invalid)!;
+        Assert.Equal(0, invalid);
+        GameLibraryRestoreEntry alpha = Assert.Single(entries);
+        Assert.Equal("Alpha", alpha.Name);
+        Assert.True(alpha.Favorite);
+        Assert.Equal(GameCompletionStatuses.Completed, alpha.Status);
+        Assert.Equal(8, alpha.Score);
+        Assert.Equal(7200, alpha.PlaySeconds);
+        Assert.Equal(new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc), alpha.LastPlayedUtc);
+
+        const string messy = "{\"format\":\"parux-game-library\",\"version\":1,\"titles\":[{\"name\":\"\"},{\"name\":\"Ok\",\"status\":\"bogus\",\"score\":99,\"playSeconds\":-5},5]}";
+        var tolerant = GameLibraryRestoreParser.Parse(messy, out int bad)!;
+        Assert.Equal(2, bad);
+        Assert.Equal("", tolerant[0].Status);
+        Assert.Equal(0, tolerant[0].Score);
+        Assert.Equal(0, tolerant[0].PlaySeconds);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("{\"format\":\"something-else\",\"version\":1,\"titles\":[]}")]
+    [InlineData("{\"format\":\"parux-game-library\",\"version\":2,\"titles\":[]}")]
+    public void Anything_that_is_not_a_PaRuX_export_is_refused(string? json) =>
+        Assert.Null(GameLibraryRestoreParser.Parse(json, out _));
+
+    [Fact]
+    public void Restore_merge_fills_gaps_unions_lists_grows_play_time_and_never_overwrites()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "parux-restore-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var store = new PaRuX.Server.Orchestration.Gaming.GameTitleStore(path);
+            store.SetScore("alpha", 5);
+            store.SetTags("alpha", new[] { "mine" });
+            store.SetNotes("alpha", "my own note");
+            var entry = new GameLibraryRestoreEntry("Alpha", true, GameCompletionStatuses.Completed, 9, 3600,
+                new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc), new[] { "imported", "MINE" }, new[] { "Racing" }, "their note");
+            Assert.Equal(1, store.RestoreMerge(new[] { ("alpha", entry) }));
+            var state = new PaRuX.Server.Orchestration.Gaming.GameTitleStore(path).Snapshot()["alpha"];
+            Assert.True(state.Favorite);
+            Assert.Equal(5, state.Score);                              // the owner's own rating wins
+            Assert.Equal("my own note", state.Notes);                  // notes only fill an empty field
+            Assert.Equal(GameCompletionStatuses.Completed, state.Status); // an empty status is filled
+            Assert.Equal(new[] { "mine", "imported" }, state.Tags);      // united, case-insensitive
+            Assert.Equal(new[] { "Racing" }, state.Collections);
+            Assert.Equal(3600, state.PlaySeconds);
+            // The same restore again changes nothing, and smaller play time never shrinks the total.
+            Assert.Equal(0, store.RestoreMerge(new[] { ("alpha", entry with { PlaySeconds = 60 }) }));
+        }
+        finally { try { File.Delete(path); } catch { } }
+    }
 }

@@ -319,7 +319,10 @@ internal sealed class UniversalLibraryPanel : StackPanel
             if (!result.Succeeded || result.Value is null) { _emulatorStatus.Text = T("Emulator detection is unavailable.", "Il rilevamento degli emulatori non è disponibile."); return; }
             _emulators = result.Value;
             _emulatorBox.Items.Clear();
-            foreach (EmulatorDescriptorDto emulator in _emulators.Emulators)
+            // Found emulators first, then A-Z: with more than a hundred known emulators the ones on this PC must not hide in the list.
+            foreach (EmulatorDescriptorDto emulator in _emulators.Emulators
+                         .OrderByDescending(e => _emulators.Detected.Any(d => d.EmulatorId == e.Id))
+                         .ThenBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase))
             {
                 bool found = _emulators.Detected.Any(d => d.EmulatorId == emulator.Id);
                 _emulatorBox.Items.Add(new ComboBoxItem
@@ -328,7 +331,7 @@ internal sealed class UniversalLibraryPanel : StackPanel
                     Tag = emulator
                 });
             }
-            _emulatorBox.SelectedIndex = Math.Max(0, _emulators.Emulators.FindIndex(e => _emulators.Detected.Any(d => d.EmulatorId == e.Id)));
+            _emulatorBox.SelectedIndex = 0; // a detected emulator is first when there is one
             int count = _emulators.Detected.Count;
             _emulatorStatus.Text = count == 0
                 ? T("No emulator was found automatically. Pick the program yourself below.", "Nessun emulatore trovato automaticamente. Scegli tu il programma qui sotto.")

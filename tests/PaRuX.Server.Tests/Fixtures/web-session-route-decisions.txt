@@ -445,6 +445,7 @@ DENY POST /api/v1/gaming/save-backups/{id}/restore-plan
 DENY POST /api/v1/gaming/save-backups/{id}/verify
 DENY POST /api/v1/gaming/save-hints
 DENY POST /api/v1/gaming/suspend
+DENY POST /api/v1/gaming/titles/restore-states
 DENY POST /api/v1/gaming/wishlist
 DENY POST /api/v1/gaming/wishlist/{productId}/quote
 DENY POST /api/v1/group-chat

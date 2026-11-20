@@ -137,6 +137,32 @@ public static class GameTitleEndpoints
             return Results.NoContent();
         }).RequireDesktopOwner();
 
+        // Brings personal data (favourite, status, rating, notes, tags, collections, play time) from a PaRuX library export back onto
+        // titles that are in this library; titles that are not here are skipped. Never adds a game or starts anything.
+        app.MapPost("/api/v1/gaming/titles/restore-states", (
+            RestoreGameLibraryRequest request, GameTitleStore store, GameTitleReadCache cache) =>
+        {
+            if (request is null || !request.Consent)
+                return Results.BadRequest(new { error = "Restoring requires a separate, explicit owner confirmation." }) as IResult;
+            IReadOnlyList<GameLibraryRestoreEntry>? entries = GameLibraryRestoreParser.Parse(request.Json, out int invalid);
+            if (entries is null) return Results.BadRequest(new { error = "This is not a PaRuX game library export." });
+            if (!cache.TryRead(out IReadOnlyList<GameTitleDto>? snapshot) || snapshot is null)
+                return Results.Conflict(new { error = "Open the game library first so PaRuX knows which games are here." });
+            var present = new HashSet<string>(snapshot.Select(t => t.TitleKey), StringComparer.Ordinal);
+            var matched = new List<(string, GameLibraryRestoreEntry)>();
+            int missing = 0;
+            foreach (GameLibraryRestoreEntry entry in entries)
+            {
+                string key = GameTitleCatalog.KeyFor(entry.Name, "restore:" + entry.Name);
+                if (present.Contains(key)) matched.Add((key, entry)); else missing++;
+            }
+            int? updated = store.RestoreMerge(matched);
+            if (updated is null) return Results.Problem("The state could not be saved.");
+            foreach (var (key, _) in matched)
+                UpdateCachedState(key, store, cache);
+            return Results.Ok(new GameLibraryRestoreResult(updated.Value, missing, invalid));
+        }).RequireDesktopOwner();
+
         // One atomic edit of up to 100 titles: all keys and values are validated first, one write persists them.
         app.MapPut("/api/v1/gaming/titles/bulk", (
             BulkGameTitleRequest request, GameTitleStore store, GameTitleReadCache cache) =>

@@ -161,3 +161,76 @@ public static class GameLibraryExport
         return text.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 ? "\"" + text.Replace("\"", "\"\"") + "\"" : text;
     }
 }
+
+/// <summary>One title's personal data read back from an export made by <see cref="GameLibraryExport"/>.</summary>
+public sealed record GameLibraryRestoreEntry(
+    string Name, bool Favorite, string Status, int Score, long PlaySeconds, DateTime? LastPlayedUtc,
+    IReadOnlyList<string> Tags, IReadOnlyList<string> Collections, string Notes);
+
+public sealed record RestoreGameLibraryRequest(string Json, bool Consent);
+
+public sealed record GameLibraryRestoreResult(int Updated, int NotInLibrary, int Invalid);
+
+/// <summary>
+/// Reads a PaRuX library export (JSON) back, so favourites, status, rating, notes, tags, collections and play time follow the
+/// owner to another PC. Everything is validated; nothing here touches a file path or starts a game.
+/// </summary>
+public static class GameLibraryRestoreParser
+{
+    public const int MaxEntries = 10_000;
+    public const int MaxJsonCharacters = 8_000_000;
+    public const long MaxPlaySeconds = 10L * 365 * 24 * 3600;
+
+    /// <returns>The valid entries, or null when the text is not a PaRuX library export. <paramref name="invalid"/> counts entries that were skipped.</returns>
+    public static IReadOnlyList<GameLibraryRestoreEntry>? Parse(string? json, out int invalid)
+    {
+        invalid = 0;
+        if (string.IsNullOrWhiteSpace(json) || json.Length > MaxJsonCharacters) return null;
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+            JsonElement root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("format", out JsonElement format) || format.GetString() != GameLibraryExport.Format
+                || !root.TryGetProperty("version", out JsonElement version) || version.ValueKind != JsonValueKind.Number || version.GetInt32() != GameLibraryExport.Version
+                || !root.TryGetProperty("titles", out JsonElement titles) || titles.ValueKind != JsonValueKind.Array
+                || titles.GetArrayLength() > MaxEntries) return null;
+
+            var result = new List<GameLibraryRestoreEntry>();
+            foreach (JsonElement row in titles.EnumerateArray())
+            {
+                GameLibraryRestoreEntry? entry = ReadEntry(row);
+                if (entry is null) invalid++; else result.Add(entry);
+            }
+            return result;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException) { return null; }
+    }
+
+    private static GameLibraryRestoreEntry? ReadEntry(JsonElement row)
+    {
+        if (row.ValueKind != JsonValueKind.Object) return null;
+        string name = Text(row, "name");
+        if (name.Length == 0 || name.Length > 200 || name.Any(char.IsControl)) return null;
+        string status = GameCompletionStatuses.Normalize(Text(row, "status"));
+        if (!GameCompletionStatuses.IsValid(status)) status = string.Empty;
+        int score = row.TryGetProperty("score", out JsonElement s) && s.ValueKind == JsonValueKind.Number && s.TryGetInt32(out int sv) && GameCompletionStatuses.IsValidScore(sv) ? sv : 0;
+        long seconds = row.TryGetProperty("playSeconds", out JsonElement p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out long pv) ? Math.Clamp(pv, 0, MaxPlaySeconds) : 0;
+        DateTime? last = DateTime.TryParse(Text(row, "lastPlayedUtc"), CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out DateTime parsed) ? parsed : null;
+        string notes = GameTitleNotes.Clean(Text(row, "notes")) ?? string.Empty;
+        return new GameLibraryRestoreEntry(name, row.TryGetProperty("favorite", out JsonElement f) && f.ValueKind == JsonValueKind.True,
+            status, score, seconds, last, List(row, "tags", 40, 20), List(row, "collections", 40, 12), notes);
+    }
+
+    private static string Text(JsonElement row, string name) =>
+        row.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString()?.Trim() ?? string.Empty : string.Empty;
+
+    private static IReadOnlyList<string> List(JsonElement row, string name, int maxLength, int maxCount)
+    {
+        if (!row.TryGetProperty(name, out JsonElement arr) || arr.ValueKind != JsonValueKind.Array) return Array.Empty<string>();
+        return arr.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => (e.GetString() ?? string.Empty).Trim())
+            .Where(t => t.Length > 0 && t.Length <= maxLength && !t.Any(char.IsControl))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(maxCount).ToArray();
+    }
+}
