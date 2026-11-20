@@ -130,8 +130,10 @@ namespace PaRuX.Views
 
             var provenanceRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_provenanceText, MediaProvenanceFormatter.ProvenanceTextAutomationId);
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceText, MediaProvenanceFormatter.MissingProvenanceNote);
-            _provenanceText.Text = MediaProvenanceFormatter.MissingProvenanceNote;
+            // Before anything has been created there is no "older result" to be missing provenance for, so say what is true.
+            string noResultYet = T("Nothing created yet. Details about how a result was made appear here.", "Ancora nulla di creato. Qui compaiono i dettagli su come è stato fatto un risultato.");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceText, noResultYet);
+            _provenanceText.Text = noResultYet;
             provenanceRow.Children.Add(_provenanceText);
 
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_provenanceDetailsButton, MediaProvenanceFormatter.ProvenanceDetailsButtonAutomationId);
@@ -829,11 +831,15 @@ namespace PaRuX.Views
         public void SetProvenance(MediaProvenanceRecord? record)
         {
             MediaProvenancePresentation presentation = MediaProvenanceFormatter.Format(record);
-            _provenanceText.Text = presentation.Line;
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceText, presentation.Line);
+            // No record at all means nothing has been created in this session, which is not an "older result".
+            string line = record is null
+                ? T("Nothing created yet. Details about how a result was made appear here.", "Ancora nulla di creato. Qui compaiono i dettagli su come è stato fatto un risultato.")
+                : presentation.Line;
+            _provenanceText.Text = line;
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_provenanceText, line);
             _provenanceDetailsContent.Text = presentation.Details.Count > 0
                 ? string.Join(Environment.NewLine, presentation.Details)
-                : presentation.Line;
+                : line;
         }
 
         private void ToggleProvenanceDetails()

@@ -180,7 +180,7 @@ public sealed class CreateWorkspaceModesCoverageTests
         nameof(Create_media_provenance_row_allows_toggling_details), (app, page) =>
         {
             var provenanceText = page.ProvenanceText;
-            Assert.Equal("Provenance not recorded for this older result", provenanceText.Name);
+            Assert.Equal("Nothing created yet. Details about how a result was made appear here.", provenanceText.Name);
 
             var detailsButton = page.ProvenanceDetailsButton;
             UiWait.AssertEnabled(detailsButton);
