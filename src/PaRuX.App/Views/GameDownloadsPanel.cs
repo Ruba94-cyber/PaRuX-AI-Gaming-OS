@@ -74,8 +74,8 @@ internal sealed class GameDownloadsPanel : StackPanel
         Children.Add(new TextBlock
         {
             Text = T(
-                "Download a file from an address you choose. Transfers pause while you play. To check the file, paste the SHA-256 from the publisher (optional).",
-                "Scarica un file da un indirizzo che scegli. I trasferimenti si sospendono mentre giochi. Per verificare il file, incolla lo SHA-256 del publisher (facoltativo)."),
+                "Download a file from an address you choose. Transfers pause while you play. To check the file, paste the SHA-256 from the publisher (optional). If PaRuX closes during a download, add the same address, folder and file name again: the part already downloaded is kept and the transfer continues from there.",
+                "Scarica un file da un indirizzo che scegli. I trasferimenti si sospendono mentre giochi. Per verificare il file, incolla lo SHA-256 del publisher (facoltativo). Se PaRuX si chiude durante un download, aggiungi di nuovo lo stesso indirizzo, la stessa cartella e lo stesso nome file: la parte già scaricata viene conservata e il trasferimento riparte da lì."),
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -567,6 +567,10 @@ internal sealed class GameDownloadsPanel : StackPanel
             AutomationProperties.SetAutomationId(button, "GameDownloads_" + suffix + "_" + job.Id);
             button.Click += async (_, _) =>
             {
+                if (Visibility != Visibility.Visible) return;
+                // A click that lands while the list is refreshing used to be dropped without a word, so Pause could appear to do nothing.
+                // Wait briefly for the refresh to finish and then act on the click.
+                for (int waited = 0; _busy && waited < 40; waited++) await Task.Delay(100);
                 if (_busy || Visibility != Visibility.Visible) return;
                 _busy = true;
                 button.IsEnabled = false;
