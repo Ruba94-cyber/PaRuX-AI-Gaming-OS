@@ -26,6 +26,7 @@ DENY DELETE /api/v1/context/relations/{id}
 DENY DELETE /api/v1/desktop/integrations/{id}
 DENY DELETE /api/v1/desktop/workbook-edits/{id}
 DENY DELETE /api/v1/gaming/controller-profile
+DENY DELETE /api/v1/gaming/controller-profile/game/{titleKey}
 DENY DELETE /api/v1/gaming/discover/hidden/{store}/{id}
 DENY DELETE /api/v1/gaming/downloads/torrent-client
 DENY DELETE /api/v1/gaming/downloads/{id}
@@ -128,6 +129,7 @@ DENY GET /api/v1/eval/runs/{id}/compare/{previousRunId}
 DENY GET /api/v1/eval/runs/{id}/results
 DENY GET /api/v1/gaming/agent-confirmations
 DENY GET /api/v1/gaming/controller-profile
+DENY GET /api/v1/gaming/controller-profile/game/{titleKey}
 DENY GET /api/v1/gaming/controllers
 DENY GET /api/v1/gaming/discover/featured
 DENY GET /api/v1/gaming/discover/recommendations
@@ -652,6 +654,7 @@ DENY POST /v1/videos
 DENY PUT /api/v1/chat/capability-overrides/{role}/{profile}
 DENY PUT /api/v1/coding/model-selection/mode
 DENY PUT /api/v1/gaming/controller-profile
+DENY PUT /api/v1/gaming/controller-profile/game/{titleKey}
 DENY PUT /api/v1/gaming/discover/settings
 DENY PUT /api/v1/gaming/downloads/limit
 DENY PUT /api/v1/gaming/downloads/torrent-client

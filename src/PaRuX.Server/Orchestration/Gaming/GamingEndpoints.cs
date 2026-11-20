@@ -500,6 +500,31 @@ public static class GamingEndpoints
             return Results.NoContent();
         }).RequireDesktopOwner();
 
+        // Per-game controller profiles: a game's own profile wins, otherwise the global one applies.
+        app.MapGet("/api/v1/gaming/controller-profile/game/{titleKey}", (
+            string titleKey, GameControllerProfileStore perGame, ControllerProfileStore global) =>
+        {
+            string? keyError = GameControllerProfileStore.ValidateKey(titleKey);
+            if (keyError != null) return Results.BadRequest(new { error = keyError });
+            GamingControllerProfile? own = perGame.Get(titleKey);
+            return Results.Ok(new { profile = own ?? global.Get(), source = own is null ? "global" : "game" });
+        }).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/controller-profile/game/{titleKey}", (
+            string titleKey, GamingControllerProfile profile, GameControllerProfileStore perGame) =>
+        {
+            string? error = perGame.Save(titleKey, profile);
+            return error is null ? Results.Ok(new { profile, source = "game" }) : Results.BadRequest(new { error });
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v1/gaming/controller-profile/game/{titleKey}", (
+            string titleKey, GameControllerProfileStore perGame) =>
+        {
+            string? keyError = GameControllerProfileStore.ValidateKey(titleKey);
+            if (keyError != null) return Results.BadRequest(new { error = keyError });
+            return perGame.Remove(titleKey) ? Results.NoContent() : Results.NotFound();
+        }).RequireDesktopOwner();
+
         // Explicit, user-started ~0.6 s sampling of resting sticks; refused while Gaming owns the machine.
         app.MapPost("/api/v1/gaming/controllers/{slot:int}/calibrate", async (
             int slot, LocalRuntimeService runtime, CancellationToken ct) =>
