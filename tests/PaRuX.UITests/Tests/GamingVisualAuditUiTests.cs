@@ -172,7 +172,7 @@ public sealed class GamingVisualAuditUiTests
             Thread.Sleep(4000);
             app.CaptureSnapshot("modelhub-start");
             File.WriteAllLines(Path.Combine(Repository.Root, "TestResults", "UIArtifacts", "modelhub-start-texts.txt"),
-                app.MainWindow.FindAllDescendants().Select(e => { try { return e.Name; } catch { return ""; } }).Where(n => n != null && n.Contains("Suggested", StringComparison.OrdinalIgnoreCase) || n.Contains("Suggerito", StringComparison.OrdinalIgnoreCase)));
+                app.MainWindow.FindAllDescendants().Select(e => { try { return e.Name; } catch { return ""; } }).Where(n => n != null && (n.Contains("Suggested", StringComparison.OrdinalIgnoreCase) || n.Contains("Suggerito", StringComparison.OrdinalIgnoreCase))));
         }
         catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
     }
