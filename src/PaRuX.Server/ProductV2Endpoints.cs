@@ -110,6 +110,20 @@ public static class ProductV2Endpoints
         app.MapDelete("/api/v2/sampling-presets/{id}", (string id) =>
             SamplingPresetStore.Default.Delete(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
 
+        // Corporate Lite is offline by construction: anything that calls out is refused, never acknowledged.
+        app.Use(async (context, next) =>
+        {
+            string path = context.Request.Path.Value ?? string.Empty;
+            if (PaRuX.Contracts.CorporateMode.IsActive
+                && (path.StartsWith("/api/v2/webhooks", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/v2/steam", StringComparison.OrdinalIgnoreCase)))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = "This feature is disabled in PaRuX Corporate Lite." });
+                return;
+            }
+            await next();
+        });
+
         app.MapGet("/api/v2/steam/credentials", () => Results.Ok(WebhookRuntime.SteamAchievements.Status())).RequireDesktopOwner();
 
         app.MapPut("/api/v2/steam/credentials", (SteamCredentialsRequest request) =>
@@ -145,6 +159,14 @@ public static class ProductV2Endpoints
         {
             WebhookTestResult? result = await WebhookRuntime.Service.TestAsync(id, ct);
             return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequireDesktopOwner();
+
+        app.MapGet("/api/v2/roles", (PrincipalRoleStore roles) => Results.Ok(roles.List())).RequireDesktopOwner();
+
+        app.MapPut("/api/v2/roles", (SetPrincipalRoleRequest request, PrincipalRoleStore roles) =>
+        {
+            string? error = roles.Set(request.PrincipalId, request.Role);
+            return error is null ? Results.Ok(roles.List()) : Results.BadRequest(new { error });
         }).RequireDesktopOwner();
 
         app.MapGet("/api/v2/audit", (int? limit) => Results.Ok(new AuditLogService().Recent(limit ?? 50))).RequireDesktopOwner();

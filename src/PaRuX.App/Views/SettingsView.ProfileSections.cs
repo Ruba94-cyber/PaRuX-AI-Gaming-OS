@@ -32,7 +32,9 @@ namespace PaRuX.Views
                 // the source models/privacy cards remain hidden separately.
                 string id = Microsoft.UI.Xaml.Automation.AutomationProperties.GetAutomationId(section);
                 if (corporate && (id == "Settings_CorporateModels_Panel"
-                    || id == "Settings_CorporatePrivacy_Panel")) continue;
+                    || id == "Settings_CorporatePrivacy_Panel"
+                    || id == "Settings_AuditLog_Section"
+                    || id == "Settings_Roles_Section")) continue;
                 string heading = section.Children.OfType<TextBlock>().FirstOrDefault()?.Text ?? string.Empty;
                 if (!SettingsSectionVisibilityPolicy.IsVisible(category, heading, profile, corporate))
                     _profileHiddenSettingsSections.Add(section);

@@ -322,6 +322,7 @@ DENY GET /api/v2/mobile/observability/dashboard
 DENY GET /api/v2/observability/dashboard
 DENY GET /api/v2/observability/engine-races
 DENY GET /api/v2/audit
+DENY GET /api/v2/roles
 DENY GET /api/v2/sampling-presets
 DENY GET /api/v2/steam/achievements/{appId:int}
 DENY GET /api/v2/steam/credentials
@@ -639,6 +640,7 @@ DENY POST /api/v2/mobile/goals/tasks
 DENY POST /api/v2/mobile/goals/{goalId}/versions
 DENY POST /api/v2/plugins/inspect
 DENY POST /api/v2/plugins/install
+DENY PUT /api/v2/roles
 DENY PUT /api/v2/sampling-presets
 DENY PUT /api/v2/steam/credentials
 DENY POST /api/v2/webhooks

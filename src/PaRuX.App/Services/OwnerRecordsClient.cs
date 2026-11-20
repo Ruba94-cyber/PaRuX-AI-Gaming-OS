@@ -30,6 +30,11 @@ namespace PaRuX.Services
         public Task DeleteWebhookAsync(string id, CancellationToken ct) =>
             SendNoContent(HttpMethod.Delete, "/api/v2/webhooks/" + Uri.EscapeDataString(id), ct);
 
+        public Task<List<PrincipalRoleEntry>> ListRolesAsync(CancellationToken ct) => Get<List<PrincipalRoleEntry>>("/api/v2/roles", ct);
+        public Task<List<PrincipalRoleEntry>> SetRoleAsync(string principalId, string role, CancellationToken ct) =>
+            Send<List<PrincipalRoleEntry>>(HttpMethod.Put, "/api/v2/roles", new SetPrincipalRoleRequest { PrincipalId = principalId, Role = role }, ct);
+        public Task<RemoteAccessStatus> RemoteStatusAsync(CancellationToken ct) => Get<RemoteAccessStatus>("/api/v1/remote/status", ct);
+
         public Task<XInputShimStatus> XInputShimStatusAsync(CancellationToken ct) => Get<XInputShimStatus>("/api/v1/gaming/xinput-shim", ct);
         public Task<XInputShimResult> InstallXInputShimAsync(string folder, CancellationToken ct) =>
             SendKeepBody<XInputShimResult>(HttpMethod.Post, "/api/v1/gaming/xinput-shim/install", new XInputShimFolderRequest { Folder = folder }, ct);

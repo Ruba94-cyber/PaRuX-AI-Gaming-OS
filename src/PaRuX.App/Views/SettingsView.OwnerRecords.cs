@@ -39,13 +39,20 @@ namespace PaRuX.Views
                 out _installedPluginsList, out _installedPluginsStatus, "Settings_InstalledPlugins",
                 (T("Refresh", "Aggiorna"), () => _ = RefreshInstalledPluginsAsync())));
 
-            SettingsContentPanel.Children.Add(OwnerSection("Privacy & Network", T("ACTIVITY LOG", "REGISTRO ATTIVITÀ"),
+            StackPanel audit = OwnerSection("Privacy & Network", T("ACTIVITY LOG", "REGISTRO ATTIVITÀ"),
                 T("A private record on this PC of security-relevant actions (plugins, remote access, API keys, Internet switch). Nothing in it leaves the PC.",
                   "Un registro privato su questo PC delle azioni rilevanti per la sicurezza (plugin, accesso remoto, chiavi API, interruttore Internet). Nulla esce dal PC."),
                 out _auditList, out _auditStatus, "Settings_AuditLog",
                 (T("Refresh", "Aggiorna"), () => _ = RefreshAuditAsync()),
-                (T("Check the log is untouched", "Verifica che il registro sia intatto"), () => _ = VerifyAuditAsync())));
+                (T("Check the log is untouched", "Verifica che il registro sia intatto"), () => _ = VerifyAuditAsync()));
+            // Corporate hides the ordinary Privacy cards behind a compact local-only panel; the activity log stays visible there, because
+            // an administrator needs it most.
+            AutomationProperties.SetAutomationId(audit, "Settings_AuditLog_Section");
+            SettingsContentPanel.Children.Add(audit);
+            SettingsContentPanel.Children.Add(BuildRolesSection());
 
+            // Corporate Lite is offline by construction: no webhooks and no Steam (the Core refuses them too).
+            bool corporate = PaRuX.Contracts.CorporateMode.IsActive;
             StackPanel webhooks = OwnerSection("Privacy & Network", T("WEBHOOKS", "WEBHOOK"),
                 T("Send a signed message to an address you choose when something in the activity log happens. Off until you add one. An address outside your network needs the Internet switch on.",
                   "Invia un messaggio firmato a un indirizzo che scegli quando succede qualcosa nel registro. Spenti finché non ne aggiungi uno. Un indirizzo fuori dalla tua rete richiede l'interruttore Internet acceso."),
@@ -62,13 +69,66 @@ namespace PaRuX.Views
             card.Children.Add(_webhookUrl);
             card.Children.Add(_webhookEvents);
             card.Children.Add(add);
-            SettingsContentPanel.Children.Add(webhooks);
+            if (!corporate) SettingsContentPanel.Children.Add(webhooks);
 
-            SettingsContentPanel.Children.Add(BuildSteamSection());
+            if (!corporate) SettingsContentPanel.Children.Add(BuildSteamSection());
 
             _ = RefreshInstalledPluginsAsync();
             _ = RefreshAuditAsync();
             _ = RefreshWebhooksAsync();
+        }
+
+        private StackPanel? _rolesList;
+        private TextBlock? _rolesStatus;
+
+        /// <summary>Read-only access for a paired device: the owner picks, per device, between full access and looking only.</summary>
+        private StackPanel BuildRolesSection()
+        {
+            StackPanel section = OwnerSection("Privacy & Network", T("DEVICE ACCESS", "ACCESSO DEI DISPOSITIVI"),
+                T("Choose what each paired phone or tablet may do. Read only means it can look at chats and status but cannot send messages, start work or change anything. This PC always has full access.",
+                  "Scegli cosa può fare ogni telefono o tablet abbinato. Sola lettura significa che può guardare chat e stato ma non inviare messaggi, avviare attività né cambiare nulla. Questo PC ha sempre accesso completo."),
+                out _rolesList, out _rolesStatus, "Settings_Roles",
+                (T("Refresh", "Aggiorna"), () => _ = RefreshRolesAsync()));
+            AutomationProperties.SetAutomationId(section, "Settings_Roles_Section");
+            _ = RefreshRolesAsync();
+            return section;
+        }
+
+        private async Task RefreshRolesAsync()
+        {
+            if (_rolesList == null || _rolesStatus == null) return;
+            try
+            {
+                RemoteAccessStatus remote = await OwnerRecordsClient.Current.RemoteStatusAsync(CancellationToken.None);
+                List<PrincipalRoleEntry> roles = await OwnerRecordsClient.Current.ListRolesAsync(CancellationToken.None);
+                _rolesList.Children.Clear();
+                if (remote.Devices.Count == 0) _rolesList.Children.Add(Line(T("No paired devices.", "Nessun dispositivo abbinato."), 0.7));
+                foreach (PairedDeviceInfo device in remote.Devices)
+                {
+                    string principal = "device:" + device.Id;
+                    string current = roles.FirstOrDefault(r => r.PrincipalId == principal)?.Role ?? PrincipalRoles.Operator;
+                    var row = new Grid { ColumnSpacing = 8 };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    row.Children.Add(Line(device.Name));
+                    var choice = new ComboBox { MinWidth = 180 };
+                    AutomationProperties.SetName(choice, T("Access for ", "Accesso per ") + device.Name);
+                    AutomationProperties.SetAutomationId(choice, "Settings_Roles_Device_" + device.Id);
+                    choice.Items.Add(new ComboBoxItem { Content = T("Full access", "Accesso completo"), Tag = PrincipalRoles.Operator });
+                    choice.Items.Add(new ComboBoxItem { Content = T("Read only", "Sola lettura"), Tag = PrincipalRoles.Viewer });
+                    choice.SelectedIndex = current == PrincipalRoles.Viewer ? 1 : 0;
+                    choice.SelectionChanged += async (_, _) =>
+                    {
+                        if (choice.SelectedItem is not ComboBoxItem { Tag: string role }) return;
+                        try { await OwnerRecordsClient.Current.SetRoleAsync(principal, role, CancellationToken.None); _rolesStatus!.Text = T("Saved.", "Salvato."); }
+                        catch (Exception ex) { _rolesStatus!.Text = ex.Message; }
+                    };
+                    Grid.SetColumn(choice, 1);
+                    row.Children.Add(choice);
+                    _rolesList.Children.Add(row);
+                }
+            }
+            catch (Exception ex) { _rolesStatus.Text = T("Could not read device access: ", "Impossibile leggere l'accesso dei dispositivi: ") + ex.Message; }
         }
 
         private TextBlock? _steamStatus;

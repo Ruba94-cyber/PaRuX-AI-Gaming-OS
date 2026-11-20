@@ -294,6 +294,7 @@ builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<GameControllerProfileStore>();
 builder.Services.AddSingleton<GameSmartCollectionStore>();
+builder.Services.AddSingleton<PrincipalRoleStore>();
 builder.Services.AddSingleton<XInputShimInstaller>(_ =>
 {
     // Packaged builds carry the shims next to the Core; a source checkout has them under artifacts\xinput-shim.
@@ -713,6 +714,10 @@ app.Use(async (context, next) =>
     context.Items["PaRuXOwner"] = "desktop";
     await next();
 });
+
+// Roles: the owner can narrow a paired device or a browser session to read-only. The desktop owner and API keys are not affected
+// (an API key is already limited to the provider endpoints). The default role is exactly what these principals could already do.
+app.Use((context, next) => PrincipalRoleStore.EnforceAsync(context, context.RequestServices.GetRequiredService<PrincipalRoleStore>(), next));
 
 // Android/paired-device control-plane routes deliberately sit behind the exact same global auth
 // middleware as every other API route. The module exposes durable Project/task operations and
