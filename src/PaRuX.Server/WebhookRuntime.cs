@@ -15,4 +15,12 @@ internal static class WebhookRuntime
     });
 
     public static WebhookService Service => Instance.Value;
+
+    private static readonly Lazy<SteamAchievementsService> Steam = new(() =>
+    {
+        var internet = new InternetSettingsService();
+        return new SteamAchievementsService(ServerState.StateDirectory, () => internet.GetEnabled());
+    });
+
+    public static SteamAchievementsService SteamAchievements => Steam.Value;
 }

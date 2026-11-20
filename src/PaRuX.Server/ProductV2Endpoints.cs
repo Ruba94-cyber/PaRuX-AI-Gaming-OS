@@ -97,6 +97,26 @@ public static class ProductV2Endpoints
         }).RequireDesktopOwner();
 
         _ = WebhookRuntime.Service;   // subscribe to the audit log at startup so every entry can reach a hook
+        app.MapGet("/api/v2/steam/credentials", () => Results.Ok(WebhookRuntime.SteamAchievements.Status())).RequireDesktopOwner();
+
+        app.MapPut("/api/v2/steam/credentials", (SteamCredentialsRequest request) =>
+        {
+            string? error = WebhookRuntime.SteamAchievements.Save(request);
+            if (error is not null) return Results.BadRequest(new { error });
+            AuditLogService.TryRecord("steam.credentials", "saved");   // never the key
+            return Results.Ok(WebhookRuntime.SteamAchievements.Status());
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v2/steam/credentials", () =>
+        {
+            bool cleared = WebhookRuntime.SteamAchievements.Clear();
+            if (cleared) AuditLogService.TryRecord("steam.credentials", "removed");
+            return cleared ? Results.NoContent() : Results.NotFound();
+        }).RequireDesktopOwner();
+
+        app.MapGet("/api/v2/steam/achievements/{appId:int}", async (int appId, CancellationToken ct) =>
+            Results.Ok(await WebhookRuntime.SteamAchievements.GetAsync(appId, ct))).RequireDesktopOwner();
+
         app.MapGet("/api/v2/webhooks", () => Results.Ok(WebhookRuntime.Service.List())).RequireDesktopOwner();
 
         app.MapPost("/api/v2/webhooks", (CreateWebhookRequest request) =>
