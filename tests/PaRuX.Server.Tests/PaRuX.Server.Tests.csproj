@@ -34,6 +34,7 @@
     <Compile Include="..\..\src\PaRuX.App\Services\UiLanguage.cs" Link="Linked\UiLanguage.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\PromptLibrary.cs" Link="Linked\PromptLibrary.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ChatSamplingPreferences.cs" Link="Linked\ChatSamplingPreferences.cs" />
+    <Compile Include="..\..\src\PaRuX.App\Services\ControllerLiveModel.cs" Link="Linked\ControllerLiveModel.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\ConversationMarkdown.cs" Link="Linked\ConversationMarkdown.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\CommandPaletteFilter.cs" Link="Linked\CommandPaletteFilter.cs" />
     <Compile Include="..\..\src\PaRuX.App\Services\UiText.cs" Link="Linked\UiText.cs" />

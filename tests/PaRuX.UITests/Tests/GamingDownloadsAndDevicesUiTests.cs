@@ -156,6 +156,25 @@ public sealed class GamingDownloadsAndDevicesUiTests
     }
 
     [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
+    public void Live_controller_view_refuses_politely_when_no_controller_is_chosen()
+    {
+        const string name = nameof(Live_controller_view_refuses_politely_when_no_controller_is_chosen);
+        WaitForPort();
+        using var app = new UiTestApplication(name);
+        try
+        {
+            OpenGames(app);
+            var toggle = UiWait.ById(app.MainWindow, "GameDevices_RawLive_Toggle");
+            toggle.Patterns.Toggle.Pattern.Toggle();
+            // Nothing is selected, so the switch returns to off and the status says what to do; no reading is started.
+            UiWait.For(() => toggle.Patterns.Toggle.Pattern.ToggleState.Value == FlaUI.Core.Definitions.ToggleState.Off, "the live view switches itself off");
+            var status = UiWait.ById(app.MainWindow, "GameDevices_Raw_Status_Text", ControlType.Text);
+            UiWait.For(() => status.Name.Contains("Choose a controller first", StringComparison.Ordinal), "the status explains the next step");
+        }
+        catch (Exception ex) { app.CaptureFailure(name, ex); throw; }
+    }
+
+    [Fact, Trait("Category", "Regression"), Trait("Category", "FlaUI")]
     public void Devices_panel_exposes_display_and_controller_controls_and_apply_without_a_mode_changes_nothing()
     {
         const string name = nameof(Devices_panel_exposes_display_and_controller_controls_and_apply_without_a_mode_changes_nothing);

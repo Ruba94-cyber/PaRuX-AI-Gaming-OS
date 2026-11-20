@@ -363,6 +363,29 @@ internal sealed class GamingDevicesPanel : StackPanel
         AutomationProperties.SetLiveSetting(_rawDeviceStatus, AutomationLiveSetting.Polite);
         Children.Add(_rawDeviceStatus);
 
+        // Live view: see the pad react while you choose which button or axis number goes where.
+        var liveView = new ControllerLiveView { Visibility = Visibility.Collapsed };
+        var liveToggle = new ToggleSwitch
+        {
+            Header = T("Live view (see the controller react)", "Vista dal vivo (guarda il controller reagire)"),
+            OnContent = T("On", "Attiva"), OffContent = T("Off", "Spenta"),
+        };
+        AutomationProperties.SetAutomationId(liveToggle, "GameDevices_RawLive_Toggle");
+        liveToggle.Toggled += (_, _) =>
+        {
+            if (!liveToggle.IsOn) { liveView.Stop(); liveView.Visibility = Visibility.Collapsed; return; }
+            liveView.Visibility = Visibility.Visible;
+            string? id = (_rawDevices.SelectedItem as ComboBoxItem)?.Tag as string;
+            if (!liveView.Start(id))
+            {
+                liveToggle.IsOn = false;
+                _rawDeviceStatus.Text = T("Choose a controller first (Find controllers).", "Scegli prima un controller (Trova controller).");
+            }
+        };
+        _rawDevices.SelectionChanged += (_, _) => { if (liveToggle.IsOn) liveView.Start((_rawDevices.SelectedItem as ComboBoxItem)?.Tag as string); };
+        Children.Add(liveToggle);
+        Children.Add(liveView);
+
         Children.Add(new TextBlock
         {
             Text = T("Raw controller mapping — manual, -1 disables a control", "Mappatura controller — manuale, -1 disabilita un controllo"),
