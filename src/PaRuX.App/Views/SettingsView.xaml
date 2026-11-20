@@ -385,7 +385,7 @@
                 <Border Style="{StaticResource PaRuXCardStyle}">
                     <StackPanel>
                         <TextBlock
-                            Text="Point chat at a local OpenAI-compatible server you're already running (Ollama, LM Studio, koboldcpp, text-generation-webui, ...) instead of PaRuX's own bundled model. PaRuX neither starts nor manages it - just checks it's reachable before sending a request." loc:Loc.ItText="Collega la chat a un server locale compatibile con OpenAI che stai già eseguendo (Ollama, LM Studio, koboldcpp, text-generation-webui, ...) invece del modello incluso in PaRuX. PaRuX non lo avvia né lo gestisce: controlla solo che sia raggiungibile prima di inviare una richiesta."
+                            Text="Register a local OpenAI-compatible server you already run (Ollama, LM Studio, koboldcpp, ...) as a comparison target for benchmarks. Chat keeps using PaRuX's own local model: this does not redirect it. PaRuX neither starts nor manages that server and only checks it is reachable." loc:Loc.ItText="Registra un server locale compatibile con OpenAI che già esegui (Ollama, LM Studio, koboldcpp, ...) come bersaglio di confronto per i benchmark. La chat continua a usare il modello locale di PaRuX: questo non la reindirizza. PaRuX non avvia né gestisce quel server e controlla solo che sia raggiungibile."
                             TextWrapping="Wrap"
                             Style="{StaticResource PaRuXCaptionTextStyle}" />
                         <TextBlock x:Name="ExternalBackendStatusText" TextWrapping="Wrap" Margin="0,10,0,0" Style="{StaticResource PaRuXBodyStrongTextStyle}" />
