@@ -59,8 +59,8 @@ namespace PaRuX.Views
                 out _webhookList, out _webhookStatus, "Settings_Webhooks",
                 (T("Refresh", "Aggiorna"), () => _ = RefreshWebhooksAsync()));
             var card = (StackPanel)((Border)webhooks.Children[1]).Child;
-            _webhookUrl = new TextBox { Header = T("Address", "Indirizzo"), PlaceholderText = "http://192.168.1.20:8080/parux" };
-            _webhookEvents = new TextBox { Header = T("Events (comma separated)", "Eventi (separati da virgola)"), PlaceholderText = "plugin., apikey." };
+            _webhookUrl = new TextBox { Header = T("Address", "Indirizzo"), PlaceholderText = T("http://192.168.1.20:8080/parux", "http://192.168.1.20:8080/parux") };
+            _webhookEvents = new TextBox { Header = T("Events (comma separated)", "Eventi (separati da virgola)"), PlaceholderText = T("plugin., apikey.", "plugin., apikey.") };
             AutomationProperties.SetAutomationId(_webhookUrl, "Settings_Webhooks_Url_TextBox");
             AutomationProperties.SetAutomationId(_webhookEvents, "Settings_Webhooks_Events_TextBox");
             var add = new Button { Content = T("Add webhook", "Aggiungi webhook") };
@@ -142,7 +142,7 @@ namespace PaRuX.Views
                 out _, out _steamStatus, "Settings_Steam");
             var card = (StackPanel)((Border)section.Children[1]).Child;
             var key = new PasswordBox { Header = T("Steam Web API key", "Chiave Steam Web API") };
-            var id = new TextBox { Header = "SteamID64", PlaceholderText = "76561198000000000" };
+            var id = new TextBox { Header = T("SteamID64", "SteamID64"), PlaceholderText = T("76561198000000000", "76561198000000000") };
             AutomationProperties.SetAutomationId(key, "Settings_Steam_Key_PasswordBox");
             AutomationProperties.SetAutomationId(id, "Settings_Steam_Id_TextBox");
             var save = new Button { Content = T("Save", "Salva") };
