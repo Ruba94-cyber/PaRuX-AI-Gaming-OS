@@ -500,6 +500,19 @@ public static class GamingEndpoints
             return Results.NoContent();
         }).RequireDesktopOwner();
 
+        // Smart collections: saved filters that fill themselves. The rules are evaluated by the client over its own title list.
+        app.MapGet("/api/v1/gaming/smart-collections", (GameSmartCollectionStore store) =>
+            Results.Ok(store.List())).RequireDesktopOwner();
+
+        app.MapPut("/api/v1/gaming/smart-collections", (GameSmartCollection collection, GameSmartCollectionStore store) =>
+        {
+            var (saved, error) = store.Save(collection);
+            return saved is not null ? Results.Ok(saved) : Results.BadRequest(new { error });
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v1/gaming/smart-collections/{id}", (string id, GameSmartCollectionStore store) =>
+            store.Delete(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
+
         // Per-game controller profiles: a game's own profile wins, otherwise the global one applies.
         app.MapGet("/api/v1/gaming/controller-profile/game/{titleKey}", (
             string titleKey, GameControllerProfileStore perGame, ControllerProfileStore global) =>

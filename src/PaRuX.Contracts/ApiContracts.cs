@@ -50,6 +50,9 @@ public sealed class ChatCompletionRequest
     /// <summary>Sampling seed. Forwarded when set.</summary>
     [JsonPropertyName("seed")]
     public long? Seed { get; set; }
+    /// <summary>Optional id of a saved sampling preset. Unset sampling values are filled from it; values in the request win. An unknown id is a 400.</summary>
+    [JsonPropertyName("preset_id")]
+    public string? PresetId { get; set; }
     /// <summary>A stop string or an array of up to four stop strings (OpenAI shape). Forwarded when set.</summary>
     [JsonPropertyName("stop")]
     public System.Text.Json.JsonElement? Stop { get; set; }

@@ -60,6 +60,14 @@ namespace PaRuX.Views
             AboutVersion.Text = T("RBG – PaRuX · ", "RBG – PaRuX · ") + typeof(SettingsView).Assembly.GetName().Version;
 
             BuildSettingsCategoryRail();
+            // The v2 platform sections used to be added only from OnApplyTemplate, which UserControl does not reliably call before
+            // the content panel exists, so they never appeared. Each builder is idempotent; build them here, once the page exists.
+            AddBinaryAnalysisSettingsSection();
+            AddCodingPermissionSettingsSection();
+            AddExecutionProfileSettingsSection();
+            AddPluginBundleSettingsSection();
+            AddOwnerRecordsSections();
+            AddModelDownloadSettingsSection();
 
             if (McpPresetCombo != null)
                 foreach (McpServerPreset preset in McpServerPresetCatalog.All)

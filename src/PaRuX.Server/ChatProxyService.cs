@@ -79,6 +79,16 @@ public sealed class ChatProxyService
 
     public async Task ProxyAsync(ChatCompletionRequest request, HttpResponse downstream, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(request.PresetId) && !SamplingPresetStore.Default.TryApply(request, request.PresetId))
+        {
+            downstream.StatusCode = StatusCodes.Status400BadRequest;
+            await downstream.WriteAsJsonAsync(new
+            {
+                error = new { message = "Unknown sampling preset.", type = "invalid_request_error" }
+            }, cancellationToken);
+            return;
+        }
+
         if (ChatSamplingOptions.Validate(request) is { } invalidSampling)
         {
             downstream.StatusCode = StatusCodes.Status400BadRequest;

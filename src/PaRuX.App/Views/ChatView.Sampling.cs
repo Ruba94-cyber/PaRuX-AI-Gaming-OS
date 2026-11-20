@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -72,7 +73,60 @@ namespace PaRuX.Views
             seed.ValueChanged += (_, _) => Persist();
             temperature.IsEnabled = topP.IsEnabled = maxTokens.IsEnabled = seed.IsEnabled = custom.IsOn;
 
-            foreach (UIElement element in new UIElement[] { custom, temperature, topP, maxTokens, seed, note })
+            // Presets: named sets of these values, kept by Core (like LM Studio presets).
+            var presetBox = new ComboBox { Header = T("Preset", "Preset"), HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = T("Choose a preset", "Scegli un preset") };
+            AutomationProperties.SetAutomationId(presetBox, "Chat_Generation_Preset_ComboBox");
+            var savePreset = new Button { Content = T("Save these values as a preset…", "Salva questi valori come preset…") };
+            AutomationProperties.SetAutomationId(savePreset, "Chat_Generation_SavePreset_Button");
+            var presetStatus = new TextBlock { Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
+
+            async Task LoadPresetsAsync()
+            {
+                try
+                {
+                    var presets = await OwnerRecordsClient.Current.ListPresetsAsync(System.Threading.CancellationToken.None);
+                    presetBox.Items.Clear();
+                    foreach (var p in presets) presetBox.Items.Add(new ComboBoxItem { Content = p.Name, Tag = p });
+                }
+                catch (Exception) { presetStatus.Text = T("Presets are not available right now.", "I preset non sono disponibili in questo momento."); }
+            }
+            presetBox.SelectionChanged += (_, _) =>
+            {
+                if (presetBox.SelectedItem is not ComboBoxItem { Tag: PaRuX.Contracts.SamplingPreset p }) return;
+                custom.IsOn = true;
+                temperature.Value = p.Temperature ?? 0.7;
+                topP.Value = p.TopP ?? 1.0;
+                maxTokens.Value = p.MaxTokens is { } m ? m : double.NaN;
+                seed.Value = p.Seed is { } s ? s : double.NaN;
+                Persist();
+                presetStatus.Text = T("Applied " + p.Name + ".", "Applicato " + p.Name + ".");
+            };
+            savePreset.Click += async (_, _) =>
+            {
+                var nameBox = new TextBox { PlaceholderText = T("Precise", "Preciso"), MaxLength = 40 };
+                var dialog = new ContentDialog
+                {
+                    Title = T("Name this preset", "Dai un nome al preset"), Content = nameBox,
+                    PrimaryButtonText = T("Save", "Salva"), CloseButtonText = T("Cancel", "Annulla"), XamlRoot = XamlRoot,
+                };
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                try
+                {
+                    await OwnerRecordsClient.Current.SavePresetAsync(new PaRuX.Contracts.SamplingPreset
+                    {
+                        Name = nameBox.Text,
+                        Temperature = temperature.Value, TopP = topP.Value,
+                        MaxTokens = double.IsNaN(maxTokens.Value) ? null : (int)maxTokens.Value,
+                        Seed = double.IsNaN(seed.Value) ? null : (long)seed.Value,
+                    }, System.Threading.CancellationToken.None);
+                    presetStatus.Text = T("Preset saved.", "Preset salvato.");
+                    await LoadPresetsAsync();
+                }
+                catch (Exception ex) { presetStatus.Text = ex.Message; }
+            };
+            _ = LoadPresetsAsync();
+
+            foreach (UIElement element in new UIElement[] { custom, presetBox, temperature, topP, maxTokens, seed, savePreset, presetStatus, note })
                 panel.Children.Add(element);
             return panel;
         }

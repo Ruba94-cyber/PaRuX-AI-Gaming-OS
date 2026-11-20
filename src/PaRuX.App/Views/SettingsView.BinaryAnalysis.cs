@@ -25,6 +25,7 @@ namespace PaRuX.Views
             AddCodingPermissionSettingsSection();
             AddExecutionProfileSettingsSection();
             AddPluginBundleSettingsSection();
+            AddOwnerRecordsSections();
             AddModelDownloadSettingsSection();
             ApplyCompetitiveBenchmarkUi();
             ReconcileLegacyStopAllCopy(this);

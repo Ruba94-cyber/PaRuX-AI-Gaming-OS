@@ -26,6 +26,7 @@ DENY DELETE /api/v1/context/relations/{id}
 DENY DELETE /api/v1/desktop/integrations/{id}
 DENY DELETE /api/v1/desktop/workbook-edits/{id}
 DENY DELETE /api/v1/gaming/controller-profile
+DENY DELETE /api/v1/gaming/smart-collections/{id}
 DENY DELETE /api/v1/gaming/controller-profile/game/{titleKey}
 DENY DELETE /api/v1/gaming/discover/hidden/{store}/{id}
 DENY DELETE /api/v1/gaming/downloads/torrent-client
@@ -63,6 +64,7 @@ DENY DELETE /api/v1/workflows/{id}
 DENY DELETE /api/v2/execution-profiles/models/{modelKey}
 DENY DELETE /api/v2/plugins/trusted-publishers/{fingerprint}
 DENY DELETE /api/v2/plugins/{pluginId}/{version}
+DENY DELETE /api/v2/sampling-presets/{id}
 DENY DELETE /api/v2/steam/credentials
 DENY DELETE /api/v2/webhooks/{id}
 DENY DELETE /api/v2/semantic-index/repositories/{alias}
@@ -130,6 +132,7 @@ DENY GET /api/v1/eval/runs/{id}/compare/{previousRunId}
 DENY GET /api/v1/eval/runs/{id}/results
 DENY GET /api/v1/gaming/agent-confirmations
 DENY GET /api/v1/gaming/controller-profile
+DENY GET /api/v1/gaming/smart-collections
 DENY GET /api/v1/gaming/controller-profile/game/{titleKey}
 DENY GET /api/v1/gaming/controllers
 DENY GET /api/v1/gaming/discover/featured
@@ -318,6 +321,7 @@ DENY GET /api/v2/mobile/observability/dashboard
 DENY GET /api/v2/observability/dashboard
 DENY GET /api/v2/observability/engine-races
 DENY GET /api/v2/audit
+DENY GET /api/v2/sampling-presets
 DENY GET /api/v2/steam/achievements/{appId:int}
 DENY GET /api/v2/steam/credentials
 DENY GET /api/v2/webhooks
@@ -634,6 +638,7 @@ DENY POST /api/v2/mobile/goals/tasks
 DENY POST /api/v2/mobile/goals/{goalId}/versions
 DENY POST /api/v2/plugins/inspect
 DENY POST /api/v2/plugins/install
+DENY PUT /api/v2/sampling-presets
 DENY PUT /api/v2/steam/credentials
 DENY POST /api/v2/webhooks
 DENY POST /api/v2/webhooks/{id}/test
@@ -658,6 +663,7 @@ DENY POST /v1/videos
 DENY PUT /api/v1/chat/capability-overrides/{role}/{profile}
 DENY PUT /api/v1/coding/model-selection/mode
 DENY PUT /api/v1/gaming/controller-profile
+DENY PUT /api/v1/gaming/smart-collections
 DENY PUT /api/v1/gaming/controller-profile/game/{titleKey}
 DENY PUT /api/v1/gaming/discover/settings
 DENY PUT /api/v1/gaming/downloads/limit

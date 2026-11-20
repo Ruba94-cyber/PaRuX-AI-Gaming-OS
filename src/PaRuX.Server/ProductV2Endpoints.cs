@@ -97,6 +97,17 @@ public static class ProductV2Endpoints
         }).RequireDesktopOwner();
 
         _ = WebhookRuntime.Service;   // subscribe to the audit log at startup so every entry can reach a hook
+        app.MapGet("/api/v2/sampling-presets", () => Results.Ok(SamplingPresetStore.Default.List())).RequireDesktopOwner();
+
+        app.MapPut("/api/v2/sampling-presets", (SamplingPreset preset) =>
+        {
+            var (saved, error) = SamplingPresetStore.Default.Save(preset);
+            return saved is not null ? Results.Ok(saved) : Results.BadRequest(new { error });
+        }).RequireDesktopOwner();
+
+        app.MapDelete("/api/v2/sampling-presets/{id}", (string id) =>
+            SamplingPresetStore.Default.Delete(id) ? Results.NoContent() : Results.NotFound()).RequireDesktopOwner();
+
         app.MapGet("/api/v2/steam/credentials", () => Results.Ok(WebhookRuntime.SteamAchievements.Status())).RequireDesktopOwner();
 
         app.MapPut("/api/v2/steam/credentials", (SteamCredentialsRequest request) =>

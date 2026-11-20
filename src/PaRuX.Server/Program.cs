@@ -293,6 +293,7 @@ builder.Services.AddSingleton<CustomWorkflowService>();
 builder.Services.AddSingleton<GamingProfileStore>();
 builder.Services.AddSingleton<ControllerProfileStore>();
 builder.Services.AddSingleton<GameControllerProfileStore>();
+builder.Services.AddSingleton<GameSmartCollectionStore>();
 builder.Services.AddSingleton<ManualGameLibrary>();
 builder.Services.AddSingleton<ExternalGameLibraryStore>();
 builder.Services.AddSingleton<LocalWishlistStore>();
